@@ -164,11 +164,7 @@ const JobModuleInstanceSchema = CollectionSchema(
       name: r'isRequired',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 29,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 29, name: r'isSynced', type: IsarType.bool),
     r'jobExecutionFirestoreId': PropertySchema(
       id: 30,
       name: r'jobExecutionFirestoreId',
@@ -184,11 +180,7 @@ const JobModuleInstanceSchema = CollectionSchema(
       name: r'laneActivationGeneration',
       type: IsarType.long,
     ),
-    r'laneKey': PropertySchema(
-      id: 33,
-      name: r'laneKey',
-      type: IsarType.string,
-    ),
+    r'laneKey': PropertySchema(id: 33, name: r'laneKey', type: IsarType.string),
     r'metadataJson': PropertySchema(
       id: 34,
       name: r'metadataJson',
@@ -331,11 +323,7 @@ const JobModuleInstanceSchema = CollectionSchema(
       name: r'subsystem',
       type: IsarType.string,
     ),
-    r'tags': PropertySchema(
-      id: 62,
-      name: r'tags',
-      type: IsarType.stringList,
-    ),
+    r'tags': PropertySchema(id: 62, name: r'tags', type: IsarType.stringList),
     r'targetRef': PropertySchema(
       id: 63,
       name: r'targetRef',
@@ -392,17 +380,14 @@ const JobModuleInstanceSchema = CollectionSchema(
       type: IsarType.string,
       enumMap: _JobModuleInstanceuseModeEnumValueMap,
     ),
-    r'version': PropertySchema(
-      id: 74,
-      name: r'version',
-      type: IsarType.long,
-    ),
+    r'version': PropertySchema(id: 74, name: r'version', type: IsarType.long),
     r'workflowLaneFirestoreId': PropertySchema(
       id: 75,
       name: r'workflowLaneFirestoreId',
       type: IsarType.string,
-    )
+    ),
   },
+
   estimateSize: _jobModuleInstanceEstimateSize,
   serialize: _jobModuleInstanceSerialize,
   deserialize: _jobModuleInstanceDeserialize,
@@ -419,7 +404,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'firestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'isSynced': IndexSchema(
@@ -432,7 +417,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'isSynced',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'jobExecutionFirestoreId': IndexSchema(
@@ -445,7 +430,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'jobExecutionFirestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'jobExecutionLocalId': IndexSchema(
@@ -458,7 +443,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'jobExecutionLocalId',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'laneKey': IndexSchema(
@@ -471,7 +456,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'laneKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'templateFirestoreId': IndexSchema(
@@ -484,7 +469,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'templateFirestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'templatePackageId': IndexSchema(
@@ -497,7 +482,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'templatePackageId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'templateVersionId': IndexSchema(
@@ -510,7 +495,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'templateVersionId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'templateModuleId': IndexSchema(
@@ -523,7 +508,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'templateModuleId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'moduleCode': IndexSchema(
@@ -536,7 +521,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'moduleCode',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetType': IndexSchema(
@@ -549,7 +534,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'assetType',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetNumber': IndexSchema(
@@ -562,7 +547,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'assetNumber',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'moduleTitle': IndexSchema(
@@ -575,7 +560,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'moduleTitle',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'status': IndexSchema(
@@ -588,7 +573,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'status',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'useMode': IndexSchema(
@@ -601,7 +586,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'useMode',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'discipline': IndexSchema(
@@ -614,7 +599,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'discipline',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'safetyClass': IndexSchema(
@@ -627,7 +612,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'safetyClass',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'isRequired': IndexSchema(
@@ -640,7 +625,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'isRequired',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'requiredForClosure': IndexSchema(
@@ -653,7 +638,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'requiredForClosure',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'addedDuringExecution': IndexSchema(
@@ -666,7 +651,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'addedDuringExecution',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'createdAt': IndexSchema(
@@ -679,7 +664,7 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'createdAt',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'isDeleted': IndexSchema(
@@ -692,16 +677,17 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'isDeleted',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _jobModuleInstanceGetId,
   getLinks: _jobModuleInstanceGetLinks,
   attach: _jobModuleInstanceAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _jobModuleInstanceEstimateSize(
@@ -1106,8 +1092,10 @@ JobModuleInstance _jobModuleInstanceDeserialize(
   object.addedByUid = reader.readStringOrNull(offsets[8]);
   object.addedDuringExecution = reader.readBool(offsets[9]);
   object.assetNumber = reader.readLong(offsets[10]);
-  object.assetType = _JobModuleInstanceassetTypeValueEnumMap[
-          reader.readStringOrNull(offsets[11])] ??
+  object.assetType =
+      _JobModuleInstanceassetTypeValueEnumMap[reader.readStringOrNull(
+        offsets[11],
+      )] ??
       AssetType.base;
   object.chargeNoAtEvent = reader.readLongOrNull(offsets[12]);
   object.componentGroup = reader.readStringOrNull(offsets[13]);
@@ -1118,8 +1106,10 @@ JobModuleInstance _jobModuleInstanceDeserialize(
   object.deletedAt = reader.readDateTimeOrNull(offsets[18]);
   object.deletedByName = reader.readStringOrNull(offsets[19]);
   object.deletedByUid = reader.readStringOrNull(offsets[20]);
-  object.discipline = _JobModuleInstancedisciplineValueEnumMap[
-          reader.readStringOrNull(offsets[21])] ??
+  object.discipline =
+      _JobModuleInstancedisciplineValueEnumMap[reader.readStringOrNull(
+        offsets[21],
+      )] ??
       JobModuleDiscipline.mechanical;
   object.displayOrder = reader.readLong(offsets[22]);
   object.draftNote = reader.readStringOrNull(offsets[23]);
@@ -1155,12 +1145,16 @@ JobModuleInstance _jobModuleInstanceDeserialize(
   object.requiredForClosure = reader.readBool(offsets[51]);
   object.requiresFollowUp = reader.readBool(offsets[52]);
   object.responsesJson = reader.readString(offsets[53]);
-  object.safetyClass = _JobModuleInstancesafetyClassValueEnumMap[
-          reader.readStringOrNull(offsets[54])] ??
+  object.safetyClass =
+      _JobModuleInstancesafetyClassValueEnumMap[reader.readStringOrNull(
+        offsets[54],
+      )] ??
       JobModuleSafetyClass.normal;
   object.safetyConfirmations = reader.readStringList(offsets[55]) ?? [];
-  object.status = _JobModuleInstancestatusValueEnumMap[
-          reader.readStringOrNull(offsets[56])] ??
+  object.status =
+      _JobModuleInstancestatusValueEnumMap[reader.readStringOrNull(
+        offsets[56],
+      )] ??
       JobModuleStatus.notStarted;
   object.submissionNote = reader.readStringOrNull(offsets[57]);
   object.submittedAt = reader.readDateTimeOrNull(offsets[58]);
@@ -1178,8 +1172,10 @@ JobModuleInstance _jobModuleInstanceDeserialize(
   object.updatedAt = reader.readDateTime(offsets[70]);
   object.updatedByName = reader.readStringOrNull(offsets[71]);
   object.updatedByUid = reader.readStringOrNull(offsets[72]);
-  object.useMode = _JobModuleInstanceuseModeValueEnumMap[
-          reader.readStringOrNull(offsets[73])] ??
+  object.useMode =
+      _JobModuleInstanceuseModeValueEnumMap[reader.readStringOrNull(
+        offsets[73],
+      )] ??
       JobModuleUseMode.scheduledPM;
   object.version = reader.readLong(offsets[74]);
   object.workflowLaneFirestoreId = reader.readStringOrNull(offsets[75]);
@@ -1216,9 +1212,11 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 10:
       return (reader.readLong(offset)) as P;
     case 11:
-      return (_JobModuleInstanceassetTypeValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          AssetType.base) as P;
+      return (_JobModuleInstanceassetTypeValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              AssetType.base)
+          as P;
     case 12:
       return (reader.readLongOrNull(offset)) as P;
     case 13:
@@ -1238,9 +1236,11 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 20:
       return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (_JobModuleInstancedisciplineValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          JobModuleDiscipline.mechanical) as P;
+      return (_JobModuleInstancedisciplineValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              JobModuleDiscipline.mechanical)
+          as P;
     case 22:
       return (reader.readLong(offset)) as P;
     case 23:
@@ -1306,15 +1306,19 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 53:
       return (reader.readString(offset)) as P;
     case 54:
-      return (_JobModuleInstancesafetyClassValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          JobModuleSafetyClass.normal) as P;
+      return (_JobModuleInstancesafetyClassValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              JobModuleSafetyClass.normal)
+          as P;
     case 55:
       return (reader.readStringList(offset) ?? []) as P;
     case 56:
-      return (_JobModuleInstancestatusValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          JobModuleStatus.notStarted) as P;
+      return (_JobModuleInstancestatusValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              JobModuleStatus.notStarted)
+          as P;
     case 57:
       return (reader.readStringOrNull(offset)) as P;
     case 58:
@@ -1348,9 +1352,11 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 72:
       return (reader.readStringOrNull(offset)) as P;
     case 73:
-      return (_JobModuleInstanceuseModeValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          JobModuleUseMode.scheduledPM) as P;
+      return (_JobModuleInstanceuseModeValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              JobModuleUseMode.scheduledPM)
+          as P;
     case 74:
       return (reader.readLong(offset)) as P;
     case 75:
@@ -1466,12 +1472,16 @@ Id _jobModuleInstanceGetId(JobModuleInstance object) {
 }
 
 List<IsarLinkBase<dynamic>> _jobModuleInstanceGetLinks(
-    JobModuleInstance object) {
+  JobModuleInstance object,
+) {
   return [];
 }
 
 void _jobModuleInstanceAttach(
-    IsarCollection<dynamic> col, Id id, JobModuleInstance object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  JobModuleInstance object,
+) {
   object.id = id;
 }
 
@@ -1484,7 +1494,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyIsSynced() {
+  anyIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isSynced'),
@@ -1493,7 +1503,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyJobExecutionLocalId() {
+  anyJobExecutionLocalId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'jobExecutionLocalId'),
@@ -1502,7 +1512,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyAssetNumber() {
+  anyAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'assetNumber'),
@@ -1511,7 +1521,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyIsRequired() {
+  anyIsRequired() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isRequired'),
@@ -1520,7 +1530,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyRequiredForClosure() {
+  anyRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'requiredForClosure'),
@@ -1529,7 +1539,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyAddedDuringExecution() {
+  anyAddedDuringExecution() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'addedDuringExecution'),
@@ -1538,7 +1548,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyCreatedAt() {
+  anyCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'createdAt'),
@@ -1547,7 +1557,7 @@ extension JobModuleInstanceQueryWhereSort
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhere>
-      anyIsDeleted() {
+  anyIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isDeleted'),
@@ -1559,17 +1569,14 @@ extension JobModuleInstanceQueryWhereSort
 extension JobModuleInstanceQueryWhere
     on QueryBuilder<JobModuleInstance, JobModuleInstance, QWhereClause> {
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -1592,7 +1599,7 @@ extension JobModuleInstanceQueryWhere
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -1601,7 +1608,7 @@ extension JobModuleInstanceQueryWhere
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -1610,1350 +1617,1572 @@ extension JobModuleInstanceQueryWhere
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'firestoreId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'firestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'firestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      firestoreIdEqualTo(String? firestoreId) {
+  firestoreIdEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [firestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'firestoreId',
+          value: [firestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      firestoreIdNotEqualTo(String? firestoreId) {
+  firestoreIdNotEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isSyncedEqualTo(bool isSynced) {
+  isSyncedEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isSynced',
-        value: [isSynced],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isSynced', value: [isSynced]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isSyncedNotEqualTo(bool isSynced) {
+  isSyncedNotEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionFirestoreIdIsNull() {
+  jobExecutionFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'jobExecutionFirestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'jobExecutionFirestoreId',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionFirestoreIdIsNotNull() {
+  jobExecutionFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'jobExecutionFirestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'jobExecutionFirestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionFirestoreIdEqualTo(String? jobExecutionFirestoreId) {
+  jobExecutionFirestoreIdEqualTo(String? jobExecutionFirestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'jobExecutionFirestoreId',
-        value: [jobExecutionFirestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'jobExecutionFirestoreId',
+          value: [jobExecutionFirestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionFirestoreIdNotEqualTo(String? jobExecutionFirestoreId) {
+  jobExecutionFirestoreIdNotEqualTo(String? jobExecutionFirestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionFirestoreId',
-              lower: [],
-              upper: [jobExecutionFirestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionFirestoreId',
-              lower: [jobExecutionFirestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionFirestoreId',
+                lower: [],
+                upper: [jobExecutionFirestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionFirestoreId',
+                lower: [jobExecutionFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionFirestoreId',
-              lower: [jobExecutionFirestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionFirestoreId',
-              lower: [],
-              upper: [jobExecutionFirestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionFirestoreId',
+                lower: [jobExecutionFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionFirestoreId',
+                lower: [],
+                upper: [jobExecutionFirestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdIsNull() {
+  jobExecutionLocalIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'jobExecutionLocalId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'jobExecutionLocalId',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdIsNotNull() {
+  jobExecutionLocalIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'jobExecutionLocalId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'jobExecutionLocalId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdEqualTo(int? jobExecutionLocalId) {
+  jobExecutionLocalIdEqualTo(int? jobExecutionLocalId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'jobExecutionLocalId',
-        value: [jobExecutionLocalId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'jobExecutionLocalId',
+          value: [jobExecutionLocalId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdNotEqualTo(int? jobExecutionLocalId) {
+  jobExecutionLocalIdNotEqualTo(int? jobExecutionLocalId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionLocalId',
-              lower: [],
-              upper: [jobExecutionLocalId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionLocalId',
-              lower: [jobExecutionLocalId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionLocalId',
+                lower: [],
+                upper: [jobExecutionLocalId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionLocalId',
+                lower: [jobExecutionLocalId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionLocalId',
-              lower: [jobExecutionLocalId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'jobExecutionLocalId',
-              lower: [],
-              upper: [jobExecutionLocalId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionLocalId',
+                lower: [jobExecutionLocalId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'jobExecutionLocalId',
+                lower: [],
+                upper: [jobExecutionLocalId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdGreaterThan(
+  jobExecutionLocalIdGreaterThan(
     int? jobExecutionLocalId, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'jobExecutionLocalId',
-        lower: [jobExecutionLocalId],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'jobExecutionLocalId',
+          lower: [jobExecutionLocalId],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdLessThan(
+  jobExecutionLocalIdLessThan(
     int? jobExecutionLocalId, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'jobExecutionLocalId',
-        lower: [],
-        upper: [jobExecutionLocalId],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'jobExecutionLocalId',
+          lower: [],
+          upper: [jobExecutionLocalId],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      jobExecutionLocalIdBetween(
+  jobExecutionLocalIdBetween(
     int? lowerJobExecutionLocalId,
     int? upperJobExecutionLocalId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'jobExecutionLocalId',
-        lower: [lowerJobExecutionLocalId],
-        includeLower: includeLower,
-        upper: [upperJobExecutionLocalId],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'jobExecutionLocalId',
+          lower: [lowerJobExecutionLocalId],
+          includeLower: includeLower,
+          upper: [upperJobExecutionLocalId],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      laneKeyIsNull() {
+  laneKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'laneKey',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'laneKey', value: [null]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      laneKeyIsNotNull() {
+  laneKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'laneKey',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'laneKey',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      laneKeyEqualTo(String? laneKey) {
+  laneKeyEqualTo(String? laneKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'laneKey',
-        value: [laneKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'laneKey', value: [laneKey]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      laneKeyNotEqualTo(String? laneKey) {
+  laneKeyNotEqualTo(String? laneKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'laneKey',
-              lower: [],
-              upper: [laneKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'laneKey',
-              lower: [laneKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'laneKey',
+                lower: [],
+                upper: [laneKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'laneKey',
+                lower: [laneKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'laneKey',
-              lower: [laneKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'laneKey',
-              lower: [],
-              upper: [laneKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'laneKey',
+                lower: [laneKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'laneKey',
+                lower: [],
+                upper: [laneKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateFirestoreIdIsNull() {
+  templateFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateFirestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templateFirestoreId',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateFirestoreIdIsNotNull() {
+  templateFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'templateFirestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'templateFirestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateFirestoreIdEqualTo(String? templateFirestoreId) {
+  templateFirestoreIdEqualTo(String? templateFirestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateFirestoreId',
-        value: [templateFirestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templateFirestoreId',
+          value: [templateFirestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateFirestoreIdNotEqualTo(String? templateFirestoreId) {
+  templateFirestoreIdNotEqualTo(String? templateFirestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateFirestoreId',
-              lower: [],
-              upper: [templateFirestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateFirestoreId',
-              lower: [templateFirestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateFirestoreId',
+                lower: [],
+                upper: [templateFirestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateFirestoreId',
+                lower: [templateFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateFirestoreId',
-              lower: [templateFirestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateFirestoreId',
-              lower: [],
-              upper: [templateFirestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateFirestoreId',
+                lower: [templateFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateFirestoreId',
+                lower: [],
+                upper: [templateFirestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templatePackageIdIsNull() {
+  templatePackageIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templatePackageId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templatePackageId',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templatePackageIdIsNotNull() {
+  templatePackageIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'templatePackageId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'templatePackageId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templatePackageIdEqualTo(String? templatePackageId) {
+  templatePackageIdEqualTo(String? templatePackageId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templatePackageId',
-        value: [templatePackageId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templatePackageId',
+          value: [templatePackageId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templatePackageIdNotEqualTo(String? templatePackageId) {
+  templatePackageIdNotEqualTo(String? templatePackageId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templatePackageId',
-              lower: [],
-              upper: [templatePackageId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templatePackageId',
-              lower: [templatePackageId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templatePackageId',
+                lower: [],
+                upper: [templatePackageId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templatePackageId',
+                lower: [templatePackageId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templatePackageId',
-              lower: [templatePackageId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templatePackageId',
-              lower: [],
-              upper: [templatePackageId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templatePackageId',
+                lower: [templatePackageId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templatePackageId',
+                lower: [],
+                upper: [templatePackageId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateVersionIdIsNull() {
+  templateVersionIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateVersionId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templateVersionId',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateVersionIdIsNotNull() {
+  templateVersionIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'templateVersionId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'templateVersionId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateVersionIdEqualTo(String? templateVersionId) {
+  templateVersionIdEqualTo(String? templateVersionId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateVersionId',
-        value: [templateVersionId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templateVersionId',
+          value: [templateVersionId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateVersionIdNotEqualTo(String? templateVersionId) {
+  templateVersionIdNotEqualTo(String? templateVersionId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateVersionId',
-              lower: [],
-              upper: [templateVersionId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateVersionId',
-              lower: [templateVersionId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateVersionId',
+                lower: [],
+                upper: [templateVersionId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateVersionId',
+                lower: [templateVersionId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateVersionId',
-              lower: [templateVersionId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateVersionId',
-              lower: [],
-              upper: [templateVersionId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateVersionId',
+                lower: [templateVersionId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateVersionId',
+                lower: [],
+                upper: [templateVersionId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateModuleIdIsNull() {
+  templateModuleIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateModuleId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'templateModuleId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateModuleIdIsNotNull() {
+  templateModuleIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'templateModuleId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'templateModuleId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateModuleIdEqualTo(String? templateModuleId) {
+  templateModuleIdEqualTo(String? templateModuleId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'templateModuleId',
-        value: [templateModuleId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'templateModuleId',
+          value: [templateModuleId],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      templateModuleIdNotEqualTo(String? templateModuleId) {
+  templateModuleIdNotEqualTo(String? templateModuleId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateModuleId',
-              lower: [],
-              upper: [templateModuleId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateModuleId',
-              lower: [templateModuleId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateModuleId',
+                lower: [],
+                upper: [templateModuleId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateModuleId',
+                lower: [templateModuleId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateModuleId',
-              lower: [templateModuleId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'templateModuleId',
-              lower: [],
-              upper: [templateModuleId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateModuleId',
+                lower: [templateModuleId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateModuleId',
+                lower: [],
+                upper: [templateModuleId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleCodeIsNull() {
+  moduleCodeIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'moduleCode',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'moduleCode', value: [null]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleCodeIsNotNull() {
+  moduleCodeIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'moduleCode',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'moduleCode',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleCodeEqualTo(String? moduleCode) {
+  moduleCodeEqualTo(String? moduleCode) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'moduleCode',
-        value: [moduleCode],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'moduleCode', value: [moduleCode]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleCodeNotEqualTo(String? moduleCode) {
+  moduleCodeNotEqualTo(String? moduleCode) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleCode',
-              lower: [],
-              upper: [moduleCode],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleCode',
-              lower: [moduleCode],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleCode',
+                lower: [],
+                upper: [moduleCode],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleCode',
+                lower: [moduleCode],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleCode',
-              lower: [moduleCode],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleCode',
-              lower: [],
-              upper: [moduleCode],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleCode',
+                lower: [moduleCode],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleCode',
+                lower: [],
+                upper: [moduleCode],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetTypeEqualTo(AssetType assetType) {
+  assetTypeEqualTo(AssetType assetType) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetType',
-        value: [assetType],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'assetType', value: [assetType]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetTypeNotEqualTo(AssetType assetType) {
+  assetTypeNotEqualTo(AssetType assetType) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetType',
-              lower: [],
-              upper: [assetType],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetType',
-              lower: [assetType],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetType',
+                lower: [],
+                upper: [assetType],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetType',
+                lower: [assetType],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetType',
-              lower: [assetType],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetType',
-              lower: [],
-              upper: [assetType],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetType',
+                lower: [assetType],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetType',
+                lower: [],
+                upper: [assetType],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetNumberEqualTo(int assetNumber) {
+  assetNumberEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetNumber',
-        value: [assetNumber],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetNumber',
+          value: [assetNumber],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetNumberNotEqualTo(int assetNumber) {
+  assetNumberNotEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetNumberGreaterThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  assetNumberGreaterThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [assetNumber],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [assetNumber],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetNumberLessThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  assetNumberLessThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [],
-        upper: [assetNumber],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [],
+          upper: [assetNumber],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      assetNumberBetween(
+  assetNumberBetween(
     int lowerAssetNumber,
     int upperAssetNumber, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [lowerAssetNumber],
-        includeLower: includeLower,
-        upper: [upperAssetNumber],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [lowerAssetNumber],
+          includeLower: includeLower,
+          upper: [upperAssetNumber],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleTitleEqualTo(String moduleTitle) {
+  moduleTitleEqualTo(String moduleTitle) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'moduleTitle',
-        value: [moduleTitle],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'moduleTitle',
+          value: [moduleTitle],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      moduleTitleNotEqualTo(String moduleTitle) {
+  moduleTitleNotEqualTo(String moduleTitle) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleTitle',
-              lower: [],
-              upper: [moduleTitle],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleTitle',
-              lower: [moduleTitle],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleTitle',
+                lower: [],
+                upper: [moduleTitle],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleTitle',
+                lower: [moduleTitle],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleTitle',
-              lower: [moduleTitle],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'moduleTitle',
-              lower: [],
-              upper: [moduleTitle],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleTitle',
+                lower: [moduleTitle],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'moduleTitle',
+                lower: [],
+                upper: [moduleTitle],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      statusEqualTo(JobModuleStatus status) {
+  statusEqualTo(JobModuleStatus status) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'status',
-        value: [status],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'status', value: [status]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      statusNotEqualTo(JobModuleStatus status) {
+  statusNotEqualTo(JobModuleStatus status) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
-              lower: [],
-              upper: [status],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
-              lower: [status],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'status',
+                lower: [],
+                upper: [status],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'status',
+                lower: [status],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
-              lower: [status],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'status',
-              lower: [],
-              upper: [status],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'status',
+                lower: [status],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'status',
+                lower: [],
+                upper: [status],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      useModeEqualTo(JobModuleUseMode useMode) {
+  useModeEqualTo(JobModuleUseMode useMode) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'useMode',
-        value: [useMode],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'useMode', value: [useMode]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      useModeNotEqualTo(JobModuleUseMode useMode) {
+  useModeNotEqualTo(JobModuleUseMode useMode) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'useMode',
-              lower: [],
-              upper: [useMode],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'useMode',
-              lower: [useMode],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'useMode',
+                lower: [],
+                upper: [useMode],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'useMode',
+                lower: [useMode],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'useMode',
-              lower: [useMode],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'useMode',
-              lower: [],
-              upper: [useMode],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'useMode',
+                lower: [useMode],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'useMode',
+                lower: [],
+                upper: [useMode],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      disciplineEqualTo(JobModuleDiscipline discipline) {
+  disciplineEqualTo(JobModuleDiscipline discipline) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'discipline',
-        value: [discipline],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'discipline', value: [discipline]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      disciplineNotEqualTo(JobModuleDiscipline discipline) {
+  disciplineNotEqualTo(JobModuleDiscipline discipline) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'discipline',
-              lower: [],
-              upper: [discipline],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'discipline',
-              lower: [discipline],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'discipline',
+                lower: [],
+                upper: [discipline],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'discipline',
+                lower: [discipline],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'discipline',
-              lower: [discipline],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'discipline',
-              lower: [],
-              upper: [discipline],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'discipline',
+                lower: [discipline],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'discipline',
+                lower: [],
+                upper: [discipline],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      safetyClassEqualTo(JobModuleSafetyClass safetyClass) {
+  safetyClassEqualTo(JobModuleSafetyClass safetyClass) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'safetyClass',
-        value: [safetyClass],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'safetyClass',
+          value: [safetyClass],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      safetyClassNotEqualTo(JobModuleSafetyClass safetyClass) {
+  safetyClassNotEqualTo(JobModuleSafetyClass safetyClass) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'safetyClass',
-              lower: [],
-              upper: [safetyClass],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'safetyClass',
-              lower: [safetyClass],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'safetyClass',
+                lower: [],
+                upper: [safetyClass],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'safetyClass',
+                lower: [safetyClass],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'safetyClass',
-              lower: [safetyClass],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'safetyClass',
-              lower: [],
-              upper: [safetyClass],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'safetyClass',
+                lower: [safetyClass],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'safetyClass',
+                lower: [],
+                upper: [safetyClass],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isRequiredEqualTo(bool isRequired) {
+  isRequiredEqualTo(bool isRequired) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isRequired',
-        value: [isRequired],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isRequired', value: [isRequired]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isRequiredNotEqualTo(bool isRequired) {
+  isRequiredNotEqualTo(bool isRequired) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isRequired',
-              lower: [],
-              upper: [isRequired],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isRequired',
-              lower: [isRequired],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isRequired',
+                lower: [],
+                upper: [isRequired],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isRequired',
+                lower: [isRequired],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isRequired',
-              lower: [isRequired],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isRequired',
-              lower: [],
-              upper: [isRequired],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isRequired',
+                lower: [isRequired],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isRequired',
+                lower: [],
+                upper: [isRequired],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      requiredForClosureEqualTo(bool requiredForClosure) {
+  requiredForClosureEqualTo(bool requiredForClosure) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'requiredForClosure',
-        value: [requiredForClosure],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'requiredForClosure',
+          value: [requiredForClosure],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      requiredForClosureNotEqualTo(bool requiredForClosure) {
+  requiredForClosureNotEqualTo(bool requiredForClosure) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requiredForClosure',
-              lower: [],
-              upper: [requiredForClosure],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requiredForClosure',
-              lower: [requiredForClosure],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requiredForClosure',
+                lower: [],
+                upper: [requiredForClosure],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requiredForClosure',
+                lower: [requiredForClosure],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requiredForClosure',
-              lower: [requiredForClosure],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requiredForClosure',
-              lower: [],
-              upper: [requiredForClosure],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requiredForClosure',
+                lower: [requiredForClosure],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requiredForClosure',
+                lower: [],
+                upper: [requiredForClosure],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      addedDuringExecutionEqualTo(bool addedDuringExecution) {
+  addedDuringExecutionEqualTo(bool addedDuringExecution) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'addedDuringExecution',
-        value: [addedDuringExecution],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'addedDuringExecution',
+          value: [addedDuringExecution],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      addedDuringExecutionNotEqualTo(bool addedDuringExecution) {
+  addedDuringExecutionNotEqualTo(bool addedDuringExecution) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'addedDuringExecution',
-              lower: [],
-              upper: [addedDuringExecution],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'addedDuringExecution',
-              lower: [addedDuringExecution],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'addedDuringExecution',
+                lower: [],
+                upper: [addedDuringExecution],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'addedDuringExecution',
+                lower: [addedDuringExecution],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'addedDuringExecution',
-              lower: [addedDuringExecution],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'addedDuringExecution',
-              lower: [],
-              upper: [addedDuringExecution],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'addedDuringExecution',
+                lower: [addedDuringExecution],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'addedDuringExecution',
+                lower: [],
+                upper: [addedDuringExecution],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      createdAtEqualTo(DateTime createdAt) {
+  createdAtEqualTo(DateTime createdAt) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'createdAt',
-        value: [createdAt],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'createdAt', value: [createdAt]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      createdAtNotEqualTo(DateTime createdAt) {
+  createdAtNotEqualTo(DateTime createdAt) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'createdAt',
-              lower: [],
-              upper: [createdAt],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'createdAt',
-              lower: [createdAt],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'createdAt',
+                lower: [],
+                upper: [createdAt],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'createdAt',
+                lower: [createdAt],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'createdAt',
-              lower: [createdAt],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'createdAt',
-              lower: [],
-              upper: [createdAt],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'createdAt',
+                lower: [createdAt],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'createdAt',
+                lower: [],
+                upper: [createdAt],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      createdAtGreaterThan(
-    DateTime createdAt, {
-    bool include = false,
-  }) {
+  createdAtGreaterThan(DateTime createdAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'createdAt',
-        lower: [createdAt],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'createdAt',
+          lower: [createdAt],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      createdAtLessThan(
-    DateTime createdAt, {
-    bool include = false,
-  }) {
+  createdAtLessThan(DateTime createdAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'createdAt',
-        lower: [],
-        upper: [createdAt],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'createdAt',
+          lower: [],
+          upper: [createdAt],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      createdAtBetween(
+  createdAtBetween(
     DateTime lowerCreatedAt,
     DateTime upperCreatedAt, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'createdAt',
-        lower: [lowerCreatedAt],
-        includeLower: includeLower,
-        upper: [upperCreatedAt],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'createdAt',
+          lower: [lowerCreatedAt],
+          includeLower: includeLower,
+          upper: [upperCreatedAt],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isDeletedEqualTo(bool isDeleted) {
+  isDeletedEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isDeleted',
-        value: [isDeleted],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isDeleted', value: [isDeleted]),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
-      isDeletedNotEqualTo(bool isDeleted) {
+  isDeletedNotEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -2962,71 +3191,74 @@ extension JobModuleInstanceQueryWhere
 extension JobModuleInstanceQueryFilter
     on QueryBuilder<JobModuleInstance, JobModuleInstance, QFilterCondition> {
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteIsNull() {
+  acceptanceNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acceptanceNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acceptanceNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteIsNotNull() {
+  acceptanceNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acceptanceNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acceptanceNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  acceptanceNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteLessThan(
+  acceptanceNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteBetween(
+  acceptanceNoteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  acceptanceNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3034,227 +3266,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acceptanceNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acceptanceNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptanceNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptanceNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteContains(String value, {bool caseSensitive = true}) {
+  acceptanceNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'acceptanceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'acceptanceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteMatches(String pattern, {bool caseSensitive = true}) {
+  acceptanceNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'acceptanceNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'acceptanceNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteIsEmpty() {
+  acceptanceNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptanceNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acceptanceNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptanceNoteIsNotEmpty() {
+  acceptanceNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'acceptanceNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'acceptanceNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtIsNull() {
+  acceptedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acceptedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acceptedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtIsNotNull() {
+  acceptedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acceptedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acceptedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtEqualTo(DateTime? value) {
+  acceptedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acceptedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  acceptedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acceptedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acceptedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  acceptedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acceptedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acceptedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedAtBetween(
+  acceptedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acceptedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acceptedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameIsNull() {
+  acceptedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acceptedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acceptedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameIsNotNull() {
+  acceptedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acceptedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acceptedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameLessThan(
+  acceptedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameBetween(
+  acceptedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  acceptedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3262,153 +3498,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acceptedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acceptedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameContains(String value, {bool caseSensitive = true}) {
+  acceptedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'acceptedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'acceptedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  acceptedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'acceptedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'acceptedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameIsEmpty() {
+  acceptedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acceptedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByNameIsNotEmpty() {
+  acceptedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'acceptedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'acceptedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidIsNull() {
+  acceptedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acceptedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acceptedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidIsNotNull() {
+  acceptedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acceptedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acceptedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidLessThan(
+  acceptedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidBetween(
+  acceptedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  acceptedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3416,135 +3657,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acceptedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acceptedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  acceptedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidContains(String value, {bool caseSensitive = true}) {
+  acceptedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'acceptedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'acceptedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  acceptedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'acceptedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'acceptedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidIsEmpty() {
+  acceptedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acceptedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acceptedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      acceptedByUidIsNotEmpty() {
+  acceptedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'acceptedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'acceptedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  actionsJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonLessThan(
+  actionsJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonBetween(
+  actionsJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  actionsJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3552,153 +3798,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'actionsJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'actionsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  actionsJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  actionsJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonContains(String value, {bool caseSensitive = true}) {
+  actionsJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'actionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'actionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonMatches(String pattern, {bool caseSensitive = true}) {
+  actionsJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'actionsJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'actionsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonIsEmpty() {
+  actionsJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'actionsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'actionsJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      actionsJsonIsNotEmpty() {
+  actionsJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'actionsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'actionsJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonIsNull() {
+  addReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'addReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'addReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonIsNotNull() {
+  addReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'addReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'addReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  addReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonLessThan(
+  addReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonBetween(
+  addReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  addReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3706,227 +3957,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'addReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'addReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonContains(String value, {bool caseSensitive = true}) {
+  addReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'addReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'addReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonMatches(String pattern, {bool caseSensitive = true}) {
+  addReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'addReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'addReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonIsEmpty() {
+  addReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'addReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addReasonIsNotEmpty() {
+  addReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'addReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'addReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtIsNull() {
+  addedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'addedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'addedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtIsNotNull() {
+  addedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'addedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'addedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtEqualTo(DateTime? value) {
+  addedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'addedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  addedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'addedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'addedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  addedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'addedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'addedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedAtBetween(
+  addedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'addedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'addedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameIsNull() {
+  addedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'addedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'addedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameIsNotNull() {
+  addedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'addedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'addedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  addedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameLessThan(
+  addedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameBetween(
+  addedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  addedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3934,153 +4189,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'addedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'addedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameContains(String value, {bool caseSensitive = true}) {
+  addedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'addedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'addedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  addedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'addedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'addedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameIsEmpty() {
+  addedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'addedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByNameIsNotEmpty() {
+  addedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'addedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'addedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidIsNull() {
+  addedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'addedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'addedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidIsNotNull() {
+  addedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'addedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'addedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  addedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidLessThan(
+  addedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidBetween(
+  addedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  addedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4088,201 +4348,207 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'addedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'addedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  addedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidContains(String value, {bool caseSensitive = true}) {
+  addedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'addedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'addedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  addedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'addedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'addedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidIsEmpty() {
+  addedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'addedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedByUidIsNotEmpty() {
+  addedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'addedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'addedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      addedDuringExecutionEqualTo(bool value) {
+  addedDuringExecutionEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'addedDuringExecution',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'addedDuringExecution',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetNumberEqualTo(int value) {
+  assetNumberEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetNumber', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetNumberGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  assetNumberGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetNumberLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  assetNumberLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetNumberBetween(
+  assetNumberBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetNumber',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetNumber',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeEqualTo(
-    AssetType value, {
-    bool caseSensitive = true,
-  }) {
+  assetTypeEqualTo(AssetType value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeGreaterThan(
-    AssetType value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeLessThan(
+  assetTypeGreaterThan(
     AssetType value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeBetween(
+  assetTypeLessThan(
+    AssetType value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  assetTypeBetween(
     AssetType lower,
     AssetType upper, {
     bool includeLower = true,
@@ -4290,227 +4556,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetType',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetType',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  assetTypeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  assetTypeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeContains(String value, {bool caseSensitive = true}) {
+  assetTypeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeMatches(String pattern, {bool caseSensitive = true}) {
+  assetTypeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetType',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetType',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeIsEmpty() {
+  assetTypeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetType', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      assetTypeIsNotEmpty() {
+  assetTypeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetType', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventIsNull() {
+  chargeNoAtEventIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'chargeNoAtEvent',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'chargeNoAtEvent'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventIsNotNull() {
+  chargeNoAtEventIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'chargeNoAtEvent',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'chargeNoAtEvent'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventEqualTo(int? value) {
+  chargeNoAtEventEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'chargeNoAtEvent', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  chargeNoAtEventGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'chargeNoAtEvent',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  chargeNoAtEventLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'chargeNoAtEvent',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      chargeNoAtEventBetween(
+  chargeNoAtEventBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'chargeNoAtEvent',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'chargeNoAtEvent',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupIsNull() {
+  componentGroupIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'componentGroup',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'componentGroup'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupIsNotNull() {
+  componentGroupIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'componentGroup',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'componentGroup'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupLessThan(
+  componentGroupGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupBetween(
+  componentGroupLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  componentGroupBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4518,209 +4788,213 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'componentGroup',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'componentGroup',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupContains(String value, {bool caseSensitive = true}) {
+  componentGroupContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupMatches(String pattern, {bool caseSensitive = true}) {
+  componentGroupMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'componentGroup',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'componentGroup',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupIsEmpty() {
+  componentGroupIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'componentGroup',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'componentGroup', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      componentGroupIsNotEmpty() {
+  componentGroupIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'componentGroup',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'componentGroup', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdAtEqualTo(DateTime value) {
+  createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdAtBetween(
+  createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameIsNull() {
+  createdByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'createdByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'createdByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameIsNotNull() {
+  createdByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'createdByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'createdByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameLessThan(
+  createdByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameBetween(
+  createdByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  createdByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4728,153 +5002,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameContains(String value, {bool caseSensitive = true}) {
+  createdByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameMatches(String pattern, {bool caseSensitive = true}) {
+  createdByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameIsEmpty() {
+  createdByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByNameIsNotEmpty() {
+  createdByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidIsNull() {
+  createdByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'createdByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'createdByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidIsNotNull() {
+  createdByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'createdByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'createdByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidLessThan(
+  createdByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidBetween(
+  createdByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  createdByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4882,153 +5161,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidContains(String value, {bool caseSensitive = true}) {
+  createdByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidMatches(String pattern, {bool caseSensitive = true}) {
+  createdByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidIsEmpty() {
+  createdByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      createdByUidIsNotEmpty() {
+  createdByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonIsNull() {
+  deleteReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonIsNotNull() {
+  deleteReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonLessThan(
+  deleteReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonBetween(
+  deleteReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  deleteReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5036,227 +5320,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deleteReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deleteReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonContains(String value, {bool caseSensitive = true}) {
+  deleteReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
+  deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deleteReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deleteReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonIsEmpty() {
+  deleteReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deleteReasonIsNotEmpty() {
+  deleteReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtIsNull() {
+  deletedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtIsNotNull() {
+  deletedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtEqualTo(DateTime? value) {
+  deletedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedAtBetween(
+  deletedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameIsNull() {
+  deletedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameIsNotNull() {
+  deletedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameLessThan(
+  deletedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameBetween(
+  deletedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  deletedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5264,153 +5552,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameContains(String value, {bool caseSensitive = true}) {
+  deletedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameIsEmpty() {
+  deletedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByNameIsNotEmpty() {
+  deletedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidIsNull() {
+  deletedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidIsNotNull() {
+  deletedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidLessThan(
+  deletedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidBetween(
+  deletedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  deletedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5418,135 +5711,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidContains(String value, {bool caseSensitive = true}) {
+  deletedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidIsEmpty() {
+  deletedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      deletedByUidIsNotEmpty() {
+  deletedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineEqualTo(
-    JobModuleDiscipline value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineEqualTo(JobModuleDiscipline value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineGreaterThan(
-    JobModuleDiscipline value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineLessThan(
+  disciplineGreaterThan(
     JobModuleDiscipline value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineBetween(
+  disciplineLessThan(
+    JobModuleDiscipline value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  disciplineBetween(
     JobModuleDiscipline lower,
     JobModuleDiscipline upper, {
     bool includeLower = true,
@@ -5554,209 +5852,213 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'discipline',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'discipline',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineContains(String value, {bool caseSensitive = true}) {
+  disciplineContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineMatches(String pattern, {bool caseSensitive = true}) {
+  disciplineMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'discipline',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'discipline',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineIsEmpty() {
+  disciplineIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'discipline',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'discipline', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      disciplineIsNotEmpty() {
+  disciplineIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'discipline',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'discipline', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      displayOrderEqualTo(int value) {
+  displayOrderEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'displayOrder',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'displayOrder', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      displayOrderGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  displayOrderGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'displayOrder',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'displayOrder',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      displayOrderLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  displayOrderLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'displayOrder',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'displayOrder',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      displayOrderBetween(
+  displayOrderBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'displayOrder',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'displayOrder',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteIsNull() {
+  draftNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'draftNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'draftNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteIsNotNull() {
+  draftNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'draftNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'draftNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  draftNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteLessThan(
+  draftNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteBetween(
+  draftNoteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  draftNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5764,135 +6066,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'draftNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'draftNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  draftNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  draftNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteContains(String value, {bool caseSensitive = true}) {
+  draftNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'draftNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'draftNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteMatches(String pattern, {bool caseSensitive = true}) {
+  draftNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'draftNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'draftNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteIsEmpty() {
+  draftNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'draftNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'draftNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      draftNoteIsNotEmpty() {
+  draftNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'draftNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'draftNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  fieldDefinitionsJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonLessThan(
+  fieldDefinitionsJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonBetween(
+  fieldDefinitionsJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  fieldDefinitionsJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5900,153 +6207,161 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fieldDefinitionsJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fieldDefinitionsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  fieldDefinitionsJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  fieldDefinitionsJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonContains(String value, {bool caseSensitive = true}) {
+  fieldDefinitionsJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'fieldDefinitionsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'fieldDefinitionsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonMatches(String pattern, {bool caseSensitive = true}) {
+  fieldDefinitionsJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'fieldDefinitionsJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'fieldDefinitionsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonIsEmpty() {
+  fieldDefinitionsJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fieldDefinitionsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fieldDefinitionsJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      fieldDefinitionsJsonIsNotEmpty() {
+  fieldDefinitionsJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'fieldDefinitionsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'fieldDefinitionsJson',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdLessThan(
+  firestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdBetween(
+  firestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  firestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6054,153 +6369,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'firestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'firestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdContains(String value, {bool caseSensitive = true}) {
+  firestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'firestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'firestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdIsEmpty() {
+  firestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      firestoreIdIsNotEmpty() {
+  firestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionIsNull() {
+  functionalSectionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'functionalSection',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'functionalSection'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionIsNotNull() {
+  functionalSectionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'functionalSection',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'functionalSection'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionLessThan(
+  functionalSectionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionBetween(
+  functionalSectionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  functionalSectionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6208,239 +6528,240 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'functionalSection',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'functionalSection',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionContains(String value, {bool caseSensitive = true}) {
+  functionalSectionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionMatches(String pattern, {bool caseSensitive = true}) {
+  functionalSectionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'functionalSection',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'functionalSection',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionIsEmpty() {
+  functionalSectionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'functionalSection',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'functionalSection', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      functionalSectionIsNotEmpty() {
+  functionalSectionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'functionalSection',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'functionalSection', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      idEqualTo(Id value) {
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      isDeletedEqualTo(bool value) {
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      isRequiredEqualTo(bool value) {
+  isRequiredEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isRequired',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isRequired', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      isSyncedEqualTo(bool value) {
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdIsNull() {
+  jobExecutionFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'jobExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'jobExecutionFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdIsNotNull() {
+  jobExecutionFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'jobExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'jobExecutionFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  jobExecutionFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdGreaterThan(
+  jobExecutionFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdLessThan(
+  jobExecutionFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdBetween(
+  jobExecutionFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6448,285 +6769,295 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'jobExecutionFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'jobExecutionFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  jobExecutionFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  jobExecutionFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
+  jobExecutionFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'jobExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'jobExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
+  jobExecutionFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'jobExecutionFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'jobExecutionFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdIsEmpty() {
+  jobExecutionFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'jobExecutionFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'jobExecutionFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionFirestoreIdIsNotEmpty() {
+  jobExecutionFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'jobExecutionFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'jobExecutionFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdIsNull() {
+  jobExecutionLocalIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'jobExecutionLocalId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'jobExecutionLocalId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdIsNotNull() {
+  jobExecutionLocalIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'jobExecutionLocalId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'jobExecutionLocalId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdEqualTo(int? value) {
+  jobExecutionLocalIdEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'jobExecutionLocalId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'jobExecutionLocalId', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  jobExecutionLocalIdGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'jobExecutionLocalId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'jobExecutionLocalId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  jobExecutionLocalIdLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'jobExecutionLocalId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'jobExecutionLocalId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      jobExecutionLocalIdBetween(
+  jobExecutionLocalIdBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'jobExecutionLocalId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'jobExecutionLocalId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneActivationGenerationEqualTo(int value) {
+  laneActivationGenerationEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'laneActivationGeneration',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'laneActivationGeneration',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneActivationGenerationGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  laneActivationGenerationGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'laneActivationGeneration',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'laneActivationGeneration',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneActivationGenerationLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  laneActivationGenerationLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'laneActivationGeneration',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'laneActivationGeneration',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneActivationGenerationBetween(
+  laneActivationGenerationBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'laneActivationGeneration',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'laneActivationGeneration',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyIsNull() {
+  laneKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'laneKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'laneKey'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyIsNotNull() {
+  laneKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'laneKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'laneKey'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  laneKeyEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyLessThan(
+  laneKeyGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyBetween(
+  laneKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  laneKeyBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6734,153 +7065,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'laneKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'laneKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  laneKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  laneKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyContains(String value, {bool caseSensitive = true}) {
+  laneKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'laneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'laneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyMatches(String pattern, {bool caseSensitive = true}) {
+  laneKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'laneKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'laneKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyIsEmpty() {
+  laneKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'laneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'laneKey', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      laneKeyIsNotEmpty() {
+  laneKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'laneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'laneKey', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonIsNull() {
+  metadataJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'metadataJson'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonIsNotNull() {
+  metadataJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'metadataJson'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  metadataJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonLessThan(
+  metadataJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonBetween(
+  metadataJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  metadataJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6888,153 +7224,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'metadataJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metadataJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  metadataJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  metadataJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonContains(String value, {bool caseSensitive = true}) {
+  metadataJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
+  metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'metadataJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'metadataJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonIsEmpty() {
+  metadataJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'metadataJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      metadataJsonIsNotEmpty() {
+  metadataJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'metadataJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeIsNull() {
+  moduleCodeIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'moduleCode',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'moduleCode'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeIsNotNull() {
+  moduleCodeIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'moduleCode',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'moduleCode'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCodeEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeLessThan(
+  moduleCodeGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeBetween(
+  moduleCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  moduleCodeBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7042,153 +7383,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moduleCode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moduleCode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCodeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCodeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeContains(String value, {bool caseSensitive = true}) {
+  moduleCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'moduleCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'moduleCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeMatches(String pattern, {bool caseSensitive = true}) {
+  moduleCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'moduleCode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'moduleCode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeIsEmpty() {
+  moduleCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moduleCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleCodeIsNotEmpty() {
+  moduleCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'moduleCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'moduleCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionIsNull() {
+  moduleDescriptionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'moduleDescription',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'moduleDescription'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionIsNotNull() {
+  moduleDescriptionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'moduleDescription',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'moduleDescription'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  moduleDescriptionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionLessThan(
+  moduleDescriptionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionBetween(
+  moduleDescriptionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  moduleDescriptionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7196,135 +7542,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moduleDescription',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moduleDescription',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleDescriptionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleDescriptionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionContains(String value, {bool caseSensitive = true}) {
+  moduleDescriptionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'moduleDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'moduleDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionMatches(String pattern, {bool caseSensitive = true}) {
+  moduleDescriptionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'moduleDescription',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'moduleDescription',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionIsEmpty() {
+  moduleDescriptionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleDescription',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moduleDescription', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleDescriptionIsNotEmpty() {
+  moduleDescriptionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'moduleDescription',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'moduleDescription', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleSnapshotJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonLessThan(
+  moduleSnapshotJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonBetween(
+  moduleSnapshotJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  moduleSnapshotJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -7332,135 +7683,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moduleSnapshotJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moduleSnapshotJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleSnapshotJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleSnapshotJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonContains(String value, {bool caseSensitive = true}) {
+  moduleSnapshotJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'moduleSnapshotJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'moduleSnapshotJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonMatches(String pattern, {bool caseSensitive = true}) {
+  moduleSnapshotJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'moduleSnapshotJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'moduleSnapshotJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonIsEmpty() {
+  moduleSnapshotJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleSnapshotJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moduleSnapshotJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleSnapshotJsonIsNotEmpty() {
+  moduleSnapshotJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'moduleSnapshotJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'moduleSnapshotJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleTitleEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleLessThan(
+  moduleTitleGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleBetween(
+  moduleTitleLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  moduleTitleBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -7468,227 +7824,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moduleTitle',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moduleTitle',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleTitleStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleTitleEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleContains(String value, {bool caseSensitive = true}) {
+  moduleTitleContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'moduleTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'moduleTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleMatches(String pattern, {bool caseSensitive = true}) {
+  moduleTitleMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'moduleTitle',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'moduleTitle',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleIsEmpty() {
+  moduleTitleIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleTitle',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moduleTitle', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      moduleTitleIsNotEmpty() {
+  moduleTitleIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'moduleTitle',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'moduleTitle', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtIsNull() {
+  notApplicableAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'notApplicableAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notApplicableAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtIsNotNull() {
+  notApplicableAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'notApplicableAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notApplicableAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtEqualTo(DateTime? value) {
+  notApplicableAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notApplicableAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  notApplicableAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'notApplicableAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notApplicableAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  notApplicableAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'notApplicableAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notApplicableAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableAtBetween(
+  notApplicableAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'notApplicableAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notApplicableAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameIsNull() {
+  notApplicableByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'notApplicableByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notApplicableByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameIsNotNull() {
+  notApplicableByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'notApplicableByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notApplicableByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameLessThan(
+  notApplicableByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameBetween(
+  notApplicableByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7696,153 +8056,161 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'notApplicableByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notApplicableByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameContains(String value, {bool caseSensitive = true}) {
+  notApplicableByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'notApplicableByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notApplicableByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameMatches(String pattern, {bool caseSensitive = true}) {
+  notApplicableByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'notApplicableByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notApplicableByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameIsEmpty() {
+  notApplicableByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notApplicableByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByNameIsNotEmpty() {
+  notApplicableByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'notApplicableByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'notApplicableByName',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidIsNull() {
+  notApplicableByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'notApplicableByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notApplicableByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidIsNotNull() {
+  notApplicableByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'notApplicableByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notApplicableByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidLessThan(
+  notApplicableByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidBetween(
+  notApplicableByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7850,153 +8218,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'notApplicableByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notApplicableByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidContains(String value, {bool caseSensitive = true}) {
+  notApplicableByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'notApplicableByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notApplicableByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidMatches(String pattern, {bool caseSensitive = true}) {
+  notApplicableByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'notApplicableByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notApplicableByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidIsEmpty() {
+  notApplicableByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notApplicableByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableByUidIsNotEmpty() {
+  notApplicableByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'notApplicableByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'notApplicableByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonIsNull() {
+  notApplicableReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'notApplicableReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notApplicableReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonIsNotNull() {
+  notApplicableReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'notApplicableReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notApplicableReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  notApplicableReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonLessThan(
+  notApplicableReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonBetween(
+  notApplicableReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8004,135 +8377,146 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'notApplicableReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notApplicableReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonStartsWith(
+  notApplicableReasonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notApplicableReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notApplicableReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notApplicableReason', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  notApplicableReasonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'notApplicableReason',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  operationalStatePreconditionsElementEqualTo(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'notApplicableReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'notApplicableReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notApplicableReason',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      notApplicableReasonIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'notApplicableReason',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementLessThan(
+  operationalStatePreconditionsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementBetween(
+  operationalStatePreconditionsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  operationalStatePreconditionsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8140,91 +8524,109 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'operationalStatePreconditions',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'operationalStatePreconditions',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementStartsWith(
+  operationalStatePreconditionsElementStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementEndsWith(
+  operationalStatePreconditionsElementEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementContains(String value,
-          {bool caseSensitive = true}) {
+  operationalStatePreconditionsElementContains(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'operationalStatePreconditions',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'operationalStatePreconditions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementMatches(String pattern,
-          {bool caseSensitive = true}) {
+  operationalStatePreconditionsElementMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'operationalStatePreconditions',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'operationalStatePreconditions',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementIsEmpty() {
+  operationalStatePreconditionsElementIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationalStatePreconditions',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'operationalStatePreconditions',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsElementIsNotEmpty() {
+  operationalStatePreconditionsElementIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'operationalStatePreconditions',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'operationalStatePreconditions',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsLengthEqualTo(int length) {
+  operationalStatePreconditionsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'operationalStatePreconditions',
@@ -8237,7 +8639,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsIsEmpty() {
+  operationalStatePreconditionsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'operationalStatePreconditions',
@@ -8250,7 +8652,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsIsNotEmpty() {
+  operationalStatePreconditionsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'operationalStatePreconditions',
@@ -8263,7 +8665,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsLengthLessThan(
+  operationalStatePreconditionsLengthLessThan(
     int length, {
     bool include = false,
   }) {
@@ -8279,7 +8681,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsLengthGreaterThan(
+  operationalStatePreconditionsLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
@@ -8295,7 +8697,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      operationalStatePreconditionsLengthBetween(
+  operationalStatePreconditionsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -8313,71 +8715,74 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonIsNull() {
+  pairedEquipmentJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'pairedEquipmentJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'pairedEquipmentJson'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonIsNotNull() {
+  pairedEquipmentJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'pairedEquipmentJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'pairedEquipmentJson'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  pairedEquipmentJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonLessThan(
+  pairedEquipmentJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonBetween(
+  pairedEquipmentJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  pairedEquipmentJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8385,153 +8790,161 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'pairedEquipmentJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'pairedEquipmentJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  pairedEquipmentJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  pairedEquipmentJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonContains(String value, {bool caseSensitive = true}) {
+  pairedEquipmentJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'pairedEquipmentJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'pairedEquipmentJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonMatches(String pattern, {bool caseSensitive = true}) {
+  pairedEquipmentJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'pairedEquipmentJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'pairedEquipmentJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonIsEmpty() {
+  pairedEquipmentJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'pairedEquipmentJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'pairedEquipmentJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pairedEquipmentJsonIsNotEmpty() {
+  pairedEquipmentJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'pairedEquipmentJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'pairedEquipmentJson',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueIsNull() {
+  pendingIssueIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'pendingIssue',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'pendingIssue'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueIsNotNull() {
+  pendingIssueIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'pendingIssue',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'pendingIssue'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  pendingIssueEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueLessThan(
+  pendingIssueGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueBetween(
+  pendingIssueLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  pendingIssueBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8539,135 +8952,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'pendingIssue',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'pendingIssue',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  pendingIssueStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  pendingIssueEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueContains(String value, {bool caseSensitive = true}) {
+  pendingIssueContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'pendingIssue',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'pendingIssue',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueMatches(String pattern, {bool caseSensitive = true}) {
+  pendingIssueMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'pendingIssue',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'pendingIssue',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueIsEmpty() {
+  pendingIssueIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'pendingIssue',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'pendingIssue', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      pendingIssueIsNotEmpty() {
+  pendingIssueIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'pendingIssue',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'pendingIssue', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  procedureRefsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementLessThan(
+  procedureRefsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementBetween(
+  procedureRefsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8675,160 +9093,126 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'procedureRefs',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'procedureRefs',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'procedureRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'procedureRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'procedureRefs',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsIsEmpty() {
+  procedureRefsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsIsNotEmpty() {
+  procedureRefsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  procedureRefsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  procedureRefsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'procedureRefs',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      procedureRefsLengthBetween(
+  procedureRefsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'procedureRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'procedureRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  procedureRefsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -8846,71 +9230,74 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonIsNull() {
+  reopenReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'reopenReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reopenReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonIsNotNull() {
+  reopenReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'reopenReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reopenReason'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  reopenReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonLessThan(
+  reopenReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonBetween(
+  reopenReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  reopenReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8918,227 +9305,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reopenReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reopenReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonContains(String value, {bool caseSensitive = true}) {
+  reopenReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'reopenReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'reopenReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonMatches(String pattern, {bool caseSensitive = true}) {
+  reopenReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'reopenReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'reopenReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonIsEmpty() {
+  reopenReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reopenReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenReasonIsNotEmpty() {
+  reopenReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'reopenReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'reopenReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtIsNull() {
+  reopenedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'reopenedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reopenedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtIsNotNull() {
+  reopenedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'reopenedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reopenedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtEqualTo(DateTime? value) {
+  reopenedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reopenedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  reopenedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reopenedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reopenedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  reopenedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reopenedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reopenedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedAtBetween(
+  reopenedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reopenedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reopenedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameIsNull() {
+  reopenedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'reopenedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reopenedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameIsNotNull() {
+  reopenedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'reopenedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reopenedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameLessThan(
+  reopenedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameBetween(
+  reopenedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  reopenedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9146,153 +9537,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reopenedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reopenedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameContains(String value, {bool caseSensitive = true}) {
+  reopenedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'reopenedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'reopenedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  reopenedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'reopenedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'reopenedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameIsEmpty() {
+  reopenedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reopenedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByNameIsNotEmpty() {
+  reopenedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'reopenedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'reopenedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidIsNull() {
+  reopenedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'reopenedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reopenedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidIsNotNull() {
+  reopenedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'reopenedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reopenedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidLessThan(
+  reopenedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidBetween(
+  reopenedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  reopenedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9300,155 +9696,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reopenedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reopenedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  reopenedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidContains(String value, {bool caseSensitive = true}) {
+  reopenedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'reopenedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'reopenedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  reopenedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'reopenedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'reopenedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidIsEmpty() {
+  reopenedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reopenedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reopenedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      reopenedByUidIsNotEmpty() {
+  reopenedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'reopenedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'reopenedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      requiredForClosureEqualTo(bool value) {
+  requiredForClosureEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requiredForClosure',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'requiredForClosure', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      requiresFollowUpEqualTo(bool value) {
+  requiresFollowUpEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requiresFollowUp',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'requiresFollowUp', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  responsesJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonLessThan(
+  responsesJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonBetween(
+  responsesJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  responsesJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9456,135 +9855,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'responsesJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'responsesJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  responsesJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  responsesJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonContains(String value, {bool caseSensitive = true}) {
+  responsesJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'responsesJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'responsesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonMatches(String pattern, {bool caseSensitive = true}) {
+  responsesJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'responsesJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'responsesJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonIsEmpty() {
+  responsesJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'responsesJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'responsesJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      responsesJsonIsNotEmpty() {
+  responsesJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'responsesJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'responsesJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassEqualTo(
-    JobModuleSafetyClass value, {
-    bool caseSensitive = true,
-  }) {
+  safetyClassEqualTo(JobModuleSafetyClass value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassGreaterThan(
-    JobModuleSafetyClass value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassLessThan(
+  safetyClassGreaterThan(
     JobModuleSafetyClass value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassBetween(
+  safetyClassLessThan(
+    JobModuleSafetyClass value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyClassBetween(
     JobModuleSafetyClass lower,
     JobModuleSafetyClass upper, {
     bool includeLower = true,
@@ -9592,135 +9996,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'safetyClass',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'safetyClass',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  safetyClassStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  safetyClassEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassContains(String value, {bool caseSensitive = true}) {
+  safetyClassContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'safetyClass',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'safetyClass',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassMatches(String pattern, {bool caseSensitive = true}) {
+  safetyClassMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'safetyClass',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'safetyClass',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassIsEmpty() {
+  safetyClassIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyClass',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'safetyClass', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyClassIsNotEmpty() {
+  safetyClassIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'safetyClass',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'safetyClass', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  safetyConfirmationsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementLessThan(
+  safetyConfirmationsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementBetween(
+  safetyConfirmationsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9728,149 +10137,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'safetyConfirmations',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'safetyConfirmations',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementStartsWith(
+  safetyConfirmationsElementStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementEndsWith(
+  safetyConfirmationsElementEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'safetyConfirmations',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'safetyConfirmations',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyConfirmations',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'safetyConfirmations',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyConfirmations',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyConfirmations',
-        0,
-        true,
-        0,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyConfirmations',
-        0,
-        false,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsLengthLessThan(
-    int length, {
-    bool include = false,
+  safetyConfirmationsElementContains(
+    String value, {
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyConfirmations',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'safetyConfirmations',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsLengthGreaterThan(
-    int length, {
-    bool include = false,
+  safetyConfirmationsElementMatches(
+    String pattern, {
+    bool caseSensitive = true,
   }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'safetyConfirmations',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'safetyConfirmations', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'safetyConfirmations',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'safetyConfirmations',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyConfirmations', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyConfirmations', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyConfirmations', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  safetyConfirmationsLengthGreaterThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'safetyConfirmations',
@@ -9883,7 +10283,7 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      safetyConfirmationsLengthBetween(
+  safetyConfirmationsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -9901,53 +10301,56 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusEqualTo(
-    JobModuleStatus value, {
-    bool caseSensitive = true,
-  }) {
+  statusEqualTo(JobModuleStatus value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusGreaterThan(
-    JobModuleStatus value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusLessThan(
+  statusGreaterThan(
     JobModuleStatus value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusBetween(
+  statusLessThan(
+    JobModuleStatus value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  statusBetween(
     JobModuleStatus lower,
     JobModuleStatus upper, {
     bool includeLower = true,
@@ -9955,153 +10358,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'status',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'status',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  statusStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  statusEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusContains(String value, {bool caseSensitive = true}) {
+  statusContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'status',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'status',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusMatches(String pattern, {bool caseSensitive = true}) {
+  statusMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'status',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'status',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusIsEmpty() {
+  statusIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'status',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'status', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      statusIsNotEmpty() {
+  statusIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'status',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'status', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteIsNull() {
+  submissionNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'submissionNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'submissionNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteIsNotNull() {
+  submissionNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'submissionNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'submissionNote'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  submissionNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteLessThan(
+  submissionNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteBetween(
+  submissionNoteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  submissionNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10109,227 +10517,231 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'submissionNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'submissionNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submissionNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submissionNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteContains(String value, {bool caseSensitive = true}) {
+  submissionNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'submissionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'submissionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteMatches(String pattern, {bool caseSensitive = true}) {
+  submissionNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'submissionNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'submissionNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteIsEmpty() {
+  submissionNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submissionNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'submissionNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submissionNoteIsNotEmpty() {
+  submissionNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'submissionNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'submissionNote', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtIsNull() {
+  submittedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'submittedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'submittedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtIsNotNull() {
+  submittedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'submittedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'submittedAt'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtEqualTo(DateTime? value) {
+  submittedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submittedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'submittedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  submittedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'submittedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'submittedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  submittedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'submittedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'submittedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedAtBetween(
+  submittedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'submittedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'submittedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameIsNull() {
+  submittedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'submittedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'submittedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameIsNotNull() {
+  submittedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'submittedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'submittedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameLessThan(
+  submittedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameBetween(
+  submittedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  submittedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10337,153 +10749,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'submittedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'submittedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameContains(String value, {bool caseSensitive = true}) {
+  submittedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'submittedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'submittedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  submittedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'submittedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'submittedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameIsEmpty() {
+  submittedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submittedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'submittedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByNameIsNotEmpty() {
+  submittedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'submittedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'submittedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidIsNull() {
+  submittedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'submittedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'submittedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidIsNotNull() {
+  submittedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'submittedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'submittedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidLessThan(
+  submittedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidBetween(
+  submittedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  submittedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10491,153 +10908,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'submittedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'submittedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  submittedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidContains(String value, {bool caseSensitive = true}) {
+  submittedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'submittedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'submittedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  submittedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'submittedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'submittedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidIsEmpty() {
+  submittedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'submittedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'submittedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      submittedByUidIsNotEmpty() {
+  submittedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'submittedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'submittedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemIsNull() {
+  subsystemIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'subsystem',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'subsystem'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemIsNotNull() {
+  subsystemIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'subsystem',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'subsystem'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  subsystemEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemLessThan(
+  subsystemGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemBetween(
+  subsystemLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  subsystemBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10645,135 +11067,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'subsystem',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'subsystem',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  subsystemStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  subsystemEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemContains(String value, {bool caseSensitive = true}) {
+  subsystemContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'subsystem',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'subsystem',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemMatches(String pattern, {bool caseSensitive = true}) {
+  subsystemMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'subsystem',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'subsystem',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemIsEmpty() {
+  subsystemIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'subsystem',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'subsystem', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      subsystemIsNotEmpty() {
+  subsystemIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'subsystem',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'subsystem', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  tagsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementLessThan(
+  tagsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementBetween(
+  tagsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -10781,160 +11208,126 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'tags',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'tags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'tags',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tags',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'tags',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'tags',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'tags',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsIsEmpty() {
+  tagsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'tags',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsIsNotEmpty() {
+  tagsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'tags',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  tagsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'tags',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'tags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  tagsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'tags',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'tags',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      tagsLengthBetween(
+  tagsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'tags', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'tags', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'tags', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'tags', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'tags', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'tags', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'tags', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  tagsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -10952,71 +11345,74 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefIsNull() {
+  targetRefIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'targetRef',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'targetRef'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefIsNotNull() {
+  targetRefIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'targetRef',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'targetRef'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  targetRefEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefLessThan(
+  targetRefGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefBetween(
+  targetRefLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -11024,135 +11420,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'targetRef',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'targetRef',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  targetRefStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  targetRefEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefContains(String value, {bool caseSensitive = true}) {
+  targetRefContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'targetRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'targetRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefMatches(String pattern, {bool caseSensitive = true}) {
+  targetRefMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'targetRef',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'targetRef',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefIsEmpty() {
+  targetRefIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'targetRef', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefIsNotEmpty() {
+  targetRefIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'targetRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'targetRef', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  targetRefsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementLessThan(
+  targetRefsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementBetween(
+  targetRefsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -11160,160 +11561,126 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'targetRefs',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'targetRefs',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'targetRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'targetRefs',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsIsEmpty() {
+  targetRefsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsIsNotEmpty() {
+  targetRefsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  targetRefsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  targetRefsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'targetRefs',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      targetRefsLengthBetween(
+  targetRefsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'targetRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'targetRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  targetRefsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -11331,71 +11698,74 @@ extension JobModuleInstanceQueryFilter
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdIsNull() {
+  templateFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'templateFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'templateFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdIsNotNull() {
+  templateFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'templateFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'templateFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  templateFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdLessThan(
+  templateFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdBetween(
+  templateFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  templateFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -11403,153 +11773,161 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'templateFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdContains(String value, {bool caseSensitive = true}) {
+  templateFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'templateFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  templateFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'templateFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdIsEmpty() {
+  templateFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateFirestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateFirestoreIdIsNotEmpty() {
+  templateFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'templateFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'templateFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdIsNull() {
+  templateModuleIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'templateModuleId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'templateModuleId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdIsNotNull() {
+  templateModuleIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'templateModuleId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'templateModuleId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  templateModuleIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdLessThan(
+  templateModuleIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdBetween(
+  templateModuleIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  templateModuleIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -11557,153 +11935,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'templateModuleId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateModuleId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateModuleIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateModuleIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdContains(String value, {bool caseSensitive = true}) {
+  templateModuleIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'templateModuleId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateModuleId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdMatches(String pattern, {bool caseSensitive = true}) {
+  templateModuleIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'templateModuleId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateModuleId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdIsEmpty() {
+  templateModuleIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateModuleId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateModuleId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateModuleIdIsNotEmpty() {
+  templateModuleIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'templateModuleId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templateModuleId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameIsNull() {
+  templateNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'templateName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'templateName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameIsNotNull() {
+  templateNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'templateName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'templateName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  templateNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameLessThan(
+  templateNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameBetween(
+  templateNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  templateNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -11711,153 +12094,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'templateName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameContains(String value, {bool caseSensitive = true}) {
+  templateNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'templateName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameMatches(String pattern, {bool caseSensitive = true}) {
+  templateNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'templateName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameIsEmpty() {
+  templateNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateNameIsNotEmpty() {
+  templateNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'templateName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templateName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdIsNull() {
+  templatePackageIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'templatePackageId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'templatePackageId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdIsNotNull() {
+  templatePackageIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'templatePackageId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'templatePackageId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  templatePackageIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdLessThan(
+  templatePackageIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdBetween(
+  templatePackageIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  templatePackageIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -11865,153 +12253,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'templatePackageId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templatePackageId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templatePackageIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templatePackageIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdContains(String value, {bool caseSensitive = true}) {
+  templatePackageIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'templatePackageId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templatePackageId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdMatches(String pattern, {bool caseSensitive = true}) {
+  templatePackageIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'templatePackageId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templatePackageId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdIsEmpty() {
+  templatePackageIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templatePackageId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templatePackageId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templatePackageIdIsNotEmpty() {
+  templatePackageIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'templatePackageId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templatePackageId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdIsNull() {
+  templateVersionIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'templateVersionId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'templateVersionId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdIsNotNull() {
+  templateVersionIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'templateVersionId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'templateVersionId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  templateVersionIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdLessThan(
+  templateVersionIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdBetween(
+  templateVersionIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  templateVersionIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -12019,209 +12412,213 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'templateVersionId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateVersionId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateVersionIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  templateVersionIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdContains(String value, {bool caseSensitive = true}) {
+  templateVersionIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'templateVersionId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateVersionId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdMatches(String pattern, {bool caseSensitive = true}) {
+  templateVersionIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'templateVersionId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateVersionId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdIsEmpty() {
+  templateVersionIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'templateVersionId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateVersionId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      templateVersionIdIsNotEmpty() {
+  templateVersionIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'templateVersionId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templateVersionId', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedAtEqualTo(DateTime value) {
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameIsNull() {
+  updatedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'updatedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'updatedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameIsNotNull() {
+  updatedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'updatedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'updatedByName'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameLessThan(
+  updatedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameBetween(
+  updatedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  updatedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -12229,153 +12626,158 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameContains(String value, {bool caseSensitive = true}) {
+  updatedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameIsEmpty() {
+  updatedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByNameIsNotEmpty() {
+  updatedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidIsNull() {
+  updatedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'updatedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'updatedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidIsNotNull() {
+  updatedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'updatedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'updatedByUid'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidLessThan(
+  updatedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidBetween(
+  updatedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  updatedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -12383,135 +12785,140 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidContains(String value, {bool caseSensitive = true}) {
+  updatedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidIsEmpty() {
+  updatedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      updatedByUidIsNotEmpty() {
+  updatedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeEqualTo(
-    JobModuleUseMode value, {
-    bool caseSensitive = true,
-  }) {
+  useModeEqualTo(JobModuleUseMode value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeGreaterThan(
-    JobModuleUseMode value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeLessThan(
+  useModeGreaterThan(
     JobModuleUseMode value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeBetween(
+  useModeLessThan(
+    JobModuleUseMode value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  useModeBetween(
     JobModuleUseMode lower,
     JobModuleUseMode upper, {
     bool includeLower = true,
@@ -12519,209 +12926,213 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'useMode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'useMode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  useModeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  useModeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeContains(String value, {bool caseSensitive = true}) {
+  useModeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'useMode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'useMode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeMatches(String pattern, {bool caseSensitive = true}) {
+  useModeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'useMode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'useMode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeIsEmpty() {
+  useModeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'useMode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'useMode', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      useModeIsNotEmpty() {
+  useModeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'useMode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'useMode', value: ''),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      versionEqualTo(int value) {
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      versionBetween(
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdIsNull() {
+  workflowLaneFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'workflowLaneFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'workflowLaneFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdIsNotNull() {
+  workflowLaneFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'workflowLaneFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'workflowLaneFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  workflowLaneFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdLessThan(
+  workflowLaneFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdBetween(
+  workflowLaneFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  workflowLaneFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -12729,86 +13140,92 @@ extension JobModuleInstanceQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'workflowLaneFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'workflowLaneFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  workflowLaneFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  workflowLaneFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
+  workflowLaneFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'workflowLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'workflowLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
+  workflowLaneFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'workflowLaneFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'workflowLaneFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdIsEmpty() {
+  workflowLaneFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'workflowLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'workflowLaneFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-      workflowLaneFirestoreIdIsNotEmpty() {
+  workflowLaneFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'workflowLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'workflowLaneFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 }
@@ -12822,994 +13239,994 @@ extension JobModuleInstanceQueryLinks
 extension JobModuleInstanceQuerySortBy
     on QueryBuilder<JobModuleInstance, JobModuleInstance, QSortBy> {
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptanceNote() {
+  sortByAcceptanceNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptanceNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptanceNoteDesc() {
+  sortByAcceptanceNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptanceNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedAt() {
+  sortByAcceptedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedAtDesc() {
+  sortByAcceptedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedByName() {
+  sortByAcceptedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedByNameDesc() {
+  sortByAcceptedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedByUid() {
+  sortByAcceptedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAcceptedByUidDesc() {
+  sortByAcceptedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByActionsJson() {
+  sortByActionsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'actionsJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByActionsJsonDesc() {
+  sortByActionsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'actionsJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddReason() {
+  sortByAddReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddReasonDesc() {
+  sortByAddReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedAt() {
+  sortByAddedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedAtDesc() {
+  sortByAddedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedByName() {
+  sortByAddedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedByNameDesc() {
+  sortByAddedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedByUid() {
+  sortByAddedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedByUidDesc() {
+  sortByAddedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedDuringExecution() {
+  sortByAddedDuringExecution() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedDuringExecution', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAddedDuringExecutionDesc() {
+  sortByAddedDuringExecutionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedDuringExecution', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAssetNumber() {
+  sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAssetNumberDesc() {
+  sortByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAssetType() {
+  sortByAssetType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetType', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByAssetTypeDesc() {
+  sortByAssetTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetType', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByChargeNoAtEvent() {
+  sortByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByChargeNoAtEventDesc() {
+  sortByChargeNoAtEventDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByComponentGroup() {
+  sortByComponentGroup() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByComponentGroupDesc() {
+  sortByComponentGroupDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedAt() {
+  sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedAtDesc() {
+  sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedByName() {
+  sortByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedByNameDesc() {
+  sortByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedByUid() {
+  sortByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByCreatedByUidDesc() {
+  sortByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeleteReason() {
+  sortByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeleteReasonDesc() {
+  sortByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedAt() {
+  sortByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedAtDesc() {
+  sortByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedByName() {
+  sortByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedByNameDesc() {
+  sortByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedByUid() {
+  sortByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDeletedByUidDesc() {
+  sortByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDiscipline() {
+  sortByDiscipline() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDisciplineDesc() {
+  sortByDisciplineDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDisplayOrder() {
+  sortByDisplayOrder() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'displayOrder', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDisplayOrderDesc() {
+  sortByDisplayOrderDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'displayOrder', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDraftNote() {
+  sortByDraftNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'draftNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByDraftNoteDesc() {
+  sortByDraftNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'draftNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFieldDefinitionsJson() {
+  sortByFieldDefinitionsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fieldDefinitionsJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFieldDefinitionsJsonDesc() {
+  sortByFieldDefinitionsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fieldDefinitionsJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFirestoreId() {
+  sortByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFirestoreIdDesc() {
+  sortByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFunctionalSection() {
+  sortByFunctionalSection() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByFunctionalSectionDesc() {
+  sortByFunctionalSectionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsDeleted() {
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsDeletedDesc() {
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsRequired() {
+  sortByIsRequired() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isRequired', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsRequiredDesc() {
+  sortByIsRequiredDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isRequired', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByJobExecutionFirestoreId() {
+  sortByJobExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByJobExecutionFirestoreIdDesc() {
+  sortByJobExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByJobExecutionLocalId() {
+  sortByJobExecutionLocalId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByJobExecutionLocalIdDesc() {
+  sortByJobExecutionLocalIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByLaneActivationGeneration() {
+  sortByLaneActivationGeneration() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneActivationGeneration', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByLaneActivationGenerationDesc() {
+  sortByLaneActivationGenerationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneActivationGeneration', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByLaneKey() {
+  sortByLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneKey', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByLaneKeyDesc() {
+  sortByLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneKey', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByMetadataJson() {
+  sortByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByMetadataJsonDesc() {
+  sortByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleCode() {
+  sortByModuleCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCode', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleCodeDesc() {
+  sortByModuleCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCode', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleDescription() {
+  sortByModuleDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleDescription', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleDescriptionDesc() {
+  sortByModuleDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleDescription', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleSnapshotJson() {
+  sortByModuleSnapshotJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleSnapshotJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleSnapshotJsonDesc() {
+  sortByModuleSnapshotJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleSnapshotJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleTitle() {
+  sortByModuleTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleTitle', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByModuleTitleDesc() {
+  sortByModuleTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleTitle', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableAt() {
+  sortByNotApplicableAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableAtDesc() {
+  sortByNotApplicableAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableByName() {
+  sortByNotApplicableByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableByNameDesc() {
+  sortByNotApplicableByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableByUid() {
+  sortByNotApplicableByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableByUidDesc() {
+  sortByNotApplicableByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableReason() {
+  sortByNotApplicableReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByNotApplicableReasonDesc() {
+  sortByNotApplicableReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByPairedEquipmentJson() {
+  sortByPairedEquipmentJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pairedEquipmentJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByPairedEquipmentJsonDesc() {
+  sortByPairedEquipmentJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pairedEquipmentJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByPendingIssue() {
+  sortByPendingIssue() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pendingIssue', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByPendingIssueDesc() {
+  sortByPendingIssueDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pendingIssue', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenReason() {
+  sortByReopenReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenReasonDesc() {
+  sortByReopenReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedAt() {
+  sortByReopenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedAtDesc() {
+  sortByReopenedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedByName() {
+  sortByReopenedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedByNameDesc() {
+  sortByReopenedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedByUid() {
+  sortByReopenedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByReopenedByUidDesc() {
+  sortByReopenedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByRequiredForClosure() {
+  sortByRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByRequiredForClosureDesc() {
+  sortByRequiredForClosureDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByRequiresFollowUp() {
+  sortByRequiresFollowUp() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiresFollowUp', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByRequiresFollowUpDesc() {
+  sortByRequiresFollowUpDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiresFollowUp', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByResponsesJson() {
+  sortByResponsesJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByResponsesJsonDesc() {
+  sortByResponsesJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySafetyClass() {
+  sortBySafetyClass() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyClass', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySafetyClassDesc() {
+  sortBySafetyClassDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyClass', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByStatus() {
+  sortByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByStatusDesc() {
+  sortByStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmissionNote() {
+  sortBySubmissionNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submissionNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmissionNoteDesc() {
+  sortBySubmissionNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submissionNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedAt() {
+  sortBySubmittedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedAtDesc() {
+  sortBySubmittedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedByName() {
+  sortBySubmittedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedByNameDesc() {
+  sortBySubmittedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedByUid() {
+  sortBySubmittedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubmittedByUidDesc() {
+  sortBySubmittedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubsystem() {
+  sortBySubsystem() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'subsystem', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortBySubsystemDesc() {
+  sortBySubsystemDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'subsystem', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTargetRef() {
+  sortByTargetRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetRef', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTargetRefDesc() {
+  sortByTargetRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetRef', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateFirestoreId() {
+  sortByTemplateFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateFirestoreIdDesc() {
+  sortByTemplateFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateModuleId() {
+  sortByTemplateModuleId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateModuleId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateModuleIdDesc() {
+  sortByTemplateModuleIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateModuleId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateName() {
+  sortByTemplateName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateNameDesc() {
+  sortByTemplateNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplatePackageId() {
+  sortByTemplatePackageId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templatePackageId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplatePackageIdDesc() {
+  sortByTemplatePackageIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templatePackageId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateVersionId() {
+  sortByTemplateVersionId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateVersionId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByTemplateVersionIdDesc() {
+  sortByTemplateVersionIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateVersionId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedByName() {
+  sortByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedByNameDesc() {
+  sortByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedByUid() {
+  sortByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUpdatedByUidDesc() {
+  sortByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUseMode() {
+  sortByUseMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useMode', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByUseModeDesc() {
+  sortByUseModeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useMode', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByVersion() {
+  sortByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByWorkflowLaneFirestoreId() {
+  sortByWorkflowLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workflowLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      sortByWorkflowLaneFirestoreIdDesc() {
+  sortByWorkflowLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workflowLaneFirestoreId', Sort.desc);
     });
@@ -13819,378 +14236,378 @@ extension JobModuleInstanceQuerySortBy
 extension JobModuleInstanceQuerySortThenBy
     on QueryBuilder<JobModuleInstance, JobModuleInstance, QSortThenBy> {
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptanceNote() {
+  thenByAcceptanceNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptanceNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptanceNoteDesc() {
+  thenByAcceptanceNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptanceNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedAt() {
+  thenByAcceptedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedAtDesc() {
+  thenByAcceptedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedByName() {
+  thenByAcceptedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedByNameDesc() {
+  thenByAcceptedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedByUid() {
+  thenByAcceptedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAcceptedByUidDesc() {
+  thenByAcceptedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acceptedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByActionsJson() {
+  thenByActionsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'actionsJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByActionsJsonDesc() {
+  thenByActionsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'actionsJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddReason() {
+  thenByAddReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddReasonDesc() {
+  thenByAddReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedAt() {
+  thenByAddedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedAtDesc() {
+  thenByAddedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedByName() {
+  thenByAddedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedByNameDesc() {
+  thenByAddedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedByUid() {
+  thenByAddedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedByUidDesc() {
+  thenByAddedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedDuringExecution() {
+  thenByAddedDuringExecution() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedDuringExecution', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAddedDuringExecutionDesc() {
+  thenByAddedDuringExecutionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'addedDuringExecution', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAssetNumber() {
+  thenByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAssetNumberDesc() {
+  thenByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAssetType() {
+  thenByAssetType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetType', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByAssetTypeDesc() {
+  thenByAssetTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetType', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByChargeNoAtEvent() {
+  thenByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByChargeNoAtEventDesc() {
+  thenByChargeNoAtEventDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByComponentGroup() {
+  thenByComponentGroup() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByComponentGroupDesc() {
+  thenByComponentGroupDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedAt() {
+  thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedAtDesc() {
+  thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedByName() {
+  thenByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedByNameDesc() {
+  thenByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedByUid() {
+  thenByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByCreatedByUidDesc() {
+  thenByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeleteReason() {
+  thenByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeleteReasonDesc() {
+  thenByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedAt() {
+  thenByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedAtDesc() {
+  thenByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedByName() {
+  thenByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedByNameDesc() {
+  thenByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedByUid() {
+  thenByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDeletedByUidDesc() {
+  thenByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDiscipline() {
+  thenByDiscipline() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDisciplineDesc() {
+  thenByDisciplineDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDisplayOrder() {
+  thenByDisplayOrder() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'displayOrder', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDisplayOrderDesc() {
+  thenByDisplayOrderDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'displayOrder', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDraftNote() {
+  thenByDraftNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'draftNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByDraftNoteDesc() {
+  thenByDraftNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'draftNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFieldDefinitionsJson() {
+  thenByFieldDefinitionsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fieldDefinitionsJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFieldDefinitionsJsonDesc() {
+  thenByFieldDefinitionsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fieldDefinitionsJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFirestoreId() {
+  thenByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFirestoreIdDesc() {
+  thenByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFunctionalSection() {
+  thenByFunctionalSection() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByFunctionalSectionDesc() {
+  thenByFunctionalSectionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.desc);
     });
@@ -14203,623 +14620,623 @@ extension JobModuleInstanceQuerySortThenBy
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsDeleted() {
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsDeletedDesc() {
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsRequired() {
+  thenByIsRequired() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isRequired', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsRequiredDesc() {
+  thenByIsRequiredDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isRequired', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByJobExecutionFirestoreId() {
+  thenByJobExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByJobExecutionFirestoreIdDesc() {
+  thenByJobExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByJobExecutionLocalId() {
+  thenByJobExecutionLocalId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByJobExecutionLocalIdDesc() {
+  thenByJobExecutionLocalIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByLaneActivationGeneration() {
+  thenByLaneActivationGeneration() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneActivationGeneration', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByLaneActivationGenerationDesc() {
+  thenByLaneActivationGenerationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneActivationGeneration', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByLaneKey() {
+  thenByLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneKey', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByLaneKeyDesc() {
+  thenByLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'laneKey', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByMetadataJson() {
+  thenByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByMetadataJsonDesc() {
+  thenByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleCode() {
+  thenByModuleCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCode', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleCodeDesc() {
+  thenByModuleCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCode', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleDescription() {
+  thenByModuleDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleDescription', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleDescriptionDesc() {
+  thenByModuleDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleDescription', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleSnapshotJson() {
+  thenByModuleSnapshotJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleSnapshotJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleSnapshotJsonDesc() {
+  thenByModuleSnapshotJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleSnapshotJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleTitle() {
+  thenByModuleTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleTitle', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByModuleTitleDesc() {
+  thenByModuleTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleTitle', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableAt() {
+  thenByNotApplicableAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableAtDesc() {
+  thenByNotApplicableAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableByName() {
+  thenByNotApplicableByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableByNameDesc() {
+  thenByNotApplicableByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableByUid() {
+  thenByNotApplicableByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableByUidDesc() {
+  thenByNotApplicableByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableReason() {
+  thenByNotApplicableReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByNotApplicableReasonDesc() {
+  thenByNotApplicableReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'notApplicableReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByPairedEquipmentJson() {
+  thenByPairedEquipmentJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pairedEquipmentJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByPairedEquipmentJsonDesc() {
+  thenByPairedEquipmentJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pairedEquipmentJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByPendingIssue() {
+  thenByPendingIssue() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pendingIssue', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByPendingIssueDesc() {
+  thenByPendingIssueDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pendingIssue', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenReason() {
+  thenByReopenReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenReason', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenReasonDesc() {
+  thenByReopenReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenReason', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedAt() {
+  thenByReopenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedAtDesc() {
+  thenByReopenedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedByName() {
+  thenByReopenedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedByNameDesc() {
+  thenByReopenedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedByUid() {
+  thenByReopenedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByReopenedByUidDesc() {
+  thenByReopenedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reopenedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByRequiredForClosure() {
+  thenByRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByRequiredForClosureDesc() {
+  thenByRequiredForClosureDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByRequiresFollowUp() {
+  thenByRequiresFollowUp() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiresFollowUp', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByRequiresFollowUpDesc() {
+  thenByRequiresFollowUpDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiresFollowUp', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByResponsesJson() {
+  thenByResponsesJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByResponsesJsonDesc() {
+  thenByResponsesJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySafetyClass() {
+  thenBySafetyClass() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyClass', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySafetyClassDesc() {
+  thenBySafetyClassDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyClass', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByStatus() {
+  thenByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByStatusDesc() {
+  thenByStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmissionNote() {
+  thenBySubmissionNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submissionNote', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmissionNoteDesc() {
+  thenBySubmissionNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submissionNote', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedAt() {
+  thenBySubmittedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedAtDesc() {
+  thenBySubmittedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedByName() {
+  thenBySubmittedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedByNameDesc() {
+  thenBySubmittedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedByUid() {
+  thenBySubmittedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubmittedByUidDesc() {
+  thenBySubmittedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'submittedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubsystem() {
+  thenBySubsystem() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'subsystem', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenBySubsystemDesc() {
+  thenBySubsystemDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'subsystem', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTargetRef() {
+  thenByTargetRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetRef', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTargetRefDesc() {
+  thenByTargetRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetRef', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateFirestoreId() {
+  thenByTemplateFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateFirestoreIdDesc() {
+  thenByTemplateFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateModuleId() {
+  thenByTemplateModuleId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateModuleId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateModuleIdDesc() {
+  thenByTemplateModuleIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateModuleId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateName() {
+  thenByTemplateName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateNameDesc() {
+  thenByTemplateNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplatePackageId() {
+  thenByTemplatePackageId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templatePackageId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplatePackageIdDesc() {
+  thenByTemplatePackageIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templatePackageId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateVersionId() {
+  thenByTemplateVersionId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateVersionId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByTemplateVersionIdDesc() {
+  thenByTemplateVersionIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'templateVersionId', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedByName() {
+  thenByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedByNameDesc() {
+  thenByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedByUid() {
+  thenByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUpdatedByUidDesc() {
+  thenByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUseMode() {
+  thenByUseMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useMode', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByUseModeDesc() {
+  thenByUseModeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useMode', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByVersion() {
+  thenByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByWorkflowLaneFirestoreId() {
+  thenByWorkflowLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workflowLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
-      thenByWorkflowLaneFirestoreIdDesc() {
+  thenByWorkflowLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workflowLaneFirestoreId', Sort.desc);
     });
@@ -14829,561 +15246,615 @@ extension JobModuleInstanceQuerySortThenBy
 extension JobModuleInstanceQueryWhereDistinct
     on QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct> {
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAcceptanceNote({bool caseSensitive = true}) {
+  distinctByAcceptanceNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'acceptanceNote',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'acceptanceNote',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAcceptedAt() {
+  distinctByAcceptedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'acceptedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAcceptedByName({bool caseSensitive = true}) {
+  distinctByAcceptedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'acceptedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'acceptedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAcceptedByUid({bool caseSensitive = true}) {
+  distinctByAcceptedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'acceptedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'acceptedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByActionsJson({bool caseSensitive = true}) {
+  distinctByActionsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'actionsJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAddReason({bool caseSensitive = true}) {
+  distinctByAddReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'addReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAddedAt() {
+  distinctByAddedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'addedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAddedByName({bool caseSensitive = true}) {
+  distinctByAddedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'addedByName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAddedByUid({bool caseSensitive = true}) {
+  distinctByAddedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'addedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAddedDuringExecution() {
+  distinctByAddedDuringExecution() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'addedDuringExecution');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAssetNumber() {
+  distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByAssetType({bool caseSensitive = true}) {
+  distinctByAssetType({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetType', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByChargeNoAtEvent() {
+  distinctByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'chargeNoAtEvent');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByComponentGroup({bool caseSensitive = true}) {
+  distinctByComponentGroup({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'componentGroup',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'componentGroup',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByCreatedAt() {
+  distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByCreatedByName({bool caseSensitive = true}) {
+  distinctByCreatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'createdByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'createdByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByCreatedByUid({bool caseSensitive = true}) {
+  distinctByCreatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDeleteReason({bool caseSensitive = true}) {
+  distinctByDeleteReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deleteReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDeletedAt() {
+  distinctByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDeletedByName({bool caseSensitive = true}) {
+  distinctByDeletedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'deletedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'deletedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDeletedByUid({bool caseSensitive = true}) {
+  distinctByDeletedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDiscipline({bool caseSensitive = true}) {
+  distinctByDiscipline({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'discipline', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDisplayOrder() {
+  distinctByDisplayOrder() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'displayOrder');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByDraftNote({bool caseSensitive = true}) {
+  distinctByDraftNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'draftNote', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByFieldDefinitionsJson({bool caseSensitive = true}) {
+  distinctByFieldDefinitionsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'fieldDefinitionsJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'fieldDefinitionsJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByFirestoreId({bool caseSensitive = true}) {
+  distinctByFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'firestoreId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByFunctionalSection({bool caseSensitive = true}) {
+  distinctByFunctionalSection({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'functionalSection',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'functionalSection',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByIsDeleted() {
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByIsRequired() {
+  distinctByIsRequired() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isRequired');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByJobExecutionFirestoreId({bool caseSensitive = true}) {
+  distinctByJobExecutionFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'jobExecutionFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'jobExecutionFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByJobExecutionLocalId() {
+  distinctByJobExecutionLocalId() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'jobExecutionLocalId');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByLaneActivationGeneration() {
+  distinctByLaneActivationGeneration() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'laneActivationGeneration');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByLaneKey({bool caseSensitive = true}) {
+  distinctByLaneKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'laneKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByMetadataJson({bool caseSensitive = true}) {
+  distinctByMetadataJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'metadataJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByModuleCode({bool caseSensitive = true}) {
+  distinctByModuleCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'moduleCode', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByModuleDescription({bool caseSensitive = true}) {
+  distinctByModuleDescription({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'moduleDescription',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'moduleDescription',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByModuleSnapshotJson({bool caseSensitive = true}) {
+  distinctByModuleSnapshotJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'moduleSnapshotJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'moduleSnapshotJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByModuleTitle({bool caseSensitive = true}) {
+  distinctByModuleTitle({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'moduleTitle', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByNotApplicableAt() {
+  distinctByNotApplicableAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'notApplicableAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByNotApplicableByName({bool caseSensitive = true}) {
+  distinctByNotApplicableByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'notApplicableByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'notApplicableByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByNotApplicableByUid({bool caseSensitive = true}) {
+  distinctByNotApplicableByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'notApplicableByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'notApplicableByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByNotApplicableReason({bool caseSensitive = true}) {
+  distinctByNotApplicableReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'notApplicableReason',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'notApplicableReason',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByOperationalStatePreconditions() {
+  distinctByOperationalStatePreconditions() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'operationalStatePreconditions');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByPairedEquipmentJson({bool caseSensitive = true}) {
+  distinctByPairedEquipmentJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'pairedEquipmentJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'pairedEquipmentJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByPendingIssue({bool caseSensitive = true}) {
+  distinctByPendingIssue({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'pendingIssue', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByProcedureRefs() {
+  distinctByProcedureRefs() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'procedureRefs');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByReopenReason({bool caseSensitive = true}) {
+  distinctByReopenReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'reopenReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByReopenedAt() {
+  distinctByReopenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'reopenedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByReopenedByName({bool caseSensitive = true}) {
+  distinctByReopenedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'reopenedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'reopenedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByReopenedByUid({bool caseSensitive = true}) {
+  distinctByReopenedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'reopenedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'reopenedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByRequiredForClosure() {
+  distinctByRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'requiredForClosure');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByRequiresFollowUp() {
+  distinctByRequiresFollowUp() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'requiresFollowUp');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByResponsesJson({bool caseSensitive = true}) {
+  distinctByResponsesJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'responsesJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'responsesJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySafetyClass({bool caseSensitive = true}) {
+  distinctBySafetyClass({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'safetyClass', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySafetyConfirmations() {
+  distinctBySafetyConfirmations() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'safetyConfirmations');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByStatus({bool caseSensitive = true}) {
+  distinctByStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'status', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySubmissionNote({bool caseSensitive = true}) {
+  distinctBySubmissionNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'submissionNote',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'submissionNote',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySubmittedAt() {
+  distinctBySubmittedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'submittedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySubmittedByName({bool caseSensitive = true}) {
+  distinctBySubmittedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'submittedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'submittedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySubmittedByUid({bool caseSensitive = true}) {
+  distinctBySubmittedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'submittedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'submittedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctBySubsystem({bool caseSensitive = true}) {
+  distinctBySubsystem({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'subsystem', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTags() {
+  distinctByTags() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'tags');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTargetRef({bool caseSensitive = true}) {
+  distinctByTargetRef({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'targetRef', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTargetRefs() {
+  distinctByTargetRefs() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'targetRefs');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTemplateFirestoreId({bool caseSensitive = true}) {
+  distinctByTemplateFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'templateFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'templateFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTemplateModuleId({bool caseSensitive = true}) {
+  distinctByTemplateModuleId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'templateModuleId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'templateModuleId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTemplateName({bool caseSensitive = true}) {
+  distinctByTemplateName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'templateName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTemplatePackageId({bool caseSensitive = true}) {
+  distinctByTemplatePackageId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'templatePackageId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'templatePackageId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByTemplateVersionId({bool caseSensitive = true}) {
+  distinctByTemplateVersionId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'templateVersionId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'templateVersionId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByUpdatedByName({bool caseSensitive = true}) {
+  distinctByUpdatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'updatedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'updatedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByUpdatedByUid({bool caseSensitive = true}) {
+  distinctByUpdatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByUseMode({bool caseSensitive = true}) {
+  distinctByUseMode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'useMode', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
-      distinctByWorkflowLaneFirestoreId({bool caseSensitive = true}) {
+  distinctByWorkflowLaneFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'workflowLaneFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'workflowLaneFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 }
@@ -15397,70 +15868,70 @@ extension JobModuleInstanceQueryProperty
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      acceptanceNoteProperty() {
+  acceptanceNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acceptanceNote');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      acceptedAtProperty() {
+  acceptedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acceptedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      acceptedByNameProperty() {
+  acceptedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acceptedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      acceptedByUidProperty() {
+  acceptedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acceptedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, String, QQueryOperations>
-      actionsJsonProperty() {
+  actionsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'actionsJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      addReasonProperty() {
+  addReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'addReason');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      addedAtProperty() {
+  addedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'addedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      addedByNameProperty() {
+  addedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'addedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      addedByUidProperty() {
+  addedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'addedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, bool, QQueryOperations>
-      addedDuringExecutionProperty() {
+  addedDuringExecutionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'addedDuringExecution');
     });
@@ -15473,112 +15944,112 @@ extension JobModuleInstanceQueryProperty
   }
 
   QueryBuilder<JobModuleInstance, AssetType, QQueryOperations>
-      assetTypeProperty() {
+  assetTypeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetType');
     });
   }
 
   QueryBuilder<JobModuleInstance, int?, QQueryOperations>
-      chargeNoAtEventProperty() {
+  chargeNoAtEventProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'chargeNoAtEvent');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      componentGroupProperty() {
+  componentGroupProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'componentGroup');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime, QQueryOperations>
-      createdAtProperty() {
+  createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      createdByNameProperty() {
+  createdByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      createdByUidProperty() {
+  createdByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      deleteReasonProperty() {
+  deleteReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deleteReason');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      deletedAtProperty() {
+  deletedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      deletedByNameProperty() {
+  deletedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      deletedByUidProperty() {
+  deletedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleDiscipline, QQueryOperations>
-      disciplineProperty() {
+  disciplineProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'discipline');
     });
   }
 
   QueryBuilder<JobModuleInstance, int, QQueryOperations>
-      displayOrderProperty() {
+  displayOrderProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'displayOrder');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      draftNoteProperty() {
+  draftNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'draftNote');
     });
   }
 
   QueryBuilder<JobModuleInstance, String, QQueryOperations>
-      fieldDefinitionsJsonProperty() {
+  fieldDefinitionsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fieldDefinitionsJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      firestoreIdProperty() {
+  firestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'firestoreId');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      functionalSectionProperty() {
+  functionalSectionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'functionalSection');
     });
@@ -15603,21 +16074,21 @@ extension JobModuleInstanceQueryProperty
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      jobExecutionFirestoreIdProperty() {
+  jobExecutionFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'jobExecutionFirestoreId');
     });
   }
 
   QueryBuilder<JobModuleInstance, int?, QQueryOperations>
-      jobExecutionLocalIdProperty() {
+  jobExecutionLocalIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'jobExecutionLocalId');
     });
   }
 
   QueryBuilder<JobModuleInstance, int, QQueryOperations>
-      laneActivationGenerationProperty() {
+  laneActivationGenerationProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'laneActivationGeneration');
     });
@@ -15630,280 +16101,280 @@ extension JobModuleInstanceQueryProperty
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      metadataJsonProperty() {
+  metadataJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'metadataJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      moduleCodeProperty() {
+  moduleCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'moduleCode');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      moduleDescriptionProperty() {
+  moduleDescriptionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'moduleDescription');
     });
   }
 
   QueryBuilder<JobModuleInstance, String, QQueryOperations>
-      moduleSnapshotJsonProperty() {
+  moduleSnapshotJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'moduleSnapshotJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, String, QQueryOperations>
-      moduleTitleProperty() {
+  moduleTitleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'moduleTitle');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      notApplicableAtProperty() {
+  notApplicableAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notApplicableAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      notApplicableByNameProperty() {
+  notApplicableByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notApplicableByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      notApplicableByUidProperty() {
+  notApplicableByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notApplicableByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      notApplicableReasonProperty() {
+  notApplicableReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'notApplicableReason');
     });
   }
 
   QueryBuilder<JobModuleInstance, List<String>, QQueryOperations>
-      operationalStatePreconditionsProperty() {
+  operationalStatePreconditionsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'operationalStatePreconditions');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      pairedEquipmentJsonProperty() {
+  pairedEquipmentJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pairedEquipmentJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      pendingIssueProperty() {
+  pendingIssueProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pendingIssue');
     });
   }
 
   QueryBuilder<JobModuleInstance, List<String>, QQueryOperations>
-      procedureRefsProperty() {
+  procedureRefsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'procedureRefs');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      reopenReasonProperty() {
+  reopenReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reopenReason');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      reopenedAtProperty() {
+  reopenedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reopenedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      reopenedByNameProperty() {
+  reopenedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reopenedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      reopenedByUidProperty() {
+  reopenedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reopenedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, bool, QQueryOperations>
-      requiredForClosureProperty() {
+  requiredForClosureProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'requiredForClosure');
     });
   }
 
   QueryBuilder<JobModuleInstance, bool, QQueryOperations>
-      requiresFollowUpProperty() {
+  requiresFollowUpProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'requiresFollowUp');
     });
   }
 
   QueryBuilder<JobModuleInstance, String, QQueryOperations>
-      responsesJsonProperty() {
+  responsesJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'responsesJson');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleSafetyClass, QQueryOperations>
-      safetyClassProperty() {
+  safetyClassProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'safetyClass');
     });
   }
 
   QueryBuilder<JobModuleInstance, List<String>, QQueryOperations>
-      safetyConfirmationsProperty() {
+  safetyConfirmationsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'safetyConfirmations');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleStatus, QQueryOperations>
-      statusProperty() {
+  statusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'status');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      submissionNoteProperty() {
+  submissionNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'submissionNote');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime?, QQueryOperations>
-      submittedAtProperty() {
+  submittedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'submittedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      submittedByNameProperty() {
+  submittedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'submittedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      submittedByUidProperty() {
+  submittedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'submittedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      subsystemProperty() {
+  subsystemProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'subsystem');
     });
   }
 
   QueryBuilder<JobModuleInstance, List<String>, QQueryOperations>
-      tagsProperty() {
+  tagsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'tags');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      targetRefProperty() {
+  targetRefProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'targetRef');
     });
   }
 
   QueryBuilder<JobModuleInstance, List<String>, QQueryOperations>
-      targetRefsProperty() {
+  targetRefsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'targetRefs');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      templateFirestoreIdProperty() {
+  templateFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'templateFirestoreId');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      templateModuleIdProperty() {
+  templateModuleIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'templateModuleId');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      templateNameProperty() {
+  templateNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'templateName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      templatePackageIdProperty() {
+  templatePackageIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'templatePackageId');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      templateVersionIdProperty() {
+  templateVersionIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'templateVersionId');
     });
   }
 
   QueryBuilder<JobModuleInstance, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      updatedByNameProperty() {
+  updatedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByName');
     });
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      updatedByUidProperty() {
+  updatedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByUid');
     });
   }
 
   QueryBuilder<JobModuleInstance, JobModuleUseMode, QQueryOperations>
-      useModeProperty() {
+  useModeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'useMode');
     });
@@ -15916,7 +16387,7 @@ extension JobModuleInstanceQueryProperty
   }
 
   QueryBuilder<JobModuleInstance, String?, QQueryOperations>
-      workflowLaneFirestoreIdProperty() {
+  workflowLaneFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'workflowLaneFirestoreId');
     });

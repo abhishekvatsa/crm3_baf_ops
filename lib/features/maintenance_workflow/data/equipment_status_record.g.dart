@@ -63,11 +63,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
       name: r'inServiceSince',
       type: IsarType.dateTime,
     ),
-    r'isSynced': PropertySchema(
-      id: 9,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 9, name: r'isSynced', type: IsarType.bool),
     r'lastTransitionAt': PropertySchema(
       id: 10,
       name: r'lastTransitionAt',
@@ -118,12 +114,9 @@ const EquipmentStatusRecordSchema = CollectionSchema(
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'version': PropertySchema(
-      id: 20,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 20, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _equipmentStatusRecordEstimateSize,
   serialize: _equipmentStatusRecordSerialize,
   deserialize: _equipmentStatusRecordDeserialize,
@@ -140,7 +133,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'firestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'isSynced': IndexSchema(
@@ -153,7 +146,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'isSynced',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'assetTypeKey': IndexSchema(
@@ -166,7 +159,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'assetTypeKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetNumber': IndexSchema(
@@ -179,7 +172,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'assetNumber',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'assetClassId': IndexSchema(
@@ -192,7 +185,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'assetClassId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetInstanceId': IndexSchema(
@@ -205,7 +198,7 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'assetInstanceId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'stateKey': IndexSchema(
@@ -218,16 +211,17 @@ const EquipmentStatusRecordSchema = CollectionSchema(
           name: r'stateKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _equipmentStatusRecordGetId,
   getLinks: _equipmentStatusRecordGetLinks,
   attach: _equipmentStatusRecordAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _equipmentStatusRecordEstimateSize(
@@ -410,12 +404,16 @@ Id _equipmentStatusRecordGetId(EquipmentStatusRecord object) {
 }
 
 List<IsarLinkBase<dynamic>> _equipmentStatusRecordGetLinks(
-    EquipmentStatusRecord object) {
+  EquipmentStatusRecord object,
+) {
   return [];
 }
 
 void _equipmentStatusRecordAttach(
-    IsarCollection<dynamic> col, Id id, EquipmentStatusRecord object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  EquipmentStatusRecord object,
+) {
   object.id = id;
 }
 
@@ -438,13 +436,15 @@ extension EquipmentStatusRecordByIndex
   }
 
   Future<List<EquipmentStatusRecord?>> getAllByFirestoreId(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndex(r'firestoreId', values);
   }
 
   List<EquipmentStatusRecord?> getAllByFirestoreIdSync(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'firestoreId', values);
   }
@@ -463,8 +463,10 @@ extension EquipmentStatusRecordByIndex
     return putByIndex(r'firestoreId', object);
   }
 
-  Id putByFirestoreIdSync(EquipmentStatusRecord object,
-      {bool saveLinks = true}) {
+  Id putByFirestoreIdSync(
+    EquipmentStatusRecord object, {
+    bool saveLinks = true,
+  }) {
     return putByIndexSync(r'firestoreId', object, saveLinks: saveLinks);
   }
 
@@ -472,8 +474,10 @@ extension EquipmentStatusRecordByIndex
     return putAllByIndex(r'firestoreId', objects);
   }
 
-  List<Id> putAllByFirestoreIdSync(List<EquipmentStatusRecord> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByFirestoreIdSync(
+    List<EquipmentStatusRecord> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'firestoreId', objects, saveLinks: saveLinks);
   }
 }
@@ -481,14 +485,14 @@ extension EquipmentStatusRecordByIndex
 extension EquipmentStatusRecordQueryWhereSort
     on QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QWhere> {
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhere>
-      anyId() {
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhere>
-      anyIsSynced() {
+  anyIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isSynced'),
@@ -497,7 +501,7 @@ extension EquipmentStatusRecordQueryWhereSort
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhere>
-      anyAssetNumber() {
+  anyAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'assetNumber'),
@@ -506,20 +510,22 @@ extension EquipmentStatusRecordQueryWhereSort
   }
 }
 
-extension EquipmentStatusRecordQueryWhere on QueryBuilder<EquipmentStatusRecord,
-    EquipmentStatusRecord, QWhereClause> {
+extension EquipmentStatusRecordQueryWhere
+    on
+        QueryBuilder<
+          EquipmentStatusRecord,
+          EquipmentStatusRecord,
+          QWhereClause
+        > {
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -542,7 +548,7 @@ extension EquipmentStatusRecordQueryWhere on QueryBuilder<EquipmentStatusRecord,
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -551,7 +557,7 @@ extension EquipmentStatusRecordQueryWhere on QueryBuilder<EquipmentStatusRecord,
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -560,520 +566,621 @@ extension EquipmentStatusRecordQueryWhere on QueryBuilder<EquipmentStatusRecord,
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'firestoreId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'firestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'firestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      firestoreIdEqualTo(String? firestoreId) {
+  firestoreIdEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [firestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'firestoreId',
+          value: [firestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      firestoreIdNotEqualTo(String? firestoreId) {
+  firestoreIdNotEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      isSyncedEqualTo(bool isSynced) {
+  isSyncedEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isSynced',
-        value: [isSynced],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isSynced', value: [isSynced]),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      isSyncedNotEqualTo(bool isSynced) {
+  isSyncedNotEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetTypeKeyEqualTo(String assetTypeKey) {
+  assetTypeKeyEqualTo(String assetTypeKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetTypeKey',
-        value: [assetTypeKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetTypeKey',
+          value: [assetTypeKey],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetTypeKeyNotEqualTo(String assetTypeKey) {
+  assetTypeKeyNotEqualTo(String assetTypeKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [],
-              upper: [assetTypeKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [assetTypeKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [],
+                upper: [assetTypeKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [assetTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [assetTypeKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [],
-              upper: [assetTypeKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [assetTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [],
+                upper: [assetTypeKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetNumberEqualTo(int assetNumber) {
+  assetNumberEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetNumber',
-        value: [assetNumber],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetNumber',
+          value: [assetNumber],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetNumberNotEqualTo(int assetNumber) {
+  assetNumberNotEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetNumberGreaterThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  assetNumberGreaterThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [assetNumber],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [assetNumber],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetNumberLessThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  assetNumberLessThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [],
-        upper: [assetNumber],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [],
+          upper: [assetNumber],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetNumberBetween(
+  assetNumberBetween(
     int lowerAssetNumber,
     int upperAssetNumber, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [lowerAssetNumber],
-        includeLower: includeLower,
-        upper: [upperAssetNumber],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [lowerAssetNumber],
+          includeLower: includeLower,
+          upper: [upperAssetNumber],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetClassIdIsNull() {
+  assetClassIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetClassId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'assetClassId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetClassIdIsNotNull() {
+  assetClassIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetClassId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetClassId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetClassIdEqualTo(String? assetClassId) {
+  assetClassIdEqualTo(String? assetClassId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetClassId',
-        value: [assetClassId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetClassId',
+          value: [assetClassId],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetClassIdNotEqualTo(String? assetClassId) {
+  assetClassIdNotEqualTo(String? assetClassId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetClassId',
-              lower: [],
-              upper: [assetClassId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetClassId',
-              lower: [assetClassId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetClassId',
+                lower: [],
+                upper: [assetClassId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetClassId',
+                lower: [assetClassId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetClassId',
-              lower: [assetClassId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetClassId',
-              lower: [],
-              upper: [assetClassId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetClassId',
+                lower: [assetClassId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetClassId',
+                lower: [],
+                upper: [assetClassId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetInstanceIdIsNull() {
+  assetInstanceIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetInstanceId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'assetInstanceId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetInstanceIdIsNotNull() {
+  assetInstanceIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetInstanceId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetInstanceId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetInstanceIdEqualTo(String? assetInstanceId) {
+  assetInstanceIdEqualTo(String? assetInstanceId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetInstanceId',
-        value: [assetInstanceId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetInstanceId',
+          value: [assetInstanceId],
+        ),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      assetInstanceIdNotEqualTo(String? assetInstanceId) {
+  assetInstanceIdNotEqualTo(String? assetInstanceId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetInstanceId',
-              lower: [],
-              upper: [assetInstanceId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetInstanceId',
-              lower: [assetInstanceId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetInstanceId',
+                lower: [],
+                upper: [assetInstanceId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetInstanceId',
+                lower: [assetInstanceId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetInstanceId',
-              lower: [assetInstanceId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetInstanceId',
-              lower: [],
-              upper: [assetInstanceId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetInstanceId',
+                lower: [assetInstanceId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetInstanceId',
+                lower: [],
+                upper: [assetInstanceId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      stateKeyEqualTo(String stateKey) {
+  stateKeyEqualTo(String stateKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'stateKey',
-        value: [stateKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'stateKey', value: [stateKey]),
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
-      stateKeyNotEqualTo(String stateKey) {
+  stateKeyNotEqualTo(String stateKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [],
-              upper: [stateKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [stateKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [],
+                upper: [stateKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [stateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [stateKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [],
-              upper: [stateKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [stateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [],
+                upper: [stateKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 }
 
-extension EquipmentStatusRecordQueryFilter on QueryBuilder<
-    EquipmentStatusRecord, EquipmentStatusRecord, QFilterCondition> {
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonIsNull() {
+extension EquipmentStatusRecordQueryFilter
+    on
+        QueryBuilder<
+          EquipmentStatusRecord,
+          EquipmentStatusRecord,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'activeExecutionIdsJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'activeExecutionIdsJson'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'activeExecutionIdsJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'activeExecutionIdsJson'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1081,157 +1188,209 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'activeExecutionIdsJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'activeExecutionIdsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      activeExecutionIdsJsonContains(String value,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'activeExecutionIdsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'activeExecutionIdsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      activeExecutionIdsJsonMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'activeExecutionIdsJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'activeExecutionIdsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'activeExecutionIdsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activeExecutionIdsJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> activeExecutionIdsJsonIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  activeExecutionIdsJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'activeExecutionIdsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'activeExecutionIdsJson',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'assetClassId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'assetClassId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'assetClassId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'assetClassId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1239,155 +1398,206 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetClassId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetClassId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetClassIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetClassId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetClassId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetClassIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetClassId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetClassId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetClassId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetClassId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetClassIdIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetClassIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetClassId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetClassId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'assetInstanceId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'assetInstanceId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'assetInstanceId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'assetInstanceId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1395,193 +1605,251 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetInstanceId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetInstanceId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetInstanceIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetInstanceId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetInstanceId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetInstanceIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetInstanceId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetInstanceId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetInstanceId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetInstanceId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetInstanceIdIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetInstanceIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetInstanceId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetInstanceId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetNumberEqualTo(int value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetNumberEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetNumber', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetNumberGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetNumberGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetNumberLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetNumberLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetNumberBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetNumberBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetNumber',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetNumber',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1589,285 +1857,377 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetTypeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetTypeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetTypeKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      assetTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetTypeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetTypeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> assetTypeKeyIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'availableSince',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'availableSince'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'availableSince',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'availableSince'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceEqualTo(DateTime? value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'availableSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'availableSince', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'availableSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'availableSince',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'availableSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'availableSince',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> availableSinceBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  availableSinceBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'availableSince',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'availableSince',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> awaitingPreparationCountEqualTo(int value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  awaitingPreparationCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'awaitingPreparationCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'awaitingPreparationCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> awaitingPreparationCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  awaitingPreparationCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'awaitingPreparationCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'awaitingPreparationCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> awaitingPreparationCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  awaitingPreparationCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'awaitingPreparationCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'awaitingPreparationCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> awaitingPreparationCountBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  awaitingPreparationCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'awaitingPreparationCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'awaitingPreparationCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'firestoreId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'firestoreId'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1875,369 +2235,484 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'firestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'firestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      firestoreIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'firestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'firestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'firestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> firestoreIdIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'firestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'inServiceSince',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'inServiceSince'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'inServiceSince',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'inServiceSince'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceEqualTo(DateTime? value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'inServiceSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'inServiceSince', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'inServiceSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'inServiceSince',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'inServiceSince',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'inServiceSince',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> inServiceSinceBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  inServiceSinceBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'inServiceSince',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'inServiceSince',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> isSyncedEqualTo(bool value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastTransitionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastTransitionAt'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastTransitionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastTransitionAt'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastTransitionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastTransitionAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastTransitionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastTransitionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastTransitionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastTransitionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionAtBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastTransitionAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastTransitionAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastTransitionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastTransitionByName'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastTransitionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastTransitionByName'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2245,155 +2720,209 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastTransitionByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastTransitionByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      lastTransitionByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastTransitionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastTransitionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      lastTransitionByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastTransitionByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastTransitionByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastTransitionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastTransitionByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByNameIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastTransitionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'lastTransitionByName',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastTransitionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastTransitionByUid'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastTransitionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastTransitionByUid'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2401,155 +2930,209 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastTransitionByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastTransitionByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      lastTransitionByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastTransitionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastTransitionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      lastTransitionByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastTransitionByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastTransitionByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastTransitionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastTransitionByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> lastTransitionByUidIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  lastTransitionByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastTransitionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'lastTransitionByUid',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'metadataJson'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'metadataJson'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2557,249 +3140,325 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'metadataJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metadataJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      metadataJsonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'metadataJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'metadataJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'metadataJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> metadataJsonIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'metadataJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openMaintenanceCountEqualTo(int value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openMaintenanceCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'openMaintenanceCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'openMaintenanceCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openMaintenanceCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openMaintenanceCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'openMaintenanceCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'openMaintenanceCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openMaintenanceCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openMaintenanceCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'openMaintenanceCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'openMaintenanceCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openMaintenanceCountBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openMaintenanceCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'openMaintenanceCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'openMaintenanceCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openRedCountEqualTo(int value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openRedCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'openRedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'openRedCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openRedCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openRedCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'openRedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'openRedCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openRedCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openRedCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'openRedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'openRedCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> openRedCountBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  openRedCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'openRedCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'openRedCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2807,137 +3466,180 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'previousStateKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'previousStateKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      previousStateKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'previousStateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'previousStateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      previousStateKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'previousStateKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'previousStateKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'previousStateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'previousStateKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> previousStateKeyIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  previousStateKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'previousStateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'previousStateKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2945,155 +3647,206 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'stateKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'stateKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      stateKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      stateKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'stateKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'stateKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'stateKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> stateKeyIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  stateKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'stateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'stateKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerIsNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'transitionTrigger',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'transitionTrigger'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerIsNotNull() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'transitionTrigger',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'transitionTrigger'),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerGreaterThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerLessThan(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3101,499 +3854,563 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'transitionTrigger',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'transitionTrigger',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      transitionTriggerContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'transitionTrigger',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'transitionTrigger',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-          QAfterFilterCondition>
-      transitionTriggerMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'transitionTrigger',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'transitionTrigger',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerIsEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'transitionTrigger',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'transitionTrigger', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> transitionTriggerIsNotEmpty() {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  transitionTriggerIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'transitionTrigger',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'transitionTrigger', value: ''),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> updatedAtEqualTo(DateTime value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> updatedAtBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> versionEqualTo(int value) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
-      QAfterFilterCondition> versionBetween(
+  QueryBuilder<
+    EquipmentStatusRecord,
+    EquipmentStatusRecord,
+    QAfterFilterCondition
+  >
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension EquipmentStatusRecordQueryObject on QueryBuilder<
-    EquipmentStatusRecord, EquipmentStatusRecord, QFilterCondition> {}
+extension EquipmentStatusRecordQueryObject
+    on
+        QueryBuilder<
+          EquipmentStatusRecord,
+          EquipmentStatusRecord,
+          QFilterCondition
+        > {}
 
-extension EquipmentStatusRecordQueryLinks on QueryBuilder<EquipmentStatusRecord,
-    EquipmentStatusRecord, QFilterCondition> {}
+extension EquipmentStatusRecordQueryLinks
+    on
+        QueryBuilder<
+          EquipmentStatusRecord,
+          EquipmentStatusRecord,
+          QFilterCondition
+        > {}
 
 extension EquipmentStatusRecordQuerySortBy
     on QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QSortBy> {
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByActiveExecutionIdsJson() {
+  sortByActiveExecutionIdsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeExecutionIdsJson', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByActiveExecutionIdsJsonDesc() {
+  sortByActiveExecutionIdsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeExecutionIdsJson', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetClassId() {
+  sortByAssetClassId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetClassId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetClassIdDesc() {
+  sortByAssetClassIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetClassId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetInstanceId() {
+  sortByAssetInstanceId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetInstanceId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetInstanceIdDesc() {
+  sortByAssetInstanceIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetInstanceId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetNumber() {
+  sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetNumberDesc() {
+  sortByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetTypeKey() {
+  sortByAssetTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAssetTypeKeyDesc() {
+  sortByAssetTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAvailableSince() {
+  sortByAvailableSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'availableSince', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAvailableSinceDesc() {
+  sortByAvailableSinceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'availableSince', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAwaitingPreparationCount() {
+  sortByAwaitingPreparationCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'awaitingPreparationCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByAwaitingPreparationCountDesc() {
+  sortByAwaitingPreparationCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'awaitingPreparationCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByFirestoreId() {
+  sortByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByFirestoreIdDesc() {
+  sortByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByInServiceSince() {
+  sortByInServiceSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'inServiceSince', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByInServiceSinceDesc() {
+  sortByInServiceSinceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'inServiceSince', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionAt() {
+  sortByLastTransitionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionAt', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionAtDesc() {
+  sortByLastTransitionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionAt', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionByName() {
+  sortByLastTransitionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByName', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionByNameDesc() {
+  sortByLastTransitionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByName', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionByUid() {
+  sortByLastTransitionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByLastTransitionByUidDesc() {
+  sortByLastTransitionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByMetadataJson() {
+  sortByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByMetadataJsonDesc() {
+  sortByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByOpenMaintenanceCount() {
+  sortByOpenMaintenanceCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openMaintenanceCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByOpenMaintenanceCountDesc() {
+  sortByOpenMaintenanceCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openMaintenanceCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByOpenRedCount() {
+  sortByOpenRedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openRedCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByOpenRedCountDesc() {
+  sortByOpenRedCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openRedCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByPreviousStateKey() {
+  sortByPreviousStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'previousStateKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByPreviousStateKeyDesc() {
+  sortByPreviousStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'previousStateKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByStateKey() {
+  sortByStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByStateKeyDesc() {
+  sortByStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByTransitionTrigger() {
+  sortByTransitionTrigger() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'transitionTrigger', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByTransitionTriggerDesc() {
+  sortByTransitionTriggerDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'transitionTrigger', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByVersion() {
+  sortByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -3603,308 +4420,308 @@ extension EquipmentStatusRecordQuerySortBy
 extension EquipmentStatusRecordQuerySortThenBy
     on QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QSortThenBy> {
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByActiveExecutionIdsJson() {
+  thenByActiveExecutionIdsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeExecutionIdsJson', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByActiveExecutionIdsJsonDesc() {
+  thenByActiveExecutionIdsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeExecutionIdsJson', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetClassId() {
+  thenByAssetClassId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetClassId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetClassIdDesc() {
+  thenByAssetClassIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetClassId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetInstanceId() {
+  thenByAssetInstanceId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetInstanceId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetInstanceIdDesc() {
+  thenByAssetInstanceIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetInstanceId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetNumber() {
+  thenByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetNumberDesc() {
+  thenByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetTypeKey() {
+  thenByAssetTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAssetTypeKeyDesc() {
+  thenByAssetTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAvailableSince() {
+  thenByAvailableSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'availableSince', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAvailableSinceDesc() {
+  thenByAvailableSinceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'availableSince', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAwaitingPreparationCount() {
+  thenByAwaitingPreparationCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'awaitingPreparationCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByAwaitingPreparationCountDesc() {
+  thenByAwaitingPreparationCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'awaitingPreparationCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByFirestoreId() {
+  thenByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByFirestoreIdDesc() {
+  thenByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByInServiceSince() {
+  thenByInServiceSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'inServiceSince', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByInServiceSinceDesc() {
+  thenByInServiceSinceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'inServiceSince', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionAt() {
+  thenByLastTransitionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionAt', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionAtDesc() {
+  thenByLastTransitionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionAt', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionByName() {
+  thenByLastTransitionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByName', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionByNameDesc() {
+  thenByLastTransitionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByName', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionByUid() {
+  thenByLastTransitionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByLastTransitionByUidDesc() {
+  thenByLastTransitionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastTransitionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByMetadataJson() {
+  thenByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByMetadataJsonDesc() {
+  thenByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByOpenMaintenanceCount() {
+  thenByOpenMaintenanceCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openMaintenanceCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByOpenMaintenanceCountDesc() {
+  thenByOpenMaintenanceCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openMaintenanceCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByOpenRedCount() {
+  thenByOpenRedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openRedCount', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByOpenRedCountDesc() {
+  thenByOpenRedCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openRedCount', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByPreviousStateKey() {
+  thenByPreviousStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'previousStateKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByPreviousStateKeyDesc() {
+  thenByPreviousStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'previousStateKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByStateKey() {
+  thenByStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByStateKeyDesc() {
+  thenByStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByTransitionTrigger() {
+  thenByTransitionTrigger() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'transitionTrigger', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByTransitionTriggerDesc() {
+  thenByTransitionTriggerDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'transitionTrigger', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByVersion() {
+  thenByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -3914,161 +4731,178 @@ extension EquipmentStatusRecordQuerySortThenBy
 extension EquipmentStatusRecordQueryWhereDistinct
     on QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct> {
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByActiveExecutionIdsJson({bool caseSensitive = true}) {
+  distinctByActiveExecutionIdsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'activeExecutionIdsJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'activeExecutionIdsJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAssetClassId({bool caseSensitive = true}) {
+  distinctByAssetClassId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetClassId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAssetInstanceId({bool caseSensitive = true}) {
+  distinctByAssetInstanceId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'assetInstanceId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'assetInstanceId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAssetNumber() {
+  distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAssetTypeKey({bool caseSensitive = true}) {
+  distinctByAssetTypeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetTypeKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAvailableSince() {
+  distinctByAvailableSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'availableSince');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByAwaitingPreparationCount() {
+  distinctByAwaitingPreparationCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'awaitingPreparationCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByFirestoreId({bool caseSensitive = true}) {
+  distinctByFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'firestoreId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByInServiceSince() {
+  distinctByInServiceSince() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'inServiceSince');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByLastTransitionAt() {
+  distinctByLastTransitionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastTransitionAt');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByLastTransitionByName({bool caseSensitive = true}) {
+  distinctByLastTransitionByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastTransitionByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastTransitionByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByLastTransitionByUid({bool caseSensitive = true}) {
+  distinctByLastTransitionByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastTransitionByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastTransitionByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByMetadataJson({bool caseSensitive = true}) {
+  distinctByMetadataJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'metadataJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByOpenMaintenanceCount() {
+  distinctByOpenMaintenanceCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'openMaintenanceCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByOpenRedCount() {
+  distinctByOpenRedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'openRedCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByPreviousStateKey({bool caseSensitive = true}) {
+  distinctByPreviousStateKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'previousStateKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'previousStateKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByStateKey({bool caseSensitive = true}) {
+  distinctByStateKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'stateKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByTransitionTrigger({bool caseSensitive = true}) {
+  distinctByTransitionTrigger({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'transitionTrigger',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'transitionTrigger',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
   }
 }
 
-extension EquipmentStatusRecordQueryProperty on QueryBuilder<
-    EquipmentStatusRecord, EquipmentStatusRecord, QQueryProperty> {
+extension EquipmentStatusRecordQueryProperty
+    on
+        QueryBuilder<
+          EquipmentStatusRecord,
+          EquipmentStatusRecord,
+          QQueryProperty
+        > {
   QueryBuilder<EquipmentStatusRecord, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -4076,140 +4910,140 @@ extension EquipmentStatusRecordQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      activeExecutionIdsJsonProperty() {
+  activeExecutionIdsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activeExecutionIdsJson');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      assetClassIdProperty() {
+  assetClassIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetClassId');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      assetInstanceIdProperty() {
+  assetInstanceIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetInstanceId');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, int, QQueryOperations>
-      assetNumberProperty() {
+  assetNumberProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetNumber');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String, QQueryOperations>
-      assetTypeKeyProperty() {
+  assetTypeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetTypeKey');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, DateTime?, QQueryOperations>
-      availableSinceProperty() {
+  availableSinceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'availableSince');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, int, QQueryOperations>
-      awaitingPreparationCountProperty() {
+  awaitingPreparationCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'awaitingPreparationCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      firestoreIdProperty() {
+  firestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'firestoreId');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, DateTime?, QQueryOperations>
-      inServiceSinceProperty() {
+  inServiceSinceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'inServiceSince');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, bool, QQueryOperations>
-      isSyncedProperty() {
+  isSyncedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSynced');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, DateTime?, QQueryOperations>
-      lastTransitionAtProperty() {
+  lastTransitionAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastTransitionAt');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      lastTransitionByNameProperty() {
+  lastTransitionByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastTransitionByName');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      lastTransitionByUidProperty() {
+  lastTransitionByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastTransitionByUid');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      metadataJsonProperty() {
+  metadataJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'metadataJson');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, int, QQueryOperations>
-      openMaintenanceCountProperty() {
+  openMaintenanceCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'openMaintenanceCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, int, QQueryOperations>
-      openRedCountProperty() {
+  openRedCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'openRedCount');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String, QQueryOperations>
-      previousStateKeyProperty() {
+  previousStateKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'previousStateKey');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String, QQueryOperations>
-      stateKeyProperty() {
+  stateKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'stateKey');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
-      transitionTriggerProperty() {
+  transitionTriggerProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'transitionTrigger');
     });
   }
 
   QueryBuilder<EquipmentStatusRecord, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });

@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/directives/data/operational_directive_model.dart';

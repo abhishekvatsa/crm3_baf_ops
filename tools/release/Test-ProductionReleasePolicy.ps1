@@ -85,7 +85,7 @@ $ApprovedArtifactExactSourcePaths = @(
   'package.json'
   'package-lock.json'
   'pubspec.lock'
-  'release/approvals/linux-isar-core-authority.json'
+  'release/approvals/linux-isar-community-core-authority.json'
   'release/github-actions-pins.json'
   'release_gate.ps1'
   'test'
@@ -150,10 +150,10 @@ function Get-GitTreeObjectId {
   )
 
   $treeOutput = @(
-    git rev-parse --verify ("{0}:{1}" -f $Commit, $Path)
+    git rev-parse --verify ("{0}:{1}" -f $Commit, $Path) 2>$null
   )
   if ($LASTEXITCODE -ne 0 -or $treeOutput.Count -ne 1) {
-    throw "Unable to resolve Git tree for $Commit`:$Path."
+    return $null
   }
 
   $tree = $treeOutput[0].Trim().ToLowerInvariant()
@@ -2438,24 +2438,15 @@ foreach ($required in @(
 }
 
 $rootGradle = Get-Content -LiteralPath 'android/build.gradle.kts' -Raw
-foreach ($required in @(
-  'name == "isar_flutter_libs"'
-  'pluginManager.withPlugin("com.android.library")'
-  'extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension>'
-  'finalizeDsl { libraryExtension ->'
-  'if (libraryExtension.namespace == null)'
-  'libraryExtension.namespace = "dev.isar.isar_flutter_libs"'
-  'libraryExtension.compileSdk = 36'
-)) {
-  if (-not $rootGradle.Contains($required)) {
-    throw "Isar AGP namespace compatibility contract is missing: $required"
-  }
+if ($rootGradle.Contains('isar_flutter_libs') -or
+    $rootGradle.Contains('dev.isar.isar_flutter_libs')) {
+  throw 'Retired Isar namespace compatibility workaround remains active.'
 }
 
 $pubspecLock = Get-Content -LiteralPath 'pubspec.lock' -Raw
 if ($pubspecLock -notmatch
-    '(?ms)^\s{2}isar_flutter_libs:\s+.*?^\s{4}version:\s+"3\.1\.0\+1"\s*$') {
-  throw 'Isar AGP namespace compatibility is not bound to the locked package.'
+    '(?ms)^\s{2}isar_community_flutter_libs:\s+.*?^\s{6}sha256:\s+"?c44340fa38c81ef16d924202d443bbe799cde4826be9a31a9dc92ee612e1966f"?\s+.*?^\s{4}version:\s+"3\.3\.2"\s*$') {
+  throw 'Maintained Isar native package is not bound to the approved lock identity.'
 }
 
 $google = Get-Content -LiteralPath 'android/app/google-services.json' -Raw |
@@ -2607,10 +2598,16 @@ $isarReceipt = Get-Content `
   -LiteralPath $policy.toolchain.linuxIsarCoreAuthorityReceipt `
   -Raw | ConvertFrom-Json
 if ([string]$isarReceipt.receiptType -ne
-      'linux-x64-isar-core-authority' -or
+      'linux-x64-isar-core-package-custody' -or
+    [string]$isarReceipt.package -ne 'isar_community_flutter_libs' -or
+    [string]$isarReceipt.packageVersion -ne '3.3.2' -or
+    [string]$isarReceipt.packageArchiveSha256 -ne
+      'C44340FA38C81EF16D924202D443BBE799CDE4826BE9A31A9DC92EE612E1966F' -or
+    $isarReceipt.expectedHashNotDerivedFromProductionCandidate -ne $true -or
+    $isarReceipt.productionCandidateArtifactUsed -ne $false -or
     [string]$isarReceipt.expectedSha256 -ne
       [string]$policy.toolchain.linuxIsarCoreSha256) {
-  throw 'Independent Linux Isar core authority is incomplete.'
+  throw 'Maintained Isar native-core custody authority is incomplete.'
 }
 
 $workflow = Get-Content `

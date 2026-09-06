@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../data/maintenance_model.dart';

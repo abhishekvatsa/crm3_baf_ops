@@ -300,7 +300,7 @@ void main() {
         );
         final functionsPackage = _readJson('functions/package.json');
 
-        expect(pubspec, contains('sdk: ^3.7.0'));
+        expect(pubspec, contains('sdk: ^3.9.0'));
         expect(pubspec, contains('firebase_core:'));
         expect(pubspec, contains('firebase_auth:'));
         expect(pubspec, contains('cloud_firestore:'));

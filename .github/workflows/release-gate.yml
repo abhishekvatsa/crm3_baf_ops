@@ -91,7 +91,7 @@ jobs:
 
           mkdir -p .dart_tool/ci
           cat > .dart_tool/ci/prepare_isar.dart <<'DART'
-          import 'package:isar/isar.dart';
+          import 'package:isar_community/isar.dart';
 
           Future<void> main() async {
             await Isar.initializeIsarCore(download: true);
@@ -150,7 +150,7 @@ jobs:
           cp "$found" ./libisar.so
           chmod 0644 ./libisar.so
 
-          expected_isar_sha="7DC70DF7A2FBF63CD552ECA36708B6DEEB68CBD2AA270C1E201215E0BFC38EF1"
+          expected_isar_sha="142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259"
           actual_isar_sha="$(sha256sum ./libisar.so | awk '{print toupper($1)}')"
           test "$actual_isar_sha" = "$expected_isar_sha" || {
             echo "::error::Linux Isar core hash mismatch. Expected $expected_isar_sha, got $actual_isar_sha"

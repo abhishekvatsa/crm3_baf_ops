@@ -5,7 +5,7 @@ This tool is intentionally narrow. It supports only the primitive field types
 used by the nine workflow mirror/outbox records and fails closed on any model
 shape it does not understand. The output is compile-oriented and preserves
 unique-index upsert semantics, but it is NOT a substitute for the pinned
-Flutter 3.44.0 / Dart 3.12.0 / isar_generator 3.1.0+1 build.
+Flutter 3.44.0 / Dart 3.12.0 / isar_community_generator 3.3.2 build.
 
 Before any release authority is claimed, run the real generator and remove the
 PROVISIONAL_V4_ISAR_CODEGEN markers by replacing these outputs with the pinned
@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "lib/features/maintenance_workflow/data"
-VERSION = "3.1.0+1"
+VERSION = "3.3.2"
 MARKER = "PROVISIONAL_V4_ISAR_CODEGEN"
 
 MODELS = {
@@ -202,7 +202,7 @@ def generate(path: Path, class_name: str, accessor: str) -> str:
         for i, field in enumerate(fields)
     )
     return f"""// GENERATED CODE - DO NOT MODIFY BY HAND
-// {MARKER}: replace with Flutter 3.44.0 / Dart 3.12.0 / isar_generator {VERSION} output before release.
+// {MARKER}: replace with Flutter 3.44.0 / Dart 3.12.0 / isar_community_generator {VERSION} output before release.
 
 part of '{path.name}';
 

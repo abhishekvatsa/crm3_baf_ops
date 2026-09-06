@@ -130,7 +130,7 @@ APPROVED_ARTIFACT_EXACT_SOURCE_PATHS = (
     "package.json",
     "package-lock.json",
     "pubspec.lock",
-    "release/approvals/linux-isar-core-authority.json",
+    "release/approvals/linux-isar-community-core-authority.json",
     "release/github-actions-pins.json",
     "release_gate.ps1",
     "test",

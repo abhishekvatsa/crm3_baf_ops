@@ -3,7 +3,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart' show sha256;
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';

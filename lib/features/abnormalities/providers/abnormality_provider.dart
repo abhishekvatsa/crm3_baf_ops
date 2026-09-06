@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/persistence/app_database.dart';

@@ -53,6 +53,20 @@ function Get-CommandPath {
   $command.Source
 }
 
+function Get-PythonPath {
+  foreach ($name in @('python', 'python3')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+      $versionOutput = @(& $command.Source --version 2>&1)
+      if ($LASTEXITCODE -eq 0 -and
+          ($versionOutput -join ' ') -match '^Python 3\.') {
+        return $command.Source
+      }
+    }
+  }
+  throw 'Python 3 is unavailable for Android native-library verification.'
+}
+
 function New-CryptographicPassword {
   [byte[]]$bytes = New-Object byte[] 24
   $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -299,8 +313,10 @@ $ciFirebaseAppId = '1:999999999999:android:0000000000000000000000'
 $ciFirebaseApiKey = 'crm3-ci-package-proof-no-api-access'
 
 $flutter = Get-CommandPath -Name 'flutter'
+$pwsh = Get-CommandPath -Name 'pwsh'
 $keytool = Get-CommandPath -Name 'keytool'
 $jarsigner = Get-CommandPath -Name 'jarsigner'
+$python = Get-PythonPath
 $androidSdkRoot = Get-AndroidSdkRoot
 $apksigner = Get-LatestBuildTool `
   -AndroidSdkRoot $androidSdkRoot `
@@ -452,6 +468,27 @@ try {
       throw "Release-shrinking evidence is empty: $path"
     }
   }
+
+  Invoke-Checked `
+    -FilePath $python `
+    -ArgumentList @(
+      (Join-Path $root 'tools/release/verify_android_16kb_alignment.py'),
+      '--apk',
+      $apkPath
+    ) `
+    -FailureMessage 'Release APK failed Android 16 KB native verification.'
+  Invoke-Checked `
+    -FilePath $pwsh `
+    -ArgumentList @(
+      '-NoProfile',
+      '-File',
+      (Join-Path $root 'tools/release/Test-AndroidCompiledBackupPolicy.ps1'),
+      '-ApkPath',
+      $apkPath,
+      '-ApkAnalyzerPath',
+      $apkanalyzer
+    ) `
+    -FailureMessage 'Release APK failed compiled backup-policy verification.'
 
   $apkSignerOutput = @(
     Invoke-Captured `
@@ -616,6 +653,8 @@ try {
 
   Write-Output 'PASS_C03_ANDROID_RELEASE_PACKAGING_PROOF'
   Write-Output 'PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF'
+  Write-Output 'PASS_ANDROID_16KB_NATIVE_ALIGNMENT'
+  Write-Output 'PASS_ANDROID_COMPILED_BACKUP_POLICY'
   Write-Output "applicationId=$applicationId"
   Write-Output "buildName=$BuildName"
   Write-Output "buildNumber=$BuildNumber"
@@ -634,6 +673,8 @@ try {
   Write-Output 'crashlyticsMappingUploadEnabled=false'
   Write-Output 'firebaseProductionTrafficDisabled=true'
   Write-Output 'artifactUploadPerformed=false'
+  Write-Output 'native16KbCompatibilityVerified=true'
+  Write-Output 'androidBackupAndDeviceTransferExcluded=true'
 }
 finally {
   foreach ($name in $signingVariables) {

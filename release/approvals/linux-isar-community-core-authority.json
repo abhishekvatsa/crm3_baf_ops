@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "linux-x64-isar-core-package-custody",
+  "reference": "CRM3-ISAR-COMMUNITY-3.3.2-NATIVE-CUSTODY",
+  "recordedAtUtc": "2026-09-06T04:51:37.4472586Z",
+  "authorityBasis": "exact-pubspec-lock-package-archive-and-native-binary-custody",
+  "package": "isar_community_flutter_libs",
+  "packageVersion": "3.3.2",
+  "packageArchiveSha256": "C44340FA38C81EF16D924202D443BBE799CDE4826BE9A31A9DC92EE612E1966F",
+  "expectedSha256": "142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259",
+  "architecture": "linux-x64",
+  "expectedHashNotDerivedFromProductionCandidate": true,
+  "productionCandidateArtifactUsed": false,
+  "android16KbNativeEvidence": [
+    {
+      "abi": "arm64-v8a",
+      "sha256": "BEB34E2075197B0737F56B210B96924974A9B3BAE4F1DA56FBE2ED180CE68D78",
+      "elfLoadAlignment": "0x4000"
+    },
+    {
+      "abi": "armeabi-v7a",
+      "sha256": "B0B6F4D28A4167280703E41FAC29A90A8BC1EFF9B77EC25D89B37BE7FE5C9F75",
+      "elfLoadAlignment": "0x4000"
+    },
+    {
+      "abi": "x86",
+      "sha256": "00A6BA13E7F66FEA07C060B40F48E2E9FFB050EFD3E377655A4D6C86D3D6F288",
+      "elfLoadAlignment": "0x4000"
+    },
+    {
+      "abi": "x86_64",
+      "sha256": "9A478070D8E24484565B38A27E40E7133DBEC88D9496028FDC49DCFCC0100AF5",
+      "elfLoadAlignment": "0x4000"
+    }
+  ]
+}

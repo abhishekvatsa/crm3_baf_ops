@@ -401,6 +401,8 @@ foreach ($qualityGate in @(
   'artifactAabSignature'
   'artifactApkIdentity'
   'artifactAabIdentity'
+  'android16KbNativeCompatibility'
+  'androidBackupAndDeviceTransferExclusion'
 )) {
   if ([string]$manifest.qualityGates.$qualityGate -ne 'passed') {
     throw "Mandatory quality gate is not passed: $qualityGate"

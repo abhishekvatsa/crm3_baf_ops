@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/validation/charge_number.dart';

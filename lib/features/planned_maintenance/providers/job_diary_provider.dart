@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
 import '../../audit/models/audit_event_model.dart';

@@ -4,7 +4,7 @@ import 'package:crm3_baf_ops/core/services/governed_asset_identity_local_repair.
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/equipment_status_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_aggregate_record.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tool/test_support/test_isar_core.dart';

@@ -8,7 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 

@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/maintenance_workflow/data/equipment_status_record.dart';

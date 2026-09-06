@@ -49,8 +49,8 @@ $expected = [ordered]@{
   braceExpansion = '5.0.9'
   re2 = '1.26.1'
   tar = '7.5.21'
-  isarFlutterLibs = '3.1.0+1'
-  isarFlutterLibsArchiveSha256 = 'BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8'
+  isarCommunityFlutterLibs = '3.3.2'
+  isarCommunityFlutterLibsArchiveSha256 = 'C44340FA38C81EF16D924202D443BBE799CDE4826BE9A31A9DC92EE612E1966F'
 }
 
 $CandidatePath = (Resolve-Path $CandidatePath).Path
@@ -704,8 +704,8 @@ try {
         '--project-root' $workspace `
         '--output' $isarCorePath `
         '--evidence' $isarCoreEvidencePath `
-        '--expected-version' $expected.isarFlutterLibs `
-        '--expected-archive-sha256' $expected.isarFlutterLibsArchiveSha256
+        '--expected-version' $expected.isarCommunityFlutterLibs `
+        '--expected-archive-sha256' $expected.isarCommunityFlutterLibsArchiveSha256
     }
     $isarCoreCustody = Get-Content -LiteralPath $isarCoreEvidencePath -Raw | ConvertFrom-Json
 

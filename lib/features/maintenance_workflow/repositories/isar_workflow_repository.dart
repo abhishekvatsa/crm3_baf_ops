@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../data/compliance_attempt_record.dart';
 import '../data/compliance_request_record.dart';

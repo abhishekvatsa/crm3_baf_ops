@@ -11,7 +11,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.d
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 

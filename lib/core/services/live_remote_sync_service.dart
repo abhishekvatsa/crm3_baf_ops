@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart'
     show debugPrint, debugPrintStack, kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/auth/data/user_model.dart';

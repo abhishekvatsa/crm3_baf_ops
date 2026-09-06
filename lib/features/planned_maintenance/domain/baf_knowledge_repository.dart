@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
 import '../../../core/serialization/persisted_json_equality.dart';

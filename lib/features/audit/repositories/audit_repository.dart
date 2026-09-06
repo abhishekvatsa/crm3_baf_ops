@@ -1,7 +1,7 @@
 // FILE: lib/features/audit/repositories/audit_repository.dart
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/services/app_logger.dart';
 import '../../../core/persistence/app_database.dart';

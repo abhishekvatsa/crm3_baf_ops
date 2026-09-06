@@ -82,8 +82,9 @@ const WorkflowCommandRecordSchema = CollectionSchema(
       id: 12,
       name: r'stateKey',
       type: IsarType.string,
-    )
+    ),
   },
+
   estimateSize: _workflowCommandRecordEstimateSize,
   serialize: _workflowCommandRecordSerialize,
   deserialize: _workflowCommandRecordDeserialize,
@@ -100,7 +101,7 @@ const WorkflowCommandRecordSchema = CollectionSchema(
           name: r'commandId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'aggregateId': IndexSchema(
@@ -113,7 +114,7 @@ const WorkflowCommandRecordSchema = CollectionSchema(
           name: r'aggregateId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'commandTypeKey': IndexSchema(
@@ -126,7 +127,7 @@ const WorkflowCommandRecordSchema = CollectionSchema(
           name: r'commandTypeKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'stateKey': IndexSchema(
@@ -139,16 +140,17 @@ const WorkflowCommandRecordSchema = CollectionSchema(
           name: r'stateKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _workflowCommandRecordGetId,
   getLinks: _workflowCommandRecordGetLinks,
   attach: _workflowCommandRecordAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _workflowCommandRecordEstimateSize(
@@ -271,12 +273,16 @@ Id _workflowCommandRecordGetId(WorkflowCommandRecord object) {
 }
 
 List<IsarLinkBase<dynamic>> _workflowCommandRecordGetLinks(
-    WorkflowCommandRecord object) {
+  WorkflowCommandRecord object,
+) {
   return [];
 }
 
 void _workflowCommandRecordAttach(
-    IsarCollection<dynamic> col, Id id, WorkflowCommandRecord object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  WorkflowCommandRecord object,
+) {
   object.id = id;
 }
 
@@ -299,13 +305,15 @@ extension WorkflowCommandRecordByIndex
   }
 
   Future<List<WorkflowCommandRecord?>> getAllByCommandId(
-      List<String> commandIdValues) {
+    List<String> commandIdValues,
+  ) {
     final values = commandIdValues.map((e) => [e]).toList();
     return getAllByIndex(r'commandId', values);
   }
 
   List<WorkflowCommandRecord?> getAllByCommandIdSync(
-      List<String> commandIdValues) {
+    List<String> commandIdValues,
+  ) {
     final values = commandIdValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'commandId', values);
   }
@@ -332,8 +340,10 @@ extension WorkflowCommandRecordByIndex
     return putAllByIndex(r'commandId', objects);
   }
 
-  List<Id> putAllByCommandIdSync(List<WorkflowCommandRecord> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByCommandIdSync(
+    List<WorkflowCommandRecord> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'commandId', objects, saveLinks: saveLinks);
   }
 }
@@ -341,27 +351,29 @@ extension WorkflowCommandRecordByIndex
 extension WorkflowCommandRecordQueryWhereSort
     on QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QWhere> {
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhere>
-      anyId() {
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 }
 
-extension WorkflowCommandRecordQueryWhere on QueryBuilder<WorkflowCommandRecord,
-    WorkflowCommandRecord, QWhereClause> {
+extension WorkflowCommandRecordQueryWhere
+    on
+        QueryBuilder<
+          WorkflowCommandRecord,
+          WorkflowCommandRecord,
+          QWhereClause
+        > {
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -384,7 +396,7 @@ extension WorkflowCommandRecordQueryWhere on QueryBuilder<WorkflowCommandRecord,
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -393,7 +405,7 @@ extension WorkflowCommandRecordQueryWhere on QueryBuilder<WorkflowCommandRecord,
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -402,253 +414,313 @@ extension WorkflowCommandRecordQueryWhere on QueryBuilder<WorkflowCommandRecord,
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      commandIdEqualTo(String commandId) {
+  commandIdEqualTo(String commandId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'commandId',
-        value: [commandId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'commandId', value: [commandId]),
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      commandIdNotEqualTo(String commandId) {
+  commandIdNotEqualTo(String commandId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandId',
-              lower: [],
-              upper: [commandId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandId',
-              lower: [commandId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandId',
+                lower: [],
+                upper: [commandId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandId',
+                lower: [commandId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandId',
-              lower: [commandId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandId',
-              lower: [],
-              upper: [commandId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandId',
+                lower: [commandId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandId',
+                lower: [],
+                upper: [commandId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      aggregateIdEqualTo(String aggregateId) {
+  aggregateIdEqualTo(String aggregateId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'aggregateId',
-        value: [aggregateId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'aggregateId',
+          value: [aggregateId],
+        ),
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      aggregateIdNotEqualTo(String aggregateId) {
+  aggregateIdNotEqualTo(String aggregateId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'aggregateId',
-              lower: [],
-              upper: [aggregateId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'aggregateId',
-              lower: [aggregateId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'aggregateId',
+                lower: [],
+                upper: [aggregateId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'aggregateId',
+                lower: [aggregateId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'aggregateId',
-              lower: [aggregateId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'aggregateId',
-              lower: [],
-              upper: [aggregateId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'aggregateId',
+                lower: [aggregateId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'aggregateId',
+                lower: [],
+                upper: [aggregateId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      commandTypeKeyEqualTo(String commandTypeKey) {
+  commandTypeKeyEqualTo(String commandTypeKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'commandTypeKey',
-        value: [commandTypeKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'commandTypeKey',
+          value: [commandTypeKey],
+        ),
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      commandTypeKeyNotEqualTo(String commandTypeKey) {
+  commandTypeKeyNotEqualTo(String commandTypeKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandTypeKey',
-              lower: [],
-              upper: [commandTypeKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandTypeKey',
-              lower: [commandTypeKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandTypeKey',
+                lower: [],
+                upper: [commandTypeKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandTypeKey',
+                lower: [commandTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandTypeKey',
-              lower: [commandTypeKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'commandTypeKey',
-              lower: [],
-              upper: [commandTypeKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandTypeKey',
+                lower: [commandTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'commandTypeKey',
+                lower: [],
+                upper: [commandTypeKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      stateKeyEqualTo(String stateKey) {
+  stateKeyEqualTo(String stateKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'stateKey',
-        value: [stateKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'stateKey', value: [stateKey]),
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterWhereClause>
-      stateKeyNotEqualTo(String stateKey) {
+  stateKeyNotEqualTo(String stateKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [],
-              upper: [stateKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [stateKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [],
+                upper: [stateKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [stateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [stateKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'stateKey',
-              lower: [],
-              upper: [stateKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [stateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'stateKey',
+                lower: [],
+                upper: [stateKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 }
 
-extension WorkflowCommandRecordQueryFilter on QueryBuilder<
-    WorkflowCommandRecord, WorkflowCommandRecord, QFilterCondition> {
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+extension WorkflowCommandRecordQueryFilter
+    on
+        QueryBuilder<
+          WorkflowCommandRecord,
+          WorkflowCommandRecord,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -656,193 +728,251 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'aggregateId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'aggregateId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      aggregateIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'aggregateId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'aggregateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      aggregateIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'aggregateId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'aggregateId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'aggregateId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'aggregateId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> aggregateIdIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  aggregateIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'aggregateId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'aggregateId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> attemptCountEqualTo(int value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  attemptCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'attemptCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> attemptCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  attemptCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'attemptCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> attemptCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  attemptCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'attemptCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> attemptCountBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  attemptCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'attemptCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'attemptCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -850,137 +980,180 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'commandId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'commandId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      commandIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'commandId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'commandId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      commandIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'commandId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'commandId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'commandId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'commandId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandIdIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'commandId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'commandId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyGreaterThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -988,397 +1161,516 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'commandTypeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'commandTypeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      commandTypeKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'commandTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'commandTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      commandTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'commandTypeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'commandTypeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'commandTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'commandTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> commandTypeKeyIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  commandTypeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'commandTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'commandTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> createdLocallyAtEqualTo(DateTime value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  createdLocallyAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdLocallyAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdLocallyAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> createdLocallyAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  createdLocallyAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdLocallyAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdLocallyAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> createdLocallyAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  createdLocallyAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdLocallyAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdLocallyAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> createdLocallyAtBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  createdLocallyAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdLocallyAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdLocallyAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> expectedVersionEqualTo(int value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  expectedVersionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'expectedVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'expectedVersion', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> expectedVersionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  expectedVersionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'expectedVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'expectedVersion',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> expectedVersionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  expectedVersionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'expectedVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'expectedVersion',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> expectedVersionBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  expectedVersionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'expectedVersion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'expectedVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtIsNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastAttemptAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastAttemptAt'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtIsNotNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastAttemptAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastAttemptAt'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastAttemptAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastAttemptAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastAttemptAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastAttemptAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastAttemptAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastAttemptAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastAttemptAtBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastAttemptAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastAttemptAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastAttemptAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeIsNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastErrorCode',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastErrorCode'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeIsNotNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastErrorCode',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastErrorCode'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeGreaterThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1386,155 +1678,206 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastErrorCode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastErrorCode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      lastErrorCodeContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastErrorCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastErrorCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      lastErrorCodeMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastErrorCode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastErrorCode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastErrorCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastErrorCode', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorCodeIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastErrorCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'lastErrorCode', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageIsNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastErrorMessage',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastErrorMessage'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageIsNotNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastErrorMessage',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastErrorMessage'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageGreaterThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1542,211 +1885,277 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastErrorMessage',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastErrorMessage',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      lastErrorMessageContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastErrorMessage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastErrorMessage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      lastErrorMessageMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastErrorMessage',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastErrorMessage',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastErrorMessage',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastErrorMessage', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> lastErrorMessageIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  lastErrorMessageIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastErrorMessage',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'lastErrorMessage', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtIsNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'nextRetryAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'nextRetryAt'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtIsNotNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'nextRetryAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'nextRetryAt'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nextRetryAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nextRetryAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nextRetryAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nextRetryAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nextRetryAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nextRetryAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> nextRetryAtBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  nextRetryAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nextRetryAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nextRetryAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1754,155 +2163,206 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'payloadJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'payloadJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      payloadJsonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'payloadJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'payloadJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      payloadJsonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'payloadJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'payloadJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'payloadJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'payloadJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> payloadJsonIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  payloadJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'payloadJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'payloadJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonIsNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'receiptJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'receiptJson'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonIsNotNull() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'receiptJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'receiptJson'),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonGreaterThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1910,137 +2370,180 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'receiptJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'receiptJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      receiptJsonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'receiptJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'receiptJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      receiptJsonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'receiptJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'receiptJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'receiptJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'receiptJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> receiptJsonIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  receiptJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'receiptJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'receiptJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyGreaterThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyLessThan(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyBetween(
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2048,275 +2551,309 @@ extension WorkflowCommandRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'stateKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'stateKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      stateKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'stateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'stateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-          QAfterFilterCondition>
-      stateKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'stateKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'stateKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyIsEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'stateKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord,
-      QAfterFilterCondition> stateKeyIsNotEmpty() {
+  QueryBuilder<
+    WorkflowCommandRecord,
+    WorkflowCommandRecord,
+    QAfterFilterCondition
+  >
+  stateKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'stateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'stateKey', value: ''),
+      );
     });
   }
 }
 
-extension WorkflowCommandRecordQueryObject on QueryBuilder<
-    WorkflowCommandRecord, WorkflowCommandRecord, QFilterCondition> {}
+extension WorkflowCommandRecordQueryObject
+    on
+        QueryBuilder<
+          WorkflowCommandRecord,
+          WorkflowCommandRecord,
+          QFilterCondition
+        > {}
 
-extension WorkflowCommandRecordQueryLinks on QueryBuilder<WorkflowCommandRecord,
-    WorkflowCommandRecord, QFilterCondition> {}
+extension WorkflowCommandRecordQueryLinks
+    on
+        QueryBuilder<
+          WorkflowCommandRecord,
+          WorkflowCommandRecord,
+          QFilterCondition
+        > {}
 
 extension WorkflowCommandRecordQuerySortBy
     on QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QSortBy> {
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByAggregateId() {
+  sortByAggregateId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aggregateId', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByAggregateIdDesc() {
+  sortByAggregateIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aggregateId', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByAttemptCount() {
+  sortByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByAttemptCountDesc() {
+  sortByAttemptCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCommandId() {
+  sortByCommandId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandId', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCommandIdDesc() {
+  sortByCommandIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandId', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCommandTypeKey() {
+  sortByCommandTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCommandTypeKeyDesc() {
+  sortByCommandTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCreatedLocallyAt() {
+  sortByCreatedLocallyAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdLocallyAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByCreatedLocallyAtDesc() {
+  sortByCreatedLocallyAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdLocallyAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByExpectedVersion() {
+  sortByExpectedVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedVersion', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByExpectedVersionDesc() {
+  sortByExpectedVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedVersion', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastAttemptAt() {
+  sortByLastAttemptAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAttemptAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastAttemptAtDesc() {
+  sortByLastAttemptAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAttemptAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastErrorCode() {
+  sortByLastErrorCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorCode', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastErrorCodeDesc() {
+  sortByLastErrorCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorCode', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastErrorMessage() {
+  sortByLastErrorMessage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorMessage', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByLastErrorMessageDesc() {
+  sortByLastErrorMessageDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorMessage', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByNextRetryAt() {
+  sortByNextRetryAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nextRetryAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByNextRetryAtDesc() {
+  sortByNextRetryAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nextRetryAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByPayloadJson() {
+  sortByPayloadJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'payloadJson', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByPayloadJsonDesc() {
+  sortByPayloadJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'payloadJson', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByReceiptJson() {
+  sortByReceiptJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'receiptJson', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByReceiptJsonDesc() {
+  sortByReceiptJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'receiptJson', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByStateKey() {
+  sortByStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      sortByStateKeyDesc() {
+  sortByStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.desc);
     });
@@ -2326,196 +2863,196 @@ extension WorkflowCommandRecordQuerySortBy
 extension WorkflowCommandRecordQuerySortThenBy
     on QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QSortThenBy> {
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByAggregateId() {
+  thenByAggregateId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aggregateId', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByAggregateIdDesc() {
+  thenByAggregateIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aggregateId', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByAttemptCount() {
+  thenByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByAttemptCountDesc() {
+  thenByAttemptCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCommandId() {
+  thenByCommandId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandId', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCommandIdDesc() {
+  thenByCommandIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandId', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCommandTypeKey() {
+  thenByCommandTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCommandTypeKeyDesc() {
+  thenByCommandTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'commandTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCreatedLocallyAt() {
+  thenByCreatedLocallyAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdLocallyAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByCreatedLocallyAtDesc() {
+  thenByCreatedLocallyAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdLocallyAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByExpectedVersion() {
+  thenByExpectedVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedVersion', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByExpectedVersionDesc() {
+  thenByExpectedVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedVersion', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastAttemptAt() {
+  thenByLastAttemptAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAttemptAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastAttemptAtDesc() {
+  thenByLastAttemptAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAttemptAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastErrorCode() {
+  thenByLastErrorCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorCode', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastErrorCodeDesc() {
+  thenByLastErrorCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorCode', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastErrorMessage() {
+  thenByLastErrorMessage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorMessage', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByLastErrorMessageDesc() {
+  thenByLastErrorMessageDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastErrorMessage', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByNextRetryAt() {
+  thenByNextRetryAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nextRetryAt', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByNextRetryAtDesc() {
+  thenByNextRetryAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nextRetryAt', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByPayloadJson() {
+  thenByPayloadJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'payloadJson', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByPayloadJsonDesc() {
+  thenByPayloadJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'payloadJson', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByReceiptJson() {
+  thenByReceiptJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'receiptJson', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByReceiptJsonDesc() {
+  thenByReceiptJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'receiptJson', Sort.desc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByStateKey() {
+  thenByStateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.asc);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QAfterSortBy>
-      thenByStateKeyDesc() {
+  thenByStateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stateKey', Sort.desc);
     });
@@ -2525,102 +3062,113 @@ extension WorkflowCommandRecordQuerySortThenBy
 extension WorkflowCommandRecordQueryWhereDistinct
     on QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct> {
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByAggregateId({bool caseSensitive = true}) {
+  distinctByAggregateId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'aggregateId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByAttemptCount() {
+  distinctByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'attemptCount');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByCommandId({bool caseSensitive = true}) {
+  distinctByCommandId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'commandId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByCommandTypeKey({bool caseSensitive = true}) {
+  distinctByCommandTypeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'commandTypeKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'commandTypeKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByCreatedLocallyAt() {
+  distinctByCreatedLocallyAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdLocallyAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByExpectedVersion() {
+  distinctByExpectedVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'expectedVersion');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByLastAttemptAt() {
+  distinctByLastAttemptAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastAttemptAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByLastErrorCode({bool caseSensitive = true}) {
+  distinctByLastErrorCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastErrorCode',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastErrorCode',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByLastErrorMessage({bool caseSensitive = true}) {
+  distinctByLastErrorMessage({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastErrorMessage',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastErrorMessage',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByNextRetryAt() {
+  distinctByNextRetryAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'nextRetryAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByPayloadJson({bool caseSensitive = true}) {
+  distinctByPayloadJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'payloadJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByReceiptJson({bool caseSensitive = true}) {
+  distinctByReceiptJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'receiptJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, WorkflowCommandRecord, QDistinct>
-      distinctByStateKey({bool caseSensitive = true}) {
+  distinctByStateKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'stateKey', caseSensitive: caseSensitive);
     });
   }
 }
 
-extension WorkflowCommandRecordQueryProperty on QueryBuilder<
-    WorkflowCommandRecord, WorkflowCommandRecord, QQueryProperty> {
+extension WorkflowCommandRecordQueryProperty
+    on
+        QueryBuilder<
+          WorkflowCommandRecord,
+          WorkflowCommandRecord,
+          QQueryProperty
+        > {
   QueryBuilder<WorkflowCommandRecord, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -2628,91 +3176,91 @@ extension WorkflowCommandRecordQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<WorkflowCommandRecord, String, QQueryOperations>
-      aggregateIdProperty() {
+  aggregateIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'aggregateId');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, int, QQueryOperations>
-      attemptCountProperty() {
+  attemptCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'attemptCount');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String, QQueryOperations>
-      commandIdProperty() {
+  commandIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'commandId');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String, QQueryOperations>
-      commandTypeKeyProperty() {
+  commandTypeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'commandTypeKey');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, DateTime, QQueryOperations>
-      createdLocallyAtProperty() {
+  createdLocallyAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdLocallyAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, int, QQueryOperations>
-      expectedVersionProperty() {
+  expectedVersionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'expectedVersion');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, DateTime?, QQueryOperations>
-      lastAttemptAtProperty() {
+  lastAttemptAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastAttemptAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String?, QQueryOperations>
-      lastErrorCodeProperty() {
+  lastErrorCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastErrorCode');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String?, QQueryOperations>
-      lastErrorMessageProperty() {
+  lastErrorMessageProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastErrorMessage');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, DateTime?, QQueryOperations>
-      nextRetryAtProperty() {
+  nextRetryAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'nextRetryAt');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String, QQueryOperations>
-      payloadJsonProperty() {
+  payloadJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'payloadJson');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String?, QQueryOperations>
-      receiptJsonProperty() {
+  receiptJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'receiptJson');
     });
   }
 
   QueryBuilder<WorkflowCommandRecord, String, QQueryOperations>
-      stateKeyProperty() {
+  stateKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'stateKey');
     });

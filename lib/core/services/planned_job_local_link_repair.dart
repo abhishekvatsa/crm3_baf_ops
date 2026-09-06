@@ -1,6 +1,6 @@
 // FILE: lib/core/services/planned_job_local_link_repair.dart
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../features/planned_maintenance/data/job_diary_model.dart';
 import '../../features/planned_maintenance/data/job_module_model.dart';
