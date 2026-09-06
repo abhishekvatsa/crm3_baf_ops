@@ -4704,14 +4704,33 @@ candidate_package_version = (
     f"{combined_policy.get('versionPolicy', {}).get('versionName')}+"
     f"{candidate_build_number}"
 )
-artifact_source_matches_approval = approved_artifact_source_matches(
+latest_finalized_build_number = (
+    candidate_build_number - 1 if candidate_pending else candidate_build_number
+)
+latest_finalized_completion_path = ROOT / (
+    "release/evidence/"
+    f"build-{latest_finalized_build_number}-finalization-closure.json"
+)
+latest_finalized_completion = data(
+    "release/evidence/"
+    f"build-{latest_finalized_build_number}-finalization-closure.json"
+)
+candidate_source_matches_approval = approved_artifact_source_matches(
     str(candidate_approval.get("sourceBaseline", {}).get("commit", "")),
+    candidate_package_version,
+)
+finalized_artifact_source_matches = approved_artifact_source_matches(
+    str(
+        latest_finalized_completion.get("sourceAuthority", {}).get(
+            "commit", ""
+        )
+    ),
     candidate_package_version,
 )
 expected_artifact_construction_authority = (
     candidate_pending
     and backend_matches_deployed
-    and artifact_source_matches_approval
+    and candidate_source_matches_approval
 )
 build18_evidence_bound_at = utc_instant(
     build18_approval.get("evidenceBoundAtUtc")
@@ -4864,7 +4883,7 @@ if candidate_pending:
         expected_next_candidate_status = (
             "SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT"
         )
-    elif not artifact_source_matches_approval:
+    elif not candidate_source_matches_approval:
         expected_successor_state_status = (
             f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_BACKEND_READY_"
             "AWAITING_ARTIFACT_SOURCE_REBIND"
@@ -4908,19 +4927,12 @@ else:
     expected_next_candidate_status = (
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
-latest_finalized_build_number = (
-    candidate_build_number - 1 if candidate_pending else candidate_build_number
-)
-latest_finalized_completion_path = ROOT / (
-    "release/evidence/"
-    f"build-{latest_finalized_build_number}-finalization-closure.json"
-)
 if candidate_pending:
     expected_current_source_artifact_relationship = (
         f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_OF_"
         f"FINALIZED_BUILD{latest_finalized_build_number}"
     )
-elif artifact_source_matches_approval:
+elif finalized_artifact_source_matches:
     expected_current_source_artifact_relationship = (
         f"BUILD{candidate_build_number}_SOURCE_CONTAINS_"
         f"FINALIZED_BUILD{latest_finalized_build_number}"
@@ -7177,17 +7189,28 @@ check(
         or (
             combined_policy.get("finalization", {}).get(
                 "completionReceiptFile"
-            ) == "release/evidence/build-24-finalization-closure.json"
+            )
+                == (
+                    "release/evidence/"
+                    f"build-{latest_finalized_build_number}-"
+                    "finalization-closure.json"
+                )
             and combined_policy.get("finalization", {}).get(
                 "completionReceiptSha256"
-            ) == sha(build24_completion_path)
+            ) == sha(latest_finalized_completion_path)
             and combined_policy.get("finalization", {}).get("sourceCommit")
-                == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+                == latest_finalized_completion.get(
+                    "sourceAuthority", {}
+                ).get("commit")
             and combined_policy.get("finalization", {}).get("githubRunId")
-                == 33905922841
+                == latest_finalized_completion.get("workflow", {}).get(
+                    "runId"
+                )
             and combined_policy.get("finalization", {}).get(
                 "governedPackageSha256"
-            ) == build24_entry.get("governedPackageSha256")
+            ) == latest_finalized_completion.get(
+                "governedPackage", {}
+            ).get("sha256")
         )
     )
     and current_successor_state.get("status")

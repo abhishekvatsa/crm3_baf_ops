@@ -302,6 +302,8 @@ void main() {
       );
       final receiptRelease =
           (receipt['release'] as Map).cast<String, dynamic>();
+      final receiptSourceAuthority =
+          (receipt['sourceAuthority'] as Map).cast<String, dynamic>();
       final liveBackend = _readObject(
         deployed['functionFleetEvidenceFile'] as String,
       );
@@ -406,10 +408,16 @@ void main() {
           functionsMatchDeployed && firestoreMatchesDeployed;
       final sourceBaseline =
           (nextApproval['sourceBaseline'] as Map).cast<String, dynamic>();
-      final artifactSourceMatchesApproval = _approvedArtifactSourceMatches(
+      final candidateSourceMatchesApproval = _approvedArtifactSourceMatches(
         sourceBaseline['commit'] as String,
         '${release['versionName']}+$candidateBuildNumber',
       );
+      final finalizedArtifactSourceMatches =
+          !pendingConstruction &&
+          _approvedArtifactSourceMatches(
+            receiptSourceAuthority['commit'] as String,
+            '${release['versionName']}+$candidateBuildNumber',
+          );
       final backendApprovedAt = DateTime.parse(
         deploymentApproval['approvedAtUtc'] as String,
       );
@@ -441,7 +449,7 @@ void main() {
             ? !backendMatchesDeployed
                 ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
                     'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
-                : !artifactSourceMatchesApproval
+                : !candidateSourceMatchesApproval
                 ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
                     'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
                 : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
@@ -465,7 +473,7 @@ void main() {
       expect(currentSource['packageVersion'], _packageVersion());
       expect(
         currentSource['relationshipToLatestFinalizedArtifact'],
-        pendingConstruction || !artifactSourceMatchesApproval
+        pendingConstruction || !finalizedArtifactSourceMatches
             ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
                 'FINALIZED_BUILD$finalizedBuildNumber'
             : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'
@@ -477,7 +485,7 @@ void main() {
         _artifactConstructionAuthority(
           pendingSourceAuthorization: pendingConstruction,
           backendMatchesDeployed: backendMatchesDeployed,
-          artifactSourceMatchesApproval: artifactSourceMatchesApproval,
+          artifactSourceMatchesApproval: candidateSourceMatchesApproval,
         ),
       );
       expect(currentSource['deploymentAuthority'], isFalse);
@@ -782,7 +790,7 @@ void main() {
         pendingConstruction
             ? !backendMatchesDeployed
                 ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
-                : !artifactSourceMatchesApproval
+                : !candidateSourceMatchesApproval
                 ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
                     'ARTIFACT_SOURCE_REBIND'
                 : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'

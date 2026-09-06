@@ -15,24 +15,23 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Build 24 (`1.0.0-rc.14+24`) was constructed from exact merged commit
-`7eb0931`, independently verified and copied to dual custody. It is finalized
-non-distributable; device acceptance, mutating-flow validation and pilot
-promotion were not adjudicated by its construction receipt. Its immutable
-governed package SHA-256 is
-`649E41398D74ADC3ADEBC7F27F93493F57288EF80668877AF14CA16D83B661DA`.
+Build 25 (`1.0.0-rc.15+25`) was constructed from exact merged commit
+`c539490` after PR 350 and exact-main CI passed. The production-signed APK and
+AAB were independently verified under the approved certificate and copied to
+dual custody. Build 25 is finalized non-distributable; its immutable governed
+package SHA-256 is
+`32E8501816168CE4D0017D9106944486E917475E8231A74CBC0C710527EE54BB`.
 
-Build 25 (`1.0.0-rc.15+25`) is source-authorized for governed construction from
-the admitted PR 349 baseline `b148a78`, whose exact post-merge CI passed.
 All 15 production Functions match the unchanged PR 348 backend source
 `8cb7af1` and passed strict readback with existing IAM preserved. The existing
-Firestore Rules and 66 indexes remain unchanged and verified.
+Firestore Rules and 66 indexes remain unchanged and verified. No Firebase
+backend deployment or business-data mutation occurred during construction.
 
-Build 24 remains finalized, immutable and non-distributable. Build 25 has not
-yet been constructed. Its source approval now includes the admitted release
-governance corrections; construction still requires exact merged source and
-clean CI. No consumed build number may be reused. Exact-package device
-acceptance and pilot promotion remain separate decisions after construction.
+Build 24 remains an immutable finalized predecessor. Build 25 device migration,
+mutating-flow validation, pilot promotion and distribution were not adjudicated
+by construction. Build 25 is consumed and cannot be reused; the next eligible
+artifact is Build 26 after a fresh governed approval. No consumed build number
+may be reused.
 
 Authoritative status sources:
 

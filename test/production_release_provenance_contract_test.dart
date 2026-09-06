@@ -1398,6 +1398,11 @@ void main() {
                   read('release/evidence/build-24-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
+        final build25Receipt =
+            jsonDecode(
+                  read('release/evidence/build-25-finalization-closure.json'),
+                )
+                as Map<String, dynamic>;
         final receipt =
             jsonDecode(
                   read('release/evidence/build-11-finalization-closure.json'),
@@ -1507,9 +1512,10 @@ void main() {
                     ? finalization['priorCompletedBuild']
                     : finalization)
                 as Map<String, dynamic>;
-        final finalizedBuildNumber = pendingConstruction
-            ? finalizedBuild['buildNumber'] as int
-            : candidateBuildNumber;
+        final finalizedBuildNumber =
+            pendingConstruction
+                ? finalizedBuild['buildNumber'] as int
+                : candidateBuildNumber;
         expect(
           finalization['status'],
           pendingConstruction
@@ -1568,6 +1574,33 @@ void main() {
         );
         expect(
           (build24Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
+        expect(build25Receipt['schemaVersion'], 1);
+        expect(build25Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build25Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          25,
+        );
+        expect(
+          (build25Receipt['sourceAuthority'] as Map<String, dynamic>)['commit'],
+          'c539490d87b6d0bb6dc226e871a95d6b7fc95150',
+        );
+        expect(
+          (build25Receipt['workflow'] as Map<String, dynamic>)['runId'],
+          33999501258,
+        );
+        expect(
+          (build25Receipt['githubArtifact'] as Map<String, dynamic>)['id'],
+          9979349938,
+        );
+        expect(
+          (build25Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
+          '32E8501816168CE4D0017D9106944486E917475E8231A74CBC0C710527EE54BB',
+        );
+        expect(
+          (build25Receipt['releaseBoundary']
               as Map<String, dynamic>)['controlledPilotApproved'],
           isFalse,
         );
