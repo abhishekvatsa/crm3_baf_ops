@@ -16,9 +16,8 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
-      final artifacts =
-          (policy['expectedArtifactsForContainment'] as List)
-              .cast<Map<String, dynamic>>();
+      final artifacts = (policy['expectedArtifactsForContainment'] as List)
+          .cast<Map<String, dynamic>>();
 
       expect(policy['schemaVersion'], 1);
       expect(
@@ -34,6 +33,7 @@ void main() {
         ),
         containsAll(<String>[
           '.github/workflows/production-artifact.yml',
+          'release/evidence/build-26-finalization-closure.json',
           'release/evidence/build-25-finalization-closure.json',
           'release/evidence/build-24-finalization-closure.json',
           'release/evidence/build-23-finalization-closure.json',
@@ -72,6 +72,7 @@ void main() {
         23,
         24,
         25,
+        26,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -96,10 +97,11 @@ void main() {
         9834070276,
         9950364675,
         9979349938,
+        10003229149,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(20),
+        hasLength(21),
       );
       expect(
         artifacts.singleWhere(
@@ -204,9 +206,15 @@ void main() {
         'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
       );
       expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 26,
+        )['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+      );
+      expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[9979349938],
+        <int>[10003229149],
       );
 
       final installation =
@@ -266,8 +274,8 @@ void main() {
       final ledger =
           jsonDecode(read('governance/programme-ledger.json'))
               as Map<String, dynamic>;
-      final gates =
-          (ledger['programmeGates'] as List).cast<Map<String, dynamic>>();
+      final gates = (ledger['programmeGates'] as List)
+          .cast<Map<String, dynamic>>();
       final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
 
       expect(source, contains('liveProductionArtifactInventoryEmpty'));

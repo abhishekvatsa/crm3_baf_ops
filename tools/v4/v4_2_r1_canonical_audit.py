@@ -346,6 +346,22 @@ candidate_source_valid = (
     and git_tree_id(candidate_commit) == candidate_tree
     and candidate_files is not None
 )
+latest_finalization_source = recon.get("latestFinalizationSource", {})
+latest_finalization_commit = latest_finalization_source.get("commit", "")
+latest_finalization_tree = latest_finalization_source.get("tree", "")
+latest_finalization_source_files = (
+    git_archive_files(latest_finalization_commit)
+    if isinstance(latest_finalization_commit, str)
+    else None
+)
+latest_finalization_source_valid = (
+    isinstance(latest_finalization_commit, str)
+    and re.fullmatch(r"[0-9a-f]{40}", latest_finalization_commit) is not None
+    and isinstance(latest_finalization_tree, str)
+    and re.fullmatch(r"[0-9a-f]{40}", latest_finalization_tree) is not None
+    and git_tree_id(latest_finalization_commit) == latest_finalization_tree
+    and latest_finalization_source_files is not None
+)
 combined_policy = data("release/production-release-policy.json")
 combined_receipt_path = ROOT / "release/approvals/firebase-production-signing-restoration-receipt.json"
 combined_receipt = data("release/approvals/firebase-production-signing-restoration-receipt.json")
@@ -13804,10 +13820,14 @@ check(
         entry.get("path") == ".github/workflows/production-artifact.yml"
         for entry in lr07_source_evidence
     )
+    and latest_finalization_source_valid
+    and latest_finalization_source.get("buildNumber")
+        == lr07_latest_artifact.get("buildNumber")
     and all(
-        entry.get("path") in (candidate_files or {})
-        and len((candidate_files or {})[entry["path"]]) == entry.get("bytes")
-        and bytes_sha((candidate_files or {})[entry["path"]])
+        entry.get("path") in (latest_finalization_source_files or {})
+        and len((latest_finalization_source_files or {})[entry["path"]])
+            == entry.get("bytes")
+        and bytes_sha((latest_finalization_source_files or {})[entry["path"]])
             == entry.get("sha256")
         for entry in lr07_source_evidence
     )
