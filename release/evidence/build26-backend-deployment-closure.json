@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-current-source-backend-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-09-07T01:45:13.309Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "approvalAuthority": {
+    "file": "release/approvals/build26-backend-deployment-approval.json",
+    "sha256": "2EEC6A5DB5178B242EF89C97EA7460CF09FC0D4172578EBCB4310D5DAD13D02D"
+  },
+  "sourceAuthority": {
+    "commit": "7156d456d1f74d21b981231869802304e745755e",
+    "tree": "60ff129d6288315d8a7f752f74898afc6e173e10",
+    "functionsGitObjectId": "7cce35c90b40002169216d88e4e59bead9679047",
+    "pullRequestNumber": 352,
+    "postMergeReleaseGateRunId": 34045939856,
+    "postMergeReleaseGateConclusion": "success"
+  },
+  "deployment": {
+    "campaign": "function-fleet-runtime-identity",
+    "functionCount": 15,
+    "callableCount": 9,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "sourceRuntimeHash": "ce4d3b84569d77d81be8e598b862c08b841311ed",
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true,
+    "schedulerBacklogZeroVerified": true,
+    "qualityRetentionCandidateCountVerifiedZero": true,
+    "existingIamPreservationEnforced": true,
+    "appCheckEnforcement": false,
+    "finalizationMethod": "read-only-collectors-direct-plus-invocation-free-scheduler-target-deployment",
+    "legacyMutatingFinalizeWrapperExecuted": false,
+    "schedulerSmokeResult": {
+      "observedAtUtc": "2026-09-07T01:25:50.085Z",
+      "invoked": false,
+      "workflowEscalationCandidateCount": 0,
+      "qualityRetentionCandidateCount": 0,
+      "changed": 0,
+      "reason": "Manual invocation was omitted because the approved boundary prohibited production business-data mutation; deployment and strict control-plane readback completed instead."
+    }
+  },
+  "firestoreDeployment": {
+    "rulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
+    "rulesActiveByteExact": true,
+    "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/85f504dc-a544-4662-a231-58c33cd1d5f2",
+    "rulesetCreateTime": "2026-09-07T01:39:30.365375Z",
+    "indexCount": 66,
+    "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
+    "fieldOverrideCount": 8,
+    "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+    "allIndexesReady": true,
+    "indexesAlreadyExactNoMutationRequired": true,
+    "strictLiveReadbackPassed": true,
+    "rulesAlreadyExactNoMutationRequired": false,
+    "rulesDeploymentPerformed": true
+  },
+  "privacySafeExternalEvidence": {
+    "folderName": "CRM3_BUILD26_BACKEND_7156D456_20260907",
+    "receipts": [
+      {
+        "file": "01-preflight.json",
+        "sha256": "3EE9C0C07157144AFF60D35AAC43BDEB03CE89FB5B5BACCB3111F278B06F9BD4"
+      },
+      {
+        "file": "02-provisioned.json",
+        "sha256": "0501ADF84FD1C29B005482D8BFA9B1FD72990756B576AC51BF23D9406AEDBC48"
+      },
+      {
+        "file": "03-callables.json",
+        "sha256": "1D1E5D4B8BABA94BC243E8052E382F11CEA3E4C256EE42591A7DFA2A8FF726BB"
+      },
+      {
+        "file": "04-events.json",
+        "sha256": "8BD970FBFABA19F14E648E148757EDAB321D64414A2EE16B5D8EFAD0FCB3AD2C"
+      },
+      {
+        "file": "05-scheduler-preflight.json",
+        "sha256": "ABFFC4E88B8E236920846A31F302EF74A22BCFDD3E4C6D33007373061566BEA4"
+      },
+      {
+        "file": "06-fleet.json",
+        "sha256": "EB0AB667949A76AD08F6ED17EA2601C30C84733D8A68F0763B1ECC1D50A87C22"
+      },
+      {
+        "file": "07-lr03-lr06-prefinal.json",
+        "sha256": "DD64F9F7B5331F083EAF88DFD15D028F1065EFD84B78C35475AB4CFEC146AE94"
+      },
+      {
+        "file": "08-final.json",
+        "sha256": "AE421A8CD88005491698A387F2A288A58C6537450E84133E6BE1A31F1EB998ED"
+      },
+      {
+        "file": "09-lr03-lr06-final.json",
+        "sha256": "C82DD97F46B337D6AF3BBDFE3BFFC93EB15D03B673FB3632693309EEBD6FD1E2"
+      },
+      {
+        "file": "10-firestore-rules-indexes-live-readback.json",
+        "sha256": "FE0EB8049AD75F293C5CC039C2AF4CB7412A44E449DB7D536EDA197C3A1E962D"
+      }
+    ]
+  },
+  "cleanMainLiveReadbacks": {
+    "functionFleet": {
+      "file": "release/evidence/build26-function-fleet-runtime-identity-readback.json",
+      "physicalSha256": "AE421A8CD88005491698A387F2A288A58C6537450E84133E6BE1A31F1EB998ED",
+      "canonicalReceiptSha256": "F76934CFB3C14578CFD1AF851CE33B7FDADF11D33ACA52647CB751001A1368D0",
+      "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+      "failedChecks": 0
+    },
+    "iamDependencies": {
+      "file": "release/evidence/build26-functions-iam-dependencies-readback.json",
+      "physicalSha256": "C82DD97F46B337D6AF3BBDFE3BFFC93EB15D03B673FB3632693309EEBD6FD1E2",
+      "canonicalReceiptSha256": "BFA9BF24242B22C92BA9B93BC799D4E0B417217AFFBBDE46A0C31D5B1E921AAE",
+      "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+      "failedChecks": 0,
+      "postureHolds": 0
+    },
+    "firestoreRulesAndIndexes": {
+      "file": "release/evidence/build26-firestore-rules-indexes-live-readback.json",
+      "verified": true,
+      "physicalSha256": "FE0EB8049AD75F293C5CC039C2AF4CB7412A44E449DB7D536EDA197C3A1E962D",
+      "canonicalReceiptSha256": "D2252CBD496140115142F53E55563520A0A5AB65A058FFE5640F51F42F5E788A",
+      "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "sourceCommit": "7156d456d1f74d21b981231869802304e745755e",
+      "sourceTree": "60ff129d6288315d8a7f752f74898afc6e173e10",
+      "rulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
+      "indexCount": 66,
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "allIndexesReady": true,
+      "failedChecks": 0
+    }
+  },
+  "controlBoundary": {
+    "serviceAccountsMutated": false,
+    "iamMutated": false,
+    "appCheckActivated": false,
+    "firestoreDocumentsRead": false,
+    "firestoreDocumentsWritten": false,
+    "productionBusinessDataMutated": false,
+    "deviceDataMutated": false,
+    "artifactConstructed": false,
+    "pilotPromotionPerformed": false,
+    "distributionPerformed": false,
+    "aggregateBacklogQueriesPerformed": true,
+    "schedulerSmokeChangedRecordCount": 0,
+    "functionFleetMutated": true,
+    "securityRulesMutated": true,
+    "indexesMutated": false
+  }
+}

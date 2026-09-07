@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-06-BUILD25",
-  "asOfDate": "2026-09-06",
-  "status": "BUILD25_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-07-BUILD26",
+  "asOfDate": "2026-09-07",
+  "status": "BUILD26_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.15+25",
-      "relationshipToLatestFinalizedArtifact": "BUILD25_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD25",
+      "packageVersion": "1.0.0-rc.16+26",
+      "relationshipToLatestFinalizedArtifact": "BUILD26_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD25",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
@@ -22,9 +22,9 @@
         "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
         "fieldOverrideCount": 8,
         "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
-        "relationshipToDeployedBackend": "RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-        "productionDeploymentPerformed": false,
-        "productionRuntimeUseAuthorized": false
+        "relationshipToDeployedBackend": "EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED",
+        "productionDeploymentPerformed": true,
+        "productionRuntimeUseAuthorized": true
       }
     },
     "latestFinalizedArtifact": {
@@ -40,18 +40,18 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "deploymentApprovalFile": "release/approvals/build25-backend-deployment-approval.json",
-      "deploymentApprovalSha256": "5F64ED7B6B2BE76DAEF5087F1D5B6408A5CC1E88A3E1213BEA637F429017DBD1",
-      "functionFleetEvidenceFile": "release/evidence/build25-backend-deployment-closure.json",
-      "functionFleetEvidenceSha256": "BB66E006302E70075D8E7B22FB628785E093A9FA98B53FAD119F6B0B22DB2857",
-      "functionFleetSourceCommit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
-      "rulesAndIndexesEvidenceFile": "release/evidence/build25-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesEvidenceSha256": "2CD48D5CA0B98C5E9FEC208AD23276AB91B084B6319E6A5CBD923005B7FDE7A3",
-      "rulesAndIndexesSourceCommit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
+      "deploymentApprovalFile": "release/approvals/build26-backend-deployment-approval.json",
+      "deploymentApprovalSha256": "2EEC6A5DB5178B242EF89C97EA7460CF09FC0D4172578EBCB4310D5DAD13D02D",
+      "functionFleetEvidenceFile": "release/evidence/build26-backend-deployment-closure.json",
+      "functionFleetEvidenceSha256": "76BFF63D077FC710CB6B427CDC140242A1FF8841FE29058A996980438DEF9CE9",
+      "functionFleetSourceCommit": "7156d456d1f74d21b981231869802304e745755e",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build26-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesEvidenceSha256": "FE0EB8049AD75F293C5CC039C2AF4CB7412A44E449DB7D536EDA197C3A1E962D",
+      "rulesAndIndexesSourceCommit": "7156d456d1f74d21b981231869802304e745755e",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },
     "controlledPilot": {
@@ -71,14 +71,17 @@
       "appliesToBuild22": false,
       "appliesToBuild23": false,
       "appliesToBuild24": false,
-      "appliesToBuild25": false
+      "appliesToBuild25": false,
+      "appliesToBuild26": false
     },
     "nextCandidate": {
       "minimumBuildNumber": 26,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD26_APPROVAL",
-      "constructionRequiresFreshGovernedApproval": true,
+      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD26_ARTIFACT_SOURCE_REBIND",
+      "constructionRequiresFreshGovernedApproval": false,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true
+      "pilotPromotionRequiresSeparateDecision": true,
+      "versionApprovalFile": "release/approvals/build-number-26-successor-approval.json",
+      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-26.json"
     }
   },
   "localStore": {
@@ -139,6 +142,13 @@
     "release/evidence/build25-functions-iam-dependencies-readback.json",
     "release/evidence/build25-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-25-successor-approval.json",
-    "release/approvals/public-repository-environment-reviewer-approval-build-25.json"
+    "release/approvals/public-repository-environment-reviewer-approval-build-25.json",
+    "release/approvals/build26-backend-deployment-approval.json",
+    "release/evidence/build26-backend-deployment-closure.json",
+    "release/evidence/build26-function-fleet-runtime-identity-readback.json",
+    "release/evidence/build26-functions-iam-dependencies-readback.json",
+    "release/evidence/build26-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build-number-26-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-26.json"
   ]
 }
