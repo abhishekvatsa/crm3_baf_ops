@@ -7,7 +7,7 @@
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.16+26",
-      "relationshipToLatestFinalizedArtifact": "BUILD26_SOURCE_CONTAINS_FINALIZED_BUILD26",
+      "relationshipToLatestFinalizedArtifact": "BUILD26_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD26",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
