@@ -12465,7 +12465,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 80
     and a04_inventory_report.get("inventoryDigest")
-        == "B06C1375386283D3D0573E29E5EE85FF01ECB80CA28F004E7FCC5F5EA7F21891"
+        == "7D910A6645488F04ACBEBABC72658107546B16F8D779D943C93F0D28F98B7C8B"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
