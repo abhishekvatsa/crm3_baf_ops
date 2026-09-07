@@ -35,12 +35,11 @@ String? _cleanOptionalText(dynamic value) {
 List<String>? _cleanOptionalStringList(dynamic value) {
   if (value == null) return null;
   if (value is! List) return null;
-  final cleaned =
-      value
-          .whereType<String>()
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
+  final cleaned = value
+      .whereType<String>()
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
   return cleaned.isEmpty ? null : cleaned;
 }
 
@@ -338,6 +337,77 @@ class PersistedFieldDefinitionPayload {
   }
 }
 
+class PersistedFieldDefinition {
+  final String key;
+  final String label;
+  final FieldType type;
+  final bool isRequired;
+  final String? unit;
+  final List<String> options;
+  final String? instructionText;
+  final int order;
+
+  const PersistedFieldDefinition({
+    required this.key,
+    required this.label,
+    required this.type,
+    required this.isRequired,
+    required this.unit,
+    required this.options,
+    required this.instructionText,
+    required this.order,
+  });
+
+  factory PersistedFieldDefinition.fromMap(
+    Map<String, dynamic> map, {
+    String? source,
+  }) {
+    _validateFieldDefinition(map, field: 'field', source: source);
+    final key = _readAliasedRequiredText(
+      map,
+      _fieldKeyAliases,
+      field: 'field.key',
+      source: source,
+    );
+    return PersistedFieldDefinition(
+      key: key,
+      label:
+          _readAliasedOptionalText(
+            map,
+            const ['label', 'title'],
+            field: 'field.label',
+            source: source,
+          ) ??
+          key,
+      type: _readPersistedFieldType(
+        map['type'] ?? map['fieldType'],
+        field: 'field.type',
+        source: source,
+      ),
+      isRequired:
+          (map['isRequired'] as bool?) ?? (map['required'] as bool?) ?? false,
+      unit: readOptionalPersistedString(
+        map['unit'],
+        field: 'field.unit',
+        source: source,
+      ),
+      options:
+          readNullablePersistedStringList(
+            map['options'],
+            field: 'field.options',
+            source: source,
+          ) ??
+          const <String>[],
+      instructionText: readOptionalPersistedString(
+        map['instructionText'],
+        field: 'field.instructionText',
+        source: source,
+      ),
+      order: map['order'] as int? ?? 0,
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // TEMPLATE FIELD
 // ─────────────────────────────────────────────────────────────
@@ -414,29 +484,27 @@ class TemplateField {
     this.key = key ?? '';
     this.label = label ?? '';
     this.type = type ?? FieldType.text;
-    validation =
-        validation == null
-            ? null
-            : readBoundedPersistedJsonValue(
-                  validation,
-                  field: 'validation',
-                  source: 'TemplateField constructor',
-                )
-                as Map<String, dynamic>;
+    validation = validation == null
+        ? null
+        : readBoundedPersistedJsonValue(
+                validation,
+                field: 'validation',
+                source: 'TemplateField constructor',
+              )
+              as Map<String, dynamic>;
     validationJson = _validateOptionalJsonObjectText(
       validationJson,
       field: 'validationJson',
       source: 'TemplateField constructor',
     );
-    meta =
-        meta == null
-            ? null
-            : readBoundedPersistedJsonValue(
-                  meta,
-                  field: 'meta',
-                  source: 'TemplateField constructor',
-                )
-                as Map<String, dynamic>;
+    meta = meta == null
+        ? null
+        : readBoundedPersistedJsonValue(
+                meta,
+                field: 'meta',
+                source: 'TemplateField constructor',
+              )
+              as Map<String, dynamic>;
     this.extensions = validateBoundedPersistedExtensionBag(
       extensions ?? const <String, dynamic>{},
       allowedFields: _allowedExtensions,
@@ -446,29 +514,27 @@ class TemplateField {
   }
 
   Map<String, dynamic> toMap() {
-    final boundedValidation =
-        validation == null
-            ? null
-            : readBoundedPersistedJsonValue(
-                  validation,
-                  field: 'validation',
-                  source: 'TemplateField.toMap',
-                )
-                as Map<String, dynamic>;
+    final boundedValidation = validation == null
+        ? null
+        : readBoundedPersistedJsonValue(
+                validation,
+                field: 'validation',
+                source: 'TemplateField.toMap',
+              )
+              as Map<String, dynamic>;
     final boundedValidationJson = _validateOptionalJsonObjectText(
       validationJson,
       field: 'validationJson',
       source: 'TemplateField.toMap',
     );
-    final boundedMeta =
-        meta == null
-            ? null
-            : readBoundedPersistedJsonValue(
-                  meta,
-                  field: 'meta',
-                  source: 'TemplateField.toMap',
-                )
-                as Map<String, dynamic>;
+    final boundedMeta = meta == null
+        ? null
+        : readBoundedPersistedJsonValue(
+                meta,
+                field: 'meta',
+                source: 'TemplateField.toMap',
+              )
+              as Map<String, dynamic>;
     final boundedExtensions = validateBoundedPersistedExtensionBag(
       extensions,
       allowedFields: _allowedExtensions,
@@ -502,22 +568,20 @@ class TemplateField {
       currentVersion: payloadSchemaVersion,
     );
     _validateFieldDefinition(map, field: 'field', source: source);
-    final structuredValidation =
-        map.containsKey('validation')
-            ? readOptionalBoundedJsonObject(
-              map['validation'],
-              field: 'field.validation',
-              source: source,
-            )
-            : null;
-    final encodedValidation =
-        map.containsKey('validationJson')
-            ? readOptionalBoundedJsonObject(
-              map['validationJson'],
-              field: 'field.validationJson',
-              source: source,
-            )
-            : null;
+    final structuredValidation = map.containsKey('validation')
+        ? readOptionalBoundedJsonObject(
+            map['validation'],
+            field: 'field.validation',
+            source: source,
+          )
+        : null;
+    final encodedValidation = map.containsKey('validationJson')
+        ? readOptionalBoundedJsonObject(
+            map['validationJson'],
+            field: 'field.validationJson',
+            source: source,
+          )
+        : null;
     final validation = structuredValidation ?? encodedValidation;
     final extensions = readBoundedPersistedExtensionBag(
       map,
@@ -572,14 +636,13 @@ class TemplateField {
         source: source,
       ),
       order: map['order'] as int? ?? 0,
-      meta:
-          map.containsKey('meta')
-              ? readOptionalBoundedJsonObject(
-                map['meta'],
-                field: 'field.meta',
-                source: source,
-              )
-              : null,
+      meta: map.containsKey('meta')
+          ? readOptionalBoundedJsonObject(
+              map['meta'],
+              field: 'field.meta',
+              source: source,
+            )
+          : null,
       extensions: extensions,
     );
   }
@@ -594,10 +657,9 @@ class TemplateField {
       for (var index = 0; index < rows.length; index++)
         TemplateField.fromMap(
           rows[index],
-          source:
-              source == null
-                  ? 'fieldsJson[$index]'
-                  : '$source fieldsJson[$index]',
+          source: source == null
+              ? 'fieldsJson[$index]'
+              : '$source fieldsJson[$index]',
         ),
     ];
   }
@@ -766,10 +828,9 @@ class FieldResponse {
   ) {
     final response = FieldResponse.fromMap(
       row,
-      source:
-          source == null
-              ? 'responsesJson[$index]'
-              : '$source responsesJson[$index]',
+      source: source == null
+          ? 'responsesJson[$index]'
+          : '$source responsesJson[$index]',
     );
     if (!keys.add(_normalisePayloadKey(response.key))) {
       throw PersistedDataFormatException(
@@ -893,11 +954,11 @@ class JobTemplate {
   @ignore
   AssetHierarchyReference? get assetHierarchyReference =>
       assetHierarchyRefJson == null
-          ? null
-          : AssetHierarchyReference.decode(
-            assetHierarchyRefJson!,
-            source: _fieldSourceLabel,
-          );
+      ? null
+      : AssetHierarchyReference.decode(
+          assetHierarchyRefJson!,
+          source: _fieldSourceLabel,
+        );
 
   String fieldsJson = '[]';
 
@@ -933,10 +994,9 @@ class JobTemplate {
     return TemplateField.tryDecode(fieldsJson, source: _fieldSourceLabel);
   }
 
-  String get _fieldSourceLabel =>
-      firestoreId == null
-          ? 'local job template $id'
-          : 'job template $firestoreId';
+  String get _fieldSourceLabel => firestoreId == null
+      ? 'local job template $id'
+      : 'job template $firestoreId';
 
   void setFields(List<TemplateField> newFields) {
     for (int i = 0; i < newFields.length; i++) {
@@ -970,8 +1030,9 @@ class JobTemplate {
   // 'fieldsJson' (legacy string blob). fromMap reads either; this preserves
   // compatibility with both v1 clients and historical v2 documents.
   Map<String, dynamic> toMap() {
-    final List<Map<String, dynamic>> fieldsArray =
-        parsedFields.map((f) => f.toMap()).toList();
+    final List<Map<String, dynamic>> fieldsArray = parsedFields
+        .map((f) => f.toMap())
+        .toList();
     return {
       'firestoreId': firestoreId,
       'jobName': jobName,
@@ -1026,107 +1087,106 @@ class JobTemplate {
         detail: 'must match the document ID',
       );
     }
-    final template =
-        JobTemplate()
-          ..firestoreId = embeddedId
-          ..jobName = readRequiredPersistedString(
-            map['jobName'],
-            field: 'jobName',
-            source: source,
-          )
-          ..description = readOptionalPersistedString(
-            map['description'],
-            field: 'description',
-            source: source,
-            emptyAsNull: false,
-          )
-          ..applicableAssetType = readRequiredPersistedEnum(
-            AssetType.values,
-            map['applicableAssetType'],
-            field: 'applicableAssetType',
-            source: source,
-          )
-          ..assignedAgencies = readOptionalPersistedStringList(
-            map['assignedAgencies'],
-            field: 'assignedAgencies',
-            source: source,
-          )
-          ..component = readOptionalPersistedString(
-            map['component'],
-            field: 'component',
-            source: source,
-          )
-          ..subsystem = readOptionalPersistedString(
-            map['subsystem'],
-            field: 'subsystem',
-            source: source,
-          )
-          ..hierarchyPath = readNullablePersistedStringList(
-            map['hierarchyPath'],
-            field: 'hierarchyPath',
-            source: source,
-          )
-          ..assetHierarchyRefJson = readOptionalAssetHierarchyReferenceJson(
-            map['assetHierarchyRefJson'],
-            field: 'assetHierarchyRefJson',
-            source: source,
-          )
-          ..createdByUid = readOptionalPersistedString(
-            map['createdByUid'],
-            field: 'createdByUid',
-            source: source,
-          )
-          ..createdByName = readOptionalPersistedString(
-            map['createdByName'],
-            field: 'createdByName',
-            source: source,
-          )
-          ..isActive = readRequiredPersistedBool(
-            map['isActive'],
-            field: 'isActive',
-            source: source,
-          )
-          ..isDeprecated = readRequiredPersistedBool(
-            map['isDeprecated'],
-            field: 'isDeprecated',
-            source: source,
-          )
-          ..isDeleted = readRequiredPersistedBool(
-            map['isDeleted'],
-            field: 'isDeleted',
-            source: source,
-          )
-          ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = readOptionalPersistedString(
-            map['deletedByUid'],
-            field: 'deletedByUid',
-            source: source,
-          )
-          ..deletedByName = readOptionalPersistedString(
-            map['deletedByName'],
-            field: 'deletedByName',
-            source: source,
-          )
-          ..deleteReason = readOptionalPersistedString(
-            map['deleteReason'],
-            field: 'deleteReason',
-            source: source,
-          )
-          ..version = readRequiredPersistedInt(
-            map['version'],
-            field: 'version',
-            source: source,
-            minimum: 1,
-          )
-          ..createdAt = timestamps.createdAt
-          ..updatedAt = timestamps.updatedAt
-          ..metadataJson = readOptionalPersistedString(
-            map['metadataJson'],
-            field: 'metadataJson',
-            source: source,
-            emptyAsNull: false,
-          )
-          ..isSynced = true;
+    final template = JobTemplate()
+      ..firestoreId = embeddedId
+      ..jobName = readRequiredPersistedString(
+        map['jobName'],
+        field: 'jobName',
+        source: source,
+      )
+      ..description = readOptionalPersistedString(
+        map['description'],
+        field: 'description',
+        source: source,
+        emptyAsNull: false,
+      )
+      ..applicableAssetType = readRequiredPersistedEnum(
+        AssetType.values,
+        map['applicableAssetType'],
+        field: 'applicableAssetType',
+        source: source,
+      )
+      ..assignedAgencies = readOptionalPersistedStringList(
+        map['assignedAgencies'],
+        field: 'assignedAgencies',
+        source: source,
+      )
+      ..component = readOptionalPersistedString(
+        map['component'],
+        field: 'component',
+        source: source,
+      )
+      ..subsystem = readOptionalPersistedString(
+        map['subsystem'],
+        field: 'subsystem',
+        source: source,
+      )
+      ..hierarchyPath = readNullablePersistedStringList(
+        map['hierarchyPath'],
+        field: 'hierarchyPath',
+        source: source,
+      )
+      ..assetHierarchyRefJson = readOptionalAssetHierarchyReferenceJson(
+        map['assetHierarchyRefJson'],
+        field: 'assetHierarchyRefJson',
+        source: source,
+      )
+      ..createdByUid = readOptionalPersistedString(
+        map['createdByUid'],
+        field: 'createdByUid',
+        source: source,
+      )
+      ..createdByName = readOptionalPersistedString(
+        map['createdByName'],
+        field: 'createdByName',
+        source: source,
+      )
+      ..isActive = readRequiredPersistedBool(
+        map['isActive'],
+        field: 'isActive',
+        source: source,
+      )
+      ..isDeprecated = readRequiredPersistedBool(
+        map['isDeprecated'],
+        field: 'isDeprecated',
+        source: source,
+      )
+      ..isDeleted = readRequiredPersistedBool(
+        map['isDeleted'],
+        field: 'isDeleted',
+        source: source,
+      )
+      ..deletedAt = timestamps.deletedAt
+      ..deletedByUid = readOptionalPersistedString(
+        map['deletedByUid'],
+        field: 'deletedByUid',
+        source: source,
+      )
+      ..deletedByName = readOptionalPersistedString(
+        map['deletedByName'],
+        field: 'deletedByName',
+        source: source,
+      )
+      ..deleteReason = readOptionalPersistedString(
+        map['deleteReason'],
+        field: 'deleteReason',
+        source: source,
+      )
+      ..version = readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      )
+      ..createdAt = timestamps.createdAt
+      ..updatedAt = timestamps.updatedAt
+      ..metadataJson = readOptionalPersistedString(
+        map['metadataJson'],
+        field: 'metadataJson',
+        source: source,
+        emptyAsNull: false,
+      )
+      ..isSynced = true;
 
     // Structured fields are canonical when present. A malformed canonical
     // field set must never fall through to a different legacy payload.
@@ -1268,10 +1328,9 @@ class JobExecution {
 
   @ignore
   AssetHierarchyReference? get assignmentAssetHierarchyReference {
-    final source =
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId';
+    final source = firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId';
     final metadata = readOptionalJsonObject(
       metadataJson,
       field: 'metadataJson',
@@ -1296,10 +1355,9 @@ class JobExecution {
 
   @ignore
   AssignmentPhysicalAssetIdentity? get assignmentPhysicalAssetIdentity {
-    final source =
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId';
+    final source = firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId';
     final metadata = readOptionalJsonObject(
       metadataJson,
       field: 'metadataJson',
@@ -1350,10 +1408,9 @@ class JobExecution {
 
   @ignore
   AssignmentInnerCoverPosition? get assignmentInnerCoverPosition {
-    final source =
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId';
+    final source = firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId';
     final metadata = readOptionalJsonObject(
       metadataJson,
       field: 'metadataJson',
@@ -1498,14 +1555,13 @@ class JobExecution {
   String? redAnswerJson;
 
   @ignore
-  RoutedTo get assignedAgency =>
-      assignedAgencies.isNotEmpty
-          ? _enumByNameOr(
-            RoutedTo.values,
-            assignedAgencies.first,
-            RoutedTo.mechanical,
-          )
-          : RoutedTo.mechanical;
+  RoutedTo get assignedAgency => assignedAgencies.isNotEmpty
+      ? _enumByNameOr(
+          RoutedTo.values,
+          assignedAgencies.first,
+          RoutedTo.mechanical,
+        )
+      : RoutedTo.mechanical;
 
   set assignedAgency(RoutedTo value) {
     assignedAgencies = [value.name];
@@ -1524,19 +1580,17 @@ class JobExecution {
   @ignore
   List<FieldResponse> get responses => FieldResponse.decode(
     responsesJson,
-    source:
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId',
+    source: firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId',
   );
 
   @ignore
   FieldResponseReadResult get responsesReadResult => FieldResponse.tryDecode(
     responsesJson,
-    source:
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId',
+    source: firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId',
   );
 
   set responses(List<FieldResponse> value) {
@@ -1555,19 +1609,17 @@ class JobExecution {
   @ignore
   List<ComponentAction> get actions => ComponentAction.decode(
     actionsJson,
-    source:
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId',
+    source: firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId',
   );
 
   @ignore
   ComponentActionReadResult get actionsReadResult => ComponentAction.tryDecode(
     actionsJson,
-    source:
-        firestoreId == null
-            ? 'local job execution $id'
-            : 'job execution $firestoreId',
+    source: firestoreId == null
+        ? 'local job execution $id'
+        : 'job execution $firestoreId',
   );
 
   set actions(List<ComponentAction> value) {
@@ -1763,195 +1815,182 @@ class JobExecution {
       allowMissing: !map.containsKey('actionsJson'),
     );
     ComponentAction.decode(actionsJson, source: source);
-    final execution =
-        JobExecution()
-          ..firestoreId = embeddedId
-          ..templateFirestoreId = readRequiredPersistedString(
-            map['templateFirestoreId'],
-            field: 'templateFirestoreId',
+    final execution = JobExecution()
+      ..firestoreId = embeddedId
+      ..templateFirestoreId = readRequiredPersistedString(
+        map['templateFirestoreId'],
+        field: 'templateFirestoreId',
+        source: source,
+      )
+      ..templateName = _readOptionalExecutionString(map, 'templateName', source)
+      ..templatePackageId = _readOptionalExecutionString(
+        map,
+        'templatePackageId',
+        source,
+      )
+      ..templateVersionId = _readOptionalExecutionString(
+        map,
+        'templateVersionId',
+        source,
+      )
+      ..templateVersionNumber = readOptionalPersistedInt(
+        map['templateVersionNumber'],
+        field: 'templateVersionNumber',
+        source: source,
+        minimum: 1,
+      )
+      ..templateVersionLabel = _readOptionalExecutionString(
+        map,
+        'templateVersionLabel',
+        source,
+      )
+      ..templateContentHash = _readOptionalExecutionString(
+        map,
+        'templateContentHash',
+        source,
+      )
+      ..templatePackageCode = _readOptionalExecutionString(
+        map,
+        'templatePackageCode',
+        source,
+      )
+      ..assetType = assetType
+      ..assetNumber = assetNumber
+      ..isCompleted = isCompleted
+      ..isCancelled = isCancelled
+      ..cancelledAt = timestamps.cancelledAt
+      ..cancelledByUid = _readOptionalExecutionString(
+        map,
+        'cancelledByUid',
+        source,
+      )
+      ..cancelledByName = _readOptionalExecutionString(
+        map,
+        'cancelledByName',
+        source,
+      )
+      ..cancellationReason = _readOptionalExecutionString(
+        map,
+        'cancellationReason',
+        source,
+      )
+      ..assignedByUid = readRequiredPersistedString(
+        map['assignedByUid'],
+        field: 'assignedByUid',
+        source: source,
+      )
+      ..assignedByName = _readOptionalExecutionString(
+        map,
+        'assignedByName',
+        source,
+      )
+      ..assignedAgencies = readOptionalPersistedStringList(
+        map['assignedAgencies'],
+        field: 'assignedAgencies',
+        source: source,
+      )
+      ..workflowSchemaVersion =
+          readOptionalPersistedInt(
+            map['workflowSchemaVersion'],
+            field: 'workflowSchemaVersion',
             source: source,
-          )
-          ..templateName = _readOptionalExecutionString(
-            map,
-            'templateName',
-            source,
-          )
-          ..templatePackageId = _readOptionalExecutionString(
-            map,
-            'templatePackageId',
-            source,
-          )
-          ..templateVersionId = _readOptionalExecutionString(
-            map,
-            'templateVersionId',
-            source,
-          )
-          ..templateVersionNumber = readOptionalPersistedInt(
-            map['templateVersionNumber'],
-            field: 'templateVersionNumber',
+            minimum: 0,
+          ) ??
+          0
+      ..laneSetVersion =
+          readOptionalPersistedInt(
+            map['laneSetVersion'],
+            field: 'laneSetVersion',
             source: source,
-            minimum: 1,
-          )
-          ..templateVersionLabel = _readOptionalExecutionString(
-            map,
-            'templateVersionLabel',
-            source,
-          )
-          ..templateContentHash = _readOptionalExecutionString(
-            map,
-            'templateContentHash',
-            source,
-          )
-          ..templatePackageCode = _readOptionalExecutionString(
-            map,
-            'templatePackageCode',
-            source,
-          )
-          ..assetType = assetType
-          ..assetNumber = assetNumber
-          ..isCompleted = isCompleted
-          ..isCancelled = isCancelled
-          ..cancelledAt = timestamps.cancelledAt
-          ..cancelledByUid = _readOptionalExecutionString(
-            map,
-            'cancelledByUid',
-            source,
-          )
-          ..cancelledByName = _readOptionalExecutionString(
-            map,
-            'cancelledByName',
-            source,
-          )
-          ..cancellationReason = _readOptionalExecutionString(
-            map,
-            'cancellationReason',
-            source,
-          )
-          ..assignedByUid = readRequiredPersistedString(
-            map['assignedByUid'],
-            field: 'assignedByUid',
+            minimum: 0,
+          ) ??
+          0
+      ..laneSetFinalizedAt = timestamps.laneSetFinalizedAt
+      ..laneSetFinalizedByUid = _readOptionalExecutionString(
+        map,
+        'laneSetFinalizedByUid',
+        source,
+      )
+      ..laneSetFinalizedByName = _readOptionalExecutionString(
+        map,
+        'laneSetFinalizedByName',
+        source,
+      )
+      ..laneMappingReview =
+          readOptionalPersistedBool(
+            map['laneMappingReview'],
+            field: 'laneMappingReview',
             source: source,
-          )
-          ..assignedByName = _readOptionalExecutionString(
-            map,
-            'assignedByName',
-            source,
-          )
-          ..assignedAgencies = readOptionalPersistedStringList(
-            map['assignedAgencies'],
-            field: 'assignedAgencies',
-            source: source,
-          )
-          ..workflowSchemaVersion =
-              readOptionalPersistedInt(
-                map['workflowSchemaVersion'],
-                field: 'workflowSchemaVersion',
-                source: source,
-                minimum: 0,
-              ) ??
-              0
-          ..laneSetVersion =
-              readOptionalPersistedInt(
-                map['laneSetVersion'],
-                field: 'laneSetVersion',
-                source: source,
-                minimum: 0,
-              ) ??
-              0
-          ..laneSetFinalizedAt = timestamps.laneSetFinalizedAt
-          ..laneSetFinalizedByUid = _readOptionalExecutionString(
-            map,
-            'laneSetFinalizedByUid',
-            source,
-          )
-          ..laneSetFinalizedByName = _readOptionalExecutionString(
-            map,
-            'laneSetFinalizedByName',
-            source,
-          )
-          ..laneMappingReview =
-              readOptionalPersistedBool(
-                map['laneMappingReview'],
-                field: 'laneMappingReview',
-                source: source,
-              ) ??
-              false
-          ..parentExecutionFirestoreId = _readOptionalExecutionString(
-            map,
-            'parentExecutionFirestoreId',
-            source,
-          )
-          ..spawnedRedExecutionFirestoreId = _readOptionalExecutionString(
-            map,
-            'spawnedRedExecutionFirestoreId',
-            source,
-          )
-          ..redAnswerJson = _readOptionalExecutionString(
-            map,
-            'redAnswerJson',
-            source,
-            emptyAsNull: false,
-          )
-          ..completedByUid = _readOptionalExecutionString(
-            map,
-            'completedByUid',
-            source,
-          )
-          ..completedByName = _readOptionalExecutionString(
-            map,
-            'completedByName',
-            source,
-          )
-          ..remarks = _readOptionalExecutionString(
-            map,
-            'remarks',
-            source,
-            emptyAsNull: false,
-          )
-          ..teamsInvolved = readOptionalPersistedStringList(
-            map['teamsInvolved'],
-            field: 'teamsInvolved',
-            source: source,
-          )
-          ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
-            map['chargeNoAtEvent'],
-            field: 'chargeNoAtEvent',
-            source: source,
-          )
-          ..actionsJson = actionsJson
-          ..version = readRequiredPersistedInt(
-            map['version'],
-            field: 'version',
-            source: source,
-            minimum: 1,
-          )
-          ..metadataJson = _readOptionalExecutionString(
-            map,
-            'metadataJson',
-            source,
-            emptyAsNull: false,
-          )
-          ..isDeleted = isDeleted
-          ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = _readOptionalExecutionString(
-            map,
-            'deletedByUid',
-            source,
-          )
-          ..deletedByName = _readOptionalExecutionString(
-            map,
-            'deletedByName',
-            source,
-          )
-          ..deleteReason = _readOptionalExecutionString(
-            map,
-            'deleteReason',
-            source,
-          )
-          ..createdAt = timestamps.createdAt
-          ..completedAt = timestamps.completedAt
-          ..updatedAt = timestamps.updatedAt
-          ..isSynced = true;
+          ) ??
+          false
+      ..parentExecutionFirestoreId = _readOptionalExecutionString(
+        map,
+        'parentExecutionFirestoreId',
+        source,
+      )
+      ..spawnedRedExecutionFirestoreId = _readOptionalExecutionString(
+        map,
+        'spawnedRedExecutionFirestoreId',
+        source,
+      )
+      ..redAnswerJson = _readOptionalExecutionString(
+        map,
+        'redAnswerJson',
+        source,
+        emptyAsNull: false,
+      )
+      ..completedByUid = _readOptionalExecutionString(
+        map,
+        'completedByUid',
+        source,
+      )
+      ..completedByName = _readOptionalExecutionString(
+        map,
+        'completedByName',
+        source,
+      )
+      ..remarks = _readOptionalExecutionString(
+        map,
+        'remarks',
+        source,
+        emptyAsNull: false,
+      )
+      ..teamsInvolved = readOptionalPersistedStringList(
+        map['teamsInvolved'],
+        field: 'teamsInvolved',
+        source: source,
+      )
+      ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
+        map['chargeNoAtEvent'],
+        field: 'chargeNoAtEvent',
+        source: source,
+      )
+      ..actionsJson = actionsJson
+      ..version = readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      )
+      ..metadataJson = _readOptionalExecutionString(
+        map,
+        'metadataJson',
+        source,
+        emptyAsNull: false,
+      )
+      ..isDeleted = isDeleted
+      ..deletedAt = timestamps.deletedAt
+      ..deletedByUid = _readOptionalExecutionString(map, 'deletedByUid', source)
+      ..deletedByName = _readOptionalExecutionString(
+        map,
+        'deletedByName',
+        source,
+      )
+      ..deleteReason = _readOptionalExecutionString(map, 'deleteReason', source)
+      ..createdAt = timestamps.createdAt
+      ..completedAt = timestamps.completedAt
+      ..updatedAt = timestamps.updatedAt
+      ..isSynced = true;
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.

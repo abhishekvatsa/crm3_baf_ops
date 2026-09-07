@@ -14,6 +14,7 @@ import '../../domain/workflow_error.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
 import '../widgets/workflow_action_guard.dart';
+import '../widgets/workflow_progress_route.dart';
 
 class ComplianceDetailScreen extends ConsumerStatefulWidget {
   final ComplianceRequestRecord record;
@@ -192,60 +193,53 @@ class _ComplianceDetailScreenState
           IconButton(
             tooltip: 'Refresh request',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed:
-                commandState.isLoading
-                    ? null
-                    : () => _refreshRequest(ref, actor.uid, workflowId),
+            onPressed: commandState.isLoading
+                ? null
+                : () => _refreshRequest(ref, actor.uid, workflowId),
           ),
         ],
       ),
       body: BafContentFrame(
         maxWidth: 840,
         child: aggregate.when(
-          loading:
-              () => _detailBody(
-                context,
-                ref,
-                record: record,
-                workflowId: workflowId,
-                actor: actor,
-                busy: commandState.isLoading,
-                actionOverride: const BafLoadingPanel(
-                  label: 'Loading authoritative workflow state',
-                  color: BafColors.directives,
-                ),
+          loading: () => _detailBody(
+            context,
+            ref,
+            record: record,
+            workflowId: workflowId,
+            actor: actor,
+            busy: commandState.isLoading,
+            actionOverride: const BafLoadingPanel(
+              label: 'Loading authoritative workflow state',
+              color: BafColors.directives,
+            ),
+          ),
+          error: (error, _) => _detailBody(
+            context,
+            ref,
+            record: record,
+            workflowId: workflowId,
+            actor: actor,
+            busy: commandState.isLoading,
+            actionOverride: BafStatePanel.error(
+              title: 'Actions temporarily unavailable',
+              message:
+                  'Current workflow state could not be verified. The compliance evidence below remains readable, but lifecycle actions stay disabled.\n\n$error',
+              onPrimary: () => ref.invalidate(
+                workflowAuthoritativeRecordProvider(workflowScope),
               ),
-          error:
-              (error, _) => _detailBody(
-                context,
-                ref,
-                record: record,
-                workflowId: workflowId,
-                actor: actor,
-                busy: commandState.isLoading,
-                actionOverride: BafStatePanel.error(
-                  title: 'Actions temporarily unavailable',
-                  message:
-                      'Current workflow state could not be verified. The compliance evidence below remains readable, but lifecycle actions stay disabled.\n\n$error',
-                  onPrimary:
-                      () => ref.invalidate(
-                        workflowAuthoritativeRecordProvider(workflowScope),
-                      ),
-                ),
-              ),
+            ),
+          ),
           data: (workflow) {
             final snapshotVersion = workflow?.version;
-            final receiptVersion =
-                _receiptWorkflowId == workflowId
-                    ? _receiptAggregateVersion
-                    : null;
-            final version =
-                snapshotVersion == null
-                    ? receiptVersion
-                    : receiptVersion == null ||
-                        snapshotVersion >= receiptVersion
-                    ? snapshotVersion
-                    : receiptVersion;
+            final receiptVersion = _receiptWorkflowId == workflowId
+                ? _receiptAggregateVersion
+                : null;
+            final version = snapshotVersion == null
+                ? receiptVersion
+                : receiptVersion == null || snapshotVersion >= receiptVersion
+                ? snapshotVersion
+                : receiptVersion;
             final workflowFinal =
                 workflow?.statusKey == 'completed' ||
                 workflow?.statusKey == 'cancelled';
@@ -280,10 +274,9 @@ class _ComplianceDetailScreenState
       children: [
         BafScreenIntro(
           title: record.title,
-          subtitle:
-              record.description.trim().isEmpty
-                  ? 'No additional description was recorded.'
-                  : record.description,
+          subtitle: record.description.trim().isEmpty
+              ? 'No additional description was recorded.'
+              : record.description,
           icon: Icons.assignment_turned_in_outlined,
           accent: BafColors.directives,
           trailing: StatusBadge(
@@ -298,19 +291,15 @@ class _ComplianceDetailScreenState
         ),
         const SizedBox(height: BafSpacing.sm),
         BafRecordSurface(child: Column(children: _contextRows(record))),
-        const SizedBox(height: BafSpacing.md),
-        Text(
-          complianceNextStepLabel(record),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
         if (record.statusKey == 'superseded' &&
             record.supersededById != null) ...[
           const SizedBox(height: BafSpacing.md),
           OutlinedButton.icon(
             icon: const Icon(Icons.open_in_new_rounded),
             label: const Text('Open agreed revised request'),
-            onPressed:
-                _openingRevision ? null : () => _openRevisedRequest(record),
+            onPressed: _openingRevision
+                ? null
+                : () => _openRevisedRequest(record),
           ),
         ],
         if (record.counterRevisedDescription != null) ...[
@@ -379,6 +368,26 @@ class _ComplianceDetailScreenState
             busy: busy,
             actor: actor,
           ),
+        const SizedBox(height: BafSpacing.xl),
+        const BafSectionLabel(
+          title: 'Workflow route',
+          subtitle: 'Completed evidence, current owner and remaining step',
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        BafRecordSurface(
+          accent: _statusColor(record.statusKey),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                complianceNextStepLabel(record),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: BafSpacing.md),
+              ComplianceProgressRoute(record: record),
+            ],
+          ),
+        ),
         const SizedBox(height: BafSpacing.xl),
       ],
     );
@@ -466,13 +475,12 @@ class _ComplianceDetailScreenState
     }
   }
 
-  String _businessLabel(String value) =>
-      value
-          .replaceAllMapped(
-            RegExp(r'([a-z])([A-Z])'),
-            (match) => '${match.group(1)} ${match.group(2)}',
-          )
-          .toLowerCase();
+  String _businessLabel(String value) => value
+      .replaceAllMapped(
+        RegExp(r'([a-z])([A-Z])'),
+        (match) => '${match.group(1)} ${match.group(2)}',
+      )
+      .toLowerCase();
 
   List<Widget> _actions(
     BuildContext context,
@@ -489,15 +497,8 @@ class _ComplianceDetailScreenState
       widgets.add(widget);
     }
 
-    final mayWorkTarget = actor.canAcknowledgeOrWorkMaintenanceLane(
-      record.targetLaneKey,
-    );
-    final mayWorkOrigin =
-        record.originLaneKey == null
-            ? actor.isAdmin || actor.isSI
-            : (record.raisedUnderCoordination &&
-                    actor.canCoordinateMaintenanceCompliance) ||
-                actor.canAcknowledgeOrWorkMaintenanceLane(record.originLaneKey);
+    final mayWorkTarget = canActAsComplianceTarget(record, actor);
+    final mayWorkOrigin = canActAsComplianceOrigin(record, actor);
     final mayMarkCondition = actor.canMarkMaintenanceWorkflowConditionDue;
     final openRequest =
         record.statusKey == 'raised' || record.statusKey == 'acknowledged';
@@ -539,14 +540,13 @@ class _ComplianceDetailScreenState
           enabled: mayWorkTarget,
           label: 'Acknowledge',
           icon: Icons.mark_email_read_outlined,
-          onPressed:
-              () => _send(
-                ref,
-                workflowId,
-                expectedVersion,
-                WorkflowCommandType.acknowledgeCompliance,
-                actorUid: actor.uid,
-              ),
+          onPressed: () => _send(
+            ref,
+            workflowId,
+            expectedVersion,
+            WorkflowCommandType.acknowledgeCompliance,
+            actorUid: actor.uid,
+          ),
         ),
       );
     }
@@ -582,25 +582,24 @@ class _ComplianceDetailScreenState
     if (openRequest && !pendingRevision && record.counterDepth == 0) {
       add(
         OutlinedButton.icon(
-          onPressed:
-              busy || !mayWorkTarget
-                  ? null
-                  : () async {
-                    final revised = await _askText(
-                      context,
-                      title: 'Propose one revised condition',
-                      label: 'Complete revised condition',
-                    );
-                    if (revised == null) return;
-                    await _send(
-                      ref,
-                      workflowId,
-                      expectedVersion,
-                      WorkflowCommandType.proposeCounterCondition,
-                      actorUid: actor.uid,
-                      extra: <String, Object?>{'revisedDescription': revised},
-                    );
-                  },
+          onPressed: busy || !mayWorkTarget
+              ? null
+              : () async {
+                  final revised = await _askText(
+                    context,
+                    title: 'Propose one revised condition',
+                    label: 'Complete revised condition',
+                  );
+                  if (revised == null) return;
+                  await _send(
+                    ref,
+                    workflowId,
+                    expectedVersion,
+                    WorkflowCommandType.proposeCounterCondition,
+                    actorUid: actor.uid,
+                    extra: <String, Object?>{'revisedDescription': revised},
+                  );
+                },
           icon: const Icon(Icons.swap_horiz),
           label: const Text('Propose one revised condition'),
         ),
@@ -610,56 +609,55 @@ class _ComplianceDetailScreenState
     if (pendingRevision) {
       add(
         FilledButton.icon(
-          onPressed:
-              busy || !mayWorkOrigin
-                  ? null
-                  : () async {
-                    final note = await _askText(
-                      context,
-                      title: 'Accept revised condition',
-                      label: 'Decision note (optional)',
-                      required: false,
-                    );
-                    if (note == null) return;
-                    await _send(
-                      ref,
-                      workflowId,
-                      expectedVersion,
-                      WorkflowCommandType.decideCounterCondition,
-                      actorUid: actor.uid,
-                      extra: <String, Object?>{
-                        'accepted': true,
-                        'note': note,
-                        'successorComplianceId':
-                            WorkflowCommandFactory.uniqueId('compliance'),
-                      },
-                    );
-                  },
+          onPressed: busy || !mayWorkOrigin
+              ? null
+              : () async {
+                  final note = await _askText(
+                    context,
+                    title: 'Accept revised condition',
+                    label: 'Decision note (optional)',
+                    required: false,
+                  );
+                  if (note == null) return;
+                  await _send(
+                    ref,
+                    workflowId,
+                    expectedVersion,
+                    WorkflowCommandType.decideCounterCondition,
+                    actorUid: actor.uid,
+                    extra: <String, Object?>{
+                      'accepted': true,
+                      'note': note,
+                      'successorComplianceId': WorkflowCommandFactory.uniqueId(
+                        'compliance',
+                      ),
+                    },
+                  );
+                },
           icon: const Icon(Icons.check_circle_outline),
           label: const Text('Accept revised condition'),
         ),
       );
       add(
         OutlinedButton.icon(
-          onPressed:
-              busy || !mayWorkOrigin
-                  ? null
-                  : () async {
-                    final note = await _askText(
-                      context,
-                      title: 'Reject and escalate',
-                      label: 'Reason for rejection',
-                    );
-                    if (note == null) return;
-                    await _send(
-                      ref,
-                      workflowId,
-                      expectedVersion,
-                      WorkflowCommandType.decideCounterCondition,
-                      actorUid: actor.uid,
-                      extra: <String, Object?>{'accepted': false, 'note': note},
-                    );
-                  },
+          onPressed: busy || !mayWorkOrigin
+              ? null
+              : () async {
+                  final note = await _askText(
+                    context,
+                    title: 'Reject and escalate',
+                    label: 'Reason for rejection',
+                  );
+                  if (note == null) return;
+                  await _send(
+                    ref,
+                    workflowId,
+                    expectedVersion,
+                    WorkflowCommandType.decideCounterCondition,
+                    actorUid: actor.uid,
+                    extra: <String, Object?>{'accepted': false, 'note': note},
+                  );
+                },
           icon: const Icon(Icons.escalator_warning_outlined),
           label: const Text('Reject and escalate'),
         ),
@@ -671,10 +669,9 @@ class _ComplianceDetailScreenState
         WorkflowActionGuard(
           busy: busy,
           enabled: mayWorkOrigin,
-          label:
-              record.targetLaneKey == 'oprn'
-                  ? 'Accept Operations completion'
-                  : 'Confirm closed',
+          label: record.targetLaneKey == 'oprn'
+              ? 'Accept Operations completion'
+              : 'Confirm closed',
           icon: Icons.verified_outlined,
           onPressed: () async {
             final note = await _askText(
@@ -697,25 +694,24 @@ class _ComplianceDetailScreenState
       );
       add(
         OutlinedButton.icon(
-          onPressed:
-              busy || !mayWorkOrigin
-                  ? null
-                  : () async {
-                    final reason = await _askText(
-                      context,
-                      title: 'Return for correction',
-                      label: 'What remains incomplete?',
-                    );
-                    if (reason == null) return;
-                    await _send(
-                      ref,
-                      workflowId,
-                      expectedVersion,
-                      WorkflowCommandType.returnComplianceForCorrection,
-                      actorUid: actor.uid,
-                      extra: <String, Object?>{'reason': reason},
-                    );
-                  },
+          onPressed: busy || !mayWorkOrigin
+              ? null
+              : () async {
+                  final reason = await _askText(
+                    context,
+                    title: 'Return for correction',
+                    label: 'What remains incomplete?',
+                  );
+                  if (reason == null) return;
+                  await _send(
+                    ref,
+                    workflowId,
+                    expectedVersion,
+                    WorkflowCommandType.returnComplianceForCorrection,
+                    actorUid: actor.uid,
+                    extra: <String, Object?>{'reason': reason},
+                  );
+                },
           icon: const Icon(Icons.replay_outlined),
           label: Text(
             record.targetLaneKey == 'oprn'
@@ -759,8 +755,8 @@ class _ComplianceDetailScreenState
         _receiptWorkflowId = workflowId;
         _receiptAggregateVersion =
             current == null || receipt.aggregateVersion > current
-                ? receipt.aggregateVersion
-                : current;
+            ? receipt.aggregateVersion
+            : current;
       });
     } catch (error) {
       if (!mounted) return;
@@ -810,13 +806,12 @@ class _ComplianceDetailScreenState
   }) {
     return showDialog<String>(
       context: context,
-      builder:
-          (_) => _ComplianceTextPromptDialog(
-            title: title,
-            label: label,
-            initialValue: initialValue,
-            isRequired: required,
-          ),
+      builder: (_) => _ComplianceTextPromptDialog(
+        title: title,
+        label: label,
+        initialValue: initialValue,
+        isRequired: required,
+      ),
     );
   }
 }
@@ -837,10 +832,9 @@ class _ComplianceInfoRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
       decoration: BoxDecoration(
-        border:
-            last
-                ? null
-                : const Border(bottom: BorderSide(color: BafColors.border)),
+        border: last
+            ? null
+            : const Border(bottom: BorderSide(color: BafColors.border)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

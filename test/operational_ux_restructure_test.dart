@@ -11,6 +11,7 @@ import 'package:crm3_baf_ops/features/maintenance/presentation/ticket_screen.dar
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/presentation/screens/workflow_queue_view.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/templates_screen.dart';
@@ -45,24 +46,21 @@ void main() {
       'lib/features/reports/presentation/fleet_status_screen.dart',
       'lib/features/reports/presentation/fleet_status_insight_widgets.dart',
     ].map((path) => File(path).readAsStringSync()).join('\n');
-    final operationalEvents =
-        File(
-          'lib/features/operational_events/presentation/operational_events_screen.dart',
-        ).readAsStringSync();
-    final operationalControl =
-        File(
-          'lib/features/operational_events/presentation/operational_control_screen.dart',
-        ).readAsStringSync();
-    final work =
-        File(
-          'lib/features/planned_maintenance/presentation/templates_screen.dart',
-        ).readAsStringSync();
-    final theme =
-        File('lib/core/theme/baf_design_system.dart').readAsStringSync();
-    final qualityProvider =
-        File(
-          'lib/features/quality/providers/quality_provider.dart',
-        ).readAsStringSync();
+    final operationalEvents = File(
+      'lib/features/operational_events/presentation/operational_events_screen.dart',
+    ).readAsStringSync();
+    final operationalControl = File(
+      'lib/features/operational_events/presentation/operational_control_screen.dart',
+    ).readAsStringSync();
+    final work = File(
+      'lib/features/planned_maintenance/presentation/templates_screen.dart',
+    ).readAsStringSync();
+    final theme = File(
+      'lib/core/theme/baf_design_system.dart',
+    ).readAsStringSync();
+    final qualityProvider = File(
+      'lib/features/quality/providers/quality_provider.dart',
+    ).readAsStringSync();
 
     expect(home, contains('NavigationRail('));
     expect(home, contains("label: 'Home'"));
@@ -196,8 +194,14 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('Inbox'), findsOneWidget);
     expect(find.text('Equipment'), findsOneWidget);
-    expect(find.text('Queue clear'), findsOneWidget);
-    expect(find.text('No workflow tasks need your attention.'), findsOneWidget);
+    expect(find.text('Nothing requires your action'), findsOneWidget);
+    expect(
+      find.text(
+        '0 assigned lanes - 0 requests to act - '
+        '0 completions to confirm',
+      ),
+      findsOneWidget,
+    );
 
     final destinations = <Finder>[
       find.byKey(const ValueKey('workflow-queue-overview')),
@@ -221,6 +225,21 @@ void main() {
     expect(metricRects.map((rect) => rect.top).toSet().length, 1);
     expect(metricRects.map((rect) => rect.height).toSet().length, 1);
     expect(metricRects.map((rect) => rect.width.round()).toSet().length, 1);
+
+    await tester.tap(
+      find.byKey(const ValueKey('workflow-queue-actions-metric')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Showing Actions required'), findsOneWidget);
+    expect(find.text('No actions awaiting you'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workflow-queue-show-all')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('workflow-queue-show-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing requires your action'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -259,8 +278,9 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('issues-raise-issue'))).dy,
       ),
     );
-    final actionRowY =
-        tester.getCenter(find.byKey(const ValueKey('issues-raise-issue'))).dy;
+    final actionRowY = tester
+        .getCenter(find.byKey(const ValueKey('issues-raise-issue')))
+        .dy;
     expect(
       tester.getCenter(find.byKey(const ValueKey('issues-sync-now'))).dy,
       actionRowY,
@@ -272,6 +292,113 @@ void main() {
     expect(find.text('All clear'), findsOneWidget);
     expect(find.text('Manual sync now'), findsNothing);
     expect(find.byTooltip('Refresh issues'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('populated workflow queue separates actions and confirmations', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final timestamp = DateTime.utc(2026, 9, 7, 8);
+    final lane = JobLaneRecord()
+      ..firestoreId = 'lane-operations'
+      ..workflowFirestoreId = 'workflow-1'
+      ..jobExecutionFirestoreId = 'execution-1'
+      ..laneKey = 'oprn'
+      ..statusKey = 'pending'
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 3
+      ..createdAt = timestamp
+      ..updatedAt = timestamp;
+    final conditionAction = ComplianceRequestRecord()
+      ..firestoreId = 'condition-action'
+      ..title = 'Confirm charge 88001 complete'
+      ..description = 'Release deferred maintenance after the charge'
+      ..originLaneKey = 'elec'
+      ..targetLaneKey = 'mech'
+      ..statusKey = 'raised'
+      ..conditionTypeKey = 'chargeComplete'
+      ..conditionRef = '88001'
+      ..requestPurposeKey = 'deferment'
+      ..raisedByUid = 'ux-electrical'
+      ..raisedByName = 'UX electrical'
+      ..raisedAt = timestamp
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 3
+      ..createdAt = timestamp
+      ..updatedAt = timestamp;
+    final originConfirmation = ComplianceRequestRecord()
+      ..firestoreId = 'origin-confirmation'
+      ..title = 'Accept mechanical completion'
+      ..description = 'Mechanical work has been reported complete'
+      ..originLaneKey = 'oprn'
+      ..targetLaneKey = 'mech'
+      ..statusKey = 'complied'
+      ..raisedByUid = 'ux-operations'
+      ..raisedByName = 'UX operations'
+      ..raisedAt = timestamp
+      ..acknowledgedAt = timestamp.add(const Duration(minutes: 5))
+      ..compliedAt = timestamp.add(const Duration(minutes: 20))
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 4
+      ..createdAt = timestamp
+      ..updatedAt = timestamp;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_actor(AppRole.operations)),
+          ),
+          workflowAllLanesProvider.overrideWith(
+            (ref) => Stream<List<JobLaneRecord>>.value(<JobLaneRecord>[lane]),
+          ),
+          workflowAllComplianceProvider.overrideWith(
+            (ref) => Stream<List<ComplianceRequestRecord>>.value(
+              <ComplianceRequestRecord>[conditionAction, originConfirmation],
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const Scaffold(body: WorkflowQueueView(bottomPadding: 24)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final key in <String>[
+      'workflow-queue-lanes-metric',
+      'workflow-queue-actions-metric',
+      'workflow-queue-confirmations-metric',
+    ]) {
+      expect(
+        find.descendant(
+          of: find.byKey(ValueKey<String>(key)),
+          matching: find.text('1'),
+        ),
+        findsOneWidget,
+      );
+    }
+
+    await tester.tap(
+      find.byKey(const ValueKey('workflow-queue-actions-metric')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm charge 88001 complete'), findsOneWidget);
+    expect(find.text('Accept mechanical completion'), findsNothing);
+    expect(
+      find.text('Waiting for Operations to confirm charge 88001 completion'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('workflow-queue-confirmations-metric')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm charge 88001 complete'), findsNothing);
+    expect(find.text('Accept mechanical completion'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

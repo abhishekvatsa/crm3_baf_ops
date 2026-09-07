@@ -1,7 +1,13 @@
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
-import {JsonMap, RoleKey} from "./types";
+import {
+  Actor,
+  JsonMap,
+  RoleKey,
+  WorkflowCommand,
+  WorkflowCommandReceipt,
+} from "./types";
 import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 import {
   buildInspectionTargetPopulation,
@@ -769,6 +775,158 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
   };
 };
 
+export const deleteUnusedInspectionCampaign: CommandHandler = async ({
+  tx,
+  command,
+  context,
+}) => {
+  exactKeys(command.payload, ["confirmation", "reason"], "payload");
+  const campaignId = documentId(command.aggregateId, "aggregateId");
+  if (command.payload.confirmation !== `DELETE ${campaignId}`) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "The unused-audit deletion confirmation is invalid.",
+      {reasonCode: "inspection-unused-delete-confirmation-invalid"},
+    );
+  }
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
+  const [current, audit] = await Promise.all([
+    tx.get(campaignPath(campaignId)),
+    tx.get(campaignAuditPath(command.commandId)),
+  ]);
+  if (!current.exists || current.data == null) {
+    throw new WorkflowError("not-found", "Inspection campaign was not found.");
+  }
+  if (current.data.version !== command.expectedVersion) {
+    throw new WorkflowError(
+      "aborted",
+      "The inspection campaign changed before deletion.",
+    );
+  }
+  if (audit.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Unused-audit deletion evidence already exists without a matching receipt.",
+      {reasonCode: "inspection-unused-delete-audit-conflict"},
+    );
+  }
+  const population = parseInspectionTargetPopulation(
+    current.data.targetPopulation,
+  );
+  const projectedCounts = inspectionPopulationCounts(population);
+  const storedCounts = current.data.targetDispositionCounts;
+  const countsAreCanonical = storedCounts != null &&
+    typeof storedCounts === "object" &&
+    !Array.isArray(storedCounts) &&
+    stableJson(storedCounts) === stableJson(projectedCounts);
+  const hasEmbeddedEvidence =
+    !["open", "paused"].includes(String(current.data.status)) ||
+    !countsAreCanonical ||
+    current.data.observationCount !== 0 ||
+    current.data.latestObservationAt != null ||
+    !Array.isArray(current.data.distinctTargetKeys) ||
+    current.data.distinctTargetKeys.length !== 0 ||
+    population.some((target) =>
+      target.disposition !== "pending" ||
+      target.lastObservationId != null ||
+      target.lastObservedAt != null
+    );
+  if (hasEmbeddedEvidence) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an audit with no readings, findings, dispositions or linked evidence can be deleted.",
+      {reasonCode: "inspection-campaign-not-unused"},
+    );
+  }
+  const dependencyGroups = await Promise.all([
+    tx.query("inspection_observations", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_issue_links", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_finding_events", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_verifications", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_target_audits", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
+    tx.query("inspection_campaigns", [
+      {field: "baselineCampaignId", op: "==", value: campaignId},
+    ]),
+  ]);
+  if (dependencyGroups.some((rows) => rows.length > 0)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an audit with no readings, findings, dispositions or linked evidence can be deleted.",
+      {reasonCode: "inspection-campaign-not-unused"},
+    );
+  }
+
+  const now = iso(context.serverNow);
+  writeAudit({
+    tx,
+    path: campaignAuditPath(command.commandId),
+    entityId: campaignId,
+    operation: "delete-unused",
+    actorUid: context.actor.uid,
+    actorName: context.actor.name,
+    at: now,
+    reason,
+    before: current.data,
+    after: {},
+  });
+  tx.delete(campaignPath(campaignId));
+  return {
+    resultKey: "inspection-campaign-unused-deleted",
+    aggregateVersion: command.expectedVersion,
+    result: {campaignId, auditId: command.commandId},
+  };
+};
+
+export const verifyUnusedInspectionCampaignDeletionReplay = async (args: {
+  readonly tx: Parameters<CommandHandler>[0]["tx"];
+  readonly command: WorkflowCommand;
+  readonly actor: Actor;
+  readonly receipt: WorkflowCommandReceipt;
+}): Promise<void> => {
+  if (args.command.commandType !== "deleteUnusedInspectionCampaign") return;
+  const [campaign, audit] = await Promise.all([
+    args.tx.get(campaignPath(args.command.aggregateId)),
+    args.tx.get(campaignAuditPath(args.command.commandId)),
+  ]);
+  const data = audit.data;
+  const commandReason = typeof args.command.payload.reason === "string" ?
+    args.command.payload.reason.trim() : null;
+  if (campaign.exists || !audit.exists || data == null ||
+      args.receipt.resultKey !== "inspection-campaign-unused-deleted" ||
+      args.receipt.aggregateVersion !== args.command.expectedVersion ||
+      args.receipt.result.campaignId !== args.command.aggregateId ||
+      args.receipt.result.auditId !== args.command.commandId ||
+      data.schemaVersion !== 1 ||
+      data.auditId !== args.command.commandId ||
+      data.entityId !== args.command.aggregateId ||
+      data.operation !== "delete-unused" ||
+      data.performedByUid !== args.actor.uid ||
+      persistedInstantText(data.performedAt) !== args.receipt.appliedAt ||
+      commandReason == null || commandReason.length === 0 ||
+      data.reason !== commandReason ||
+      typeof data.beforeJson !== "string" || data.beforeJson.length === 0 ||
+      data.afterJson !== stableJson({})) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Unused-audit deletion replay evidence is missing or inconsistent.",
+      {reasonCode: "inspection-unused-delete-replay-invalid"},
+    );
+  }
+};
+
 interface ParsedObservationValue {
   readonly valueType: string;
   readonly numericValue: number | null;
@@ -1160,12 +1318,32 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   const baselineSupersededIds = new Set(baselineRows
     .map((row) => row.data?.supersedesObservationId)
     .filter((item): item is string => typeof item === "string"));
-  const baselineObservation = baselineRows
+  const baselineCandidates = baselineRows
     .filter((row) => row.data != null && !baselineSupersededIds.has(
       String(row.data.observationId ?? ""),
     ))
-    .sort((left, right) => String(right.data?.observedAt ?? "")
-      .localeCompare(String(left.data?.observedAt ?? "")))[0]?.data ?? null;
+    .map((row) => {
+      const data = row.data!;
+      const candidateObservedAt = persistedInstantText(data.observedAt);
+      const candidateObservationId = typeof data.observationId === "string" ?
+        data.observationId.trim() : "";
+      if (candidateObservedAt == null || candidateObservationId.length === 0) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The baseline campaign contains malformed observation chronology.",
+          {reasonCode: "inspection-baseline-observation-chronology-malformed"},
+        );
+      }
+      return {
+        data,
+        observedAt: candidateObservedAt,
+        observationId: candidateObservationId,
+      };
+    })
+    .sort((left, right) =>
+      right.observedAt.localeCompare(left.observedAt) ||
+      right.observationId.localeCompare(left.observationId));
+  const baselineObservation = baselineCandidates[0]?.data ?? null;
   const comparisonOutcome = baselineObservation == null ? null :
     compareInspectionObservation(value, baselineObservation, definition);
   const activeFindings = findingRows.filter((row) => row.data != null &&
@@ -1231,17 +1409,25 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     recordedAt: now,
   };
   tx.create(observationPath(observationId), observation);
-  const observedPopulation = markInspectionTargetObserved({
-    targets: targetPopulation,
-    targetKey,
-    observationId,
-    observedAt,
-    actorUid: context.actor.uid,
-    actorName: context.actor.name,
-  });
+  const currentObservedAt = governedTarget.lastObservedAt;
+  const currentObservationId = governedTarget.lastObservationId;
+  const advancesCurrentEvidence = superseded?.data != null ||
+    currentObservedAt == null ||
+    observedAt > currentObservedAt ||
+    (observedAt === currentObservedAt &&
+      observationId.localeCompare(currentObservationId ?? "") > 0);
+  const observedPopulation = advancesCurrentEvidence ?
+    markInspectionTargetObserved({
+      targets: targetPopulation,
+      targetKey,
+      observationId,
+      observedAt,
+      actorUid: context.actor.uid,
+      actorName: context.actor.name,
+    }) : targetPopulation;
   let findingId: string | null = null;
   const activeFinding = activeFindings[0] ?? null;
-  if (outOfRange || activeFinding != null) {
+  if (advancesCurrentEvidence && (outOfRange || activeFinding != null)) {
     findingId = typeof activeFinding?.data?.findingId === "string" ?
       activeFinding.data.findingId : `inspection-finding-${observationId}`;
     const previous = activeFinding?.data ?? null;
@@ -1320,7 +1506,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       observationId,
       targetKey,
       outOfRange,
-      issueRecommended: outOfRange,
+      currentEvidenceAdvanced: advancesCurrentEvidence,
+      issueRecommended: outOfRange && advancesCurrentEvidence,
       findingId,
       comparisonOutcome,
       observationCount: Number(campaign.data.observationCount ?? 0) + 1,

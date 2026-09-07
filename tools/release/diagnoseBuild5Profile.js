@@ -196,7 +196,9 @@ async function main() {
       localIdSha256: sha256(localId),
       emailVerified: authUser.emailVerified === true,
       disabled: authUser.disabled === true,
-      googleProviderLinked: providers.includes("google.com"),
+      googleProviderLinked: providers.some(
+        (providerId) => providerId === "google.com",
+      ),
     },
     ownUserDocument: {
       documentNameSha256: sha256(document.name),

@@ -23,6 +23,7 @@ import '../providers/inspection_provider.dart';
 
 part 'inspection_programmes_editors.dart';
 part 'inspection_programmes_audit_board.dart';
+part 'inspection_programmes_dialogs.dart';
 part 'inspection_programmes_target_picker.dart';
 
 class InspectionProgrammesScreen extends ConsumerWidget {
@@ -690,6 +691,23 @@ class _CampaignDetail extends ConsumerWidget {
     final findings = findingEvidence?.records ?? const <InspectionFinding>[];
     final loadedObservations = observationEvidence?.records;
     final loadedFindings = findingEvidence?.records;
+    final canDeleteUnusedCampaign =
+        actor.isAdmin &&
+        campaign.status != InspectionCampaignStatus.closed &&
+        campaignServerVerified &&
+        observationEvidence?.isServerVerified == true &&
+        findingEvidence?.isServerVerified == true &&
+        loadedObservations?.isEmpty == true &&
+        loadedFindings?.isEmpty == true &&
+        campaign.observationCount == 0 &&
+        campaign.distinctTargetKeys.isEmpty &&
+        campaign.latestObservationAt == null &&
+        campaign.targets.every(
+          (target) =>
+              target.disposition == InspectionTargetDisposition.pending &&
+              target.lastObservationId == null &&
+              target.lastObservedAt == null,
+        );
     final hasReportEvidence =
         loadedObservations != null &&
         hasInspectionCampaignReportEvidence(
@@ -781,16 +799,18 @@ class _CampaignDetail extends ConsumerWidget {
               campaign.status != InspectionCampaignStatus.closed)
             PopupMenuButton<String>(
               tooltip: 'Campaign actions',
-              onSelected: (action) {
+              onSelected: (action) async {
                 if (action == 'addTargets') {
-                  _addCampaignTargets(
+                  await _addCampaignTargets(
                     context,
                     ref,
                     campaign,
                     availableTargetOptions,
                   );
+                } else if (action == 'deleteUnused') {
+                  await _deleteUnusedCampaign(context, ref, campaign);
                 } else {
-                  _transitionCampaign(context, ref, campaign, action);
+                  await _transitionCampaign(context, ref, campaign, action);
                 }
               },
               itemBuilder: (_) => [
@@ -825,6 +845,24 @@ class _CampaignDetail extends ConsumerWidget {
                     title: Text('Close campaign'),
                   ),
                 ),
+                if (actor.isAdmin)
+                  PopupMenuItem(
+                    key: const ValueKey(
+                      'delete-unused-inspection-campaign-action',
+                    ),
+                    value: 'deleteUnused',
+                    enabled: canDeleteUnusedCampaign,
+                    child: ListTile(
+                      enabled: canDeleteUnusedCampaign,
+                      leading: const Icon(Icons.delete_outline_rounded),
+                      title: const Text('Delete unused audit'),
+                      subtitle: Text(
+                        canDeleteUnusedCampaign
+                            ? 'No readings, findings or dispositions exist.'
+                            : 'Protected after its first reading, finding or disposition.',
+                      ),
+                    ),
+                  ),
               ],
             ),
         ],
@@ -1947,6 +1985,44 @@ Future<void> _transitionCampaign(
   );
 }
 
+Future<void> _deleteUnusedCampaign(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+) async {
+  final reason = await showDialog<String>(
+    context: context,
+    builder: (_) => const _InspectionReasonDialog(
+      title: 'Delete this unused audit?',
+      message:
+          'This permanently removes the campaign only if the plant system '
+          'confirms that no reading, finding, disposition or linked evidence '
+          'has ever been recorded. A protected deletion entry remains in the '
+          'system audit log.',
+      actionLabel: 'Delete audit',
+      destructive: true,
+    ),
+  );
+  if (reason == null || !context.mounted) return;
+  final receipt = await _runInspectionCommand(
+    context,
+    ref,
+    WorkflowCommand(
+      commandId: 'deleteUnusedInspectionCampaign_${const Uuid().v4()}',
+      type: WorkflowCommandType.deleteUnusedInspectionCampaign,
+      aggregateId: campaign.id,
+      expectedVersion: campaign.version,
+      payload: {'confirmation': 'DELETE ${campaign.id}', 'reason': reason},
+    ),
+    'Unused inspection audit deleted.',
+  );
+  if (receipt == null || !context.mounted) return;
+  ref.invalidate(inspectionCampaignsProvider);
+  ref.invalidate(inspectionObservationsProvider(campaign.id));
+  ref.invalidate(inspectionFindingsProvider(campaign.id));
+  await Navigator.of(context).maybePop();
+}
+
 Future<void> _setTargetDisposition(
   BuildContext context,
   WidgetRef ref,
@@ -2234,111 +2310,6 @@ Future<void> _linkIssue(
       },
     ),
     'Maintenance issue linked.',
-  );
-}
-
-class _LinkInspectionIssueDialog extends StatefulWidget {
-  const _LinkInspectionIssueDialog();
-
-  @override
-  State<_LinkInspectionIssueDialog> createState() =>
-      _LinkInspectionIssueDialogState();
-}
-
-class _LinkInspectionIssueDialogState
-    extends State<_LinkInspectionIssueDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Link maintenance issue'),
-    content: TextField(
-      controller: _controller,
-      autofocus: true,
-      decoration: const InputDecoration(
-        labelText: 'Maintenance issue ID',
-        helperText: 'The issue must identify the same asset.',
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton.icon(
-        onPressed: () => Navigator.pop(context, _controller.text.trim()),
-        icon: const Icon(Icons.link_rounded),
-        label: const Text('Link'),
-      ),
-    ],
-  );
-}
-
-class _InspectionReasonDialog extends StatefulWidget {
-  const _InspectionReasonDialog({
-    required this.title,
-    required this.message,
-    this.minimumLength = 1,
-  });
-
-  final String title;
-  final String message;
-  final int minimumLength;
-
-  @override
-  State<_InspectionReasonDialog> createState() =>
-      _InspectionReasonDialogState();
-}
-
-class _InspectionReasonDialogState extends State<_InspectionReasonDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.message),
-        const SizedBox(height: BafSpacing.md),
-        TextField(
-          controller: _controller,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            labelText: 'Reason',
-            alignLabelWithHint: true,
-          ),
-          onChanged: (_) => setState(() {}),
-        ),
-      ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _controller.text.trim().length >= widget.minimumLength
-            ? () => Navigator.pop(context, _controller.text.trim())
-            : null,
-        child: const Text('Record'),
-      ),
-    ],
   );
 }
 

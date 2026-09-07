@@ -104,6 +104,7 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
         assetInstanceId: 'base-101',
         assetClassId: 'base-class',
         assetNumber: 101,
+        name: 'Base 101',
         status: 'active',
         version: 1,
       }),
@@ -113,6 +114,91 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
   afterAll(async () => {
     await db.terminate();
     await app.delete();
+  });
+
+  test('admin deletes a never-used inspection campaign with durable replay evidence', async () => {
+    await db.doc('asset_hierarchy_nodes/base-clamp').set({
+      schemaVersion: 1,
+      nodeId: 'base-clamp',
+      assetClassId: 'base-class',
+      nodeType: 'component',
+      name: 'Hydraulic clamp',
+      version: 1,
+      status: 'active',
+    });
+    await service.execute({
+      commandId: 'definition-unused-audit',
+      commandType: 'upsertInspectionDefinition',
+      aggregateId: 'inspection-definition-base-clamp',
+      expectedVersion: 0,
+      payload: {
+        definition: {
+          schemaVersion: 1,
+          code: 'BASE_CLAMP_CHECK',
+          title: 'Base clamp check',
+          description: 'Check the governed hydraulic clamp.',
+          assetTypeKeys: ['base'],
+          assetClassIds: ['base-class'],
+          componentNodeIds: ['base-clamp'],
+          valueType: 'boolean',
+          unit: null,
+          choiceValues: [],
+          minimumValue: null,
+          maximumValue: null,
+          preconditions: [],
+          requiresChargeNo: false,
+        },
+        reason: 'Create an emulator-only inspection definition.',
+      },
+    }, {actor, serverNow: new Date('2026-09-07T04:00:00.000Z')});
+    await service.execute({
+      commandId: 'create-unused-audit',
+      commandType: 'createInspectionCampaign',
+      aggregateId: 'unused-inspection-campaign',
+      expectedVersion: 0,
+      payload: {
+        definitionId: 'inspection-definition-base-clamp',
+        definitionVersion: 1,
+        purpose: 'Verify unused campaign deletion against Firestore.',
+        assetTypeKey: 'base',
+        assetClassId: 'base-class',
+        targetAssetNumbers: [101],
+        expectedPopulation: 1,
+        physicalPositionLabels: ['Clamp'],
+        baselineCampaignId: null,
+        observerRoleKeys: ['seniorMechanical'],
+        reason: 'Open an emulator-only inspection campaign.',
+      },
+    }, {actor, serverNow: new Date('2026-09-07T04:01:00.000Z')});
+    const command = {
+      commandId: 'delete-unused-audit',
+      commandType: 'deleteUnusedInspectionCampaign',
+      aggregateId: 'unused-inspection-campaign',
+      expectedVersion: 1,
+      payload: {
+        confirmation: 'DELETE unused-inspection-campaign',
+        reason: 'Remove the never-used emulator audit.',
+      },
+    };
+
+    const receipt = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-09-07T04:02:00.000Z'),
+    });
+
+    expect(receipt.resultKey).toBe('inspection-campaign-unused-deleted');
+    expect((await db.doc('inspection_campaigns/unused-inspection-campaign').get()).exists)
+      .toBe(false);
+    expect((await db.doc('inspection_campaign_audits/delete-unused-audit').get()).data())
+      .toMatchObject({
+        entityId: 'unused-inspection-campaign',
+        operation: 'delete-unused',
+        performedByUid: actor.uid,
+      });
+    await expect(service.execute(command, {
+      actor,
+      serverNow: new Date('2026-09-07T04:03:00.000Z'),
+    })).resolves.toEqual(receipt);
   });
 
   test('issue deferment survives real timestamps, correction and exact replay', async () => {

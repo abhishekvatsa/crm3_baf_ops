@@ -8,6 +8,9 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
+import '../../maintenance_workflow/presentation/widgets/workflow_progress_route.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../reports/domain/maintenance_ticket_dossier.dart';
 import '../../reports/presentation/report_provenance_builder.dart';
@@ -15,6 +18,8 @@ import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/maintenance_model.dart';
 import '../domain/issue_lane_plan.dart';
 import 'maintenance_ticket_correction_history.dart';
+
+part 'maintenance_ticket_workflow_evidence.dart';
 
 class MaintenanceTicketDetailScreen extends ConsumerWidget {
   const MaintenanceTicketDetailScreen({
@@ -30,12 +35,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actor = ref.watch(currentAppUserProvider).asData?.value;
     final cleanTicketId = ticket.firestoreId?.trim();
-    final correctionAudit =
-        cleanTicketId == null || cleanTicketId.isEmpty
-            ? const AsyncData<List<AuditEvent>>(<AuditEvent>[])
-            : ref.watch(
-              maintenanceTicketCorrectionAuditProvider(cleanTicketId),
-            );
+    final correctionAudit = cleanTicketId == null || cleanTicketId.isEmpty
+        ? const AsyncData<List<AuditEvent>>(<AuditEvent>[])
+        : ref.watch(maintenanceTicketCorrectionAuditProvider(cleanTicketId));
     final laneRead = ticket.issueLanePlanReadResult;
     final lanePlan = laneRead.value;
     final actionsRead = ticket.actionsReadResult;
@@ -44,6 +46,10 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
     final innerCover = hierarchy?.innerCoverAssociation;
     final administrativeClosure = ticket.administrativeClosure;
     final closedAt = ticket.endDate;
+    final workflowId = ticket.workflowAggregateId?.trim();
+    final workflowCompliance = workflowId == null || workflowId.isEmpty
+        ? null
+        : ref.watch(workflowComplianceProvider(workflowId));
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -58,21 +64,19 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
           if (actor?.canViewReports == true)
             IconButton(
               key: const ValueKey('ticket-detail-pdf'),
-              tooltip:
-                  correctionAudit.isLoading
-                      ? 'Verifying correction evidence'
-                      : correctionAudit.hasError
-                      ? 'Correction evidence is unavailable'
-                      : 'Create complete PDF dossier',
-              onPressed:
-                  correctionAudit.asData == null
-                      ? null
-                      : () => _openPdfDossier(
-                        context,
-                        ref,
-                        actor!.name,
-                        correctionAudit.requireValue,
-                      ),
+              tooltip: correctionAudit.isLoading
+                  ? 'Verifying correction evidence'
+                  : correctionAudit.hasError
+                  ? 'Correction evidence is unavailable'
+                  : 'Create complete PDF dossier',
+              onPressed: correctionAudit.asData == null
+                  ? null
+                  : () => _openPdfDossier(
+                      context,
+                      ref,
+                      actor!.name,
+                      correctionAudit.requireValue,
+                    ),
               icon: const Icon(Icons.picture_as_pdf_outlined),
             ),
           if (onCorrect != null)
@@ -125,10 +129,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
               if (innerCover != null)
                 _DetailValue(
                   label: 'Inner Cover at event',
-                  value:
-                      innerCover.innerCoverSerialNumber == null
-                          ? 'No Inner Cover was linked'
-                          : '${innerCover.innerCoverSerialNumber} on Base ${innerCover.baseAssetNumber}',
+                  value: innerCover.innerCoverSerialNumber == null
+                      ? 'No Inner Cover was linked'
+                      : '${innerCover.innerCoverSerialNumber} on Base ${innerCover.baseAssetNumber}',
                 ),
             ],
           ),
@@ -240,25 +243,22 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
               !historyRead.isValid ||
               historyRead.entries.isNotEmpty)
             _DetailSection(
-              title:
-                  ticket.isClosed
-                      ? 'Closure evidence'
-                      : 'Previous closure evidence',
-              icon:
-                  administrativeClosure == null
-                      ? Icons.task_alt_rounded
-                      : Icons.inventory_2_outlined,
+              title: ticket.isClosed
+                  ? 'Closure evidence'
+                  : 'Previous closure evidence',
+              icon: administrativeClosure == null
+                  ? Icons.task_alt_rounded
+                  : Icons.inventory_2_outlined,
               children: [
                 if (ticket.isClosed)
                   _DetailValue(
                     label: 'Outcome',
-                    value:
-                        administrativeClosure == null
-                            ? 'Technically resolved'
-                            : administrativeClosure.disposition.name ==
-                                'stillRelevant'
-                            ? 'Closed without resolution; still relevant'
-                            : 'Closed without resolution; relevance ended',
+                    value: administrativeClosure == null
+                        ? 'Technically resolved'
+                        : administrativeClosure.disposition.name ==
+                              'stillRelevant'
+                        ? 'Closed without resolution; still relevant'
+                        : 'Closed without resolution; relevance ended',
                   ),
                 if (ticket.isClosed && administrativeClosure != null)
                   _DetailValue(
@@ -309,6 +309,11 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                     label: 'Coordination workflow',
                     value:
                         '${ticket.workflowStateLabel}${_hasText(ticket.workflowCorrectionReason) ? ' · ${ticket.workflowCorrectionReason}' : ''}',
+                  ),
+                if (ticket.isWorkflowLinked && workflowCompliance != null)
+                  _LinkedWorkflowEvidence(
+                    ticket: ticket,
+                    compliance: workflowCompliance,
                   ),
                 if (ticket.operationalEventIssueLinkIds.isNotEmpty)
                   _DetailValue(
@@ -421,10 +426,10 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
 
   static String _firstText(String? first, String? second, String fallback) =>
       _hasText(first)
-          ? first!.trim()
-          : _hasText(second)
-          ? second!.trim()
-          : fallback;
+      ? first!.trim()
+      : _hasText(second)
+      ? second!.trim()
+      : fallback;
 
   static String _dateTime(DateTime value) =>
       DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
@@ -509,16 +514,14 @@ class _IssueIdentityHeader extends StatelessWidget {
             children: [
               StatusBadge(
                 label: ticket.lifecycleSummaryLabel,
-                color:
-                    ticket.isClosed
-                        ? ticket.wasTechnicallyResolved
-                            ? BafColors.success
-                            : BafColors.warning
-                        : BafColors.maintenance,
-                icon:
-                    ticket.isClosed
-                        ? Icons.task_alt_rounded
-                        : Icons.timelapse_rounded,
+                color: ticket.isClosed
+                    ? ticket.wasTechnicallyResolved
+                          ? BafColors.success
+                          : BafColors.warning
+                    : BafColors.maintenance,
+                icon: ticket.isClosed
+                    ? Icons.task_alt_rounded
+                    : Icons.timelapse_rounded,
               ),
               StatusBadge(
                 label: _routeLabel(ticket.routedTo),
@@ -534,10 +537,9 @@ class _IssueIdentityHeader extends StatelessWidget {
               StatusBadge(
                 label: ticket.isSynced ? 'Server verified' : 'Sync pending',
                 color: ticket.isSynced ? BafColors.sync : BafColors.warning,
-                icon:
-                    ticket.isSynced
-                        ? Icons.cloud_done_outlined
-                        : Icons.cloud_off_outlined,
+                icon: ticket.isSynced
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_off_outlined,
               ),
             ],
           ),
@@ -658,24 +660,21 @@ class _LaneProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state =
-        completed
-            ? 'Completed'
-            : acknowledged
-            ? 'Acknowledged'
-            : 'Awaiting acknowledgement';
-    final color =
-        completed
-            ? BafColors.success
-            : acknowledged
-            ? BafColors.warning
-            : BafColors.textSecondary;
-    final evidenceText =
-        !completed
-            ? null
-            : completionEvidence == null
-            ? 'Exact lane completion time was not retained for this record'
-            : '${MaintenanceTicketDetailScreen._dateTime(completionEvidence!.completedAt)} · ${completionEvidence!.completedByName}';
+    final state = completed
+        ? 'Completed'
+        : acknowledged
+        ? 'Acknowledged'
+        : 'Awaiting acknowledgement';
+    final color = completed
+        ? BafColors.success
+        : acknowledged
+        ? BafColors.warning
+        : BafColors.textSecondary;
+    final evidenceText = !completed
+        ? null
+        : completionEvidence == null
+        ? 'Exact lane completion time was not retained for this record'
+        : '${MaintenanceTicketDetailScreen._dateTime(completionEvidence!.completedAt)} · ${completionEvidence!.completedByName}';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -891,10 +890,9 @@ class _ResolutionHistoryView extends StatelessWidget {
               ),
             if (entry.reopenedAt != null)
               _DetailValue(
-                label:
-                    entry.reopenedByWorkflow
-                        ? 'Reopened for correction'
-                        : 'Reopened',
+                label: entry.reopenedByWorkflow
+                    ? 'Reopened for correction'
+                    : 'Reopened',
                 value: [
                   DateFormat(
                     'dd MMM yyyy, HH:mm',
@@ -1066,12 +1064,13 @@ bool _sameInstant(DateTime first, DateTime second) =>
     first.toUtc() == second.toUtc();
 
 List<String> _actionLocatorLabels(ComponentAction action) {
-  final hierarchy = (action.assetHierarchyRef?.hierarchyPath ??
-          action.hierarchyPath ??
-          const <String>[])
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toList(growable: false);
+  final hierarchy =
+      (action.assetHierarchyRef?.hierarchyPath ??
+              action.hierarchyPath ??
+              const <String>[])
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
   return <String>[
     'Asset: ${action.asset.trim()}',
     if (hierarchy.isNotEmpty) 'Hierarchy: ${hierarchy.join(' / ')}',

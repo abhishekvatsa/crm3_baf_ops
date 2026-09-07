@@ -2,6 +2,8 @@ const LEGACY_PLANT_LOCAL_ISO =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
 
 const LEGACY_PLANT_UTC_OFFSET = "+05:30";
+const FIRESTORE_MIN_SECONDS = -62_135_596_800;
+const FIRESTORE_MAX_SECONDS = 253_402_300_799;
 
 /**
  * Returns the absolute time represented by a persisted app instant.
@@ -26,6 +28,8 @@ export function persistedInstantMillis(value: unknown): number {
     toDate?: () => Date;
     seconds?: unknown;
     nanoseconds?: unknown;
+    _seconds?: unknown;
+    _nanoseconds?: unknown;
   };
   if (typeof timestamp.toDate === "function") {
     try {
@@ -34,12 +38,16 @@ export function persistedInstantMillis(value: unknown): number {
       return Number.NaN;
     }
   }
-  if (Number.isSafeInteger(timestamp.seconds) &&
-      Number.isSafeInteger(timestamp.nanoseconds) &&
-      (timestamp.nanoseconds as number) >= 0 &&
-      (timestamp.nanoseconds as number) < 1_000_000_000) {
-    return (timestamp.seconds as number) * 1000 +
-      (timestamp.nanoseconds as number) / 1_000_000;
+  const seconds = timestamp.seconds ?? timestamp._seconds;
+  const nanoseconds = timestamp.nanoseconds ?? timestamp._nanoseconds;
+  if (Number.isSafeInteger(seconds) &&
+      (seconds as number) >= FIRESTORE_MIN_SECONDS &&
+      (seconds as number) <= FIRESTORE_MAX_SECONDS &&
+      Number.isSafeInteger(nanoseconds) &&
+      (nanoseconds as number) >= 0 &&
+      (nanoseconds as number) < 1_000_000_000) {
+    return (seconds as number) * 1000 +
+      (nanoseconds as number) / 1_000_000;
   }
   return Number.NaN;
 }

@@ -90,6 +90,23 @@ const optionalString = (value: unknown, field: string): string | null => {
   return requiredString(value, field);
 };
 
+const requiredPersistedInstant = (value: unknown, field: string): string => {
+  const text = persistedInstantText(value);
+  if (text == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      `Inspection target ${field} is missing or malformed.`,
+      {reasonCode: "inspection-target-population-malformed", field},
+    );
+  }
+  return text;
+};
+
+const optionalPersistedInstant = (
+  value: unknown,
+  field: string,
+): string | null => value == null ? null : requiredPersistedInstant(value, field);
+
 const positiveInteger = (value: unknown, field: string): number => {
   if (!Number.isSafeInteger(value) || (value as number) < 1) {
     throw new WorkflowError(
@@ -394,17 +411,17 @@ export const parseInspectionTargetPopulation = (
       subjectSerialNumber: optionalString(data.subjectSerialNumber, "subjectSerialNumber"),
       linkageId: optionalString(data.linkageId, "linkageId"),
       linkageVersion: data.linkageVersion == null ? null : data.linkageVersion as number,
-      linkedAt: optionalString(data.linkedAt, "linkedAt"),
+      linkedAt: optionalPersistedInstant(data.linkedAt, "linkedAt"),
       componentNodeId: optionalString(data.componentNodeId, "componentNodeId"),
       physicalPosition: optionalString(data.physicalPosition, "physicalPosition"),
       disposition,
       dispositionReason: optionalString(data.dispositionReason, "dispositionReason"),
-      dispositionAt: requiredString(data.dispositionAt, "dispositionAt"),
+      dispositionAt: requiredPersistedInstant(data.dispositionAt, "dispositionAt"),
       dispositionByUid: requiredString(data.dispositionByUid, "dispositionByUid"),
       dispositionByName: requiredString(data.dispositionByName, "dispositionByName"),
       addedLater: data.addedLater,
       lastObservationId: optionalString(data.lastObservationId, "lastObservationId"),
-      lastObservedAt: optionalString(data.lastObservedAt, "lastObservedAt"),
+      lastObservedAt: optionalPersistedInstant(data.lastObservedAt, "lastObservedAt"),
     };
     const contextValues = [
       target.hostAssetClassId,

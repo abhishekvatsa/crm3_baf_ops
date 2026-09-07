@@ -70,11 +70,10 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: workflowAsync.when(
           loading: () => const _PanelLoading(),
-          error:
-              (error, _) => _PanelError(
-                message: 'Could not load maintenance workflow: $error',
-                onRetry: () => _refresh(ref),
-              ),
+          error: (error, _) => _PanelError(
+            message: 'Could not load maintenance workflow: $error',
+            onRetry: () => _refresh(ref),
+          ),
           data: (workflow) {
             if (workflow == null) {
               return _PanelError(
@@ -89,8 +88,8 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
             final moduleInventoryAsync = ref.watch(
               jobModulesProvider(
                 JobModuleQueryKey(
-                  jobExecutionFirestoreId:
-                      workflow.jobExecutionFirestoreId.trim(),
+                  jobExecutionFirestoreId: workflow.jobExecutionFirestoreId
+                      .trim(),
                   limit: 401,
                 ),
               ),
@@ -105,14 +104,13 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                 moduleInventoryAsync.hasValue &&
                 !moduleInventoryAsync.hasError &&
                 moduleInventory.length < 401;
-            final readinessByLaneId =
-                readinessInventoryComplete
-                    ? _buildLaneReadiness(
-                      lanes: lanes,
-                      modules: moduleInventory,
-                      compliances: compliances,
-                    )
-                    : null;
+            final readinessByLaneId = readinessInventoryComplete
+                ? _buildLaneReadiness(
+                    lanes: lanes,
+                    modules: moduleInventory,
+                    compliances: compliances,
+                  )
+                : null;
             final readinessError = _readinessError(
               lanesAsync: lanesAsync,
               complianceAsync: complianceAsync,
@@ -174,19 +172,21 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                     ),
                     IconButton(
                       tooltip: 'Refresh workflow',
-                      onPressed:
-                          commandState.isLoading ? null : () => _refresh(ref),
+                      onPressed: commandState.isLoading
+                          ? null
+                          : () => _refresh(ref),
                       icon: const Icon(Icons.refresh),
                     ),
                     IconButton(
                       tooltip: 'Workflow timeline',
-                      onPressed:
-                          () => _showTimeline(
-                            context,
-                            eventsAsync.value ?? const [],
-                            workflow.jobExecutionFirestoreId,
-                            canViewAuditEvidence: actor.canViewAuditLogs,
-                          ),
+                      onPressed: () => _showTimeline(
+                        context,
+                        eventsAsync.value ?? const [],
+                        workflow.jobExecutionFirestoreId,
+                        compliances: compliances,
+                        modules: moduleInventory,
+                        canViewAuditEvidence: actor.canViewAuditLogs,
+                      ),
                       icon: const Icon(Icons.history),
                     ),
                   ],
@@ -211,15 +211,12 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                               '${request.targetLaneKey.toUpperCase()} · ${request.statusKey}',
                             ),
                             trailing: const Icon(Icons.chevron_right),
-                            onTap:
-                                () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder:
-                                        (_) => ComplianceDetailScreen(
-                                          record: request,
-                                        ),
-                                  ),
-                                ),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ComplianceDetailScreen(record: request),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -233,10 +230,10 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed:
                         !workflowTerminal &&
-                                canManage &&
-                                !commandState.isLoading
-                            ? () => _openClassification(context, workflow)
-                            : null,
+                            canManage &&
+                            !commandState.isLoading
+                        ? () => _openClassification(context, workflow)
+                        : null,
                     icon: const Icon(Icons.account_tree),
                     label: const Text('Classify lanes'),
                   ),
@@ -251,21 +248,19 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                       readinessLoading:
                           !readinessInventoryComplete && readinessError == null,
                       readinessError: readinessError,
-                      onLaneTap:
-                          workflowTerminal || commandState.isLoading
-                              ? null
-                              : (lane) => _openLaneActions(
-                                context,
-                                ref,
-                                workflow,
-                                lane,
-                                canManage: canManage,
-                                readiness:
-                                    lane.firestoreId == null
-                                        ? null
-                                        : readinessByLaneId?[lane.firestoreId!
-                                            .trim()],
-                              ),
+                      onLaneTap: workflowTerminal || commandState.isLoading
+                          ? null
+                          : (lane) => _openLaneActions(
+                              context,
+                              ref,
+                              workflow,
+                              lane,
+                              canManage: canManage,
+                              readiness: lane.firestoreId == null
+                                  ? null
+                                  : readinessByLaneId?[lane.firestoreId!
+                                        .trim()],
+                            ),
                     ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -274,26 +269,23 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                     children: [
                       if (canManage && !workflowTerminal)
                         OutlinedButton.icon(
-                          onPressed:
-                              commandState.isLoading
-                                  ? null
-                                  : () =>
-                                      _addLane(context, ref, workflow, lanes),
+                          onPressed: commandState.isLoading
+                              ? null
+                              : () => _addLane(context, ref, workflow, lanes),
                           icon: const Icon(Icons.add),
                           label: const Text('Add lane'),
                         ),
                       if (originLanes.isNotEmpty && !workflowTerminal)
                         OutlinedButton.icon(
-                          onPressed:
-                              commandState.isLoading
-                                  ? null
-                                  : () => _raiseCompliance(
-                                    context,
-                                    ref,
-                                    workflow,
-                                    originLanes,
-                                    activeLanes,
-                                  ),
+                          onPressed: commandState.isLoading
+                              ? null
+                              : () => _raiseCompliance(
+                                  context,
+                                  ref,
+                                  workflow,
+                                  originLanes,
+                                  activeLanes,
+                                ),
                           icon: const Icon(Icons.assignment_add),
                           label: const Text('Request assurance / support'),
                         ),
@@ -301,11 +293,9 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                           actor.canPrepareMaintenanceRedLane &&
                           !workflowTerminal)
                         FilledButton.tonalIcon(
-                          onPressed:
-                              commandState.isLoading
-                                  ? null
-                                  : () =>
-                                      _prepareRedLane(context, ref, workflow),
+                          onPressed: commandState.isLoading
+                              ? null
+                              : () => _prepareRedLane(context, ref, workflow),
                           icon: const Icon(
                             Icons.local_fire_department_outlined,
                           ),
@@ -314,22 +304,21 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                       if (actor.canCancelMaintenanceWorkflow &&
                           !workflowTerminal)
                         OutlinedButton.icon(
-                          onPressed:
-                              commandState.isLoading
-                                  ? null
-                                  : () =>
-                                      _cancelWorkflow(context, ref, workflow),
+                          onPressed: commandState.isLoading
+                              ? null
+                              : () => _cancelWorkflow(context, ref, workflow),
                           icon: const Icon(Icons.cancel_outlined),
                           label: const Text('Cancel workflow'),
                         ),
                       OutlinedButton.icon(
-                        onPressed:
-                            () => _showTimeline(
-                              context,
-                              eventsAsync.value ?? const [],
-                              workflow.jobExecutionFirestoreId,
-                              canViewAuditEvidence: actor.canViewAuditLogs,
-                            ),
+                        onPressed: () => _showTimeline(
+                          context,
+                          eventsAsync.value ?? const [],
+                          workflow.jobExecutionFirestoreId,
+                          compliances: compliances,
+                          modules: moduleInventory,
+                          canViewAuditEvidence: actor.canViewAuditLogs,
+                        ),
                         icon: const Icon(Icons.history),
                         label: Text(
                           'Timeline (${eventsAsync.value?.length ?? 0})',
@@ -362,11 +351,10 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
   ) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder:
-            (_) => LaneClassificationScreen(
-              workflowId: workflow.firestoreId,
-              expectedVersion: workflow.version,
-            ),
+        builder: (_) => LaneClassificationScreen(
+          workflowId: workflow.firestoreId,
+          expectedVersion: workflow.version,
+        ),
       ),
     );
   }
@@ -390,70 +378,61 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder:
-          (sheetContext) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: Text('${lane.laneKey.toUpperCase()} lane'),
-                  subtitle: Text(
-                    readiness == null
-                        ? 'Current status: ${lane.statusKey}'
-                        : readiness.summary,
-                  ),
-                ),
-                if (lane.statusKey == 'pending')
-                  ListTile(
-                    enabled: mayAcknowledge,
-                    leading: const Icon(Icons.mark_email_read_outlined),
-                    title: const Text('Acknowledge lane'),
-                    onTap:
-                        () => Navigator.pop(
-                          sheetContext,
-                          _LaneAction.acknowledge,
-                        ),
-                  ),
-                if (lane.statusKey == 'acknowledged')
-                  ListTile(
-                    enabled: mayOfferClosure,
-                    leading: const Icon(Icons.check_circle_outline),
-                    title: const Text('Close lane'),
-                    subtitle: Text(
-                      readiness?.readyForClosure == true
-                          ? 'Local module and compliance checks are ready. The server will revalidate before closure.'
-                          : _laneCloseSubtitle(readiness),
-                    ),
-                    onTap:
-                        mayOfferClosure
-                            ? () =>
-                                Navigator.pop(sheetContext, _LaneAction.close)
-                            : null,
-                  ),
-                if (canManage && lane.statusKey != 'closed') ...[
-                  ListTile(
-                    leading: const Icon(Icons.remove_circle_outline),
-                    title: const Text('Remove untouched lane'),
-                    subtitle: const Text(
-                      'Rejected if protected work, diary, evidence or compliance exists.',
-                    ),
-                    onTap:
-                        () => Navigator.pop(sheetContext, _LaneAction.remove),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.cancel_outlined),
-                    title: const Text('Terminate lane'),
-                    subtitle: const Text(
-                      'Preserves all progress and requires a reason.',
-                    ),
-                    onTap:
-                        () =>
-                            Navigator.pop(sheetContext, _LaneAction.terminate),
-                  ),
-                ],
-              ],
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('${lane.laneKey.toUpperCase()} lane'),
+              subtitle: Text(
+                readiness == null
+                    ? 'Current status: ${lane.statusKey}'
+                    : readiness.summary,
+              ),
             ),
-          ),
+            if (lane.statusKey == 'pending')
+              ListTile(
+                enabled: mayAcknowledge,
+                leading: const Icon(Icons.mark_email_read_outlined),
+                title: const Text('Acknowledge lane'),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _LaneAction.acknowledge),
+              ),
+            if (lane.statusKey == 'acknowledged')
+              ListTile(
+                enabled: mayOfferClosure,
+                leading: const Icon(Icons.check_circle_outline),
+                title: const Text('Close lane'),
+                subtitle: Text(
+                  readiness?.readyForClosure == true
+                      ? 'Local module and compliance checks are ready. The server will revalidate before closure.'
+                      : _laneCloseSubtitle(readiness),
+                ),
+                onTap: mayOfferClosure
+                    ? () => Navigator.pop(sheetContext, _LaneAction.close)
+                    : null,
+              ),
+            if (canManage && lane.statusKey != 'closed') ...[
+              ListTile(
+                leading: const Icon(Icons.remove_circle_outline),
+                title: const Text('Remove untouched lane'),
+                subtitle: const Text(
+                  'Rejected if protected work, diary, evidence or compliance exists.',
+                ),
+                onTap: () => Navigator.pop(sheetContext, _LaneAction.remove),
+              ),
+              ListTile(
+                leading: const Icon(Icons.cancel_outlined),
+                title: const Text('Terminate lane'),
+                subtitle: const Text(
+                  'Preserves all progress and requires a reason.',
+                ),
+                onTap: () => Navigator.pop(sheetContext, _LaneAction.terminate),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
     if (action == null || !context.mounted) return;
 
@@ -591,40 +570,37 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
     WorkflowAggregateRecord workflow,
     List<JobLaneRecord> lanes,
   ) async {
-    final active =
-        lanes
-            .where(
-              (lane) =>
-                  lane.statusKey != 'removed' && lane.statusKey != 'terminated',
-            )
-            .map((lane) => lane.laneKey)
-            .toSet();
+    final active = lanes
+        .where(
+          (lane) =>
+              lane.statusKey != 'removed' && lane.statusKey != 'terminated',
+        )
+        .map((lane) => lane.laneKey)
+        .toSet();
     final lane = await showModalBottomSheet<MaintenanceLaneId>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder:
-          (sheetContext) => SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: MaintenanceLaneCatalog.crm3.definitions
-                  .where((definition) => !active.contains(definition.id.value))
-                  .map(
-                    (definition) => ListTile(
-                      leading: CircleAvatar(child: Text(definition.code)),
-                      title: Text(definition.displayName),
-                      subtitle:
-                          definition.delegated
-                              ? const Text(
-                                'Admin/SI acts transparently on behalf of EMD',
-                              )
-                              : null,
-                      onTap: () => Navigator.pop(sheetContext, definition.id),
-                    ),
-                  )
-                  .toList(growable: false),
-            ),
-          ),
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: MaintenanceLaneCatalog.crm3.definitions
+              .where((definition) => !active.contains(definition.id.value))
+              .map(
+                (definition) => ListTile(
+                  leading: CircleAvatar(child: Text(definition.code)),
+                  title: Text(definition.displayName),
+                  subtitle: definition.delegated
+                      ? const Text(
+                          'Admin/SI acts transparently on behalf of EMD',
+                        )
+                      : null,
+                  onTap: () => Navigator.pop(sheetContext, definition.id),
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
     );
     if (lane == null || !context.mounted) return;
     final reason = await _promptText(
@@ -689,27 +665,26 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
     if (workflow.assetTypeKey == 'furnace') {
       final answer = await showDialog<bool>(
         context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: const Text('Prepare RED work'),
-              content: Text(
-                'Does furnace ${workflow.assetNumber} need to be placed on the maintenance stand before RED work?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('No — work in position'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Yes — raise Operations preparation'),
-                ),
-              ],
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Prepare RED work'),
+          content: Text(
+            'Does furnace ${workflow.assetNumber} need to be placed on the maintenance stand before RED work?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
             ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('No — work in position'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Yes — raise Operations preparation'),
+            ),
+          ],
+        ),
       );
       if (answer == null || !context.mounted) return;
       preparationRequired = answer;
@@ -808,17 +783,18 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
       final records = await ref
           .read(maintenanceRepositoryProvider)
           .getTicketsForAsset(assetType, workflow.assetNumber);
-      final eligible = records
-          .where((ticket) {
-            final remoteId = ticket.firestoreId?.trim();
-            if (remoteId == null || remoteId.isEmpty) return false;
-            if (ticket.isDeleted || ticket.isResolved) return false;
-            if (!ticket.isWorkflowLinked) return true;
-            return ticket.workflowQueueState == 'released' ||
-                ticket.workflowQueueState == 'independent';
-          })
-          .toList(growable: false)
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      final eligible =
+          records
+              .where((ticket) {
+                final remoteId = ticket.firestoreId?.trim();
+                if (remoteId == null || remoteId.isEmpty) return false;
+                if (ticket.isDeleted || ticket.isResolved) return false;
+                if (!ticket.isWorkflowLinked) return true;
+                return ticket.workflowQueueState == 'released' ||
+                    ticket.workflowQueueState == 'independent';
+              })
+              .toList(growable: false)
+            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return eligible;
     } catch (error) {
       if (context.mounted) {
@@ -888,12 +864,11 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
   }) {
     return showDialog<String>(
       context: context,
-      builder:
-          (_) => _WorkflowTextPromptDialog(
-            title: title,
-            label: label,
-            isRequired: required,
-          ),
+      builder: (_) => _WorkflowTextPromptDialog(
+        title: title,
+        label: label,
+        isRequired: required,
+      ),
     );
   }
 
@@ -901,45 +876,62 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
     BuildContext context,
     List<WorkflowEventRecord> events,
     String executionId, {
+    required List<ComplianceRequestRecord> compliances,
+    required List<JobModuleInstance> modules,
     required bool canViewAuditEvidence,
   }) {
+    final complianceLabels = <String, String>{
+      for (final request in compliances)
+        if (request.firestoreId?.trim().isNotEmpty == true)
+          request.firestoreId!.trim(): request.title.trim().isEmpty
+              ? 'Compliance request'
+              : request.title.trim(),
+    };
+    final moduleLabels = <String, String>{
+      for (final module in modules)
+        if (module.firestoreId?.trim().isNotEmpty == true)
+          module.firestoreId!.trim(): _moduleTimelineLabel(module),
+    };
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder:
-          (_) => SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.72,
-              child: Column(
-                children: [
-                  if (canViewAuditEvidence) ...[
-                    ListTile(
-                      leading: const Icon(Icons.verified_user_outlined),
-                      title: const Text('Original execution audit evidence'),
-                      subtitle: const Text(
-                        'Open closure, cancellation and governed module evidence correlated to this workflow.',
+      builder: (_) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.72,
+          child: Column(
+            children: [
+              if (canViewAuditEvidence) ...[
+                ListTile(
+                  leading: const Icon(Icons.verified_user_outlined),
+                  title: const Text('Original execution audit evidence'),
+                  subtitle: const Text(
+                    'Open closure, cancellation and governed module evidence correlated to this workflow.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => AuditTimelineScreen(
+                        entityType: 'execution',
+                        entityId: executionId,
                       ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap:
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder:
-                                  (_) => AuditTimelineScreen(
-                                    entityType: 'execution',
-                                    entityId: executionId,
-                                  ),
-                            ),
-                          ),
                     ),
-                    const Divider(height: 1),
-                  ],
-                  Expanded(child: WorkflowTimeline(events: events)),
-                ],
+                  ),
+                ),
+                const Divider(height: 1),
+              ],
+              Expanded(
+                child: WorkflowTimeline(
+                  events: events,
+                  complianceLabels: complianceLabels,
+                  moduleLabels: moduleLabels,
+                ),
               ),
-            ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -962,6 +954,16 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
       default:
         return status;
     }
+  }
+
+  static String _moduleTimelineLabel(JobModuleInstance module) {
+    final code = module.moduleCode?.trim();
+    final title = module.moduleTitle.trim();
+    if (code == null || code.isEmpty) {
+      return title.isEmpty ? 'Work module' : title;
+    }
+    if (title.isEmpty || title.toLowerCase() == code.toLowerCase()) return code;
+    return '$code - $title';
   }
 }
 

@@ -14,7 +14,9 @@ String complianceNextStepLabel(ComplianceRequestRecord request) {
     case 'superseded':
       return 'Replaced by an agreed revised request';
     case 'complied':
-      return 'Completion reported; awaiting $origin acceptance';
+      return request.conditionTypeKey == 'manual'
+          ? 'Completion reported; awaiting $origin acceptance'
+          : 'Release condition confirmed; awaiting $origin acceptance';
     default:
       if (request.counterRevisedDescription != null) {
         return 'Revised condition awaiting $origin decision';
@@ -23,11 +25,10 @@ String complianceNextStepLabel(ComplianceRequestRecord request) {
         return 'Returned to $target: ${request.lastCorrectionReason}';
       }
       if (request.conditionTypeKey != 'manual') {
-        final condition =
-            request.conditionTypeKey == 'chargeComplete'
-                ? 'charge ${request.conditionRef ?? "not recorded"} completion'
-                : request.conditionRef ?? 'the release condition';
-        return 'Waiting for $condition; Operations to confirm';
+        final condition = request.conditionTypeKey == 'chargeComplete'
+            ? 'charge ${request.conditionRef ?? "not recorded"} completion'
+            : request.conditionRef ?? 'the release condition';
+        return 'Waiting for Operations to confirm $condition';
       }
       return request.statusKey == 'raised'
           ? 'Awaiting $target acknowledgement'
@@ -46,10 +47,46 @@ bool isComplianceRequestRelevantToUser(
 ) {
   if (!actor.isApproved) return false;
   return actor.isModuleLifecycleSupervisor ||
+      (request.conditionTypeKey != 'manual' &&
+          actor.canMarkMaintenanceWorkflowConditionDue) ||
       actor.canAcknowledgeOrWorkMaintenanceLane(request.targetLaneKey) ||
       request.raisedByUid == actor.uid ||
       (request.originLaneKey != null &&
           actor.canAcknowledgeOrWorkMaintenanceLane(request.originLaneKey));
+}
+
+bool canActAsComplianceTarget(ComplianceRequestRecord request, AppUser actor) =>
+    actor.canAcknowledgeOrWorkMaintenanceLane(request.targetLaneKey);
+
+bool canActAsComplianceOrigin(ComplianceRequestRecord request, AppUser actor) {
+  if (request.originLaneKey == null) return actor.isAdmin || actor.isSI;
+  return (request.raisedUnderCoordination &&
+          actor.canCoordinateMaintenanceCompliance) ||
+      actor.canAcknowledgeOrWorkMaintenanceLane(request.originLaneKey);
+}
+
+bool complianceRequiresActionFrom(
+  ComplianceRequestRecord request,
+  AppUser actor,
+) {
+  final open =
+      request.statusKey == 'raised' || request.statusKey == 'acknowledged';
+  if (!open) return false;
+  if (request.counterRevisedDescription != null) {
+    return canActAsComplianceOrigin(request, actor);
+  }
+  if (request.conditionTypeKey != 'manual') {
+    return actor.canMarkMaintenanceWorkflowConditionDue;
+  }
+  return canActAsComplianceTarget(request, actor);
+}
+
+bool complianceRequiresOriginConfirmation(
+  ComplianceRequestRecord request,
+  AppUser actor,
+) {
+  return request.statusKey == 'complied' &&
+      canActAsComplianceOrigin(request, actor);
 }
 
 bool complianceRequestMatchesView(

@@ -5,6 +5,7 @@ import path from "node:path";
 import {execFileSync} from "node:child_process";
 import {createRequire} from "node:module";
 import {fileURLToPath, pathToFileURL} from "node:url";
+import {v5 as uuidV5} from "uuid";
 
 const require = createRequire(import.meta.url);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -40,20 +41,8 @@ export function assertGovernedApplyManifest({apply, manifest, manifestBytes}) {
   );
 }
 
-function uuidBytes(uuid) {
-  return Buffer.from(uuid.replaceAll("-", ""), "hex");
-}
-
 export function deterministicUuid(kind, key) {
-  const digest = crypto.createHash("sha1")
-    .update(uuidBytes(namespaceUuid))
-    .update(`${kind}:${key}`, "utf8")
-    .digest()
-    .subarray(0, 16);
-  digest[6] = (digest[6] & 0x0f) | 0x50;
-  digest[8] = (digest[8] & 0x3f) | 0x80;
-  const hex = digest.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return uuidV5(`${kind}:${key}`, namespaceUuid);
 }
 
 function normalizeTag(value) {

@@ -60,11 +60,13 @@ import {
 } from "./maintenancePlanHandlers";
 import {
   createInspectionCampaign,
+  deleteUnusedInspectionCampaign,
   linkInspectionObservationIssue,
   recordInspectionObservation,
   setInspectionCampaignStatus,
   setInspectionDefinitionStatus,
   upsertInspectionDefinition,
+  verifyUnusedInspectionCampaignDeletionReplay,
 } from "./inspectionCampaignHandlers";
 import {
   addInspectionCampaignTargets,
@@ -108,6 +110,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   setInspectionDefinitionStatus,
   createInspectionCampaign,
   setInspectionCampaignStatus,
+  deleteUnusedInspectionCampaign,
   addInspectionCampaignTargets,
   setInspectionTargetDisposition,
   recordInspectionObservation,
@@ -211,6 +214,12 @@ export class MaintenanceWorkflowCommandService {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
         await verifyCriticalAlarmReplay({tx, command, actor, receipt: replay});
+        await verifyUnusedInspectionCampaignDeletionReplay({
+          tx,
+          command,
+          actor,
+          receipt: replay,
+        });
         await verifyPilotPurgeReplay({
           command,
           actorUid: actor.uid,

@@ -926,6 +926,42 @@ describe('Morning Review governed lifecycle', () => {
     expect(capture.sourceCollectionsAtLimit).toContain('maintenance_records');
   });
 
+  test('interprets legacy timezone-less source updates as India plant time', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/local-before-opening': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 21,
+        description: 'Updated at 08:00 India plant time.',
+        updatedAt: '2026-08-31T08:00:00.000',
+      },
+      'maintenance_records/local-after-opening': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 22,
+        description: 'Updated at 08:31 India plant time.',
+        updatedAt: '2026-08-31T08:31:00.000',
+      },
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: new Date('2026-08-31T03:00:00.000Z'),
+    });
+
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'maintenance_records/local-before-opening')).toBe(true);
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'maintenance_records/local-after-opening')).toBe(false);
+    expect(capture.sourceCollectionsAtLimit).toContain('maintenance_records');
+  });
+
   test('uses governed identity and source-specific relevance without duplicate issues', async () => {
     const hierarchy = {
       schemaVersion: 3,

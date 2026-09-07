@@ -72,6 +72,7 @@ enum WorkflowCommandType {
   setInspectionDefinitionStatus,
   createInspectionCampaign,
   setInspectionCampaignStatus,
+  deleteUnusedInspectionCampaign,
   addInspectionCampaignTargets,
   setInspectionTargetDisposition,
   recordInspectionObservation,

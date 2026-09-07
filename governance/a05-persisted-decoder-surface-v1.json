@@ -349,7 +349,7 @@
       "compatibility": "explicit legacy structured payload and absent pre-feature fields only",
       "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_template_composer_integrity_test.dart; test/a05_response_payload_integrity_test.dart",
       "reArmCondition": "canonical payload falls through, malformed optional state defaults, or identity/lifecycle drifts",
-      "riskFingerprint": "dbcf44f6da8afc41b2f60933ec0178c7b31131268efd1613a8d690f1a2356aa5"
+      "riskFingerprint": "3ef2aae7ae63677f3dd6e6ee61120cf598f5d9e33148adb4d0427508d5cd8df5"
     },
     {
       "id": "module-registry-local-content",
@@ -617,7 +617,8 @@
       "id": "workflow-timeline-payload-display",
       "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
       "markers": [
-        "String _summary(String jsonText)"
+        "({List<String> subjects, String details}) _payloadPresentation(",
+        "String _storedPayloadDetails(String jsonText)"
       ],
       "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
       "owner": "maintenance-workflow-presentation",
@@ -626,7 +627,7 @@
       "compatibility": "opaque legacy event payloads remain visible",
       "regression": "tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "event summary parsing affects workflow state or mutation admission",
-      "riskFingerprint": "c33dbb4720c39b42d61c8ec80783bcbcd5aa5b73c5bacf0a6fed22bc24e9e3b8"
+      "riskFingerprint": "f19923ed403acf76ae0e837fdb01abdfdcb1853c98f9f92ecb3611a8a71e8aa8"
     },
     {
       "id": "planned-dossier-metadata-display",
@@ -1617,15 +1618,28 @@
     {
       "id": "workflow-event-summary-display",
       "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
-      "siteFingerprint": "3d62ec4e333b4496dea2034a7854b116ea0a6a26a9738702c1fc6eb5d4100059",
+      "siteFingerprint": "c10c41c3560a615bf90cb11694aae22621cc124c6d33f598331e54e9ef1b9ced",
       "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
-      "purpose": "render a compact event payload summary without treating it as workflow authority",
+      "purpose": "render known event details while preserving the exact stored payload when decoding fails",
       "authorityBoundary": "workflow timeline display only",
       "mutability": "none",
       "dataScope": "already-admitted workflow event payload text",
       "malformedDisposition": "display the exact stored text without deriving fields",
-      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "regression": "test/maintenance_workflow/workflow_progress_route_test.dart",
       "reArmCondition": "display fallback mutates workflow state or derives an authorization decision"
+    },
+    {
+      "id": "workflow-event-ambiguity-discovery",
+      "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
+      "siteFingerprint": "0e67c0e34dd4dfdaa27f073109a20fe52bc525be1546fa8089b79f7cb1b5636a",
+      "classification": "DISPLAY_ONLY_REFERENCE_DISCOVERY",
+      "purpose": "discover duplicate readable request and module labels without treating payload text as workflow authority",
+      "authorityBoundary": "workflow timeline display only",
+      "mutability": "none",
+      "dataScope": "already-admitted workflow event payload text",
+      "malformedDisposition": "derive no ambiguity metadata; the row formatter retains the exact stored payload",
+      "regression": "test/maintenance_workflow/workflow_progress_route_test.dart",
+      "reArmCondition": "ambiguity discovery suppresses raw evidence or affects workflow state, mutation, or authorization"
     },
     {
       "id": "module-snapshot-repair-result",

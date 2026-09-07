@@ -175,6 +175,11 @@ test("BAF asset-master plan is exact, deterministic and serial-safe", async () =
     deterministicUuid("asset", "BASE:101"),
     deterministicUuid("asset", "BASE:101"),
   );
+  assert.equal(
+    deterministicUuid("asset", "BASE:101"),
+    "3a4e12f1-1418-5cf2-b568-edfd37116873",
+    "The standard UUID implementation must preserve all existing governed IDs.",
+  );
   assert.notEqual(
     deterministicUuid("asset", "BASE:101"),
     deterministicUuid("asset", "BASE:102"),

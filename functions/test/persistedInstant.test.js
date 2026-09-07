@@ -1,6 +1,9 @@
 const {
   persistedInstantText,
 } = require('../lib/maintenanceWorkflow/utils');
+const {
+  persistedInstantMillis,
+} = require('../lib/persistedInstant');
 
 describe('persisted workflow instant decoding', () => {
   const expected = '2026-08-26T08:00:00.123Z';
@@ -26,5 +29,23 @@ describe('persisted workflow instant decoding', () => {
       .toBeNull();
     expect(persistedInstantText({toDate: () => new Date(Number.NaN)}))
       .toBeNull();
+  });
+
+  test('shared decoder accepts serialized Firestore timestamp fields', () => {
+    expect(persistedInstantMillis({
+      _seconds: seconds,
+      _nanoseconds: nanoseconds,
+    })).toBe(millis);
+  });
+
+  test('shared decoder rejects timestamp fields outside Firestore bounds', () => {
+    expect(persistedInstantMillis({
+      _seconds: 253402300800,
+      _nanoseconds: 0,
+    })).toBeNaN();
+    expect(persistedInstantMillis({
+      seconds: -62135596801,
+      nanoseconds: 0,
+    })).toBeNaN();
   });
 });

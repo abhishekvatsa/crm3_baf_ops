@@ -70,6 +70,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   setInspectionDefinitionStatus: "inspectionDefinition.manage",
   createInspectionCampaign: "inspectionCampaign.manage",
   setInspectionCampaignStatus: "inspectionCampaign.manage",
+  deleteUnusedInspectionCampaign: "inspectionCampaign.deleteUnused",
   addInspectionCampaignTargets: "inspectionCampaign.manage",
   setInspectionTargetDisposition: "inspectionCampaign.manage",
   recordInspectionObservation: "inspection.observe",
@@ -122,6 +123,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "maintenancePlan.manage",
   "inspectionDefinition.manage",
   "inspectionCampaign.manage",
+  "inspectionCampaign.deleteUnused",
   "inspection.observe",
   "inspectionIssue.link",
   "inspectionFinding.adjudicate",
@@ -265,6 +267,9 @@ export const assertWorkflowAuthorityScope = (
     if (!actor.roles.has("admin")) denied();
     return;
   case "pilotRecord.purge":
+    if (!actor.roles.has("admin")) denied();
+    return;
+  case "inspectionCampaign.deleteUnused":
     if (!actor.roles.has("admin")) denied();
     return;
   case "issueDefinition.manage":

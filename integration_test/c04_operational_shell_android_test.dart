@@ -95,10 +95,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Workflow queue'), findsOneWidget);
-      expect(
-        find.text('No workflow tasks need your attention.'),
-        findsOneWidget,
-      );
+      expect(find.text('Nothing requires your action'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
