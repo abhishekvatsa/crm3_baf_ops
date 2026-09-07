@@ -333,13 +333,18 @@ function fieldDefinitionKey(definition: JsonMap): string | null {
   return null;
 }
 
-function isSafetyGateDefinition(definition: JsonMap): boolean {
+function isDisplayOnlyDefinition(definition: JsonMap): boolean {
   const raw = definition.type ?? definition.fieldType ?? "";
   const key = String(raw)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
-  return key === "safetygate" || key === "safetyconfirmation";
+  return (
+    key === "instruction" ||
+    key === "sectionheader" ||
+    key === "safetygate" ||
+    key === "safetyconfirmation"
+  );
 }
 
 function responseKey(response: unknown): string | null {
@@ -390,7 +395,7 @@ export function ordinaryRequiredKeysForModule(moduleData: JsonMap): string[] {
   return definitions
     .filter(
       (definition) =>
-        fieldDefinitionRequired(definition) && !isSafetyGateDefinition(definition),
+        fieldDefinitionRequired(definition) && !isDisplayOnlyDefinition(definition),
     )
     .map(fieldDefinitionKey)
     .filter((key): key is string => key != null && key.length > 0)
@@ -399,7 +404,7 @@ export function ordinaryRequiredKeysForModule(moduleData: JsonMap): string[] {
 
 function moduleHasAnyOrdinaryField(moduleData: JsonMap): boolean {
   return savedModuleFieldDefinitions(moduleData).some(
-    (definition) => !isSafetyGateDefinition(definition),
+    (definition) => !isDisplayOnlyDefinition(definition),
   );
 }
 

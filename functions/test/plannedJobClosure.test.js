@@ -212,6 +212,37 @@ describe('planned job server closure validation', () => {
     expect(collectClosureIssues([module])[0].type).toBe('missingRequiredEvidence');
   });
 
+  test('allows display-only instruction and section heading fields without responses', () => {
+    const module = baseModule({
+      fieldDefinitionsJson: JSON.stringify([
+        {key: 'scope_heading', type: 'sectionHeader', isRequired: false},
+        {key: 'isolation_note', type: 'instruction', isRequired: false},
+      ]),
+      responsesJson: '[]',
+    });
+
+    expect(moduleMissingRequiredClosureEvidence(module)).toBe(false);
+    expect(assertClosureReady([module])).toEqual({
+      openRequiredModule: 0,
+      waitingAcceptance: 0,
+      missingRequiredEvidence: 0,
+      pendingIssueOrFollowUp: 0,
+    });
+  });
+
+  test('does not require responses for legacy display-only fields marked required', () => {
+    const module = baseModule({
+      fieldDefinitionsJson: JSON.stringify([
+        {key: 'legacy_heading', fieldType: 'section-header', required: true},
+        {key: 'legacy_instruction', fieldType: 'instruction', required: true},
+      ]),
+      responsesJson: '[]',
+    });
+
+    expect(moduleMissingRequiredClosureEvidence(module)).toBe(false);
+    expect(collectClosureIssues([module])).toEqual([]);
+  });
+
   test('ignores missing evidence for notApplicable modules', () => {
     const module = baseModule({status: 'notApplicable', responsesJson: '[]'});
     expect(collectClosureIssues([module])).toEqual([]);

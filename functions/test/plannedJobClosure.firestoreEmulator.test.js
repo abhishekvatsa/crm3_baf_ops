@@ -489,6 +489,63 @@ describeWithEmulator(
     );
 
     test(
+      'display-only legacy fields do not block a successful closure',
+      async () => {
+        const executionId = 'integration_display_only_fields';
+        const uid = 'supervisor_display_only';
+
+        await seedUser(uid);
+        await seedExecution(executionId, {version: 6});
+        await seedModule(executionId, {
+          fieldDefinitionsJson: JSON.stringify([
+            {
+              key: 'legacy_heading',
+              fieldType: 'section-header',
+              required: true,
+            },
+            {
+              key: 'legacy_instruction',
+              fieldType: 'instruction',
+              required: true,
+            },
+          ]),
+          responsesJson: '[]',
+        });
+
+        const result = await completePlannedJobWithDb({
+          db,
+          authUid: uid,
+          data: {
+            executionId,
+            expectedCompletionVersion: 7,
+          },
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        });
+
+        expect(result).toMatchObject({
+          ok: true,
+          alreadyCompleted: false,
+          executionId,
+          version: 7,
+        });
+
+        const after = await captureState(executionId);
+        expect(after.execution.isCompleted).toBe(true);
+        expect(after.audits).toHaveLength(1);
+
+        const metadata = JSON.parse(after.execution.metadataJson);
+        const canonical = JSON.parse(
+          metadata.closureAttestation.canonicalJson,
+        );
+        expect(canonical.modules[0]).toMatchObject({
+          hasAnyOrdinaryField: false,
+          ordinaryRequiredFieldKeys: [],
+          missingRequiredEvidenceKeys: [],
+        });
+      },
+    );
+
+    test(
       'legacy planned-job module replacement creates burner-block lifecycle evidence',
       async () => {
         const executionId = 'integration_burner_block_lifecycle';
