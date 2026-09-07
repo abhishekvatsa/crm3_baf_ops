@@ -1618,7 +1618,7 @@
     {
       "id": "workflow-event-summary-display",
       "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
-      "siteFingerprint": "93eac91f3d5dcc64ba071c0172b7b3628ab2524da975766b95cc990f3c5a7fa1",
+      "siteFingerprint": "c10c41c3560a615bf90cb11694aae22621cc124c6d33f598331e54e9ef1b9ced",
       "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
       "purpose": "render known event details while preserving the exact stored payload when decoding fails",
       "authorityBoundary": "workflow timeline display only",
