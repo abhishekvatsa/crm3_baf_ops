@@ -21,10 +21,11 @@ with existing IAM preserved and App Check enforcement unchanged, then passed
 strict live readback. The unchanged 66-index set was verified exact and ready
 without index mutation. No production business record was changed or deleted.
 
-The Build 26 governance tranche must merge and pass exact-main CI before its
-artifact source is rebound and protected construction can begin. No Build 26
-APK or AAB exists at this stage, and installation and distribution remain
-unauthorized.
+The Build 26 governance tranche must merge and pass exact-main CI before
+protected construction can begin. Artifact-affecting paths remain exact to the
+approved baseline, and the protected workflow must record the exact resulting
+`main` commit. No Build 26 APK or AAB exists at this stage, and installation
+and distribution remain unauthorized.
 
 Build 25 remains the immutable finalized predecessor. Its governed package
 SHA-256 is
