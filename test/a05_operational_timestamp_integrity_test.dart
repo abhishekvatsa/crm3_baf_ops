@@ -28,29 +28,26 @@ void main() {
       id: 'abnormality-type',
       requiredFields: const ['createdAt', 'updatedAt'],
       optionalFields: const ['deletedAt'],
-      read:
-          (map) => readRemoteAbnormalityTypeTimestamps(
-            map,
-            source: 'abnormality type test',
-          ),
+      read: (map) => readRemoteAbnormalityTypeTimestamps(
+        map,
+        source: 'abnormality type test',
+      ),
     ),
     _DecoderCase(
       id: 'charge-abnormality',
       requiredFields: const ['loggedAt', 'updatedAt'],
       optionalFields: const ['deletedAt'],
-      read:
-          (map) => readRemoteChargeAbnormalityTimestamps(
-            map,
-            source: 'charge abnormality test',
-          ),
+      read: (map) => readRemoteChargeAbnormalityTimestamps(
+        map,
+        source: 'charge abnormality test',
+      ),
     ),
     _DecoderCase(
       id: 'job-template',
       requiredFields: const ['createdAt', 'updatedAt'],
       optionalFields: const ['deletedAt'],
-      read:
-          (map) =>
-              readRemoteJobTemplateTimestamps(map, source: 'job template test'),
+      read: (map) =>
+          readRemoteJobTemplateTimestamps(map, source: 'job template test'),
     ),
     _DecoderCase(
       id: 'job-execution',
@@ -61,11 +58,8 @@ void main() {
         'completedAt',
         'deletedAt',
       ],
-      read:
-          (map) => readRemoteJobExecutionTimestamps(
-            map,
-            source: 'job execution test',
-          ),
+      read: (map) =>
+          readRemoteJobExecutionTimestamps(map, source: 'job execution test'),
     ),
     _DecoderCase(
       id: 'operational-directive',
@@ -76,18 +70,17 @@ void main() {
         'closedAt',
         'deletedAt',
       ],
-      read:
-          (map) => readRemoteOperationalDirectiveTimestamps(
-            map,
-            source: 'operational directive test',
-          ),
+      read: (map) => readRemoteOperationalDirectiveTimestamps(
+        map,
+        source: 'operational directive test',
+      ),
     ),
     _DecoderCase(
       id: 'job-diary-entry',
       requiredFields: const ['createdAt', 'updatedAt'],
       optionalFields: const ['deletedAt'],
-      read:
-          (map) => readRemoteJobDiaryTimestamps(map, source: 'job diary test'),
+      read: (map) =>
+          readRemoteJobDiaryTimestamps(map, source: 'job diary test'),
     ),
     _DecoderCase(
       id: 'job-module-instance',
@@ -100,9 +93,8 @@ void main() {
         'notApplicableAt',
         'deletedAt',
       ],
-      read:
-          (map) =>
-              readRemoteJobModuleTimestamps(map, source: 'job module test'),
+      read: (map) =>
+          readRemoteJobModuleTimestamps(map, source: 'job module test'),
     ),
   ];
 
@@ -127,16 +119,47 @@ void main() {
       for (final item in cases) {
         final map = <String, dynamic>{};
         for (var index = 0; index < item.requiredFields.length; index++) {
-          map[item.requiredFields[index]] =
-              index.isEven
-                  ? Timestamp.fromDate(first)
-                  : second.toIso8601String();
+          map[item.requiredFields[index]] = index.isEven
+              ? Timestamp.fromDate(first)
+              : second.toIso8601String();
         }
         for (final field in item.optionalFields) {
           map[field] = third;
         }
         expect(item.read(map), isNotNull, reason: item.id);
       }
+    });
+
+    test('job-module callable timestamp maps retain their exact instant', () {
+      final expected = DateTime.utc(2026, 8, 6, 1, 2, 3, 4);
+      final timestamp = Timestamp.fromDate(expected);
+      final privateShape = <String, dynamic>{
+        '_seconds': timestamp.seconds,
+        '_nanoseconds': timestamp.nanoseconds,
+      };
+      final publicShape = <String, dynamic>{
+        'seconds': timestamp.seconds,
+        'nanoseconds': timestamp.nanoseconds,
+      };
+      final decoded = readRemoteJobModuleTimestamps(<String, dynamic>{
+        'createdAt': privateShape,
+        'updatedAt': publicShape,
+        'addedAt': privateShape,
+        'submittedAt': publicShape,
+        'acceptedAt': privateShape,
+        'reopenedAt': publicShape,
+        'notApplicableAt': privateShape,
+        'deletedAt': publicShape,
+      }, source: 'callable job module');
+
+      expect(decoded.createdAt, expected);
+      expect(decoded.updatedAt, expected);
+      expect(decoded.addedAt, expected);
+      expect(decoded.submittedAt, expected);
+      expect(decoded.acceptedAt, expected);
+      expect(decoded.reopenedAt, expected);
+      expect(decoded.notApplicableAt, expected);
+      expect(decoded.deletedAt, expected);
     });
 
     test('missing or malformed required timestamps fail closed', () {

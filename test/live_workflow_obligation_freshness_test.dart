@@ -209,14 +209,32 @@ void main() {
       },
     );
 
-    test('the originating maintenance lane can track its support request', () {
+    test('the originating lane is not counted until it owns the next step', () {
       final summary = summarizeWorkflowAttention(
         actor: _actor(AppRole.seniorMechanical),
         lanes: const <JobLaneRecord>[],
         compliance: <ComplianceRequestRecord>[_craneRequest()],
       );
 
-      expect(summary.activeComplianceCount, 1);
+      expect(summary.activeComplianceCount, 0);
+    });
+
+    test('a complied request moves attention from target to origin', () {
+      final request = _craneRequest()..statusKey = 'complied';
+
+      final targetSummary = summarizeWorkflowAttention(
+        actor: _actor(AppRole.operations),
+        lanes: const <JobLaneRecord>[],
+        compliance: <ComplianceRequestRecord>[request],
+      );
+      final originSummary = summarizeWorkflowAttention(
+        actor: _actor(AppRole.seniorMechanical),
+        lanes: const <JobLaneRecord>[],
+        compliance: <ComplianceRequestRecord>[request],
+      );
+
+      expect(targetSummary.activeComplianceCount, 0);
+      expect(originSummary.activeComplianceCount, 1);
     });
 
     test('an unrelated discipline cannot see another lane obligation', () {

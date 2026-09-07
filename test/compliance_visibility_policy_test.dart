@@ -13,29 +13,27 @@ AppUser _actor(String uid, AppRole role, {bool approved = true}) => AppUser(
   createdAt: DateTime.utc(2026),
 );
 
-ComplianceRequestRecord _request() =>
-    ComplianceRequestRecord()
-      ..firestoreId = 'request-1'
-      ..title = 'Operations support'
-      ..description = 'Move the furnace to the maintenance position.'
-      ..targetLaneKey = 'inst'
-      ..originLaneKey = 'elec'
-      ..raisedByUid = 'operations-raiser'
-      ..statusKey = 'raised';
+ComplianceRequestRecord _request() => ComplianceRequestRecord()
+  ..firestoreId = 'request-1'
+  ..title = 'Operations support'
+  ..description = 'Move the furnace to the maintenance position.'
+  ..targetLaneKey = 'inst'
+  ..originLaneKey = 'elec'
+  ..raisedByUid = 'operations-raiser'
+  ..statusKey = 'raised';
 
 void main() {
   test('completed release waits for maintenance acceptance, never dormant', () {
-    final record =
-        _request()
-          ..targetLaneKey = 'oprn'
-          ..originLaneKey = 'mech'
-          ..conditionTypeKey = 'chargeComplete'
-          ..conditionRef = '12345'
-          ..statusKey = 'complied'
-          ..becameDueAt = null;
+    final record = _request()
+      ..targetLaneKey = 'oprn'
+      ..originLaneKey = 'mech'
+      ..conditionTypeKey = 'chargeComplete'
+      ..conditionRef = '12345'
+      ..statusKey = 'complied'
+      ..becameDueAt = null;
     expect(
       complianceNextStepLabel(record),
-      'Completion reported; awaiting MECH acceptance',
+      'Release condition confirmed; awaiting MECH acceptance',
     );
     record.statusKey = 'acknowledged';
     record.lastCorrectionReason = 'Crane movement is still incomplete';
@@ -104,5 +102,41 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('personal action counters follow current lifecycle authority', () {
+    final request = _request();
+    final target = _actor('target-worker', AppRole.seniorInstrumentation);
+    final origin = _actor('origin-worker', AppRole.seniorElectrical);
+
+    expect(complianceRequiresActionFrom(request, target), isTrue);
+    expect(complianceRequiresActionFrom(request, origin), isFalse);
+    expect(complianceRequiresOriginConfirmation(request, origin), isFalse);
+
+    request.statusKey = 'complied';
+    expect(complianceRequiresActionFrom(request, target), isFalse);
+    expect(complianceRequiresOriginConfirmation(request, origin), isTrue);
+    expect(complianceRequiresOriginConfirmation(request, target), isFalse);
+
+    request.statusKey = 'acknowledged';
+    request.counterRevisedDescription = 'Use the next available crane';
+    expect(complianceRequiresActionFrom(request, target), isFalse);
+    expect(complianceRequiresActionFrom(request, origin), isTrue);
+    expect(complianceRequiresOriginConfirmation(request, origin), isFalse);
+  });
+
+  test('condition action belongs to the condition confirmer', () {
+    final request = _request()
+      ..originLaneKey = 'oprn'
+      ..targetLaneKey = 'inst'
+      ..conditionTypeKey = 'chargeComplete'
+      ..conditionRef = '51139';
+    final target = _actor('target-worker', AppRole.seniorInstrumentation);
+    final operations = _actor('operations', AppRole.operations);
+
+    expect(canActAsComplianceTarget(request, target), isTrue);
+    expect(complianceRequiresActionFrom(request, target), isFalse);
+    expect(complianceRequiresActionFrom(request, operations), isTrue);
+    expect(isComplianceRequestRelevantToUser(request, operations), isTrue);
   });
 }

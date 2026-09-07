@@ -1,5 +1,6 @@
 import {WorkflowError} from "./errors";
 import {JsonMap, LaneKey} from "./types";
+import {persistedInstantText} from "./utils";
 
 export const TICKET_LANE_FIELDS = [
   "issueLaneSchemaVersion",
@@ -140,10 +141,10 @@ const parseCompletionEvidence = (
     }
     const map = entry as JsonMap;
     const keys = Object.keys(map).sort();
+    const completedAt = persistedInstantText(map.completedAt);
     if (JSON.stringify(keys) !== JSON.stringify([
       "completedAt", "completedByName", "completedByUid",
-    ]) || typeof map.completedAt !== "string" ||
-        !Number.isFinite(Date.parse(map.completedAt)) ||
+    ]) || completedAt == null ||
         typeof map.completedByUid !== "string" ||
         map.completedByUid.trim().length === 0 ||
         map.completedByUid.length > 160 ||
@@ -157,7 +158,7 @@ const parseCompletionEvidence = (
       );
     }
     evidence[lane] = {
-      completedAt: map.completedAt,
+      completedAt,
       completedByUid: map.completedByUid.trim(),
       completedByName: map.completedByName.trim(),
     };

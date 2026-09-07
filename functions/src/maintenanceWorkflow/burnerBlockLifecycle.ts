@@ -240,8 +240,7 @@ const moduleBurnerBlockChangeDecision = (
 };
 
 const parseInstant = (value: unknown, field: string): string => {
-  const text = requiredText(value, field);
-  const parsed = new Date(persistedInstantMillis(text));
+  const parsed = new Date(persistedInstantMillis(value));
   if (!Number.isFinite(parsed.getTime())) {
     throw new WorkflowError(
       "failed-precondition",

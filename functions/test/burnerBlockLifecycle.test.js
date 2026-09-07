@@ -5,6 +5,9 @@ const {
   prepareBurnerBlockLifecycleWritePlan,
 } = require('../lib/maintenanceWorkflow/burnerBlockLifecycle');
 const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
+const {
+  workflowFirestoreDataForTest,
+} = require('../lib/maintenanceWorkflow/firebaseStore');
 
 const IDS = {
   assetClass: 'class-furnace',
@@ -285,6 +288,32 @@ describe('burner-block lifecycle projection', () => {
     expect(current.sourceId).toBe('execution-later-recorded');
     expect(current.actionPerformedAt).toBe('2026-08-27T08:00:00.000Z');
     expect(current.recordedAt).toBe('2026-08-28T10:00:00.000Z');
+  });
+
+  test('accepts Firestore timestamps in an existing current projection', async () => {
+    const store = seedStore();
+    await prepare(store, action({id: 'first-persisted'}), {
+      sourceId: 'execution-first-persisted',
+    });
+    const [path, current] = store.entries().find(([entryPath]) =>
+      entryPath.startsWith('burner_block_lifecycle_current/'));
+    const persisted = workflowFirestoreDataForTest(current);
+    expect(typeof persisted.recordedAt.toDate).toBe('function');
+    expect(typeof persisted.actionPerformedAt.toDate).toBe('function');
+    store.seed(path, persisted);
+
+    await prepare(store, action({
+      id: 'second-persisted',
+      createdAt: '2026-08-28T09:30:00.000Z',
+    }), {
+      sourceId: 'execution-second-persisted',
+      completedAt: '2026-08-28T10:00:00.000Z',
+      recordedAt: '2026-08-28T10:00:00.000Z',
+    });
+
+    const after = store.entries().find(([entryPath]) =>
+      entryPath.startsWith('burner_block_lifecycle_current/'))[1];
+    expect(after.sourceId).toBe('execution-second-persisted');
   });
 
   test('retains optional purchased supplier and purchase-order evidence', async () => {

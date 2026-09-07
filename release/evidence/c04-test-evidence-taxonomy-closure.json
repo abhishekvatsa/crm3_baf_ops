@@ -31,7 +31,7 @@
     },
     "androidIntegration": {
       "path": "integration_test/c04_operational_shell_android_test.dart",
-      "sha256": "F171A9597A41F59AF447355614A84B385B752CFCF52D798CE3B85C31AE9A1C39"
+      "sha256": "AF359144C44BC9A73D0A09C5C2468A134999C742E3457124A47614357F759C5E"
     },
     "actionPins": {
       "path": "release/github-actions-pins.json",

@@ -9,6 +9,9 @@ import 'package:crm3_baf_ops/features/inspections/data/inspection_evidence_snaps
 import 'package:crm3_baf_ops/features/inspections/presentation/inspection_programmes_screen.dart';
 import 'package:crm3_baf_ops/features/inspections/providers/inspection_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +77,65 @@ void main() {
       find.byKey(const ValueKey('inspection-campaign-pdf-action')),
       findsNothing,
     );
+  });
+
+  testWidgets('admin can request deletion of a server-verified unused audit', (
+    tester,
+  ) async {
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+    );
+    WorkflowCommand? submitted;
+
+    await tester.pumpWidget(
+      _testApp(
+        campaign,
+        executeCommand: (command) async {
+          submitted = command;
+          return WorkflowCommandReceipt(
+            commandId: command.commandId,
+            resultKey: 'inspection-campaign-unused-deleted',
+            aggregateVersion: campaign.version,
+            result: <String, Object?>{
+              'campaignId': campaign.id,
+              'auditId': command.commandId,
+            },
+            appliedAt: DateTime.utc(2026, 9, 7, 16),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Campaign actions'));
+    await tester.pumpAndSettle();
+    final item = tester.widget<PopupMenuItem<String>>(
+      find.byKey(const ValueKey('delete-unused-inspection-campaign-action')),
+    );
+    expect(item.enabled, isTrue);
+
+    await tester.tap(find.text('Delete unused audit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Reason'),
+      'Remove a mistakenly opened trial audit.',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Delete audit'));
+    await tester.pumpAndSettle();
+
+    expect(submitted?.type, WorkflowCommandType.deleteUnusedInspectionCampaign);
+    expect(submitted?.aggregateId, campaign.id);
+    expect(submitted?.expectedVersion, campaign.version);
+    expect(submitted?.payload, {
+      'confirmation': 'DELETE ${campaign.id}',
+      'reason': 'Remove a mistakenly opened trial audit.',
+    });
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('audit PDF action appears after a reading exists', (
@@ -531,6 +593,7 @@ Widget _testApp(
   bool observationsServerVerified = true,
   bool findingsServerVerified = true,
   Future<InspectionCampaignReportEvidence> Function()? reportEvidenceLoader,
+  Future<WorkflowCommandReceipt> Function(WorkflowCommand)? executeCommand,
 }) => ProviderScope(
   overrides: [
     currentAppUserProvider.overrideWith(
@@ -580,6 +643,13 @@ Widget _testApp(
     allAssetInstancesProvider.overrideWith((_) => Stream.value(const [])),
     innerCoverProfilesProvider.overrideWith((_) => Stream.value(const [])),
     innerCoverAssignmentsProvider.overrideWith((_) => Stream.value(const [])),
+    if (executeCommand != null)
+      workflowCommandControllerProvider.overrideWith(
+        (_) => WorkflowCommandController.forTesting(
+          executeCommand: executeCommand,
+          pullProjections: () async {},
+        ),
+      ),
   ],
   child: MaterialApp(
     builder: (context, child) => MediaQuery(

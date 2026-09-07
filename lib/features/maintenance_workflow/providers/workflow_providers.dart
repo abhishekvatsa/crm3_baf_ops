@@ -118,12 +118,15 @@ final workflowEventsProvider =
       return ref.watch(workflowRepositoryProvider).watchEvents(workflowId);
     });
 
-final workflowComplianceInboxProvider = StreamProvider.family<
-  List<ComplianceRequestRecord>,
-  String
->((ref, laneKey) {
-  return ref.watch(workflowRepositoryProvider).watchComplianceInbox(laneKey);
-});
+final workflowComplianceInboxProvider =
+    StreamProvider.family<List<ComplianceRequestRecord>, String>((
+      ref,
+      laneKey,
+    ) {
+      return ref
+          .watch(workflowRepositoryProvider)
+          .watchComplianceInbox(laneKey);
+    });
 
 final workflowAllComplianceProvider =
     StreamProvider<List<ComplianceRequestRecord>>((ref) {
@@ -154,27 +157,22 @@ WorkflowAttentionSummary summarizeWorkflowAttention({
     );
   }
 
-  final activeLaneCount =
-      lanes
-          .where(
-            (lane) =>
-                !lane.isDeleted &&
-                (lane.statusKey == 'pending' ||
-                    lane.statusKey == 'acknowledged') &&
-                actor.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
-          )
-          .length;
-  final activeComplianceCount =
-      compliance
-          .where(
-            (request) =>
-                !request.isDeleted &&
-                (request.statusKey == 'raised' ||
-                    request.statusKey == 'acknowledged' ||
-                    request.statusKey == 'complied') &&
-                isComplianceRequestRelevantToUser(request, actor),
-          )
-          .length;
+  final activeLaneCount = lanes
+      .where(
+        (lane) =>
+            !lane.isDeleted &&
+            (lane.statusKey == 'pending' || lane.statusKey == 'acknowledged') &&
+            actor.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
+      )
+      .length;
+  final activeComplianceCount = compliance
+      .where(
+        (request) =>
+            !request.isDeleted &&
+            (complianceRequiresActionFrom(request, actor) ||
+                complianceRequiresOriginConfirmation(request, actor)),
+      )
+      .length;
 
   return WorkflowAttentionSummary(
     activeLaneCount: activeLaneCount,
@@ -182,15 +180,19 @@ WorkflowAttentionSummary summarizeWorkflowAttention({
   );
 }
 
-typedef WorkflowComplianceRecordScope =
-    ({String actorUid, String complianceId});
+typedef WorkflowComplianceRecordScope = ({
+  String actorUid,
+  String complianceId,
+});
 typedef WorkflowServerRecordScope = ({String actorUid, String workflowId});
 typedef WorkflowCompliancePointReader =
     Future<ComplianceRequestRecord?> Function(String complianceId);
 typedef WorkflowAggregatePointReader =
     Future<WorkflowAggregateRecord?> Function(String workflowId);
-typedef ActorSessionComplianceLookup =
-    ({bool isTrusted, ComplianceRequestRecord? record});
+typedef ActorSessionComplianceLookup = ({
+  bool isTrusted,
+  ComplianceRequestRecord? record,
+});
 
 final workflowCompliancePointReaderProvider =
     Provider<WorkflowCompliancePointReader>((ref) {
@@ -237,8 +239,9 @@ final class ActorSessionComplianceCache {
 
   void observeActor(String? actorUid) {
     final normalized = actorUid?.trim();
-    final nextActor =
-        normalized == null || normalized.isEmpty ? null : normalized;
+    final nextActor = normalized == null || normalized.isEmpty
+        ? null
+        : normalized;
     if (nextActor == _actorUid) return;
     _actorUid = nextActor;
     _confirmedIds.clear();
@@ -279,46 +282,60 @@ final class ActorSessionComplianceCache {
   }
 }
 
-final workflowComplianceRecordProvider = FutureProvider.autoDispose.family<
-  ComplianceRequestRecord?,
-  WorkflowComplianceRecordScope
->((ref, scope) async {
-  final actorUid = scope.actorUid.trim();
-  final id = scope.complianceId.trim();
-  if (id.isEmpty) return null;
-  _requireApprovedWorkflowActor(ref.watch(currentAppUserProvider), actorUid);
-  final cache = ref.watch(workflowComplianceSessionCacheProvider);
-  try {
-    final remote = await ref.watch(workflowCompliancePointReaderProvider)(id);
-    final record = remote?.isDeleted == true ? null : remote;
-    if (!cache.remember(actorUid: actorUid, complianceId: id, record: record)) {
-      throw StateError(
-        'Compliance authority changed before the record was verified.',
+final workflowComplianceRecordProvider = FutureProvider.autoDispose
+    .family<ComplianceRequestRecord?, WorkflowComplianceRecordScope>((
+      ref,
+      scope,
+    ) async {
+      final actorUid = scope.actorUid.trim();
+      final id = scope.complianceId.trim();
+      if (id.isEmpty) return null;
+      _requireApprovedWorkflowActor(
+        ref.watch(currentAppUserProvider),
+        actorUid,
       );
-    }
-    return record;
-  } on FirebaseException catch (error) {
-    if (!_isOfflineCompliancePointRead(error)) rethrow;
-    final cached = cache.lookup(actorUid: actorUid, complianceId: id);
-    if (!cached.isTrusted) {
-      throw StateError(
-        'This compliance record has not been server-verified for the current approved session.',
-      );
-    }
-    return cached.record;
-  }
-});
+      final cache = ref.watch(workflowComplianceSessionCacheProvider);
+      try {
+        final remote = await ref.watch(workflowCompliancePointReaderProvider)(
+          id,
+        );
+        final record = remote?.isDeleted == true ? null : remote;
+        if (!cache.remember(
+          actorUid: actorUid,
+          complianceId: id,
+          record: record,
+        )) {
+          throw StateError(
+            'Compliance authority changed before the record was verified.',
+          );
+        }
+        return record;
+      } on FirebaseException catch (error) {
+        if (!_isOfflineCompliancePointRead(error)) rethrow;
+        final cached = cache.lookup(actorUid: actorUid, complianceId: id);
+        if (!cached.isTrusted) {
+          throw StateError(
+            'This compliance record has not been server-verified for the current approved session.',
+          );
+        }
+        return cached.record;
+      }
+    });
 
-final workflowAuthoritativeRecordProvider = FutureProvider.autoDispose.family<
-  WorkflowAggregateRecord?,
-  WorkflowServerRecordScope
->((ref, scope) async {
-  final actorUid = scope.actorUid.trim();
-  final id = scope.workflowId.trim();
-  if (id.isEmpty) return null;
-  _requireApprovedWorkflowActor(ref.watch(currentAppUserProvider), actorUid);
-  return ref.watch(workflowAggregatePointReaderProvider)(id);
-});
+final workflowAuthoritativeRecordProvider = FutureProvider.autoDispose
+    .family<WorkflowAggregateRecord?, WorkflowServerRecordScope>((
+      ref,
+      scope,
+    ) async {
+      final actorUid = scope.actorUid.trim();
+      final id = scope.workflowId.trim();
+      if (id.isEmpty) return null;
+      _requireApprovedWorkflowActor(
+        ref.watch(currentAppUserProvider),
+        actorUid,
+      );
+      return ref.watch(workflowAggregatePointReaderProvider)(id);
+    });
 
 void _requireApprovedWorkflowActor(
   AsyncValue<AppUser?> authority,
@@ -338,12 +355,15 @@ void _requireApprovedWorkflowActor(
 bool _isOfflineCompliancePointRead(FirebaseException error) =>
     error.code == 'unavailable' || error.code == 'deadline-exceeded';
 
-final equipmentStatusProvider = StreamProvider.family<
-  List<EquipmentStatusRecord>,
-  String?
->((ref, stateKey) {
-  return ref.watch(workflowRepositoryProvider).watchEquipmentByState(stateKey);
-});
+final equipmentStatusProvider =
+    StreamProvider.family<List<EquipmentStatusRecord>, String?>((
+      ref,
+      stateKey,
+    ) {
+      return ref
+          .watch(workflowRepositoryProvider)
+          .watchEquipmentByState(stateKey);
+    });
 
 class WorkflowCommandController
     extends StateNotifier<AsyncValue<WorkflowCommandReceipt?>> {
@@ -399,12 +419,13 @@ class WorkflowCommandController
   }
 }
 
-final workflowCommandControllerProvider = StateNotifierProvider<
-  WorkflowCommandController,
-  AsyncValue<WorkflowCommandReceipt?>
->((ref) {
-  return WorkflowCommandController(
-    ref.read(workflowOnlineExecutorProvider),
-    ref.read(workflowPullServiceProvider),
-  );
-});
+final workflowCommandControllerProvider =
+    StateNotifierProvider<
+      WorkflowCommandController,
+      AsyncValue<WorkflowCommandReceipt?>
+    >((ref) {
+      return WorkflowCommandController(
+        ref.read(workflowOnlineExecutorProvider),
+        ref.read(workflowPullServiceProvider),
+      );
+    });

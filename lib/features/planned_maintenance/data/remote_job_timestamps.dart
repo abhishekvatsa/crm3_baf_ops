@@ -157,41 +157,49 @@ RemoteJobModuleTimestamps readRemoteJobModuleTimestamps(
       map['createdAt'],
       field: 'createdAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     updatedAt: readRequiredPersistedDateTime(
       map['updatedAt'],
       field: 'updatedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     addedAt: readOptionalPersistedDateTime(
       map['addedAt'],
       field: 'addedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     submittedAt: readOptionalPersistedDateTime(
       map['submittedAt'],
       field: 'submittedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     acceptedAt: readOptionalPersistedDateTime(
       map['acceptedAt'],
       field: 'acceptedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     reopenedAt: readOptionalPersistedDateTime(
       map['reopenedAt'],
       field: 'reopenedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     notApplicableAt: readOptionalPersistedDateTime(
       map['notApplicableAt'],
       field: 'notApplicableAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
     deletedAt: readOptionalPersistedDateTime(
       map['deletedAt'],
       field: 'deletedAt',
       source: source,
+      allowSerializedTimestampMap: true,
     ),
   );
 }

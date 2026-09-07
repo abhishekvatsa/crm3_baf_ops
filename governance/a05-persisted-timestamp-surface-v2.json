@@ -1082,6 +1082,18 @@
       "authorityBoundary": "remote-morning-review-command-response",
       "regression": "test/morning_review_command_contract_test.dart",
       "reArmCondition": "any Morning Review callable response timestamp or canonicalization change"
+    },
+    {
+      "id": "knowledge-correction-publication-time",
+      "readerFile": "lib/features/planned_maintenance/repositories/knowledge_correction_source_repository.dart",
+      "readerMarker": "DateTime readKnowledgeCorrectionPublicationTime(",
+      "requiredFields": ["publishedAt"],
+      "optionalFields": [],
+      "owner": "template-governance",
+      "purpose": "retain the authoritative publication instant while harvesting governed template corrections",
+      "authorityBoundary": "remote-published-template-correction-source",
+      "regression": "test/knowledge_correction_publication_time_test.dart",
+      "reArmCondition": "the correction source publication instant is defaulted, coerced or read from an unclassified field"
     }
   ]
 }

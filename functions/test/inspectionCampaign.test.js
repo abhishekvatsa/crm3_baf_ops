@@ -178,6 +178,23 @@ function createCampaign({
   };
 }
 
+function deleteUnusedCampaign({
+  commandId = 'delete-unused-campaign',
+  campaignId = 'campaign-furnace-pt-august',
+  expectedVersion = 1,
+} = {}) {
+  return {
+    commandId,
+    commandType: 'deleteUnusedInspectionCampaign',
+    aggregateId: campaignId,
+    expectedVersion,
+    payload: {
+      confirmation: `DELETE ${campaignId}`,
+      reason: 'Remove an unused trial inspection audit.',
+    },
+  };
+}
+
 function observation({
   commandId = 'observation-1',
   observationId = 'observation-1',
@@ -224,6 +241,179 @@ function observation({
 }
 
 describe('cross-asset inspection campaigns', () => {
+  test('admin permanently deletes only a never-used campaign with replay evidence', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    const command = deleteUnusedCampaign();
+
+    const receipt = await service.execute(command, {
+      actor: admin,
+      serverNow: at('2026-08-21T04:20:00Z'),
+    });
+
+    expect(receipt).toMatchObject({
+      resultKey: 'inspection-campaign-unused-deleted',
+      aggregateVersion: 1,
+      result: {
+        campaignId: 'campaign-furnace-pt-august',
+        auditId: 'delete-unused-campaign',
+      },
+    });
+    expect(store.read('inspection_campaigns/campaign-furnace-pt-august'))
+      .toBeNull();
+    const deletionAudit = store.read(
+      'inspection_campaign_audits/delete-unused-campaign',
+    );
+    expect(deletionAudit).toMatchObject({
+      entityId: 'campaign-furnace-pt-august',
+      operation: 'delete-unused',
+      performedByUid: 'admin-1',
+    });
+    store.seed('inspection_campaign_audits/delete-unused-campaign', {
+      ...deletionAudit,
+      performedAt: persistedTimestamp('2026-08-21T04:20:00.000Z'),
+    });
+
+    await expect(service.execute(command, {
+      actor: admin,
+      serverNow: at('2026-08-21T04:30:00Z'),
+    })).resolves.toEqual(receipt);
+  });
+
+  test('non-admin campaign managers cannot delete an unused campaign', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const supervisor = seedActor(
+      store,
+      'supervisor-1',
+      ['shiftSupervisor'],
+    );
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+
+    await expect(service.execute(deleteUnusedCampaign(), {
+      actor: supervisor,
+      serverNow: at('2026-08-21T04:20:00Z'),
+    })).rejects.toMatchObject({code: 'permission-denied'});
+    expect(store.read('inspection_campaigns/campaign-furnace-pt-august'))
+      .not.toBeNull();
+  });
+
+  test('a reading or target disposition permanently protects the campaign', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(
+      store,
+      'instrument-1',
+      ['seniorInstrumentation'],
+    );
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    await service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    });
+
+    await expect(service.execute(deleteUnusedCampaign({expectedVersion: 2}), {
+      actor: admin,
+      serverNow: at('2026-08-21T05:20:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-campaign-not-unused'},
+    });
+
+    const storeWithDisposition = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(storeWithDisposition);
+    const secondAdmin = seedActor(storeWithDisposition, 'admin-1', ['admin']);
+    const secondService = new MaintenanceWorkflowCommandService(
+      storeWithDisposition,
+    );
+    await secondService.execute(upsertDefinition(), {
+      actor: secondAdmin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await secondService.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: secondAdmin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    const targetKey = storeWithDisposition.read(
+      'inspection_campaigns/campaign-furnace-pt-august',
+    ).targetPopulation[0].targetKey;
+    await secondService.execute({
+      commandId: 'defer-target-before-delete',
+      commandType: 'setInspectionTargetDisposition',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 1,
+      payload: {
+        targetKey,
+        disposition: 'deferred',
+        reason: 'Target will be checked later.',
+      },
+    }, {actor: secondAdmin, serverNow: at('2026-08-21T04:20:00Z')});
+
+    await expect(secondService.execute(
+      deleteUnusedCampaign({expectedVersion: 2}),
+      {actor: secondAdmin, serverNow: at('2026-08-21T04:30:00Z')},
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-campaign-not-unused'},
+    });
+  });
+
+  test('linked downstream evidence protects an otherwise empty campaign', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    store.seed('inspection_issue_links/legacy-link', {
+      campaignId: 'campaign-furnace-pt-august',
+    });
+
+    await expect(service.execute(deleteUnusedCampaign(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:20:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-campaign-not-unused'},
+    });
+    expect(store.read('inspection_campaigns/campaign-furnace-pt-august'))
+      .not.toBeNull();
+  });
+
   test('freezes the definition and records partial, out-of-range coverage', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);
@@ -999,6 +1189,145 @@ describe('cross-asset inspection campaigns', () => {
       });
     expect(store.read('inspection_verifications/stale-verification-attempt'))
       .toBeNull();
+  });
+
+  test('retains a late historical reading without replacing newer fault evidence', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    await service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    });
+    await service.execute(observation({
+      commandId: 'newer-fault',
+      observationId: 'newer-fault',
+      expectedVersion: 2,
+      numericValue: 1.6,
+      observedAt: '2026-08-21T05:40:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-21T05:45:00Z')});
+
+    const late = await service.execute(observation({
+      commandId: 'late-healthy',
+      observationId: 'late-healthy',
+      expectedVersion: 3,
+      numericValue: 2.8,
+      observedAt: '2026-08-21T05:30:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-21T05:50:00Z')});
+
+    expect(late.result).toMatchObject({
+      observationId: 'late-healthy',
+      outOfRange: false,
+      currentEvidenceAdvanced: false,
+      issueRecommended: false,
+      findingId: null,
+    });
+    expect(store.read('inspection_observations/late-healthy')).toMatchObject({
+      observedAt: '2026-08-21T05:30:00.000Z',
+      outOfRange: false,
+    });
+    const campaign = store.read('inspection_campaigns/campaign-furnace-pt-august');
+    expect(campaign.targetPopulation[0]).toMatchObject({
+      lastObservationId: 'newer-fault',
+      lastObservedAt: '2026-08-21T05:40:00.000Z',
+    });
+    expect(store.read('inspection_findings/inspection-finding-observation-1'))
+      .toMatchObject({
+        version: 2,
+        status: 'open',
+        currentObservationId: 'newer-fault',
+        latestObservedAt: '2026-08-21T05:40:00.000Z',
+      });
+
+    await expect(service.execute({
+      commandId: 'verify-late-healthy',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 4,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'late-healthy',
+        expectedFindingVersion: 2,
+        outcome: 'resolved',
+        reason: 'A historical healthy reading must not clear the newer fault.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:55:00Z')}))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('orders native Firestore baseline timestamps chronologically', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({
+      commandId: 'baseline-create-native',
+      campaignId: 'baseline-native',
+      targetAssetNumbers: [1],
+    }), {actor: admin, serverNow: at('2026-08-21T04:10:00Z')});
+    await service.execute(observation({
+      commandId: 'baseline-older',
+      observationId: 'baseline-older',
+      campaignId: 'baseline-native',
+      numericValue: 2.8,
+      observedAt: '2026-08-21T05:00:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-21T05:10:00Z')});
+    await service.execute({
+      commandId: 'baseline-close-native',
+      commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'baseline-native',
+      expectedVersion: 2,
+      payload: {status: 'closed', reason: 'Close the complete baseline.'},
+    }, {actor: admin, serverNow: at('2026-08-21T05:15:00Z')});
+
+    const older = store.read('inspection_observations/baseline-older');
+    store.seed('inspection_observations/baseline-older', {
+      ...older,
+      observedAt: persistedTimestamp('2026-08-21T05:00:00.000Z'),
+    });
+    store.seed('inspection_observations/baseline-newer', {
+      ...older,
+      observationId: 'baseline-newer',
+      observedAt: persistedTimestamp('2026-08-21T05:30:00.000Z'),
+      numericValue: 1.5,
+      value: {...older.value, numericValue: 1.5},
+    });
+
+    await service.execute(createCampaign({
+      commandId: 'reaudit-native-create',
+      campaignId: 'reaudit-native',
+      targetAssetNumbers: [1],
+      baselineCampaignId: 'baseline-native',
+    }), {actor: admin, serverNow: at('2026-08-22T04:10:00Z')});
+    const result = await service.execute(observation({
+      commandId: 'reaudit-native-observation',
+      observationId: 'reaudit-native-observation',
+      campaignId: 'reaudit-native',
+      numericValue: 2.8,
+      observedAt: '2026-08-22T05:00:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-22T05:10:00Z')});
+
+    expect(result.result).toMatchObject({comparisonOutcome: 'resolved'});
+    expect(store.read('inspection_observations/reaudit-native-observation'))
+      .toMatchObject({
+        baselineObservationId: 'baseline-newer',
+        comparisonOutcome: 'resolved',
+      });
   });
 
   test('compares a re-audit against the latest baseline observation', async () => {

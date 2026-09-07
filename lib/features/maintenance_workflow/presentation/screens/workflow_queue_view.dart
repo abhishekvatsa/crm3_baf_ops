@@ -7,12 +7,13 @@ import '../../data/compliance_request_record.dart';
 import '../../data/job_lane_record.dart';
 import '../../domain/compliance_visibility_policy.dart';
 import '../../providers/workflow_providers.dart';
+import '../widgets/workflow_progress_route.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
 import 'equipment_status_board.dart';
 import 'workflow_hub_screen.dart';
 
-class WorkflowQueueView extends ConsumerWidget {
+class WorkflowQueueView extends ConsumerStatefulWidget {
   final String query;
   final double bottomPadding;
 
@@ -23,7 +24,16 @@ class WorkflowQueueView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkflowQueueView> createState() => _WorkflowQueueViewState();
+}
+
+enum _WorkflowQueueFilter { all, lanes, actions, confirmations }
+
+class _WorkflowQueueViewState extends ConsumerState<WorkflowQueueView> {
+  _WorkflowQueueFilter _filter = _WorkflowQueueFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -54,7 +64,7 @@ class WorkflowQueueView extends ConsumerWidget {
       );
     }
 
-    final needle = query.trim().toLowerCase();
+    final needle = widget.query.trim().toLowerCase();
     final lanes =
         (lanesAsync.value ?? const <JobLaneRecord>[])
             .where(
@@ -87,11 +97,11 @@ class WorkflowQueueView extends ConsumerWidget {
             );
             return due != 0 ? due : b.updatedAt.compareTo(a.updatedAt);
           });
-    final targetActionCompliance = compliance
-        .where((record) => record.statusKey != 'complied')
+    final actionCompliance = compliance
+        .where((record) => complianceRequiresActionFrom(record, actor))
         .toList(growable: false);
     final awaitingOriginConfirmation = compliance
-        .where((record) => record.statusKey == 'complied')
+        .where((record) => complianceRequiresOriginConfirmation(record, actor))
         .toList(growable: false);
 
     return RefreshIndicator(
@@ -103,7 +113,7 @@ class WorkflowQueueView extends ConsumerWidget {
           BafSpacing.lg,
           BafSpacing.sm,
           BafSpacing.lg,
-          bottomPadding,
+          widget.bottomPadding,
         ),
         children: [
           Row(
@@ -128,81 +138,103 @@ class WorkflowQueueView extends ConsumerWidget {
           const SizedBox(height: BafSpacing.sm),
           _WorkflowQueueMetrics(
             lanes: lanes.length,
-            actions: targetActionCompliance.length,
+            actions: actionCompliance.length,
             confirmations: awaitingOriginConfirmation.length,
+            selected: _filter,
+            onSelected: _selectFilter,
           ),
+          if (_filter != _WorkflowQueueFilter.all) ...[
+            const SizedBox(height: BafSpacing.sm),
+            _ActiveQueueFilter(
+              label: _filterLabel(_filter),
+              onClear: () => setState(() => _filter = _WorkflowQueueFilter.all),
+            ),
+          ],
           const SizedBox(height: BafSpacing.md),
           _WorkflowQueueDestinations(
-            onOverview:
-                () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const WorkflowHubScreen(),
-                  ),
-                ),
-            onCompliance:
-                () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ComplianceInboxScreen(),
-                  ),
-                ),
-            onEquipment:
-                () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const EquipmentStatusBoard(),
-                  ),
-                ),
+            onOverview: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const WorkflowHubScreen(),
+              ),
+            ),
+            onCompliance: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ComplianceInboxScreen(),
+              ),
+            ),
+            onEquipment: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const EquipmentStatusBoard(),
+              ),
+            ),
           ),
           const SizedBox(height: BafSpacing.md),
-          if (lanes.isEmpty && compliance.isEmpty)
-            const _WorkflowQueueEmpty()
+          if (_visibleCount(
+                lanes: lanes,
+                actions: actionCompliance,
+                confirmations: awaitingOriginConfirmation,
+              ) ==
+              0)
+            _WorkflowQueueEmpty(
+              filter: _filter,
+              lanes: lanes.length,
+              actions: actionCompliance.length,
+              confirmations: awaitingOriginConfirmation.length,
+              onOverview: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const WorkflowHubScreen(),
+                ),
+              ),
+            )
           else ...[
-            if (lanes.isNotEmpty) ...[
+            if (_shows(_WorkflowQueueFilter.lanes) && lanes.isNotEmpty) ...[
               const _QueueSectionTitle('Lane assignments'),
               ...lanes.map(
                 (lane) => _LaneQueueTile(
                   lane: lane,
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder:
-                              (_) => WorkflowHubScreen(
-                                initialWorkflowId: lane.workflowFirestoreId,
-                              ),
-                        ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => WorkflowHubScreen(
+                        initialWorkflowId: lane.workflowFirestoreId,
                       ),
+                    ),
+                  ),
                 ),
               ),
             ],
-            if (targetActionCompliance.isNotEmpty) ...[
-              if (lanes.isNotEmpty) const SizedBox(height: BafSpacing.lg),
-              const _QueueSectionTitle('Action required by target lane'),
-              ...targetActionCompliance.map(
+            if (_shows(_WorkflowQueueFilter.actions) &&
+                actionCompliance.isNotEmpty) ...[
+              if (_shows(_WorkflowQueueFilter.lanes) && lanes.isNotEmpty)
+                const SizedBox(height: BafSpacing.lg),
+              const _QueueSectionTitle(
+                'Actions requiring your work or decision',
+              ),
+              ...actionCompliance.map(
                 (record) => _ComplianceQueueTile(
                   record: record,
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder:
-                              (_) => ComplianceDetailScreen(record: record),
-                        ),
-                      ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ComplianceDetailScreen(record: record),
+                    ),
+                  ),
                 ),
               ),
             ],
-            if (awaitingOriginConfirmation.isNotEmpty) ...[
-              if (lanes.isNotEmpty || targetActionCompliance.isNotEmpty)
+            if (_shows(_WorkflowQueueFilter.confirmations) &&
+                awaitingOriginConfirmation.isNotEmpty) ...[
+              if ((_shows(_WorkflowQueueFilter.lanes) && lanes.isNotEmpty) ||
+                  (_shows(_WorkflowQueueFilter.actions) &&
+                      actionCompliance.isNotEmpty))
                 const SizedBox(height: BafSpacing.lg),
               const _QueueSectionTitle('Awaiting origin confirmation'),
               ...awaitingOriginConfirmation.map(
                 (record) => _ComplianceQueueTile(
                   record: record,
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder:
-                              (_) => ComplianceDetailScreen(record: record),
-                        ),
-                      ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ComplianceDetailScreen(record: record),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -210,6 +242,29 @@ class WorkflowQueueView extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _selectFilter(_WorkflowQueueFilter filter) {
+    setState(() {
+      _filter = _filter == filter ? _WorkflowQueueFilter.all : filter;
+    });
+  }
+
+  bool _shows(_WorkflowQueueFilter filter) =>
+      _filter == _WorkflowQueueFilter.all || _filter == filter;
+
+  int _visibleCount({
+    required List<JobLaneRecord> lanes,
+    required List<ComplianceRequestRecord> actions,
+    required List<ComplianceRequestRecord> confirmations,
+  }) {
+    return switch (_filter) {
+      _WorkflowQueueFilter.all =>
+        lanes.length + actions.length + confirmations.length,
+      _WorkflowQueueFilter.lanes => lanes.length,
+      _WorkflowQueueFilter.actions => actions.length,
+      _WorkflowQueueFilter.confirmations => confirmations.length,
+    };
   }
 
   Future<void> _refreshWorkflowQueue(
@@ -228,6 +283,13 @@ class WorkflowQueueView extends ConsumerWidget {
     }
   }
 }
+
+String _filterLabel(_WorkflowQueueFilter filter) => switch (filter) {
+  _WorkflowQueueFilter.all => 'All obligations',
+  _WorkflowQueueFilter.lanes => 'Lane assignments',
+  _WorkflowQueueFilter.actions => 'Actions required',
+  _WorkflowQueueFilter.confirmations => 'Completions to confirm',
+};
 
 const _terminalLaneStates = <String>{'closed', 'removed', 'terminated'};
 const _terminalComplianceStates = <String>{
@@ -299,11 +361,15 @@ class _WorkflowQueueMetrics extends StatelessWidget {
     required this.lanes,
     required this.actions,
     required this.confirmations,
+    required this.selected,
+    required this.onSelected,
   });
 
   final int lanes;
   final int actions;
   final int confirmations;
+  final _WorkflowQueueFilter selected;
+  final ValueChanged<_WorkflowQueueFilter> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +383,8 @@ class _WorkflowQueueMetrics extends StatelessWidget {
               value: lanes,
               label: 'Lanes',
               color: BafColors.planned,
+              selected: selected == _WorkflowQueueFilter.lanes,
+              onTap: () => onSelected(_WorkflowQueueFilter.lanes),
             ),
           ),
           const SizedBox(width: BafSpacing.sm),
@@ -326,6 +394,8 @@ class _WorkflowQueueMetrics extends StatelessWidget {
               value: actions,
               label: 'Actions',
               color: BafColors.warning,
+              selected: selected == _WorkflowQueueFilter.actions,
+              onTap: () => onSelected(_WorkflowQueueFilter.actions),
             ),
           ),
           const SizedBox(width: BafSpacing.sm),
@@ -335,6 +405,8 @@ class _WorkflowQueueMetrics extends StatelessWidget {
               value: confirmations,
               label: 'To confirm',
               color: BafColors.audit,
+              selected: selected == _WorkflowQueueFilter.confirmations,
+              onTap: () => onSelected(_WorkflowQueueFilter.confirmations),
             ),
           ),
         ],
@@ -349,51 +421,102 @@ class _WorkflowQueueMetric extends StatelessWidget {
     required this.value,
     required this.label,
     required this.color,
+    required this.selected,
+    required this.onTap,
   });
 
   final int value;
   final String label;
   final Color color;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.sm,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-        borderRadius: BorderRadius.circular(BafRadius.small),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '$value',
-            style: TextStyle(
-              color: color,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label, $value. Filter workflow queue.',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(BafRadius.small),
+          child: AnimatedContainer(
+            duration: BafMotion.quick,
+            constraints: const BoxConstraints(minHeight: 64),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BafSpacing.sm,
+              vertical: BafSpacing.sm,
             ),
-          ),
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: selected ? 0.16 : 0.08),
+              border: Border.all(
+                color: color.withValues(alpha: selected ? 0.72 : 0.22),
+                width: selected ? 2 : 1,
               ),
+              borderRadius: BorderRadius.circular(BafRadius.small),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$value',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _ActiveQueueFilter extends StatelessWidget {
+  const _ActiveQueueFilter({required this.label, required this.onClear});
+
+  final String label;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Showing $label',
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton.icon(
+          key: const ValueKey('workflow-queue-show-all'),
+          onPressed: onClear,
+          icon: const Icon(Icons.close_rounded, size: 16),
+          label: const Text('Show all'),
+        ),
+      ],
     );
   }
 }
@@ -522,18 +645,44 @@ class _LaneQueueTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       type: MaterialType.transparency,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(
-          Icons.account_tree_outlined,
-          color: BafColors.planned,
-        ),
-        title: Text('${_laneLabel(lane.laneKey)} lane'),
-        subtitle: Text(
-          '${lane.assetTypeKey.toUpperCase()} ${lane.assetNumber} · ${lane.statusKey}',
-        ),
-        trailing: const Icon(Icons.chevron_right_rounded),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.account_tree_outlined,
+                  color: BafColors.planned,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_laneLabel(lane.laneKey)} lane',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${lane.assetTypeKey.toUpperCase()} ${lane.assetNumber}',
+                      style: const TextStyle(color: BafColors.textSecondary),
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    LaneProgressRoute(lane: lane, compact: true),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -550,74 +699,136 @@ class _ComplianceQueueTile extends StatelessWidget {
     final awaitingConfirmation = record.statusKey == 'complied';
     return Material(
       type: MaterialType.transparency,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(
-          awaitingConfirmation
-              ? Icons.pending_actions_outlined
-              : record.becameDueAt == null
-              ? Icons.assignment_outlined
-              : Icons.warning_amber_rounded,
-          color:
-              awaitingConfirmation
-                  ? BafColors.audit
-                  : record.becameDueAt == null
-                  ? BafColors.planned
-                  : BafColors.warning,
-        ),
-        title: Text(record.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          awaitingConfirmation
-              ? '${_laneLabel(record.originLaneKey ?? 'shared')} must confirm closure'
-              : '${_laneLabel(record.targetLaneKey)} · ${record.statusKey}',
-        ),
-        trailing: const Icon(Icons.chevron_right_rounded),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  awaitingConfirmation
+                      ? Icons.pending_actions_outlined
+                      : record.becameDueAt == null
+                      ? Icons.assignment_outlined
+                      : Icons.warning_amber_rounded,
+                  color: awaitingConfirmation
+                      ? BafColors.audit
+                      : record.becameDueAt == null
+                      ? BafColors.planned
+                      : BafColors.warning,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      record.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      complianceNextStepLabel(record),
+                      style: const TextStyle(color: BafColors.textSecondary),
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    ComplianceProgressRoute(record: record, compact: true),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _WorkflowQueueEmpty extends StatelessWidget {
-  const _WorkflowQueueEmpty();
+  const _WorkflowQueueEmpty({
+    required this.filter,
+    required this.lanes,
+    required this.actions,
+    required this.confirmations,
+    required this.onOverview,
+  });
+
+  final _WorkflowQueueFilter filter;
+  final int lanes;
+  final int actions;
+  final int confirmations;
+  final VoidCallback onOverview;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('workflow-queue-empty-state'),
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.success.withValues(alpha: 0.07),
-        border: Border.all(color: BafColors.success.withValues(alpha: 0.18)),
+    final title = switch (filter) {
+      _WorkflowQueueFilter.all => 'Nothing requires your action',
+      _WorkflowQueueFilter.lanes => 'No lane assignments',
+      _WorkflowQueueFilter.actions => 'No actions awaiting you',
+      _WorkflowQueueFilter.confirmations => 'No completions to confirm',
+    };
+    final message = filter == _WorkflowQueueFilter.all
+        ? '$lanes assigned lanes - $actions requests to act - '
+              '$confirmations completions to confirm'
+        : 'This category is clear. Other records remain in Overview.';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const ValueKey('workflow-queue-empty-state'),
+        onTap: onOverview,
         borderRadius: BorderRadius.circular(BafRadius.small),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.task_alt_rounded, size: 30, color: BafColors.success),
-          SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Queue clear',
-                  style: TextStyle(
-                    color: BafColors.success,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'No workflow tasks need your attention.',
-                  style: TextStyle(
-                    color: BafColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: BafColors.success.withValues(alpha: 0.07),
+            border: Border.all(
+              color: BafColors.success.withValues(alpha: 0.18),
             ),
+            borderRadius: BorderRadius.circular(BafRadius.small),
           ),
-        ],
+          child: Row(
+            children: [
+              const Icon(
+                Icons.task_alt_rounded,
+                size: 30,
+                color: BafColors.success,
+              ),
+              const SizedBox(width: BafSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: BafColors.success,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: BafSpacing.sm),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
       ),
     );
   }

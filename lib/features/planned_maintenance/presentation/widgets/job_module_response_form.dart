@@ -35,7 +35,7 @@ class JobModuleResponseForm extends StatefulWidget {
 
 class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   final Map<String, TextEditingController> _textControllers = {};
-  final Map<String, bool> _boolValues = {};
+  final Map<String, bool?> _boolValues = {};
   final Map<String, String?> _singleValues = {};
   final Map<String, Set<String>> _multiValues = {};
   final Map<String, String?> _fieldErrors = {};
@@ -59,11 +59,12 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   }
 
   void _initialiseState() {
-    _fields = widget.fieldDefinitions
-        .map(_ModuleFieldDefinition.fromMap)
-        .where((field) => field.key.trim().isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
+    _fields =
+        widget.fieldDefinitions
+            .map(_ModuleFieldDefinition.fromMap)
+            .where((field) => field.key.trim().isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.order.compareTo(b.order));
 
     final responsesByKey = <String, FieldResponse>{
       for (final response in widget.initialResponses) response.key: response,
@@ -72,8 +73,11 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
     for (final field in _fields) {
       final existing = responsesByKey[field.key]?.value;
       switch (field.kind) {
-        case _ModuleFieldKind.boolean:
-          _boolValues[field.key] = _coerceBool(existing);
+        case _ModuleFieldKind.yesNo:
+          _boolValues[field.key] = _coerceOptionalBool(existing);
+          break;
+        case _ModuleFieldKind.checkbox:
+          _boolValues[field.key] = _coerceOptionalBool(existing) ?? false;
           break;
         case _ModuleFieldKind.singleSelect:
           _singleValues[field.key] = _cleanOptional(existing?.toString());
@@ -100,11 +104,11 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
             text: _valueToText(existing),
           );
           break;
-        case _ModuleFieldKind.safetyGate:
-        // Safety gates are not ordinary saved responses. They are rendered
-        // as non-editable placeholders until the dedicated safety workflow is
-        // implemented, so users do not mistake a dropdown for LOTO/gas
-        // isolation confirmation.
+        case _ModuleFieldKind.sectionHeader:
+        case _ModuleFieldKind.instruction:
+          // Current definitions do not collect responses for display-only
+          // fields. Any response saved by an older client is retained in
+          // _save because this editor cannot safely replace it.
           break;
       }
     }
@@ -129,12 +133,15 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
 
   Future<void> _save() async {
     final errors = <String, String?>{};
-    final responses = <FieldResponse>[];
+    final editableFieldKeys = <String>{};
+    final editedResponsesByKey = <String, FieldResponse>{};
 
     for (final field in _fields) {
-      if (field.kind == _ModuleFieldKind.safetyGate) {
+      if (field.kind == _ModuleFieldKind.sectionHeader ||
+          field.kind == _ModuleFieldKind.instruction) {
         continue;
       }
+      editableFieldKeys.add(field.key);
 
       final value = _readFieldValue(field);
       final isEmpty = _isEmptyValue(value);
@@ -153,15 +160,13 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
       }
 
       if (!isEmpty) {
-        responses.add(
-          FieldResponse(
-            key: field.key,
-            fieldLabel: field.label,
-            fieldType: field.toFieldType(),
-            value: field.kind == _ModuleFieldKind.number
-                ? num.tryParse(value.toString().trim()) ?? value
-                : value,
-          ),
+        editedResponsesByKey[field.key] = FieldResponse(
+          key: field.key,
+          fieldLabel: field.label,
+          fieldType: field.toFieldType(),
+          value: field.kind == _ModuleFieldKind.number
+              ? num.tryParse(value.toString().trim()) ?? value
+              : value,
         );
       }
     }
@@ -175,13 +180,29 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
       return;
     }
 
+    final responses = <FieldResponse>[];
+    for (final existing in widget.initialResponses) {
+      if (!editableFieldKeys.contains(existing.key)) {
+        responses.add(existing);
+        continue;
+      }
+      final replacement = editedResponsesByKey.remove(existing.key);
+      if (replacement != null) responses.add(replacement);
+    }
+    for (final field in _fields) {
+      final added = editedResponsesByKey.remove(field.key);
+      if (added != null) responses.add(added);
+    }
+
     setState(_fieldErrors.clear);
     await widget.onSave(responses);
   }
 
   dynamic _readFieldValue(_ModuleFieldDefinition field) {
     switch (field.kind) {
-      case _ModuleFieldKind.boolean:
+      case _ModuleFieldKind.yesNo:
+        return _boolValues[field.key];
+      case _ModuleFieldKind.checkbox:
         return _boolValues[field.key] ?? false;
       case _ModuleFieldKind.singleSelect:
         if (field.options.isEmpty) {
@@ -198,7 +219,8 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
       case _ModuleFieldKind.longText:
       case _ModuleFieldKind.dateTime:
         return _cleanOptional(_textControllers[field.key]?.text);
-      case _ModuleFieldKind.safetyGate:
+      case _ModuleFieldKind.sectionHeader:
+      case _ModuleFieldKind.instruction:
         return null;
     }
   }
@@ -207,7 +229,8 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   Widget build(BuildContext context) {
     if (_fields.isEmpty) {
       return const _ResponseEmptyState(
-        text: 'This module snapshot does not contain dynamic field definitions yet.',
+        text:
+            'This module snapshot does not contain dynamic field definitions yet.',
       );
     }
 
@@ -226,7 +249,11 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.lock_rounded, color: BafColors.textSecondary, size: 18),
+                Icon(
+                  Icons.lock_rounded,
+                  color: BafColors.textSecondary,
+                  size: 18,
+                ),
                 SizedBox(width: BafSpacing.sm),
                 Expanded(
                   child: Text(
@@ -263,7 +290,36 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
     final errorText = _fieldErrors[field.key];
 
     switch (field.kind) {
-      case _ModuleFieldKind.boolean:
+      case _ModuleFieldKind.yesNo:
+        final selected = _boolValues[field.key];
+        return _FieldShell(
+          field: field,
+          errorText: errorText,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment<bool>(
+                value: true,
+                label: Text('Yes'),
+                icon: Icon(Icons.check_rounded),
+              ),
+              ButtonSegment<bool>(
+                value: false,
+                label: Text('No'),
+                icon: Icon(Icons.close_rounded),
+              ),
+            ],
+            selected: selected == null ? const <bool>{} : <bool>{selected},
+            emptySelectionAllowed: true,
+            onSelectionChanged: widget.isEditable
+                ? (values) => setState(
+                    () => _boolValues[field.key] = values.isEmpty
+                        ? null
+                        : values.first,
+                  )
+                : null,
+          ),
+        );
+      case _ModuleFieldKind.checkbox:
         return _FieldShell(
           field: field,
           errorText: errorText,
@@ -271,7 +327,8 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
             contentPadding: EdgeInsets.zero,
             value: _boolValues[field.key] ?? false,
             onChanged: widget.isEditable
-                ? (value) => setState(() => _boolValues[field.key] = value ?? false)
+                ? (value) =>
+                      setState(() => _boolValues[field.key] = value ?? false)
                 : null,
             title: Text(
               field.label,
@@ -284,7 +341,9 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
           ),
         );
       case _ModuleFieldKind.singleSelect:
-        if (field.options.isEmpty) return _textInput(field, errorText: errorText);
+        if (field.options.isEmpty) {
+          return _textInput(field, errorText: errorText);
+        }
         final current = field.options.contains(_singleValues[field.key])
             ? _singleValues[field.key]
             : null;
@@ -294,20 +353,21 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
           child: DropdownButtonFormField<String>(
             initialValue: current,
             isExpanded: true,
-            decoration: _inputDecoration(field.label, field: field).copyWith(
-              errorText: errorText,
-            ),
+            decoration: _inputDecoration(
+              field.label,
+              field: field,
+            ).copyWith(errorText: errorText),
             items: field.options
                 .map(
                   (option) => DropdownMenuItem<String>(
-                value: option,
-                child: Text(
-                  option,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            )
+                    value: option,
+                    child: Text(
+                      option,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
                 .toList(),
             onChanged: widget.isEditable
                 ? (value) => setState(() => _singleValues[field.key] = value)
@@ -335,23 +395,23 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
                 children: field.options
                     .map(
                       (option) => FilterChip(
-                    label: Text(option),
-                    selected: selected.contains(option),
-                    onSelected: widget.isEditable
-                        ? (isSelected) {
-                      setState(() {
-                        final next = Set<String>.from(selected);
-                        if (isSelected) {
-                          next.add(option);
-                        } else {
-                          next.remove(option);
-                        }
-                        _multiValues[field.key] = next;
-                      });
-                    }
-                        : null,
-                  ),
-                )
+                        label: Text(option),
+                        selected: selected.contains(option),
+                        onSelected: widget.isEditable
+                            ? (isSelected) {
+                                setState(() {
+                                  final next = Set<String>.from(selected);
+                                  if (isSelected) {
+                                    next.add(option);
+                                  } else {
+                                    next.remove(option);
+                                  }
+                                  _multiValues[field.key] = next;
+                                });
+                              }
+                            : null,
+                      ),
+                    )
                     .toList(),
               ),
               if (errorText != null) _ErrorText(errorText),
@@ -363,19 +423,21 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
       case _ModuleFieldKind.longText:
       case _ModuleFieldKind.dateTime:
         return _textInput(field, errorText: errorText);
-      case _ModuleFieldKind.safetyGate:
-        return _SafetyGatePlaceholder(field: field);
+      case _ModuleFieldKind.sectionHeader:
+        return _ModuleSectionHeader(field: field);
+      case _ModuleFieldKind.instruction:
+        return _InstructionPlaceholder(field: field);
     }
   }
 
   Widget _textInput(
-      _ModuleFieldDefinition field, {
-        String? errorText,
-        String? helperText,
-      }) {
+    _ModuleFieldDefinition field, {
+    String? errorText,
+    String? helperText,
+  }) {
     final controller = _textControllers.putIfAbsent(
       field.key,
-          () => TextEditingController(),
+      () => TextEditingController(),
     );
 
     return _FieldShell(
@@ -398,11 +460,10 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   }
 }
 
-
-class _SafetyGatePlaceholder extends StatelessWidget {
+class _InstructionPlaceholder extends StatelessWidget {
   final _ModuleFieldDefinition field;
 
-  const _SafetyGatePlaceholder({required this.field});
+  const _InstructionPlaceholder({required this.field});
 
   @override
   Widget build(BuildContext context) {
@@ -418,7 +479,11 @@ class _SafetyGatePlaceholder extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.health_and_safety_rounded, color: BafColors.warning, size: 20),
+          const Icon(
+            Icons.health_and_safety_rounded,
+            color: BafColors.warning,
+            size: 20,
+          ),
           const SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Column(
@@ -434,9 +499,10 @@ class _SafetyGatePlaceholder extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Safety gate fields are handled by a dedicated safety-confirmation workflow. They are intentionally not saved as ordinary form responses.',
-                  style: TextStyle(
+                Text(
+                  field.instructionText ??
+                      'This instruction is part of the governed module and does not require a saved response.',
+                  style: const TextStyle(
                     color: BafColors.textSecondary,
                     fontSize: 12,
                     height: 1.3,
@@ -453,16 +519,32 @@ class _SafetyGatePlaceholder extends StatelessWidget {
   }
 }
 
+class _ModuleSectionHeader extends StatelessWidget {
+  final _ModuleFieldDefinition field;
+
+  const _ModuleSectionHeader({required this.field});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: BafSpacing.sm, bottom: BafSpacing.md),
+      child: Text(
+        field.label,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: BafColors.textPrimary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
 class _FieldShell extends StatelessWidget {
   final _ModuleFieldDefinition field;
   final Widget child;
   final String? errorText;
 
-  const _FieldShell({
-    required this.field,
-    required this.child,
-    this.errorText,
-  });
+  const _FieldShell({required this.field, required this.child, this.errorText});
 
   @override
   Widget build(BuildContext context) {
@@ -492,10 +574,7 @@ class _FieldShell extends StatelessWidget {
                   ),
                 ),
               ),
-              StatusBadge(
-                label: field.typeLabel,
-                color: BafColors.admin,
-              ),
+              StatusBadge(label: field.typeLabel, color: BafColors.admin),
             ],
           ),
           if (field.unit != null) ...[
@@ -556,7 +635,11 @@ class _ResponseEmptyState extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.dynamic_form_rounded, color: BafColors.textSecondary, size: 20),
+          const Icon(
+            Icons.dynamic_form_rounded,
+            color: BafColors.textSecondary,
+            size: 20,
+          ),
           const SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(
@@ -575,9 +658,9 @@ class _ResponseEmptyState extends StatelessWidget {
 }
 
 InputDecoration _inputDecoration(
-    String label, {
-      required _ModuleFieldDefinition field,
-    }) {
+  String label, {
+  required _ModuleFieldDefinition field,
+}) {
   final suffix = field.unit == null ? null : ' ${field.unit}';
   return InputDecoration(
     labelText: field.required ? '$label *' : label,
@@ -608,11 +691,13 @@ enum _ModuleFieldKind {
   text,
   longText,
   number,
-  boolean,
+  yesNo,
+  checkbox,
   singleSelect,
   multiSelect,
   dateTime,
-  safetyGate,
+  sectionHeader,
+  instruction,
 }
 
 class _ModuleFieldDefinition {
@@ -623,6 +708,7 @@ class _ModuleFieldDefinition {
   final bool required;
   final List<String> options;
   final int order;
+  final String? instructionText;
 
   const _ModuleFieldDefinition({
     required this.key,
@@ -632,29 +718,24 @@ class _ModuleFieldDefinition {
     required this.required,
     required this.options,
     required this.order,
+    required this.instructionText,
   });
 
   factory _ModuleFieldDefinition.fromMap(Map<String, dynamic> map) {
-    final key = _cleanOptional(map['fieldId']?.toString()) ??
-        _cleanOptional(map['key']?.toString()) ??
-        '';
-    final label = _cleanOptional(map['label']?.toString()) ?? key;
-    final rawType = _cleanOptional(map['type']?.toString()) ?? 'text';
-    final options = map['options'] is List
-        ? (map['options'] as List)
-        .map((value) => value.toString().trim())
-        .where((value) => value.isNotEmpty)
-        .toList()
-        : <String>[];
+    final canonical = PersistedFieldDefinition.fromMap(
+      map,
+      source: 'job module response form',
+    );
 
     return _ModuleFieldDefinition(
-      key: key,
-      label: label,
-      rawType: rawType,
-      unit: _cleanOptional(map['unit']?.toString()),
-      required: map['required'] == true || map['isRequired'] == true,
-      options: options,
-      order: _coerceInt(map['order']) ?? 0,
+      key: canonical.key,
+      label: canonical.label,
+      rawType: canonical.type.name,
+      unit: canonical.unit,
+      required: canonical.isRequired,
+      options: List<String>.unmodifiable(canonical.options),
+      order: canonical.order,
+      instructionText: canonical.instructionText,
     );
   }
 
@@ -667,17 +748,25 @@ class _ModuleFieldDefinition {
     if (normalized == 'longtext' || normalized == 'textarea') {
       return _ModuleFieldKind.longText;
     }
-    if (normalized == 'number' || normalized == 'numeric' || normalized == 'numericwithunit') {
+    if (normalized == 'number' ||
+        normalized == 'numeric' ||
+        normalized == 'numericwithunit') {
       return _ModuleFieldKind.number;
     }
-    if (normalized == 'boolean' || normalized == 'yesno' || normalized == 'checkbox') {
-      return _ModuleFieldKind.boolean;
+    if (normalized == 'boolean' || normalized == 'yesno') {
+      return _ModuleFieldKind.yesNo;
+    }
+    if (normalized == 'checkbox') {
+      return _ModuleFieldKind.checkbox;
     }
     if (normalized == 'multiselect' || normalized == 'multitag') {
       return _ModuleFieldKind.multiSelect;
     }
-    if (normalized == 'safetygate') {
-      return _ModuleFieldKind.safetyGate;
+    if (normalized == 'sectionheader') {
+      return _ModuleFieldKind.sectionHeader;
+    }
+    if (normalized == 'instruction' || normalized == 'safetygate') {
+      return _ModuleFieldKind.instruction;
     }
 
     if (normalized == 'enum' ||
@@ -701,16 +790,20 @@ class _ModuleFieldDefinition {
         return 'Long text';
       case _ModuleFieldKind.number:
         return unit == null ? 'Number' : 'Number + unit';
-      case _ModuleFieldKind.boolean:
+      case _ModuleFieldKind.yesNo:
         return 'Yes / No';
+      case _ModuleFieldKind.checkbox:
+        return 'Checkbox';
       case _ModuleFieldKind.singleSelect:
         return options.isEmpty ? 'Text' : 'Select';
       case _ModuleFieldKind.multiSelect:
         return options.isEmpty ? 'Multi text' : 'Multi-select';
       case _ModuleFieldKind.dateTime:
         return 'Date/time';
-      case _ModuleFieldKind.safetyGate:
-        return 'Safety gate';
+      case _ModuleFieldKind.sectionHeader:
+        return 'Section';
+      case _ModuleFieldKind.instruction:
+        return 'Instruction';
     }
   }
 
@@ -722,15 +815,19 @@ class _ModuleFieldDefinition {
         return FieldType.longText;
       case _ModuleFieldKind.number:
         return FieldType.number;
-      case _ModuleFieldKind.boolean:
+      case _ModuleFieldKind.yesNo:
         return FieldType.yesNo;
+      case _ModuleFieldKind.checkbox:
+        return FieldType.checkbox;
       case _ModuleFieldKind.singleSelect:
         return options.isEmpty ? FieldType.text : FieldType.dropdown;
       case _ModuleFieldKind.multiSelect:
         return FieldType.multiSelect;
       case _ModuleFieldKind.dateTime:
         return FieldType.dateTime;
-      case _ModuleFieldKind.safetyGate:
+      case _ModuleFieldKind.sectionHeader:
+        return FieldType.sectionHeader;
+      case _ModuleFieldKind.instruction:
         return FieldType.instruction;
     }
   }
@@ -742,10 +839,23 @@ String _valueToText(dynamic value) {
   return value.toString();
 }
 
-bool _coerceBool(dynamic value) {
+bool? _coerceOptionalBool(dynamic value) {
+  if (value == null) return null;
   if (value is bool) return value;
   final normalized = value?.toString().trim().toLowerCase();
-  return normalized == 'true' || normalized == 'yes' || normalized == 'y' || normalized == '1';
+  if (normalized == 'true' ||
+      normalized == 'yes' ||
+      normalized == 'y' ||
+      normalized == '1') {
+    return true;
+  }
+  if (normalized == 'false' ||
+      normalized == 'no' ||
+      normalized == 'n' ||
+      normalized == '0') {
+    return false;
+  }
+  return null;
 }
 
 Set<String> _coerceStringSet(dynamic value) {
@@ -777,9 +887,4 @@ String? _cleanOptional(String? value) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) return null;
   return trimmed;
-}
-
-int? _coerceInt(dynamic value) {
-  if (value is int) return value;
-  return int.tryParse(value?.toString() ?? '');
 }

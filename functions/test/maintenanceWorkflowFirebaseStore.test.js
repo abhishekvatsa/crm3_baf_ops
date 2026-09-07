@@ -14,6 +14,13 @@ const {
 const {
   equipmentProjectionWrite,
 } = require('../lib/maintenanceWorkflow/equipmentFacts');
+const {
+  ticketLanePlan,
+} = require('../lib/maintenanceWorkflow/ticketLanePlan');
+const {
+  buildInspectionTargetPopulation,
+  parseInspectionTargetPopulation,
+} = require('../lib/maintenanceWorkflow/inspectionPopulation');
 
 describe('maintenance workflow Firestore persistence adapter', () => {
   test('converts all lifecycle deadline fields from ISO instants to Timestamp', () => {
@@ -71,6 +78,89 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     expect(converted.nested.fieldValue).toBe(fieldValue);
     expect(converted.nested.bytes).toBe(bytes);
     expect(converted.nested.reference).toBe(reference);
+  });
+
+  test('lane completion evidence remains readable after Firestore timestamp conversion', () => {
+    const completedAt = '2026-07-21T12:34:56.789Z';
+    const persisted = workflowFirestoreDataForTest({
+      routedTo: 'mechanical',
+      status: 'inProgress',
+      acknowledgedByUid: 'mechanical-1',
+      acknowledgedByName: 'Mechanical One',
+      acknowledgedAt: completedAt,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['mechanical'],
+      issueAcknowledgedLanes: ['mechanical'],
+      issueCompletedLanes: ['mechanical'],
+      issueLaneCompletionEvidence: {
+        mechanical: {
+          completedAt,
+          completedByUid: 'mechanical-1',
+          completedByName: 'Mechanical One',
+        },
+      },
+    });
+
+    expect(persisted.issueLaneCompletionEvidence.mechanical.completedAt)
+      .toBeInstanceOf(admin.firestore.Timestamp);
+    expect(ticketLanePlan(persisted).completionEvidence.mechanical).toEqual({
+      completedAt,
+      completedByUid: 'mechanical-1',
+      completedByName: 'Mechanical One',
+    });
+  });
+
+  test('inspection population remains readable after nested timestamp conversion', () => {
+    const dispositionAt = '2026-07-21T12:34:56.789Z';
+    const linkedAt = '2026-07-20T10:00:00.000Z';
+    const lastObservedAt = '2026-07-21T12:30:00.000Z';
+    const [pending] = buildInspectionTargetPopulation({
+      assetTypeKey: 'innerCover',
+      assetClassId: 'class-inner-cover',
+      assets: [{
+        assetNumber: 101,
+        assetInstanceId: 'inner-cover-n4',
+        assetInstanceVersion: 3,
+        assetInstanceName: 'Inner Cover N4',
+        installedInnerCoverContext: {
+          hostAssetClassId: 'class-base',
+          hostAssetInstanceId: 'base-101',
+          hostAssetInstanceVersion: 5,
+          hostAssetNumber: 101,
+          hostAssetInstanceName: 'Base 101',
+          subjectSerialNumber: 'N4',
+          linkageId: 'linkage-n4-base-101',
+          linkageVersion: 2,
+          linkedAt,
+        },
+      }],
+      componentNodeIds: [],
+      physicalPositions: [],
+      at: dispositionAt,
+      actorUid: 'inspector-1',
+      actorName: 'Inspector One',
+      addedLater: false,
+    });
+    const target = {
+      ...pending,
+      disposition: 'observed',
+      lastObservationId: 'observation-1',
+      lastObservedAt,
+    };
+    const persisted = workflowFirestoreDataForTest({
+      targetPopulation: [target],
+    });
+
+    for (const value of [
+      persisted.targetPopulation[0].linkedAt,
+      persisted.targetPopulation[0].dispositionAt,
+      persisted.targetPopulation[0].lastObservedAt,
+    ]) {
+      expect(value).toBeInstanceOf(admin.firestore.Timestamp);
+    }
+    expect(parseInspectionTargetPopulation(persisted.targetPopulation))
+      .toEqual([target]);
   });
 
   test('maintenance awaiting-confirmation path preserves an existing native reactivation time', () => {

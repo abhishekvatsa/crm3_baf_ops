@@ -6,6 +6,8 @@ import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dar
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_correction_dialog.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_detail_screen.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,80 +65,105 @@ void main() {
       performedBy: 'I&A One',
       performedAt: closedAt.subtract(const Duration(hours: 1)),
     );
-    final ticket =
-        MaintenanceRecord()
-          ..firestoreId = 'ticket-closed-1'
-          ..version = 8
-          ..isSynced = true
-          ..assetType = AssetType.furnace
-          ..assetNumber = 7
-          ..maintenanceType = MaintenanceType.breakdown
-          ..classification = 'burnerPressureInstability'
-          ..description = 'Burner pressure instability was investigated.'
-          ..routedTo = RoutedTo.instrumentation
-          ..component = 'Burner system'
-          ..subsystem = 'Combustion control'
-          ..status = TicketStatus.resolved
-          ..isResolved = true
-          ..loggedByUid = 'operator-1'
-          ..loggedByName = 'Operator One'
-          ..acknowledgedByUid = 'ia-1'
-          ..acknowledgedByName = 'I&A One'
-          ..acknowledgedAt = closedAt.subtract(const Duration(hours: 3))
-          ..closedByUid = 'si-1'
-          ..closedByName = 'SI One'
-          ..reopenedByUid = 'operations-2'
-          ..reopenedByName = 'Operations Two'
-          ..reopenedAt = reopenedAt
-          ..reopenReason = 'Lockout recurred during the next firing cycle.'
-          ..startDate = startedAt
-          ..endDate = closedAt
-          ..createdAt = raisedAt
-          ..updatedAt = closedAt
-          ..remarks = 'Flame signal stabilized after attendance.'
-          ..actionsJson = ComponentAction.encode([
-            currentAction,
-            currentBurnerAction,
-          ])
-          ..resolutionHistory = [
-            ResolutionHistory(
-              resolvedByUid: 'si-previous',
-              resolvedByName: 'SI Previous',
-              resolvedAt: closedAt.subtract(const Duration(days: 2)),
-              actionsJson: ComponentAction.encode([earlierAction]),
-              remarks: 'Reopened after the lockout recurred.',
-              downtimeHours: 1.5,
-              teamsInvolved: const ['I&A', 'Electrical'],
-              lanePlan: IssueLanePlan.initial(const <String>['instrumentation'])
-                  .acknowledge('instrumentation')
-                  .complete(
-                    'instrumentation',
-                    evidence: IssueLaneCompletionEvidence(
-                      completedAt: earlierLaneCompletedAt,
-                      completedByUid: 'ia-previous',
-                      completedByName: 'I&A Previous',
-                    ),
-                  ),
-              reopenedByUid: 'operations-1',
-              reopenedByName: 'Operations One',
-              reopenedAt: closedAt.subtract(
-                const Duration(days: 2, minutes: -20),
-              ),
-              reopenReason: 'The first lockout recurred after restart.',
-            ),
-          ]
-          ..issueLanePlan = IssueLanePlan.initial([
-                RoutedTo.instrumentation.name,
-              ])
-              .acknowledge(RoutedTo.instrumentation.name)
+    final ticket = MaintenanceRecord()
+      ..firestoreId = 'ticket-closed-1'
+      ..version = 8
+      ..isSynced = true
+      ..workflowAggregateId = 'workflow-ticket-closed-1'
+      ..workflowComplianceId = 'compliance-ticket-closed-1'
+      ..workflowQueueState = 'released'
+      ..assetType = AssetType.furnace
+      ..assetNumber = 7
+      ..maintenanceType = MaintenanceType.breakdown
+      ..classification = 'burnerPressureInstability'
+      ..description = 'Burner pressure instability was investigated.'
+      ..routedTo = RoutedTo.instrumentation
+      ..component = 'Burner system'
+      ..subsystem = 'Combustion control'
+      ..status = TicketStatus.resolved
+      ..isResolved = true
+      ..loggedByUid = 'operator-1'
+      ..loggedByName = 'Operator One'
+      ..acknowledgedByUid = 'ia-1'
+      ..acknowledgedByName = 'I&A One'
+      ..acknowledgedAt = closedAt.subtract(const Duration(hours: 3))
+      ..closedByUid = 'si-1'
+      ..closedByName = 'SI One'
+      ..reopenedByUid = 'operations-2'
+      ..reopenedByName = 'Operations Two'
+      ..reopenedAt = reopenedAt
+      ..reopenReason = 'Lockout recurred during the next firing cycle.'
+      ..startDate = startedAt
+      ..endDate = closedAt
+      ..createdAt = raisedAt
+      ..updatedAt = closedAt
+      ..remarks = 'Flame signal stabilized after attendance.'
+      ..actionsJson = ComponentAction.encode([
+        currentAction,
+        currentBurnerAction,
+      ])
+      ..resolutionHistory = [
+        ResolutionHistory(
+          resolvedByUid: 'si-previous',
+          resolvedByName: 'SI Previous',
+          resolvedAt: closedAt.subtract(const Duration(days: 2)),
+          actionsJson: ComponentAction.encode([earlierAction]),
+          remarks: 'Reopened after the lockout recurred.',
+          downtimeHours: 1.5,
+          teamsInvolved: const ['I&A', 'Electrical'],
+          lanePlan: IssueLanePlan.initial(const <String>['instrumentation'])
+              .acknowledge('instrumentation')
               .complete(
-                RoutedTo.instrumentation.name,
+                'instrumentation',
                 evidence: IssueLaneCompletionEvidence(
-                  completedAt: laneCompletedAt,
-                  completedByUid: 'ia-1',
-                  completedByName: 'I&A One',
+                  completedAt: earlierLaneCompletedAt,
+                  completedByUid: 'ia-previous',
+                  completedByName: 'I&A Previous',
                 ),
-              );
+              ),
+          reopenedByUid: 'operations-1',
+          reopenedByName: 'Operations One',
+          reopenedAt: closedAt.subtract(const Duration(days: 2, minutes: -20)),
+          reopenReason: 'The first lockout recurred after restart.',
+        ),
+      ]
+      ..issueLanePlan = IssueLanePlan.initial([RoutedTo.instrumentation.name])
+          .acknowledge(RoutedTo.instrumentation.name)
+          .complete(
+            RoutedTo.instrumentation.name,
+            evidence: IssueLaneCompletionEvidence(
+              completedAt: laneCompletedAt,
+              completedByUid: 'ia-1',
+              completedByName: 'I&A One',
+            ),
+          );
+    final linkedCompliance = ComplianceRequestRecord()
+      ..firestoreId = 'compliance-ticket-closed-1'
+      ..linkedWorkflowId = 'workflow-ticket-closed-1'
+      ..linkedMaintenanceFirestoreId = 'ticket-closed-1'
+      ..title = 'Operations release confirmation'
+      ..description = 'Confirm the restored burner can return to service.'
+      ..originLaneKey = 'oprn'
+      ..targetLaneKey = 'inst'
+      ..statusKey = 'confirmedClosed'
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 7
+      ..raisedByUid = 'operations-1'
+      ..raisedByName = 'Operations One'
+      ..raisedAt = raisedAt
+      ..acknowledgedByUid = 'ia-1'
+      ..acknowledgedByName = 'I&A One'
+      ..acknowledgedAt = closedAt.subtract(const Duration(hours: 3))
+      ..compliedByUid = 'ia-1'
+      ..compliedByName = 'I&A One'
+      ..compliedAt = closedAt.subtract(const Duration(minutes: 20))
+      ..complianceNote = 'Flame signal proved stable after restoration.'
+      ..confirmedByUid = 'operations-1'
+      ..confirmedByName = 'Operations One'
+      ..confirmedAt = closedAt
+      ..confirmNote = 'Return to service accepted.'
+      ..createdAt = raisedAt
+      ..updatedAt = closedAt;
     expect(
       ticket.actionsReadResult.entries
           .singleWhere((action) => action.component == 'Burner control relay')
@@ -173,6 +200,12 @@ void main() {
           maintenanceTicketCorrectionAuditProvider.overrideWith((ref, id) {
             expect(id, 'ticket-closed-1');
             return Future<List<AuditEvent>>.value(<AuditEvent>[correction]);
+          }),
+          workflowComplianceProvider.overrideWith((ref, workflowId) {
+            expect(workflowId, 'workflow-ticket-closed-1');
+            return Stream<List<ComplianceRequestRecord>>.value(
+              <ComplianceRequestRecord>[linkedCompliance],
+            );
           }),
         ],
         child: MaterialApp(
@@ -322,6 +355,21 @@ void main() {
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
+      find.text('Workflow completion evidence'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Workflow completion evidence'), findsOneWidget);
+    expect(find.text('Operations release confirmation'), findsOneWidget);
+    expect(find.text('Request raised'), findsOneWidget);
+    expect(find.text('Target lane acknowledged'), findsOneWidget);
+    expect(find.text('Work reported'), findsOneWidget);
+    expect(find.text('Origin accepted completion'), findsOneWidget);
+    expect(
+      find.textContaining('Flame signal proved stable after restoration.'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
       find.text('Audited corrections'),
       300,
       scrollable: find.byType(Scrollable).first,
@@ -390,27 +438,26 @@ void main() {
     tester,
   ) async {
     final closedAt = DateTime.utc(2026, 8, 23, 12);
-    final ticket =
-        MaintenanceRecord()
-          ..firestoreId = 'ticket-closed-2'
-          ..version = 4
-          ..isSynced = true
-          ..assetType = AssetType.base
-          ..assetNumber = 201
-          ..maintenanceType = MaintenanceType.breakdown
-          ..description = 'Cold leak test failed after the operating cycle.'
-          ..routedTo = RoutedTo.mechanical
-          ..status = TicketStatus.resolved
-          ..isResolved = true
-          ..startDate = closedAt.subtract(const Duration(hours: 3))
-          ..endDate = closedAt
-          ..createdAt = closedAt.subtract(const Duration(hours: 3))
-          ..updatedAt = closedAt
-          ..actionsJson = '[]'
-          ..resolutionHistoryJson = '[]'
-          ..issueLanePlan = IssueLanePlan.initial([RoutedTo.mechanical.name])
-              .acknowledge(RoutedTo.mechanical.name)
-              .complete(RoutedTo.mechanical.name);
+    final ticket = MaintenanceRecord()
+      ..firestoreId = 'ticket-closed-2'
+      ..version = 4
+      ..isSynced = true
+      ..assetType = AssetType.base
+      ..assetNumber = 201
+      ..maintenanceType = MaintenanceType.breakdown
+      ..description = 'Cold leak test failed after the operating cycle.'
+      ..routedTo = RoutedTo.mechanical
+      ..status = TicketStatus.resolved
+      ..isResolved = true
+      ..startDate = closedAt.subtract(const Duration(hours: 3))
+      ..endDate = closedAt
+      ..createdAt = closedAt.subtract(const Duration(hours: 3))
+      ..updatedAt = closedAt
+      ..actionsJson = '[]'
+      ..resolutionHistoryJson = '[]'
+      ..issueLanePlan = IssueLanePlan.initial([RoutedTo.mechanical.name])
+          .acknowledge(RoutedTo.mechanical.name)
+          .complete(RoutedTo.mechanical.name);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -439,29 +486,28 @@ void main() {
     'Inner Cover availability correction locks dependency identity only',
     (tester) async {
       final now = DateTime.utc(2026, 9, 1, 6);
-      final ticket =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-base-inner-cover-unavailable'
-            ..version = 2
-            ..isSynced = true
-            ..assetType = AssetType.base
-            ..assetNumber = 201
-            ..maintenanceType = MaintenanceType.breakdown
-            ..classification = baseInnerCoverUnavailableClassification
-            ..description = 'Base 201 has no Inner Cover available.'
-            ..routedTo = RoutedTo.operations
-            ..component = baseInnerCoverAvailabilityComponent
-            ..subsystem = baseInnerCoverAvailabilitySubsystem
-            ..plantConditionEffect =
-                MaintenanceIssuePlantConditionEffect.unavailable
-            ..status = TicketStatus.open
-            ..isResolved = false
-            ..startDate = now.subtract(const Duration(hours: 1))
-            ..createdAt = now.subtract(const Duration(hours: 1))
-            ..updatedAt = now
-            ..actionsJson = '[]'
-            ..resolutionHistoryJson = '[]'
-            ..issueLanePlan = IssueLanePlan.initial([RoutedTo.operations.name]);
+      final ticket = MaintenanceRecord()
+        ..firestoreId = 'ticket-base-inner-cover-unavailable'
+        ..version = 2
+        ..isSynced = true
+        ..assetType = AssetType.base
+        ..assetNumber = 201
+        ..maintenanceType = MaintenanceType.breakdown
+        ..classification = baseInnerCoverUnavailableClassification
+        ..description = 'Base 201 has no Inner Cover available.'
+        ..routedTo = RoutedTo.operations
+        ..component = baseInnerCoverAvailabilityComponent
+        ..subsystem = baseInnerCoverAvailabilitySubsystem
+        ..plantConditionEffect =
+            MaintenanceIssuePlantConditionEffect.unavailable
+        ..status = TicketStatus.open
+        ..isResolved = false
+        ..startDate = now.subtract(const Duration(hours: 1))
+        ..createdAt = now.subtract(const Duration(hours: 1))
+        ..updatedAt = now
+        ..actionsJson = '[]'
+        ..resolutionHistoryJson = '[]'
+        ..issueLanePlan = IssueLanePlan.initial([RoutedTo.operations.name]);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -482,9 +528,10 @@ void main() {
         final field = tester.widget<TextFormField>(find.byKey(ValueKey(key)));
         expect(field.enabled, isFalse, reason: key);
       }
-      final condition = tester.widget<
-        DropdownButtonFormField<MaintenanceIssuePlantConditionEffect>
-      >(find.byKey(const ValueKey('ticket-correction-plant-condition')));
+      final condition = tester
+          .widget<
+            DropdownButtonFormField<MaintenanceIssuePlantConditionEffect>
+          >(find.byKey(const ValueKey('ticket-correction-plant-condition')));
       final route = tester.widget<DropdownButtonFormField<RoutedTo>>(
         find.byKey(const ValueKey('ticket-correction-route')),
       );
@@ -503,24 +550,23 @@ void main() {
     'correction retains the form when Others has no department name',
     (tester) async {
       final now = DateTime.utc(2026, 8, 24, 6);
-      final ticket =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-open-other-correction'
-            ..version = 3
-            ..isSynced = true
-            ..assetType = AssetType.base
-            ..assetNumber = 201
-            ..maintenanceType = MaintenanceType.breakdown
-            ..description = 'Cold leak test failed after the operating cycle.'
-            ..routedTo = RoutedTo.mechanical
-            ..status = TicketStatus.open
-            ..isResolved = false
-            ..startDate = now.subtract(const Duration(hours: 2))
-            ..createdAt = now.subtract(const Duration(hours: 2))
-            ..updatedAt = now
-            ..actionsJson = '[]'
-            ..resolutionHistoryJson = '[]'
-            ..issueLanePlan = IssueLanePlan.initial([RoutedTo.mechanical.name]);
+      final ticket = MaintenanceRecord()
+        ..firestoreId = 'ticket-open-other-correction'
+        ..version = 3
+        ..isSynced = true
+        ..assetType = AssetType.base
+        ..assetNumber = 201
+        ..maintenanceType = MaintenanceType.breakdown
+        ..description = 'Cold leak test failed after the operating cycle.'
+        ..routedTo = RoutedTo.mechanical
+        ..status = TicketStatus.open
+        ..isResolved = false
+        ..startDate = now.subtract(const Duration(hours: 2))
+        ..createdAt = now.subtract(const Duration(hours: 2))
+        ..updatedAt = now
+        ..actionsJson = '[]'
+        ..resolutionHistoryJson = '[]'
+        ..issueLanePlan = IssueLanePlan.initial([RoutedTo.mechanical.name]);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -564,28 +610,27 @@ void main() {
     tester,
   ) async {
     final now = DateTime.utc(2026, 8, 25, 6);
-    final ticket =
-        MaintenanceRecord()
-          ..firestoreId = 'ticket-secondary-other-correction'
-          ..version = 3
-          ..isSynced = true
-          ..assetType = AssetType.base
-          ..assetNumber = 117
-          ..maintenanceType = MaintenanceType.breakdown
-          ..description = 'Electrical and contractor attendance required.'
-          ..routedTo = RoutedTo.electrical
-          ..otherDepartment = 'Hydraulics contractor'
-          ..status = TicketStatus.open
-          ..isResolved = false
-          ..startDate = now.subtract(const Duration(hours: 2))
-          ..createdAt = now.subtract(const Duration(hours: 2))
-          ..updatedAt = now
-          ..actionsJson = '[]'
-          ..resolutionHistoryJson = '[]'
-          ..issueLanePlan = IssueLanePlan.initial(const <String>[
-            'electrical',
-            'others',
-          ]);
+    final ticket = MaintenanceRecord()
+      ..firestoreId = 'ticket-secondary-other-correction'
+      ..version = 3
+      ..isSynced = true
+      ..assetType = AssetType.base
+      ..assetNumber = 117
+      ..maintenanceType = MaintenanceType.breakdown
+      ..description = 'Electrical and contractor attendance required.'
+      ..routedTo = RoutedTo.electrical
+      ..otherDepartment = 'Hydraulics contractor'
+      ..status = TicketStatus.open
+      ..isResolved = false
+      ..startDate = now.subtract(const Duration(hours: 2))
+      ..createdAt = now.subtract(const Duration(hours: 2))
+      ..updatedAt = now
+      ..actionsJson = '[]'
+      ..resolutionHistoryJson = '[]'
+      ..issueLanePlan = IssueLanePlan.initial(const <String>[
+        'electrical',
+        'others',
+      ]);
 
     await tester.pumpWidget(
       MaterialApp(

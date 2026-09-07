@@ -98,18 +98,21 @@ class _InspectionDefinitionEditorState
   void initState() {
     super.initState();
     final frozen = widget.existing?.frozen;
-    final activeClasses =
-        widget.classes.where((item) => item.isActive).toList();
+    final activeClasses = widget.classes
+        .where((item) => item.isActive)
+        .toList();
     final existingClassId = frozen?.assetClassIds.firstOrNull;
     final existingClassIsActive = activeClasses.any(
       (item) => item.id == existingClassId,
     );
-    _assetClassId =
-        existingClassIsActive ? existingClassId! : activeClasses.first.id;
+    _assetClassId = existingClassIsActive
+        ? existingClassId!
+        : activeClasses.first.id;
     _valueType = frozen?.valueType ?? InspectionValueType.number;
     _requiresCharge = frozen?.requiresChargeNo ?? false;
-    _componentIds =
-        existingClassIsActive ? {...?frozen?.componentNodeIds} : <String>{};
+    _componentIds = existingClassIsActive
+        ? {...?frozen?.componentNodeIds}
+        : <String>{};
     _code = TextEditingController(text: frozen?.code ?? '');
     _title = TextEditingController(text: frozen?.title ?? '');
     _description = TextEditingController(text: frozen?.description ?? '');
@@ -123,10 +126,9 @@ class _InspectionDefinitionEditorState
       text: frozen?.preconditions.join('\n') ?? '',
     );
     _reason = TextEditingController(
-      text:
-          widget.existing == null
-              ? 'Create a reviewed field-inspection definition.'
-              : 'Revise the governed inspection definition.',
+      text: widget.existing == null
+          ? 'Create a reviewed field-inspection definition.'
+          : 'Revise the governed inspection definition.',
     );
   }
 
@@ -150,8 +152,9 @@ class _InspectionDefinitionEditorState
 
   @override
   Widget build(BuildContext context) {
-    final activeClasses =
-        widget.classes.where((item) => item.isActive).toList();
+    final activeClasses = widget.classes
+        .where((item) => item.isActive)
+        .toList();
     final selectedClass = activeClasses.firstWhere(
       (item) => item.id == _assetClassId,
       orElse: () => activeClasses.first,
@@ -186,13 +189,12 @@ class _InspectionDefinitionEditorState
                     labelText: 'Definition code',
                     prefixIcon: Icon(Icons.tag_rounded),
                   ),
-                  validator:
-                      (value) =>
-                          RegExp(
-                                r'^[A-Z0-9][A-Z0-9_-]{1,47}$',
-                              ).hasMatch(value?.trim().toUpperCase() ?? '')
-                              ? null
-                              : 'Use 2-48 letters, numbers, hyphens or underscores.',
+                  validator: (value) =>
+                      RegExp(
+                        r'^[A-Z0-9][A-Z0-9_-]{1,47}$',
+                      ).hasMatch(value?.trim().toUpperCase() ?? '')
+                      ? null
+                      : 'Use 2-48 letters, numbers, hyphens or underscores.',
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -201,11 +203,9 @@ class _InspectionDefinitionEditorState
                     labelText: 'Field-facing title',
                     prefixIcon: Icon(Icons.title_rounded),
                   ),
-                  validator:
-                      (value) =>
-                          (value?.trim().isNotEmpty ?? false)
-                              ? null
-                              : 'Enter a clear title.',
+                  validator: (value) => (value?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Enter a clear title.',
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -215,11 +215,9 @@ class _InspectionDefinitionEditorState
                     labelText: 'What this inspection establishes',
                     alignLabelWithHint: true,
                   ),
-                  validator:
-                      (value) =>
-                          (value?.trim().isNotEmpty ?? false)
-                              ? null
-                              : 'Describe the inspection purpose.',
+                  validator: (value) => (value?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Describe the inspection purpose.',
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 Text(
@@ -234,41 +232,37 @@ class _InspectionDefinitionEditorState
                     labelText: 'Asset class',
                     prefixIcon: Icon(Icons.precision_manufacturing_outlined),
                   ),
-                  items:
-                      activeClasses
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item.id,
-                              child: Text(item.name),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      (value) => setState(() {
-                        _assetClassId = value!;
-                        _componentIds.clear();
-                      }),
+                  items: activeClasses
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.id,
+                          child: Text(item.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() {
+                    _assetClassId = value!;
+                    _componentIds.clear();
+                  }),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 nodes.when(
                   loading: () => const LinearProgressIndicator(),
-                  error:
-                      (_, _) => const Text(
-                        'Components could not be loaded safely.',
-                        style: TextStyle(color: BafColors.danger),
-                      ),
+                  error: (_, _) => const Text(
+                    'Components could not be loaded safely.',
+                    style: TextStyle(color: BafColors.danger),
+                  ),
                   data: (all) {
-                    final components =
-                        all
-                            .where(
-                              (node) =>
-                                  node.isActive &&
-                                  (node.nodeType ==
-                                          AssetHierarchyNodeType.component ||
-                                      node.nodeType ==
-                                          AssetHierarchyNodeType.subcomponent),
-                            )
-                            .toList();
+                    final components = all
+                        .where(
+                          (node) =>
+                              node.isActive &&
+                              (node.nodeType ==
+                                      AssetHierarchyNodeType.component ||
+                                  node.nodeType ==
+                                      AssetHierarchyNodeType.subcomponent),
+                        )
+                        .toList();
                     if (components.isEmpty) {
                       return const _InlineNotice(
                         icon: Icons.info_outline_rounded,
@@ -287,29 +281,26 @@ class _InspectionDefinitionEditorState
                         Wrap(
                           spacing: BafSpacing.sm,
                           runSpacing: BafSpacing.sm,
-                          children:
-                              components
-                                  .map(
-                                    (node) => FilterChip(
-                                      selected: _componentIds.contains(node.id),
-                                      label: Text(node.name),
-                                      avatar: Icon(
-                                        node.nodeType ==
-                                                AssetHierarchyNodeType
-                                                    .subcomponent
-                                            ? Icons.account_tree_outlined
-                                            : Icons.settings_outlined,
-                                        size: 17,
-                                      ),
-                                      onSelected:
-                                          (selected) => setState(() {
-                                            selected
-                                                ? _componentIds.add(node.id)
-                                                : _componentIds.remove(node.id);
-                                          }),
-                                    ),
-                                  )
-                                  .toList(),
+                          children: components
+                              .map(
+                                (node) => FilterChip(
+                                  selected: _componentIds.contains(node.id),
+                                  label: Text(node.name),
+                                  avatar: Icon(
+                                    node.nodeType ==
+                                            AssetHierarchyNodeType.subcomponent
+                                        ? Icons.account_tree_outlined
+                                        : Icons.settings_outlined,
+                                    size: 17,
+                                  ),
+                                  onSelected: (selected) => setState(() {
+                                    selected
+                                        ? _componentIds.add(node.id)
+                                        : _componentIds.remove(node.id);
+                                  }),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
                     );
@@ -347,8 +338,8 @@ class _InspectionDefinitionEditorState
                     ],
                     selected: {_valueType},
                     showSelectedIcon: false,
-                    onSelectionChanged:
-                        (value) => setState(() => _valueType = value.single),
+                    onSelectionChanged: (value) =>
+                        setState(() => _valueType = value.single),
                   ),
                 ),
                 const SizedBox(height: BafSpacing.md),
@@ -359,11 +350,9 @@ class _InspectionDefinitionEditorState
                       labelText: 'Engineering unit',
                       prefixIcon: Icon(Icons.straighten_rounded),
                     ),
-                    validator:
-                        (value) =>
-                            value?.trim().isNotEmpty == true
-                                ? null
-                                : 'Numeric readings require a unit.',
+                    validator: (value) => value?.trim().isNotEmpty == true
+                        ? null
+                        : 'Numeric readings require a unit.',
                   ),
                   const SizedBox(height: BafSpacing.md),
                   Row(
@@ -407,11 +396,9 @@ class _InspectionDefinitionEditorState
                       labelText: 'Choices · one per line',
                       alignLabelWithHint: true,
                     ),
-                    validator:
-                        (value) =>
-                            _lines(value).isNotEmpty
-                                ? null
-                                : 'Provide at least one choice.',
+                    validator: (value) => _lines(value).isNotEmpty
+                        ? null
+                        : 'Provide at least one choice.',
                   ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -440,11 +427,9 @@ class _InspectionDefinitionEditorState
                     labelText: 'Governance reason',
                     prefixIcon: Icon(Icons.history_edu_outlined),
                   ),
-                  validator:
-                      (value) =>
-                          (value?.trim().isNotEmpty ?? false)
-                              ? null
-                              : 'Record a reason.',
+                  validator: (value) => (value?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Record a reason.',
                 ),
               ],
             ),
@@ -483,12 +468,12 @@ class _InspectionDefinitionEditorState
         assetClassId: selectedClass.id,
         componentNodeIds: _componentIds.toList()..sort(),
         valueType: _valueType,
-        unit:
-            _valueType == InspectionValueType.number ? _unit.text.trim() : null,
-        choiceValues:
-            _valueType == InspectionValueType.choice
-                ? _lines(_choices.text)
-                : const [],
+        unit: _valueType == InspectionValueType.number
+            ? _unit.text.trim()
+            : null,
+        choiceValues: _valueType == InspectionValueType.choice
+            ? _lines(_choices.text)
+            : const [],
         minimumValue: _valueType == InspectionValueType.number ? min : null,
         maximumValue: _valueType == InspectionValueType.number ? max : null,
         preconditions: _lines(_preconditions.text),
@@ -632,26 +617,24 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                     labelText: 'Governed definition',
                     prefixIcon: Icon(Icons.rule_folder_outlined),
                   ),
-                  items:
-                      widget.definitions
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item.frozen.title),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      (value) => setState(() {
-                        _definition = value!;
-                        _selectedTargetNumbers
-                          ..clear()
-                          ..addAll(
-                            _targetOptionsFor(value).map((item) => item.number),
-                          );
-                        _positions.clear();
-                        _baselineCampaignId = null;
-                      }),
+                  items: widget.definitions
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(item.frozen.title),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() {
+                    _definition = value!;
+                    _selectedTargetNumbers
+                      ..clear()
+                      ..addAll(
+                        _targetOptionsFor(value).map((item) => item.number),
+                      );
+                    _positions.clear();
+                    _baselineCampaignId = null;
+                  }),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -663,11 +646,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                         'Verify pressure-transmitter settings across all Furnaces.',
                     alignLabelWithHint: true,
                   ),
-                  validator:
-                      (value) =>
-                          (value?.trim().isNotEmpty ?? false)
-                              ? null
-                              : 'Describe the campaign purpose.',
+                  validator: (value) => (value?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Describe the campaign purpose.',
                 ),
                 const SizedBox(height: BafSpacing.md),
                 _GovernedInspectionTargetField(
@@ -712,8 +693,8 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                       ),
                     ),
                   ],
-                  onChanged:
-                      (value) => setState(() => _baselineCampaignId = value),
+                  onChanged: (value) =>
+                      setState(() => _baselineCampaignId = value),
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 Text(
@@ -724,21 +705,19 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                 Wrap(
                   spacing: BafSpacing.sm,
                   runSpacing: BafSpacing.sm,
-                  children:
-                      _observerRoles.entries
-                          .map(
-                            (entry) => FilterChip(
-                              selected: _roles.contains(entry.key),
-                              label: Text(entry.value),
-                              onSelected:
-                                  (selected) => setState(() {
-                                    selected
-                                        ? _roles.add(entry.key)
-                                        : _roles.remove(entry.key);
-                                  }),
-                            ),
-                          )
-                          .toList(),
+                  children: _observerRoles.entries
+                      .map(
+                        (entry) => FilterChip(
+                          selected: _roles.contains(entry.key),
+                          label: Text(entry.value),
+                          onSelected: (selected) => setState(() {
+                            selected
+                                ? _roles.add(entry.key)
+                                : _roles.remove(entry.key);
+                          }),
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -747,11 +726,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                     labelText: 'Opening reason',
                     prefixIcon: Icon(Icons.history_edu_outlined),
                   ),
-                  validator:
-                      (value) =>
-                          (value?.trim().isNotEmpty ?? false)
-                              ? null
-                              : 'Record a reason.',
+                  validator: (value) => (value?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Record a reason.',
                 ),
               ],
             ),
@@ -793,8 +770,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
       return;
     }
     final available = _targetOptions.map((item) => item.number).toSet();
-    final unknown =
-        numbers.where((number) => !available.contains(number)).toList();
+    final unknown = numbers
+        .where((number) => !available.contains(number))
+        .toList();
     if (unknown.isNotEmpty) {
       _showEditorError(
         context,
@@ -803,10 +781,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
       return;
     }
     final positions = _commaValues(_positions.text);
-    final componentCount =
-        _definition.frozen.componentNodeIds.isEmpty
-            ? 1
-            : _definition.frozen.componentNodeIds.length;
+    final componentCount = _definition.frozen.componentNodeIds.isEmpty
+        ? 1
+        : _definition.frozen.componentNodeIds.length;
     final expected =
         numbers.length *
         componentCount *
@@ -839,8 +816,8 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
 
   InspectionCampaignPopulationMode get _populationMode =>
       _assetTypeKey(_definition) == 'innerCover'
-          ? InspectionCampaignPopulationMode.installedInnerCoversByBase
-          : InspectionCampaignPopulationMode.assetInstances;
+      ? InspectionCampaignPopulationMode.installedInnerCoversByBase
+      : InspectionCampaignPopulationMode.assetInstances;
 
   String? get _hostAssetClassId {
     if (_populationMode == InspectionCampaignPopulationMode.assetInstances) {
@@ -860,25 +837,25 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
   ) {
     if (_assetTypeKey(definition) != 'innerCover') {
       final classId = definition.frozen.assetClassIds.firstOrNull;
-      final options = widget.assets
-          .where((asset) => asset.isActive && asset.assetClassId == classId)
-          .map(
-            (asset) => _InspectionTargetOption(
-              number: asset.assetNumber,
-              label: asset.name,
-              detail: 'Governed asset ${asset.assetNumber}',
-            ),
-          )
-          .toList(growable: false)
-        ..sort((left, right) => left.number.compareTo(right.number));
+      final options =
+          widget.assets
+              .where((asset) => asset.isActive && asset.assetClassId == classId)
+              .map(
+                (asset) => _InspectionTargetOption(
+                  number: asset.assetNumber,
+                  label: asset.name,
+                  detail: 'Governed asset ${asset.assetNumber}',
+                ),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.number.compareTo(right.number));
       return options;
     }
     final innerCoverClassId = definition.frozen.assetClassIds.firstOrNull;
-    final hostClassId =
-        widget.assetClasses
-            .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
-            .map((item) => item.id)
-            .singleOrNull;
+    final hostClassId = widget.assetClasses
+        .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
+        .map((item) => item.id)
+        .singleOrNull;
     if (innerCoverClassId == null || hostClassId == null) {
       return const <_InspectionTargetOption>[];
     }
@@ -899,11 +876,10 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
   Future<void> _chooseTargets() async {
     final selected = await showDialog<Set<int>>(
       context: context,
-      builder:
-          (_) => _InspectionTargetPickerDialog(
-            options: _targetOptions,
-            selectedNumbers: _selectedTargetNumbers,
-          ),
+      builder: (_) => _InspectionTargetPickerDialog(
+        options: _targetOptions,
+        selectedNumbers: _selectedTargetNumbers,
+      ),
     );
     if (selected == null || !mounted) return;
     setState(() {
@@ -1013,7 +989,7 @@ class _InspectionObservationEditorState
   final _formKey = GlobalKey<FormState>();
   late String? _targetKey;
   late DateTime _observedAt;
-  late bool _booleanValue;
+  late bool? _booleanValue;
   late String? _choiceValue;
   late final TextEditingController _value;
   late final TextEditingController _charge;
@@ -1025,19 +1001,16 @@ class _InspectionObservationEditorState
   void initState() {
     super.initState();
     final correction = widget.correction;
-    final requestedTarget =
-        _selectableTargets
-            .where((target) => target.targetKey == widget.initialTargetKey)
-            .firstOrNull;
+    final requestedTarget = _selectableTargets
+        .where((target) => target.targetKey == widget.initialTargetKey)
+        .firstOrNull;
     _targetKey =
         correction?.targetKey ??
         requestedTarget?.targetKey ??
         _selectableTargets.firstOrNull?.targetKey;
     _observedAt = DateTime.now();
-    _booleanValue = correction?.booleanValue ?? false;
-    _choiceValue =
-        correction?.choiceValue ??
-        widget.campaign.definition.choiceValues.firstOrNull;
+    _booleanValue = correction?.booleanValue;
+    _choiceValue = correction?.choiceValue;
     _value = TextEditingController(
       text: switch (widget.campaign.definition.valueType) {
         InspectionValueType.number => '${correction?.numericValue ?? ''}',
@@ -1086,15 +1059,13 @@ class _InspectionObservationEditorState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _EditorLead(
-                  icon:
-                      locked
-                          ? Icons.edit_note_rounded
-                          : Icons.add_chart_rounded,
+                  icon: locked
+                      ? Icons.edit_note_rounded
+                      : Icons.add_chart_rounded,
                   title: definition.title,
-                  text:
-                      locked
-                          ? 'The original remains intact. This creates a new current result for the same target.'
-                          : definition.description,
+                  text: locked
+                      ? 'The original remains intact. This creates a new current result for the same target.'
+                      : definition.description,
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 if (targets.isEmpty)
@@ -1112,19 +1083,17 @@ class _InspectionObservationEditorState
                       labelText: 'Governed inspection target',
                       prefixIcon: Icon(Icons.my_location_rounded),
                     ),
-                    items:
-                        targets
-                            .map(
-                              (target) => DropdownMenuItem(
-                                value: target.targetKey,
-                                child: Text(_targetLabel(target, nodes)),
-                              ),
-                            )
-                            .toList(),
-                    onChanged:
-                        locked
-                            ? null
-                            : (value) => setState(() => _targetKey = value),
+                    items: targets
+                        .map(
+                          (target) => DropdownMenuItem(
+                            value: target.targetKey,
+                            child: Text(_targetLabel(target, nodes)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: locked
+                        ? null
+                        : (value) => setState(() => _targetKey = value),
                   ),
                 if (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
                   const _InlineNotice(
@@ -1159,10 +1128,9 @@ class _InspectionObservationEditorState
                   keyboardType: TextInputType.number,
                   maxLength: 5,
                   decoration: InputDecoration(
-                    labelText:
-                        definition.requiresChargeNo
-                            ? 'Charge number'
-                            : 'Charge number (optional)',
+                    labelText: definition.requiresChargeNo
+                        ? 'Charge number'
+                        : 'Charge number (optional)',
                     prefixIcon: const Icon(Icons.numbers_rounded),
                     counterText: '',
                   ),
@@ -1188,11 +1156,9 @@ class _InspectionObservationEditorState
                     hintText: 'furnaceState=isolated\nsource=field gauge',
                     alignLabelWithHint: true,
                   ),
-                  validator:
-                      (value) =>
-                          _parseConditions(value) == null
-                              ? 'Use one unique key=value condition per line.'
-                              : null,
+                  validator: (value) => _parseConditions(value) == null
+                      ? 'Use one unique key=value condition per line.'
+                      : null,
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -1227,9 +1193,9 @@ class _InspectionObservationEditorState
         FilledButton.icon(
           onPressed:
               targets.isEmpty ||
-                      (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
-                  ? null
-                  : _submit,
+                  (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
+              ? null
+              : _submit,
           icon: const Icon(Icons.save_outlined),
           label: Text(locked ? 'Record correction' : 'Save reading'),
         ),
@@ -1250,26 +1216,59 @@ class _InspectionObservationEditorState
           prefixIcon: const Icon(Icons.speed_rounded),
           helperText:
               definition.minimumValue == null && definition.maximumValue == null
-                  ? null
-                  : 'Governed range: ${definition.minimumValue ?? '−∞'} to ${definition.maximumValue ?? '∞'} ${definition.unit}',
+              ? null
+              : 'Governed range: ${definition.minimumValue ?? '−∞'} to ${definition.maximumValue ?? '∞'} ${definition.unit}',
         ),
-        validator:
-            (value) =>
-                double.tryParse(value?.trim() ?? '') == null
-                    ? 'Enter a numeric reading.'
-                    : null,
+        validator: (value) => double.tryParse(value?.trim() ?? '') == null
+            ? 'Enter a numeric reading.'
+            : null,
       ),
-      InspectionValueType.boolean => SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: BafSpacing.md),
-        tileColor: BafColors.surfaceMuted,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          side: const BorderSide(color: BafColors.border),
+      InspectionValueType.boolean => FormField<bool>(
+        initialValue: _booleanValue,
+        validator: (value) => value == null ? 'Choose Yes or No.' : null,
+        builder: (field) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Observed condition',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: BafSpacing.sm),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text('Yes'),
+                  icon: Icon(Icons.check_rounded),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text('No'),
+                  icon: Icon(Icons.close_rounded),
+                ),
+              ],
+              selected: _booleanValue == null
+                  ? const <bool>{}
+                  : <bool>{_booleanValue!},
+              emptySelectionAllowed: true,
+              onSelectionChanged: (values) {
+                final selected = values.isEmpty ? null : values.first;
+                setState(() => _booleanValue = selected);
+                field.didChange(selected);
+              },
+            ),
+            if (field.hasError) ...[
+              const SizedBox(height: BafSpacing.xs),
+              Text(
+                field.errorText!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
         ),
-        value: _booleanValue,
-        onChanged: (value) => setState(() => _booleanValue = value),
-        title: Text(_booleanValue ? 'Yes' : 'No'),
-        subtitle: const Text('Observed condition'),
       ),
       InspectionValueType.text => TextFormField(
         controller: _value,
@@ -1278,11 +1277,9 @@ class _InspectionObservationEditorState
           labelText: 'Observed condition',
           alignLabelWithHint: true,
         ),
-        validator:
-            (value) =>
-                value?.trim().isNotEmpty == true
-                    ? null
-                    : 'Record the observed condition.',
+        validator: (value) => value?.trim().isNotEmpty == true
+            ? null
+            : 'Record the observed condition.',
       ),
       InspectionValueType.choice => DropdownButtonFormField<String>(
         isExpanded: true,
@@ -1291,14 +1288,14 @@ class _InspectionObservationEditorState
           labelText: 'Observed choice',
           prefixIcon: Icon(Icons.list_alt_rounded),
         ),
-        items:
-            definition.choiceValues
-                .map(
-                  (choice) =>
-                      DropdownMenuItem(value: choice, child: Text(choice)),
-                )
-                .toList(),
+        items: definition.choiceValues
+            .map(
+              (choice) => DropdownMenuItem(value: choice, child: Text(choice)),
+            )
+            .toList(),
         onChanged: (value) => setState(() => _choiceValue = value),
+        validator: (value) =>
+            value == null ? 'Choose an observed value.' : null,
       ),
     };
   }
@@ -1329,15 +1326,13 @@ class _InspectionObservationEditorState
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    final target =
-        widget.campaign.targets
-            .where((item) => item.targetKey == _targetKey)
-            .firstOrNull;
+    final target = widget.campaign.targets
+        .where((item) => item.targetKey == _targetKey)
+        .firstOrNull;
     if (target == null) return;
-    final component =
-        _eligibleNodes(
-          widget,
-        ).where((item) => item.id == target.componentNodeId).firstOrNull;
+    final component = _eligibleNodes(
+      widget,
+    ).where((item) => item.id == target.componentNodeId).firstOrNull;
     final charge = int.tryParse(_charge.text.trim());
     final definition = widget.campaign.definition;
     Navigator.pop(
@@ -1349,22 +1344,18 @@ class _InspectionObservationEditorState
         component: component,
         physicalPosition: target.physicalPosition,
         observedAt: _observedAt,
-        numericValue:
-            definition.valueType == InspectionValueType.number
-                ? double.parse(_value.text.trim())
-                : null,
-        booleanValue:
-            definition.valueType == InspectionValueType.boolean
-                ? _booleanValue
-                : null,
-        textValue:
-            definition.valueType == InspectionValueType.text
-                ? _value.text.trim()
-                : null,
-        choiceValue:
-            definition.valueType == InspectionValueType.choice
-                ? _choiceValue
-                : null,
+        numericValue: definition.valueType == InspectionValueType.number
+            ? double.parse(_value.text.trim())
+            : null,
+        booleanValue: definition.valueType == InspectionValueType.boolean
+            ? _booleanValue!
+            : null,
+        textValue: definition.valueType == InspectionValueType.text
+            ? _value.text.trim()
+            : null,
+        choiceValue: definition.valueType == InspectionValueType.choice
+            ? _choiceValue
+            : null,
         conditions: _parseConditions(_conditions.text)!,
         chargeNo: charge,
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
@@ -1470,13 +1461,12 @@ String? _optionalNumberValidator(String? value) {
       : 'Enter a valid number.';
 }
 
-List<String> _lines(String? value) =>
-    (value ?? '')
-        .split(RegExp(r'[\r\n]+'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList();
+List<String> _lines(String? value) => (value ?? '')
+    .split(RegExp(r'[\r\n]+'))
+    .map((item) => item.trim())
+    .where((item) => item.isNotEmpty)
+    .toSet()
+    .toList();
 
 List<String> _commaValues(String? value) =>
     (value ?? '')
@@ -1520,8 +1510,9 @@ String _targetLabel(
   InspectionCampaignTarget target,
   List<AssetHierarchyNode> nodes,
 ) {
-  final component =
-      nodes.where((node) => node.id == target.componentNodeId).firstOrNull;
+  final component = nodes
+      .where((node) => node.id == target.componentNodeId)
+      .firstOrNull;
   return [
     target.rowLabel,
     if (component != null) component.name,

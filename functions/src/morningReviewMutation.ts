@@ -1,6 +1,7 @@
 import {createHash} from "crypto";
 
 import {AssetHierarchyMutationError} from "./assetHierarchyMutation";
+import {persistedInstantMillis} from "./persistedInstant";
 import {validateQualityWarningRecord} from "./qualityMutation";
 import {stableJson} from "./stableJson";
 import {
@@ -686,8 +687,8 @@ function timestampDate(value: unknown): Date | null {
     return Number.isFinite(milliseconds) ? new Date(milliseconds) : null;
   }
   if (typeof value === "string") {
-    const date = new Date(value);
-    return Number.isNaN(date.valueOf()) ? null : date;
+    const milliseconds = persistedInstantMillis(value);
+    return Number.isFinite(milliseconds) ? new Date(milliseconds) : null;
   }
   if (value == null || typeof value !== "object") return null;
   const candidate = value as {

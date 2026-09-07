@@ -100,19 +100,32 @@ def _function_span(path: Path, marker: str) -> tuple[int, int, str]:
 
 
 def _reader_fields(body: str, reader: str) -> list[str]:
-    pattern = re.compile(
+    indexed_pattern = re.compile(
         rf"{reader}\(\s*(?:map|data|composer|json|normalized)\['([^']+)'\]\s*,"
         rf".*?field:\s*'([^']+)'",
         re.DOTALL,
     )
-    fields: list[str] = []
-    for value_field, named_field in pattern.findall(body):
+    scalar_pattern = re.compile(
+        rf"{reader}\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,"
+        rf".*?field:\s*'([^']+)'",
+        re.DOTALL,
+    )
+    fields: list[tuple[int, str]] = []
+    for match in indexed_pattern.finditer(body):
+        value_field, named_field = match.groups()
         if value_field != named_field and not named_field.endswith(f".{value_field}"):
             raise ValueError(
                 f"timestamp input {value_field!r} is labelled as {named_field!r}"
             )
-        fields.append(named_field)
-    return fields
+        fields.append((match.start(), named_field))
+    for match in scalar_pattern.finditer(body):
+        input_name, named_field = match.groups()
+        if input_name != "value":
+            raise ValueError(
+                f"unsupported scalar timestamp input {input_name!r}"
+            )
+        fields.append((match.start(), named_field))
+    return [field for _, field in sorted(fields)]
 
 
 def _line_number(source: str, offset: int) -> int:
