@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-09-07T01:11:41.259Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a0796b-c554-7a72-82fe-47e2dca9a83c",
+    "turnStartedAtUnixSeconds": 1788743501,
+    "authorityType": "project-owner instruction",
+    "instructionVerbatim": "I explicitly approve the governed Build 26 campaign using application and backend source baseline commit `7156d456d1f74d21b981231869802304e745755e`.\nI approve deploying the existing 15-function fleet to production project `crm3-baf-ops-b8638`, region `asia-south1`, using existing dedicated service accounts, `PreserveExistingIam`, and App Check enforcement remaining false.\nI approve deploying Firestore Rules SHA-256 `823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04` and verifying the unchanged 66-index set SHA-256 `E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4`, followed by strict live readback.\nAfter successful readback, I approve creating, pushing, reviewing, and merging the necessary backend-reconciliation and Build 26 governance changes, provided all review and CI checks are clean. I approve allocating and constructing production-signed Build 26 (`1.0.0-rc.16+26`) from the exact resulting `main` commit, followed by independent package verification and dual custody.\nNo IAM change, App Check activation, production business-data mutation or deletion, device-data clearing, installation, distribution, Play Store publication, or unrestricted publication is authorized by this statement.",
+    "instructionSummary": "Deploy and strictly read back the exact Build 26 backend under IAM preservation, then prepare and construct one governed production-signed Build 26 after clean PR review and CI.",
+    "timestampSource": "Codex task history response_item.create_time",
+    "scopeInterpretation": "The instruction authorizes the exact backend campaign, governance reconciliation, one protected Build 26 construction, independent package verification and dual custody. It does not authorize IAM mutation, App Check activation, business-data mutation or deletion, device-data clearing, installation, distribution or publication."
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "7156d456d1f74d21b981231869802304e745755e",
+    "tree": "60ff129d6288315d8a7f752f74898afc6e173e10",
+    "functionTree": "7cce35c90b40002169216d88e4e59bead9679047",
+    "pullRequestNumber": 352,
+    "requiredPostMergeReleaseGateRunId": 34045939856
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "firestoreRulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
+    "firestoreRulesMutationAuthorized": true,
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "firestoreIndexMutationAuthorized": false,
+    "strictLiveReadbackRequired": true,
+    "postMergeReleaseGateMustPassBeforeDeployment": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "production business-data deletion or mutation",
+    "device-data clearing",
+    "installation",
+    "distribution",
+    "unrestricted publication",
+    "Play Store publication"
+  ]
+}

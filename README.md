@@ -15,23 +15,25 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Build 25 (`1.0.0-rc.15+25`) was constructed from exact merged commit
-`c539490` after PR 350 and exact-main CI passed. The production-signed APK and
-AAB were independently verified under the approved certificate and copied to
-dual custody. Build 25 is finalized non-distributable; its immutable governed
-package SHA-256 is
+Build 26 (`1.0.0-rc.16+26`) is source-authorized from exact merged PR 352
+baseline `7156d45`. Its 15-Function fleet and Firestore Rules were deployed
+with existing IAM preserved and App Check enforcement unchanged, then passed
+strict live readback. The unchanged 66-index set was verified exact and ready
+without index mutation. No production business record was changed or deleted.
+
+The Build 26 governance tranche must merge and pass exact-main CI before
+protected construction can begin. Artifact-affecting paths remain exact to the
+approved baseline, and the protected workflow must record the exact resulting
+`main` commit. No Build 26 APK or AAB exists at this stage, and installation
+and distribution remain unauthorized.
+
+Build 25 remains the immutable finalized predecessor. Its governed package
+SHA-256 is
 `32E8501816168CE4D0017D9106944486E917475E8231A74CBC0C710527EE54BB`.
-
-All 15 production Functions match the unchanged PR 348 backend source
-`8cb7af1` and passed strict readback with existing IAM preserved. The existing
-Firestore Rules and 66 indexes remain unchanged and verified. No Firebase
-backend deployment or business-data mutation occurred during construction.
-
-Build 24 remains an immutable finalized predecessor. Build 25 device migration,
-mutating-flow validation, pilot promotion and distribution were not adjudicated
-by construction. Build 25 is consumed and cannot be reused; the next eligible
-artifact is Build 26 after a fresh governed approval. No consumed build number
-may be reused.
+Build 25 device migration, mutating-flow validation, pilot promotion and
+distribution were not adjudicated by construction. Build 25 is consumed and
+cannot be reused; Build 26 is the next governed candidate. No consumed build
+number may be reused.
 
 Authoritative status sources:
 
