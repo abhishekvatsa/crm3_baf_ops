@@ -215,6 +215,32 @@ void main() {
     );
   }
 
+  testWidgets('workflow timeline preserves valid unrecognized payload fields', (
+    tester,
+  ) async {
+    const legacyPayload =
+        '{"templateFirestoreId":"template-legacy",'
+        '"templateName":"Legacy furnace inspection",'
+        '"assetTypeKey":"furnace","assetNumber":"03"}';
+    final event = WorkflowEventRecord()
+      ..firestoreId = 'event-valid-legacy'
+      ..aggregateId = 'workflow-1'
+      ..eventTypeKey = 'workflow.jobCreatedPendingClassification'
+      ..occurredAt = DateTime.utc(2026, 8, 2, 9)
+      ..payloadJson = legacyPayload;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkflowTimeline(events: <WorkflowEventRecord>[event]),
+        ),
+      ),
+    );
+
+    expect(find.text('Stored event details: $legacyPayload'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('cancelled compliance has no active waiting instruction', (
     tester,
   ) async {

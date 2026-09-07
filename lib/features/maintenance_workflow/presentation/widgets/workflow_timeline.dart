@@ -434,6 +434,12 @@ class _WorkflowEventRow extends StatelessWidget {
       if (value.trim().isEmpty) continue;
       details.add('$label: $value');
     }
+    if (subjects.isEmpty && details.isEmpty) {
+      return (
+        subjects: const <String>[],
+        details: _storedPayloadDetails(jsonText),
+      );
+    }
     return (subjects: subjects, details: details.join(' - '));
   } catch (_) {
     return (
