@@ -940,6 +940,8 @@ function summarizeMutableSourceAuthority({
   const promotionReceiptExact =
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11PromotionExact) &&
+    (!stagedPromotion || (stagedSourceAuthorityProof?.promotionReceiptFile === promotionReceiptPath &&
+      stagedSourceAuthorityProof?.promotionReceiptSha256 === measuredPromotionReceiptSha256)) &&
     (!stagedPromotion ||
       (evidenceInstantAtOrAfter(promotionReceipt?.recordedAtUtc, [
         promotionOwnerApproval?.approvedAtUtc,
