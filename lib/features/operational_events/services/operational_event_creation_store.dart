@@ -59,8 +59,18 @@ class PendingOperationalEventCreation {
   };
 }
 
-/// One submitted creation per actor remains protected until its result is known.
-/// Matching payloads resume that intent only while it remains unresolved.
+class _StoredCreation {
+  const _StoredCreation(this.key, this.identity, this.savedAtMicros);
+
+  final String key;
+  final PendingOperationalEventCreation identity;
+  final int? savedAtMicros;
+}
+
+/// Every submitted creation has an actor/request slot until its result is known.
+/// Matching payloads resume the earliest pending intent in this isolate. Separate
+/// tabs may discover no pending work concurrently, but cannot overwrite each
+/// other's distinct request identities.
 class OperationalEventCreationStore {
   OperationalEventCreationStore({
     Future<SharedPreferences> Function()? preferencesLoader,
@@ -111,23 +121,27 @@ class OperationalEventCreationStore {
       )
       .toString();
 
-  PendingOperationalEventCreation? _read(
+  _StoredCreation? _read(
     SharedPreferences preferences,
     String key,
     String actorUid,
   ) {
-    final raw = preferences.getString(key);
-    if (raw == null) return null;
     try {
+      final raw = preferences.getString(key);
+      if (raw == null) return null;
+      final legacy = key == _key(actorUid);
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic> ||
-          decoded.length != 5 ||
-          decoded['schemaVersion'] != 1 ||
+          decoded.length != (legacy ? 5 : 6) ||
+          decoded['schemaVersion'] != (legacy ? 1 : 2) ||
           decoded['requestId'] is! String ||
           !_uuidPattern.hasMatch(decoded['requestId'] as String) ||
           decoded['eventId'] is! String ||
           !_uuidPattern.hasMatch(decoded['eventId'] as String) ||
-          decoded['payload'] is! Map<String, dynamic>) {
+          decoded['payload'] is! Map<String, dynamic> ||
+          (!legacy &&
+              (decoded['savedAtMicros'] is! int ||
+                  key != '${_key(actorUid)}::${decoded['requestId']}'))) {
         throw const FormatException();
       }
       final payload = decoded['payload'] as Map<String, dynamic>;
@@ -138,31 +152,64 @@ class OperationalEventCreationStore {
           decoded['payloadFingerprint'] != _fingerprint(actorUid, payload)) {
         throw const FormatException();
       }
-      return PendingOperationalEventCreation(
-        requestId: decoded['requestId'] as String,
-        eventId: decoded['eventId'] as String,
-        payloadFingerprint: decoded['payloadFingerprint'] as String,
-        payload: Map.unmodifiable(payload),
+      return _StoredCreation(
+        key,
+        PendingOperationalEventCreation(
+          requestId: decoded['requestId'] as String,
+          eventId: decoded['eventId'] as String,
+          payloadFingerprint: decoded['payloadFingerprint'] as String,
+          payload: Map.unmodifiable(payload),
+        ),
+        legacy ? null : decoded['savedAtMicros'] as int,
       );
     } on FormatException {
+      throw StateError(
+        'Saved event retry information needs recovery and was not replaced.',
+      );
+    } on TypeError {
       throw StateError(
         'Saved event retry information needs recovery and was not replaced.',
       );
     }
   }
 
+  List<_StoredCreation> _readAll(
+    SharedPreferences preferences,
+    String actorUid,
+  ) {
+    final actorKey = _key(actorUid);
+    final records = <_StoredCreation>[];
+    for (final key in preferences.getKeys()) {
+      if (key == actorKey || key.startsWith('$actorKey::')) {
+        final record = _read(preferences, key, actorUid);
+        if (record != null) records.add(record);
+      }
+    }
+    records.sort((left, right) {
+      // Legacy records predate the request-slot format and keep first priority.
+      if (left.savedAtMicros == null && right.savedAtMicros != null) return -1;
+      if (right.savedAtMicros == null && left.savedAtMicros != null) return 1;
+      final chronology = (left.savedAtMicros ?? 0).compareTo(
+        right.savedAtMicros ?? 0,
+      );
+      return chronology != 0 ? chronology : left.key.compareTo(right.key);
+    });
+    return records;
+  }
+
   Future<PendingOperationalEventCreation?> pending(String actorUid) =>
       _serial(() async {
         final preferences = await _load();
         await preferences.reload();
-        return _read(preferences, _key(actorUid), actorUid);
+        final records = _readAll(preferences, actorUid);
+        return records.isEmpty ? null : records.first.identity;
       });
 
   Future<PendingOperationalEventCreation> resolve({
     required String actorUid,
     required Map<String, dynamic> payload,
   }) => _serial(() async {
-    final key = _key(actorUid);
+    final actorKey = _key(actorUid);
     final snapshot =
         jsonDecode(jsonEncode(_canonical(payload))) as Map<String, dynamic>;
     if (snapshot.length != 2 ||
@@ -177,8 +224,9 @@ class OperationalEventCreationStore {
     final fingerprint = _fingerprint(actorUid, snapshot);
     final preferences = await _load();
     await preferences.reload();
-    final existing = _read(preferences, key, actorUid);
-    if (existing != null) {
+    final records = _readAll(preferences, actorUid);
+    if (records.isNotEmpty) {
+      final existing = records.first.identity;
       if (existing.payloadFingerprint != fingerprint) {
         throw StateError(
           'Confirm the previous event before submitting a different event.',
@@ -186,12 +234,16 @@ class OperationalEventCreationStore {
       }
       return existing;
     }
+    final requestId = _uuid.v4();
+    final eventId = _uuid.v4();
+    final key = '$actorKey::$requestId';
     final saved = await preferences.setString(
       key,
       jsonEncode(<String, dynamic>{
-        'schemaVersion': 1,
-        'requestId': _uuid.v4(),
-        'eventId': _uuid.v4(),
+        'schemaVersion': 2,
+        'requestId': requestId,
+        'eventId': eventId,
+        'savedAtMicros': DateTime.now().microsecondsSinceEpoch,
         'payloadFingerprint': fingerprint,
         'payload': snapshot,
       }),
@@ -204,8 +256,11 @@ class OperationalEventCreationStore {
     // Read through the platform again before dispatch; never send an identity
     // that exists only in this process's preferences cache.
     await preferences.reload();
-    final persisted = _read(preferences, key, actorUid);
-    if (persisted == null || persisted.payloadFingerprint != fingerprint) {
+    final persisted = _read(preferences, key, actorUid)?.identity;
+    if (persisted == null ||
+        persisted.requestId != requestId ||
+        persisted.eventId != eventId ||
+        persisted.payloadFingerprint != fingerprint) {
       throw StateError(
         'Event retry information could not be verified. Nothing was sent.',
       );
@@ -219,18 +274,28 @@ class OperationalEventCreationStore {
   }) => _serial(() async {
     final preferences = await _load();
     await preferences.reload();
-    final key = _key(actorUid);
-    final existing = _read(preferences, key, actorUid);
-    if (existing == null ||
-        existing.requestId != identity.requestId ||
-        existing.eventId != identity.eventId ||
-        existing.payloadFingerprint != identity.payloadFingerprint) {
-      return;
-    }
-    if (!await preferences.remove(key)) {
-      throw StateError(
-        'The event outcome was confirmed; local retry information still needs clearing.',
-      );
+    final actorKey = _key(actorUid);
+    // Never clear a shared actor prefix or another request's slot. The legacy
+    // key remains readable/clearable without rewriting its pending identity.
+    for (final key in ['$actorKey::${identity.requestId}', actorKey]) {
+      final existing = _read(preferences, key, actorUid)?.identity;
+      if (existing == null ||
+          existing.requestId != identity.requestId ||
+          existing.eventId != identity.eventId ||
+          existing.payloadFingerprint != identity.payloadFingerprint) {
+        continue;
+      }
+      if (!await preferences.remove(key)) {
+        throw StateError(
+          'The event outcome was confirmed; local retry information still needs clearing.',
+        );
+      }
+      await preferences.reload();
+      if (preferences.getKeys().contains(key)) {
+        throw StateError(
+          'The event outcome was confirmed; local retry information still needs clearing.',
+        );
+      }
     }
   });
 }

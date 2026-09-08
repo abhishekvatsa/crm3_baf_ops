@@ -8,18 +8,18 @@
       "id": "operational-event-creation-outbox",
       "file": "lib/features/operational_events/services/operational_event_creation_store.dart",
       "markers": [
-        "PendingOperationalEventCreation? _read(",
+        "_StoredCreation? _read(",
         "Future<PendingOperationalEventCreation> resolve({",
         "String get commandFingerprint"
       ],
       "classification": "LOCAL_CONTROL_STATE",
       "owner": "operational-events",
-      "authorityBoundary": "actor-scoped durable request identity, event identity and submitted payload for one unconfirmed operational-event creation; normalized server-command fingerprint binds any terminal receipt to that exact submitted intent",
+      "authorityBoundary": "actor/request-scoped durable request identity, event identity and submitted payload for every unconfirmed operational-event creation; normalized server-command fingerprint binds any terminal receipt to that exact submitted intent",
       "malformedDisposition": "fail closed and retain the saved bytes; never replace uncertain identities, dispatch only after durable readback, and clear only an exact matching successful or server-committed terminal outcome",
-      "compatibility": "wholly absent pre-feature pending creation only; schema-one envelope with UUID identities and actor-bound payload fingerprint",
-      "regression": "test/operational_event_creation_retry_test.dart",
+      "compatibility": "absent pre-feature state; legacy schema-one actor slot stays readable alongside immutable schema-two request slots; invalid storage types and envelopes retain evidence and raise recovery errors",
+      "regression": "test/operational_event_creation_store_persistence_test.dart",
       "reArmCondition": "malformed pending state is discarded, changed intent overwrites an uncertain creation, dispatch precedes durable verification, another actor can reuse or clear the request, or command fingerprint normalization diverges from the server",
-      "riskFingerprint": "e9034aa133902f666b68db2ce402e34ff14031a0ab57435cc697af305f161d9b"
+      "riskFingerprint": "f4c6348dfdbde03ba7008fd8e0bf62e5402a82221ce7d658489d69bd27193b1b"
     },
     {
       "id": "operations-report-identity-query-scope",
@@ -42,7 +42,7 @@
       "id": "quality-monitoring-creation-outbox",
       "file": "lib/features/quality/services/monitoring_creation_store.dart",
       "markers": [
-        "Map<String, dynamic>? _read(",
+        "RequestIdentityJournal<Map<String, dynamic>> _journal(",
         "Map<String, dynamic> _validate(",
         "Future<Map<String, dynamic>> prepare("
       ],
@@ -53,23 +53,40 @@
       "compatibility": "wholly absent pre-feature pending request only",
       "regression": "test/quality_command_result_test.dart",
       "reArmCondition": "malformed pending state is discarded, unchanged intent acquires a new ID, or one account confirms another account's request",
-      "riskFingerprint": "1bceac146da1bbd434537aecce2f7fe2b22a5ac70d32c5ed6479627407d9fece"
+      "riskFingerprint": "ce78b9451fdc11a9eec6331b96e9bfb41496625698c0c10e9d5f649a2ca170f8"
     },
     {
       "id": "morning-review-command-pending-identity",
       "file": "lib/features/morning_review/services/morning_review_command_idempotency_store.dart",
       "markers": [
-        "MorningReviewPendingCommandIdentity? _read(",
+        "MorningReviewPendingCommandIdentity _decode(",
         "Future<MorningReviewPendingCommandIdentity> resolve("
       ],
       "classification": "LOCAL_CONTROL_STATE",
       "owner": "morning-review",
-      "authorityBoundary": "actor-scoped durable identity of one unconfirmed Morning Review command",
+      "authorityBoundary": "actor-scoped durable identities of unconfirmed Morning Review commands, selecting the oldest retained intent for retry",
       "malformedDisposition": "fail closed and retain the pending bytes; never rotate an uncertain request ID or submit a different command over it",
       "compatibility": "wholly absent pre-feature pending identity only",
       "regression": "test/morning_review_command_idempotency_store_test.dart",
       "reArmCondition": "malformed pending state is discarded, unchanged intent acquires a new request ID, or a changed command reuses an unresolved identity",
       "riskFingerprint": "7cea9d76ee74e74e5b14877ed91d7c2594b41e46a7160fc2d5d35f8123199927"
+    },
+    {
+      "id": "immutable-request-identity-journal",
+      "file": "lib/core/persistence/request_identity_journal.dart",
+      "markers": [
+        "RetainedRequest<T>? _read(",
+        "Future<T> append(",
+        "Future<void> clearMatching("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "command-retry-persistence",
+      "authorityBoundary": "immutable actor/scope/request slots preserve every uncertain command identity across independently cached runtimes; domain decoders still validate each original record",
+      "malformedDisposition": "invalid preference type, malformed JSON, contradictory slot identity or duplicate request IDs raise explicit errors and preserve all saved evidence; no default or replacement record is manufactured",
+      "compatibility": "exact legacy actor slot remains readable without rewriting; new version-one journal envelopes wrap unchanged domain schemas; complete legacy scope is hashed to prevent prefix collisions",
+      "regression": "test/pending_command_stores_persistence_test.dart",
+      "reArmCondition": "one runtime replaces another request, dispatch precedes durable readback, clearing removes a different intent, corrupt evidence is discarded, or changed then restored payload loses its original request ID",
+      "riskFingerprint": "9aedb3dc3450919f782b12e54315fc1957ee672998b489480f967d0e2eafcae6"
     },
     {
       "id": "global-pull-cursor",

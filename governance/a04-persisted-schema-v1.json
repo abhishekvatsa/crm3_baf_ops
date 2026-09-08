@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "145E0472A61CED86CE4CC3694D82C2D5D1777736E7103471D572D9135A832AE9",
+  "inventoryDigest": "6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "FEB398DE61E1F1F083894DB6ED501B4376E22DDD748BB9F52C9FF76D0D485C04",
+  "a05ManifestSha256": "26EB10BE0DE3FE7B03B124C06101953ED45B4F6A13025E37F80B0B335DCD9DA7",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1058,6 +1058,15 @@
       "regression": "test/global_pull_cursor_store_test.dart"
     },
     {
+      "id": "immutable-request-identity-journal",
+      "file": "lib/core/persistence/request_identity_journal.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "immutable actor/scope/request slots preserve every uncertain command identity across independently cached runtimes; domain decoders still validate each original record",
+      "malformedDisposition": "invalid preference type, malformed JSON, contradictory slot identity or duplicate request IDs raise explicit errors and preserve all saved evidence; no default or replacement record is manufactured",
+      "compatibility": "exact legacy actor slot remains readable without rewriting; new version-one journal envelopes wrap unchanged domain schemas; complete legacy scope is hashed to prevent prefix collisions",
+      "regression": "test/pending_command_stores_persistence_test.dart"
+    },
+    {
       "id": "inner-cover-lifecycle-records",
       "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -1232,7 +1241,7 @@
       "id": "morning-review-command-pending-identity",
       "file": "lib/features/morning_review/services/morning_review_command_idempotency_store.dart",
       "classification": "LOCAL_CONTROL_STATE",
-      "authorityBoundary": "actor-scoped durable identity of one unconfirmed Morning Review command",
+      "authorityBoundary": "actor-scoped durable identities of unconfirmed Morning Review commands, selecting the oldest retained intent for retry",
       "malformedDisposition": "fail closed and retain the pending bytes; never rotate an uncertain request ID or submit a different command over it",
       "compatibility": "wholly absent pre-feature pending identity only",
       "regression": "test/morning_review_command_idempotency_store_test.dart"
@@ -1277,10 +1286,10 @@
       "id": "operational-event-creation-outbox",
       "file": "lib/features/operational_events/services/operational_event_creation_store.dart",
       "classification": "LOCAL_CONTROL_STATE",
-      "authorityBoundary": "actor-scoped durable request identity, event identity and submitted payload for one unconfirmed operational-event creation; normalized server-command fingerprint binds any terminal receipt to that exact submitted intent",
+      "authorityBoundary": "actor/request-scoped durable request identity, event identity and submitted payload for every unconfirmed operational-event creation; normalized server-command fingerprint binds any terminal receipt to that exact submitted intent",
       "malformedDisposition": "fail closed and retain the saved bytes; never replace uncertain identities, dispatch only after durable readback, and clear only an exact matching successful or server-committed terminal outcome",
-      "compatibility": "wholly absent pre-feature pending creation only; schema-one envelope with UUID identities and actor-bound payload fingerprint",
-      "regression": "test/operational_event_creation_retry_test.dart"
+      "compatibility": "absent pre-feature state; legacy schema-one actor slot stays readable alongside immutable schema-two request slots; invalid storage types and envelopes retain evidence and raise recovery errors",
+      "regression": "test/operational_event_creation_store_persistence_test.dart"
     },
     {
       "id": "operational-event-issue-link-command-result",

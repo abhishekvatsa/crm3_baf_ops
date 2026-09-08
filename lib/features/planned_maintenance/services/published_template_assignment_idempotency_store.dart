@@ -1,9 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/persistence/request_identity_journal.dart';
 import 'published_template_assignment_server_service.dart';
 
 class PublishedTemplateAssignmentPendingIdentity {
@@ -43,10 +42,31 @@ class PublishedTemplateAssignmentPendingIdentity {
 /// A callable may commit successfully while the client loses the response. By
 /// keeping the request identity outside widget memory, an app restart can retry
 /// unchanged assignment content without creating a second JobExecution.
+/// Each changed fingerprint retains its own request; earlier uncertain identities
+/// remain available. The form payload itself is not stored here.
 class PublishedTemplateAssignmentIdempotencyStore {
   static const _keyPrefix = 'PENDING_GOVERNED_ASSIGNMENT::';
 
   final Future<SharedPreferences> Function() _preferencesLoader;
+  static Future<void> _tail = Future<void>.value();
+
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final result = _tail.then((_) => action());
+    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
+
+  RequestIdentityJournal<PublishedTemplateAssignmentPendingIdentity> _journal(
+    String actorUid,
+  ) => RequestIdentityJournal(
+    legacyKey: _key(actorUid),
+    decode: (raw) =>
+        _decode(raw) ??
+        (throw StateError(
+          'Saved assignment retry evidence is empty and was preserved.',
+        )),
+    requestIdOf: (record) => record.requestId,
+  );
 
   PublishedTemplateAssignmentIdempotencyStore({
     Future<SharedPreferences> Function()? preferencesLoader,
@@ -55,55 +75,52 @@ class PublishedTemplateAssignmentIdempotencyStore {
   Future<PublishedTemplateAssignmentPendingIdentity> resolve({
     required String actorUid,
     required String payloadFingerprint,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final normalizedFingerprint = _required(
       payloadFingerprint,
       'payloadFingerprint',
     );
     final preferences = await _preferencesLoader();
-    final key = _key(normalizedActorUid);
-    final existing = _decode(preferences.getString(key));
-    if (existing != null &&
-        existing.payloadFingerprint == normalizedFingerprint) {
-      return existing;
+    await preferences.reload();
+    final journal = _journal(normalizedActorUid);
+    final records = journal.readAll(preferences);
+    for (final record in records) {
+      if (record.value.payloadFingerprint == normalizedFingerprint) {
+        return record.value;
+      }
     }
 
     final next = PublishedTemplateAssignmentPendingIdentity(
       requestId: newPublishedTemplateAssignmentRequestId(),
       payloadFingerprint: normalizedFingerprint,
     );
-    final written = await preferences.setString(key, jsonEncode(next.toMap()));
-    if (!written) {
-      throw StateError(
-        'The assignment retry identity could not be persisted safely.',
-      );
-    }
-    return next;
-  }
+    return journal.append(preferences, next.toMap());
+  });
 
   Future<void> clearIfMatches({
     required String actorUid,
     required String requestId,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final normalizedRequestId = _required(requestId, 'requestId');
     final preferences = await _preferencesLoader();
-    final key = _key(normalizedActorUid);
-    final existing = _decode(preferences.getString(key));
-    if (existing == null || existing.requestId != normalizedRequestId) {
-      return;
-    }
-    await preferences.remove(key);
-  }
+    await preferences.reload();
+    await _journal(normalizedActorUid).clearMatching(
+      preferences,
+      (record) => record.requestId == normalizedRequestId,
+    );
+  });
 
   Future<PublishedTemplateAssignmentPendingIdentity?> read({
     required String actorUid,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final preferences = await _preferencesLoader();
-    return _decode(preferences.getString(_key(normalizedActorUid)));
-  }
+    await preferences.reload();
+    final records = _journal(normalizedActorUid).readAll(preferences);
+    return records.isEmpty ? null : records.first.value;
+  });
 
   String _key(String actorUid) => '$_keyPrefix$actorUid';
 

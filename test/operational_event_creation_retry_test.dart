@@ -803,6 +803,8 @@ class _RejectingPreferences extends Fake implements SharedPreferences {
   @override
   Future<void> reload() async {}
   @override
+  Set<String> getKeys() => <String>{};
+  @override
   String? getString(String key) => null;
   @override
   Future<bool> setString(String key, String value) async => pretendSuccess;

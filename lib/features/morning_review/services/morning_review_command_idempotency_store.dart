@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/persistence/request_identity_journal.dart';
+
 class MorningReviewPendingCommandIdentity {
   const MorningReviewPendingCommandIdentity({
     required this.requestId,
@@ -29,7 +31,8 @@ class MorningReviewCommandIdempotencyException implements Exception {
   String toString() => message;
 }
 
-/// Retains one unresolved submitted command per actor for exact replay.
+/// Retains submitted commands per actor for exact replay. The oldest unresolved
+/// command is discovered first, including commands saved by concurrent runtimes.
 class MorningReviewCommandIdempotencyStore {
   MorningReviewCommandIdempotencyStore({
     Future<SharedPreferences> Function()? preferencesLoader,
@@ -50,19 +53,18 @@ class MorningReviewCommandIdempotencyStore {
     required String operation,
     required String? sessionId,
     required Map<String, dynamic> extra,
-  }) =>
-      sha256
-          .convert(
-            utf8.encode(
-              jsonEncode(<String, dynamic>{
-                'actorScope': actorUid,
-                'operation': operation,
-                'sessionId': sessionId,
-                'extra': extra,
-              }),
-            ),
-          )
-          .toString();
+  }) => sha256
+      .convert(
+        utf8.encode(
+          jsonEncode(<String, dynamic>{
+            'actorScope': actorUid,
+            'operation': operation,
+            'sessionId': sessionId,
+            'extra': extra,
+          }),
+        ),
+      )
+      .toString();
 
   Future<T> _serial<T>(Future<T> Function() action) {
     final result = _tail.then((_) => action());
@@ -81,13 +83,16 @@ class MorningReviewCommandIdempotencyStore {
     return 'PENDING_MORNING_REVIEW_COMMAND::$actorDigest';
   }
 
-  MorningReviewPendingCommandIdentity? _read(
-    SharedPreferences preferences,
-    String key,
+  RequestIdentityJournal<MorningReviewPendingCommandIdentity> _journal(
     String actorUid,
-  ) {
-    final raw = preferences.getString(key);
-    if (raw == null) return null;
+  ) => RequestIdentityJournal(
+    legacyKey: _key(actorUid),
+    decode: (raw) => _decode(raw, actorUid),
+    requestIdOf: (record) => record.requestId,
+    failure: MorningReviewCommandIdempotencyException.new,
+  );
+
+  MorningReviewPendingCommandIdentity _decode(String raw, String actorUid) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic> ||
@@ -166,8 +171,9 @@ class MorningReviewCommandIdempotencyStore {
     );
     final preferences = await _load();
     await preferences.reload();
-    final key = _key(actorUid);
-    final existing = _read(preferences, key, actorUid);
+    final journal = _journal(actorUid);
+    final records = journal.readAll(preferences);
+    final existing = records.isEmpty ? null : records.first.value;
     if (existing != null) {
       if (existing.payloadFingerprint != payloadFingerprint) {
         throw const MorningReviewCommandIdempotencyException(
@@ -184,30 +190,22 @@ class MorningReviewCommandIdempotencyStore {
       sessionId: sessionId,
       extra: Map.unmodifiable(Map<String, dynamic>.from(extra)),
     );
-    final saved = await preferences.setString(
-      key,
-      jsonEncode(<String, dynamic>{
-        'schemaVersion': 1,
-        'requestId': identity.requestId,
-        'payloadFingerprint': identity.payloadFingerprint,
-        'operation': identity.operation,
-        'sessionId': identity.sessionId,
-        'extra': identity.extra,
-      }),
-    );
-    if (!saved) {
-      throw const MorningReviewCommandIdempotencyException(
-        'Could not retain protected Morning Review retry evidence. Nothing was sent.',
-      );
-    }
-    return _read(preferences, key, actorUid)!;
+    return journal.append(preferences, <String, dynamic>{
+      'schemaVersion': 1,
+      'requestId': identity.requestId,
+      'payloadFingerprint': identity.payloadFingerprint,
+      'operation': identity.operation,
+      'sessionId': identity.sessionId,
+      'extra': identity.extra,
+    });
   });
 
   Future<MorningReviewPendingCommandIdentity?> pending(String actorUid) =>
       _serial(() async {
         final preferences = await _load();
         await preferences.reload();
-        return _read(preferences, _key(actorUid), actorUid);
+        final records = _journal(actorUid).readAll(preferences);
+        return records.isEmpty ? null : records.first.value;
       });
 
   Future<void> clearIfMatches({
@@ -217,17 +215,11 @@ class MorningReviewCommandIdempotencyStore {
   }) => _serial(() async {
     final preferences = await _load();
     await preferences.reload();
-    final key = _key(actorUid);
-    final existing = _read(preferences, key, actorUid);
-    if (existing == null ||
-        existing.requestId != requestId ||
-        existing.payloadFingerprint != payloadFingerprint) {
-      return;
-    }
-    if (!await preferences.remove(key)) {
-      throw const MorningReviewCommandIdempotencyException(
-        'The command was confirmed, but its local retry evidence still needs reconciliation.',
-      );
-    }
+    await _journal(actorUid).clearMatching(
+      preferences,
+      (record) =>
+          record.requestId == requestId &&
+          record.payloadFingerprint == payloadFingerprint,
+    );
   });
 }

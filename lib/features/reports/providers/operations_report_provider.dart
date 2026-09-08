@@ -177,11 +177,51 @@ final operationsReportProvider = Provider.autoDispose
       }
       try {
         final identityWorkflows = <WorkflowAggregateRecord>[];
+        final identityAbnormalities = <String, ChargeAbnormality?>{};
         _ReportIdentitySources identitySources = (
           executions: const [],
           tickets: const [],
         );
         if (filter.assetClassId != null || filter.assetInstanceId != null) {
+          final identity = _ReportAssetIdentityMatcher(
+            filter,
+            classes.requireValue,
+            assets.requireValue,
+          );
+          for (final warning in qualityWarnings.requireValue.where(
+            (warning) => _needsAbnormalityIdentity(warning, filter, identity),
+          )) {
+            final sources = ref.watch(
+              operationsReportAbnormalityIdentityProvider((
+                actorUid: scope.actorUid,
+                sourceChargeNo: warning.sourceChargeNo,
+              )),
+            );
+            if (sources.hasError) {
+              return AsyncError(
+                sources.error!,
+                sources.stackTrace ?? StackTrace.current,
+              );
+            }
+            if (sources.isLoading) return const AsyncLoading();
+            final matches = sources.requireValue
+                .where(
+                  (source) =>
+                      !source.isDeleted &&
+                      source.firestoreId == warning.sourceId,
+                )
+                .toList();
+            if (matches.length > 1) {
+              throw StateError(
+                'A quality warning has conflicting native abnormality sources.',
+              );
+            }
+            // Explicit absence must mask the old cached row, so deleted or
+            // inaccessible source identity cannot silently remain in a report.
+            identityAbnormalities[warning.sourceId] = matches.isEmpty
+                ? null
+                : matches.single;
+          }
           final workflowIds = <String>{
             for (final lane in workflowLanes.requireValue)
               if (!lane.isDeleted && lane.assetTypeKey == 'governedCustom')
@@ -263,6 +303,7 @@ final operationsReportProvider = Provider.autoDispose
             identityExecutions: identitySources.executions,
             identityTickets: identitySources.tickets,
             identityWorkflows: identityWorkflows,
+            identityAbnormalities: identityAbnormalities,
             events: events.requireValue,
             dueStates: dueStates.requireValue,
             inspectionFindings: inspectionFindings.requireValue,
@@ -299,6 +340,7 @@ OperationsReport buildOperationsReport({
   List<JobExecution> identityExecutions = const [],
   List<MaintenanceRecord> identityTickets = const [],
   List<WorkflowAggregateRecord> identityWorkflows = const [],
+  Map<String, ChargeAbnormality?> identityAbnormalities = const {},
   required List<OperationalEvent> events,
   List<MaintenanceDueState> dueStates = const [],
   List<InspectionFinding> inspectionFindings = const [],
@@ -320,30 +362,19 @@ OperationsReport buildOperationsReport({
       filter.endExclusive == filter.startInclusive) {
     throw ArgumentError('The report end date must not precede its start date.');
   }
-  final assetsById = {for (final item in assetInstances) item.id: item};
-  final selectedAsset = filter.assetInstanceId == null
-      ? null
-      : assetsById[filter.assetInstanceId];
-  if (filter.assetInstanceId != null && selectedAsset == null) {
-    throw StateError('The selected physical asset is no longer available.');
-  }
-  if (filter.assetClassId != null &&
-      selectedAsset != null &&
-      selectedAsset.assetClassId != filter.assetClassId) {
-    throw StateError('The selected physical asset is outside the asset class.');
-  }
-  final effectiveClassId = filter.assetClassId ?? selectedAsset?.assetClassId;
+  final identityMatcher = _ReportAssetIdentityMatcher(
+    filter,
+    assetClasses,
+    assetInstances,
+  );
+  final assetsById = identityMatcher.assetsById;
+  final effectiveClassId = identityMatcher.effectiveClassId;
+  final legacyClasses = identityMatcher.legacyClasses;
+  final legacyIdentity = identityMatcher.legacyIdentity;
+  final referencedIdentity = identityMatcher.referencedIdentity;
+  final matchesIdentity = identityMatcher.matchesIdentity;
+  final affectedAssetMatches = identityMatcher.affectedAssetMatches;
   final reportAsOf = asOf ?? DateTime.now();
-  final legacyClassCandidates = <String, List<AssetClassRecord>>{};
-  for (final item in assetClasses) {
-    final key = item.legacyAssetTypeKey;
-    if (key == null) continue;
-    legacyClassCandidates.putIfAbsent(key, () => []).add(item);
-  }
-  final legacyClasses = <String, AssetClassRecord>{};
-  for (final entry in legacyClassCandidates.entries) {
-    if (entry.value.length == 1) legacyClasses[entry.key] = entry.value.single;
-  }
 
   String? ticketClassId(MaintenanceRecord ticket) =>
       ticket.assetHierarchyReference?.assetClassId ??
@@ -366,27 +397,6 @@ OperationsReport buildOperationsReport({
 
   String? dueStateClassId(MaintenanceDueState state) =>
       state.assetClassId ?? legacyClasses[state.assetTypeKey]?.id;
-
-  ({String? classId, String? assetId}) legacyIdentity(
-    String assetTypeKey,
-    int assetNumber,
-  ) {
-    final classId = legacyClasses[assetTypeKey]?.id;
-    if (classId == null) return (classId: null, assetId: null);
-    final matches = assetInstances
-        .where(
-          (asset) =>
-              asset.assetClassId == classId && asset.assetNumber == assetNumber,
-        )
-        .map((asset) => asset.id)
-        .toList(growable: false);
-    if (matches.length > 1) {
-      throw StateError(
-        '$assetTypeKey $assetNumber matches multiple physical assets.',
-      );
-    }
-    return (classId: classId, assetId: matches.firstOrNull);
-  }
 
   String? dueStateAssetId(MaintenanceDueState state) {
     if (state.assetInstanceId != null) return state.assetInstanceId;
@@ -467,16 +477,6 @@ OperationsReport buildOperationsReport({
   String? executionAssetId(JobExecution execution) =>
       executionIdentity(execution).assetId;
 
-  bool matchesIdentity(String? classId, String? assetId) {
-    if (effectiveClassId != null && classId != effectiveClassId) {
-      return false;
-    }
-    if (filter.assetInstanceId != null && assetId != filter.assetInstanceId) {
-      return false;
-    }
-    return true;
-  }
-
   bool overlaps(DateTime start, DateTime? end) =>
       start.isBefore(filter.endExclusive) &&
       (end == null || end.isAfter(filter.startInclusive));
@@ -541,40 +541,6 @@ OperationsReport buildOperationsReport({
     return matchesIdentity(identity.classId, identity.assetId);
   }
 
-  ({String? classId, String? assetId}) referencedIdentity(
-    AssetHierarchyReference reference,
-    int assetNumber,
-  ) {
-    final asset = assetsById[reference.assetInstanceId];
-    if (reference.assetInstanceId == null ||
-        asset == null ||
-        asset.assetClassId != reference.assetClassId ||
-        asset.assetNumber != assetNumber ||
-        reference.assetNumber != assetNumber) {
-      throw StateError(
-        'A report source has inconsistent physical-asset identity.',
-      );
-    }
-    return (classId: reference.assetClassId, assetId: asset.id);
-  }
-
-  bool affectedAssetMatches(
-    String type,
-    int number,
-    AssetHierarchyReference? reference,
-  ) {
-    final identity = reference == null
-        ? legacyIdentity(type, number)
-        : referencedIdentity(reference, number);
-    if (type == 'governedCustom' && identity.classId == null) {
-      throw StateError(
-        'A custom-asset report source lacks a verifiable native '
-        'asset reference. Its identity must be restored before filtering.',
-      );
-    }
-    return matchesIdentity(identity.classId, identity.assetId);
-  }
-
   final identityTicketsById = {
     for (final ticket in [...identityTickets, ...tickets])
       if (ticket.firestoreId != null) ticket.firestoreId!: ticket,
@@ -586,14 +552,16 @@ OperationsReport buildOperationsReport({
   final identityWorkflowsById = {
     for (final workflow in identityWorkflows) workflow.firestoreId: workflow,
   };
-  final abnormalitiesById = {
+  final abnormalitiesById = <String, ChargeAbnormality?>{
     for (final abnormality in abnormalities)
       if (abnormality.firestoreId != null)
         abnormality.firestoreId!: abnormality,
+    ...identityAbnormalities,
   };
 
   bool affectedAssetsMatch(QualityWarning warning) {
     if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    if (identityMatcher.warningMatchesOwnIdentity(warning)) return true;
     return warning.affectedAssets.any((asset) {
       if (asset.assetHierarchyReference != null ||
           asset.assetType != 'governedCustom') {

@@ -686,6 +686,7 @@ void _invalidateReportSources(
   ref.invalidate(operationsReportExecutionsProvider);
   ref.invalidate(operationsReportIdentitySourcesProvider);
   ref.invalidate(operationsReportExecutionIdentityChangesProvider);
+  ref.invalidate(operationsReportAbnormalityIdentityProvider);
   ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(maintenanceDueStatesProvider);
   ref.invalidate(allInspectionFindingsProvider);

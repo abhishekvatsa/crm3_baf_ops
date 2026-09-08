@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-/// One unconfirmed creation per account/project. Never rotate an uncertain ID.
+import '../../../core/persistence/request_identity_journal.dart';
+
+/// Retains every submitted creation per account/project, including concurrent
+/// runtimes. The oldest pending creation is confirmed before starting another.
 class MonitoringCreationStore {
   MonitoringCreationStore({
     Future<SharedPreferences> Function()? preferencesLoader,
@@ -38,15 +41,17 @@ class MonitoringCreationStore {
     return 'PENDING_QUALITY_MONITORING::${Uri.encodeComponent(scope)}';
   }
 
-  Map<String, dynamic>? _read(SharedPreferences prefs, String key) {
-    final raw = prefs.getString(key);
-    if (raw == null) return null;
-    return _validate(jsonDecode(raw));
-  }
+  RequestIdentityJournal<Map<String, dynamic>> _journal(String scope) =>
+      RequestIdentityJournal(
+        legacyKey: _key(scope),
+        decode: (raw) => _validate(jsonDecode(raw)),
+        requestIdOf: (record) => record['requestId'] as String,
+      );
 
   Map<String, dynamic> _validate(dynamic value) {
-    final schemaVersion =
-        value is Map<String, dynamic> ? value['schemaVersion'] : null;
+    final schemaVersion = value is Map<String, dynamic>
+        ? value['schemaVersion']
+        : null;
     final hasGovernedBaseIdentity = schemaVersion == 2;
     if (value is! Map<String, dynamic> ||
         (schemaVersion != 1 && schemaVersion != 2) ||
@@ -93,7 +98,8 @@ class MonitoringCreationStore {
   Future<Map<String, dynamic>?> pending(String scope) => _serial(() async {
     final prefs = await _load();
     await prefs.reload();
-    return _read(prefs, _key(scope));
+    final records = _journal(scope).readAll(prefs);
+    return records.isEmpty ? null : records.first.value;
   });
 
   Future<Map<String, dynamic>> prepare(
@@ -102,8 +108,9 @@ class MonitoringCreationStore {
   ) => _serial(() async {
     final prefs = await _load();
     await prefs.reload();
-    final key = _key(scope);
-    final existing = _read(prefs, key);
+    final journal = _journal(scope);
+    final records = journal.readAll(prefs);
+    final existing = records.isEmpty ? null : records.first.value;
     if (existing != null) {
       for (final entry in payload.entries) {
         final retained = existing[entry.key];
@@ -126,23 +133,14 @@ class MonitoringCreationStore {
       ...payload,
     };
     _validate(request);
-    if (!await prefs.setString(key, jsonEncode(request))) {
-      throw StateError(
-        'Could not retain the monitoring request. Nothing was sent.',
-      );
-    }
-    return _read(prefs, key)!;
+    return journal.append(prefs, request);
   });
 
   Future<void> complete(String scope, String requestId) => _serial(() async {
     final prefs = await _load();
     await prefs.reload();
-    final key = _key(scope);
-    if (_read(prefs, key)?['requestId'] == requestId &&
-        !await prefs.remove(key)) {
-      throw StateError(
-        'Monitoring was confirmed, but its local receipt still needs reconciliation. Retry safely.',
-      );
-    }
+    await _journal(
+      scope,
+    ).clearMatching(prefs, (record) => record['requestId'] == requestId);
   });
 }
