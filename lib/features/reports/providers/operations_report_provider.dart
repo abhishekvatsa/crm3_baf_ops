@@ -41,6 +41,7 @@ import '../models/operations_report.dart';
 export '../../../core/providers/operations_report_clock_provider.dart';
 
 part 'operations_report_authority_lifecycle.dart';
+part 'operations_report_identity_sources.dart';
 
 typedef OperationsReportPeriod = ({
   DateTime startInclusive,
@@ -56,48 +57,6 @@ typedef OperationsReportScope = ({
   OperationsReportFilter filter,
 });
 typedef _ReportDimension = ({String disambiguator, String key, String label});
-typedef _ReportIdentityScope = ({
-  String actorUid,
-  OperationsReportPeriodScope period,
-  String executionIds,
-  String ticketIds,
-});
-typedef _ReportIdentitySources = ({
-  List<JobExecution> executions,
-  List<MaintenanceRecord> tickets,
-});
-
-final operationsReportIdentitySourcesProvider = FutureProvider.autoDispose
-    .family<_ReportIdentitySources, _ReportIdentityScope>((ref, scope) async {
-      _requireReportActorUid(scope.actorUid);
-      final executionIds = (jsonDecode(scope.executionIds) as List)
-          .cast<String>();
-      final ticketIds = (jsonDecode(scope.ticketIds) as List).cast<String>();
-      // Both period streams derive from uncapped repository watches, so they
-      // also invalidate exact identity reads when an out-of-period source
-      // arrives or is corrected. The source IDs alone are not a freshness key.
-      if (executionIds.isNotEmpty) {
-        ref.watch(operationsReportExecutionsProvider(scope.period));
-      }
-      if (ticketIds.isNotEmpty) {
-        ref.watch(operationsReportTicketsProvider(scope.period));
-      }
-      final executionRead = executionIds.isEmpty
-          ? Future.value(<JobExecution>[])
-          : ref
-                .watch(plannedRepositoryProvider)
-                .getExecutionsByFirestoreIds(executionIds);
-      final ticketRead = ticketIds.isEmpty
-          ? Future.value(<MaintenanceRecord>[])
-          : ref
-                .watch(maintenanceRepositoryProvider)
-                .getTicketsByFirestoreIds(ticketIds);
-      final sources = await Future.wait<Object>([executionRead, ticketRead]);
-      return (
-        executions: sources[0] as List<JobExecution>,
-        tickets: sources[1] as List<MaintenanceRecord>,
-      );
-    });
 
 final operationsReportTicketsProvider = StreamProvider.autoDispose
     .family<List<MaintenanceRecord>, OperationsReportPeriodScope>((ref, scope) {

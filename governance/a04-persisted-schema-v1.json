@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "425A9264BD0C298021E7B07024A37AABDF40020E26322C6C9FBD8563BB5C3ECE",
+  "inventoryDigest": "145E0472A61CED86CE4CC3694D82C2D5D1777736E7103471D572D9135A832AE9",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "4954AA90C9AA72FD9845AAAF9A26FCFABA177323E628473ABDABF6D5EEFD3F5C",
+  "a05ManifestSha256": "FEB398DE61E1F1F083894DB6ED501B4376E22DDD748BB9F52C9FF76D0D485C04",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1311,7 +1311,7 @@
     },
     {
       "id": "operations-report-identity-query-scope",
-      "file": "lib/features/reports/providers/operations_report_provider.dart",
+      "file": "lib/features/reports/providers/operations_report_identity_sources.dart",
       "classification": "DERIVED_READ_ONLY_QUERY_IDENTITY",
       "authorityBoundary": "actor-scoped internal provider keys encode sorted retained execution and ticket identities for read-only report asset attribution; these keys grant no authority and are not persisted business records",
       "malformedDisposition": "JSON or string-list type errors propagate as provider errors and withhold a report instead of substituting an empty identity set",

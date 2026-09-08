@@ -17,6 +17,7 @@ final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
     ref.invalidate(operationsReportTicketsProvider);
     ref.invalidate(operationsReportExecutionsProvider);
     ref.invalidate(operationsReportIdentitySourcesProvider);
+    ref.invalidate(operationsReportExecutionIdentityChangesProvider);
     ref.invalidate(operationalEventsForReportsProvider);
     if (ref.exists(maintenanceDueStatesProvider)) {
       ref.invalidate(maintenanceDueStatesProvider);

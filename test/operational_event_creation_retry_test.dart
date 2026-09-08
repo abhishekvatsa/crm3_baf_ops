@@ -24,6 +24,126 @@ void main() {
     startedAt: DateTime.utc(2026, 8, 14, 10),
   );
 
+  OperationalEventDraft scopedDraft({
+    required bool assets,
+    required int count,
+    bool duplicateLast = false,
+  }) {
+    final ids = List.generate(
+      count,
+      (index) => 'selected-${duplicateLast && index == count - 1 ? 0 : index}',
+    );
+    return OperationalEventDraft(
+      eventType: OperationalEventType.powerTrip,
+      title: 'Selected equipment interruption',
+      description: 'Record the selected equipment affected by the supply loss.',
+      severity: OperationalEventSeverity.critical,
+      scope: assets
+          ? OperationalEventScope.assets
+          : OperationalEventScope.assetClasses,
+      affectedAssetClassIds: assets ? const ['asset-class'] : ids,
+      affectedAssetInstanceIds: assets ? ids : const [],
+      startedAt: DateTime.utc(2026, 8, 14, 10),
+    );
+  }
+
+  for (final assets in [false, true]) {
+    final maximum = assets ? 50 : 20;
+    final label = assets ? 'assets' : 'classes';
+    test(
+      'oversized CREATE $label selections save nothing and send nothing',
+      () async {
+        final functions = _RecordingFunctions()..loseFirstResponse = false;
+        final service = OperationalEventService(
+          functions: functions,
+          actorUidResolver: () => 'actor-a',
+        );
+        await expectLater(
+          service.create(
+            draft: scopedDraft(assets: assets, count: maximum + 1),
+            reason: 'Original reason',
+          ),
+          throwsA(
+            isA<OperationalEventCommandException>().having(
+              (error) => error.code,
+              'code',
+              'invalid-argument',
+            ),
+          ),
+        );
+        expect(await service.pendingCreation(), isNull);
+        expect(functions.requests, isEmpty);
+        await service.create(
+          draft: scopedDraft(assets: assets, count: maximum),
+          reason: 'Corrected selection',
+        );
+        expect(functions.requests, hasLength(1));
+        expect(await service.pendingCreation(), isNull);
+      },
+    );
+
+    test('CREATE $label limits count normalized unique selections', () async {
+      final functions = _RecordingFunctions()..loseFirstResponse = false;
+      final service = OperationalEventService(
+        functions: functions,
+        actorUidResolver: () => 'actor-a',
+      );
+      await service.create(
+        draft: scopedDraft(
+          assets: assets,
+          count: maximum + 1,
+          duplicateLast: true,
+        ),
+        reason: 'Record unique selection',
+      );
+      final eventDraft = functions.requests.single['eventDraft'] as Map;
+      expect(
+        eventDraft[assets
+            ? 'affectedAssetInstanceIds'
+            : 'affectedAssetClassIds'],
+        hasLength(maximum),
+      );
+    });
+
+    test(
+      'oversized CREATE $label selections cannot replace an existing pending intent',
+      () async {
+        final functions = _RecordingFunctions();
+        final service = OperationalEventService(
+          functions: functions,
+          actorUidResolver: () => 'actor-a',
+        );
+        await expectLater(
+          service.create(draft: draft(), reason: 'Original reason'),
+          throwsA(isA<OperationalEventCommandException>()),
+        );
+        final pending = await service.pendingCreation();
+        await expectLater(
+          service.create(
+            draft: scopedDraft(assets: assets, count: maximum + 1),
+            reason: 'Oversized selection',
+          ),
+          throwsA(
+            isA<OperationalEventCommandException>().having(
+              (error) => error.code,
+              'code',
+              'invalid-argument',
+            ),
+          ),
+        );
+        expect(functions.requests, hasLength(1));
+        expect(
+          (await service.pendingCreation())?.requestId,
+          pending?.requestId,
+        );
+        expect(
+          (await service.pendingCreation())?.payloadFingerprint,
+          pending?.payloadFingerprint,
+        );
+      },
+    );
+  }
+
   test(
     'restart can retry saved payload without reconstructing the form',
     () async {
@@ -326,6 +446,50 @@ void main() {
     },
   );
 
+  test(
+    'future-start rejection after response loss lets the restarted user correct the clock',
+    () async {
+      final functions = _RecordingFunctions()
+        ..terminalRejection = true
+        ..rejectionReasonCode = 'operational-event-started-at-future';
+      final futureDraft = OperationalEventDraft(
+        eventType: OperationalEventType.powerTrip,
+        title: 'Clock-ahead event',
+        description: 'Recorded with the phone clock ten years ahead.',
+        severity: OperationalEventSeverity.critical,
+        scope: OperationalEventScope.plantWide,
+        affectedAssetClassIds: const [],
+        affectedAssetInstanceIds: const [],
+        startedAt: DateTime.utc(2036, 8, 14, 13),
+      );
+      final service = OperationalEventService(
+        functions: functions,
+        actorUidResolver: () => 'actor-a',
+      );
+      await expectLater(
+        service.create(draft: futureDraft, reason: 'Original reason'),
+        throwsA(isA<OperationalEventCommandException>()),
+      );
+      expect(await service.pendingCreation(), isNotNull);
+      final restarted = OperationalEventService(
+        functions: functions,
+        actorUidResolver: () => 'actor-a',
+      );
+      await expectLater(
+        restarted.retryPendingCreation(),
+        throwsA(isA<OperationalEventCommandException>()),
+      );
+      expect(functions.requests.last, functions.requests.first);
+      expect(await restarted.pendingCreation(), isNull);
+      functions.terminalRejection = false;
+      await restarted.create(draft: draft(), reason: 'Corrected phone clock');
+      expect(
+        functions.requests.last['requestId'],
+        isNot(functions.requests.first['requestId']),
+      );
+    },
+  );
+
   for (final field in [
     'requestId',
     'eventId',
@@ -578,7 +742,10 @@ class _RecordingCallable extends Fake implements HttpsCallable {
       }
       throw FirebaseFunctionsException(
         code: 'failed-precondition',
-        message: 'Affected asset was retired.',
+        message:
+            owner.rejectionReasonCode == 'operational-event-started-at-future'
+            ? 'An operational event cannot start after the current server time.'
+            : 'Affected asset was retired.',
         details: <String, dynamic>{
           'reasonCode': owner.rejectionReasonCode,
           'terminalRejection': proof,

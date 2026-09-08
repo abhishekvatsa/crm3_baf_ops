@@ -660,10 +660,11 @@ function verifyAsset(data: JsonMap, assetId: string): string {
   return data.assetClassId as string;
 }
 
-const TERMINAL_CREATE_TARGET_REASONS = new Set([
+const TERMINAL_CREATE_REJECTION_REASONS = new Set([
   "operational-event-asset-class-missing", "operational-event-asset-missing",
   "operational-event-asset-class-invalid", "operational-event-asset-invalid",
   "operational-event-asset-class-mismatch",
+  "operational-event-started-at-future",
 ]);
 
 function targetRecord(value: SnapshotLike, kind: "asset" | "asset-class", id: string): JsonMap {
@@ -687,17 +688,22 @@ function rejectionFromReceipt(
   const details = data.rejectionDetails as JsonMap | null;
   const reasonCode = details?.reasonCode;
   const classMismatch = reasonCode === "operational-event-asset-class-mismatch";
+  const futureStart = reasonCode === "operational-event-started-at-future";
   const classTarget = typeof reasonCode === "string" && reasonCode.includes("asset-class");
   const targetId = details?.[classTarget ? "classId" : "assetId"];
   const missing = typeof reasonCode === "string" && reasonCode.endsWith("-missing");
   const targetIds = classTarget ? request.eventDraft?.affectedAssetClassIds :
     request.eventDraft?.affectedAssetInstanceIds;
-  const message = classMismatch ?
+  const message = futureStart ?
+    "An operational event cannot start after the current server time." : classMismatch ?
     "Affected asset classes must exactly match the selected assets." :
     `Affected ${classTarget ? "asset class" : "asset"} ${targetId} ` +
       (missing ? "was not found." : "is malformed or retired.");
   const targetEvidenceValid = details != null && !Array.isArray(details) &&
-    (classMismatch ? Object.keys(details).length === 1 && request.eventDraft?.scope === "assets" :
+    (futureStart ? Object.keys(details).length === 1 && request.eventDraft != null &&
+      typeof data.committedAtIso === "string" &&
+      Date.parse(request.eventDraft.startedAtIso) > Date.parse(data.committedAtIso) :
+      classMismatch ? Object.keys(details).length === 1 && request.eventDraft?.scope === "assets" :
       Object.keys(details).length === 2 && typeof targetId === "string" && targetIds?.includes(targetId));
   if (Object.keys(data).length !== 12 || data.schemaVersion !== 1 ||
       data.outcome !== "rejected" || data.requestId !== request.requestId ||
@@ -705,7 +711,7 @@ function rejectionFromReceipt(
       request.operation !== "CREATE_OPERATIONAL_EVENT" ||
       data.operation !== request.operation || data.eventId !== request.eventId ||
       !targetEvidenceValid ||
-      !TERMINAL_CREATE_TARGET_REASONS.has(reasonCode as string) ||
+      !TERMINAL_CREATE_REJECTION_REASONS.has(reasonCode as string) ||
       data.rejectionCode !== (missing ? "not-found" : "failed-precondition") ||
       data.rejectionMessage !== message || typeof data.committedAtIso !== "string" ||
       !Number.isFinite(Date.parse(data.committedAtIso)) ||
@@ -921,6 +927,23 @@ export async function mutateOperationalEventWithDb(args: {
         affectedAssetClassIds: current!.affectedAssetClassIds as ReadonlyArray<string>,
         affectedAssetInstanceIds: current!.affectedAssetInstanceIds as ReadonlyArray<string>,
       } : null);
+    const rejectCreation = (
+      error: AssetHierarchyMutationError,
+      rejectedAt: Date,
+    ): RejectedCreation => {
+      // Return the rejection first: throwing inside the transaction would roll
+      // back the receipt that fences every concurrent or restarted attempt.
+      const receipt: JsonMap = {
+        schemaVersion: 1, outcome: "rejected", requestId: request.requestId,
+        actorUid, fingerprint: request.fingerprint, operation: request.operation,
+        eventId: request.eventId, rejectionCode: error.code,
+        rejectionMessage: error.message, rejectionDetails: error.details,
+        committedAt: timestampFromDate(rejectedAt), committedAtIso: rejectedAt.toISOString(),
+      };
+      const rejection = rejectionFromReceipt(request, actorUid, receipt);
+      transaction.set(receiptRef as unknown as DocumentRefLike, receipt);
+      return rejection;
+    };
     try {
       if (targetScope != null) {
         const classIds = new Set(targetScope.affectedAssetClassIds);
@@ -955,20 +978,8 @@ export async function mutateOperationalEventWithDb(args: {
         error.details as JsonMap | undefined : undefined;
       if (request.operation !== "CREATE_OPERATIONAL_EVENT" ||
           !(error instanceof AssetHierarchyMutationError) ||
-          !TERMINAL_CREATE_TARGET_REASONS.has(details?.reasonCode as string)) throw error;
-      // Read-before-write and the same receipt document fence every concurrent
-      // accepted/rejected attempt. Return first: throwing here would roll back.
-      const rejectedAt = now();
-      const receipt: JsonMap = {
-        schemaVersion: 1, outcome: "rejected", requestId: request.requestId,
-        actorUid, fingerprint: request.fingerprint, operation: request.operation,
-        eventId: request.eventId, rejectionCode: error.code,
-        rejectionMessage: error.message, rejectionDetails: details,
-        committedAt: timestampFromDate(rejectedAt), committedAtIso: rejectedAt.toISOString(),
-      };
-      const rejection = rejectionFromReceipt(request, actorUid, receipt);
-      transaction.set(receiptRef as unknown as DocumentRefLike, receipt);
-      return rejection;
+          !TERMINAL_CREATE_REJECTION_REASONS.has(details?.reasonCode as string)) throw error;
+      return rejectCreation(error, now());
     }
 
     const committed = now();
@@ -978,11 +989,15 @@ export async function mutateOperationalEventWithDb(args: {
     if ((requestedStart != null && requestedStart.getTime() > committed.getTime()) ||
         (draft == null && existingStart != null &&
           existingStart.getTime() > committed.getTime())) {
-      throw new AssetHierarchyMutationError(
+      const error = new AssetHierarchyMutationError(
         "failed-precondition",
         "An operational event cannot start after the current server time.",
         {reasonCode: "operational-event-started-at-future"},
       );
+      if (request.operation === "CREATE_OPERATIONAL_EVENT") {
+        return rejectCreation(error, committed);
+      }
+      throw error;
     }
     const requestedResolution = request.operation === "RESOLVE_OPERATIONAL_EVENT" ?
       (request.resolvedAtIso == null ? committed : new Date(request.resolvedAtIso)) :

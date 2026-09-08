@@ -155,12 +155,12 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   }
 
-  async function invokeEvent(data, authUid) {
+  async function invokeEvent(data, authUid, now = new Date('2026-08-13T12:00:00.000Z')) {
     return mutateOperationalEventWithDb({
       db,
       authUid,
       data,
-      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      now: () => now,
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
   }
@@ -1538,6 +1538,51 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     expect(finalReceipts).toHaveLength(2);
     expect(finalReceipts.find((entry) => entry.id === IDS.eventCreateRequest))
       .toEqual(rejectedEvidence[0]);
+  });
+
+  test('future-start CREATE retries share a terminal receipt before and after clock catch-up', async () => {
+    const create = {
+      requestId: IDS.eventCreateRequest, eventId: IDS.eventId,
+      operation: 'CREATE_OPERATIONAL_EVENT', expectedActorUid: 'ops-1', expectedVersion: 0,
+      reason: 'Record an event while the phone clock is ahead.',
+      eventDraft: {
+        eventType: 'powerTrip', title: 'Incoming power interruption',
+        description: 'The phone clock was ten years ahead of the server.',
+        severity: 'critical', scope: 'plantWide', affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [], startedAt: '2036-08-14T13:00:00.000Z',
+      },
+    };
+    const retries = await Promise.allSettled(
+      Array.from({length: 4}, () => invokeEvent(create, 'ops-1')),
+    );
+    for (const retry of retries) {
+      expect(retry.status).toBe('rejected');
+      expect(retry.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'operational-event-started-at-future', terminalRejection: {
+          requestId: IDS.eventCreateRequest, eventId: IDS.eventId,
+          actorUid: 'ops-1', outcome: 'rejected', committedAt: '2026-08-13T12:00:00.000Z',
+        }},
+      });
+      expect(retry.reason.details).toEqual(retries[0].reason.details);
+    }
+    const receiptEvidence = await collectionEvidence('operational_event_receipts');
+    expect(receiptEvidence).toHaveLength(1);
+    expect((await db.collection('operational_events').get()).empty).toBe(true);
+    expect((await db.collection('operational_event_audits').get()).empty).toBe(true);
+    // The original response can be lost: a later process must recover the same rejection.
+    await expect(invokeEvent(create, 'ops-1', new Date('2037-08-14T13:00:00.000Z')))
+      .rejects.toMatchObject({code: 'failed-precondition', details: retries[0].reason.details});
+    expect(await collectionEvidence('operational_event_receipts')).toEqual(receiptEvidence);
+    const corrected = {...create, requestId: IDS.correctedEventCreateRequest,
+      eventId: IDS.correctedEventId,
+      eventDraft: {...create.eventDraft, startedAt: '2026-08-13T11:30:00.000Z'}};
+    await expect(invokeEvent(corrected, 'ops-1')).resolves.toMatchObject({ok: true});
+    expect((await db.collection('operational_events').get()).docs.map((doc) => doc.id))
+      .toEqual([IDS.correctedEventId]);
+    expect((await db.collection('operational_event_audits').get()).size).toBe(1);
+    expect((await collectionEvidence('operational_event_receipts'))
+      .find((entry) => entry.id === IDS.eventCreateRequest)).toEqual(receiptEvidence[0]);
   });
 
   test('atomically links an operational event occurrence to a governed issue', async () => {

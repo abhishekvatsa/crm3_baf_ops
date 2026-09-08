@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:crm3_baf_ops/core/providers/operations_report_clock_provider.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -15,6 +17,160 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final scenario in [
+    (
+      scope: OperationalEventScope.assetClasses,
+      classes: 21,
+      assets: 0,
+      label: 'Asset classes',
+      error: 'Select no more than 20 asset classes.',
+    ),
+    (
+      scope: OperationalEventScope.assets,
+      classes: 1,
+      assets: 51,
+      label: 'Assets',
+      error: 'Select no more than 50 assets.',
+    ),
+    (
+      scope: OperationalEventScope.assets,
+      classes: 21,
+      assets: 21,
+      label: 'Assets',
+      error: 'Select assets from no more than 20 asset classes.',
+    ),
+  ]) {
+    testWidgets('event form retains oversized ${scenario.classes} classes / '
+        '${scenario.assets} assets draft until selection is corrected', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.now();
+      final classes = [
+        for (var index = 0; index < scenario.classes; index++)
+          AssetClassRecord(
+            id: 'class-$index',
+            code: 'CLASS$index',
+            name: 'Class $index',
+            majorArea: 'Test area',
+            status: AssetHierarchyStatus.active,
+            version: 1,
+            createdAt: now,
+            createdByUid: 'fixture-author',
+            updatedAt: now,
+            updatedByUid: 'fixture-author',
+            lastMutationId: 'fixture',
+          ),
+      ];
+      final assets = [
+        for (var index = 0; index < scenario.assets; index++)
+          AssetInstanceRecord(
+            id: 'asset-$index',
+            assetClassId: classes[index % classes.length].id,
+            assetClassCode: classes[index % classes.length].code,
+            assetClassName: classes[index % classes.length].name,
+            assetNumber: index + 1,
+            name: 'Fixture asset $index',
+            serviceState: AssetServiceState.inService,
+            ownershipStatus: AssetOwnershipStatus.unassigned,
+            status: AssetHierarchyStatus.active,
+            activeComponentCount: 0,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            lastMutationId: 'fixture',
+          ),
+      ];
+      // Prefill the same state the unrestricted selector can produce, then use
+      // the real form and selector to verify rejection and boundary recovery.
+      final event = _openCraneEvent(
+        now,
+        scope: scenario.scope,
+        classIds: classes.map((item) => item.id).toList(),
+        assetIds: assets.map((item) => item.id).toList(),
+      );
+      final service = _RecordingOperationalEventService();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_operationsUser(now)),
+            ),
+            assetClassesProvider.overrideWith((ref) => Stream.value(classes)),
+            allAssetInstancesProvider.overrideWith(
+              (ref) => Stream.value(assets),
+            ),
+            operationalEventsProvider.overrideWith(
+              (ref, actorUid) => Stream.value([event]),
+            ),
+            operationalEventsForReportsProvider.overrideWith(
+              (ref, actorUid) => Stream.value([event]),
+            ),
+            operationsReportClockProvider.overrideWith(
+              (ref) => Stream.value(now),
+            ),
+            operationalEventServiceProvider.overrideWithValue(service),
+          ],
+          child: const MaterialApp(home: OperationalEventsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('Edit event'));
+      await tester.tap(find.byTooltip('Edit event'));
+      await tester.pumpAndSettle();
+      final title = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Title',
+      );
+      final reason = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'Reason for correction',
+      );
+      await tester.enterText(title, 'Retained operator draft');
+      await tester.enterText(reason, 'Correct the selected operational scope.');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(find.text(scenario.error), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        tester.widget<TextField>(title).controller!.text,
+        'Retained operator draft',
+      );
+      expect(
+        tester.widget<TextField>(reason).controller!.text,
+        'Correct the selected operational scope.',
+      );
+      expect(service.updatedDraft, isNull);
+
+      final selection = find.byWidgetPredicate(
+        (widget) =>
+            widget is InputDecorator &&
+            widget.decoration.labelText == scenario.label,
+      );
+      await tester.ensureVisible(selection);
+      await tester.tap(selection);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(service.updatedDraft!.title, 'Retained operator draft');
+      expect(service.updateReason, 'Correct the selected operational scope.');
+      expect(
+        service.updatedDraft!.affectedAssetClassIds,
+        hasLength(scenario.classes == 21 ? 20 : 1),
+      );
+      expect(
+        service.updatedDraft!.affectedAssetInstanceIds,
+        hasLength(scenario.assets == 0 ? 0 : scenario.assets - 1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('event entry offers retained creation retry before a new form', (
     tester,
   ) async {
@@ -458,6 +614,9 @@ AppUser _operationsUser(DateTime now, {bool approved = true}) => AppUser(
 OperationalEvent _openCraneEvent(
   DateTime now, {
   Duration elapsed = const Duration(minutes: 90),
+  OperationalEventScope scope = OperationalEventScope.plantWide,
+  List<String> classIds = const [],
+  List<String> assetIds = const [],
 }) {
   final startedAt = now.subtract(elapsed);
   return OperationalEvent(
@@ -466,9 +625,9 @@ OperationalEvent _openCraneEvent(
     title: 'Charging crane unavailable',
     description: 'Crane movement is unavailable during charging operations.',
     severity: OperationalEventSeverity.significant,
-    scope: OperationalEventScope.plantWide,
-    affectedAssetClassIds: const [],
-    affectedAssetInstanceIds: const [],
+    scope: scope,
+    affectedAssetClassIds: classIds,
+    affectedAssetInstanceIds: assetIds,
     startedAt: startedAt,
     status: OperationalEventStatus.open,
     createdAt: startedAt,
@@ -518,6 +677,28 @@ class _RecordingOperationalEventService extends OperationalEventService {
   OperationalEvent? event;
   String? resolutionNote;
   DateTime? resolvedAt;
+  OperationalEventDraft? updatedDraft;
+  String? updateReason;
+
+  @override
+  Future<OperationalEventCommandResult> update({
+    required OperationalEvent event,
+    required OperationalEventDraft draft,
+    required String reason,
+  }) async {
+    updatedDraft = draft;
+    updateReason = reason;
+    return OperationalEventCommandResult(
+      requestId: 'update-request',
+      operation: OperationalEventCommand.update,
+      eventId: event.eventId,
+      status: event.status,
+      version: event.version + 1,
+      auditId: 'update-audit',
+      committedAt: DateTime.now(),
+      idempotentReplay: false,
+    );
+  }
 
   @override
   Future<OperationalEventCommandResult> resolve({

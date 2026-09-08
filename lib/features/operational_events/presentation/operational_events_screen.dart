@@ -1048,6 +1048,18 @@ class _EventDialogState extends State<_EventDialog> {
       setState(() => _error = 'Select at least one asset.');
       return;
     }
+    if (_classIds.length > 20) {
+      setState(
+        () => _error = _scope == OperationalEventScope.assets
+            ? 'Select assets from no more than 20 asset classes.'
+            : 'Select no more than 20 asset classes.',
+      );
+      return;
+    }
+    if (_assetIds.length > 50) {
+      setState(() => _error = 'Select no more than 50 assets.');
+      return;
+    }
     if (_startedAt.isAfter(DateTime.now())) {
       setState(() => _error = 'The event start time cannot be in the future.');
       return;

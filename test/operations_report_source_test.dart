@@ -15,6 +15,62 @@ void main() {
   final end = DateTime.utc(2026, 9, 1);
 
   test(
+    'historical execution identity refreshes outside web period query windows',
+    () async {
+      JobExecution historical(int version) =>
+          _execution(DateTime.utc(2026, 7, 1))
+            ..firestoreId = 'historical-execution'
+            ..version = version
+            ..isCompleted = true
+            ..completedAt = DateTime.utc(2026, 7, 2)
+            ..updatedAt = DateTime.utc(2026, 9, version);
+      final repository = _IdentityPlannedRepository([historical(1)]);
+      final period = (
+        actorUid: 'si-1',
+        startInclusive: start,
+        endExclusive: end,
+      );
+      final container = ProviderContainer(
+        overrides: [plannedRepositoryProvider.overrideWithValue(repository)],
+      );
+      final periodProvider = operationsReportExecutionsProvider(period);
+      final provider = operationsReportIdentitySourcesProvider((
+        actorUid: 'si-1',
+        period: period,
+        executionIds: '["historical-execution"]',
+        ticketIds: '[]',
+      ));
+      final periodSubscription = container.listen(periodProvider, (_, __) {});
+      final subscription = container.listen(provider, (_, __) {});
+      addTearDown(() async {
+        subscription.close();
+        periodSubscription.close();
+        container.dispose();
+        await repository.updates.close();
+      });
+      expect(
+        (await container.read(provider.future)).executions.single.version,
+        1,
+      );
+      expect(await container.read(periodProvider.future), isEmpty);
+      await Future<void>.delayed(Duration.zero);
+      repository.records = [historical(2)];
+      repository.updates.add(repository.records);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        (await container.read(provider.future)).executions.single.version,
+        2,
+      );
+      expect(
+        container.read(periodProvider).requireValue,
+        isEmpty,
+        reason:
+            'An identity refresh must not change the report-period population.',
+      );
+    },
+  );
+
+  test(
     'native identity refreshes when an out-of-period issue arrives or changes',
     () async {
       final period = (
@@ -215,7 +271,10 @@ void main() {
       _containsSource('operationalEventsForReportsProvider(scope.actorUid)'),
     );
     expect(
-      _sourceIndexOf(source, 'ref.watch(operationsReportAuthorityLifecycleProvider)'),
+      _sourceIndexOf(
+        source,
+        'ref.watch(operationsReportAuthorityLifecycleProvider)',
+      ),
       lessThan(_sourceIndexOf(source, 'ref.watch(currentAppUserProvider)')),
     );
     expect(
@@ -247,7 +306,9 @@ void main() {
     );
     expect(
       source,
-      _containsSource('qualityMonitoringRequestsForReportsProvider(scope.actorUid)'),
+      _containsSource(
+        'qualityMonitoringRequestsForReportsProvider(scope.actorUid)',
+      ),
     );
     expect(
       source,
@@ -257,9 +318,15 @@ void main() {
       expect(reportSource, _containsSource('admitActorSessionSnapshots('));
       expect(reportSource, _containsSource('includeMetadataChanges: true'));
       expect(reportSource, _containsSource('snapshot.metadata.isFromCache'));
-      expect(reportSource, _containsSource('snapshot.metadata.hasPendingWrites'));
+      expect(
+        reportSource,
+        _containsSource('snapshot.metadata.hasPendingWrites'),
+      );
     }
-    expect(qualitySource, _containsSource('.family<List<QualityWarning>, String>'));
+    expect(
+      qualitySource,
+      _containsSource('.family<List<QualityWarning>, String>'),
+    );
     expect(qualitySource, _containsSource('actor.uid != actorUid'));
     expect(
       criticalProviderSource,
@@ -269,6 +336,7 @@ void main() {
     for (final provider in [
       'operationalEventsForReportsProvider',
       'operationsReportIdentitySourcesProvider',
+      'operationsReportExecutionIdentityChangesProvider',
       'qualityWarningsForReportsProvider',
       'qualityReportCacheTrustProvider',
       'workflowAllComplianceProvider',
@@ -291,14 +359,55 @@ Matcher _containsSource(String fragment) => predicate<String>(
   'contains Dart source "$fragment" regardless of formatting whitespace',
 );
 
-int _sourceIndexOf(String source, String fragment, [int start = 0]) =>
-    start < 0 ? -1 : _compactSource(source).indexOf(_compactSource(fragment), start);
+int _sourceIndexOf(String source, String fragment, [int start = 0]) => start < 0
+    ? -1
+    : _compactSource(source).indexOf(_compactSource(fragment), start);
 
 class _IdentityMaintenanceRepository implements MaintenanceRepository {
   List<MaintenanceRecord> records = [];
 
   @override
   Future<List<MaintenanceRecord>> getTicketsByFirestoreIds(
+    List<String> ids,
+  ) async =>
+      records.where((record) => ids.contains(record.firestoreId)).toList();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _IdentityPlannedRepository implements PlannedMaintenanceRepository {
+  _IdentityPlannedRepository(this.records);
+
+  List<JobExecution> records;
+  final updates = StreamController<List<JobExecution>>.broadcast(sync: true);
+
+  @override
+  Stream<List<JobExecution>> watchAllExecutions({int? limit}) async* {
+    if (limit != null) {
+      throw StateError('Identity observation must be uncapped.');
+    }
+    yield records;
+    yield* updates.stream;
+  }
+
+  @override
+  Stream<List<JobExecution>> watchExecutionsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) => Stream.value(
+    records
+        .where(
+          (record) =>
+              jobExecutionOverlapsPeriod(record, startInclusive, endExclusive),
+        )
+        .toList(),
+  );
+
+  // The web repository's date-window queries do not emit when a completed
+  // source outside every window changes. Only its uncapped watch sees updates.
+  @override
+  Future<List<JobExecution>> getExecutionsByFirestoreIds(
     List<String> ids,
   ) async =>
       records.where((record) => ids.contains(record.firestoreId)).toList();

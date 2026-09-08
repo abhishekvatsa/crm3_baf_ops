@@ -23,7 +23,7 @@
     },
     {
       "id": "operations-report-identity-query-scope",
-      "file": "lib/features/reports/providers/operations_report_provider.dart",
+      "file": "lib/features/reports/providers/operations_report_identity_sources.dart",
       "markers": [
         "final operationsReportIdentitySourcesProvider =",
         "jsonDecode(scope.executionIds)",
@@ -36,7 +36,7 @@
       "compatibility": "internally generated JSON string lists only; retained business records remain decoded by their existing repositories",
       "regression": "test/operations_report_test.dart",
       "reArmCondition": "query identity keys accept external authority, malformed keys produce partial reports, cross-account results survive invalidation, or report construction writes business state",
-      "riskFingerprint": "80e5025840060c024fd0fd9b7b2de9374b6cff97938d7e9f9f4870dd48f939ad"
+      "riskFingerprint": "69752b5cf62d40397656621e28339ee7e8a362fa6df7f5663c1d8c8cdef7030d"
     },
     {
       "id": "quality-monitoring-creation-outbox",

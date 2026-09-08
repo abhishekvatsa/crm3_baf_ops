@@ -588,19 +588,42 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
-  test('future event chronology is rejected without writes', async () => {
+  test('future-start CREATE commits terminal receipt and stays rejected after clock catch-up', async () => {
     const createMemory = fakeDb(baseSeed());
-    await expect(invoke(createMemory, 'ops-1', request({
+    const futureCreate = request({
       eventDraft: {
         ...request().eventDraft,
-        startedAt: '2026-08-14T13:00:00.000Z',
+        startedAt: '2036-08-14T13:00:00.000Z',
       },
-    }))).rejects.toMatchObject({
-      code: 'failed-precondition',
-      details: {reasonCode: 'operational-event-started-at-future'},
     });
-    expect(createMemory.writes).toHaveLength(0);
+    const rejected = await invoke(createMemory, 'ops-1', futureCreate).catch((error) => error);
+    expect(rejected).toMatchObject({
+      code: 'failed-precondition',
+      message: 'An operational event cannot start after the current server time.',
+      details: {reasonCode: 'operational-event-started-at-future', terminalRejection: {
+        requestId: IDS.create, eventId: IDS.event, actorUid: 'ops-1',
+        fingerprint: parseOperationalEventMutationRequest(futureCreate).fingerprint,
+        committedAt: '2026-08-14T12:00:00.000Z', outcome: 'rejected',
+      }},
+    });
+    expect(createMemory.writes.map((write) => write.path))
+      .toEqual([`operational_event_receipts/${IDS.create}`]);
+    const replay = await invoke(createMemory, 'ops-1', futureCreate,
+      new Date('2037-08-14T12:00:00.000Z')).catch((error) => error);
+    expect(replay.details).toEqual(rejected.details);
+    expect(createMemory.writes).toHaveLength(1);
+    expect(createMemory.store.has(`operational_events/${IDS.event}`)).toBe(false);
+    await expect(invoke(createMemory, 'ops-1', request({
+      requestId: IDS.update, eventId: IDS.resolve,
+    }))).resolves.toMatchObject({ok: true});
+    // An accepted receipt remains authoritative if a later server clock is behind.
+    const accepted = await invoke(createMemory, 'ops-1', request({
+      requestId: IDS.update, eventId: IDS.resolve,
+    }), new Date('2026-08-13T12:00:00.000Z'));
+    expect(accepted).toMatchObject({ok: true, idempotentReplay: true});
+  });
 
+  test('future chronology in existing event commands remains rejected without writes', async () => {
     const future = persistedEvent();
     future.startedAt = new Date('2026-08-14T13:00:00.000Z');
     const resolveMemory = fakeDb({
@@ -619,7 +642,44 @@ describe('operational event mutation', () => {
       details: {reasonCode: 'operational-event-started-at-future'},
     });
     expect(resolveMemory.writes).toHaveLength(0);
+    const updateMemory = fakeDb({...baseSeed(), [`operational_events/${IDS.event}`]: persistedEvent()});
+    await expect(invoke(updateMemory, 'ops-1', request({
+      requestId: IDS.update, operation: 'UPDATE_OPERATIONAL_EVENT', expectedVersion: 1,
+      eventDraft: {...request().eventDraft, startedAt: '2036-08-14T13:00:00.000Z'},
+    }))).rejects.toMatchObject({code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-started-at-future'}});
+    expect(updateMemory.writes).toHaveLength(0);
+    const reopenMemory = fakeDb({...baseSeed(), [`operational_events/${IDS.event}`]: persistedEvent({
+      startedAt: new Date('2036-08-14T13:00:00.000Z'), status: 'resolved',
+      resolvedAt: new Date('2036-08-14T14:00:00.000Z'), resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One', resolutionNote: 'Resolved after checking supply.',
+    })});
+    await expect(invoke(reopenMemory, 'ops-1', {
+      requestId: IDS.reopen, eventId: IDS.event, operation: 'REOPEN_OPERATIONAL_EVENT',
+      expectedVersion: 1, reason: 'Confirm the recurrence.',
+    })).rejects.toMatchObject({code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-started-at-future'}});
+    expect(reopenMemory.writes).toHaveLength(0);
   });
+
+  test.each(['unexpected details', 'wrong message', 'start not future at rejection'])(
+    'future-start rejection evidence fails closed with %s', async (corruption) => {
+      const memory = fakeDb(baseSeed());
+      const input = request({eventDraft: {...request().eventDraft, startedAt: '2036-08-14T13:00:00.000Z'}});
+      await invoke(memory, 'ops-1', input).catch(() => {});
+      const receipt = memory.store.get(`operational_event_receipts/${IDS.create}`);
+      expect(receipt?.outcome).toBe('rejected');
+      if (corruption === 'unexpected details') receipt.rejectionDetails.assetId = IDS.asset;
+      else if (corruption === 'wrong message') receipt.rejectionMessage = 'Affected asset was retired.';
+      else {
+        receipt.committedAt = new Date('2037-08-14T13:00:00.000Z');
+        receipt.committedAtIso = '2037-08-14T13:00:00.000Z';
+      }
+      await expect(invoke(memory, 'ops-1', input)).rejects.toMatchObject({code: 'data-loss'});
+      expect(memory.writes).toHaveLength(1);
+      expect(memory.store.has(`operational_events/${IDS.event}`)).toBe(false);
+    },
+  );
 
   test('audit snapshots preserve every corrected operational field', async () => {
     const memory = fakeDb({

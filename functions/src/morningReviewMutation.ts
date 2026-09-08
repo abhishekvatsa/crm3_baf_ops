@@ -184,6 +184,10 @@ const MAX_SESSION_PARTICIPANTS = 100;
 const MAX_STANDING_CONCERNS = 250;
 const MAX_SOURCE_REFERENCES = 12;
 const MAX_FROZEN_DOCUMENT_BYTES = 800 * 1024;
+const MAX_COMMAND_REASON_LENGTH = 1600;
+// Firebase Auth UID bound and the canonical user name bound in Firestore rules.
+const MAX_ACTION_ACTOR_UID_LENGTH = 128;
+const MAX_ACTION_ACTOR_NAME_LENGTH = 160;
 const ACTIVE_SOURCE_STATUSES = new Set([
   "open", "raised", "supportconfirmed", "acknowledged", "accepted",
   "inprogress", "active", "deferred", "actionable", "awaitingconfirmation",
@@ -542,7 +546,7 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     invalid("concernId", "is required");
   }
   const reason = data.reason == null ? null :
-    requiredString(data.reason, "reason", 1600);
+    requiredString(data.reason, "reason", MAX_COMMAND_REASON_LENGTH);
   if ([
     "COMPLETE_MORNING_REVIEW_ACTION",
     "TAKE_OVER_MORNING_REVIEW",
@@ -1732,6 +1736,43 @@ function projectedRecords(
   return [...projected].map(([id, data]) => ({id, exists: true, data: () => data}));
 }
 
+function reserveActionLifecycleContent(
+  actions: ReadonlyArray<SnapshotLike>,
+  at: unknown,
+  expiresAt: unknown,
+): ReadonlyArray<SnapshotLike> {
+  return actions.map((snapshot) => {
+    const action = snapshot.data() ?? {};
+    if (action.status !== "open" && action.status !== "accepted") return snapshot;
+    const future: JsonMap = {
+      status: "completed",
+      version: Number.MAX_SAFE_INTEGER,
+      completedAt: at,
+      completedByUid: "\u0000".repeat(MAX_ACTION_ACTOR_UID_LENGTH),
+      completedByName: "\u0000".repeat(MAX_ACTION_ACTOR_NAME_LENGTH),
+      completionNote: "\u0000".repeat(MAX_COMMAND_REASON_LENGTH),
+      updatedAt: at,
+      updatedByUid: "\u0000".repeat(MAX_ACTION_ACTOR_UID_LENGTH),
+      updatedByName: "\u0000".repeat(MAX_ACTION_ACTOR_NAME_LENGTH),
+      expiresAt,
+      lastMutationId: "00000000-0000-4000-8000-000000000000",
+      ...(action.status === "open" ? {
+        acceptedAt: at,
+        acceptedByUid: "\u0000".repeat(MAX_ACTION_ACTOR_UID_LENGTH),
+        acceptedByName: "\u0000".repeat(MAX_ACTION_ACTOR_NAME_LENGTH),
+      } : {}),
+    };
+    const reserved = {...action};
+    for (const [field, value] of Object.entries(future)) {
+      // Existing evidence is never made smaller to manufacture spare capacity.
+      if (!(field in action) ||
+          Buffer.byteLength(stableJson(action[field]), "utf8") <
+          Buffer.byteLength(stableJson(value), "utf8")) reserved[field] = value;
+    }
+    return {...snapshot, data: () => reserved};
+  });
+}
+
 async function ensureAdmittedContentCanFinalize(args: {
   db: MorningReviewFirestoreLike;
   transaction: TransactionLike;
@@ -1740,6 +1781,7 @@ async function ensureAdmittedContentCanFinalize(args: {
   committed: Date;
   at: unknown;
   expiresAt: unknown;
+  timestampFromDate: (date: Date) => unknown;
 }): Promise<void> {
   const sessionRef = args.db.collection("morning_review_sessions")
     .doc(args.sessionId);
@@ -1769,10 +1811,21 @@ async function ensureAdmittedContentCanFinalize(args: {
     expiresAt: args.expiresAt,
     documentDigest: `morningreviewdocument1-sha256:${"0".repeat(64)}`,
   };
-  const document = frozenDocumentContent(session, population, finalFields);
-  if (before.exists && stableJson(document) === stableJson(
+  const actualDocument = frozenDocumentContent(session, population, finalFields);
+  if (before.exists && stableJson(actualDocument) === stableJson(
     frozenDocumentContent(before.data()!, beforePopulation, finalFields),
   )) return;
+  // An admitted current-day action must still fit after its legal acceptance
+  // and completion, including full escaped reason/name fields. Millisecond 999
+  // reserves the widest normal Firestore Timestamp nanosecond representation.
+  const lifecycleInstant = new Date(args.committed.valueOf());
+  lifecycleInstant.setUTCMilliseconds(999);
+  const document = frozenDocumentContent(session, {
+    ...population,
+    actions: reserveActionLifecycleContent(population.actions,
+      args.timestampFromDate(lifecycleInstant),
+      args.timestampFromDate(addDays(lifecycleInstant, RETENTION_DAYS))),
+  }, finalFields);
   if (population.entries.length > MAX_SESSION_ENTRIES ||
       population.actions.length > MAX_SESSION_ACTIONS ||
       population.participants.length > MAX_SESSION_PARTICIPANTS ||
@@ -1827,6 +1880,7 @@ function ensureSourceReferences(
 }
 
 async function mutateMorningReviewActionLifecycle(args: {
+  db: MorningReviewFirestoreLike;
   transaction: TransactionLike;
   sessions: CollectionLike;
   participants: CollectionLike;
@@ -1978,6 +2032,40 @@ async function mutateMorningReviewActionLifecycle(args: {
           args.currentPlantDay,
         );
       }
+    }
+  }
+
+  if (carriedEntryRef != null && carriedEntry != null &&
+      currentSessionRef != null && currentSessionVersion != null) {
+    try {
+      await ensureAdmittedContentCanFinalize({
+        db: args.db,
+        transaction: args.transaction,
+        writes: [
+          {ref: carriedEntryRef, data: carriedEntry},
+          {ref: currentSessionRef, data: {
+            version: currentSessionVersion + 1, updatedAt: at,
+            updatedByUid: args.actorUid, updatedByName: args.actorName,
+            expiresAt: args.completedExpiresAt, lastMutationId: args.request.requestId,
+          }, options: {merge: true}},
+        ],
+        sessionId: args.currentPlantDay,
+        committed: args.committed,
+        at,
+        expiresAt: args.completedExpiresAt,
+        timestampFromDate: args.timestampFromDate,
+      });
+    } catch (error) {
+      if (!(error instanceof AssetHierarchyMutationError) ||
+          error.code !== "failed-precondition" ||
+          (error.details as JsonMap | undefined)?.reasonCode !==
+            "morning-review-content-capacity-reached") throw error;
+      // This meeting entry is optional. Capacity cannot cancel the native
+      // carried action or its receipt, nor consume a meeting version by itself.
+      carriedEntryRef = null;
+      carriedEntry = null;
+      currentSessionRef = null;
+      currentSessionVersion = null;
     }
   }
 
@@ -2141,6 +2229,7 @@ export async function mutateMorningReviewWithDb(args: {
 
     if (actionLifecycleOperation && !sessionSnapshot.exists) {
       mutationResult = await mutateMorningReviewActionLifecycle({
+        db: args.db,
         transaction,
         sessions,
         participants,
@@ -2621,6 +2710,7 @@ export async function mutateMorningReviewWithDb(args: {
       } else if (request.operation === "ACCEPT_MORNING_REVIEW_ACTION" ||
           request.operation === "COMPLETE_MORNING_REVIEW_ACTION") {
         mutationResult = await mutateMorningReviewActionLifecycle({
+          db: args.db,
           transaction,
           sessions,
           participants,
@@ -3013,6 +3103,7 @@ export async function mutateMorningReviewWithDb(args: {
       committed,
       at: timestampFromDate(committed),
       expiresAt,
+      timestampFromDate,
     });
     for (const write of pendingWrites) {
       if (write.data == null) nativeTransaction.delete(write.ref);

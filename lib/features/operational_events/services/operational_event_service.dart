@@ -172,11 +172,24 @@ class OperationalEventService {
   }) async {
     final actorUid = _creationActor();
     _requireCreationActor(actorUid, expectedActorUid);
+    final commandDraft = draft.toCommandMap();
+    if ((commandDraft['affectedAssetClassIds'] as List).length > 20) {
+      throw const OperationalEventCommandException(
+        'Select no more than 20 asset classes for one operational event.',
+        code: 'invalid-argument',
+      );
+    }
+    if ((commandDraft['affectedAssetInstanceIds'] as List).length > 50) {
+      throw const OperationalEventCommandException(
+        'Select no more than 50 assets for one operational event.',
+        code: 'invalid-argument',
+      );
+    }
     final identity = await _creationStore.resolve(
       actorUid: actorUid,
       payload: <String, dynamic>{
         'reason': reason.trim(),
-        'eventDraft': draft.toCommandMap(),
+        'eventDraft': commandDraft,
       },
     );
     return _sendCreation(actorUid, identity);
@@ -277,6 +290,7 @@ class OperationalEventService {
       'operational-event-asset-class-invalid': 'failed-precondition',
       'operational-event-asset-invalid': 'failed-precondition',
       'operational-event-asset-class-mismatch': 'failed-precondition',
+      'operational-event-started-at-future': 'failed-precondition',
     };
     if (reasonCode is! String ||
         !expectedCodes.containsKey(reasonCode) ||
