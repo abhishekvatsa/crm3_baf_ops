@@ -411,7 +411,7 @@ check(
 check(
     "Build 27 device acceptance and staged pilot authority are exact and bounded",
     sha(build27_device_acceptance_path)
-        == "DF9D15B5538D935BC0AAB754D6AE715137B93A544E26A25EC96F80FEF0E05382"
+        == "5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1"
     and build27_device_acceptance.get("release", {}).get("buildNumber") == 27
     and build27_device_acceptance.get("release", {}).get("apkSha256")
         == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
@@ -436,7 +436,7 @@ check(
         "pilotHandoutPerformedByThisApproval"
     ) is False
     and sha(build27_pilot_promotion_path)
-        == "E5C22E28C09D5835BF5BCFC3F7F6BEF33A339ADF44DFF2CF6A73660600641750"
+        == "C50268F14066D3B9C7649584BE318E54D22EE3F6ACF8C1BF03BF856DD7D715FD"
     and build27_pilot_promotion.get("decision")
         == "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED"
     and build27_pilot_promotion.get("ownerApproval", {}).get("sha256")

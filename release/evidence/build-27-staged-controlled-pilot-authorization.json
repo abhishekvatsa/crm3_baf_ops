@@ -44,11 +44,13 @@
     },
     "deviceAcceptance": {
       "receipt": "release/evidence/build-27-device-acceptance.json",
-      "sha256": "DF9D15B5538D935BC0AAB754D6AE715137B93A544E26A25EC96F80FEF0E05382",
+      "sha256": "5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1",
       "decision": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
       "physicalTargetCount": 1,
       "appDataPreserved": true,
       "automaticSyncPassed": true,
+      "unsyncedRows": 0,
+      "unresolvedRejections": 0,
       "businessDataMutated": false
     },
     "productionBackend": {

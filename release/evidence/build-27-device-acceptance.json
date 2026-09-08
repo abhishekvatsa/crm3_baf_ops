@@ -74,6 +74,13 @@
   "synchronization": {
     "automaticStartupSyncPassesObserved": 2,
     "manualSyncTriggered": false,
+    "inventoryCapturedAtUtc": "2026-09-08T12:44:01Z",
+    "inventoryGeneratedAtDeviceLocal": "2026-09-08T18:13:13.438228+05:30",
+    "inventorySource": "admin-local-diagnostics-read-only",
+    "unsyncedRows": 0,
+    "unresolvedRejections": 0,
+    "likelyPermanentRejections": 0,
+    "syncStateAtInventory": "idle",
     "lastSyncResult": "success",
     "pushFailed": 0,
     "fullSyncConflicts": 0,
@@ -106,7 +113,11 @@
   },
   "supplementaryLocalEvidence": {
     "reportPath": "output/build27-device-validation/DEVICE_ACCEPTANCE_REPORT.md",
-    "reportSha256": "C4A3B0428CFA1148D8F327603836468BBBB3282AA652125DABBC7CCAFFC7804A",
+    "reportSha256": "42460A96247FD8C4B4C9F48166A5686592A3290B4085B9206582D40C03D110E2",
+    "localDiagnosticsScreenshotPath": "output/build27-device-validation/local-diagnostics-20260908T124401Z.png",
+    "localDiagnosticsScreenshotSha256": "FD9AE44E22C76415F71C93FED395FCBD1301A8039D588785010B4B85388FAF33",
+    "localDiagnosticsHierarchyPath": "output/build27-device-validation/local-diagnostics-20260908T124401Z.xml",
+    "localDiagnosticsHierarchySha256": "746A50841956C1D9D33E7FAFE62B8F26C43FBD7D02D6F3753508B1CB37276621",
     "rawScreenshotsCommitted": false,
     "rawLogsCommitted": false,
     "businessPayloadCommitted": false
@@ -117,7 +128,7 @@
     "mutatingBusinessFlowValidationCompleted": false,
     "fullBusinessFlowValidationCompleted": false,
     "runtimeValidationPassed": true,
-    "qualification": "Exact Build 27 upgraded the retained Build 24 installation in place, preserved app data and the authenticated session, opened the governed schema 10 store, completed two clean automatic synchronization passes and rendered the reviewed business surfaces without a fatal error. No production business command was submitted, so mutating-flow validation remains open."
+    "qualification": "Exact Build 27 upgraded the retained Build 24 installation in place, preserved app data and the authenticated session, opened the governed schema 10 store, completed two clean automatic synchronization passes, produced a fresh read-only inventory of zero unsynced rows and zero unresolved rejections, and rendered the reviewed business surfaces without a fatal error. No production business command was submitted, so mutating-flow validation remains open."
   },
   "releaseBoundary": {
     "build27FinalizationReceiptChanged": false,

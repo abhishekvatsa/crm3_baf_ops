@@ -1489,7 +1489,7 @@
       "completionReceiptSha256": "8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6",
       "physicalInstallationConditionPassed": true,
       "physicalInstallationReceiptFile": "release/evidence/build-27-device-acceptance.json",
-      "physicalInstallationReceiptSha256": "DF9D15B5538D935BC0AAB754D6AE715137B93A544E26A25EC96F80FEF0E05382",
+      "physicalInstallationReceiptSha256": "5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1",
       "runtimeValidationPassed": true,
       "runtimeDisposition": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
       "fullBusinessFlowValidationCompleted": false,
@@ -1498,7 +1498,7 @@
       "firebaseBackendDeploymentPerformed": false,
       "controlledPilotApproved": true,
       "pilotPromotionReceiptFile": "release/evidence/build-27-staged-controlled-pilot-authorization.json",
-      "pilotPromotionReceiptSha256": "E5C22E28C09D5835BF5BCFC3F7F6BEF33A339ADF44DFF2CF6A73660600641750",
+      "pilotPromotionReceiptSha256": "C50268F14066D3B9C7649584BE318E54D22EE3F6ACF8C1BF03BF856DD7D715FD",
       "unrestrictedPlantReleaseApproved": false,
       "distributionPerformed": false
     }
