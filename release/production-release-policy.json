@@ -32,7 +32,7 @@
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
       "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-27.json",
-      "approvalReceiptSha256": "DB0CF567B3EE79921FFC20225870A48B1CD902DDBD23135CF86AD4789CF6017C",
+      "approvalReceiptSha256": "4E01236A178BBEBB663EF688E845402271EEF9FBBB339437C93EBE65A095A5E6",
       "approvalReference": "BAF-GH-ENV-023",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
@@ -63,7 +63,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-27-successor-approval.json",
-    "sourceDocumentSha256": "902C54C48DDA5047D5273269338CBF4710F7699DA89143EA58D6D825F12C3056",
+    "sourceDocumentSha256": "E6E05741A48874C2671F5A53DDA5C36833F9C4E3DBF7A1A867978A7E6CAD52A3",
     "remoteReservationTag": "crm3-build-reserved/27",
     "remoteBuiltTag": "crm3-build-built/27",
     "failedOrWithdrawnBuildConsumesNumber": true
@@ -72,7 +72,7 @@
     "status": "pending-source-authorized",
     "dualCustodyCompleted": false,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build27-backend-deployment-closure.json",
-    "exactFunctionFleetDeploymentReceiptSha256": "D721A684199E22F672926C9634F04523B01A304846AE6E83DDA67E3FA75CB5A6",
+    "exactFunctionFleetDeploymentReceiptSha256": "F014CEC663878837DF84F7E6A4EC01D45B2F138239C63D1C5FE3DD51F10F5742",
     "exactFirestoreRulesIndexesLiveReadback": {
       "verified": true,
       "receiptFile": "release/evidence/build27-firestore-rules-indexes-live-readback.json",

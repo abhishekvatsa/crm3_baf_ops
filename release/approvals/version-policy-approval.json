@@ -3,7 +3,7 @@
   "receiptType": "version-and-build-policy",
   "reference": "BAF-REF-003-C26",
   "sourceDocumentFile": "release/approvals/build-number-27-successor-approval.json",
-  "sourceDocumentSha256": "902C54C48DDA5047D5273269338CBF4710F7699DA89143EA58D6D825F12C3056",
+  "sourceDocumentSha256": "E6E05741A48874C2671F5A53DDA5C36833F9C4E3DBF7A1A867978A7E6CAD52A3",
   "recordedAtUtc": "2026-09-08T01:53:20.768Z",
   "sourceDocumentNotCommitted": false,
   "remoteReservationTag": "crm3-build-reserved/27",

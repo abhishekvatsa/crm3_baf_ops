@@ -41,9 +41,9 @@
     },
     "deployedBackend": {
       "deploymentApprovalFile": "release/approvals/build27-backend-deployment-approval.json",
-      "deploymentApprovalSha256": "96C9D4C3752D88A8219A8CF0016F4DDA2C748347A0A90DF053A1CFD9973B4632",
+      "deploymentApprovalSha256": "8A7E556AA54C3859CF263A25BDDBE67DC38C3001D56CC1BE24A318830BBD137C",
       "functionFleetEvidenceFile": "release/evidence/build27-backend-deployment-closure.json",
-      "functionFleetEvidenceSha256": "D721A684199E22F672926C9634F04523B01A304846AE6E83DDA67E3FA75CB5A6",
+      "functionFleetEvidenceSha256": "F014CEC663878837DF84F7E6A4EC01D45B2F138239C63D1C5FE3DD51F10F5742",
       "functionFleetSourceCommit": "2ab554d143bd778cfa1b4d9ab2ed3c35cf62b056",
       "rulesAndIndexesEvidenceFile": "release/evidence/build27-firestore-rules-indexes-live-readback.json",
       "rulesAndIndexesEvidenceSha256": "644C0E92B28E6C41AC14E4D452D3B7D545DCA4D4C902F50003819E73E865529C",
