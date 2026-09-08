@@ -44,9 +44,13 @@ function fixture(t) {
   git("add", ".");
   git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
     "commit", "--quiet", "-m", "deployed fixture");
-  const commit = git("rev-parse", "HEAD");
-  const tree = git("rev-parse", "HEAD^{tree}");
-  const functionTree = git('rev-parse', 'HEAD:functions');
+  const objects = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--path-format=absolute', '--git-path', 'objects'],
+    {encoding: 'utf8'}).trim();
+  fs.mkdirSync(path.join(root, '.git/objects/info'), {recursive: true});
+  fs.writeFileSync(path.join(root, '.git/objects/info/alternates'), `${objects.replace(/\\/g, '/')}\n`);
+  const commit = '2ab554d143bd778cfa1b4d9ab2ed3c35cf62b056';
+  const tree = git('rev-parse', `${commit}^{tree}`);
+  const functionTree = git('rev-parse', `${commit}:functions`);
   function write(file, value) {
     const location = path.join(root, file);
     fs.mkdirSync(path.dirname(location), {recursive: true});
@@ -54,7 +58,7 @@ function fixture(t) {
     fs.writeFileSync(location, bytes);
     return sha(bytes);
   }
-  const approvalPath = "release/approval.json";
+  const approvalPath = "release/approvals/build27-backend-deployment-approval.json";
   const backendPath = "release/backend.json";
   const versionPath = "release/version.json";
   const approval = readMeasured('release/approvals/build27-backend-deployment-approval.json');
@@ -122,14 +126,16 @@ test("permits successor app/backend source pending at HEAD", (t) => {
   assert.equal(f.verify().ok, true);
 });
 
-test("supports legacy deployed-source and pull-request fallbacks", (t) => {
+test("supports the deployed-source fallback without relabeling its admitted pull request", (t) => {
   const f = fixture(t);
   delete f.version.requiredSource.exactFunctionFleetDeploymentSourceCommit;
+  f.persist();
+  assert.equal(f.verify().ok, true);
   delete f.version.requiredSource.exactFunctionFleetDeploymentPullRequest;
   f.receipt.sourceAuthority.pullRequestNumber = 265;
   f.approval.sourceAuthority.pullRequestNumber = 265;
   f.persist();
-  assert.equal(f.verify().ok, true);
+  assert.equal(f.verify().ok, false);
 });
 
 test("rejects coherently rehashed backend source with the wrong Git tree", (t) => {
@@ -205,7 +211,7 @@ test("validates a full commit before invoking git", (t) => {
   assert.match(f.verify().reasons[0], /exactly 40 hexadecimal/);
 });
 
-test("allows a separately approved current deployment beyond historical finalization", (t) => {
+test("allows distinct current and historical receipts for the same admitted approval", (t) => {
   const f = fixture(t);
   const current = structuredClone(f.receipt);
   const currentPath = "release/new-current-backend.json";
@@ -218,6 +224,27 @@ test("allows a separately approved current deployment beyond historical finaliza
   assert.equal(result.historicalBackendReceiptFile, "release/backend.json");
   assert.equal(result.currentBackendReceiptFile, currentPath);
   assert.notEqual(result.historicalBackendReceiptSha256, result.currentBackendReceiptSha256);
+});
+
+test('a different current source requires its own admitted immutable approval custody', (t) => {
+  const f = fixture(t);
+  const commit = f.git('rev-parse', 'HEAD');
+  const tree = f.git('rev-parse', 'HEAD^{tree}');
+  const functionTree = f.git('rev-parse', 'HEAD:functions');
+  const approval = structuredClone(f.approval);
+  Object.assign(approval.sourceAuthority, {commit, tree, functionTree});
+  const receipt = structuredClone(f.receipt);
+  Object.assign(receipt.sourceAuthority, {commit, tree, functionsGitObjectId: functionTree});
+  f.deployed.functionFleetSourceCommit = commit;
+  f.deployed.deploymentApprovalFile = 'release/approvals/unadmitted-current-source.json';
+  f.deployed.deploymentApprovalSha256 = f.write(f.deployed.deploymentApprovalFile, approval);
+  receipt.approvalAuthority = {file: f.deployed.deploymentApprovalFile, sha256: f.deployed.deploymentApprovalSha256};
+  f.deployed.functionFleetEvidenceFile = 'release/current-backend.json';
+  f.deployed.functionFleetEvidenceSha256 = f.write(f.deployed.functionFleetEvidenceFile, receipt);
+  f.write('release/current-successor-state.json', f.state);
+  const result = f.verify();
+  assert.equal(result.ok, false);
+  assert.match(result.reasons[0], /source has no separately admitted immutable owner approval/);
 });
 
 test('deployment approval binds its entire source, authorization and deployment scope', (t) => {
@@ -248,6 +275,31 @@ test('deployment approval binds its entire source, authorization and deployment 
       f.persist();
       assert.equal(f.verify().ok, false, `${field}: ${JSON.stringify(value)}`);
     }
+  }
+});
+
+test('coherently rebound owner evidence cannot replace the admitted deployment instruction', (t) => {
+  const f = fixture(t);
+  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  const original = structuredClone(f.approval);
+  for (const [field, value] of [
+    ['approverName', 'Different owner'],
+    ['approvalEvidence.codexTaskId', 'different-task'],
+    ['approvalEvidence.codexTurnId', 'different-turn'],
+    ['approvalEvidence.codexMessageId', 'different-message'],
+    ['approvalEvidence.codexClientMessageId', 'different-client-message'],
+    ['approvalEvidence.instructionVerbatim', 'Do not deploy anything. No backend deployment is authorized.'],
+    ['approvalEvidence.instructionSummary', 'Deployment is prohibited.'],
+    ['approvalEvidence.scopeInterpretation', 'Authorize unrestricted distribution and IAM mutation.'],
+  ]) {
+    Object.assign(f.approval, structuredClone(original));
+    const parts = field.split('.');
+    const target = parts.slice(0, -1).reduce((value, part) => value[part], f.approval);
+    target[parts.at(-1)] = value;
+    f.persist();
+    const result = f.verify();
+    assert.equal(result.ok, false, field);
+    assert.match(result.reasons[0], /approval.*custody/i);
   }
 });
 
@@ -354,6 +406,7 @@ test('promotion governance remains bound to the recorded Git tree and complete C
   const f = fixture(t);
   const promotion = readMeasured('release/evidence/build-27-staged-controlled-pilot-authorization.json');
   const device = readMeasured(promotion.admittedEvidence.deviceAcceptance.receipt);
+  f.write(promotion.ownerApproval.receipt, readMeasured(promotion.ownerApproval.receipt));
   const originalPromotion = structuredClone(promotion);
   const originalDevice = structuredClone(device);
   f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
@@ -364,6 +417,7 @@ test('promotion governance remains bound to the recorded Git tree and complete C
   };
   persist();
   // No foreign Git objects: even otherwise matching receipts must fail closed.
+  fs.unlinkSync(path.join(f.root, '.git/objects/info/alternates'));
   assert.equal(f.verify().ok, false);
   const objects = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--path-format=absolute', '--git-path', 'objects'],
     {encoding: 'utf8'}).trim();
@@ -392,6 +446,31 @@ test('promotion governance remains bound to the recorded Git tree and complete C
     assert.equal(result.ok, false);
     assert.match(result.reasons[0], /Promotion governance/);
   }
+  for (const field of ['instructionVerbatim', 'codexThreadId', 'instructionContext', 'scopeInterpretation']) {
+    Object.assign(promotion, structuredClone(originalPromotion));
+    Object.assign(device, structuredClone(originalDevice));
+    const pilotApproval = readMeasured(promotion.ownerApproval.receipt);
+    pilotApproval.authority[field] = 'No pilot distribution is authorized by this owner instruction.';
+    promotion.ownerApproval.sha256 = f.write(promotion.ownerApproval.receipt, pilotApproval);
+    persist();
+    const result = f.verify();
+    assert.equal(result.ok, false, field);
+    assert.match(result.reasons[0], /Pilot owner: approval.*custody/);
+  }
   f.write(policyFile, f.policy);
   assert.throws(cli, /Command failed/);
+});
+
+test('mutable Git replacement refs cannot replace the admitted approval custody', (t) => {
+  const f = fixture(t);
+  f.approval.approverName = 'Different owner';
+  f.approval.approvalEvidence.instructionVerbatim = 'Do not deploy anything.';
+  f.persist();
+  f.git('add', '.');
+  f.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+    'commit', '--quiet', '-m', 'Unadmitted replacement custody');
+  f.git('replace', '41adfaecd7974f3f48b9f023a90890c860ab44af', f.git('rev-parse', 'HEAD'));
+  const result = f.verify();
+  assert.equal(result.ok, false);
+  assert.match(result.reasons[0], /approval.*custody/);
 });
