@@ -20,8 +20,9 @@ part of 'global_pull_service.dart';
 //
 // Clean local rows use an additional timestamp guard: if the local row is
 // already synced but its updatedAt is after the fetched remote row, the remote
-// row is skipped. This is deliberate clock-skew protection for unmanaged
-// tablets and stale delta windows; it is not the dirty-row conflict path.
+// row is preserved. A higher remote version rejected by that guard requires
+// explicit reconciliation and blocks domain cursor completion. Preserving
+// bytes must not conceal a divergence as ordinary stale-remote success.
 //
 // Remote *tombstones* are more destructive than normal updates, so tombstone
 // application remains delegated to repository-level applyTombstoneFrom*Remote
@@ -132,7 +133,7 @@ extension _GlobalPullConflicts on GlobalPullService {
     final localMap = _safeAuditMap(local);
     final remoteMap = _safeAuditMap(remote);
 
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebaseUser = _authentication.currentUser;
     final actorUid = firebaseUser?.uid;
     final actorName = firebaseUser?.displayName?.trim().isNotEmpty == true
         ? firebaseUser!.displayName!.trim()
@@ -195,6 +196,27 @@ extension _GlobalPullConflicts on GlobalPullService {
       case RemoteRecordApplyOutcome.unchanged:
       case RemoteRecordApplyOutcome.staleRemoteSkipped:
         lastSkipped++;
+        return;
+      case RemoteRecordApplyOutcome.cleanLocalReconciliationRequired:
+        lastSkipped++;
+        lastConflicted++;
+        _hadCleanLocalReconciliation = true;
+        _hadRecordProcessingError = true;
+        final local = result.localRecord;
+        if (local != null) {
+          lastConflictKeys.add(_conflictKey(entityLabel, local));
+          _logConflictAudit(
+            entityLabel,
+            local,
+            remote,
+            reasonNotes:
+                'A higher server version has an earlier timestamp than the '
+                'clean local row. Local evidence was preserved and domain '
+                'cursor completion was blocked pending reconciliation.',
+            summary:
+                'Clean local evidence needs reconciliation for $entityLabel',
+          );
+        }
         return;
       case RemoteRecordApplyOutcome.localDirtyPreserved:
         final local = result.localRecord;

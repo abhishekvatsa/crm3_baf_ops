@@ -436,6 +436,8 @@ void main() {
 
     final state = _readObject('release/current-successor-state.json');
     final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
+    final currentSource = (planes['currentSource'] as Map)
+        .cast<String, dynamic>();
     final artifact = (planes['latestFinalizedArtifact'] as Map)
         .cast<String, dynamic>();
     final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
@@ -449,7 +451,14 @@ void main() {
     expect(pilot['maximumApprovedUsers'], 25);
     expect(pilot['canaryUserCeiling'], 2);
     expect(pilot['canaryPhysicalDeviceCeiling'], 2);
-    expect(pilot['appliesToCurrentSource'], isTrue);
+    expect(
+      pilot['appliesToCurrentSource'],
+      currentSource['productionRuntimeUseAuthorized'],
+    );
+    expect(
+      currentSource['distributionAuthority'],
+      currentSource['productionRuntimeUseAuthorized'],
+    );
     expect(historicalPilot['buildNumber'], 11);
     expect(historicalPilot['appliesToCurrentSource'], isFalse);
   });

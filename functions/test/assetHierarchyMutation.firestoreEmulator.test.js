@@ -51,6 +51,8 @@ const IDS = {
   eventId: '15151515-1515-4151-8151-151515151515',
   eventCreateRequest: '16161616-1616-4161-8161-161616161616',
   eventResolveRequest: '17171717-1717-4171-8171-171717171717',
+  correctedEventId: '25252525-2525-4252-8252-252525252525',
+  correctedEventCreateRequest: '26262626-2626-4262-8262-262626262626',
   eventIssue: '18181818-1818-4181-8181-181818181818',
   eventIssueLinkRequest: '19191919-1919-4191-8191-191919191919',
   replacementComponent: '21212121-2121-4121-8121-212121212121',
@@ -153,14 +155,23 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   }
 
-  async function invokeEvent(data, authUid) {
+  async function invokeEvent(data, authUid, now = new Date('2026-08-13T12:00:00.000Z')) {
     return mutateOperationalEventWithDb({
       db,
       authUid,
       data,
-      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      now: () => now,
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
+  }
+
+  async function collectionEvidence(name) {
+    const snapshot = await db.collection(name).get();
+    return snapshot.docs.map((document) => ({
+      id: document.id,
+      data: document.data(),
+      updateTime: document.updateTime,
+    })).sort((left, right) => left.id.localeCompare(right.id));
   }
 
   async function invokeEventIssueLink(data, authUid) {
@@ -539,7 +550,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       }),
     });
 
-    const declaration = await invokeCondition({
+    const declarationCommand = {
       requestId: IDS.conditionRequest,
       operation: 'DECLARE_ASSET_CONDITION',
       assetClassId: IDS.classId,
@@ -549,7 +560,8 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       causeKeys: ['breakdown'],
       reason: 'Drive fault prevents safe furnace operation.',
       linkedIssueIds: ['issue-1'],
-    }, 'ops-1');
+    };
+    const declaration = await invokeCondition(declarationCommand, 'ops-1');
     expect(declaration).toMatchObject({condition: 'down', version: 1});
     await expect(invokeRegistry({
       requestId: IDS.assetStatusRequest,
@@ -591,6 +603,19 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
     expect((await db.collection('asset_operational_condition_audits').get()).size)
       .toBe(2);
+
+    const evidenceCollections = [
+      'asset_operational_conditions',
+      'asset_operational_condition_audits',
+      'asset_operational_condition_receipts',
+    ];
+    const restoredEvidence = await Promise.all(evidenceCollections.map(collectionEvidence));
+    expect(await invokeCondition(declarationCommand, 'ops-1'))
+      .toEqual({...declaration, idempotentReplay: true});
+    // Exact stored data and update times prove that historical acceptance did
+    // not replace the available v2 state or rewrite either audit/receipt.
+    expect(await Promise.all(evidenceCollections.map(collectionEvidence)))
+      .toEqual(restoredEvidence);
   });
 
   test('asset retirement waits for its open condition-changing issue to close', async () => {
@@ -1365,6 +1390,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     const create = {
       requestId: IDS.eventCreateRequest,
       operation: 'CREATE_OPERATIONAL_EVENT',
+      expectedActorUid: 'ops-1',
       eventId: IDS.eventId,
       expectedVersion: 0,
       reason: 'Record the crane outage affecting Furnace 1 movement.',
@@ -1409,6 +1435,154 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       });
     expect((await db.collection('operational_event_audits').get()).size).toBe(2);
     expect((await db.collection('operational_event_receipts').get()).size).toBe(2);
+
+    const evidenceCollections = [
+      'operational_events', 'operational_event_audits', 'operational_event_receipts',
+    ];
+    const resolvedEvidence = await Promise.all(evidenceCollections.map(collectionEvidence));
+    expect(await invokeEvent(create, 'ops-1'))
+      .toEqual({...first, idempotentReplay: true});
+    expect(await Promise.all(evidenceCollections.map(collectionEvidence)))
+      .toEqual(resolvedEvidence);
+  });
+
+  test('concurrent rejected event creates keep one terminal receipt and admit only a new corrected intent', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const assetRef = db.collection('asset_instances').doc(IDS.firstAsset);
+    await assetRef.update({status: 'retired'});
+    const create = {
+      requestId: IDS.eventCreateRequest,
+      operation: 'CREATE_OPERATIONAL_EVENT',
+      expectedActorUid: 'ops-1',
+      eventId: IDS.eventId,
+      expectedVersion: 0,
+      reason: 'Record the interruption against the selected furnace.',
+      eventDraft: {
+        eventType: 'crane',
+        title: 'Crane unavailable for furnace movement',
+        description: 'The selected furnace is waiting for crane service.',
+        severity: 'significant',
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.classId],
+        affectedAssetInstanceIds: [IDS.firstAsset],
+        startedAt: '2026-08-13T11:30:00.000Z',
+      },
+    };
+    await expect(invokeEvent(create, 'shift-1')).rejects.toMatchObject({
+      code: 'permission-denied',
+      details: {reasonCode: 'operational-event-actor-mismatch'},
+    });
+    expect((await db.collection('operational_event_receipts').get()).empty).toBe(true);
+
+    const retries = await Promise.allSettled(
+      Array.from({length: 4}, () => invokeEvent(create, 'ops-1')),
+    );
+    for (const retry of retries) {
+      expect(retry.status).toBe('rejected');
+      expect(retry.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'operational-event-asset-invalid',
+          assetId: IDS.firstAsset,
+          terminalRejection: {
+            requestId: IDS.eventCreateRequest,
+            eventId: IDS.eventId,
+            actorUid: 'ops-1',
+            operation: 'CREATE_OPERATIONAL_EVENT',
+            outcome: 'rejected',
+          },
+        },
+      });
+      expect(retry.reason.details).toEqual(retries[0].reason.details);
+    }
+    const rejectedEvidence = await collectionEvidence('operational_event_receipts');
+    expect(rejectedEvidence).toHaveLength(1);
+    expect(rejectedEvidence[0]).toMatchObject({
+      id: IDS.eventCreateRequest,
+      data: {
+        outcome: 'rejected', actorUid: 'ops-1', eventId: IDS.eventId,
+        fingerprint: retries[0].reason.details.terminalRejection.fingerprint,
+      },
+    });
+    expect((await db.collection('operational_events').get()).empty).toBe(true);
+    expect((await db.collection('operational_event_audits').get()).empty).toBe(true);
+
+    await assetRef.update({status: 'active'});
+    await expect(invokeEvent(create, 'ops-1')).rejects.toMatchObject({
+      code: 'failed-precondition', details: retries[0].reason.details,
+    });
+    expect(await collectionEvidence('operational_event_receipts')).toEqual(rejectedEvidence);
+    expect((await db.collection('operational_events').get()).empty).toBe(true);
+    expect((await db.collection('operational_event_audits').get()).empty).toBe(true);
+
+    const corrected = {
+      ...create,
+      requestId: IDS.correctedEventCreateRequest,
+      eventId: IDS.correctedEventId,
+      reason: 'Record a new event after the selected furnace is restored.',
+    };
+    await expect(invokeEvent(corrected, 'ops-1')).resolves.toMatchObject({
+      ok: true, eventId: IDS.correctedEventId, status: 'open', version: 1,
+    });
+    expect((await db.collection('operational_events').get()).docs.map((doc) => doc.id))
+      .toEqual([IDS.correctedEventId]);
+    expect((await db.collection('operational_event_audits').get()).docs.map((doc) => doc.id))
+      .toEqual([`operational_event_${IDS.correctedEventCreateRequest}`]);
+    const finalReceipts = await collectionEvidence('operational_event_receipts');
+    expect(finalReceipts).toHaveLength(2);
+    expect(finalReceipts.find((entry) => entry.id === IDS.eventCreateRequest))
+      .toEqual(rejectedEvidence[0]);
+  });
+
+  test('future-start CREATE retries share a terminal receipt before and after clock catch-up', async () => {
+    const create = {
+      requestId: IDS.eventCreateRequest, eventId: IDS.eventId,
+      operation: 'CREATE_OPERATIONAL_EVENT', expectedActorUid: 'ops-1', expectedVersion: 0,
+      reason: 'Record an event while the phone clock is ahead.',
+      eventDraft: {
+        eventType: 'powerTrip', title: 'Incoming power interruption',
+        description: 'The phone clock was ten years ahead of the server.',
+        severity: 'critical', scope: 'plantWide', affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [], startedAt: '2036-08-14T13:00:00.000Z',
+      },
+    };
+    const retries = await Promise.allSettled(
+      Array.from({length: 4}, () => invokeEvent(create, 'ops-1')),
+    );
+    for (const retry of retries) {
+      expect(retry.status).toBe('rejected');
+      expect(retry.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'operational-event-started-at-future', terminalRejection: {
+          requestId: IDS.eventCreateRequest, eventId: IDS.eventId,
+          actorUid: 'ops-1', outcome: 'rejected', committedAt: '2026-08-13T12:00:00.000Z',
+        }},
+      });
+      expect(retry.reason.details).toEqual(retries[0].reason.details);
+    }
+    const receiptEvidence = await collectionEvidence('operational_event_receipts');
+    expect(receiptEvidence).toHaveLength(1);
+    expect((await db.collection('operational_events').get()).empty).toBe(true);
+    expect((await db.collection('operational_event_audits').get()).empty).toBe(true);
+    // The original response can be lost: a later process must recover the same rejection.
+    await expect(invokeEvent(create, 'ops-1', new Date('2037-08-14T13:00:00.000Z')))
+      .rejects.toMatchObject({code: 'failed-precondition', details: retries[0].reason.details});
+    expect(await collectionEvidence('operational_event_receipts')).toEqual(receiptEvidence);
+    const corrected = {...create, requestId: IDS.correctedEventCreateRequest,
+      eventId: IDS.correctedEventId,
+      eventDraft: {...create.eventDraft, startedAt: '2026-08-13T11:30:00.000Z'}};
+    await expect(invokeEvent(corrected, 'ops-1')).resolves.toMatchObject({ok: true});
+    expect((await db.collection('operational_events').get()).docs.map((doc) => doc.id))
+      .toEqual([IDS.correctedEventId]);
+    expect((await db.collection('operational_event_audits').get()).size).toBe(1);
+    expect((await collectionEvidence('operational_event_receipts'))
+      .find((entry) => entry.id === IDS.eventCreateRequest)).toEqual(receiptEvidence[0]);
   });
 
   test('atomically links an operational event occurrence to a governed issue', async () => {

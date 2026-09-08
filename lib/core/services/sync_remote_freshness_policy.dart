@@ -35,7 +35,9 @@ class SyncRemoteFreshnessPolicy {
   ///
   /// Callers must handle dirty local rows before using this decision. A clean
   /// local row with a later timestamp is retained even when the remote version
-  /// is higher, matching the global-pull loss-prevention contract.
+  /// is higher. When [remoteIsNewer] is true but this guard rejects the remote,
+  /// callers must expose reconciliation and prevent cursor completion. It is
+  /// not proof that the higher server version is stale.
   static bool shouldApplyRemoteToCleanLocal({
     required bool remoteIsNewer,
     required DateTime localUpdatedAt,

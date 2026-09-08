@@ -33,22 +33,22 @@ StructuredReportDocument buildMorningReviewReport({
           value: '${document.actions.length}',
           tone:
               document.actions.any(
-                    (action) =>
-                        action.status != MorningReviewActionStatus.completed,
-                  )
-                  ? StructuredReportMetricTone.warning
-                  : StructuredReportMetricTone.positive,
+                (action) =>
+                    action.status != MorningReviewActionStatus.completed,
+              )
+              ? StructuredReportMetricTone.warning
+              : StructuredReportMetricTone.positive,
         ),
         StructuredReportMetric(
           label: 'Standing concerns',
           value: '${document.standingConcerns.length}',
           tone:
               document.standingConcerns.any(
-                    (concern) =>
-                        concern.status == MorningReviewConcernStatus.active,
-                  )
-                  ? StructuredReportMetricTone.warning
-                  : StructuredReportMetricTone.positive,
+                (concern) =>
+                    concern.status == MorningReviewConcernStatus.active,
+              )
+              ? StructuredReportMetricTone.warning
+              : StructuredReportMetricTone.positive,
         ),
         StructuredReportMetric(
           label: 'Participants',
@@ -268,17 +268,17 @@ StructuredReportSection _agendaSection(
         checks.isEmpty
             ? 'No check recorded in this meeting.'
             : checks
-                .map(
-                  (check) =>
-                      '${check.state.name}: ${check.note}\n'
-                      '${check.checkedByName} · '
-                      '${dateTime.format(_indiaTime(check.checkedAt))} IST',
-                )
-                .join('\n\n'),
+                  .map(
+                    (check) =>
+                        '${check.state.name}: ${check.note}\n'
+                        '${check.checkedByName} · '
+                        '${dateTime.format(_indiaTime(check.checkedAt))} IST',
+                  )
+                  .join('\n\n'),
         concern.status == MorningReviewConcernStatus.active
             ? 'Carried forward from ${dateTime.format(_indiaTime(concern.createdAt))} IST.'
             : 'Resolved by ${concern.resolvedByName}: '
-                '${concern.resolutionReason}',
+                  '${concern.resolutionReason}',
       ]);
     }
   }
@@ -313,11 +313,12 @@ bool _hasSectionContent(
 String _issueNarrative(MorningReviewAgendaMatter matter, DateFormat dateTime) {
   final evidence = matter.sourceFacts
       .map((fact) {
-        final observed =
-            fact.observedAt == null
-                ? ''
-                : ' · ${dateTime.format(_indiaTime(fact.observedAt!))} IST';
-        return '${fact.sourceType} · ${fact.status}$observed';
+        final observed = fact.observedAt == null
+            ? ''
+            : ' · ${dateTime.format(_indiaTime(fact.observedAt!))} IST';
+        final condition = fact.plantConditionEffect;
+        return '${fact.sourceTypeLabel} · ${fact.status}'
+            '${condition == null ? '' : ' · Condition: $condition'}$observed';
       })
       .toSet()
       .join('\n');
@@ -327,6 +328,8 @@ String _issueNarrative(MorningReviewAgendaMatter matter, DateFormat dateTime) {
       'Linked assets: ${matter.linkedAssetLabels.join(', ')}',
     if (matter.summary.isNotEmpty) matter.summary,
     if (evidence.isNotEmpty) evidence,
+    if (matter.hasUnverifiedCompletionStatement)
+      'Completion statement retained; native completion is not verified.',
   ].join('\n');
 }
 
@@ -352,15 +355,15 @@ String _currentFallback(MorningReviewAgendaMatter matter, DateFormat dateTime) {
     return observed == null
         ? 'Source records the matter as ${matter.status}.'
         : 'Source records ${matter.status} at '
-            '${dateTime.format(_indiaTime(observed))} IST.';
+              '${dateTime.format(_indiaTime(observed))} IST.';
   }
   return 'No current-compliance update was recorded in the meeting.';
 }
 
 String _remainingFallback(MorningReviewAgendaMatter matter) =>
     matter.categories.contains(MorningReviewAgendaFilter.open)
-        ? 'Matter remained open; no remaining-compliance update was recorded.'
-        : 'No remaining compliance was recorded.';
+    ? 'Matter remained open; no remaining-compliance update was recorded.'
+    : 'No remaining compliance was recorded.';
 
 String _sourceCaptureLabel(MorningReviewDocument document) {
   if (document.sourceCaptureState == MorningReviewSourceCaptureState.bounded) {

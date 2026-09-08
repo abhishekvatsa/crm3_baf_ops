@@ -23,25 +23,24 @@ void main() {
   group('quality warning projections', () {
     test('suspected issue produces a deterministic warning projection', () {
       final createdAt = DateTime.utc(2026, 8, 14, 8);
-      final ticket =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-1'
-            ..assetType = AssetType.furnace
-            ..assetNumber = 7
-            ..assetHierarchyRefJson = _qualityHierarchyReference.encode()
-            ..description = 'Atmosphere interruption during cycle'
-            ..component = 'Atmosphere control'
-            ..chargeNoAtEvent = 12001
-            ..loggedByUid = 'ops-1'
-            ..loggedByName = 'Operations One'
-            ..createdAt = createdAt
-            ..version = 3
-            ..isCritical = true
-            ..qualityIntent = const IssueQualityIntent(
-              assessment: IssueQualityAssessment.suspected,
-              warningReason: 'Atmosphere interruption may affect coil quality.',
-              abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
-            );
+      final ticket = MaintenanceRecord()
+        ..firestoreId = 'ticket-1'
+        ..assetType = AssetType.furnace
+        ..assetNumber = 7
+        ..assetHierarchyRefJson = _qualityHierarchyReference.encode()
+        ..description = 'Atmosphere interruption during cycle'
+        ..component = 'Atmosphere control'
+        ..chargeNoAtEvent = 12001
+        ..loggedByUid = 'ops-1'
+        ..loggedByName = 'Operations One'
+        ..createdAt = createdAt
+        ..version = 3
+        ..isCritical = true
+        ..qualityIntent = const IssueQualityIntent(
+          assessment: IssueQualityAssessment.suspected,
+          warningReason: 'Atmosphere interruption may affect coil quality.',
+          abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+        );
 
       expect(qualityWarningProjectionForIssue(ticket), <String, dynamic>{
         'schemaVersion': 1,
@@ -83,37 +82,35 @@ void main() {
     });
 
     test('issue without suspected impact does not create a warning', () {
-      final ticket =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-2'
-            ..qualityIntent = const IssueQualityIntent(
-              assessment: IssueQualityAssessment.notSuspected,
-            );
+      final ticket = MaintenanceRecord()
+        ..firestoreId = 'ticket-2'
+        ..qualityIntent = const IssueQualityIntent(
+          assessment: IssueQualityAssessment.notSuspected,
+        );
 
       expect(qualityWarningProjectionForIssue(ticket), isNull);
     });
 
     test('every abnormality produces a source-bound warning', () {
       final loggedAt = DateTime.utc(2026, 8, 14, 9);
-      final abnormality =
-          ChargeAbnormality()
-            ..firestoreId = 'abn-1'
-            ..sourceChargeNo = 12002
-            ..abnormalityTypeTitle = 'Unexpected coil colour'
-            ..severity = AbnormalitySeverity.high
-            ..affectedAssets = <AffectedAssetRef>[
-              const AffectedAssetRef(
-                assetType: AssetType.furnace,
-                assetNumber: 7,
-                assetHierarchyReference: _qualityHierarchyReference,
-              ),
-            ]
-            ..component = 'Cooling circuit'
-            ..observedReason = 'Observed colour requires quality review.'
-            ..loggedAt = loggedAt
-            ..loggedByUid = 'ops-1'
-            ..loggedByName = 'Operations One'
-            ..version = 2;
+      final abnormality = ChargeAbnormality()
+        ..firestoreId = 'abn-1'
+        ..sourceChargeNo = 12002
+        ..abnormalityTypeTitle = 'Unexpected coil colour'
+        ..severity = AbnormalitySeverity.high
+        ..affectedAssets = <AffectedAssetRef>[
+          const AffectedAssetRef(
+            assetType: AssetType.furnace,
+            assetNumber: 7,
+            assetHierarchyReference: _qualityHierarchyReference,
+          ),
+        ]
+        ..component = 'Cooling circuit'
+        ..observedReason = 'Observed colour requires quality review.'
+        ..loggedAt = loggedAt
+        ..loggedByUid = 'ops-1'
+        ..loggedByName = 'Operations One'
+        ..version = 2;
 
       expect(
         qualityWarningProjectionForAbnormality(abnormality),
@@ -200,16 +197,14 @@ void main() {
     });
 
     test('rejects RA references for a non-RA disposition', () {
-      final warning =
-          _warning()
-            ..['status'] = 'closed'
-            ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
-            ..['closedByUid'] = 'si-1'
-            ..['closedByName'] = 'SI One'
-            ..['closureDisposition'] = 'coilFoundAcceptable'
-            ..['linkedReannealingChargeNos'] = <int>[13001]
-            ..['decisionReason'] =
-                'Inspection evidence found the coil acceptable.';
+      final warning = _warning()
+        ..['status'] = 'closed'
+        ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
+        ..['closedByUid'] = 'si-1'
+        ..['closedByName'] = 'SI One'
+        ..['closureDisposition'] = 'coilFoundAcceptable'
+        ..['linkedReannealingChargeNos'] = <int>[13001]
+        ..['decisionReason'] = 'Inspection evidence found the coil acceptable.';
 
       expect(
         () => QualityWarning.fromMap(warning, 'issue_ticket-1'),
@@ -218,55 +213,104 @@ void main() {
     });
 
     test('rejects malformed RA charges and reversed lifecycle time', () {
-      final malformedCharge =
-          _warning()
-            ..['status'] = 'closed'
-            ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
-            ..['closedByUid'] = 'si-1'
-            ..['closedByName'] = 'SI One'
-            ..['closureDisposition'] = 'reannealingCompleted'
-            ..['linkedReannealingChargeNos'] = <int>[123]
-            ..['decisionReason'] = 'Re-annealing was completed.'
-            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
+      final malformedCharge = _warning()
+        ..['status'] = 'closed'
+        ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
+        ..['closedByUid'] = 'si-1'
+        ..['closedByName'] = 'SI One'
+        ..['closureDisposition'] = 'reannealingCompleted'
+        ..['linkedReannealingChargeNos'] = <int>[123]
+        ..['decisionReason'] = 'Re-annealing was completed.'
+        ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
       expect(
         () => QualityWarning.fromMap(malformedCharge, 'issue_ticket-1'),
         throwsFormatException,
       );
 
-      final reversedClosure =
-          _warning()
-            ..['status'] = 'closed'
-            ..['closureRequestReason'] = 'Operations requested review.'
-            ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
-            ..['closureRequestedByUid'] = 'ops-1'
-            ..['closureRequestedByName'] = 'Operations One'
-            ..['closedAt'] = DateTime.utc(2026, 8, 14, 10)
-            ..['closedByUid'] = 'si-1'
-            ..['closedByName'] = 'SI One'
-            ..['closureDisposition'] = 'qualityAdjudication'
-            ..['decisionReason'] = 'The coils were adjudicated.'
-            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
+      final reversedClosure = _warning()
+        ..['status'] = 'closed'
+        ..['closureRequestReason'] = 'Operations requested review.'
+        ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
+        ..['closureRequestedByUid'] = 'ops-1'
+        ..['closureRequestedByName'] = 'Operations One'
+        ..['closedAt'] = DateTime.utc(2026, 8, 14, 10)
+        ..['closedByUid'] = 'si-1'
+        ..['closedByName'] = 'SI One'
+        ..['closureDisposition'] = 'qualityAdjudication'
+        ..['decisionReason'] = 'The coils were adjudicated.'
+        ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
       expect(
         () => QualityWarning.fromMap(reversedClosure, 'issue_ticket-1'),
         throwsFormatException,
       );
     });
 
+    test(
+      'a delayed active snapshot cannot resurrect a newer closed warning',
+      () {
+        final open = QualityWarning.fromMap(
+          _warning()..['version'] = 8,
+          'issue_ticket-1',
+        );
+        final closed = QualityWarning.fromMap(
+          _warning()
+            ..['version'] = 9
+            ..['status'] = 'closed'
+            ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
+            ..['closedByUid'] = 'si-1'
+            ..['closedByName'] = 'SI One'
+            ..['closureDisposition'] = 'coilFoundAcceptable'
+            ..['decisionReason'] = 'Inspection confirmed acceptable quality.'
+            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12),
+          'issue_ticket-1',
+        );
+        expect(
+          mergeQualityWarningWindows([open], [closed]).single,
+          same(closed),
+        );
+        expect(
+          mergeQualityWarningWindows([closed], [open]).single,
+          same(closed),
+        );
+      },
+    );
+
+    test(
+      'contradictory evidence at the same warning revision is not hidden',
+      () {
+        final first = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
+        final contradictory = QualityWarning.fromMap(
+          _warning()
+            ..['warningReason'] = 'Different evidence at the same version.',
+          'issue_ticket-1',
+        );
+        expect(
+          () => mergeQualityWarningWindows([first], [contradictory]),
+          throwsStateError,
+        );
+        expect(
+          () => mergeQualityWarningWindows([contradictory], [first]),
+          throwsStateError,
+        );
+        final copy = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
+        expect(mergeQualityWarningWindows([first], [copy]), hasLength(1));
+      },
+    );
+
     test('non-closed window preserves old warnings and removes duplicates', () {
       final open = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
-      final reviewMap =
-          _warning()
-            ..['warningId'] = 'issue_ticket-2'
-            ..['sourceId'] = 'ticket-2'
-            ..['status'] = 'closureRequested'
-            ..['closureRequestReason'] =
-                'Coils were inspected and found satisfactory.'
-            ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
-            ..['closureRequestedByUid'] = 'operations-1'
-            ..['closureRequestedByName'] = 'Operations One'
-            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 11)
-            ..['updatedByUid'] = 'operations-1'
-            ..['updatedByName'] = 'Operations One';
+      final reviewMap = _warning()
+        ..['warningId'] = 'issue_ticket-2'
+        ..['sourceId'] = 'ticket-2'
+        ..['status'] = 'closureRequested'
+        ..['closureRequestReason'] =
+            'Coils were inspected and found satisfactory.'
+        ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
+        ..['closureRequestedByUid'] = 'operations-1'
+        ..['closureRequestedByName'] = 'Operations One'
+        ..['updatedAt'] = DateTime.utc(2026, 8, 14, 11)
+        ..['updatedByUid'] = 'operations-1'
+        ..['updatedByName'] = 'Operations One';
       final review = QualityWarning.fromMap(reviewMap, 'issue_ticket-2');
       final merged = mergeQualityWarningWindows([open, review], [open]);
       expect(merged.map((warning) => warning.warningId), [
@@ -274,6 +318,69 @@ void main() {
         'issue_ticket-1',
       ]);
     });
+
+    test(
+      'warning stream retains revisions and waits for failed-window recovery',
+      () async {
+        final active = StreamController<List<QualityWarning>>(sync: true);
+        final recent = StreamController<List<QualityWarning>>(sync: true);
+        final events = <List<QualityWarning>>[];
+        final errors = <Object>[];
+        final subscription = combineQualityWarningWindows(
+          active.stream,
+          recent.stream,
+        ).listen(events.add, onError: errors.add);
+        final old = QualityWarning.fromMap(
+          _warning()..['version'] = 8,
+          'issue_ticket-1',
+        );
+        final newer = QualityWarning.fromMap(
+          _warning()
+            ..['version'] = 9
+            ..['sourceSummary'] = 'New server evidence.',
+          'issue_ticket-1',
+        );
+        active.add([old]);
+        recent.add([newer]);
+        await Future<void>.delayed(Duration.zero);
+        expect(events.last.single.version, 9);
+        recent.add([old]);
+        await Future<void>.delayed(Duration.zero);
+        expect(events.last.single.version, 9);
+        active.addError(StateError('Active warnings unavailable.'));
+        await Future<void>.delayed(Duration.zero);
+        final countAtError = events.length;
+        recent.add([newer]);
+        await Future<void>.delayed(Duration.zero);
+        expect(errors, hasLength(1));
+        expect(
+          events,
+          hasLength(countAtError),
+          reason: 'another healthy query cannot clear a failed query',
+        );
+        active.add([newer]);
+        await Future<void>.delayed(Duration.zero);
+        expect(events, hasLength(countAtError + 1));
+        final contradictory = QualityWarning.fromMap(
+          _warning()
+            ..['version'] = 9
+            ..['sourceSummary'] = 'Conflicting same revision.',
+          'issue_ticket-1',
+        );
+        active.add([contradictory]);
+        await Future<void>.delayed(Duration.zero);
+        expect(errors, hasLength(2));
+        expect(events, hasLength(countAtError + 1));
+        active.add([newer]);
+        await Future<void>.delayed(Duration.zero);
+        expect(events.last.single.sourceSummary, 'New server evidence.');
+        await subscription.cancel();
+        expect(active.hasListener, isFalse);
+        expect(recent.hasListener, isFalse);
+        await active.close();
+        await recent.close();
+      },
+    );
   });
 
   group('quality monitoring strict reader', () {
@@ -502,17 +609,18 @@ void main() {
         final legacy = StreamController<List<QualityMonitoringRequest>>();
         final observed = <List<QualityMonitoringRequest>>[];
         final expired = Completer<void>();
-        final subscription = combineQualityMonitoringWindows(
-          current.stream,
-          legacy.stream,
-        ).listen((requests) {
-          observed.add(requests);
-          if (observed.length >= 2 &&
-              requests.isEmpty &&
-              !expired.isCompleted) {
-            expired.complete();
-          }
-        });
+        final subscription =
+            combineQualityMonitoringWindows(
+              current.stream,
+              legacy.stream,
+            ).listen((requests) {
+              observed.add(requests);
+              if (observed.length >= 2 &&
+                  requests.isEmpty &&
+                  !expired.isCompleted) {
+                expired.complete();
+              }
+            });
         addTearDown(() async {
           await subscription.cancel();
           await current.close();
@@ -804,15 +912,14 @@ void main() {
   testWidgets('long warning facts wrap without overflowing at phone width', (
     tester,
   ) async {
-    final warning =
-        _warning()
-          ..['component'] =
-              'Atmosphere control instrumentation and combustion supervision'
-          ..['affectedAssets'] = <Map<String, dynamic>>[
-            <String, dynamic>{'assetType': 'furnace', 'assetNumber': 7},
-            <String, dynamic>{'assetType': 'base', 'assetNumber': 223},
-            <String, dynamic>{'assetType': 'forceCooler', 'assetNumber': 25},
-          ];
+    final warning = _warning()
+      ..['component'] =
+          'Atmosphere control instrumentation and combustion supervision'
+      ..['affectedAssets'] = <Map<String, dynamic>>[
+        <String, dynamic>{'assetType': 'furnace', 'assetNumber': 7},
+        <String, dynamic>{'assetType': 'base', 'assetNumber': 223},
+        <String, dynamic>{'assetType': 'forceCooler', 'assetNumber': 25},
+      ];
 
     await _pumpQualityWarningScreen(
       tester,
@@ -1020,11 +1127,10 @@ void main() {
   testWidgets(
     'standalone warning blocks decisions when its mandatory case is missing',
     (tester) async {
-      final warning =
-          _warning()
-            ..['warningId'] = 'abnormality_abn-1'
-            ..['sourceType'] = 'abnormality'
-            ..['sourceId'] = 'abn-1';
+      final warning = _warning()
+        ..['warningId'] = 'abnormality_abn-1'
+        ..['sourceType'] = 'abnormality'
+        ..['sourceId'] = 'abn-1';
 
       await _pumpQualityWarningScreen(
         tester,
@@ -1069,15 +1175,14 @@ void main() {
   testWidgets(
     'governed issue warning blocks decisions when its linked case is missing',
     (tester) async {
-      final warning =
-          _warning()
-            ..['affectedAssets'] = <Map<String, dynamic>>[
-              <String, dynamic>{
-                'assetType': 'furnace',
-                'assetNumber': 7,
-                'assetHierarchyRef': _qualityHierarchyReference.toMap(),
-              },
-            ];
+      final warning = _warning()
+        ..['affectedAssets'] = <Map<String, dynamic>>[
+          <String, dynamic>{
+            'assetType': 'furnace',
+            'assetNumber': 7,
+            'assetHierarchyRef': _qualityHierarchyReference.toMap(),
+          },
+        ];
 
       await _pumpQualityWarningScreen(
         tester,
@@ -1249,8 +1354,9 @@ ChargeAbnormality _linkedIssueAbnormality(ReannealingStatus status) {
     ..sourceChargeNo = 12001
     ..linkedTicketFirestoreId = 'ticket-1'
     ..reannealingStatus = status
-    ..reannealedToChargeNo =
-        status == ReannealingStatus.completed ? 13001 : null;
+    ..reannealedToChargeNo = status == ReannealingStatus.completed
+        ? 13001
+        : null;
 }
 
 const _qualityHierarchyReference = AssetHierarchyReference(

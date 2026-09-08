@@ -1,0 +1,37 @@
+{
+  "fact": {
+    "factId": "morning_review_actions/prior-action",
+    "section": "furnace",
+    "sourceType": "carriedAction",
+    "sourceCollection": "morning_review_actions",
+    "sourceDocumentId": "prior-action",
+    "title": "Confirm Furnace 7 burner health.",
+    "summary": "accepted",
+    "status": "accepted",
+    "assetClassId": "furnace-class",
+    "assetClassName": "Furnace",
+    "assetInstanceId": "furnace-7",
+    "assetNumber": "7",
+    "observedAtIso": "2026-08-30T03:00:00.000Z"
+  },
+  "entry": {
+    "schemaVersion": 1,
+    "entryId": "action-completed-v2-66666666-6666-4666-8666-666666666666",
+    "sessionId": "2026-08-31",
+    "plantDay": "2026-08-31",
+    "section": "furnace",
+    "kind": "currentCompliance",
+    "text": "Action prior-action completed: Confirm Furnace 7 burner health.. Evidence: Burner health verified in service.",
+    "assetClassId": "furnace-class",
+    "assetClassName": "Furnace",
+    "assetInstanceId": "furnace-7",
+    "assetNumber": "7",
+    "sourceReferences": ["morning_review_actions/prior-action"],
+    "authorUid": "ops-1",
+    "authorName": "Operations One",
+    "authorRoleKeys": ["operations"],
+    "createdAt": "2026-08-31T03:00:00.000Z",
+    "addendumReason": null,
+    "expiresAt": "2026-09-14T03:00:00.000Z"
+  }
+}

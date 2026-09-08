@@ -94,35 +94,33 @@ MaintenanceRecord issue({
   String subsystem = 'Combustion control',
   bool resolved = false,
 }) {
-  final record =
-      MaintenanceRecord()
-        ..assetType = type
-        ..assetNumber = number
-        ..maintenanceType = MaintenanceType.breakdown
-        ..description = 'Pressure control instability observed.'
-        ..routedTo = RoutedTo.instrumentation
-        ..status = resolved ? TicketStatus.resolved : TicketStatus.open
-        ..isResolved = resolved
-        ..component = component
-        ..subsystem = subsystem
-        ..startDate = started
-        ..endDate = resolved ? started.add(const Duration(hours: 4)) : null
-        ..createdAt = started
-        ..updatedAt = started
-        ..actionsJson = '[]'
-        ..resolutionHistoryJson = '[]';
+  final record = MaintenanceRecord()
+    ..assetType = type
+    ..assetNumber = number
+    ..maintenanceType = MaintenanceType.breakdown
+    ..description = 'Pressure control instability observed.'
+    ..routedTo = RoutedTo.instrumentation
+    ..status = resolved ? TicketStatus.resolved : TicketStatus.open
+    ..isResolved = resolved
+    ..component = component
+    ..subsystem = subsystem
+    ..startDate = started
+    ..endDate = resolved ? started.add(const Duration(hours: 4)) : null
+    ..createdAt = started
+    ..updatedAt = started
+    ..actionsJson = '[]'
+    ..resolutionHistoryJson = '[]';
   return record;
 }
 
-JobExecution execution(DateTime created) =>
-    JobExecution()
-      ..templateFirestoreId = 'template-1'
-      ..assetType = AssetType.furnace
-      ..assetNumber = 7
-      ..createdAt = created
-      ..updatedAt = created
-      ..isCompleted = false
-      ..isCancelled = false;
+JobExecution execution(DateTime created) => JobExecution()
+  ..templateFirestoreId = 'template-1'
+  ..assetType = AssetType.furnace
+  ..assetNumber = 7
+  ..createdAt = created
+  ..updatedAt = created
+  ..isCompleted = false
+  ..isCancelled = false;
 
 InspectionFinding finding({
   required String id,
@@ -148,15 +146,13 @@ InspectionFinding finding({
   firstObservedAt: observedAt,
   latestObservedAt: observedAt,
   recurrenceCount: 1,
-  linkedTicketId:
-      status == InspectionFindingStatus.correctiveActionLinked
-          ? 'ticket-$id'
-          : null,
+  linkedTicketId: status == InspectionFindingStatus.correctiveActionLinked
+      ? 'ticket-$id'
+      : null,
   verificationCount: status == InspectionFindingStatus.verifiedResolved ? 1 : 0,
-  lastVerificationOutcome:
-      status == InspectionFindingStatus.verifiedResolved
-          ? InspectionComparisonOutcome.resolved
-          : null,
+  lastVerificationOutcome: status == InspectionFindingStatus.verifiedResolved
+      ? InspectionComparisonOutcome.resolved
+      : null,
   updatedAt: observedAt,
 );
 
@@ -193,6 +189,7 @@ QualityWarning qualityWarning({
   required int number,
   required DateTime createdAt,
   QualityWarningStatus status = QualityWarningStatus.open,
+  AssetHierarchyReference? hierarchyReference,
 }) => QualityWarning(
   warningId: id,
   sourceType: QualityWarningSourceType.issue,
@@ -203,7 +200,11 @@ QualityWarning qualityWarning({
   sourceSeverity: 'high',
   warningReason: 'Review coil disposition.',
   affectedAssets: [
-    QualityAffectedAsset(assetType: type.name, assetNumber: number),
+    QualityAffectedAsset(
+      assetType: type.name,
+      assetNumber: number,
+      assetHierarchyReference: hierarchyReference,
+    ),
   ],
   status: status,
   createdAt: createdAt,
@@ -211,16 +212,18 @@ QualityWarning qualityWarning({
   updatedAt: createdAt,
   updatedByUid: 'ops',
   version: 1,
-  closureRequestReason:
-      status == QualityWarningStatus.closureRequested
-          ? 'Coils inspected and found acceptable.'
-          : null,
-  closureRequestedAt:
-      status == QualityWarningStatus.closureRequested ? createdAt : null,
-  closureRequestedByUid:
-      status == QualityWarningStatus.closureRequested ? 'ops' : null,
-  closureRequestedByName:
-      status == QualityWarningStatus.closureRequested ? 'Operations' : null,
+  closureRequestReason: status == QualityWarningStatus.closureRequested
+      ? 'Coils inspected and found acceptable.'
+      : null,
+  closureRequestedAt: status == QualityWarningStatus.closureRequested
+      ? createdAt
+      : null,
+  closureRequestedByUid: status == QualityWarningStatus.closureRequested
+      ? 'ops'
+      : null,
+  closureRequestedByName: status == QualityWarningStatus.closureRequested
+      ? 'Operations'
+      : null,
 );
 
 QualityMonitoringRequest qualityMonitoringRequest({
@@ -236,14 +239,12 @@ QualityMonitoringRequest qualityMonitoringRequest({
   chargeNumbers: const [41001],
   reason: 'Monitor the cycle after a quality concern.',
   status: status,
-  visibilityState:
-      status == QualityMonitoringStatus.closed
-          ? QualityMonitoringVisibilityState.recent
-          : QualityMonitoringVisibilityState.active,
-  visibleUntil:
-      status == QualityMonitoringStatus.closed
-          ? closedAt?.add(const Duration(days: 7))
-          : null,
+  visibilityState: status == QualityMonitoringStatus.closed
+      ? QualityMonitoringVisibilityState.recent
+      : QualityMonitoringVisibilityState.active,
+  visibleUntil: status == QualityMonitoringStatus.closed
+      ? closedAt?.add(const Duration(days: 7))
+      : null,
   archivedAt: null,
   createdAt: createdAt,
   createdByUid: 'si',
@@ -251,10 +252,9 @@ QualityMonitoringRequest qualityMonitoringRequest({
   closedAt: closedAt,
   closedByUid: status == QualityMonitoringStatus.closed ? 'si' : null,
   closedByName: status == QualityMonitoringStatus.closed ? 'SI' : null,
-  closeReason:
-      status == QualityMonitoringStatus.closed
-          ? 'Monitoring completed with acceptable results.'
-          : null,
+  closeReason: status == QualityMonitoringStatus.closed
+      ? 'Monitoring completed with acceptable results.'
+      : null,
   updatedAt: closedAt ?? createdAt,
   updatedByUid: 'si',
   updatedByName: 'SI',
@@ -266,22 +266,19 @@ ChargeAbnormality chargeAbnormality({
   required AssetType type,
   required int number,
   required DateTime loggedAt,
-}) =>
-    ChargeAbnormality()
-      ..firestoreId = id
-      ..sourceChargeNo = 41001
-      ..abnormalityTypeId = 'temperature-deviation'
-      ..abnormalityTypeTitle = 'Temperature deviation'
-      ..abnormalityTypeCode = 'TEMP_DEV'
-      ..category = AbnormalityCategory.process
-      ..severity = AbnormalitySeverity.high
-      ..affectedAssets = [
-        AffectedAssetRef(assetType: type, assetNumber: number),
-      ]
-      ..observedReason = 'Cycle temperature deviated from target.'
-      ..reannealingStatus = ReannealingStatus.required
-      ..loggedAt = loggedAt
-      ..updatedAt = loggedAt;
+}) => ChargeAbnormality()
+  ..firestoreId = id
+  ..sourceChargeNo = 41001
+  ..abnormalityTypeId = 'temperature-deviation'
+  ..abnormalityTypeTitle = 'Temperature deviation'
+  ..abnormalityTypeCode = 'TEMP_DEV'
+  ..category = AbnormalityCategory.process
+  ..severity = AbnormalitySeverity.high
+  ..affectedAssets = [AffectedAssetRef(assetType: type, assetNumber: number)]
+  ..observedReason = 'Cycle temperature deviated from target.'
+  ..reannealingStatus = ReannealingStatus.required
+  ..loggedAt = loggedAt
+  ..updatedAt = loggedAt;
 
 OperationalDirective directive({
   required String id,
@@ -289,18 +286,17 @@ OperationalDirective directive({
   required AssetType type,
   required int number,
   required DateTime createdAt,
-}) =>
-    OperationalDirective()
-      ..firestoreId = id
-      ..title = 'Verify burner permissive'
-      ..description = 'Confirm permissive before the next cycle.'
-      ..assetType = type
-      ..assetNumber = number
-      ..directedTo = role
-      ..priority = DirectivePriority.high
-      ..status = DirectiveStatus.open
-      ..createdAt = createdAt
-      ..updatedAt = createdAt;
+}) => OperationalDirective()
+  ..firestoreId = id
+  ..title = 'Verify burner permissive'
+  ..description = 'Confirm permissive before the next cycle.'
+  ..assetType = type
+  ..assetNumber = number
+  ..directedTo = role
+  ..priority = DirectivePriority.high
+  ..status = DirectiveStatus.open
+  ..createdAt = createdAt
+  ..updatedAt = createdAt;
 
 JobLaneRecord workflowLane({
   required String id,
@@ -308,17 +304,16 @@ JobLaneRecord workflowLane({
   required String assetTypeKey,
   required int assetNumber,
   required DateTime createdAt,
-}) =>
-    JobLaneRecord()
-      ..firestoreId = id
-      ..workflowFirestoreId = 'workflow-$id'
-      ..jobExecutionFirestoreId = 'execution-$id'
-      ..laneKey = laneKey
-      ..statusKey = 'pending'
-      ..assetTypeKey = assetTypeKey
-      ..assetNumber = assetNumber
-      ..createdAt = createdAt
-      ..updatedAt = createdAt;
+}) => JobLaneRecord()
+  ..firestoreId = id
+  ..workflowFirestoreId = 'workflow-$id'
+  ..jobExecutionFirestoreId = 'execution-$id'
+  ..laneKey = laneKey
+  ..statusKey = 'pending'
+  ..assetTypeKey = assetTypeKey
+  ..assetNumber = assetNumber
+  ..createdAt = createdAt
+  ..updatedAt = createdAt;
 
 ComplianceRequestRecord complianceRequest({
   required String id,
@@ -326,18 +321,17 @@ ComplianceRequestRecord complianceRequest({
   required String assetTypeKey,
   required int assetNumber,
   required DateTime createdAt,
-}) =>
-    ComplianceRequestRecord()
-      ..firestoreId = id
-      ..title = 'Operations support'
-      ..description = 'Move the equipment to the maintenance position.'
-      ..targetLaneKey = laneKey
-      ..statusKey = 'raised'
-      ..becameDueAt = createdAt
-      ..assetTypeKey = assetTypeKey
-      ..assetNumber = assetNumber
-      ..createdAt = createdAt
-      ..updatedAt = createdAt;
+}) => ComplianceRequestRecord()
+  ..firestoreId = id
+  ..title = 'Operations support'
+  ..description = 'Move the equipment to the maintenance position.'
+  ..targetLaneKey = laneKey
+  ..statusKey = 'raised'
+  ..becameDueAt = createdAt
+  ..assetTypeKey = assetTypeKey
+  ..assetNumber = assetNumber
+  ..createdAt = createdAt
+  ..updatedAt = createdAt;
 
 void main() {
   testWidgets('ranked report labels remain fully visible on narrow screens', (
@@ -881,25 +875,25 @@ void main() {
       ownerDiscipline: 'instrumentation',
       accountableRoleKeys: const ['senior_instrumentation'],
     );
-    final first = issue(
-        type: AssetType.furnace,
-        number: 7,
-        started: DateTime.utc(2026, 8, 5),
-      )
-      ..assetHierarchyRefJson =
-          installedReference(
+    final first =
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, 5),
+          )
+          ..assetHierarchyRefJson = installedReference(
             assetId: furnace7.id,
             assetNumber: 7,
             componentId: 'furnace-7-pt',
             tag: 'PT-701',
           ).encode();
-    final second = issue(
-        type: AssetType.furnace,
-        number: 8,
-        started: DateTime.utc(2026, 8, 6),
-      )
-      ..assetHierarchyRefJson =
-          installedReference(
+    final second =
+        issue(
+            type: AssetType.furnace,
+            number: 8,
+            started: DateTime.utc(2026, 8, 6),
+          )
+          ..assetHierarchyRefJson = installedReference(
             assetId: furnace8.id,
             assetNumber: 8,
             componentId: 'furnace-8-pt',
@@ -941,19 +935,18 @@ void main() {
             number: 7,
             started: DateTime.utc(2026, 8, day),
           )
-          ..assetHierarchyRefJson =
-              AssetHierarchyReference(
-                assetClassId: furnace.id,
-                assetClassCode: furnace.code,
-                assetClassName: furnace.name,
-                nodeId: nodeId,
-                nodeVersion: 1,
-                nodeName: 'Motor',
-                hierarchyPath: path,
-                ownershipStatus: AssetOwnershipStatus.confirmed,
-                ownerDiscipline: 'electrical',
-                accountableRoleKeys: const ['senior_electrical'],
-              ).encode();
+          ..assetHierarchyRefJson = AssetHierarchyReference(
+            assetClassId: furnace.id,
+            assetClassCode: furnace.code,
+            assetClassName: furnace.name,
+            nodeId: nodeId,
+            nodeVersion: 1,
+            nodeName: 'Motor',
+            hierarchyPath: path,
+            ownershipStatus: AssetOwnershipStatus.confirmed,
+            ownerDiscipline: 'electrical',
+            accountableRoleKeys: const ['senior_electrical'],
+          ).encode();
 
     final report = buildOperationsReport(
       filter: OperationsReportFilter(
@@ -991,19 +984,18 @@ void main() {
             number: 7,
             started: DateTime.utc(2026, 8, day),
           )
-          ..assetHierarchyRefJson =
-              AssetHierarchyReference(
-                assetClassId: furnace.id,
-                assetClassCode: furnace.code,
-                assetClassName: furnace.name,
-                nodeId: nodeId,
-                nodeVersion: 1,
-                nodeName: 'Motor',
-                hierarchyPath: path,
-                ownershipStatus: AssetOwnershipStatus.confirmed,
-                ownerDiscipline: 'electrical',
-                accountableRoleKeys: const ['senior_electrical'],
-              ).encode();
+          ..assetHierarchyRefJson = AssetHierarchyReference(
+            assetClassId: furnace.id,
+            assetClassCode: furnace.code,
+            assetClassName: furnace.name,
+            nodeId: nodeId,
+            nodeVersion: 1,
+            nodeName: 'Motor',
+            hierarchyPath: path,
+            ownershipStatus: AssetOwnershipStatus.confirmed,
+            ownerDiscipline: 'electrical',
+            accountableRoleKeys: const ['senior_electrical'],
+          ).encode();
 
     final report = buildOperationsReport(
       filter: OperationsReportFilter(
@@ -1080,27 +1072,25 @@ void main() {
         null,
       );
       final car3 = asset('annealing-car-3', annealingCar, 3);
-      final customExecution =
-          execution(DateTime.utc(2026, 8, 6))
-            ..assetType = AssetType.governedCustom
-            ..assetNumber = 3
-            ..templateVersionId = 'version-custom-1'
-            ..metadataJson = jsonEncode(<String, dynamic>{
-              'source': 'server_governed_published_template_assignment',
-              'jobTemplateSnapshot': <String, dynamic>{
-                'assetHierarchyRefJson':
-                    AssetHierarchyReference(
-                      assetClassId: annealingCar.id,
-                      assetClassCode: annealingCar.code,
-                      assetClassName: annealingCar.name,
-                      nodeId: 'car-body',
-                      nodeVersion: 1,
-                      nodeName: 'Car body',
-                      hierarchyPath: const ['Car body'],
-                      ownershipStatus: AssetOwnershipStatus.unassigned,
-                    ).encode(),
-              },
-            });
+      final customExecution = execution(DateTime.utc(2026, 8, 6))
+        ..assetType = AssetType.governedCustom
+        ..assetNumber = 3
+        ..templateVersionId = 'version-custom-1'
+        ..metadataJson = jsonEncode(<String, dynamic>{
+          'source': 'server_governed_published_template_assignment',
+          'jobTemplateSnapshot': <String, dynamic>{
+            'assetHierarchyRefJson': AssetHierarchyReference(
+              assetClassId: annealingCar.id,
+              assetClassCode: annealingCar.code,
+              assetClassName: annealingCar.name,
+              nodeId: 'car-body',
+              nodeVersion: 1,
+              nodeName: 'Car body',
+              hierarchyPath: const ['Car body'],
+              ownershipStatus: AssetOwnershipStatus.unassigned,
+            ).encode(),
+          },
+        });
       final report = buildOperationsReport(
         filter: OperationsReportFilter(
           startDate: DateTime.utc(2026, 8, 1),
@@ -1136,32 +1126,30 @@ void main() {
         'innerCover',
       );
       final base201 = asset('base-201', baseClass, 201);
-      final innerCoverExecution =
-          execution(DateTime.utc(2026, 8, 6))
-            ..assetType = AssetType.innerCover
-            ..assetNumber = 201
-            ..templateVersionId = 'version-inner-cover-1'
-            ..metadataJson = jsonEncode(<String, dynamic>{
-              'source': 'server_governed_published_template_assignment',
-              'assignmentAssetIdentity': <String, dynamic>{
-                'assetClassId': baseClass.id,
-                'assetInstanceId': base201.id,
-                'assetNumber': base201.assetNumber,
-              },
-              'jobTemplateSnapshot': <String, dynamic>{
-                'assetHierarchyRefJson':
-                    AssetHierarchyReference(
-                      assetClassId: innerCoverClass.id,
-                      assetClassCode: innerCoverClass.code,
-                      assetClassName: innerCoverClass.name,
-                      nodeId: 'shell',
-                      nodeVersion: 1,
-                      nodeName: 'Shell',
-                      hierarchyPath: const ['Shell'],
-                      ownershipStatus: AssetOwnershipStatus.unassigned,
-                    ).encode(),
-              },
-            });
+      final innerCoverExecution = execution(DateTime.utc(2026, 8, 6))
+        ..assetType = AssetType.innerCover
+        ..assetNumber = 201
+        ..templateVersionId = 'version-inner-cover-1'
+        ..metadataJson = jsonEncode(<String, dynamic>{
+          'source': 'server_governed_published_template_assignment',
+          'assignmentAssetIdentity': <String, dynamic>{
+            'assetClassId': baseClass.id,
+            'assetInstanceId': base201.id,
+            'assetNumber': base201.assetNumber,
+          },
+          'jobTemplateSnapshot': <String, dynamic>{
+            'assetHierarchyRefJson': AssetHierarchyReference(
+              assetClassId: innerCoverClass.id,
+              assetClassCode: innerCoverClass.code,
+              assetClassName: innerCoverClass.name,
+              nodeId: 'shell',
+              nodeVersion: 1,
+              nodeName: 'Shell',
+              hierarchyPath: const ['Shell'],
+              ownershipStatus: AssetOwnershipStatus.unassigned,
+            ).encode(),
+          },
+        });
 
       final report = buildOperationsReport(
         filter: OperationsReportFilter(
@@ -1191,17 +1179,16 @@ void main() {
   test(
     'governed custom planned work without hierarchy identity fails closed',
     () {
-      final customExecution =
-          execution(DateTime.utc(2026, 8, 6))
-            ..assetType = AssetType.governedCustom
-            ..assetNumber = 3
-            ..templateVersionId = 'version-custom-1'
-            ..metadataJson = jsonEncode(<String, dynamic>{
-              'source': 'server_governed_published_template_assignment',
-              'jobTemplateSnapshot': <String, dynamic>{
-                'jobName': 'Custom asset PM',
-              },
-            });
+      final customExecution = execution(DateTime.utc(2026, 8, 6))
+        ..assetType = AssetType.governedCustom
+        ..assetNumber = 3
+        ..templateVersionId = 'version-custom-1'
+        ..metadataJson = jsonEncode(<String, dynamic>{
+          'source': 'server_governed_published_template_assignment',
+          'jobTemplateSnapshot': <String, dynamic>{
+            'jobName': 'Custom asset PM',
+          },
+        });
 
       expect(
         () => buildOperationsReport(
@@ -1227,27 +1214,25 @@ void main() {
       'Annealing car',
       null,
     );
-    final customExecution =
-        execution(DateTime.utc(2026, 8, 6))
-          ..assetType = AssetType.governedCustom
-          ..assetNumber = 3
-          ..templateVersionId = 'version-custom-1'
-          ..metadataJson = jsonEncode(<String, dynamic>{
-            'source': 'server_governed_published_template_assignment',
-            'jobTemplateSnapshot': <String, dynamic>{
-              'assetHierarchyRefJson':
-                  AssetHierarchyReference(
-                    assetClassId: annealingCar.id,
-                    assetClassCode: annealingCar.code,
-                    assetClassName: annealingCar.name,
-                    nodeId: 'car-body',
-                    nodeVersion: 1,
-                    nodeName: 'Car body',
-                    hierarchyPath: const ['Car body'],
-                    ownershipStatus: AssetOwnershipStatus.unassigned,
-                  ).encode(),
-            },
-          });
+    final customExecution = execution(DateTime.utc(2026, 8, 6))
+      ..assetType = AssetType.governedCustom
+      ..assetNumber = 3
+      ..templateVersionId = 'version-custom-1'
+      ..metadataJson = jsonEncode(<String, dynamic>{
+        'source': 'server_governed_published_template_assignment',
+        'jobTemplateSnapshot': <String, dynamic>{
+          'assetHierarchyRefJson': AssetHierarchyReference(
+            assetClassId: annealingCar.id,
+            assetClassCode: annealingCar.code,
+            assetClassName: annealingCar.name,
+            nodeId: 'car-body',
+            nodeVersion: 1,
+            nodeName: 'Car body',
+            hierarchyPath: const ['Car body'],
+            ownershipStatus: AssetOwnershipStatus.unassigned,
+          ).encode(),
+        },
+      });
 
     expect(
       () => buildOperationsReport(
@@ -1273,11 +1258,10 @@ void main() {
     'report clock emits immediately and refreshes on its interval',
     () async {
       var minute = 0;
-      final values =
-          await operationsReportClock(
-            interval: const Duration(milliseconds: 1),
-            now: () => DateTime.utc(2026, 8, 14, 12, minute++),
-          ).take(2).toList();
+      final values = await operationsReportClock(
+        interval: const Duration(milliseconds: 1),
+        now: () => DateTime.utc(2026, 8, 14, 12, minute++),
+      ).take(2).toList();
       expect(values, [
         DateTime.utc(2026, 8, 14, 12),
         DateTime.utc(2026, 8, 14, 12, 1),
@@ -1582,13 +1566,13 @@ void main() {
   test('duplicate legacy mappings preserve explicit hierarchy attribution', () {
     final furnaceA = assetClass('furnace-a', 'Furnace A', 'furnace');
     final furnaceB = assetClass('furnace-b', 'Furnace B', 'furnace');
-    final explicit = issue(
-        type: AssetType.furnace,
-        number: 7,
-        started: DateTime.utc(2026, 8, 14, 10),
-      )
-      ..assetHierarchyRefJson =
-          AssetHierarchyReference(
+    final explicit =
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, 14, 10),
+          )
+          ..assetHierarchyRefJson = AssetHierarchyReference(
             assetClassId: furnaceA.id,
             assetClassCode: furnaceA.code,
             assetClassName: furnaceA.name,
@@ -1635,10 +1619,9 @@ void main() {
       started: start.subtract(const Duration(hours: 4)),
       resolved: true,
     )..endDate = start;
-    final boundaryJob =
-        execution(start.subtract(const Duration(hours: 4)))
-          ..isCompleted = true
-          ..completedAt = start;
+    final boundaryJob = execution(start.subtract(const Duration(hours: 4)))
+      ..isCompleted = true
+      ..completedAt = start;
     final report = buildOperationsReport(
       filter: OperationsReportFilter(startDate: start, endDate: start),
       tickets: [boundaryIssue],
@@ -1679,6 +1662,260 @@ void main() {
     expect(report.plannedJobCount, 0);
     expect(report.disruptionCount, 0);
   });
+
+  test(
+    'custom report identity survives quality, abnormality and workflow joins',
+    () {
+      final crane = assetClass('crane-class', 'Crane', null);
+      final hoist = assetClass('hoist-class', 'Hoist', null);
+      final crane4 = asset('crane-4', crane, 4);
+      final hoist4 = asset('hoist-4', hoist, 4);
+      final classes = [crane, hoist];
+      final assets = [crane4, hoist4];
+      AssetHierarchyReference reference(AssetInstanceRecord item) =>
+          AssetHierarchyReference(
+            scope: AssetHierarchyReferenceScope.physicalAsset,
+            assetClassId: item.assetClassId,
+            assetClassCode: item.assetClassCode,
+            assetClassName: item.assetClassName,
+            nodeId: item.assetClassId,
+            nodeVersion: 1,
+            nodeName: item.assetClassName,
+            assetInstanceId: item.id,
+            assetInstanceVersion: item.version,
+            assetNumber: item.assetNumber,
+            assetInstanceName: item.name,
+            hierarchyPath: [item.assetClassName],
+            ownershipStatus: AssetOwnershipStatus.unassigned,
+          );
+      final references = {for (final item in assets) item.id: reference(item)};
+      final jobs = [
+        for (final item in assets)
+          execution(DateTime.utc(2026, 8, 6))
+            ..firestoreId = 'job-${item.id}'
+            ..assetType = AssetType.governedCustom
+            ..assetNumber = 4
+            ..templateVersionId = 'published-1'
+            ..metadataJson = jsonEncode({
+              'source': 'server_governed_published_template_assignment',
+              'jobTemplateSnapshot': {
+                'assetHierarchyRefJson': references[item.id]!.encode(),
+              },
+            }),
+      ];
+      final report = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8, 1),
+          endDate: DateTime.utc(2026, 8, 31),
+          assetInstanceId: crane4.id,
+        ),
+        tickets: const [],
+        executions: jobs,
+        events: const [],
+        qualityWarnings: [
+          for (final item in assets)
+            qualityWarning(
+              id: 'warning-${item.id}',
+              type: AssetType.governedCustom,
+              number: 4,
+              createdAt: DateTime.utc(2026, 8, 6),
+              hierarchyReference: references[item.id],
+            ),
+        ],
+        abnormalities: [
+          for (final item in assets)
+            ChargeAbnormality()
+              ..firestoreId = 'abnormality-${item.id}'
+              ..loggedAt = DateTime.utc(2026, 8, 6)
+              ..affectedAssets = [
+                AffectedAssetRef.fromMap({
+                  'assetType': 'governedCustom',
+                  'assetNumber': 4,
+                  'assetHierarchyRef': references[item.id]!.toMap(),
+                }),
+              ],
+        ],
+        workflowLanes: [
+          for (final item in assets)
+            JobLaneRecord()
+              ..firestoreId = 'lane-${item.id}'
+              ..workflowFirestoreId = 'workflow-${item.id}'
+              ..jobExecutionFirestoreId = 'job-${item.id}'
+              ..laneKey = 'mech'
+              ..assetTypeKey = 'governedCustom'
+              ..assetNumber = 4,
+        ],
+        complianceRequests: [
+          for (final item in assets)
+            ComplianceRequestRecord()
+              ..firestoreId = 'compliance-${item.id}'
+              ..title = 'Release ${item.name}'
+              ..description = 'Release assurance'
+              ..targetLaneKey = 'mech'
+              ..linkedExecutionFirestoreId = 'job-${item.id}'
+              ..assetTypeKey = 'governedCustom'
+              ..assetNumber = 4,
+        ],
+        assetClasses: classes,
+        assetInstances: assets,
+        overview: PlantAssetOverview.build(
+          assetClasses: classes,
+          assetInstances: assets,
+          operationalConditions: const [],
+          workflowStatuses: const [],
+        ),
+      );
+      expect(report.qualityWarnings.map((item) => item.warningId), [
+        'warning-crane-4',
+      ]);
+      expect(report.abnormalities.map((item) => item.firestoreId), [
+        'abnormality-crane-4',
+      ]);
+      expect(report.workflowLanes.map((item) => item.firestoreId), [
+        'lane-crane-4',
+      ]);
+      expect(report.complianceRequests.map((item) => item.firestoreId), [
+        'compliance-crane-4',
+      ]);
+
+      final oldNativeIssues = [
+        for (final item in assets)
+          issue(
+              type: AssetType.governedCustom,
+              number: 4,
+              started: DateTime.utc(2026, 7, 1),
+            )
+            ..firestoreId = 'source-${item.id}'
+            ..assetType = AssetType.governedCustom
+            ..assetNumber = 4
+            ..assetHierarchyRefJson = references[item.id]!.encode(),
+      ];
+      final joinedReport = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 9, 1),
+          endDate: DateTime.utc(2026, 9, 30),
+          assetInstanceId: crane4.id,
+        ),
+        tickets: const [],
+        executions: const [],
+        events: const [],
+        identityTickets: oldNativeIssues,
+        identityExecutions: jobs,
+        qualityWarnings: [
+          for (final item in assets)
+            qualityWarning(
+              id: 'source-${item.id}',
+              type: AssetType.governedCustom,
+              number: 4,
+              createdAt: DateTime.utc(2026, 8, 6),
+            ),
+        ],
+        workflowLanes: [
+          for (final item in assets)
+            workflowLane(
+              id: item.id,
+              laneKey: 'mech',
+              assetTypeKey: 'governedCustom',
+              assetNumber: 4,
+              createdAt: DateTime.utc(2026, 8, 6),
+            )..jobExecutionFirestoreId = 'job-${item.id}',
+        ],
+        complianceRequests: [
+          for (final item in assets)
+            ComplianceRequestRecord()
+              ..firestoreId = 'assurance-${item.id}'
+              ..title = 'Release assurance'
+              ..description = 'Release assurance'
+              ..targetLaneKey = 'mech'
+              ..linkedMaintenanceFirestoreId = 'source-${item.id}'
+              ..assetTypeKey = 'governedCustom'
+              ..assetNumber = 4,
+        ],
+        assetClasses: classes,
+        assetInstances: assets,
+        overview: PlantAssetOverview.build(
+          assetClasses: classes,
+          assetInstances: assets,
+          operationalConditions: const [],
+          workflowStatuses: const [],
+        ),
+      );
+      expect(joinedReport.qualityWarnings.map((item) => item.warningId), [
+        'source-crane-4',
+      ]);
+      expect(joinedReport.workflowLanes.map((item) => item.firestoreId), [
+        'crane-4',
+      ]);
+      expect(joinedReport.complianceRequests.map((item) => item.firestoreId), [
+        'assurance-crane-4',
+      ]);
+      expect(joinedReport.tickets, isEmpty);
+      expect(joinedReport.executions, isEmpty);
+      expect(
+        () => buildOperationsReport(
+          filter: joinedReport.filter,
+          tickets: const [],
+          executions: const [],
+          events: const [],
+          qualityWarnings: [
+            qualityWarning(
+              id: 'unknown-source',
+              type: AssetType.governedCustom,
+              number: 4,
+              createdAt: DateTime.utc(2026, 8, 6),
+            ),
+          ],
+          assetClasses: classes,
+          assetInstances: assets,
+          overview: PlantAssetOverview.build(
+            assetClasses: classes,
+            assetInstances: assets,
+            operationalConditions: const [],
+            workflowStatuses: const [],
+          ),
+        ),
+        throwsStateError,
+        reason: 'A shared number must not invent a custom asset identity.',
+      );
+      final mismatchedIssue =
+          issue(
+              type: AssetType.governedCustom,
+              number: 5,
+              started: DateTime.utc(2026, 7, 1),
+            )
+            ..firestoreId = 'mismatched-issue'
+            ..assetHierarchyRefJson = references[crane4.id]!.encode();
+      expect(
+        () => buildOperationsReport(
+          filter: joinedReport.filter,
+          tickets: const [],
+          executions: const [],
+          events: const [],
+          identityTickets: [mismatchedIssue],
+          complianceRequests: [
+            ComplianceRequestRecord()
+              ..firestoreId = 'mismatched-request'
+              ..title = 'Release assurance'
+              ..description = 'Release assurance'
+              ..targetLaneKey = 'mech'
+              ..linkedMaintenanceFirestoreId = 'mismatched-issue'
+              ..assetTypeKey = 'governedCustom'
+              ..assetNumber = 5,
+          ],
+          assetClasses: classes,
+          assetInstances: assets,
+          overview: PlantAssetOverview.build(
+            assetClasses: classes,
+            assetInstances: assets,
+            operationalConditions: const [],
+            workflowStatuses: const [],
+          ),
+        ),
+        throwsStateError,
+        reason: 'Native issue links must also agree with registry identity.',
+      );
+    },
+  );
 
   test('cross-domain control records obey period and asset scope', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');

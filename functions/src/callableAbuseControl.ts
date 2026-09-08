@@ -136,6 +136,18 @@ const CALLER_ANOMALY_CODES = new Set([
   "unimplemented",
 ]);
 
+// These server-generated reasons describe ordinary business state. They still
+// consume request quotas, but cannot accumulate a shared-callable abuse ban.
+// Unknown preconditions and all authority/request-shape failures remain counted.
+const ORDINARY_ASSET_BUSINESS_PRECONDITIONS = new Set([
+  "asset-class-active-nodes",
+  "asset-class-active-instances",
+  "morning-review-session-not-open",
+  "morning-review-entry-capacity-reached",
+  "morning-review-action-capacity-reached",
+  "morning-review-content-capacity-reached",
+]);
+
 type CallableAbuseState = {
   schemaVersion: number;
   callableName: MutatingCallableName;
@@ -440,13 +452,23 @@ function assertNow(
   return nowMs;
 }
 
-function anomalyCode(error: unknown): string | null {
+function anomalyCode(
+  error: unknown, callableName: MutatingCallableName,
+): string | null {
   if (
     error == null ||
     typeof error !== "object" ||
     !("code" in error) ||
     typeof error.code !== "string"
   ) {
+    return null;
+  }
+  if (callableName === "mutateAssetHierarchy" &&
+      error.code === "failed-precondition" && "details" in error &&
+      error.details != null && typeof error.details === "object" &&
+      "reasonCode" in error.details &&
+      typeof error.details.reasonCode === "string" &&
+      ORDINARY_ASSET_BUSINESS_PRECONDITIONS.has(error.details.reasonCode)) {
     return null;
   }
   return CALLER_ANOMALY_CODES.has(error.code) ? error.code : null;
@@ -597,7 +619,7 @@ export async function executeWithCallableAbuseControl<T>(args: {
   try {
     return await args.execute();
   } catch (error) {
-    const code = anomalyCode(error);
+    const code = anomalyCode(error, args.callableName);
     if (code != null) {
       try {
         await recordAnomaly({

@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/persistence/request_identity_journal.dart';
 
 const _requestUuid = Uuid();
 final _canonicalUuid = RegExp(
@@ -66,7 +65,8 @@ class BurnerConditionRoundPendingIdentity {
 /// Retains a burner-round request identity across an ambiguous network result.
 ///
 /// The same actor and exact payload reuse the same request ID after a timeout or
-/// app restart. Any payload change rotates the identity before another write.
+/// app restart. Changed payloads keep separate identities without erasing older
+/// uncertain requests. This store does not retain the form payload itself.
 class BurnerConditionRoundIdempotencyStore {
   BurnerConditionRoundIdempotencyStore({
     Future<SharedPreferences> Function()? preferencesLoader,
@@ -74,11 +74,30 @@ class BurnerConditionRoundIdempotencyStore {
 
   static const _keyPrefix = 'PENDING_BURNER_CONDITION_ROUND::';
   final Future<SharedPreferences> Function() _preferencesLoader;
+  static Future<void> _tail = Future<void>.value();
+
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final result = _tail.then((_) => action());
+    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
+
+  RequestIdentityJournal<BurnerConditionRoundPendingIdentity> _journal(
+    String actorUid,
+  ) => RequestIdentityJournal(
+    legacyKey: _key(actorUid),
+    decode: (raw) =>
+        _decode(raw) ??
+        (throw StateError(
+          'Saved burner retry evidence is empty and was preserved.',
+        )),
+    requestIdOf: (record) => record.requestId,
+  );
 
   Future<BurnerConditionRoundPendingIdentity> resolve({
     required String actorUid,
     required String payloadFingerprint,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final normalizedFingerprint = _required(
       payloadFingerprint,
@@ -92,50 +111,44 @@ class BurnerConditionRoundIdempotencyStore {
       );
     }
     final preferences = await _preferencesLoader();
-    final key = _key(normalizedActorUid);
-    final existing = _decode(preferences.getString(key));
-    if (existing != null &&
-        existing.payloadFingerprint == normalizedFingerprint) {
-      return existing;
+    await preferences.reload();
+    final journal = _journal(normalizedActorUid);
+    final records = journal.readAll(preferences);
+    for (final record in records) {
+      if (record.value.payloadFingerprint == normalizedFingerprint) {
+        return record.value;
+      }
     }
     final next = BurnerConditionRoundPendingIdentity(
       requestId: _requestUuid.v4(),
       payloadFingerprint: normalizedFingerprint,
     );
-    final written = await preferences.setString(key, jsonEncode(next.toMap()));
-    if (!written) {
-      throw StateError(
-        'The burner-round retry identity could not be persisted safely.',
-      );
-    }
-    return next;
-  }
+    return journal.append(preferences, next.toMap());
+  });
 
   Future<void> clearIfMatches({
     required String actorUid,
     required String requestId,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final normalizedRequestId = _required(requestId, 'requestId');
     final preferences = await _preferencesLoader();
-    final key = _key(normalizedActorUid);
-    final existing = _decode(preferences.getString(key));
-    if (existing == null || existing.requestId != normalizedRequestId) return;
-    final removed = await preferences.remove(key);
-    if (!removed) {
-      throw StateError(
-        'The completed burner-round retry identity could not be cleared.',
-      );
-    }
-  }
+    await preferences.reload();
+    await _journal(normalizedActorUid).clearMatching(
+      preferences,
+      (record) => record.requestId == normalizedRequestId,
+    );
+  });
 
   Future<BurnerConditionRoundPendingIdentity?> read({
     required String actorUid,
-  }) async {
+  }) => _serial(() async {
     final normalizedActorUid = _required(actorUid, 'actorUid');
     final preferences = await _preferencesLoader();
-    return _decode(preferences.getString(_key(normalizedActorUid)));
-  }
+    await preferences.reload();
+    final records = _journal(normalizedActorUid).readAll(preferences);
+    return records.isEmpty ? null : records.first.value;
+  });
 
   String _key(String actorUid) => '$_keyPrefix$actorUid';
 

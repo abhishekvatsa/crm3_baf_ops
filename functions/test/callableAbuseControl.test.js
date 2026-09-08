@@ -380,6 +380,47 @@ describe('S-03 callable abuse control', () => {
     });
   });
 
+  test.each([
+    'asset-class-active-nodes',
+    'asset-class-active-instances',
+    'morning-review-session-not-open',
+    'morning-review-entry-capacity-reached',
+    'morning-review-action-capacity-reached',
+    'morning-review-content-capacity-reached',
+  ])('ordinary business outcome %s does not block other shared-callable work', async (reasonCode) => {
+    const db = new MemoryFirestore();
+    const timer = clock();
+    const callableName = 'mutateAssetHierarchy';
+    const policy = CALLABLE_ABUSE_POLICIES[callableName];
+    for (let index = 0; index <= policy.anomalyLimit; index += 1) {
+      await expect(invoke({
+        db, callableName, now: timer.now,
+        execute: async () => {
+          throw Object.assign(new Error('Business state changed.'), {
+            code: 'failed-precondition', details: {reasonCode},
+          });
+        },
+      })).rejects.toMatchObject({code: 'failed-precondition', details: {reasonCode}});
+      timer.advanceSeconds(61);
+    }
+    await expect(invoke({db, callableName, now: timer.now})).resolves.toEqual({ok: true});
+    expect(db.abuseRecords()[0].data).toMatchObject({
+      anomalyCount: 0, dailyRequestCount: policy.anomalyLimit + 2,
+    });
+  });
+
+  test('business reason labels never exempt permission or malformed-request failures', async () => {
+    for (const code of ['permission-denied', 'invalid-argument', 'failed-precondition']) {
+      const db = new MemoryFirestore();
+      await expect(invoke({db, callableName: 'mutateAssetHierarchy', execute: async () => {
+        throw Object.assign(new Error('Rejected.'), {code, details: {
+          reasonCode: code === 'failed-precondition' ? 'unknown-business-reason' : 'asset-class-active-nodes',
+        }});
+      }})).rejects.toMatchObject({code});
+      expect(db.abuseRecords()[0].data.anomalyCount).toBe(1);
+    }
+  });
+
   test('does not classify server failures or transaction aborts as caller anomalies', async () => {
     const db = new MemoryFirestore();
     const timer = clock();

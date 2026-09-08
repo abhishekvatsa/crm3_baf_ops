@@ -229,6 +229,73 @@ async function invoke(memory, authUid, data) {
 }
 
 describe('asset operational condition mutation', () => {
+  test('historical acceptance remains readable with missing current projection', async () => {
+    const memory = fakeDb(baseSeed());
+    const first = await invoke(memory, 'ops-1', declareRequest());
+    memory.store.delete(`asset_operational_conditions/${IDS.asset}`);
+    const writes = memory.writes.length;
+    expect(await invoke(memory, 'ops-1', declareRequest()))
+      .toEqual({...first, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.has(`asset_operational_conditions/${IDS.asset}`)).toBe(false);
+  });
+
+  test.each([
+    ['receipt request', 'receipt', {requestId: IDS.restore}],
+    ['receipt actor', 'receipt', {actorUid: 'shift-1'}],
+    ['receipt payload', 'receipt', {fingerprint: 'changed'}],
+    ['receipt version', 'receipt', {version: 0}],
+    ['receipt audit', 'receipt', {auditId: 'unrelated'}],
+    ['receipt time', 'receipt', {committedAtIso: 'not-a-time'}],
+    ['audit identity', 'audit', {auditId: 'unrelated'}],
+    ['audit operation', 'audit', {operation: 'RESTORE_ASSET_CONDITION'}],
+    ['audit after', 'audit', {after: {condition: 'available', version: 1}}],
+  ])('rejects corrupted immutable %s instead of certifying acceptance', async (_, kind, patch) => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', declareRequest());
+    const path = kind === 'receipt'
+      ? `asset_operational_condition_receipts/${IDS.declare}`
+      : `asset_operational_condition_audits/asset_condition_${IDS.declare}`;
+    memory.store.set(path, {...memory.store.get(path), ...patch});
+    const writes = memory.writes.length;
+    await expect(invoke(memory, 'ops-1', declareRequest()))
+      .rejects.toMatchObject({code: 'data-loss'});
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test('receipt replay still checks current account authority and actor identity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', declareRequest());
+    await expect(invoke(memory, 'shift-1', declareRequest()))
+      .rejects.toMatchObject({code: 'data-loss'});
+    memory.store.set('users/ops-1', {...user('operations'), isApproved: false});
+    await expect(invoke(memory, 'ops-1', declareRequest()))
+      .rejects.toMatchObject({code: 'permission-denied'});
+  });
+
+  test('replaying a declaration after restoration confirms history without restoring stale down state', async () => {
+    const memory = fakeDb(baseSeed());
+    const first = await invoke(memory, 'ops-1', declareRequest());
+    await invoke(memory, 'shift-1', {
+      requestId: IDS.restore,
+      operation: 'RESTORE_ASSET_CONDITION',
+      assetClassId: IDS.class,
+      assetInstanceId: IDS.asset,
+      expectedVersion: 1,
+      reason: 'Operations proved safe readiness after repair.',
+    });
+    const beforeReplay = clone([...memory.store]);
+    const writesBeforeReplay = memory.writes.length;
+
+    const replay = await invoke(memory, 'ops-1', declareRequest());
+
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect([...memory.store]).toEqual(beforeReplay);
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+    expect(memory.store.get(`asset_operational_conditions/${IDS.asset}`))
+      .toMatchObject({condition: 'available', version: 2});
+  });
+
   test('parses a bounded declaration and rejects unknown request fields', () => {
     const parsed = parseAssetOperationalConditionMutationRequest(declareRequest());
     expect(parsed)

@@ -317,6 +317,7 @@ class LiveRemoteSyncService {
   final Map<String, Set<String>> _authoritativeTicketIdsByListener =
       <String, Set<String>>{};
   final Set<String> _expectedTicketListeners = <String>{};
+  final Map<String, int> _cleanLocalReconciliationVersions = <String, int>{};
   bool _initialTicketReconciliationComplete = false;
   Timer? _ticketReconciliationRetry;
   int _ticketReconciliationFailures = 0;
@@ -412,6 +413,7 @@ class LiveRemoteSyncService {
     _pausedForLifecycle = false;
     _maintenanceStarted = false;
     _maintenanceScope = null;
+    _cleanLocalReconciliationVersions.clear();
     _cancelMaintenanceSubscriptions();
 
     _setHealth(
@@ -434,6 +436,9 @@ class LiveRemoteSyncService {
     bool forceRestart = false,
   }) {
     final previousScopeKey = _maintenanceScope?.scopeKey;
+    if (_maintenanceScope?.actorUid != scope.actorUid) {
+      _cleanLocalReconciliationVersions.clear();
+    }
     _maintenanceScope = scope;
 
     if (kIsWeb) {
@@ -1310,6 +1315,14 @@ class LiveRemoteSyncService {
             );
 
       if (!_acceptsLiveWork(generation)) return;
+      if (_trackCleanLocalReconciliation(
+        'maintenance_records/${doc.id}',
+        receipt,
+        remoteVersion: remote.version,
+        propagateFailure: propagateFailure,
+      )) {
+        return;
+      }
       if (receipt.outcome == _RemoteMirrorApplyOutcome.duplicateLocalIdentity) {
         throw StateError(
           'Live maintenance mirror found ${receipt.duplicateCount} local rows '
@@ -1365,8 +1378,70 @@ class LiveRemoteSyncService {
 
   LiveRemoteSyncHealth get _health => _read(liveRemoteSyncHealthProvider);
 
+  bool _trackCleanLocalReconciliation(
+    String key,
+    _RemoteMirrorApplyReceipt receipt, {
+    required int remoteVersion,
+    required bool propagateFailure,
+  }) {
+    if (receipt.outcome ==
+        _RemoteMirrorApplyOutcome.cleanLocalReconciliationRequired) {
+      final pendingVersion = _cleanLocalReconciliationVersions[key];
+      if (pendingVersion == null || remoteVersion > pendingVersion) {
+        _cleanLocalReconciliationVersions[key] = remoteVersion;
+      }
+      _setHealth(_health);
+      if (propagateFailure) {
+        throw const RemoteRecordReconciliationRequiredException();
+      }
+      return true;
+    }
+    // An unrelated success or an older snapshot is not evidence that a
+    // previously rejected higher server version has been reconciled.
+    if (receipt.outcome == _RemoteMirrorApplyOutcome.applied ||
+        receipt.outcome == _RemoteMirrorApplyOutcome.unchanged) {
+      final pendingVersion = _cleanLocalReconciliationVersions[key];
+      final resolved =
+          pendingVersion != null && remoteVersion >= pendingVersion;
+      if (resolved) _cleanLocalReconciliationVersions.remove(key);
+      if (resolved && _cleanLocalReconciliationVersions.isEmpty) {
+        _setHealth(
+          _health.copyWith(
+            maintenanceState: LiveRemoteSyncConnectionState.listening,
+            clearLastError: true,
+          ),
+        );
+      }
+    }
+    return false;
+  }
+
   void _setHealth(LiveRemoteSyncHealth health) {
+    if (_cleanLocalReconciliationVersions.isNotEmpty) {
+      health = health.copyWith(
+        maintenanceState: LiveRemoteSyncConnectionState.error,
+        lastError:
+            '${_cleanLocalReconciliationVersions.length} saved record(s) need '
+            'reconciliation with newer server versions. Local work has been '
+            'preserved.',
+      );
+    }
     _read(liveRemoteSyncHealthProvider.notifier).state = health;
+  }
+
+  /// Exercises normal snapshot decoding, native application and health without
+  /// opening cloud listeners. Production starts the mirror through actor scope.
+  @visibleForTesting
+  Future<void> applyMaintenanceSnapshotForTesting(
+    DocumentSnapshot<Map<String, dynamic>> snapshot, {
+    bool propagateFailure = false,
+  }) async {
+    _maintenanceStarted = true;
+    await _applyMaintenanceDoc(
+      snapshot,
+      generation: _lifecycleGeneration,
+      propagateFailure: propagateFailure,
+    );
   }
 }
 

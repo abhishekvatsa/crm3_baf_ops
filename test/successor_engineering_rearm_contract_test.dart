@@ -117,6 +117,30 @@ bool _approvedArtifactSourceMatches(
       baselinePubspec == currentPubspec;
 }
 
+const _promotedApplicationSourcePaths = <String>[
+  'android',
+  'assets',
+  'lib',
+  'pubspec.yaml',
+  'pubspec.lock',
+];
+
+bool _promotedApplicationSourceMatches(String promotedCommit) =>
+    _promotedApplicationSourcePaths.every(
+      (path) =>
+          _gitTreeObjectId(promotedCommit, path) ==
+          _gitTreeObjectId('HEAD', path),
+    );
+
+bool _currentSourceRuntimeAuthority({
+  required bool artifactPilotApproved,
+  required bool backendMatchesDeployed,
+  required bool applicationMatchesPromotedArtifact,
+}) =>
+    artifactPilotApproved &&
+    backendMatchesDeployed &&
+    applicationMatchesPromotedArtifact;
+
 bool _artifactConstructionAuthority({
   required bool pendingSourceAuthorization,
   required bool backendMatchesDeployed,
@@ -447,6 +471,13 @@ void main() {
           receiptSourceAuthority['commit'] as String,
           '${release['versionName']}+$candidateBuildNumber',
         );
+    final currentSourceRuntimeAuthority = _currentSourceRuntimeAuthority(
+      artifactPilotApproved: controlledPilotApproved,
+      backendMatchesDeployed: backendMatchesDeployed,
+      applicationMatchesPromotedArtifact: _promotedApplicationSourceMatches(
+        receiptSourceAuthority['commit'] as String,
+      ),
+    );
     final backendApprovedAt = DateTime.parse(
       deploymentApproval['approvedAtUtc'] as String,
     );
@@ -521,12 +552,15 @@ void main() {
       ),
     );
     expect(currentSource['deploymentAuthority'], isFalse);
-    expect(currentSource['distributionAuthority'], controlledPilotApproved);
+    expect(
+      currentSource['distributionAuthority'],
+      currentSourceRuntimeAuthority,
+    );
     expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
     expect(currentSource['backendDeploymentStatus'], expectedBackendStatus);
     expect(
       currentSource['productionRuntimeUseAuthorized'],
-      controlledPilotApproved,
+      currentSourceRuntimeAuthority,
     );
 
     expect(artifact['buildNumber'], finalizedBuildNumber);
@@ -819,7 +853,7 @@ void main() {
     expect(pilot['buildNumber'], promotion['buildNumber']);
     expect(pilot['buildNumber'], policy['distribution']['approvedBuildNumber']);
     expect(pilot['handoutPerformed'], isFalse);
-    expect(pilot['appliesToCurrentSource'], controlledPilotApproved);
+    expect(pilot['appliesToCurrentSource'], currentSourceRuntimeAuthority);
     expect(pilot['maximumApprovedUsers'], distribution['maximumApprovedUsers']);
     expect(pilot['canaryUserCeiling'], distribution['canaryUserCeiling']);
     expect(

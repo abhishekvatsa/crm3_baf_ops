@@ -1136,11 +1136,12 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. The current nine-line increase distinguishes newer authoritative data requiring clean-local reconciliation in package, version and publish-audit adapters; responsibilities and transaction ownership are unchanged.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/remote_apply_integrity_matrix_test.dart"
       ],
-      "maximumLines": 1195,
+      "maximumLines": 1204,
       "requiredMarkers": [
         "part of '"
       ],

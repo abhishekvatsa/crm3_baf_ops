@@ -319,6 +319,48 @@ function entryRequest(overrides = {}) {
   };
 }
 
+async function fillAdmittedByteBudget(memory) {
+  let index = 0;
+  for (; index < 160; index++) {
+    const request = entryRequest({requestId: `12345678-0000-4000-8000-${String(index).padStart(12, '0')}`});
+    request.entryDraft.text = '\u0000'.repeat(2000);
+    try {
+      await invoke(memory, 'si-1', request);
+    } catch (error) {
+      expect(error).toMatchObject({details: {reasonCode: 'morning-review-content-capacity-reached'}});
+      break;
+    }
+  }
+  expect(index).toBeLessThan(160);
+  // Use the public command admission boundary to consume the remaining bytes.
+  let low = 0;
+  let high = 1999;
+  while (low < high) {
+    const length = Math.ceil((low + high) / 2);
+    const candidate = fakeDb(Object.fromEntries(memory.store));
+    const request = entryRequest({requestId: IDS.extra});
+    request.entryDraft.text = '\u0000'.repeat(length);
+    try {
+      await invoke(candidate, 'si-1', request);
+      low = length;
+    } catch (error) {
+      expect(error).toMatchObject({details: {reasonCode: 'morning-review-content-capacity-reached'}});
+      high = length - 1;
+    }
+  }
+  if (low > 0) {
+    const request = entryRequest({requestId: IDS.extra});
+    request.entryDraft.text = '\u0000'.repeat(low);
+    await invoke(memory, 'si-1', request);
+  }
+}
+
+function lifecycleActionDraft() {
+  return {section: 'plantWide', text: 'Confirm crane availability.',
+    assigneeUid: 'ops-1', assigneeRole: null, assetClassId: null,
+    assetClassName: null, assetInstanceId: null, assetNumber: null, dueAt: null};
+}
+
 describe('Morning Review governed lifecycle', () => {
   test('server request shapes match the shared mobile command contract', () => {
     expect(morningReviewCommandContractSnapshot()).toEqual({
@@ -1238,17 +1280,29 @@ describe('Morning Review governed lifecycle', () => {
 
     expect(memory.store.get(`morning_review_actions/${priorActionId}`))
       .toMatchObject({status: 'completed', version: 2});
-    expect(memory.store.get(`morning_review_entries/${IDS.complete}`))
+    const completionEntryId = `action-completed-v2-${IDS.complete}`;
+    expect(memory.store.get(`morning_review_entries/${completionEntryId}`))
       .toMatchObject({
         sessionId,
         kind: 'currentCompliance',
         sourceReferences: [`morning_review_actions/${priorActionId}`],
         authorUid: 'ops-1',
+        entryId: completionEntryId,
+        createdAt: meetingTime,
       });
-    expect(memory.store.get(`morning_review_entries/${IDS.complete}`).text)
+    expect(memory.store.get(`morning_review_entries/${completionEntryId}`).text)
       .toContain(priorActionId);
     expect(memory.store.get(`morning_review_sessions/${sessionId}`).version)
       .toBe(3);
+    // The Flutter agenda test decodes this same contract. Compare the actual
+    // native command output and immutable capture, not a copied transition.
+    const contract = require('../../test/fixtures/morning_review_native_completion_v1.json');
+    expect(JSON.parse(JSON.stringify(memory.store.get(
+      `morning_review_entries/${completionEntryId}`,
+    )))).toEqual(contract.entry);
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`).sourceFacts
+      .find((fact) => fact.factId === `morning_review_actions/${priorActionId}`))
+      .toEqual(contract.fact);
   });
 
   test('requires explicit attendance and preserves attributed append-only entries', async () => {
@@ -1444,6 +1498,145 @@ describe('Morning Review governed lifecycle', () => {
       });
     expect(memory.store.has(`morning_review_entries/${IDS.entry}`))
       .toBe(false);
+  });
+
+  test('preserves issue-derived Unfit separately from lifecycle in source capture', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/unfit-issue': {
+        ...baseSeed()['maintenance_records/ticket-1'],
+        plantConditionEffect: 'unfit',
+      },
+      'maintenance_records/closed-unfit': {
+        ...baseSeed()['maintenance_records/ticket-1'],
+        status: 'resolved', isResolved: true,
+        plantConditionEffect: 'unfit',
+        endDate: '2026-08-30T06:30:00.000Z',
+      },
+    });
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db, plantDay: sessionId, capturedAt: meetingTime,
+    });
+    expect(capture.facts.find((fact) => fact.sourceDocumentId === 'unfit-issue'))
+      .toMatchObject({status: 'open', sourceType: 'maintenanceIssue:unfit'});
+    expect(capture.facts.find((fact) => fact.sourceDocumentId === 'closed-unfit')
+      .sourceType).toBe('maintenanceIssue');
+  });
+
+  test('ordinary entry requests cannot forge the reserved completion identity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const requestId = `action-completed-v2-${IDS.entry}`;
+    await expect(invoke(memory, 'si-1', entryRequest({requestId})))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    expect(memory.store.has(`morning_review_entries/${requestId}`)).toBe(false);
+  });
+
+  test('admission rejects excess UTF-8 content while accepted entries can still finalize', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    let rejectedRequestId = null;
+    let accepted = 0;
+    for (let index = 0; index < 160; index += 1) {
+      const requestId = `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+      const request = entryRequest({requestId});
+      request.entryDraft.text = 'अ'.repeat(2000);
+      try {
+        await invoke(memory, 'si-1', request);
+        accepted += 1;
+      } catch (error) {
+        expect(error).toMatchObject({
+          code: 'failed-precondition',
+          details: {reasonCode: 'morning-review-content-capacity-reached'},
+        });
+        rejectedRequestId = requestId;
+        break;
+      }
+    }
+    expect(accepted).toBeGreaterThan(0);
+    expect(rejectedRequestId).not.toBeNull();
+    expect(memory.store.has(`morning_review_entries/${rejectedRequestId}`)).toBe(false);
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize, operation: 'FINALIZE_MORNING_REVIEW', sessionId,
+      expectedVersion: session.version, summary: 'अ'.repeat(2000),
+    });
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).entries)
+      .toHaveLength(accepted);
+  });
+
+  test('full review byte budget cannot veto prior-day action acceptance or completion', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    await invoke(memory, 'si-1', {requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId: priorDay, actionDraft: lifecycleActionDraft()}, yesterday);
+    await invoke(memory, 'si-1', startRequest(IDS.lateEntry));
+    await invoke(memory, 'ops-1', {requestId: IDS.join, operation: 'JOIN_MORNING_REVIEW', sessionId});
+    await fillAdmittedByteBudget(memory);
+    for (const retainOrigin of [true, false]) {
+      for (const accepting of [true, false]) {
+        const candidate = fakeDb(Object.fromEntries(memory.store));
+        if (!retainOrigin) candidate.store.delete(`morning_review_sessions/${priorDay}`);
+        const beforeSession = clone(candidate.store.get(`morning_review_sessions/${sessionId}`));
+        const beforeEntries = [...candidate.store.keys()].filter((key) => key.startsWith('morning_review_entries/'));
+        const requestId = accepting ? IDS.accept : IDS.complete;
+        await expect(invoke(candidate, 'ops-1', {requestId,
+          operation: accepting ? 'ACCEPT_MORNING_REVIEW_ACTION' : 'COMPLETE_MORNING_REVIEW_ACTION',
+          sessionId: priorDay, actionId: IDS.action, expectedVersion: 1,
+          ...(accepting ? {} : {reason: '\u0000'.repeat(1600)}),
+        })).resolves.toMatchObject({status: accepting ? 'accepted' : 'completed', version: 2});
+        expect(candidate.store.get(`morning_review_sessions/${sessionId}`)).toEqual(beforeSession);
+        expect([...candidate.store.keys()].filter((key) => key.startsWith('morning_review_entries/'))).toEqual(beforeEntries);
+        expect(candidate.writes.map((write) => write.path).sort()).toEqual([
+          `morning_review_actions/${IDS.action}`, `morning_review_mutation_receipts/${requestId}`,
+        ].sort());
+      }
+    }
+  });
+
+  test('current-day action admission reserves its bounded later acceptance and completion', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    await invoke(memory, 'si-1', {requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId, actionDraft: lifecycleActionDraft()});
+    await fillAdmittedByteBudget(memory);
+    // 160 characters is the canonical user-profile name bound in Firestore rules.
+    memory.store.get('users/ops-1').name = '\u0000'.repeat(160);
+    await expect(invoke(memory, 'ops-1', {requestId: IDS.accept,
+      operation: 'ACCEPT_MORNING_REVIEW_ACTION', sessionId, actionId: IDS.action,
+      expectedVersion: 1})).resolves.toMatchObject({status: 'accepted', version: 2});
+    await expect(invoke(memory, 'ops-1', {requestId: IDS.complete,
+      operation: 'COMPLETE_MORNING_REVIEW_ACTION', sessionId, actionId: IDS.action,
+      expectedVersion: 2, reason: '\u0000'.repeat(1600)}))
+      .resolves.toMatchObject({status: 'completed', version: 3});
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+    await expect(invoke(memory, 'si-1', {requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW', sessionId, expectedVersion: session.version,
+      summary: '\u0000'.repeat(2000)})).resolves.toMatchObject({status: 'finalized'});
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).actions[0])
+      .toMatchObject({status: 'completed', completionNote: '\u0000'.repeat(1600)});
+  });
+
+  test('optional carried-action entry admission never swallows unrelated read failures', async () => {
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    await invoke(memory, 'si-1', {requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId: '2026-08-30', actionDraft: lifecycleActionDraft()}, yesterday);
+    await invoke(memory, 'si-1', startRequest(IDS.lateEntry));
+    await invoke(memory, 'ops-1', {requestId: IDS.join, operation: 'JOIN_MORNING_REVIEW', sessionId});
+    const beforeWrites = memory.writes.length;
+    const originalCollection = memory.db.collection;
+    const failure = new Error('Transient standing-concern read failure');
+    memory.db.collection = (name) => name === 'morning_review_standing_concerns' ?
+      {...originalCollection(name), get: async () => { throw failure; }} : originalCollection(name);
+    await expect(invoke(memory, 'ops-1', {requestId: IDS.complete,
+      operation: 'COMPLETE_MORNING_REVIEW_ACTION', sessionId: '2026-08-30',
+      actionId: IDS.action, expectedVersion: 1, reason: 'Completed inspection.'})).rejects.toBe(failure);
+    expect(memory.writes).toHaveLength(beforeWrites);
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`).status).toBe('open');
   });
 
   test('rejects a join that would make finalization exceed capacity', async () => {

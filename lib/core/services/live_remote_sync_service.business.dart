@@ -17,6 +17,8 @@ enum _LiveBusinessMirrorKind {
 enum _RemoteMirrorApplyOutcome {
   applied,
   unchanged,
+  staleRemoteSkipped,
+  cleanLocalReconciliationRequired,
   localDirtyPreserved,
   duplicateLocalIdentity,
 }
@@ -36,9 +38,16 @@ _RemoteMirrorApplyReceipt _remoteMirrorReceiptFromRecord<T extends Object>(
     case RemoteRecordApplyOutcome.updated:
       return const _RemoteMirrorApplyReceipt(_RemoteMirrorApplyOutcome.applied);
     case RemoteRecordApplyOutcome.unchanged:
-    case RemoteRecordApplyOutcome.staleRemoteSkipped:
       return const _RemoteMirrorApplyReceipt(
         _RemoteMirrorApplyOutcome.unchanged,
+      );
+    case RemoteRecordApplyOutcome.staleRemoteSkipped:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.staleRemoteSkipped,
+      );
+    case RemoteRecordApplyOutcome.cleanLocalReconciliationRequired:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.cleanLocalReconciliationRequired,
       );
     case RemoteRecordApplyOutcome.localDirtyPreserved:
       return const _RemoteMirrorApplyReceipt(
@@ -468,6 +477,14 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
           : await adapter.applyRemote!(remote);
 
       if (!_acceptsLiveWork(generation)) return;
+      if (_trackCleanLocalReconciliation(
+        '${kind.name}/${snapshot.id}',
+        receipt,
+        remoteVersion: remote.version as int,
+        propagateFailure: propagateFailure,
+      )) {
+        return;
+      }
       if (receipt.outcome == _RemoteMirrorApplyOutcome.duplicateLocalIdentity) {
         throw StateError(
           'Live ${kind.name} mirror found ${receipt.duplicateCount} local rows '

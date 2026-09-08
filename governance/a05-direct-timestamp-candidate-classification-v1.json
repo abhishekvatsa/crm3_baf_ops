@@ -120,6 +120,18 @@
       "sites": [
         {"file": "lib/features/morning_review/domain/morning_review_report.dart", "expression": "DateTime.parse(", "occurrence": 1}
       ]
+    },
+    {
+      "id": "operational-event-terminal-rejection-proof",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "operational-events",
+      "purpose": "validate canonical UTC commit evidence for an exact actor, request, event and command fingerprint before a server-confirmed terminal rejection may release a pending creation",
+      "authorityBoundary": "server-committed-terminal-command-receipt; the timestamp alone never authorizes pending-request removal",
+      "regression": "test/operational_event_creation_retry_test.dart; functions/test/operationalEventMutation.test.js",
+      "reArmCondition": "malformed or noncanonical commit evidence releases a pending creation, missing evidence receives a fallback, or an unrelated actor, request, payload or generic error is treated as terminal rejection proof",
+      "sites": [
+        {"file": "lib/features/operational_events/services/operational_event_service.dart", "expression": "DateTime.tryParse(", "occurrence": 1}
+      ]
     }
   ]
 }

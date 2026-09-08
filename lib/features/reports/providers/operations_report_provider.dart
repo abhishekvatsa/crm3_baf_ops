@@ -24,6 +24,7 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../maintenance_workflow/data/compliance_request_record.dart';
 import '../../maintenance_workflow/data/job_lane_record.dart';
+import '../../maintenance_workflow/data/workflow_aggregate_record.dart';
 import '../../maintenance_workflow/domain/compliance_visibility_policy.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/data/operational_event.dart';
@@ -40,13 +41,21 @@ import '../models/operations_report.dart';
 export '../../../core/providers/operations_report_clock_provider.dart';
 
 part 'operations_report_authority_lifecycle.dart';
+part 'operations_report_identity_sources.dart';
 
-typedef OperationsReportPeriod =
-    ({DateTime startInclusive, DateTime endExclusive});
-typedef OperationsReportPeriodScope =
-    ({String actorUid, DateTime startInclusive, DateTime endExclusive});
-typedef OperationsReportScope =
-    ({String actorUid, OperationsReportFilter filter});
+typedef OperationsReportPeriod = ({
+  DateTime startInclusive,
+  DateTime endExclusive,
+});
+typedef OperationsReportPeriodScope = ({
+  String actorUid,
+  DateTime startInclusive,
+  DateTime endExclusive,
+});
+typedef OperationsReportScope = ({
+  String actorUid,
+  OperationsReportFilter filter,
+});
 typedef _ReportDimension = ({String disambiguator, String key, String label});
 
 final operationsReportTicketsProvider = StreamProvider.autoDispose
@@ -77,120 +86,246 @@ final operationsReportAbnormalitiesProvider = FutureProvider.autoDispose
       return ref.watch(abnormalityRepositoryProvider).getAllAbnormalities();
     });
 
-final operationsReportProvider = Provider.autoDispose.family<
-  AsyncValue<OperationsReport>,
-  OperationsReportScope
->((ref, scope) {
-  ref.watch(operationsReportAuthorityLifecycleProvider);
-  final actor = ref.watch(currentAppUserProvider);
-  if (actor.isLoading) return const AsyncLoading();
-  if (actor.hasError) {
-    return AsyncError(actor.error!, actor.stackTrace ?? StackTrace.current);
-  }
-  final authorizedActor = actor.value;
-  if (authorizedActor == null ||
-      !authorizedActor.canViewReports ||
-      authorizedActor.uid != scope.actorUid) {
-    return AsyncError(
-      StateError('Approved report access is required.'),
-      StackTrace.current,
-    );
-  }
-  final filter = scope.filter;
-  final periodScope = (
-    actorUid: scope.actorUid,
-    startInclusive: filter.startInclusive,
-    endExclusive: filter.endExclusive,
-  );
-  final tickets = ref.watch(operationsReportTicketsProvider(periodScope));
-  final executions = ref.watch(operationsReportExecutionsProvider(periodScope));
-  final events = ref.watch(operationalEventsForReportsProvider(scope.actorUid));
-  final dueStates = ref.watch(maintenanceDueStatesProvider);
-  final inspectionFindings = ref.watch(allInspectionFindingsProvider);
-  final qualityWarnings = ref.watch(
-    qualityWarningsForReportsProvider(scope.actorUid),
-  );
-  final qualityMonitoring = ref.watch(
-    qualityMonitoringRequestsForReportsProvider(scope.actorUid),
-  );
-  final abnormalities = ref.watch(
-    operationsReportAbnormalitiesProvider(scope.actorUid),
-  );
-  final directives = ref.watch(openDirectivesProvider);
-  final workflowLanes = ref.watch(workflowAllLanesProvider);
-  final complianceRequests = ref.watch(workflowAllComplianceProvider);
-  final criticalAlarms = ref.watch(
-    criticalAlarmsForReportsProvider(scope.actorUid),
-  );
-  final classes = ref.watch(assetClassesProvider);
-  final assets = ref.watch(allAssetInstancesProvider);
-  final innerCovers = ref.watch(innerCoverProfilesProvider);
-  final overview = ref.watch(plantAssetOverviewProvider);
-  final asOf = ref.watch(operationsReportClockProvider).value ?? DateTime.now();
-  final error =
-      tickets.asError ??
-      executions.asError ??
-      events.asError ??
-      dueStates.asError ??
-      inspectionFindings.asError ??
-      qualityWarnings.asError ??
-      qualityMonitoring.asError ??
-      abnormalities.asError ??
-      directives.asError ??
-      workflowLanes.asError ??
-      complianceRequests.asError ??
-      criticalAlarms.asError ??
-      classes.asError ??
-      assets.asError ??
-      innerCovers.asError ??
-      overview.asError;
-  if (error != null) return AsyncError(error.error, error.stackTrace);
-  if (tickets.isLoading ||
-      executions.isLoading ||
-      events.isLoading ||
-      dueStates.isLoading ||
-      inspectionFindings.isLoading ||
-      qualityWarnings.isLoading ||
-      qualityMonitoring.isLoading ||
-      abnormalities.isLoading ||
-      directives.isLoading ||
-      workflowLanes.isLoading ||
-      complianceRequests.isLoading ||
-      criticalAlarms.isLoading ||
-      classes.isLoading ||
-      assets.isLoading ||
-      innerCovers.isLoading ||
-      overview.isLoading) {
-    return const AsyncLoading();
-  }
-  try {
-    return AsyncData(
-      buildOperationsReport(
-        filter: filter,
-        tickets: tickets.requireValue,
-        executions: executions.requireValue,
-        events: events.requireValue,
-        dueStates: dueStates.requireValue,
-        inspectionFindings: inspectionFindings.requireValue,
-        qualityWarnings: qualityWarnings.requireValue,
-        qualityMonitoringRequests: qualityMonitoring.requireValue,
-        abnormalities: abnormalities.requireValue,
-        directives: directives.requireValue,
-        workflowLanes: workflowLanes.requireValue,
-        complianceRequests: complianceRequests.requireValue,
-        criticalAlarms: criticalAlarms.requireValue,
-        actor: authorizedActor,
-        assetClasses: classes.requireValue,
-        assetInstances: assets.requireValue,
-        innerCoverProfiles: innerCovers.requireValue,
-        overview: overview.requireValue,
-        asOf: asOf,
-      ),
-    );
-  } catch (error, stackTrace) {
-    return AsyncError(error, stackTrace);
-  }
-});
+final operationsReportProvider = Provider.autoDispose
+    .family<AsyncValue<OperationsReport>, OperationsReportScope>((ref, scope) {
+      ref.watch(operationsReportAuthorityLifecycleProvider);
+      final actor = ref.watch(currentAppUserProvider);
+      if (actor.isLoading) return const AsyncLoading();
+      if (actor.hasError) {
+        return AsyncError(actor.error!, actor.stackTrace ?? StackTrace.current);
+      }
+      final authorizedActor = actor.value;
+      if (authorizedActor == null ||
+          !authorizedActor.canViewReports ||
+          authorizedActor.uid != scope.actorUid) {
+        return AsyncError(
+          StateError('Approved report access is required.'),
+          StackTrace.current,
+        );
+      }
+      final filter = scope.filter;
+      final periodScope = (
+        actorUid: scope.actorUid,
+        startInclusive: filter.startInclusive,
+        endExclusive: filter.endExclusive,
+      );
+      final tickets = ref.watch(operationsReportTicketsProvider(periodScope));
+      final executions = ref.watch(
+        operationsReportExecutionsProvider(periodScope),
+      );
+      final events = ref.watch(
+        operationalEventsForReportsProvider(scope.actorUid),
+      );
+      final dueStates = ref.watch(maintenanceDueStatesProvider);
+      final inspectionFindings = ref.watch(allInspectionFindingsProvider);
+      final qualityWarnings = ref.watch(
+        qualityWarningsForReportsProvider(scope.actorUid),
+      );
+      final qualityMonitoring = ref.watch(
+        qualityMonitoringRequestsForReportsProvider(scope.actorUid),
+      );
+      final abnormalities = ref.watch(
+        operationsReportAbnormalitiesProvider(scope.actorUid),
+      );
+      final directives = ref.watch(openDirectivesProvider);
+      final workflowLanes = ref.watch(workflowAllLanesProvider);
+      final complianceRequests = ref.watch(workflowAllComplianceProvider);
+      final criticalAlarms = ref.watch(
+        criticalAlarmsForReportsProvider(scope.actorUid),
+      );
+      final classes = ref.watch(assetClassesProvider);
+      final assets = ref.watch(allAssetInstancesProvider);
+      final innerCovers = ref.watch(innerCoverProfilesProvider);
+      final overview = ref.watch(plantAssetOverviewProvider);
+      final asOf =
+          ref.watch(operationsReportClockProvider).value ?? DateTime.now();
+      final error =
+          tickets.asError ??
+          executions.asError ??
+          events.asError ??
+          dueStates.asError ??
+          inspectionFindings.asError ??
+          qualityWarnings.asError ??
+          qualityMonitoring.asError ??
+          abnormalities.asError ??
+          directives.asError ??
+          workflowLanes.asError ??
+          complianceRequests.asError ??
+          criticalAlarms.asError ??
+          classes.asError ??
+          assets.asError ??
+          innerCovers.asError ??
+          overview.asError;
+      if (error != null) return AsyncError(error.error, error.stackTrace);
+      if (tickets.isLoading ||
+          executions.isLoading ||
+          events.isLoading ||
+          dueStates.isLoading ||
+          inspectionFindings.isLoading ||
+          qualityWarnings.isLoading ||
+          qualityMonitoring.isLoading ||
+          abnormalities.isLoading ||
+          directives.isLoading ||
+          workflowLanes.isLoading ||
+          complianceRequests.isLoading ||
+          criticalAlarms.isLoading ||
+          classes.isLoading ||
+          assets.isLoading ||
+          innerCovers.isLoading ||
+          overview.isLoading) {
+        return const AsyncLoading();
+      }
+      try {
+        final identityWorkflows = <WorkflowAggregateRecord>[];
+        final identityAbnormalities = <String, ChargeAbnormality?>{};
+        _ReportIdentitySources identitySources = (
+          executions: const [],
+          tickets: const [],
+        );
+        if (filter.assetClassId != null || filter.assetInstanceId != null) {
+          final identity = _ReportAssetIdentityMatcher(
+            filter,
+            classes.requireValue,
+            assets.requireValue,
+          );
+          for (final warning in qualityWarnings.requireValue.where(
+            (warning) => _needsAbnormalityIdentity(warning, filter, identity),
+          )) {
+            final sources = ref.watch(
+              operationsReportAbnormalityIdentityProvider((
+                actorUid: scope.actorUid,
+                sourceChargeNo: warning.sourceChargeNo,
+              )),
+            );
+            if (sources.hasError) {
+              return AsyncError(
+                sources.error!,
+                sources.stackTrace ?? StackTrace.current,
+              );
+            }
+            if (sources.isLoading) return const AsyncLoading();
+            final matches = sources.requireValue
+                .where(
+                  (source) =>
+                      !source.isDeleted &&
+                      source.firestoreId == warning.sourceId,
+                )
+                .toList();
+            if (matches.length > 1) {
+              throw StateError(
+                'A quality warning has conflicting native abnormality sources.',
+              );
+            }
+            // Explicit absence must mask the old cached row, so deleted or
+            // inaccessible source identity cannot silently remain in a report.
+            identityAbnormalities[warning.sourceId] = matches.isEmpty
+                ? null
+                : matches.single;
+          }
+          final workflowIds = <String>{
+            for (final lane in workflowLanes.requireValue)
+              if (!lane.isDeleted && lane.assetTypeKey == 'governedCustom')
+                lane.workflowFirestoreId,
+            for (final request in complianceRequests.requireValue)
+              if (!request.isDeleted &&
+                  request.assetTypeKey == 'governedCustom' &&
+                  request.linkedWorkflowId != null)
+                request.linkedWorkflowId!,
+          };
+          for (final id in workflowIds) {
+            final workflow = ref.watch(workflowRecordProvider(id));
+            if (workflow.hasError) {
+              return AsyncError(
+                workflow.error!,
+                workflow.stackTrace ?? StackTrace.current,
+              );
+            }
+            if (workflow.isLoading) return const AsyncLoading();
+            if (workflow.value != null) identityWorkflows.add(workflow.value!);
+          }
+          final knownExecutionIds = executions.requireValue
+              .map((item) => item.firestoreId)
+              .toSet();
+          final knownTicketIds = tickets.requireValue
+              .map((item) => item.firestoreId)
+              .toSet();
+          final executionIds = <String>{
+            for (final lane in workflowLanes.requireValue)
+              if (!lane.isDeleted && lane.assetTypeKey == 'governedCustom')
+                lane.jobExecutionFirestoreId,
+            for (final request in complianceRequests.requireValue)
+              if (!request.isDeleted &&
+                  request.assetTypeKey == 'governedCustom' &&
+                  request.linkedExecutionFirestoreId != null)
+                request.linkedExecutionFirestoreId!,
+            for (final workflow in identityWorkflows)
+              workflow.jobExecutionFirestoreId,
+          }.where((id) => !knownExecutionIds.contains(id)).toList()..sort();
+          final ticketIds = <String>{
+            for (final warning in qualityWarnings.requireValue)
+              if (warning.sourceType == QualityWarningSourceType.issue &&
+                  warning.affectedAssets.any(
+                    (asset) =>
+                        asset.assetType == 'governedCustom' &&
+                        asset.assetHierarchyReference == null,
+                  ))
+                warning.sourceId,
+            for (final request in complianceRequests.requireValue)
+              if (!request.isDeleted &&
+                  request.assetTypeKey == 'governedCustom' &&
+                  request.linkedMaintenanceFirestoreId != null)
+                request.linkedMaintenanceFirestoreId!,
+          }.where((id) => !knownTicketIds.contains(id)).toList()..sort();
+          if (executionIds.isNotEmpty || ticketIds.isNotEmpty) {
+            final sources = ref.watch(
+              operationsReportIdentitySourcesProvider((
+                actorUid: scope.actorUid,
+                period: periodScope,
+                executionIds: jsonEncode(executionIds),
+                ticketIds: jsonEncode(ticketIds),
+              )),
+            );
+            if (sources.hasError) {
+              return AsyncError(
+                sources.error!,
+                sources.stackTrace ?? StackTrace.current,
+              );
+            }
+            if (sources.isLoading) return const AsyncLoading();
+            identitySources = sources.requireValue;
+          }
+        }
+        return AsyncData(
+          buildOperationsReport(
+            filter: filter,
+            tickets: tickets.requireValue,
+            executions: executions.requireValue,
+            identityExecutions: identitySources.executions,
+            identityTickets: identitySources.tickets,
+            identityWorkflows: identityWorkflows,
+            identityAbnormalities: identityAbnormalities,
+            events: events.requireValue,
+            dueStates: dueStates.requireValue,
+            inspectionFindings: inspectionFindings.requireValue,
+            qualityWarnings: qualityWarnings.requireValue,
+            qualityMonitoringRequests: qualityMonitoring.requireValue,
+            abnormalities: abnormalities.requireValue,
+            directives: directives.requireValue,
+            workflowLanes: workflowLanes.requireValue,
+            complianceRequests: complianceRequests.requireValue,
+            criticalAlarms: criticalAlarms.requireValue,
+            actor: authorizedActor,
+            assetClasses: classes.requireValue,
+            assetInstances: assets.requireValue,
+            innerCoverProfiles: innerCovers.requireValue,
+            overview: overview.requireValue,
+            asOf: asOf,
+          ),
+        );
+      } catch (error, stackTrace) {
+        return AsyncError(error, stackTrace);
+      }
+    });
 
 void _requireReportActorUid(String actorUid) {
   if (actorUid.trim().isEmpty) {
@@ -202,6 +337,10 @@ OperationsReport buildOperationsReport({
   required OperationsReportFilter filter,
   required List<MaintenanceRecord> tickets,
   required List<JobExecution> executions,
+  List<JobExecution> identityExecutions = const [],
+  List<MaintenanceRecord> identityTickets = const [],
+  List<WorkflowAggregateRecord> identityWorkflows = const [],
+  Map<String, ChargeAbnormality?> identityAbnormalities = const {},
   required List<OperationalEvent> events,
   List<MaintenanceDueState> dueStates = const [],
   List<InspectionFinding> inspectionFindings = const [],
@@ -223,31 +362,19 @@ OperationsReport buildOperationsReport({
       filter.endExclusive == filter.startInclusive) {
     throw ArgumentError('The report end date must not precede its start date.');
   }
-  final assetsById = {for (final item in assetInstances) item.id: item};
-  final selectedAsset =
-      filter.assetInstanceId == null
-          ? null
-          : assetsById[filter.assetInstanceId];
-  if (filter.assetInstanceId != null && selectedAsset == null) {
-    throw StateError('The selected physical asset is no longer available.');
-  }
-  if (filter.assetClassId != null &&
-      selectedAsset != null &&
-      selectedAsset.assetClassId != filter.assetClassId) {
-    throw StateError('The selected physical asset is outside the asset class.');
-  }
-  final effectiveClassId = filter.assetClassId ?? selectedAsset?.assetClassId;
+  final identityMatcher = _ReportAssetIdentityMatcher(
+    filter,
+    assetClasses,
+    assetInstances,
+  );
+  final assetsById = identityMatcher.assetsById;
+  final effectiveClassId = identityMatcher.effectiveClassId;
+  final legacyClasses = identityMatcher.legacyClasses;
+  final legacyIdentity = identityMatcher.legacyIdentity;
+  final referencedIdentity = identityMatcher.referencedIdentity;
+  final matchesIdentity = identityMatcher.matchesIdentity;
+  final affectedAssetMatches = identityMatcher.affectedAssetMatches;
   final reportAsOf = asOf ?? DateTime.now();
-  final legacyClassCandidates = <String, List<AssetClassRecord>>{};
-  for (final item in assetClasses) {
-    final key = item.legacyAssetTypeKey;
-    if (key == null) continue;
-    legacyClassCandidates.putIfAbsent(key, () => []).add(item);
-  }
-  final legacyClasses = <String, AssetClassRecord>{};
-  for (final entry in legacyClassCandidates.entries) {
-    if (entry.value.length == 1) legacyClasses[entry.key] = entry.value.single;
-  }
 
   String? ticketClassId(MaintenanceRecord ticket) =>
       ticket.assetHierarchyReference?.assetClassId ??
@@ -270,27 +397,6 @@ OperationsReport buildOperationsReport({
 
   String? dueStateClassId(MaintenanceDueState state) =>
       state.assetClassId ?? legacyClasses[state.assetTypeKey]?.id;
-
-  ({String? classId, String? assetId}) legacyIdentity(
-    String assetTypeKey,
-    int assetNumber,
-  ) {
-    final classId = legacyClasses[assetTypeKey]?.id;
-    if (classId == null) return (classId: null, assetId: null);
-    final matches = assetInstances
-        .where(
-          (asset) =>
-              asset.assetClassId == classId && asset.assetNumber == assetNumber,
-        )
-        .map((asset) => asset.id)
-        .toList(growable: false);
-    if (matches.length > 1) {
-      throw StateError(
-        '$assetTypeKey $assetNumber matches multiple physical assets.',
-      );
-    }
-    return (classId: classId, assetId: matches.firstOrNull);
-  }
 
   String? dueStateAssetId(MaintenanceDueState state) {
     if (state.assetInstanceId != null) return state.assetInstanceId;
@@ -371,49 +477,36 @@ OperationsReport buildOperationsReport({
   String? executionAssetId(JobExecution execution) =>
       executionIdentity(execution).assetId;
 
-  bool matchesIdentity(String? classId, String? assetId) {
-    if (effectiveClassId != null && classId != effectiveClassId) {
-      return false;
-    }
-    if (filter.assetInstanceId != null && assetId != filter.assetInstanceId) {
-      return false;
-    }
-    return true;
-  }
-
   bool overlaps(DateTime start, DateTime? end) =>
       start.isBefore(filter.endExclusive) &&
       (end == null || end.isAfter(filter.startInclusive));
 
-  final filteredTickets =
-      tickets
-          .where(
-            (ticket) =>
-                overlaps(ticket.startDate, ticket.endDate) &&
-                matchesIdentity(ticketClassId(ticket), ticketAssetId(ticket)),
-          )
-          .toList();
-  final filteredExecutions =
-      executions
-          .where(
-            (execution) =>
-                overlaps(
-                  execution.createdAt,
-                  execution.completedAt ?? execution.cancelledAt,
-                ) &&
-                matchesIdentity(
-                  executionClassId(execution),
-                  executionAssetId(execution),
-                ),
-          )
-          .toList();
-  final filteredDueStates =
-      dueStates
-          .where(
-            (state) =>
-                matchesIdentity(dueStateClassId(state), dueStateAssetId(state)),
-          )
-          .toList();
+  final filteredTickets = tickets
+      .where(
+        (ticket) =>
+            overlaps(ticket.startDate, ticket.endDate) &&
+            matchesIdentity(ticketClassId(ticket), ticketAssetId(ticket)),
+      )
+      .toList();
+  final filteredExecutions = executions
+      .where(
+        (execution) =>
+            overlaps(
+              execution.createdAt,
+              execution.completedAt ?? execution.cancelledAt,
+            ) &&
+            matchesIdentity(
+              executionClassId(execution),
+              executionAssetId(execution),
+            ),
+      )
+      .toList();
+  final filteredDueStates = dueStates
+      .where(
+        (state) =>
+            matchesIdentity(dueStateClassId(state), dueStateAssetId(state)),
+      )
+      .toList();
   bool isActiveFinding(InspectionFinding finding) => {
     InspectionFindingStatus.open,
     InspectionFindingStatus.correctiveActionLinked,
@@ -448,11 +541,72 @@ OperationsReport buildOperationsReport({
     return matchesIdentity(identity.classId, identity.assetId);
   }
 
-  bool affectedAssetsMatch(Iterable<QualityAffectedAsset> affectedAssets) {
+  final identityTicketsById = {
+    for (final ticket in [...identityTickets, ...tickets])
+      if (ticket.firestoreId != null) ticket.firestoreId!: ticket,
+  };
+  final identityExecutionsById = {
+    for (final execution in [...identityExecutions, ...executions])
+      if (execution.firestoreId != null) execution.firestoreId!: execution,
+  };
+  final identityWorkflowsById = {
+    for (final workflow in identityWorkflows) workflow.firestoreId: workflow,
+  };
+  final abnormalitiesById = <String, ChargeAbnormality?>{
+    for (final abnormality in abnormalities)
+      if (abnormality.firestoreId != null)
+        abnormality.firestoreId!: abnormality,
+    ...identityAbnormalities,
+  };
+
+  bool affectedAssetsMatch(QualityWarning warning) {
     if (effectiveClassId == null && filter.assetInstanceId == null) return true;
-    return affectedAssets.any(
-      (asset) => legacyRecordMatches(asset.assetType, asset.assetNumber),
-    );
+    if (identityMatcher.warningMatchesOwnIdentity(warning)) return true;
+    return warning.affectedAssets.any((asset) {
+      if (asset.assetHierarchyReference != null ||
+          asset.assetType != 'governedCustom') {
+        return affectedAssetMatches(
+          asset.assetType,
+          asset.assetNumber,
+          asset.assetHierarchyReference,
+        );
+      }
+      if (warning.sourceType == QualityWarningSourceType.issue) {
+        final source = identityTicketsById[warning.sourceId];
+        if (source != null &&
+            source.assetType.name == asset.assetType &&
+            source.assetNumber == asset.assetNumber) {
+          return affectedAssetMatches(
+            asset.assetType,
+            asset.assetNumber,
+            source.assetHierarchyReference,
+          );
+        }
+      } else {
+        final sourceAssets =
+            abnormalitiesById[warning.sourceId]?.affectedAssets
+                .where(
+                  (source) =>
+                      source.assetType.name == asset.assetType &&
+                      source.assetNumber == asset.assetNumber,
+                )
+                .toList() ??
+            const [];
+        if (sourceAssets.isNotEmpty) {
+          return sourceAssets.any(
+            (source) => affectedAssetMatches(
+              source.assetType.name,
+              source.assetNumber,
+              source.assetHierarchyReference,
+            ),
+          );
+        }
+      }
+      throw StateError(
+        'Quality warning ${warning.warningId} has no verifiable '
+        'custom-asset identity in its native source.',
+      );
+    });
   }
 
   final filteredQualityWarnings =
@@ -460,7 +614,7 @@ OperationsReport buildOperationsReport({
           .where(
             (warning) =>
                 overlaps(warning.createdAt, warning.closedAt) &&
-                affectedAssetsMatch(warning.affectedAssets),
+                affectedAssetsMatch(warning),
           )
           .toList()
         ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
@@ -477,7 +631,11 @@ OperationsReport buildOperationsReport({
   bool abnormalityMatchesIdentity(ChargeAbnormality abnormality) {
     if (effectiveClassId == null && filter.assetInstanceId == null) return true;
     return abnormality.affectedAssets.any(
-      (asset) => legacyRecordMatches(asset.assetType.name, asset.assetNumber),
+      (asset) => affectedAssetMatches(
+        asset.assetType.name,
+        asset.assetNumber,
+        asset.assetHierarchyReference,
+      ),
     );
   }
 
@@ -521,13 +679,86 @@ OperationsReport buildOperationsReport({
       actor.canAcknowledgeOrWorkMaintenanceLane(laneKey) ||
       (raisedByUid != null && raisedByUid == actor.uid);
 
+  bool workflowIdentityMatches({
+    required String type,
+    required int number,
+    String? workflowId,
+    String? executionId,
+    String? ticketId,
+  }) {
+    if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    final workflow = identityWorkflowsById[workflowId];
+    final execution =
+        identityExecutionsById[executionId ??
+            workflow?.jobExecutionFirestoreId];
+    final ticket = identityTicketsById[ticketId];
+    final candidates = <({String? classId, String? assetId})>[];
+    if (workflow?.assetClassId != null && workflow?.assetInstanceId != null) {
+      final asset = assetsById[workflow!.assetInstanceId];
+      if (asset == null ||
+          asset.assetClassId != workflow.assetClassId ||
+          asset.assetNumber != number ||
+          workflow.assetNumber != number ||
+          workflow.assetTypeKey != type) {
+        throw StateError(
+          'Workflow $workflowId has inconsistent physical-asset identity.',
+        );
+      }
+      candidates.add((classId: workflow.assetClassId, assetId: asset.id));
+    }
+    if (execution != null) {
+      if (execution.assetNumber != number ||
+          execution.assetType.name != type ||
+          (workflow != null &&
+              workflow.jobExecutionFirestoreId != execution.firestoreId)) {
+        throw StateError(
+          'A workflow report source refers to a different execution asset.',
+        );
+      }
+      candidates.add(executionIdentity(execution));
+    }
+    if (ticket != null) {
+      if (ticket.assetNumber != number || ticket.assetType.name != type) {
+        throw StateError(
+          'A compliance report source refers to a different issue asset.',
+        );
+      }
+      final reference = ticket.assetHierarchyReference;
+      candidates.add(
+        reference == null
+            ? legacyIdentity(type, number)
+            : referencedIdentity(reference, number),
+      );
+    }
+    final verified = candidates
+        .where((item) => item.classId != null && item.assetId != null)
+        .toSet();
+    if (verified.length > 1) {
+      throw StateError(
+        'A workflow report source has conflicting native asset references.',
+      );
+    }
+    final identity = verified.firstOrNull ?? legacyIdentity(type, number);
+    if (type == 'governedCustom' && identity.classId == null) {
+      throw StateError(
+        'A custom workflow source lacks a verifiable native asset reference.',
+      );
+    }
+    return matchesIdentity(identity.classId, identity.assetId);
+  }
+
   final filteredWorkflowLanes =
       workflowLanes
           .where(
             (lane) =>
                 !lane.isDeleted &&
                 workflowRecordVisible(lane.laneKey) &&
-                legacyRecordMatches(lane.assetTypeKey, lane.assetNumber),
+                workflowIdentityMatches(
+                  type: lane.assetTypeKey,
+                  number: lane.assetNumber,
+                  workflowId: lane.workflowFirestoreId,
+                  executionId: lane.jobExecutionFirestoreId,
+                ),
           )
           .toList()
         ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
@@ -538,7 +769,13 @@ OperationsReport buildOperationsReport({
                 !request.isDeleted &&
                 (actor == null ||
                     isComplianceRequestRelevantToUser(request, actor)) &&
-                legacyRecordMatches(request.assetTypeKey, request.assetNumber),
+                workflowIdentityMatches(
+                  type: request.assetTypeKey,
+                  number: request.assetNumber,
+                  workflowId: request.linkedWorkflowId,
+                  executionId: request.linkedExecutionFirestoreId,
+                  ticketId: request.linkedMaintenanceFirestoreId,
+                ),
           )
           .toList()
         ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
@@ -624,13 +861,11 @@ OperationsReport buildOperationsReport({
     (left, right) =>
         right.interval.startedAt.compareTo(left.interval.startedAt),
   );
-  final filteredStates =
-      overview.assets
-          .where(
-            (state) =>
-                matchesIdentity(state.asset.assetClassId, state.asset.id),
-          )
-          .toList();
+  final filteredStates = overview.assets
+      .where(
+        (state) => matchesIdentity(state.asset.assetClassId, state.asset.id),
+      )
+      .toList();
   final inventory = buildOperationsReportAssetInventory(
     assetClasses: assetClasses,
     assetStates: filteredStates,
@@ -661,23 +896,21 @@ OperationsReport buildOperationsReport({
     }
     final result =
         counts.entries.map((entry) {
-            final dimension = dimensions[entry.key]!;
-            final duplicateLabel =
-                labelOccurrences[dimension.label.toLowerCase()]! > 1;
-            return CountedReportLabel(
-              label:
-                  duplicateLabel
-                      ? '${dimension.label} · ${dimension.disambiguator}'
-                      : dimension.label,
-              count: entry.value,
-            );
-          }).toList()
-          ..sort((left, right) {
-            final count = right.count.compareTo(left.count);
-            return count != 0
-                ? count
-                : left.label.toLowerCase().compareTo(right.label.toLowerCase());
-          });
+          final dimension = dimensions[entry.key]!;
+          final duplicateLabel =
+              labelOccurrences[dimension.label.toLowerCase()]! > 1;
+          return CountedReportLabel(
+            label: duplicateLabel
+                ? '${dimension.label} · ${dimension.disambiguator}'
+                : dimension.label,
+            count: entry.value,
+          );
+        }).toList()..sort((left, right) {
+          final count = right.count.compareTo(left.count);
+          return count != 0
+              ? count
+              : left.label.toLowerCase().compareTo(right.label.toLowerCase());
+        });
     return List<CountedReportLabel>.unmodifiable(result.take(8));
   }
 
@@ -758,79 +991,68 @@ OperationsReport buildOperationsReport({
           ? occurrenceMatchesIdentity(occurrence)
           : occurrenceAffectsClass(occurrence, classId));
 
-  final selectedClasses =
-      assetClasses
-          .where(
-            (assetClass) =>
-                assetClass.isActive &&
-                (effectiveClassId == null || assetClass.id == effectiveClassId),
-          )
-          .toList();
+  final selectedClasses = assetClasses
+      .where(
+        (assetClass) =>
+            assetClass.isActive &&
+            (effectiveClassId == null || assetClass.id == effectiveClassId),
+      )
+      .toList();
   final classSummaries =
       selectedClasses.map((assetClass) {
-          final states =
-              filteredStates
-                  .where((state) => state.asset.assetClassId == assetClass.id)
-                  .toList();
-          final classTickets =
-              filteredTickets
-                  .where((ticket) => ticketClassId(ticket) == assetClass.id)
-                  .toList();
-          final classExecutions =
-              filteredExecutions
-                  .where(
-                    (execution) => executionClassId(execution) == assetClass.id,
-                  )
-                  .toList();
-          final classDueStates =
-              filteredDueStates
-                  .where((state) => dueStateClassId(state) == assetClass.id)
-                  .toList();
-          final classFindings =
-              filteredInspectionFindings
-                  .where((finding) => finding.assetClassId == assetClass.id)
-                  .toList();
-          final classInventory = inventory.forAssetClass(
-            assetClass: assetClass,
-            assetStates: states,
-          );
-          return AssetClassReportSummary(
-            assetClassId: assetClass.id,
-            assetClassName: assetClass.name,
-            assetCount: classInventory.total,
-            availableCount: classInventory.available,
-            underMaintenanceCount: classInventory.underMaintenance,
-            downCount: classInventory.down,
-            unfitCount: classInventory.unfit,
-            issueCount: classTickets.length,
-            openIssueCount:
-                classTickets.where((ticket) => !ticket.isResolved).length,
-            plannedJobCount: classExecutions.length,
-            openPlannedJobCount:
-                classExecutions
-                    .where((job) => !job.isCompleted && !job.isCancelled)
-                    .length,
-            disruptionCount:
-                events
-                    .expand((event) => event.occurrencesUntil(reportAsOf))
-                    .where(
-                      (occurrence) => occurrenceMatchesClassSummary(
-                        occurrence,
-                        assetClass.id,
-                      ),
-                    )
-                    .length,
-            overdueMaintenanceCount: classDueStates.where(isOverdue).length,
-            dueSoonMaintenanceCount: classDueStates.where(isDueSoon).length,
-            activeInspectionFindingCount:
-                classFindings.where(isActiveFinding).length,
-          );
-        }).toList()
-        ..sort(
-          (left, right) => left.assetClassName.toLowerCase().compareTo(
-            right.assetClassName.toLowerCase(),
-          ),
+        final states = filteredStates
+            .where((state) => state.asset.assetClassId == assetClass.id)
+            .toList();
+        final classTickets = filteredTickets
+            .where((ticket) => ticketClassId(ticket) == assetClass.id)
+            .toList();
+        final classExecutions = filteredExecutions
+            .where((execution) => executionClassId(execution) == assetClass.id)
+            .toList();
+        final classDueStates = filteredDueStates
+            .where((state) => dueStateClassId(state) == assetClass.id)
+            .toList();
+        final classFindings = filteredInspectionFindings
+            .where((finding) => finding.assetClassId == assetClass.id)
+            .toList();
+        final classInventory = inventory.forAssetClass(
+          assetClass: assetClass,
+          assetStates: states,
         );
+        return AssetClassReportSummary(
+          assetClassId: assetClass.id,
+          assetClassName: assetClass.name,
+          assetCount: classInventory.total,
+          availableCount: classInventory.available,
+          underMaintenanceCount: classInventory.underMaintenance,
+          downCount: classInventory.down,
+          unfitCount: classInventory.unfit,
+          issueCount: classTickets.length,
+          openIssueCount: classTickets
+              .where((ticket) => !ticket.isResolved)
+              .length,
+          plannedJobCount: classExecutions.length,
+          openPlannedJobCount: classExecutions
+              .where((job) => !job.isCompleted && !job.isCancelled)
+              .length,
+          disruptionCount: events
+              .expand((event) => event.occurrencesUntil(reportAsOf))
+              .where(
+                (occurrence) =>
+                    occurrenceMatchesClassSummary(occurrence, assetClass.id),
+              )
+              .length,
+          overdueMaintenanceCount: classDueStates.where(isOverdue).length,
+          dueSoonMaintenanceCount: classDueStates.where(isDueSoon).length,
+          activeInspectionFindingCount: classFindings
+              .where(isActiveFinding)
+              .length,
+        );
+      }).toList()..sort(
+        (left, right) => left.assetClassName.toLowerCase().compareTo(
+          right.assetClassName.toLowerCase(),
+        ),
+      );
 
   return OperationsReport(
     filter: filter,
@@ -856,8 +1078,9 @@ OperationsReport buildOperationsReport({
     sourceDueStateCount: dueStates.length,
     sourceInspectionFindingCount: inspectionFindings.length,
     disruptionCount: filteredOccurrences.length,
-    openDisruptionCount:
-        filteredOccurrences.where((occurrence) => occurrence.isOpen).length,
+    openDisruptionCount: filteredOccurrences
+        .where((occurrence) => occurrence.isOpen)
+        .length,
     disruptionDuration: filteredOccurrences.fold(
       Duration.zero,
       (total, occurrence) =>

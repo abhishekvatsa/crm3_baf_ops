@@ -295,21 +295,27 @@ function actorName(data: JsonMap): string {
 }
 
 function isTimestampLike(value: unknown): boolean {
+  return timestampMillis(value) != null;
+}
+
+function timestampMillis(value: unknown): number | null {
   if (value != null && typeof value === "object" &&
       Object.prototype.toString.call(value) === "[object Date]") {
     try {
-      return !Number.isNaN(Date.prototype.getTime.call(value));
+      const milliseconds = Date.prototype.getTime.call(value);
+      return Number.isFinite(milliseconds) ? milliseconds : null;
     } catch {
-      return false;
+      return null;
     }
   }
   if (value == null || typeof value !== "object" || Array.isArray(value) ||
-      typeof (value as {toDate?: unknown}).toDate !== "function") return false;
+      typeof (value as {toDate?: unknown}).toDate !== "function") return null;
   try {
     const date = (value as {toDate: () => unknown}).toDate();
-    return date instanceof Date && !Number.isNaN(date.getTime());
+    return date instanceof Date && Number.isFinite(date.getTime()) ?
+      date.getTime() : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -725,13 +731,18 @@ function resultFromReceipt(
   actorUid: string,
   data: JsonMap,
 ): AssetOperationalConditionMutationResult {
-  if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+  if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
       data.operation !== request.operation ||
       data.assetInstanceId !== request.assetInstanceId ||
       data.assetClassId !== request.assetClassId ||
-      !Number.isSafeInteger(data.version) ||
+      data.version !== request.expectedVersion + 1 ||
       !["available", "down", "unfit"].includes(data.condition as string) ||
-      typeof data.auditId !== "string" || typeof data.committedAtIso !== "string") {
+      data.auditId !== `asset_condition_${request.requestId}` ||
+      typeof data.committedAtIso !== "string" ||
+      !Number.isFinite(Date.parse(data.committedAtIso)) ||
+      new Date(data.committedAtIso).toISOString() !== data.committedAtIso ||
+      timestampMillis(data.committedAt) !== Date.parse(data.committedAtIso)) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "The asset-condition receipt is malformed or mismatched.",
@@ -815,30 +826,33 @@ export async function mutateAssetOperationalConditionWithDb(args: {
       asSnapshot(await transaction.get(actorRef), "Asset-condition actor lookup"),
       request.operation,
     );
-    const conditionValue = asSnapshot(
-      await transaction.get(conditionRef),
-      "Asset-condition lookup",
-    );
-    const current = conditionValue.exists ? conditionValue.data() ?? {} : null;
-    const currentVersion = validateCurrentCondition(current, request);
-
     if (receiptValue.exists) {
       const replay = resultFromReceipt(request, actorUid, receiptValue.data() ?? {});
       const auditData = record(
         auditValue,
         "Recorded asset-condition audit",
       );
-      if (current == null || current.version !== replay.version ||
-          current.lastMutationId !== request.requestId ||
+      const after = auditData.after as JsonMap | null;
+      const before = auditData.before as JsonMap | null;
+      if (auditData.schemaVersion !== 1 || auditData.auditId !== replay.auditId ||
           auditData.requestId !== request.requestId ||
+          auditData.operation !== request.operation ||
           auditData.performedByUid !== actorUid ||
-          auditData.assetInstanceId !== request.assetInstanceId) {
+          auditData.assetClassId !== request.assetClassId ||
+          auditData.assetInstanceId !== request.assetInstanceId ||
+          timestampMillis(auditData.performedAt) !== Date.parse(replay.committedAt) ||
+          after == null || Array.isArray(after) ||
+          after.version !== replay.version || after.condition !== replay.condition ||
+          (request.expectedVersion === 0 ? before != null :
+            before == null || before.version !== request.expectedVersion)) {
         throw new AssetHierarchyMutationError(
           "data-loss",
-          "The asset-condition receipt no longer matches its state and audit evidence.",
+          "The asset-condition receipt no longer matches its committed audit evidence.",
           {reasonCode: "asset-condition-replay-evidence-drift"},
         );
       }
+      // This confirms the original transition. Current availability is read
+      // separately and may legitimately have changed since this acceptance.
       return replay;
     }
     if (auditValue.exists) {
@@ -848,6 +862,13 @@ export async function mutateAssetOperationalConditionWithDb(args: {
         {reasonCode: "asset-condition-orphan-audit"},
       );
     }
+
+    const conditionValue = asSnapshot(
+      await transaction.get(conditionRef),
+      "Asset-condition lookup",
+    );
+    const current = conditionValue.exists ? conditionValue.data() ?? {} : null;
+    const currentVersion = validateCurrentCondition(current, request);
 
     const assetData = record(
       asSnapshot(await transaction.get(assetRef), "Asset-condition asset lookup"),

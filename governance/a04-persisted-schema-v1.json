@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "7D910A6645488F04ACBEBABC72658107546B16F8D779D943C93F0D28F98B7C8B",
+  "inventoryDigest": "6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "6A0BCE7771883379D3E0F317466DF75A37B1D6416DB2B415D164B205C33348D4",
+  "a05ManifestSha256": "26EB10BE0DE3FE7B03B124C06101953ED45B4F6A13025E37F80B0B335DCD9DA7",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1058,6 +1058,15 @@
       "regression": "test/global_pull_cursor_store_test.dart"
     },
     {
+      "id": "immutable-request-identity-journal",
+      "file": "lib/core/persistence/request_identity_journal.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "immutable actor/scope/request slots preserve every uncertain command identity across independently cached runtimes; domain decoders still validate each original record",
+      "malformedDisposition": "invalid preference type, malformed JSON, contradictory slot identity or duplicate request IDs raise explicit errors and preserve all saved evidence; no default or replacement record is manufactured",
+      "compatibility": "exact legacy actor slot remains readable without rewriting; new version-one journal envelopes wrap unchanged domain schemas; complete legacy scope is hashed to prevent prefix collisions",
+      "regression": "test/pending_command_stores_persistence_test.dart"
+    },
+    {
       "id": "inner-cover-lifecycle-records",
       "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -1232,7 +1241,7 @@
       "id": "morning-review-command-pending-identity",
       "file": "lib/features/morning_review/services/morning_review_command_idempotency_store.dart",
       "classification": "LOCAL_CONTROL_STATE",
-      "authorityBoundary": "actor-scoped durable identity of one unconfirmed Morning Review command",
+      "authorityBoundary": "actor-scoped durable identities of unconfirmed Morning Review commands, selecting the oldest retained intent for retry",
       "malformedDisposition": "fail closed and retain the pending bytes; never rotate an uncertain request ID or submit a different command over it",
       "compatibility": "wholly absent pre-feature pending identity only",
       "regression": "test/morning_review_command_idempotency_store_test.dart"
@@ -1250,10 +1259,10 @@
       "id": "morning-review-records",
       "file": "lib/features/morning_review/domain/morning_review_models.dart",
       "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
-      "authorityBoundary": "server-governed meeting lifecycle, attendance, contributions, actions, standing concerns, source facts, and frozen document",
-      "malformedDisposition": "fail closed before malformed identity, role, lifecycle, chronology, retention, or document evidence reaches the meeting workspace or PDF",
-      "compatibility": "schema version 1 only; exact fields, complete state-specific evidence, bounded nested populations, and retained identity relationships",
-      "regression": "test/morning_review_integrity_test.dart; functions/test/morningReviewMutation.test.js"
+      "authorityBoundary": "server-governed meeting lifecycle, attendance, contributions, actions, standing concerns, source facts, frozen document, and native action-completion identity",
+      "malformedDisposition": "fail closed before malformed identity, role, lifecycle, chronology, retention, document or reserved action-completion evidence reaches the meeting workspace or PDF",
+      "compatibility": "schema version 1 only; exact fields, complete state-specific evidence, bounded nested populations, retained identity relationships, and reserved native completion IDs with a validated action reference and bounded revision",
+      "regression": "test/morning_review_integrity_test.dart; test/morning_review_agenda_test.dart; functions/test/morningReviewMutation.test.js"
     },
     {
       "id": "operational-directive",
@@ -1268,10 +1277,19 @@
       "id": "operational-event-command-result",
       "file": "lib/features/operational_events/services/operational_event_service.dart",
       "classification": "SERVER_COMMAND_RECEIPT",
-      "authorityBoundary": "governed operational-event mutation result and optimistic-version evidence",
-      "malformedDisposition": "translate malformed callable evidence to data-loss and never report command success",
-      "compatibility": "none for request identity, operation, event identity, result version, audit identity, status, or commit time",
-      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
+      "authorityBoundary": "governed operational-event mutation result and optimistic-version evidence, plus exact server-committed terminal rejection proof before releasing a pending creation",
+      "malformedDisposition": "translate malformed successful callable evidence to data-loss; absent, generic, mismatched or noncanonical terminal rejection evidence preserves the pending creation and rethrows the command error",
+      "compatibility": "no fallback for request, operation, event, actor, fingerprint, result version, audit, status or commit evidence; terminal rejection accepts only its exact schema-one eight-field proof and matching reason/code pair",
+      "regression": "test/operational_event_model_test.dart; test/operational_event_creation_retry_test.dart; functions/test/operationalEventMutation.test.js"
+    },
+    {
+      "id": "operational-event-creation-outbox",
+      "file": "lib/features/operational_events/services/operational_event_creation_store.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "actor/request-scoped durable request identity, event identity and submitted payload for every unconfirmed operational-event creation; normalized server-command fingerprint binds any terminal receipt to that exact submitted intent",
+      "malformedDisposition": "fail closed and retain the saved bytes; never replace uncertain identities, dispatch only after durable readback, and clear only an exact matching successful or server-committed terminal outcome",
+      "compatibility": "absent pre-feature state; legacy schema-one actor slot stays readable alongside immutable schema-two request slots; invalid storage types and envelopes retain evidence and raise recovery errors",
+      "regression": "test/operational_event_creation_store_persistence_test.dart"
     },
     {
       "id": "operational-event-issue-link-command-result",
@@ -1299,6 +1317,15 @@
       "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
       "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
+    },
+    {
+      "id": "operations-report-identity-query-scope",
+      "file": "lib/features/reports/providers/operations_report_identity_sources.dart",
+      "classification": "DERIVED_READ_ONLY_QUERY_IDENTITY",
+      "authorityBoundary": "actor-scoped internal provider keys encode sorted retained execution and ticket identities for read-only report asset attribution; these keys grant no authority and are not persisted business records",
+      "malformedDisposition": "JSON or string-list type errors propagate as provider errors and withhold a report instead of substituting an empty identity set",
+      "compatibility": "internally generated JSON string lists only; retained business records remain decoded by their existing repositories",
+      "regression": "test/operations_report_test.dart"
     },
     {
       "id": "persisted-json-semantic-equality",

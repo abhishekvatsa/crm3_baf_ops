@@ -1,8 +1,10 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/operational_event.dart';
+import 'operational_event_creation_store.dart';
 
 const operationalEventCallableName = 'mutateAssetHierarchy';
 const operationalEventCallableRegion = 'asia-south1';
@@ -18,10 +20,15 @@ enum OperationalEventCommand {
 }
 
 class OperationalEventCommandException implements Exception {
-  const OperationalEventCommandException(this.message, {this.code});
+  const OperationalEventCommandException(
+    this.message, {
+    this.code,
+    this.details,
+  });
 
   final String message;
   final String? code;
+  final Object? details;
 
   @override
   String toString() => message;
@@ -140,10 +147,18 @@ class OperationalEventCommandResult {
 }
 
 class OperationalEventService {
-  OperationalEventService({FirebaseFunctions? functions})
-    : _functions = functions;
+  OperationalEventService({
+    FirebaseFunctions? functions,
+    String? Function()? actorUidResolver,
+    OperationalEventCreationStore? creationStore,
+  }) : _functions = functions,
+       _actorUidResolver =
+           actorUidResolver ?? (() => FirebaseAuth.instance.currentUser?.uid),
+       _creationStore = creationStore ?? OperationalEventCreationStore();
 
   final FirebaseFunctions? _functions;
+  final String? Function() _actorUidResolver;
+  final OperationalEventCreationStore _creationStore;
   static const _uuid = Uuid();
 
   FirebaseFunctions get _client =>
@@ -153,15 +168,151 @@ class OperationalEventService {
   Future<OperationalEventCommandResult> create({
     required OperationalEventDraft draft,
     required String reason,
-  }) {
-    final eventId = _uuid.v4();
-    return _call(
-      OperationalEventCommand.create,
-      eventId: eventId,
-      expectedVersion: 0,
-      reason: reason,
-      eventDraft: draft,
+    String? expectedActorUid,
+  }) async {
+    final actorUid = _creationActor();
+    _requireCreationActor(actorUid, expectedActorUid);
+    final commandDraft = draft.toCommandMap();
+    if ((commandDraft['affectedAssetClassIds'] as List).length > 20) {
+      throw const OperationalEventCommandException(
+        'Select no more than 20 asset classes for one operational event.',
+        code: 'invalid-argument',
+      );
+    }
+    if ((commandDraft['affectedAssetInstanceIds'] as List).length > 50) {
+      throw const OperationalEventCommandException(
+        'Select no more than 50 assets for one operational event.',
+        code: 'invalid-argument',
+      );
+    }
+    final identity = await _creationStore.resolve(
+      actorUid: actorUid,
+      payload: <String, dynamic>{
+        'reason': reason.trim(),
+        'eventDraft': commandDraft,
+      },
     );
+    return _sendCreation(actorUid, identity);
+  }
+
+  String _creationActor() {
+    final actorUid = _actorUidResolver()?.trim();
+    if (actorUid == null || actorUid.isEmpty) {
+      throw const OperationalEventCommandException(
+        'Sign in again before recording an operational event.',
+        code: 'unauthenticated',
+      );
+    }
+    return actorUid;
+  }
+
+  Future<PendingOperationalEventCreation?> pendingCreation() =>
+      _creationStore.pending(_creationActor());
+
+  void _requireCreationActor(String actorUid, String? expectedActorUid) {
+    if (expectedActorUid != null && actorUid != expectedActorUid) {
+      throw const OperationalEventCommandException(
+        'The account changed. Open the event form again for the current account.',
+        code: 'unauthenticated',
+      );
+    }
+  }
+
+  Future<OperationalEventCommandResult> retryPendingCreation({
+    String? expectedActorUid,
+    String? expectedRequestId,
+  }) async {
+    final actorUid = _creationActor();
+    _requireCreationActor(actorUid, expectedActorUid);
+    final identity = await _creationStore.pending(actorUid);
+    if (identity == null) {
+      throw const OperationalEventCommandException(
+        'There is no event awaiting confirmation for this account.',
+      );
+    }
+    if (expectedRequestId != null && identity.requestId != expectedRequestId) {
+      throw const OperationalEventCommandException(
+        'The saved event changed. Open its confirmation again.',
+      );
+    }
+    return _sendCreation(actorUid, identity);
+  }
+
+  Future<OperationalEventCommandResult> _sendCreation(
+    String actorUid,
+    PendingOperationalEventCreation identity,
+  ) async {
+    if (_creationActor() != actorUid) {
+      throw const OperationalEventCommandException(
+        'The signed-in account changed. The saved event was not sent.',
+        code: 'unauthenticated',
+      );
+    }
+    late final OperationalEventCommandResult result;
+    try {
+      result = await _send(<String, dynamic>{
+        ...identity.toRequest(),
+        'expectedActorUid': actorUid,
+      }, OperationalEventCommand.create);
+    } on OperationalEventCommandException catch (error) {
+      // Only committed terminal evidence may release this intent. A lost error,
+      // generic domain error, or different actor/payload must remain retryable.
+      if (_actorUidResolver()?.trim() == actorUid &&
+          _isTerminalCreationRejection(error, actorUid, identity)) {
+        await _creationStore.clearIfMatches(
+          actorUid: actorUid,
+          identity: identity,
+        );
+      }
+      rethrow;
+    }
+    if (_creationActor() != actorUid) {
+      throw const OperationalEventCommandException(
+        'The account changed while confirming the event. Sign in to the original account to confirm it.',
+        code: 'unauthenticated',
+      );
+    }
+    await _creationStore.clearIfMatches(actorUid: actorUid, identity: identity);
+    return result;
+  }
+
+  bool _isTerminalCreationRejection(
+    OperationalEventCommandException error,
+    String actorUid,
+    PendingOperationalEventCreation identity,
+  ) {
+    final details = error.details;
+    if (details is! Map) return false;
+    final reasonCode = details['reasonCode'];
+    const expectedCodes = <String, String>{
+      'operational-event-asset-class-missing': 'not-found',
+      'operational-event-asset-missing': 'not-found',
+      'operational-event-asset-class-invalid': 'failed-precondition',
+      'operational-event-asset-invalid': 'failed-precondition',
+      'operational-event-asset-class-mismatch': 'failed-precondition',
+      'operational-event-started-at-future': 'failed-precondition',
+    };
+    if (reasonCode is! String ||
+        !expectedCodes.containsKey(reasonCode) ||
+        error.code != expectedCodes[reasonCode]) {
+      return false;
+    }
+    final proof = details['terminalRejection'];
+    if (proof is! Map ||
+        proof.length != 8 ||
+        proof['schemaVersion'] != 1 ||
+        proof['outcome'] != 'rejected' ||
+        proof['requestId'] != identity.requestId ||
+        proof['eventId'] != identity.eventId ||
+        proof['actorUid'] != actorUid ||
+        proof['operation'] != OperationalEventCommand.create.wireName ||
+        proof['fingerprint'] != identity.commandFingerprint ||
+        proof['committedAt'] is! String) {
+      return false;
+    }
+    final committedAt = DateTime.tryParse(proof['committedAt'] as String);
+    return committedAt != null &&
+        committedAt.toUtc().toIso8601String() == proof['committedAt'];
   }
 
   Future<OperationalEventCommandResult> update({
@@ -220,20 +371,28 @@ class OperationalEventService {
       if (resolvedAt != null)
         'resolvedAt': canonicalOperationalEventCommandTimestamp(resolvedAt),
     };
+    return _send(request, operation);
+  }
+
+  Future<OperationalEventCommandResult> _send(
+    Map<String, dynamic> request,
+    OperationalEventCommand operation,
+  ) async {
     try {
       final response = await _client
           .httpsCallable(operationalEventCallableName)
           .call<Map<String, dynamic>>(request);
       return OperationalEventCommandResult.fromMap(
         Map<String, dynamic>.from(response.data),
-        expectedRequestId: requestId,
+        expectedRequestId: request['requestId'] as String,
         expectedOperation: operation,
-        expectedEventId: eventId,
+        expectedEventId: request['eventId'] as String,
       );
     } on FirebaseFunctionsException catch (error) {
       throw OperationalEventCommandException(
         error.message ?? 'The operational event could not be changed.',
         code: error.code,
+        details: error.details,
       );
     } on PersistedDataFormatException catch (error) {
       throw OperationalEventCommandException(

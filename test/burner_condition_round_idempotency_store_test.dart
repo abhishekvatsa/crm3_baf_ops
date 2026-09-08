@@ -28,7 +28,7 @@ void main() {
   );
 
   test(
-    'payload change rotates request identity and success clears it',
+    'payload change preserves both identities and success clears only its own',
     () async {
       final store = BurnerConditionRoundIdempotencyStore();
       final first = await store.resolve(
@@ -45,7 +45,17 @@ void main() {
         actorUid: 'operations-1',
         requestId: changed.requestId,
       );
-      expect(await store.read(actorUid: 'operations-1'), isNull);
+      expect(
+        (await store.read(actorUid: 'operations-1'))!.requestId,
+        first.requestId,
+      );
+      expect(
+        (await store.resolve(
+          actorUid: 'operations-1',
+          payloadFingerprint: 'a' * 64,
+        )).requestId,
+        first.requestId,
+      );
     },
   );
 

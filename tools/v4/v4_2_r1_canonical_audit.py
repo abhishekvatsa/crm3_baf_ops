@@ -223,6 +223,43 @@ def approved_artifact_source_matches(
     )
 
 
+# Shipped application inputs; backend parity is checked independently. A
+# governance or test-only commit does not change the installed application.
+PROMOTED_APPLICATION_SOURCE_PATHS = (
+    "android",
+    "assets",
+    "lib",
+    "pubspec.yaml",
+    "pubspec.lock",
+)
+
+
+def promoted_application_source_matches(
+    promoted_commit: str,
+    current_commit: str = "HEAD",
+) -> bool:
+    if not promoted_commit:
+        return False
+    for path in PROMOTED_APPLICATION_SOURCE_PATHS:
+        promoted_object = git_tree_object_id(promoted_commit, path)
+        current_object = git_tree_object_id(current_commit, path)
+        if promoted_object is None or promoted_object != current_object:
+            return False
+    return True
+
+
+def current_source_runtime_authority(
+    artifact_pilot_approved: bool,
+    backend_matches_deployed: bool,
+    application_matches_promoted_artifact: bool,
+) -> bool:
+    return (
+        artifact_pilot_approved
+        and backend_matches_deployed
+        and application_matches_promoted_artifact
+    )
+
+
 def function_fleet_deployment_status(
     deployed_tree: str | None,
     current_tree: str | None,
@@ -5167,6 +5204,13 @@ candidate_controlled_pilot_approved = (
     and combined_policy.get("distribution", {}).get("approvedBuildNumber")
         == candidate_build_number
 )
+expected_current_source_runtime_authority = current_source_runtime_authority(
+    candidate_controlled_pilot_approved,
+    backend_matches_deployed,
+    promoted_application_source_matches(
+        str(latest_finalized_completion.get("sourceAuthority", {}).get("commit", ""))
+    ),
+)
 if candidate_pending:
     if not backend_matches_deployed:
         expected_successor_state_status = (
@@ -7542,10 +7586,13 @@ check(
     ) == expected_current_source_artifact_relationship
     and current_successor_planes.get("currentSource", {}).get(
         "productionRuntimeUseAuthorized"
-    ) is candidate_controlled_pilot_approved
+    ) is expected_current_source_runtime_authority
     and current_successor_planes.get("currentSource", {}).get(
         "distributionAuthority"
-    ) is candidate_controlled_pilot_approved
+    ) is expected_current_source_runtime_authority
+    and current_successor_planes.get("controlledPilot", {}).get(
+        "appliesToCurrentSource"
+    ) is expected_current_source_runtime_authority
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "buildNumber"
     ) == latest_finalized_build_number
@@ -12704,9 +12751,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 80
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 83
     and a04_inventory_report.get("inventoryDigest")
-        == "7D910A6645488F04ACBEBABC72658107546B16F8D779D943C93F0D28F98B7C8B"
+        == "6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12714,8 +12761,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 53
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 80
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 80
+    and len(a04_inherited_decoders) == 83
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 83
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -12989,10 +13036,10 @@ check(
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 30
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 8
+    ) == 9
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13004,7 +13051,7 @@ check(
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 8
+    ) == 9
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13025,16 +13072,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 80
+    and a05_decoder_inventory_report.get("surfaceCount") == 83
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 51
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 40
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 424
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 43
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 437
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 80
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 83
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 51
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -13352,7 +13399,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 30
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13378,7 +13425,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 30
+    ) == 31
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

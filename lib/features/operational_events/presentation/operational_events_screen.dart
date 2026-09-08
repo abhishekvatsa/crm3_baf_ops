@@ -95,14 +95,13 @@ class _OperationalEventsScreenState
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
                   key: const ValueKey('operational-events-add'),
-                  onPressed:
-                      _busy
-                          ? null
-                          : () => _editEvent(
-                            actor: actor,
-                            classes: classes,
-                            assets: assets,
-                          ),
+                  onPressed: _busy
+                      ? null
+                      : () => _editEvent(
+                          actor: actor,
+                          classes: classes,
+                          assets: assets,
+                        ),
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Add event'),
                   style: FilledButton.styleFrom(
@@ -114,36 +113,30 @@ class _OperationalEventsScreenState
             ),
           Expanded(
             child: eventsAsync.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Loading operational events',
-                    color: BafColors.warning,
-                  ),
-              error:
-                  (error, _) => _ErrorState(
-                    message: error.toString(),
-                    onRetry:
-                        () => ref.invalidate(
-                          operationalEventsProvider(actor.uid),
-                        ),
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Loading operational events',
+                color: BafColors.warning,
+              ),
+              error: (error, _) => _ErrorState(
+                message: error.toString(),
+                onRetry: () =>
+                    ref.invalidate(operationalEventsProvider(actor.uid)),
+              ),
               data: (events) {
                 final open = events.where((event) => event.isOpen).toList();
-                final resolved =
-                    events.where((event) => !event.isOpen).toList();
+                final resolved = events
+                    .where((event) => !event.isOpen)
+                    .toList();
                 final visible = _showOpen ? open : resolved;
-                final critical =
-                    open
-                        .where(
-                          (event) =>
-                              event.severity ==
-                              OperationalEventSeverity.critical,
-                        )
-                        .length;
+                final critical = open
+                    .where(
+                      (event) =>
+                          event.severity == OperationalEventSeverity.critical,
+                    )
+                    .length;
                 return RefreshIndicator(
-                  onRefresh:
-                      () async =>
-                          ref.invalidate(operationalEventsProvider(actor.uid)),
+                  onRefresh: () async =>
+                      ref.invalidate(operationalEventsProvider(actor.uid)),
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
@@ -162,31 +155,28 @@ class _OperationalEventsScreenState
                           asOf: asOf,
                           onPreviousMonth:
                               _selectedMonth.isAfter(DateTime(2020))
-                                  ? () => setState(
-                                    () =>
-                                        _selectedMonth = DateTime(
-                                          _selectedMonth.year,
-                                          _selectedMonth.month - 1,
-                                        ),
-                                  )
-                                  : null,
+                              ? () => setState(
+                                  () => _selectedMonth = DateTime(
+                                    _selectedMonth.year,
+                                    _selectedMonth.month - 1,
+                                  ),
+                                )
+                              : null,
                           onNextMonth:
                               _selectedMonth.isBefore(_monthStart(asOf))
-                                  ? () => setState(
-                                    () =>
-                                        _selectedMonth = DateTime(
-                                          _selectedMonth.year,
-                                          _selectedMonth.month + 1,
-                                        ),
-                                  )
-                                  : null,
+                              ? () => setState(
+                                  () => _selectedMonth = DateTime(
+                                    _selectedMonth.year,
+                                    _selectedMonth.month + 1,
+                                  ),
+                                )
+                              : null,
                           onPickMonth: _pickImpactMonth,
-                          onTopicChanged:
-                              (value) => setState(() => _selectedTopic = value),
-                          onRetry:
-                              () => ref.invalidate(
-                                operationalEventsForReportsProvider(actor.uid),
-                              ),
+                          onTopicChanged: (value) =>
+                              setState(() => _selectedTopic = value),
+                          onRetry: () => ref.invalidate(
+                            operationalEventsForReportsProvider(actor.uid),
+                          ),
                         ),
                       ),
                       SliverToBoxAdapter(
@@ -209,9 +199,8 @@ class _OperationalEventsScreenState
                               ),
                             ],
                             selected: {_showOpen},
-                            onSelectionChanged:
-                                (selection) =>
-                                    setState(() => _showOpen = selection.first),
+                            onSelectionChanged: (selection) =>
+                                setState(() => _showOpen = selection.first),
                           ),
                         ),
                       ),
@@ -227,47 +216,42 @@ class _OperationalEventsScreenState
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                           sliver: SliverList.separated(
                             itemCount: visible.length,
-                            separatorBuilder:
-                                (_, _) => const SizedBox(height: 10),
-                            itemBuilder:
-                                (context, index) => _EventCard(
-                                  event: visible[index],
-                                  asOf: asOf,
-                                  classNames: {
-                                    for (final record in classes)
-                                      record.id: record.name,
-                                  },
-                                  assetNames: {
-                                    for (final record in assets)
-                                      record.id:
-                                          '${record.assetClassName} ${record.assetNumber}',
-                                  },
-                                  canEdit:
-                                      actor.canRecordOperationalEvent &&
-                                      visible[index].isOpen,
-                                  canResolve: actor.canResolveOperationalEvent,
-                                  onEdit:
-                                      () => _editEvent(
-                                        actor: actor,
-                                        classes: classes,
-                                        assets: assets,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) => _EventCard(
+                              event: visible[index],
+                              asOf: asOf,
+                              classNames: {
+                                for (final record in classes)
+                                  record.id: record.name,
+                              },
+                              assetNames: {
+                                for (final record in assets)
+                                  record.id:
+                                      '${record.assetClassName} ${record.assetNumber}',
+                              },
+                              canEdit:
+                                  actor.canRecordOperationalEvent &&
+                                  visible[index].isOpen,
+                              canResolve: actor.canResolveOperationalEvent,
+                              onEdit: () => _editEvent(
+                                actor: actor,
+                                classes: classes,
+                                assets: assets,
+                                event: visible[index],
+                              ),
+                              onResolve: () => _resolveEvent(visible[index]),
+                              onReopen: () => _reopenEvent(visible[index]),
+                              onIssues: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      OperationalEventIssueLinksScreen(
                                         event: visible[index],
                                       ),
-                                  onResolve:
-                                      () => _resolveEvent(visible[index]),
-                                  onReopen: () => _reopenEvent(visible[index]),
-                                  onIssues:
-                                      () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute<void>(
-                                          builder:
-                                              (_) =>
-                                                  OperationalEventIssueLinksScreen(
-                                                    event: visible[index],
-                                                  ),
-                                        ),
-                                      ),
                                 ),
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -287,16 +271,69 @@ class _OperationalEventsScreenState
     required List<AssetInstanceRecord> assets,
     OperationalEvent? event,
   }) async {
+    if (event == null) {
+      final service = ref.read(operationalEventServiceProvider);
+      try {
+        final pending = await service.pendingCreation();
+        if (!mounted) return;
+        if (pending != null) {
+          final draft = pending.payload['eventDraft'] as Map<String, dynamic>;
+          final retry = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Confirm your previous event'),
+              content: Text(
+                'Your earlier submission "${draft['title']}" still needs confirmation. '
+                'Retry that saved submission before recording another event. '
+                'This checks the same event and will not create a second copy.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Later'),
+                ),
+                FilledButton(
+                  key: const ValueKey('operational-event-retry-creation'),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Confirm event'),
+                ),
+              ],
+            ),
+          );
+          if (retry == true && mounted) {
+            await _run(
+              () => service.retryPendingCreation(
+                expectedActorUid: actor.uid,
+                expectedRequestId: pending.requestId,
+              ),
+              'Earlier event submission confirmed. The list shows its current state.',
+            );
+          }
+          return;
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.toString())));
+        }
+        return;
+      }
+    }
     final input = await showDialog<_EventInput>(
       context: context,
-      builder:
-          (_) => _EventDialog(event: event, classes: classes, assets: assets),
+      builder: (_) =>
+          _EventDialog(event: event, classes: classes, assets: assets),
     );
     if (input == null || !mounted) return;
     await _run(() async {
       final service = ref.read(operationalEventServiceProvider);
       if (event == null) {
-        await service.create(draft: input.draft, reason: input.reason);
+        await service.create(
+          draft: input.draft,
+          reason: input.reason,
+          expectedActorUid: actor.uid,
+        );
       } else {
         await service.update(
           event: event,
@@ -421,12 +458,14 @@ class _EventCard extends StatelessWidget {
     };
     final scopeText = switch (event.scope) {
       OperationalEventScope.plantWide => 'Whole plant',
-      OperationalEventScope.assetClasses => event.affectedAssetClassIds
-          .map((id) => classNames[id] ?? id)
-          .join(', '),
-      OperationalEventScope.assets => event.affectedAssetInstanceIds
-          .map((id) => assetNames[id] ?? id)
-          .join(', '),
+      OperationalEventScope.assetClasses =>
+        event.affectedAssetClassIds
+            .map((id) => classNames[id] ?? id)
+            .join(', '),
+      OperationalEventScope.assets =>
+        event.affectedAssetInstanceIds
+            .map((id) => assetNames[id] ?? id)
+            .join(', '),
     };
     return Container(
       padding: const EdgeInsets.all(16),
@@ -578,18 +617,18 @@ class _EventCard extends StatelessWidget {
               if (canResolve)
                 event.isOpen
                     ? FilledButton.icon(
-                      key: ValueKey(
-                        'operational-event-resolve-${event.eventId}',
-                      ),
-                      onPressed: onResolve,
-                      icon: const Icon(Icons.task_alt_rounded),
-                      label: const Text('Resolve'),
-                    )
+                        key: ValueKey(
+                          'operational-event-resolve-${event.eventId}',
+                        ),
+                        onPressed: onResolve,
+                        icon: const Icon(Icons.task_alt_rounded),
+                        label: const Text('Resolve'),
+                      )
                     : OutlinedButton.icon(
-                      onPressed: onReopen,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Reopen'),
-                    ),
+                        onPressed: onReopen,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Reopen'),
+                      ),
             ],
           ),
         ],
@@ -640,14 +679,13 @@ OperationalEventScopeSelection reconcileOperationalEventScopeSelection({
   required Set<String> activeClassIds,
   required Map<String, String> activeAssetClassIds,
 }) {
-  final assetIds =
-      selectedAssetIds
-          .where(
-            (id) =>
-                activeAssetClassIds.containsKey(id) &&
-                activeClassIds.contains(activeAssetClassIds[id]),
-          )
-          .toSet();
+  final assetIds = selectedAssetIds
+      .where(
+        (id) =>
+            activeAssetClassIds.containsKey(id) &&
+            activeClassIds.contains(activeAssetClassIds[id]),
+      )
+      .toSet();
   return switch (scope) {
     OperationalEventScope.plantWide => OperationalEventScopeSelection(
       assetClassIds: Set<String>.identity(),
@@ -745,15 +783,14 @@ class _EventDialogState extends State<_EventDialog> {
               isExpanded: true,
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Event type'),
-              items:
-                  OperationalEventType.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
-                        ),
-                      )
-                      .toList(),
+              items: OperationalEventType.values
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(value.label),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) => setState(() => _type = value!),
             ),
             const SizedBox(height: 12),
@@ -775,15 +812,14 @@ class _EventDialogState extends State<_EventDialog> {
               isExpanded: true,
               initialValue: _severity,
               decoration: const InputDecoration(labelText: 'Severity'),
-              items:
-                  OperationalEventSeverity.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
-                        ),
-                      )
-                      .toList(),
+              items: OperationalEventSeverity.values
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(value.label),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) => setState(() => _severity = value!),
             ),
             const SizedBox(height: 12),
@@ -791,15 +827,14 @@ class _EventDialogState extends State<_EventDialog> {
               isExpanded: true,
               initialValue: _scope,
               decoration: const InputDecoration(labelText: 'Affected scope'),
-              items:
-                  OperationalEventScope.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
-                        ),
-                      )
-                      .toList(),
+              items: OperationalEventScope.values
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(value.label),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) {
                 setState(() {
                   _scope = value!;
@@ -852,10 +887,9 @@ class _EventDialogState extends State<_EventDialog> {
               minLines: 2,
               maxLines: 4,
               decoration: InputDecoration(
-                labelText:
-                    widget.event == null
-                        ? 'Reason for recording'
-                        : 'Reason for correction',
+                labelText: widget.event == null
+                    ? 'Reason for recording'
+                    : 'Reason for correction',
               ),
             ),
             if (_error != null) ...[
@@ -908,11 +942,10 @@ class _EventDialogState extends State<_EventDialog> {
     if (selected != null) {
       setState(() {
         _assetIds = selected;
-        _classIds =
-            widget.assets
-                .where((asset) => asset.isActive && selected.contains(asset.id))
-                .map((asset) => asset.assetClassId)
-                .toSet();
+        _classIds = widget.assets
+            .where((asset) => asset.isActive && selected.contains(asset.id))
+            .map((asset) => asset.assetClassId)
+            .toSet();
       });
     }
   }
@@ -926,48 +959,42 @@ class _EventDialogState extends State<_EventDialog> {
     builder: (context) {
       final draft = selected.where(choices.containsKey).toSet();
       return StatefulBuilder(
-        builder:
-            (context, setDialogState) => AlertDialog(
-              title: Text(title),
-              content: SizedBox(
-                width: 480,
-                height: bafDialogBodyHeight(
-                  context,
-                  preferred: 420,
-                  minimum: 180,
-                ),
-                child: ListView(
-                  children:
-                      choices.entries
-                          .map(
-                            (entry) => CheckboxListTile(
-                              value: draft.contains(entry.key),
-                              title: Text(entry.value),
-                              onChanged: (checked) {
-                                setDialogState(() {
-                                  if (checked == true) {
-                                    draft.add(entry.key);
-                                  } else {
-                                    draft.remove(entry.key);
-                                  }
-                                });
-                              },
-                            ),
-                          )
-                          .toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, draft),
-                  child: const Text('Apply'),
-                ),
-              ],
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 480,
+            height: bafDialogBodyHeight(context, preferred: 420, minimum: 180),
+            child: ListView(
+              children: choices.entries
+                  .map(
+                    (entry) => CheckboxListTile(
+                      value: draft.contains(entry.key),
+                      title: Text(entry.value),
+                      onChanged: (checked) {
+                        setDialogState(() {
+                          if (checked == true) {
+                            draft.add(entry.key);
+                          } else {
+                            draft.remove(entry.key);
+                          }
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
             ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, draft),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
       );
     },
   );
@@ -1021,6 +1048,18 @@ class _EventDialogState extends State<_EventDialog> {
       setState(() => _error = 'Select at least one asset.');
       return;
     }
+    if (_classIds.length > 20) {
+      setState(
+        () => _error = _scope == OperationalEventScope.assets
+            ? 'Select assets from no more than 20 asset classes.'
+            : 'Select no more than 20 asset classes.',
+      );
+      return;
+    }
+    if (_assetIds.length > 50) {
+      setState(() => _error = 'Select no more than 50 assets.');
+      return;
+    }
     if (_startedAt.isAfter(DateTime.now())) {
       setState(() => _error = 'The event start time cannot be in the future.');
       return;
@@ -1068,10 +1107,9 @@ class _SelectionField extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color:
-              value == 'None selected'
-                  ? BafColors.textSecondary
-                  : BafColors.textPrimary,
+          color: value == 'None selected'
+              ? BafColors.textSecondary
+              : BafColors.textPrimary,
         ),
       ),
     ),

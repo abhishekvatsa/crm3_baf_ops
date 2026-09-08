@@ -81,6 +81,24 @@ class MorningReviewSourceFact {
   final String? assetNumber;
   final DateTime? observedAt;
 
+  /// Condition is captured by the server independently of the issue lifecycle.
+  /// The existing source-type field keeps schema-one clients able to read it.
+  String? get plantConditionEffect {
+    if (sourceCollection != 'maintenance_records' ||
+        factId != '$sourceCollection/$sourceDocumentId') {
+      return null;
+    }
+    return switch (sourceType) {
+      'maintenanceIssue:unfit' => 'unfit',
+      'maintenanceIssue:unavailable' => 'unavailable',
+      'maintenanceIssue:stuckUp' => 'stuckUp',
+      _ => null,
+    };
+  }
+
+  String get sourceTypeLabel =>
+      plantConditionEffect == null ? sourceType : 'maintenanceIssue';
+
   factory MorningReviewSourceFact.fromMap(
     Map<String, dynamic> map, {
     required String source,
@@ -455,21 +473,22 @@ class MorningReviewSession {
         detail: 'lifecycle evidence does not match the session status',
       );
     }
-    final sourceFacts = _objectList(
-          map['sourceFacts'],
-          field: 'sourceFacts',
-          source: source,
-          maximum: 220,
-        )
-        .asMap()
-        .entries
-        .map(
-          (entry) => MorningReviewSourceFact.fromMap(
-            entry.value,
-            source: '$source/sourceFacts[${entry.key}]',
-          ),
-        )
-        .toList(growable: false);
+    final sourceFacts =
+        _objectList(
+              map['sourceFacts'],
+              field: 'sourceFacts',
+              source: source,
+              maximum: 220,
+            )
+            .asMap()
+            .entries
+            .map(
+              (entry) => MorningReviewSourceFact.fromMap(
+                entry.value,
+                source: '$source/sourceFacts[${entry.key}]',
+              ),
+            )
+            .toList(growable: false);
     final sourceFactCount = readRequiredPersistedInt(
       map['sourceFactCount'],
       field: 'sourceFactCount',
@@ -783,6 +802,36 @@ class MorningReviewEntry {
   final DateTime createdAt;
   final String? addendumReason;
 
+  /// Only the server's native action transition can allocate this reserved ID.
+  /// Public entry commands accept UUIDs only; prose never supplies this proof.
+  ({String actionId, int actionVersion})? get actionCompletion {
+    final match = RegExp(
+      r'^action-completed-v([1-9][0-9]*)-'
+      r'([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-'
+      r'[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$',
+    ).firstMatch(entryId);
+    if (match == null ||
+        kind != MorningReviewEntryKind.currentCompliance ||
+        sourceReferences.length != 1 ||
+        authorUid.trim().isEmpty ||
+        addendumReason != null) {
+      return null;
+    }
+    final version = int.tryParse(match.group(1)!);
+    if (version == null || version < 2 || version > 9007199254740991) {
+      return null;
+    }
+    final reference = RegExp(
+      r'^morning_review_actions/([^/]{1,180})$',
+    ).firstMatch(sourceReferences.single);
+    if (reference == null ||
+        reference.group(1)!.trim() != reference.group(1) ||
+        reference.group(1)!.trim().isEmpty) {
+      return null;
+    }
+    return (actionId: reference.group(1)!, actionVersion: version);
+  }
+
   factory MorningReviewEntry.fromMap(
     Map<String, dynamic> map,
     String documentId, {
@@ -887,7 +936,7 @@ class MorningReviewEntry {
         detail: 'must be present only for an addendum',
       );
     }
-    return MorningReviewEntry(
+    final entry = MorningReviewEntry(
       entryId: id,
       sessionId: sessionId,
       section: readRequiredPersistedEnum(
@@ -940,6 +989,15 @@ class MorningReviewEntry {
       ),
       addendumReason: addendumReason,
     );
+    if (id.startsWith('action-completed-') && entry.actionCompletion == null) {
+      throw PersistedDataFormatException(
+        field: 'entryId',
+        source: source,
+        detail:
+            'server action completion identity or native reference is invalid',
+      );
+    }
+    return entry;
   }
 }
 
@@ -1892,8 +1950,9 @@ class MorningReviewDocument {
       ),
     );
     final sourceIds = document.sourceFacts.map((fact) => fact.factId).toSet();
-    final concernIds =
-        document.standingConcerns.map((concern) => concern.concernId).toSet();
+    final concernIds = document.standingConcerns
+        .map((concern) => concern.concernId)
+        .toSet();
     final populationsAreUnique =
         sourceIds.length == document.sourceFacts.length &&
         concernIds.length == document.standingConcerns.length &&

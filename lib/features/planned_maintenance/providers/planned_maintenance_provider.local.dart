@@ -759,8 +759,11 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
           remoteUpdatedAt: remote.updatedAt,
         )) {
           return RemoteRecordApplyResult<JobTemplate>(
-            RemoteRecordApplyOutcome.staleRemoteSkipped,
+            remoteIsNewer
+                ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+                : RemoteRecordApplyOutcome.staleRemoteSkipped,
             localRecord: local,
+            remoteIsNewer: remoteIsNewer,
           );
         }
         remote.id = local.id;
@@ -920,8 +923,11 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
         remoteUpdatedAt: remote.updatedAt,
       )) {
         return RemoteRecordApplyResult<JobExecution>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 
