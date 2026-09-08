@@ -23,6 +23,7 @@
     "stream-json": "$stream-json",
     "hono": "4.12.34",
     "ip-address": "10.4.0",
-    "js-yaml": "4.3.1"
+    "js-yaml": "4.3.1",
+    "csv-parse": "7.0.2"
   }
 }
