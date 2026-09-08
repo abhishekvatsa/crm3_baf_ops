@@ -8,7 +8,7 @@ import fs from "node:fs";
 import {createHash} from "node:crypto";
 
 const require = createRequire(import.meta.url);
-const {verifyStagedPromotionSourceAuthority} = require('./stagedPromotionSourceAuthority.js');
+const {verifyStagedPromotionSourceAuthority, BUILD27_GOVERNANCE} = require('./stagedPromotionSourceAuthority.js');
 const {
   adjudicateReadback,
   parseArgs,
@@ -140,6 +140,16 @@ function badDecisionValues(expected) {
         false, null, undefined, [expected], {}];
 }
 
+const promotionCiDecisions = [
+  ...['repository', 'artifactSourceCommit', 'governanceMainCommit', 'governanceMainTree', 'postMergeCi.headSha',
+    'postMergeCi.runId', 'postMergeCi.requiredJobCount'].map((field) => ['Receipt', `sourceAuthority.${field}`,
+    field.split('.').reduce((value, key) => value[key], measuredPromotionFixture().promotionReceipt.sourceAuthority)]),
+  ...['governanceMainCommit', 'governanceMainTree', 'postMergeReleaseGateHeadSha', 'postMergeReleaseGateRunId',
+    'postMergeReleaseGateConclusion', 'requiredJobCount', 'allRequiredJobsPassed'].map((field) => [
+    'DeviceAcceptanceReceipt', `sourceAndCiAuthority.${field}`,
+    measuredPromotionFixture().promotionDeviceAcceptanceReceipt.sourceAndCiAuthority[field],
+  ]),
+];
 const promotionAndCustodyDecisions = [
   ['Receipt', 'sourceAuthority.postMergeCi.allRequiredJobsPassed', true],
   ['Receipt', 'sourceAuthority.postMergeCi.conclusion', 'success'],
@@ -158,7 +168,7 @@ const promotionAndCustodyDecisions = [
 test('measured promotion and custody verdicts cannot contradict retained pilot authority', () => {
   const healthy = measuredPromotionFixture();
   assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
-  for (const [receiptKey, field, expected] of promotionAndCustodyDecisions) {
+  for (const [receiptKey, field, expected] of [...promotionCiDecisions, ...promotionAndCustodyDecisions]) {
     const badValues = badDecisionValues(expected);
     for (const value of badValues) {
       const input = structuredClone(healthy);
@@ -646,7 +656,12 @@ test("completed successor still requires every retained failed-attempt receipt",
     recordedAtUtc: '2026-09-08T14:00:00Z',
     evidenceType: "production-build-staged-controlled-pilot-authorization",
     decision: "PASS_BUILD11_STAGED_CONTROLLED_PILOT_AUTHORIZED",
-    sourceAuthority: {postMergeCi: {allRequiredJobsPassed: true, conclusion: 'success'}},
+    sourceAuthority: {
+      repository: BUILD27_GOVERNANCE.repository, artifactSourceCommit: completed.headSha,
+      governanceMainCommit: BUILD27_GOVERNANCE.commit, governanceMainTree: BUILD27_GOVERNANCE.tree,
+      postMergeCi: {runId: BUILD27_GOVERNANCE.runId, headSha: BUILD27_GOVERNANCE.commit,
+        requiredJobCount: 5, allRequiredJobsPassed: true, conclusion: 'success'},
+    },
     programmeDecision: {
       internalControlledPilot: 'GO_STAGED',
       pilotHandout: 'AUTHORIZED_EXACT_BUILD11_FROZEN_ROSTER_UP_TO_25',
@@ -758,6 +773,11 @@ test("completed successor still requires every retained failed-attempt receipt",
     measuredPromotionFinalizationReceiptSha256: completionSha,
   };
   const promotionDeviceAcceptanceReceipt = {
+    sourceAndCiAuthority: {
+      governanceMainCommit: BUILD27_GOVERNANCE.commit, governanceMainTree: BUILD27_GOVERNANCE.tree,
+      postMergeReleaseGateRunId: BUILD27_GOVERNANCE.runId, postMergeReleaseGateHeadSha: BUILD27_GOVERNANCE.commit,
+      postMergeReleaseGateConclusion: 'success', requiredJobCount: 5, allRequiredJobsPassed: true,
+    },
     recordedAtUtc: '2026-09-08T13:15:00Z',
     evidenceType: "production-build-device-acceptance",
     status: runtimeDisposition,
