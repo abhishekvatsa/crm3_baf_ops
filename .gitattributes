@@ -11,3 +11,8 @@
 *.apk binary
 # Production tooling lockfile hash custody must be OS-stable.
 tooling/firebase-cli/package-lock.json text eol=lf
+# Preserve original bytes of the measured Build28 campaign receipts.
+release/evidence/build28-deployed-code-byte-comparison.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build28-backend-callables-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build28-backend-events-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build28-backend-fleet-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
