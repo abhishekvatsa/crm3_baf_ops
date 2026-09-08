@@ -499,6 +499,7 @@ function summarizeMutableSourceAuthority({
       promotionBackendReceipt?.deployment?.legacyMutatingFinalizeWrapperExecuted ===
         false &&
       promotedBackendBoundary?.iamMutated === false &&
+      promotedBackendBoundary?.serviceAccountsMutated === false &&
       promotedBackendBoundary?.appCheckActivated === false &&
       promotedBackendBoundary?.firestoreDocumentsRead === false &&
       promotedBackendBoundary?.firestoreDocumentsWritten === false &&
@@ -510,6 +511,15 @@ function summarizeMutableSourceAuthority({
       promotedBackendBoundary?.distributionPerformed === false &&
       promotedBackendBoundary?.securityRulesMutated === false &&
       promotedBackendBoundary?.indexesMutated === false &&
+      promotedBackendBoundary?.schedulerSmokeChangedRecordCount === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.functionFleet
+        ?.failedChecks === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies
+        ?.failedChecks === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies
+        ?.postureHolds === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes
+        ?.failedChecks === 0 &&
       promotedFirestoreAuthority?.receipt ===
         `release/evidence/build${promotedArtifact?.buildNumber}-firestore-rules-indexes-live-readback.json` &&
       measuredPromotionFirestoreReceiptSha256 ===
@@ -555,7 +565,10 @@ function summarizeMutableSourceAuthority({
       promotionFinalizationReceipt?.governedPackage?.sha256 ===
         promotedArtifact?.governedPackageSha256 &&
       promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
-        promotedReceiptBuild?.apkSha256);
+        promotedReceiptBuild?.apkSha256 &&
+      promotedReceiptBuild?.dualCustodyCompleted === true &&
+      promotedReceiptBuild?.oneTargetInPlaceValidationPassed === true &&
+      promotedReceiptBuild?.mutatingBusinessFlowValidationCompleted === false);
   const promotedMutationBoundary =
     promotionDeviceAcceptanceReceipt?.businessMutationBoundary;
   const promotedMutationValues =
@@ -680,14 +693,26 @@ function summarizeMutableSourceAuthority({
         false &&
       promotionDeviceAcceptanceReceipt.synchronization?.lastSyncResult ===
         "success" &&
+      promotionDeviceAcceptanceReceipt.synchronization?.syncStateAtInventory ===
+        "idle" &&
+      Number.isInteger(promotionDeviceAcceptanceReceipt.synchronization
+        ?.automaticStartupSyncPassesObserved) &&
+      promotionDeviceAcceptanceReceipt.synchronization
+        .automaticStartupSyncPassesObserved > 0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.unsyncedRows === 0 &&
       promotionDeviceAcceptanceReceipt.synchronization
         ?.unresolvedRejections === 0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.pushFailed === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.likelyPermanentRejections === 0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.fullSyncConflicts ===
         0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.processingErrors === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.globalPullConflict === 0 &&
       promotionDeviceAcceptanceReceipt.adjudication?.runtimeValidationPassed ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication?.physicalInPlaceMigrationPassed ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication?.authenticatedReadOnlySurfaceValidationCompleted ===
         true &&
       promotionDeviceAcceptanceReceipt.adjudication
         ?.fullBusinessFlowValidationCompleted === false &&
@@ -761,6 +786,19 @@ function summarizeMutableSourceAuthority({
       (promotedReceiptBoundary?.status === "STAGED_CONTROLLED_PILOT_AUTHORIZED" &&
         promotedReceiptBoundary?.maximumApprovedUsers > 0 &&
         promotedReceiptBoundary?.maximumApprovedUsers <= 25 &&
+        Number.isInteger(promotedReceiptBoundary?.maximumApprovedUsers) &&
+        releasePolicy.distribution?.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
+        postBuildPromotion.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
+        releasePolicy.distribution?.canaryUserCeiling ===
+          promotedReceiptBoundary.canaryUserCeiling &&
+        releasePolicy.distribution?.canaryPhysicalDeviceCeiling ===
+          promotedReceiptBoundary.canaryPhysicalDeviceCeiling &&
+        postBuildPromotion.canaryUserCeiling ===
+          promotedReceiptBoundary.canaryUserCeiling &&
+        postBuildPromotion.canaryPhysicalDeviceCeiling ===
+          promotedReceiptBoundary.canaryPhysicalDeviceCeiling &&
         promotedReceiptBoundary?.canaryUserCeiling === 2 &&
         promotedReceiptBoundary?.canaryPhysicalDeviceCeiling === 2));
   const expectedPromotionStatus = stagedPromotion

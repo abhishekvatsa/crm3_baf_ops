@@ -3,6 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
+import {execFileSync} from "node:child_process";
 
 const require = createRequire(import.meta.url);
 const {
@@ -453,6 +454,9 @@ test("completed successor still requires every retained failed-attempt receipt",
     unrestrictedPlantReleaseApproved: false,
   };
   promotedPolicy.distribution = {
+    maximumApprovedUsers: 25,
+    canaryUserCeiling: 2,
+    canaryPhysicalDeviceCeiling: 2,
     authority: "exact-build11-staged-controlled-pilot",
     approved: true,
     approvedBuildNumber: completed.buildNumber,
@@ -484,6 +488,9 @@ test("completed successor still requires every retained failed-attempt receipt",
         certificateSha256: certificateSha,
         finalizationReceipt: completionPath,
         finalizationReceiptSha256: completionSha,
+        dualCustodyCompleted: true,
+        oneTargetInPlaceValidationPassed: true,
+        mutatingBusinessFlowValidationCompleted: false,
       },
       deviceAcceptance: {
         receipt: deviceAcceptancePath,
@@ -601,6 +608,10 @@ test("completed successor still requires every retained failed-attempt receipt",
       ticketSubmitted: false,
     },
     synchronization: {
+      automaticStartupSyncPassesObserved: 2,
+      syncStateAtInventory: "idle",
+      globalPullConflict: 0,
+      likelyPermanentRejections: 0,
       lastSyncResult: "success",
       unsyncedRows: 0,
       unresolvedRejections: 0,
@@ -609,6 +620,8 @@ test("completed successor still requires every retained failed-attempt receipt",
       processingErrors: 0,
     },
     adjudication: {
+      physicalInPlaceMigrationPassed: true,
+      authenticatedReadOnlySurfaceValidationCompleted: true,
       mutatingBusinessFlowValidationCompleted: false,
       runtimeValidationPassed: true,
       fullBusinessFlowValidationCompleted: false,
@@ -673,6 +686,11 @@ test("completed successor still requires every retained failed-attempt receipt",
     decision: "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
     firebaseProjectId: policy.productionProjectId,
     region: "asia-south1",
+    cleanMainLiveReadbacks: {
+      functionFleet: {failedChecks: 0},
+      iamDependencies: {failedChecks: 0, postureHolds: 0},
+      firestoreRulesAndIndexes: {failedChecks: 0},
+    },
     deployment: {
       allFunctionsExactSourceVerified: true,
       finalRuntimeIdentityReadbackPassed: true,
@@ -682,6 +700,8 @@ test("completed successor still requires every retained failed-attempt receipt",
       legacyMutatingFinalizeWrapperExecuted: false,
     },
     controlBoundary: {
+      schedulerSmokeChangedRecordCount: 0,
+      serviceAccountsMutated: false,
       iamMutated: false,
       appCheckActivated: false,
       firestoreDocumentsRead: false,
@@ -754,6 +774,99 @@ test("completed successor still requires every retained failed-attempt receipt",
       controlledPilotPromotionExact: true,
     },
   );
+
+  for (const section of ['distribution', 'postBuildPromotion']) {
+    for (const cap of [26, 0, 24, '25', null]) {
+      const mismatchedCap = structuredClone(promotedPolicy);
+      mismatchedCap[section].maximumApprovedUsers = cap;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: mismatchedCap, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+      }).releasePolicyExact, false, `${section} cap ${cap} must match approval`);
+    }
+    for (const field of ['canaryUserCeiling', 'canaryPhysicalDeviceCeiling']) {
+      for (const cap of [3, 1, '2', null]) {
+        const mismatchedCap = structuredClone(promotedPolicy);
+        mismatchedCap[section][field] = cap;
+        assert.equal(summarizeMutableSourceAuthority({
+          policy, releasePolicy: mismatchedCap, buildLedger: {entries: ledgers},
+          promotionReceipt, ...promotionFinalizationAuthority,
+        }).releasePolicyExact, false, `${section}.${field} must match approval`);
+      }
+    }
+  }
+
+  for (const counter of ['likelyPermanentRejections', 'pushFailed', 'fullSyncConflicts', 'processingErrors', 'globalPullConflict']) {
+    for (const value of [1, -1, '0', null, false, undefined]) {
+      const badSync = structuredClone(promotionDeviceAcceptanceReceipt);
+      badSync.synchronization[counter] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionDeviceAcceptanceReceipt: badSync,
+      }).releasePolicyExact, false, `${counter} must be numeric zero`);
+    }
+  }
+
+  for (const [field, values] of [
+    ['automaticStartupSyncPassesObserved', [0, -1, 0.5, '2', null, false, undefined]],
+    ['syncStateAtInventory', ['running', 'error', 'IDLE', null, undefined]],
+  ]) {
+    for (const value of values) {
+      const badSync = structuredClone(promotionDeviceAcceptanceReceipt);
+      badSync.synchronization[field] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionDeviceAcceptanceReceipt: badSync,
+      }).releasePolicyExact, false, `${field} must substantiate completed automatic sync`);
+    }
+  }
+
+  for (const field of ['physicalInPlaceMigrationPassed', 'authenticatedReadOnlySurfaceValidationCompleted']) {
+    for (const value of [false, null, 'true', undefined]) {
+      const badDevice = structuredClone(promotionDeviceAcceptanceReceipt);
+      badDevice.adjudication[field] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionDeviceAcceptanceReceipt: badDevice,
+      }).releasePolicyExact, false, `${field} must be a measured pass`);
+    }
+  }
+
+  for (const [field, value] of [
+    ['dualCustodyCompleted', false],
+    ['oneTargetInPlaceValidationPassed', false],
+    ['mutatingBusinessFlowValidationCompleted', true],
+  ]) {
+    const badPromotion = structuredClone(promotionReceipt);
+    badPromotion.admittedEvidence.governedBuild[field] = value;
+    assert.equal(summarizeMutableSourceAuthority({
+      policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+      promotionReceipt: badPromotion, ...promotionFinalizationAuthority,
+    }).releasePolicyExact, false, `${field} must agree with admitted evidence`);
+  }
+
+  for (const segments of [
+    ['controlBoundary', 'schedulerSmokeChangedRecordCount'],
+    ['cleanMainLiveReadbacks', 'functionFleet', 'failedChecks'],
+    ['cleanMainLiveReadbacks', 'iamDependencies', 'failedChecks'],
+    ['cleanMainLiveReadbacks', 'iamDependencies', 'postureHolds'],
+    ['cleanMainLiveReadbacks', 'firestoreRulesAndIndexes', 'failedChecks'],
+  ]) {
+    for (const value of [1, -1, '0', null, false, undefined]) {
+      const badBackend = structuredClone(promotionBackendReceipt);
+      let target = badBackend;
+      for (const segment of segments.slice(0, -1)) target = target[segment];
+      target[segments.at(-1)] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionBackendReceipt: badBackend,
+      }).releasePolicyExact, false, `${segments.join('.')} must be numeric zero`);
+    }
+  }
 
   const mismatchedPolicyApk = structuredClone(promotedPolicy);
   mismatchedPolicyApk.distribution.approvedApkSha256 = "b"
@@ -1067,6 +1180,12 @@ test("completed successor still requires every retained failed-attempt receipt",
 
   for (const weakenInfrastructure of [
     ({backend}) => {
+      backend.controlBoundary.serviceAccountsMutated = true;
+    },
+    ({backend}) => {
+      delete backend.controlBoundary.serviceAccountsMutated;
+    },
+    ({backend}) => {
       backend.controlBoundary.productionBusinessDataMutated = true;
     },
     ({firestore}) => {
@@ -1350,6 +1469,71 @@ test("source summary semantically revalidates mutable authority after byte drift
         entry.exact === true,
     ),
   );
+});
+
+test("PowerShell current and successor sync counters reject missing and nonnumeric evidence", () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1')
+    .replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    foreach ($name in @('Get-OptionalPropertyValue','Test-ZeroSynchronizationFailureCounters','Test-CompletedAutomaticSynchronization','Test-ZeroBackendReadbackFailures')) {
+      $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+      if ($null -eq $definition) { throw "Missing runtime predicate: $name" }
+      Invoke-Expression $definition.Extent.Text
+    }
+    $healthy = '{"pushFailed":0,"fullSyncConflicts":0,"processingErrors":0,"likelyPermanentRejections":0,"globalPullConflict":0}'
+    if (-not (Test-ZeroSynchronizationFailureCounters ($healthy | ConvertFrom-Json))) { throw 'Healthy rejected' }
+    foreach ($counter in @('pushFailed','fullSyncConflicts','processingErrors','likelyPermanentRejections','globalPullConflict')) {
+      foreach ($badValue in @(1, -1, '0', $null, $false)) {
+        $bad = $healthy | ConvertFrom-Json
+        $bad.$counter = $badValue
+        if (Test-ZeroSynchronizationFailureCounters $bad) { throw "Accepted invalid $counter" }
+      }
+      $missing = $healthy | ConvertFrom-Json
+      $missing.PSObject.Properties.Remove($counter)
+      if (Test-ZeroSynchronizationFailureCounters $missing) { throw "Accepted missing $counter" }
+    }
+    $automatic = '{"automaticStartupSyncPassesObserved":2,"syncStateAtInventory":"idle"}'
+    if (-not (Test-CompletedAutomaticSynchronization ($automatic | ConvertFrom-Json))) { throw 'Completed automatic sync rejected' }
+    foreach ($badValue in @(0, -1, 0.5, '2', $null, $false)) {
+      $bad = $automatic | ConvertFrom-Json
+      $bad.automaticStartupSyncPassesObserved = $badValue
+      if (Test-CompletedAutomaticSynchronization $bad) { throw 'Accepted absent or invalid automatic pass count' }
+    }
+    foreach ($badValue in @('running', 'error', 'IDLE', $null)) {
+      $bad = $automatic | ConvertFrom-Json
+      $bad.syncStateAtInventory = $badValue
+      if (Test-CompletedAutomaticSynchronization $bad) { throw 'Accepted incomplete sync inventory' }
+    }
+    $bad = $automatic | ConvertFrom-Json
+    $bad.syncStateAtInventory = @('idle', 'running')
+    if (Test-CompletedAutomaticSynchronization $bad) { throw 'Accepted nonscalar sync state' }
+    foreach ($field in @('automaticStartupSyncPassesObserved','syncStateAtInventory')) {
+      $bad = $automatic | ConvertFrom-Json
+      $bad.PSObject.Properties.Remove($field)
+      if (Test-CompletedAutomaticSynchronization $bad) { throw "Accepted missing $field" }
+    }
+    $backend = '{"controlBoundary":{"schedulerSmokeChangedRecordCount":0},"cleanMainLiveReadbacks":{"functionFleet":{"failedChecks":0},"iamDependencies":{"failedChecks":0,"postureHolds":0},"firestoreRulesAndIndexes":{"failedChecks":0}}}'
+    if (-not (Test-ZeroBackendReadbackFailures ($backend | ConvertFrom-Json))) { throw 'Healthy backend rejected' }
+    foreach ($path in @('controlBoundary.schedulerSmokeChangedRecordCount','cleanMainLiveReadbacks.functionFleet.failedChecks','cleanMainLiveReadbacks.iamDependencies.failedChecks','cleanMainLiveReadbacks.iamDependencies.postureHolds','cleanMainLiveReadbacks.firestoreRulesAndIndexes.failedChecks')) {
+      foreach ($badValue in @(1, -1, '0', $null, $false)) {
+        $bad = $backend | ConvertFrom-Json
+        $parts = $path.Split('.')
+        $target = $bad
+        foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
+        $target.($parts[-1]) = $badValue
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted invalid backend $path" }
+        $target.PSObject.Properties.Remove($parts[-1])
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing backend $path" }
+      }
+    }
+    'PASS_RUNTIME_SYNC_COUNTERS'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_RUNTIME_SYNC_COUNTERS/);
 });
 
 test("argument parser rejects the wrong repository and missing receipt", () => {
