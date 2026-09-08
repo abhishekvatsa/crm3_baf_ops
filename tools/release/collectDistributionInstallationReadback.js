@@ -318,6 +318,10 @@ function summarizeMutableSourceAuthority({
       promotedArtifact?.buildNumber &&
     promotedReceiptBoundary?.authorizedPackageSha256 ===
       promotedArtifact?.governedPackageSha256 &&
+    (!stagedPromotion ||
+      (promotedReceiptBuild?.apkSha256 != null &&
+        promotedReceiptBoundary?.authorizedApkSha256 ===
+          promotedReceiptBuild.apkSha256)) &&
     promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
     promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
     promotedReceiptBoundary?.publicArtifactAuthorized === false &&
@@ -364,6 +368,9 @@ function summarizeMutableSourceAuthority({
       promotedArtifact.buildNumber &&
     releasePolicy.distribution?.approvedPackageSha256 ===
       promotedArtifact.governedPackageSha256 &&
+    (!stagedPromotion ||
+      releasePolicy.distribution?.approvedApkSha256 ===
+        promotedReceiptBuild?.apkSha256) &&
     releasePolicy.distribution?.promotionReceiptFile ===
       promotionReceiptAuthority.path &&
     releasePolicy.distribution?.promotionReceiptSha256 ===

@@ -295,6 +295,8 @@ void main() {
       expect(source, contains('latestContainmentFinalizationExact'));
       expect(source, contains('historicalFailedAttemptsExact'));
       expect(source, contains('latestContainmentWorkflowRunExact'));
+      expect(source, contains('approvedApkSha256'));
+      expect(source, contains('authorizedApkSha256'));
       expect(source, contains('collectorAuthorizesClosure: false'));
       expect(source, contains('flag: "wx"'));
       expect(decision, contains('collector itself does not close `LR-07`'));

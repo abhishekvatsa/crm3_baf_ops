@@ -187,6 +187,10 @@ void main() {
     final firestore = _readObject(firestorePath);
     final finalizationWorkflow = (finalization['workflow'] as Map)
         .cast<String, dynamic>();
+    final finalizationClosure = (finalization['closure'] as Map)
+        .cast<String, dynamic>();
+    final finalizationCustody = (finalization['dualCustody'] as Map)
+        .cast<String, dynamic>();
     final promotionRecordedAt = readUtc(
       promotion['recordedAtUtc'],
       'promotion recordedAtUtc',
@@ -197,10 +201,40 @@ void main() {
         finalizationWorkflow['completedAtUtc'],
         'finalization workflow.completedAtUtc',
       ),
+      readUtc(
+        finalizationCustody['governedPackageCompletedAtUtc'],
+        'finalization dualCustody.governedPackageCompletedAtUtc',
+      ),
+      readUtc(
+        finalizationClosure['decisionAtUtc'],
+        'finalization closure.decisionAtUtc',
+      ),
+      readUtc(
+        finalizationCustody['closureArchiveCompletedAtUtc'],
+        'finalization dualCustody.closureArchiveCompletedAtUtc',
+      ),
       deviceRecordedAt,
       readUtc(backend['recordedAtUtc'], 'backend recordedAtUtc'),
       readUtc(firestore['capturedAtUtc'], 'Firestore capturedAtUtc'),
     ];
+    final workflowCompletedAt = admittedInstants[1];
+    final latestFinalizationCompletion = admittedInstants
+        .sublist(1, 5)
+        .reduce(
+          (latest, instant) => instant.isAfter(latest) ? instant : latest,
+        );
+    expect(latestFinalizationCompletion.isAfter(workflowCompletedAt), isTrue);
+    final closureLag = latestFinalizationCompletion.difference(
+      workflowCompletedAt,
+    );
+    final unsafeWorkflowOnlyPromotion = workflowCompletedAt.add(
+      Duration(microseconds: closureLag.inMicroseconds ~/ 2),
+    );
+    expect(unsafeWorkflowOnlyPromotion.isBefore(workflowCompletedAt), isFalse);
+    expect(
+      unsafeWorkflowOnlyPromotion.isBefore(latestFinalizationCompletion),
+      isTrue,
+    );
     for (final admittedAt in admittedInstants) {
       expect(promotionRecordedAt.isBefore(admittedAt), isFalse);
     }
@@ -216,6 +250,8 @@ void main() {
       verifier,
       contains('Post-build promotion predates admitted evidence:'),
     );
+    expect(verifier, contains('latestFinalizationCompletion'));
+    expect(verifier, contains('closureArchiveCompletedAtUtc'));
   });
 
   test('current policy projects Build 27 and preserves Build 11 history', () {
@@ -250,6 +286,10 @@ void main() {
     expect(distribution['approvedBuildNumber'], 27);
     expect(distribution['approvedPackageSha256'], packageSha);
     expect(distribution['approvedApkSha256'], apkSha);
+    expect(
+      distribution['approvedApkSha256'],
+      (_readObject(promotionPath)['promotion'] as Map)['authorizedApkSha256'],
+    );
     expect(distribution['maximumApprovedUsers'], 25);
     expect(distribution['canaryUserCeiling'], 2);
     expect(distribution['canaryPhysicalDeviceCeiling'], 2);
@@ -279,6 +319,26 @@ void main() {
     );
     expect(build11Authority['preservedHistoricalAuthority'], isTrue);
     expect(build11Authority['appliesToCurrentCandidate'], isFalse);
+
+    final verifier = File(
+      'tools/release/Test-ProductionReleasePolicy.ps1',
+    ).readAsStringSync();
+    expect(
+      verifier,
+      contains(
+        'Pending source must retain only a historical staged-pilot authority.',
+      ),
+    );
+    expect(verifier, contains('approvedApkSha256'));
+    expect(verifier, contains('authorizedApkSha256'));
+    expect(
+      verifier,
+      contains(r'$promotionBuildNumber -ne $approvedPilotBuildNumber'),
+    );
+    expect(
+      verifier,
+      isNot(contains(r'$promotionBuildNumber -ne $currentBuildNumber')),
+    );
   });
 
   test('ledger and current index do not claim a distribution occurred', () {

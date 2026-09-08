@@ -380,6 +380,17 @@ build27_promotion_recorded_at = utc_instant(build27_pilot_promotion.get("recorde
 build27_admitted_evidence_instants = [
     utc_instant(build27_pilot_approval.get("approvedAtUtc")),
     utc_instant(build27_finalization.get("workflow", {}).get("completedAtUtc")),
+    utc_instant(
+        build27_finalization.get("dualCustody", {}).get(
+            "governedPackageCompletedAtUtc"
+        )
+    ),
+    utc_instant(build27_finalization.get("closure", {}).get("decisionAtUtc")),
+    utc_instant(
+        build27_finalization.get("dualCustody", {}).get(
+            "closureArchiveCompletedAtUtc"
+        )
+    ),
     build27_device_recorded_at,
     utc_instant(build27_backend_deployment.get("recordedAtUtc")),
     utc_instant(build27_firestore_readback.get("capturedAtUtc")),
@@ -471,6 +482,14 @@ check(
     and build27_pilot_promotion.get("admittedEvidence", {}).get(
         "deviceAcceptance", {}
     ).get("sha256") == sha(build27_device_acceptance_path)
+    and build27_pilot_promotion.get("admittedEvidence", {}).get(
+        "governedBuild", {}
+    ).get("apkSha256")
+        == build27_pilot_promotion.get("promotion", {}).get(
+            "authorizedApkSha256"
+        )
+        == combined_policy.get("distribution", {}).get("approvedApkSha256")
+        == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
     and build27_pilot_promotion.get("promotion", {}).get(
         "pilotHandoutAuthorized"
     ) is True
@@ -13955,6 +13974,41 @@ lr07_ledger_by_build = {
     for entry in build_number_ledger.get("entries", [])
     if isinstance(entry.get("buildNumber"), int)
 }
+lr07_distribution = combined_policy.get("distribution", {})
+lr07_post_build_promotion = combined_policy.get("postBuildPromotion", {})
+lr07_promoted_build_number = lr07_distribution.get("approvedBuildNumber")
+lr07_promoted_artifact = next(
+    (
+        entry
+        for entry in lr07_artifacts
+        if entry.get("buildNumber") == lr07_promoted_build_number
+    ),
+    {},
+)
+lr07_promotion_receipt_file = lr07_post_build_promotion.get(
+    "promotionReceiptFile", ""
+)
+lr07_promotion_receipt_path = ROOT / lr07_promotion_receipt_file
+lr07_promotion_receipt = data(lr07_promotion_receipt_file)
+lr07_promotion_admitted_build = lr07_promotion_receipt.get(
+    "admittedEvidence", {}
+).get("governedBuild", {})
+lr07_promotion_scope = lr07_promotion_receipt.get("promotion", {})
+lr07_current_pilot_authorized = (
+    lr07_finalization.get("status") == "completed-non-distributable"
+    and lr07_promoted_build_number == lr07_current_build
+    and lr07_distribution.get("preservedHistoricalAuthority") is False
+    and lr07_distribution.get("appliesToCurrentCandidate") is True
+    and lr07_finalization.get("controlledPilotApproved") is True
+)
+lr07_historical_pilot_preserved = (
+    isinstance(lr07_promoted_build_number, int)
+    and isinstance(lr07_current_build, int)
+    and lr07_promoted_build_number < lr07_current_build
+    and lr07_distribution.get("preservedHistoricalAuthority") is True
+    and lr07_distribution.get("appliesToCurrentCandidate") is False
+    and lr07_finalization.get("controlledPilotApproved") is False
+)
 check(
     "LR-07 preserves contiguous finalized build evidence and source-only successors",
     lr07_policy.get("schemaVersion") == 1
@@ -14130,34 +14184,30 @@ check(
             )
         )
     )
-    and combined_policy.get("distribution", {}).get("authority")
-        == f"exact-build{lr07_current_build}-staged-controlled-pilot"
-    and combined_policy.get("distribution", {}).get("approved") is True
-    and combined_policy.get("distribution", {}).get("approvedBuildNumber")
-        == lr07_current_build
-    and combined_policy.get("distribution", {}).get("approvedPackageSha256")
-        == lr07_latest_artifact.get("governedPackageSha256")
-    and combined_policy.get("distribution", {}).get("appliesToCurrentCandidate")
+    and (lr07_current_pilot_authorized or lr07_historical_pilot_preserved)
+    and lr07_distribution.get("authority")
+        == f"exact-build{lr07_promoted_build_number}-staged-controlled-pilot"
+    and lr07_distribution.get("approved") is True
+    and lr07_distribution.get("approvedPackageSha256")
+        == lr07_promoted_artifact.get("governedPackageSha256")
+        == lr07_promotion_admitted_build.get("governedPackageSha256")
+        == lr07_promotion_scope.get("authorizedPackageSha256")
+    and lr07_distribution.get("approvedApkSha256")
+        == lr07_promotion_admitted_build.get("apkSha256")
+        == lr07_promotion_scope.get("authorizedApkSha256")
+    and lr07_distribution.get("maximumApprovedUsers") == 25
+    and lr07_distribution.get("canaryUserCeiling") == 2
+    and lr07_distribution.get("canaryPhysicalDeviceCeiling") == 2
+    and lr07_distribution.get("pilotHandoutPerformed") is False
+    and lr07_distribution.get("unrestrictedPlantReleaseApproved") is False
+    and lr07_distribution.get("postBuildPromotionRequiredForAnyDistribution")
         is True
-    and combined_policy.get("distribution", {}).get("maximumApprovedUsers")
-        == 25
-    and combined_policy.get("distribution", {}).get("canaryUserCeiling") == 2
-    and combined_policy.get("distribution", {}).get(
-        "canaryPhysicalDeviceCeiling"
-    ) == 2
-    and combined_policy.get("distribution", {}).get("pilotHandoutPerformed")
-        is False
-    and combined_policy.get("distribution", {}).get(
-        "unrestrictedPlantReleaseApproved"
-    ) is False
-    and combined_policy.get("distribution", {}).get(
-        "postBuildPromotionRequiredForAnyDistribution"
-    ) is True
-    and combined_policy.get("postBuildPromotion", {}).get("status")
+    and lr07_post_build_promotion.get("status")
         == "completed-staged-controlled-pilot-only"
-    and combined_policy.get("postBuildPromotion", {}).get(
-        "promotionReceiptSha256"
-    ) == sha(build27_pilot_promotion_path)
+    and lr07_post_build_promotion.get("buildNumber")
+        == lr07_promoted_build_number
+    and lr07_post_build_promotion.get("promotionReceiptSha256")
+        == sha(lr07_promotion_receipt_path)
     and combined_policy.get("artifactConstructionBoundary", {}).get("authority")
         == "production-signed-pre-release-candidate"
     and combined_policy.get("artifactConstructionBoundary", {}).get(

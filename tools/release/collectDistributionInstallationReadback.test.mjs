@@ -384,6 +384,7 @@ test("completed successor still requires every retained failed-attempt receipt",
   const promotionPath =
     "release/evidence/build-11-staged-controlled-pilot-authorization.json";
   const promotionSha = "1".repeat(64).toUpperCase();
+  const apkSha = "a".repeat(64).toUpperCase();
   policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
   const promotedPolicy = structuredClone(releasePolicy);
   promotedPolicy.postBuildPromotion = {
@@ -411,6 +412,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     approved: true,
     approvedBuildNumber: completed.buildNumber,
     approvedPackageSha256: completed.governedPackageSha256,
+    approvedApkSha256: apkSha,
     promotionReceiptFile: promotionPath,
     promotionReceiptSha256: promotionSha,
     pilotHandoutPerformed: false,
@@ -426,11 +428,13 @@ test("completed successor still requires every retained failed-attempt receipt",
         buildNumber: completed.buildNumber,
         sourceCommit: completed.headSha,
         governedPackageSha256: completed.governedPackageSha256,
+        apkSha256: apkSha,
       },
     },
     promotion: {
       authorizedBuildNumber: completed.buildNumber,
       authorizedPackageSha256: completed.governedPackageSha256,
+      authorizedApkSha256: apkSha,
       pilotHandoutAuthorized: true,
       pilotHandoutPerformedByThisRecord: false,
       publicArtifactAuthorized: false,
@@ -458,6 +462,20 @@ test("completed successor still requires every retained failed-attempt receipt",
       latestContainmentAttemptExact: true,
       controlledPilotPromotionExact: true,
     },
+  );
+
+  const mismatchedPolicyApk = structuredClone(promotedPolicy);
+  mismatchedPolicyApk.distribution.approvedApkSha256 = "b"
+    .repeat(64)
+    .toUpperCase();
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: mismatchedPolicyApk,
+      buildLedger: {entries: ledgers},
+      promotionReceipt,
+    }).releasePolicyExact,
+    false,
   );
 
   const fallbackPolicy = structuredClone(policy);
@@ -548,6 +566,39 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   );
 
+  const pendingPolicy = structuredClone(promotedPolicy);
+  pendingPolicy.release.buildNumber = successor.buildNumber;
+  pendingPolicy.finalization = {
+    status: "pending-source-authorized",
+    controlledPilotApproved: false,
+    priorCompletedBuild: {
+      ...promotedPolicy.finalization,
+      buildNumber: completed.buildNumber,
+    },
+    historicalFailedAttempts: [historicalFailure],
+  };
+  pendingPolicy.distribution.preservedHistoricalAuthority = true;
+  pendingPolicy.distribution.appliesToCurrentCandidate = false;
+  const pendingLedger = {
+    buildNumber: successor.buildNumber,
+    status: "source-reserved-awaiting-remote-consumption",
+    distributionPerformed: false,
+  };
+  assert.deepEqual(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+    }),
+    {
+      releasePolicyExact: true,
+      buildLedgerExact: true,
+      latestContainmentAttemptExact: true,
+      controlledPilotPromotionExact: true,
+    },
+  );
+
   const broadenedPromotion = structuredClone(promotedPolicy);
   broadenedPromotion.postBuildPromotion.publicArtifactApproved = true;
   assert.equal(
@@ -570,6 +621,16 @@ test("completed successor still requires every retained failed-attempt receipt",
     (receipt) => {
       receipt.admittedEvidence.governedBuild.governedPackageSha256 =
         "f".repeat(64).toUpperCase();
+    },
+    (receipt) => {
+      receipt.admittedEvidence.governedBuild.apkSha256 = "f"
+        .repeat(64)
+        .toUpperCase();
+    },
+    (receipt) => {
+      receipt.promotion.authorizedApkSha256 = "f"
+        .repeat(64)
+        .toUpperCase();
     },
   ]) {
     const mismatchedReceipt = structuredClone(promotionReceipt);

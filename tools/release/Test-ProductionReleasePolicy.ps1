@@ -524,20 +524,45 @@ if ($policy.signing.productionSigningApproved -ne $true -or
   throw 'Production signing/custody policy is incomplete.'
 }
 $currentBuildNumber = [int]$policy.release.buildNumber
-$expectedPilotAuthority =
-  "exact-build$currentBuildNumber-staged-controlled-pilot"
+$finalizationStatus = [string]$policy.finalization.status
+if ($finalizationStatus -notin @(
+    'completed-non-distributable'
+    'pending-source-authorized'
+  )) {
+  throw 'Production policy finalization state is unsupported.'
+}
 $currentStagedPilotAuthorized =
+  $finalizationStatus -eq 'completed-non-distributable' -and
   $policy.distribution.approved -eq $true -and
+  $policy.distribution.preservedHistoricalAuthority -eq $false -and
   $policy.distribution.appliesToCurrentCandidate -eq $true -and
   [int]$policy.distribution.approvedBuildNumber -eq $currentBuildNumber -and
   $policy.finalization.controlledPilotApproved -eq $true
+$historicalStagedPilotAuthorityPreserved =
+  $policy.distribution.approved -eq $true -and
+  $policy.distribution.preservedHistoricalAuthority -eq $true -and
+  $policy.distribution.appliesToCurrentCandidate -eq $false -and
+  [int]$policy.distribution.approvedBuildNumber -gt 0 -and
+  [int]$policy.distribution.approvedBuildNumber -lt $currentBuildNumber -and
+  $policy.finalization.controlledPilotApproved -eq $false
+if ($finalizationStatus -eq 'pending-source-authorized' -and
+    -not $historicalStagedPilotAuthorityPreserved) {
+  throw 'Pending source must retain only a historical staged-pilot authority.'
+}
+if ($finalizationStatus -eq 'completed-non-distributable' -and
+    -not $currentStagedPilotAuthorized -and
+    -not $historicalStagedPilotAuthorityPreserved) {
+  throw 'Completed source has neither exact current nor preserved historical pilot authority.'
+}
+$approvedPilotBuildNumber = [int]$policy.distribution.approvedBuildNumber
+$expectedPilotAuthority =
+  "exact-build$approvedPilotBuildNumber-staged-controlled-pilot"
 if ([string]$policy.distribution.authority -ne $expectedPilotAuthority -or
     $policy.distribution.approved -ne $true -or
-    $policy.distribution.preservedHistoricalAuthority -ne $false -or
-    $policy.distribution.appliesToCurrentCandidate -ne $true -or
-    [int]$policy.distribution.approvedBuildNumber -ne $currentBuildNumber -or
-    [string]$policy.distribution.approvedPackageSha256 -ne
-      [string]$policy.finalization.governedPackageSha256 -or
+    [string]$policy.distribution.approvedPackageSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    [string]$policy.distribution.approvedApkSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
     [int]$policy.distribution.maximumApprovedUsers -lt 1 -or
     [int]$policy.distribution.maximumApprovedUsers -gt 25 -or
     [int]$policy.distribution.canaryUserCeiling -ne 2 -or
@@ -545,6 +570,11 @@ if ([string]$policy.distribution.authority -ne $expectedPilotAuthority -or
     $policy.distribution.pilotHandoutPerformed -ne $false -or
     $policy.distribution.unrestrictedPlantReleaseApproved -ne $false) {
   throw 'Source policy staged-pilot authority is incomplete or broader than the controlled boundary.'
+}
+if ($currentStagedPilotAuthorized -and
+    [string]$policy.distribution.approvedPackageSha256 -ne
+      [string]$policy.finalization.governedPackageSha256) {
+  throw 'Current staged-pilot package differs from finalization authority.'
 }
 if ($policy.distribution.postBuildPromotionRequiredForAnyDistribution -ne
     $true) {
@@ -598,7 +628,6 @@ $requiredFiles = @(
   [string]$policy.postBuildPromotion.promotionReceiptFile
   'tools/release/Finalize-ProductionRelease.ps1'
 )
-$finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
   if ($policy.finalization.runtimeValidationPassed -eq $true) {
@@ -614,8 +643,6 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
-} else {
-  throw 'Production policy finalization state is unsupported.'
 }
 
 foreach ($file in $requiredFiles) {
@@ -655,6 +682,8 @@ if ([string]$promotionFinalizationReceipt.status -ne
       [string]$promotionAuthorityBuild.sourceCommit -or
     [string]$promotionFinalizationReceipt.governedPackage.sha256 -ne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$promotionFinalizationReceipt.governedPackage.apkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionAuthorityBuild.dualCustodyCompleted -ne $true -or
     [string]$promotionFinalizationReceipt.dualCustody.status -ne 'passed') {
   throw 'Promoted build retained finalization authority is incomplete or divergent.'
@@ -720,6 +749,26 @@ $promotionFirestoreReceipt =
 $promotionRecordedAt = Get-UtcEvidenceInstant `
   -Value $promotionReceipt.recordedAtUtc `
   -FieldName 'Post-build promotion recordedAtUtc'
+$finalizationCompletionInstants = @(
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.workflow.completedAtUtc `
+    -FieldName 'Build finalization workflow.completedAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.dualCustody.governedPackageCompletedAtUtc `
+    -FieldName 'Build finalization dualCustody.governedPackageCompletedAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.closure.decisionAtUtc `
+    -FieldName 'Build finalization closure.decisionAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.dualCustody.closureArchiveCompletedAtUtc `
+    -FieldName 'Build finalization dualCustody.closureArchiveCompletedAtUtc'
+)
+$latestFinalizationCompletion = $finalizationCompletionInstants[0]
+foreach ($finalizationCompletion in $finalizationCompletionInstants) {
+  if ($finalizationCompletion -gt $latestFinalizationCompletion) {
+    $latestFinalizationCompletion = $finalizationCompletion
+  }
+}
 $promotionEvidenceInstants = @(
   [PSCustomObject]@{
     Name = 'owner approval'
@@ -728,10 +777,8 @@ $promotionEvidenceInstants = @(
       -FieldName 'Pilot owner approval approvedAtUtc'
   }
   [PSCustomObject]@{
-    Name = 'build finalization'
-    Instant = Get-UtcEvidenceInstant `
-      -Value $promotionFinalizationReceipt.workflow.completedAtUtc `
-      -FieldName 'Build finalization workflow.completedAtUtc'
+    Name = 'build finalization closure'
+    Instant = $latestFinalizationCompletion
   }
   [PSCustomObject]@{
     Name = 'device acceptance'
@@ -759,11 +806,15 @@ $expectedPromotionDecision =
   "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-staged-controlled-pilot-only' -or
-    $promotionBuildNumber -ne $currentBuildNumber -or
+    $promotionBuildNumber -ne $approvedPilotBuildNumber -or
     [string]$policy.postBuildPromotion.sourceCommit -ne
       [string]$promotionAuthorityBuild.sourceCommit -or
     [string]$policy.postBuildPromotion.governedPackageSha256 -ne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$policy.distribution.approvedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$policy.distribution.approvedApkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $policy.postBuildPromotion.controlledPilotApproved -ne $true -or
     $policy.postBuildPromotion.pilotHandoutPerformed -ne $false -or
     $policy.postBuildPromotion.publicArtifactApproved -ne $false -or
@@ -785,9 +836,11 @@ if ([string]$policy.postBuildPromotion.status -ne
       'production-build-staged-controlled-pilot-authorization' -or
     [string]$promotionReceipt.decision -ne $expectedPromotionDecision -or
     [int]$promotionReceipt.promotion.authorizedBuildNumber -ne
-      $currentBuildNumber -or
+      $promotionBuildNumber -or
     [string]$promotionReceipt.promotion.authorizedPackageSha256 -ne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$promotionReceipt.promotion.authorizedApkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionReceipt.promotion.pilotHandoutAuthorized -ne $true -or
     $promotionReceipt.promotion.pilotHandoutPerformedByThisRecord -ne $false -or
     $promotionReceipt.promotion.publicArtifactAuthorized -ne $false -or
@@ -3142,5 +3195,10 @@ Write-Host '===== PRODUCTION RELEASE POLICY VERIFIED =====' `
 Write-Host "Application ID: $($policy.permanentApplicationId)"
 Write-Host "Version:        $($policy.release.versionName)+$($policy.release.buildNumber)"
 Write-Host "Reservation:    $($policy.versionPolicy.remoteReservationTag)"
-Write-Host "Distribution:   EXACT BUILD $currentBuildNumber STAGED PILOT ONLY"
+if ($currentStagedPilotAuthorized) {
+  Write-Host "Distribution:   EXACT BUILD $currentBuildNumber STAGED PILOT ONLY"
+} else {
+  Write-Host "Distribution:   BUILD $currentBuildNumber NOT APPROVED; " `
+    "EXACT BUILD $approvedPilotBuildNumber REMAINS HISTORICAL ONLY"
+}
 Write-Host 'Operational package cutover remains O-10/70J.'
