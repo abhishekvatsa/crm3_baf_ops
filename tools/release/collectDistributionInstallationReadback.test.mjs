@@ -24,6 +24,7 @@ const repositoryRoot = path.resolve(
 const backendClosureDecisions = [
   ['authorityChronology.allObservedFunctionUpdatesPostdateOwnerInstruction', true],
   ['authorityChronology.deploymentWasRetroactivelyAuthorized', false],
+  ['controlBoundary.aggregateBacklogQueriesPerformed', true],
   ['sourceAuthority.postMergeReleaseGateConclusion', 'success'],
   ['firestoreDeployment.rulesActiveByteExact', true],
   ['firestoreDeployment.allIndexesReady', true],
@@ -108,6 +109,7 @@ const promotionAndCustodyDecisions = [
   ['Receipt', 'programmeDecision.unrestrictedDistribution', 'NO_GO'],
   ['FinalizationReceipt', 'governedPackage.independentVerificationCompleted', true],
   ['FinalizationReceipt', 'dualCustody.allFileHashesMatched', true],
+  ['FinalizationReceipt', 'dualCustody.status', 'passed'],
 ];
 
 test('measured promotion and custody verdicts cannot contradict retained pilot authority', () => {
@@ -699,7 +701,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       apkSha256: apkSha,
       independentVerificationCompleted: true,
     },
-    dualCustody: {allFileHashesMatched: true},
+    dualCustody: {allFileHashesMatched: true, status: 'passed'},
   };
   const promotionFinalizationAuthority = {
     promotionFinalizationReceipt,
@@ -827,6 +829,9 @@ test("completed successor still requires every retained failed-attempt receipt",
     firebaseProjectId: policy.productionProjectId,
     region: "asia-south1",
     authorityChronology: {
+      ownerInstructionReceivedAtUtc: '2026-09-08T00:48:30.433Z',
+      earliestFunctionUpdateTime: '2026-09-08T00:50:50.909069859Z',
+      latestFunctionUpdateTime: '2026-09-08T00:57:47.774550619Z',
       allObservedFunctionUpdatesPostdateOwnerInstruction: true,
       deploymentWasRetroactivelyAuthorized: false,
     },
@@ -860,6 +865,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
     controlBoundary: {
       schedulerSmokeChangedRecordCount: 0,
+      aggregateBacklogQueriesPerformed: true,
       serviceAccountsMutated: false,
       iamMutated: false,
       appCheckActivated: false,
@@ -1657,7 +1663,7 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
     $tokens = $null; $parseErrors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw 'Verifier does not parse' }
-    foreach ($name in @('Get-OptionalPropertyValue','Test-ZeroSynchronizationFailureCounters','Test-CompletedAutomaticSynchronization','Test-ZeroBackendReadbackFailures')) {
+    foreach ($name in @('Get-OptionalPropertyValue','Get-UtcEvidenceInstant','Get-BackendChronologyInstantKey','ConvertFrom-BackendReceiptJson','Test-ZeroSynchronizationFailureCounters','Test-CompletedAutomaticSynchronization','Test-ZeroBackendReadbackFailures')) {
       $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
       if ($null -eq $definition) { throw "Missing runtime predicate: $name" }
       Invoke-Expression $definition.Extent.Text
@@ -1695,10 +1701,10 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
       if (Test-CompletedAutomaticSynchronization $bad) { throw "Accepted missing $field" }
     }
     $backend = [IO.File]::ReadAllText('${path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''")}')
-    if (-not (Test-ZeroBackendReadbackFailures ($backend | ConvertFrom-Json))) { throw 'Healthy backend rejected' }
+    if (-not (Test-ZeroBackendReadbackFailures (ConvertFrom-BackendReceiptJson -Text $backend))) { throw 'Healthy backend rejected' }
     foreach ($path in @('controlBoundary.schedulerSmokeChangedRecordCount','deployment.schedulerSmokeResult.changed','deployment.schedulerSmokeResult.workflowEscalationCandidateCount','cleanMainLiveReadbacks.functionFleet.failedChecks','cleanMainLiveReadbacks.iamDependencies.failedChecks','cleanMainLiveReadbacks.iamDependencies.postureHolds','cleanMainLiveReadbacks.firestoreRulesAndIndexes.failedChecks')) {
       foreach ($badValue in @(1, -1, '0', $null, $false)) {
-        $bad = $backend | ConvertFrom-Json
+        $bad = ConvertFrom-BackendReceiptJson -Text $backend
         $parts = $path.Split('.')
         $target = $bad
         foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
@@ -1710,7 +1716,7 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
     }
     foreach ($path in @('deployment.schedulerSmokeResult.invoked','deployment.schedulerBacklogZeroVerified')) {
       foreach ($badValue in @(0, 1, 'false', 'true', $null, @($true, $false))) {
-        $bad = $backend | ConvertFrom-Json
+        $bad = ConvertFrom-BackendReceiptJson -Text $backend
         $parts = $path.Split('.')
         $target = $bad
         foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
@@ -1719,7 +1725,7 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
         $target.PSObject.Properties.Remove($parts[-1])
         if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing scheduler boundary $path" }
       }
-      $bad = $backend | ConvertFrom-Json
+      $bad = ConvertFrom-BackendReceiptJson -Text $backend
       if ($path.EndsWith('.invoked')) { $bad.deployment.schedulerSmokeResult.invoked = $true }
       else { $bad.deployment.schedulerBacklogZeroVerified = $false }
       if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted adverse scheduler boundary $path" }
@@ -1762,6 +1768,113 @@ test("PowerShell rejects duplicate build numbers anywhere in the ledger", () => 
   assert.match(output, /PASS_WHOLE_LEDGER_UNIQUENESS/);
 });
 
+const backendChronologyFields = [
+  'ownerInstructionReceivedAtUtc', 'earliestFunctionUpdateTime', 'latestFunctionUpdateTime',
+];
+const backendChronologyBadCases = backendChronologyFields.flatMap((field) =>
+  [null, false, 0, [], '', 'not-a-time', '2026-02-30T00:00:00Z',
+    '2026-09-08T00:48:30.433', '2026-09-08T00:48:30.433+00:00']
+    .map((value) => ({field, value})),
+).concat([
+  {field: 'ownerInstructionReceivedAtUtc', value: '2026-09-08T01:00:00Z'},
+  {field: 'earliestFunctionUpdateTime', value: '2026-09-08T01:00:00Z'},
+  {field: 'latestFunctionUpdateTime', value: '2026-09-08T00:49:00Z'},
+]);
+
+test('measured backend chronology must prove authorization before ordered updates', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  for (const {field, value} of backendChronologyBadCases) {
+    const input = structuredClone(healthy);
+    input.promotionBackendReceipt.authorityChronology[field] = value;
+    rebindMeasuredReceipt(input);
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false,
+      `${field}: ${JSON.stringify(value)}`);
+  }
+  for (const field of backendChronologyFields) {
+    const input = structuredClone(healthy);
+    delete input.promotionBackendReceipt.authorityChronology[field];
+    rebindMeasuredReceipt(input);
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false, `missing ${field}`);
+  }
+  const equal = structuredClone(healthy);
+  for (const field of backendChronologyFields) {
+    equal.promotionBackendReceipt.authorityChronology[field] = '2026-09-08T00:48:30.433Z';
+  }
+  rebindMeasuredReceipt(equal);
+  assert.equal(summarizeMutableSourceAuthority(equal).controlledPilotPromotionExact, true);
+});
+
+test('PowerShell backend chronology must prove authorization before ordered updates', () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1').replaceAll("'", "''");
+  const backendPath = path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$null, [ref]$null)
+    foreach ($name in @('Get-OptionalPropertyValue','Get-UtcEvidenceInstant','Get-BackendChronologyInstantKey','ConvertFrom-BackendReceiptJson','Test-ZeroBackendReadbackFailures')) {
+      $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+      Invoke-Expression $definition.Extent.Text
+    }
+    $healthy = [IO.File]::ReadAllText('${backendPath}')
+    if (-not (Test-ZeroBackendReadbackFailures (ConvertFrom-BackendReceiptJson -Text $healthy))) { throw 'Healthy chronology rejected' }
+    $cases = '${JSON.stringify(backendChronologyBadCases)}' | ConvertFrom-Json
+    foreach ($case in $cases) {
+      $bad = ConvertFrom-BackendReceiptJson -Text $healthy
+      $bad.authorityChronology.($case.field) = $case.value
+      if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted chronology $($case.field): $($case.value)" }
+    }
+    foreach ($field in @('ownerInstructionReceivedAtUtc','earliestFunctionUpdateTime','latestFunctionUpdateTime')) {
+      $bad = ConvertFrom-BackendReceiptJson -Text $healthy
+      $bad.authorityChronology.PSObject.Properties.Remove($field)
+      if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing chronology $field" }
+    }
+    $equal = ConvertFrom-BackendReceiptJson -Text $healthy
+    foreach ($field in @('ownerInstructionReceivedAtUtc','earliestFunctionUpdateTime','latestFunctionUpdateTime')) {
+      $equal.authorityChronology.$field = '2026-09-08T00:48:30.433Z'
+    }
+    if (-not (Test-ZeroBackendReadbackFailures $equal)) { throw 'Equal ordered timestamps rejected' }
+    'PASS_MEASURED_BACKEND_CHRONOLOGY'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_MEASURED_BACKEND_CHRONOLOGY/);
+});
+
+test('backend chronology rejects scalar coercion and preserves nanosecond order', () => {
+  const healthy = measuredPromotionFixture();
+  const scalarArray = structuredClone(healthy);
+  scalarArray.promotionBackendReceipt.authorityChronology.ownerInstructionReceivedAtUtc =
+    [healthy.promotionBackendReceipt.authorityChronology.ownerInstructionReceivedAtUtc];
+  const reversed = structuredClone(healthy);
+  reversed.promotionBackendReceipt.authorityChronology.earliestFunctionUpdateTime = '2026-09-08T00:50:50.123456789Z';
+  reversed.promotionBackendReceipt.authorityChronology.latestFunctionUpdateTime = '2026-09-08T00:50:50.123456788Z';
+  for (const input of [scalarArray, reversed]) {
+    rebindMeasuredReceipt(input);
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false);
+  }
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1').replaceAll("'", "''");
+  const backendPath = path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$null, [ref]$null)
+    foreach ($name in @('Get-OptionalPropertyValue','Get-UtcEvidenceInstant','Get-BackendChronologyInstantKey','ConvertFrom-BackendReceiptJson','Test-ZeroBackendReadbackFailures')) {
+      $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+      Invoke-Expression $definition.Extent.Text
+    }
+    $healthy = [IO.File]::ReadAllText('${backendPath}')
+    $reversed = ConvertFrom-BackendReceiptJson -Text $healthy
+    $reversed.authorityChronology.earliestFunctionUpdateTime = '2026-09-08T00:50:50.123456789Z'
+    $reversed.authorityChronology.latestFunctionUpdateTime = '2026-09-08T00:50:50.123456788Z'
+    $reversed = ConvertFrom-BackendReceiptJson -Text ($reversed | ConvertTo-Json -Depth 20)
+    if (Test-ZeroBackendReadbackFailures $reversed) { throw 'Accepted reverse nanosecond order' }
+    $array = ConvertFrom-BackendReceiptJson -Text $healthy
+    $array.authorityChronology.ownerInstructionReceivedAtUtc = @('2026-09-08T00:48:30.433Z')
+    if (Test-ZeroBackendReadbackFailures $array) { throw 'Accepted timestamp array' }
+    'PASS_SCALAR_NANOSECOND_CHRONOLOGY'
+  `;
+  assert.match(execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'}),
+    /PASS_SCALAR_NANOSECOND_CHRONOLOGY/);
+});
+
 test('PowerShell rejects every measured backend authorization/readback contradiction', () => {
   const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1').replaceAll("'", "''");
   const backendPath = path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''");
@@ -1776,17 +1889,17 @@ test('PowerShell rejects every measured backend authorization/readback contradic
     $tokens = $null; $parseErrors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw 'Verifier does not parse' }
-    foreach ($name in @('Get-OptionalPropertyValue','Test-ZeroBackendReadbackFailures')) {
+    foreach ($name in @('Get-OptionalPropertyValue','Get-UtcEvidenceInstant','Get-BackendChronologyInstantKey','ConvertFrom-BackendReceiptJson','Test-ZeroBackendReadbackFailures')) {
       $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
       if ($null -eq $definition) { throw "Missing predicate: $name" }
       Invoke-Expression $definition.Extent.Text
     }
     $healthy = [IO.File]::ReadAllText('${backendPath}')
-    if (-not (Test-ZeroBackendReadbackFailures ($healthy | ConvertFrom-Json))) { throw 'Healthy measured backend rejected' }
+    if (-not (Test-ZeroBackendReadbackFailures (ConvertFrom-BackendReceiptJson -Text $healthy))) { throw 'Healthy measured backend rejected' }
     $cases = '${JSON.stringify(cases)}' | ConvertFrom-Json
     foreach ($case in $cases) {
       foreach ($badValue in $case.badValues) {
-        $bad = $healthy | ConvertFrom-Json
+        $bad = ConvertFrom-BackendReceiptJson -Text $healthy
         $parts = $case.field.Split('.')
         $target = $bad
         foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
