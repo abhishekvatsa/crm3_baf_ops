@@ -349,9 +349,14 @@ function summarizeMutableSourceAuthority({
   const promotedDeviceAcceptanceAuthority =
     promotionReceipt?.admittedEvidence?.deviceAcceptance;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
-  const promotedLedger = buildLedger.entries?.find(
+  const promotedLedgerEntries = (buildLedger.entries ?? []).filter(
     (entry) => entry.buildNumber === promotedArtifact?.buildNumber,
   );
+  const promotedLedgerEntryUnique =
+    promotedArtifact == null || promotedLedgerEntries.length === 1;
+  const promotedLedger = promotedLedgerEntryUnique
+    ? promotedLedgerEntries[0]
+    : null;
   const stagedPromotion =
     promotionReceipt?.evidenceType ===
       "production-build-staged-controlled-pilot-authorization" &&
@@ -385,16 +390,26 @@ function summarizeMutableSourceAuthority({
     promotedMutationBoundary == null
       ? []
       : Object.values(promotedMutationBoundary);
+  const stagedPromotionMutationClaimsExact =
+    !stagedPromotion ||
+    (promotionDeviceAcceptanceReceipt?.adjudication
+      ?.mutatingBusinessFlowValidationCompleted === false &&
+      promotionDeviceAcceptanceReceipt?.releaseBoundary
+        ?.productionBusinessMutationAuthorizedByThisReceipt === false &&
+      promotionDeviceAcceptanceReceipt?.releaseBoundary
+        ?.firebaseBusinessDataChanged === false);
   const stagedPromotionMutationBoundaryExact =
     !stagedPromotion ||
     (promotedMutationValues.length > 0 &&
       promotedMutationValues.every((value) => value === false) &&
       promotedMutationBoundary
         ?.productionBusinessDataCreatedUpdatedOrDeleted === false &&
-      promotedDeviceAcceptanceAuthority?.businessDataMutated === false);
+      promotedDeviceAcceptanceAuthority?.businessDataMutated === false &&
+      stagedPromotionMutationClaimsExact);
   const promotedLedgerPromotionReceiptExact =
     !stagedPromotion ||
-    (promotedLedger?.pilotPromotionReceiptFile ===
+    (promotedLedgerEntryUnique &&
+      promotedLedger?.pilotPromotionReceiptFile ===
       promotionReceiptAuthority?.path &&
       promotedLedger?.pilotPromotionReceiptSha256 ===
         promotionReceiptAuthority?.sha256);
@@ -557,6 +572,7 @@ function summarizeMutableSourceAuthority({
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
       pendingSuccessorExact &&
+      promotedLedgerEntryUnique &&
       promotedLedgerPromotionReceiptExact,
     latestContainmentAttemptExact,
     controlledPilotPromotionExact,

@@ -316,6 +316,8 @@ void main() {
       );
       expect(source, contains('preservedRuntimeMirrorExact'));
       expect(source, contains('stagedPromotionMutationBoundaryExact'));
+      expect(source, contains('stagedPromotionMutationClaimsExact'));
+      expect(source, contains('promotedLedgerEntryUnique'));
       expect(source, contains('promotedLedgerPromotionReceiptExact'));
       expect(source, contains('collectorAuthorizesClosure: false'));
       expect(source, contains('flag: "wx"'));

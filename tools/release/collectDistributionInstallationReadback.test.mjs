@@ -531,8 +531,13 @@ test("completed successor still requires every retained failed-attempt receipt",
       unresolvedRejections: 0,
     },
     adjudication: {
+      mutatingBusinessFlowValidationCompleted: false,
       runtimeValidationPassed: true,
       fullBusinessFlowValidationCompleted: false,
+    },
+    releaseBoundary: {
+      productionBusinessMutationAuthorizedByThisReceipt: false,
+      firebaseBusinessDataChanged: false,
     },
   };
   const promotionRuntimeAuthority = {
@@ -774,21 +779,37 @@ test("completed successor still requires every retained failed-attempt receipt",
     false,
   );
 
-  const mutatedBusinessAcceptance = structuredClone(
-    promotionDeviceAcceptanceReceipt,
-  );
-  mutatedBusinessAcceptance.businessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted =
-    true;
-  const mutatedBusinessSummary = summarizeMutableSourceAuthority({
-    policy,
-    releasePolicy: pendingPolicy,
-    buildLedger: {entries: [...ledgers, pendingLedger]},
-    promotionReceipt,
-    ...promotionFinalizationAuthority,
-    promotionDeviceAcceptanceReceipt: mutatedBusinessAcceptance,
-  });
-  assert.equal(mutatedBusinessSummary.releasePolicyExact, false);
-  assert.equal(mutatedBusinessSummary.controlledPilotPromotionExact, false);
+  for (const mutateBusinessAcceptance of [
+    (receipt) => {
+      receipt.businessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted =
+        true;
+    },
+    (receipt) => {
+      receipt.adjudication.mutatingBusinessFlowValidationCompleted = true;
+    },
+    (receipt) => {
+      receipt.releaseBoundary.productionBusinessMutationAuthorizedByThisReceipt =
+        true;
+    },
+    (receipt) => {
+      receipt.releaseBoundary.firebaseBusinessDataChanged = true;
+    },
+  ]) {
+    const mutatedBusinessAcceptance = structuredClone(
+      promotionDeviceAcceptanceReceipt,
+    );
+    mutateBusinessAcceptance(mutatedBusinessAcceptance);
+    const mutatedBusinessSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+      promotionDeviceAcceptanceReceipt: mutatedBusinessAcceptance,
+    });
+    assert.equal(mutatedBusinessSummary.releasePolicyExact, false);
+    assert.equal(mutatedBusinessSummary.controlledPilotPromotionExact, false);
+  }
 
   for (const mutateLedgerPromotionReceipt of [
     (ledger) => {
@@ -815,6 +836,34 @@ test("completed successor still requires every retained failed-attempt receipt",
     assert.equal(unrelatedPromotionSummary.releasePolicyExact, false);
     assert.equal(
       unrelatedPromotionSummary.controlledPilotPromotionExact,
+      false,
+    );
+  }
+
+  for (const insertDuplicate of [
+    (entries, duplicate) => [duplicate, ...entries],
+    (entries, duplicate) => [...entries, duplicate],
+  ]) {
+    const duplicatePromotedLedger = {
+      buildNumber: completed.buildNumber,
+      distributionPerformed: false,
+    };
+    const duplicatePromotionSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {
+        entries: insertDuplicate(
+          [...ledgers, pendingLedger],
+          duplicatePromotedLedger,
+        ),
+      },
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+    });
+    assert.equal(duplicatePromotionSummary.buildLedgerExact, false);
+    assert.equal(duplicatePromotionSummary.releasePolicyExact, false);
+    assert.equal(
+      duplicatePromotionSummary.controlledPilotPromotionExact,
       false,
     );
   }
