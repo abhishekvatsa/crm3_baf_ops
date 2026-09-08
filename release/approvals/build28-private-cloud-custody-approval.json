@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "documentType": "delegated-private-release-backup-custody-decision",
+  "approved": true,
+  "approvedAtUtc": "2026-09-08T21:21:49Z",
+  "approverName": "Codex acting under project-owner delegation",
+  "authorityType": "owner-delegated agent decision",
+  "timestampMeaning": "Agent decision time, not a user-message receipt timestamp",
+  "authorityBasis": "The project owner delegated necessary release-readiness decisions and continued execution to the agent. This decision selects an independently stored private backup for the successor release, subject to reviewed implementation and measured verification.",
+  "reason": "The available secondary local medium cannot presently satisfy reliable release custody. Use a verified existing private cloud backup, preserving earlier custody records and all existing backup data.",
+  "buildNumber": 28,
+  "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "custodyMode": "local-primary-private-gcs-backup",
+  "primaryStorage": "Verified local owner custody outside the source checkout",
+  "backup": {
+    "bucket": "crm3-baf-ops-b8638-firestore-restore",
+    "prefixRoot": "release-custody/build-28/",
+    "uniqueCampaignPrefixRequired": true,
+    "location": "ASIA-SOUTH1",
+    "publicAccessPrevention": "enforced",
+    "uniformBucketLevelAccessRequired": true,
+    "publicIamPrincipalsProhibited": true,
+    "versioningRequired": true,
+    "existingRetentionSeconds": 7776000,
+    "existingSoftDeleteSeconds": 604800,
+    "acceptExistingRetentionAndOrdinaryStorageCharges": true,
+    "createOnlyGenerationPreconditionRequired": true,
+    "overwriteOrDeleteAuthorized": false,
+    "accessControlOrBucketConfigurationMutationAuthorized": false
+  },
+  "verificationRequirements": [
+    "Independently review and test the explicit local-plus-cloud custody path before execution; preserve historical two-volume acceptance.",
+    "Bind execution to this exact approval, build number, bucket and unique prefix under the approved root.",
+    "Read back existing privacy, versioning and retention controls before uploading; fail if they differ or permit public access.",
+    "Upload only independently verified governed release packages, their checksum sidecars and privacy-safe finalization/custody records; do not upload credentials, signing material, device screenshots or business payloads.",
+    "Use create-only uploads, record exact object generations and sizes, then download each exact generation and compare SHA-256 and byte length against its verified local source.",
+    "Verify the production package in local and private cloud custody before creating the built tag; verify closure and custody records afterward before finalization succeeds.",
+    "Record local-plus-cloud independence truthfully; never describe cloud storage as a second local volume or reuse an old release's custody evidence."
+  ],
+  "notAuthorizedByThisDecision": [
+    "Public download, pilot handout or tester invitations",
+    "Bucket creation, IAM or ACL changes, retention or lifecycle changes",
+    "Deletion or replacement of any existing cloud or local backup",
+    "Business-data access, mutation, export or import",
+    "Installation or device-data clearing",
+    "Reuse of a consumed build number or a claim that an artifact already exists"
+  ],
+  "executionStatus": "NOT_EXECUTED"
+}
