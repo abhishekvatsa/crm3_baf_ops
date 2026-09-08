@@ -1306,6 +1306,17 @@ foreach ($evidenceInstant in $promotionEvidenceInstants) {
 }
 $expectedPromotionDecision =
   "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+# Share the read-only approval, child-readback and governance-CI adjudication
+# with the distribution collector so these two release gates cannot drift.
+$stagedAuthorityOutput = & node tools/release/stagedPromotionSourceAuthority.js `
+  $RepositoryRoot (Resolve-Path -LiteralPath $PolicyPath).Path
+if ($LASTEXITCODE -ne 0) {
+  throw "Staged promotion source or governance authority failed: $stagedAuthorityOutput"
+}
+$stagedAuthorityProof = ($stagedAuthorityOutput -join "`n") | ConvertFrom-Json
+if ($stagedAuthorityProof.ok -isnot [bool] -or $stagedAuthorityProof.ok -ne $true) {
+  throw 'Staged promotion source or governance authority was not verified.'
+}
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-staged-controlled-pilot-only' -or
     $promotionBuildNumber -ne $approvedPilotBuildNumber -or

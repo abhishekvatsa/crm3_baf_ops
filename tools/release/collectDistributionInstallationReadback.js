@@ -4,7 +4,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const {sealReceipt} = require("./collectProductionGlobalPullBackend.js");
-const {verifyStagedPromotionSourceAuthority} = require("./stagedPromotionSourceAuthority.js");
+const {verifyStagedPromotionSourceAuthority, promotionCiAuthorityExact} = require("./stagedPromotionSourceAuthority.js");
 const {
   collectSourceBinding,
   isPathInside,
@@ -948,8 +948,7 @@ function summarizeMutableSourceAuthority({
         promotionDeviceAcceptanceReceipt?.recordedAtUtc,
         promotionBackendReceipt?.recordedAtUtc,
         promotionFirestoreReceipt?.capturedAtUtc,
-      ]) && promotionReceipt?.sourceAuthority?.postMergeCi?.allRequiredJobsPassed === true &&
-        promotionReceipt?.sourceAuthority?.postMergeCi?.conclusion === "success" &&
+      ]) && promotionCiAuthorityExact(promotionReceipt, promotionDeviceAcceptanceReceipt) &&
         promotionReceipt?.programmeDecision?.internalControlledPilot === "GO_STAGED" &&
         promotionReceipt?.programmeDecision?.pilotHandout ===
           `AUTHORIZED_EXACT_BUILD${promotedArtifact?.buildNumber}_FROZEN_ROSTER_UP_TO_${promotedReceiptBoundary?.maximumApprovedUsers}` &&
