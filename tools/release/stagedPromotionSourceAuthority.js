@@ -28,6 +28,7 @@ const BUILD27_GOVERNANCE = Object.freeze({
 // Unlike the backend's merged main authority, this is approval custody in the
 // explicitly designated proposal snapshot. New approvals require new anchors.
 const BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT = "d95e399de07d43051d94debf36098e7998fe76d4";
+const BUILD27_PROMOTION_RECEIPT_PATH = "release/evidence/build-27-staged-controlled-pilot-authorization.json";
 
 function promotionCiAuthorityExact(promotionReceipt, deviceReceipt) {
   const source = promotionReceipt?.sourceAuthority;
@@ -357,13 +358,16 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       }
     }
     let pilotApprovalCustody;
+    let promotionDecisionCustody;
     if (releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only") {
-      const promotion = readChild(root, releasePolicy.postBuildPromotion.promotionReceiptFile,
-        releasePolicy.postBuildPromotion.promotionReceiptSha256, "Staged promotion").value;
+      const promotionRead = readChild(root, releasePolicy.postBuildPromotion.promotionReceiptFile,
+        releasePolicy.postBuildPromotion.promotionReceiptSha256, "Staged promotion");
+      const promotion = promotionRead.value;
       const deviceAuthority = promotion.admittedEvidence?.deviceAcceptance;
       const device = readChild(root, deviceAuthority?.receipt, deviceAuthority?.sha256, "Promotion device evidence").value;
-      const anchoredPilot = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
-        "release/evidence/build-27-staged-controlled-pilot-authorization.json")).ownerApproval;
+      const anchoredPromotionBytes = gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+        BUILD27_PROMOTION_RECEIPT_PATH);
+      const anchoredPilot = JSON.parse(anchoredPromotionBytes).ownerApproval;
       pilotApprovalCustody = readApprovalCustody(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
         {file: anchoredPilot.receipt, sha256: anchoredPilot.sha256}, "Pilot");
       const pilotApproval = readChild(root, promotion.ownerApproval?.receipt,
@@ -373,6 +377,13 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       requireEvidence(promotionCiAuthorityExact(promotion, device) &&
         commitTree(root, BUILD27_GOVERNANCE.commit, "Promotion governance") === BUILD27_GOVERNANCE.tree,
       "Promotion governance: commit, Git tree or complete CI authority differs from the recorded Build27 gate and device evidence.");
+      // This is the historical authorization, not an evolving handout log.
+      // Roster, canary and later backend observations belong in separate records.
+      promotionDecisionCustody = {file: BUILD27_PROMOTION_RECEIPT_PATH,
+        sha256: crypto.createHash("sha256").update(anchoredPromotionBytes, "utf8").digest("hex").toUpperCase()};
+      requireEvidence(releasePolicy.postBuildPromotion.promotionReceiptFile === promotionDecisionCustody.file &&
+        sameHash(promotionRead.hash, promotionDecisionCustody.sha256),
+      "Promotion decision custody: the complete historical authorization differs from its admitted fixed snapshot.");
     }
     return {ok: true, reasons: [],
       historicalBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
@@ -380,7 +391,9 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       currentBackendReceiptFile: deployed.functionFleetEvidenceFile,
       currentBackendReceiptSha256: current.hash,
       ...(pilotApprovalCustody ? {pilotOwnerApprovalFile: pilotApprovalCustody.file,
-        pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {})};
+        pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {}),
+      ...(promotionDecisionCustody ? {promotionReceiptFile: promotionDecisionCustody.file,
+        promotionReceiptSha256: promotionDecisionCustody.sha256} : {})};
   } catch (error) {
     return {ok: false, reasons: [error instanceof Error ? error.message : String(error)]};
   }

@@ -6,6 +6,7 @@ import {createRequire} from "node:module";
 import {execFileSync} from "node:child_process";
 import fs from "node:fs";
 import {createHash} from "node:crypto";
+import {runInNewContext} from "node:vm";
 
 const require = createRequire(import.meta.url);
 const {verifyStagedPromotionSourceAuthority, BUILD27_GOVERNANCE} = require('./stagedPromotionSourceAuthority.js');
@@ -76,6 +77,8 @@ function rebindMeasuredReceipt(input, receiptKey = 'BackendReceipt') {
     for (const key of Object.keys(object)) {
       // This proof comes from fixed Git custody, not mutable receipt aliases.
       if (receiptKey === 'OwnerApproval' && key === 'stagedSourceAuthorityProof') continue;
+      if (object === input.stagedSourceAuthorityProof &&
+        ['promotionReceiptFile', 'promotionReceiptSha256'].includes(key)) continue;
       if (object[key] === before) object[key] = after;
       else if (object[key] != null && typeof object[key] === 'object') replace(object[key], before, after);
     }
@@ -122,6 +125,53 @@ test('rebound pilot owner instructions cannot inherit immutable approval custody
     assert.equal(result.releasePolicyExact, false);
     assert.equal(result.controlledPilotPromotionExact, false);
   }
+});
+
+test('the admitted promotion decision cannot widen or erase any recorded pilot scope', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  for (const [field, value] of [
+    ['promotion.authorizedUsers', 'any users without an approved frozen roster'],
+    ['promotion.authorizedTargets', 'any unapproved devices'],
+    ['promotion.authorizedUsers', undefined],
+    ['promotion.authorizedTargets', null],
+    ['promotion.preHandoutRequirements', []],
+    ['promotion.preHandoutRequirements', undefined],
+    ['reArmConditions', []],
+    ['reArmConditions', undefined],
+    ['reArmConditions', ['Continue distribution after a canary failure.']],
+    ['promotion.acceptedResidualGap', 'All mutating business flows have passed; no canary evidence is required.'],
+    ['qualification', 'Unrestricted public distribution is approved.'],
+  ]) {
+    const input = structuredClone(healthy);
+    const parts = field.split('.');
+    const target = parts.slice(0, -1).reduce((value, part) => value[part], input.promotionReceipt);
+    if (value === undefined) delete target[parts.at(-1)]; else target[parts.at(-1)] = value;
+    rebindMeasuredReceipt(input, 'Receipt');
+    const result = summarizeMutableSourceAuthority(input);
+    assert.equal(result.releasePolicyExact, false, field);
+    assert.equal(result.controlledPilotPromotionExact, false, field);
+  }
+});
+
+test('chronology and legacy device predicates retain compatibility independently of historical custody', () => {
+  const source = fs.readFileSync(path.join(repositoryRoot, 'tools/release/collectDistributionInstallationReadback.js'), 'utf8');
+  const start = source.indexOf('function explicitUtcEvidenceInstant(');
+  const end = source.indexOf('function promotedFinalizationDecisionsExact(');
+  assert.ok(start >= 0 && end > start, 'Production semantic predicates must remain present');
+  const predicates = runInNewContext(`${source.slice(start, end)}\n({backendAuthorityChronologyExact, build27ReadOnlyDeviceProofExact})`);
+  const equal = {ownerInstructionReceivedAtUtc: '2026-09-08T00:48:30.433Z',
+    earliestFunctionUpdateTime: '2026-09-08T00:48:30.433Z', latestFunctionUpdateTime: '2026-09-08T00:48:30.433Z'};
+  assert.equal(predicates.backendAuthorityChronologyExact(equal), true);
+  assert.equal(predicates.backendAuthorityChronologyExact({...equal, latestFunctionUpdateTime: '2026-09-08T00:48:30.432Z'}), false);
+  const fixture = measuredPromotionFixture();
+  const device = structuredClone(fixture.promotionDeviceAcceptanceReceipt);
+  const signer = fixture.promotionFinalizationReceipt.governedPackage.certificateSha256;
+  device.validatedSurfaces = device.validatedReadOnlySurfaces;
+  delete device.validatedReadOnlySurfaces;
+  assert.equal(predicates.build27ReadOnlyDeviceProofExact(device, signer), true);
+  device.validatedSurfaces[0] = 'unverified-surface';
+  assert.equal(predicates.build27ReadOnlyDeviceProofExact(device, signer), false);
 });
 
 const finalizationDecisions = [
@@ -784,11 +834,14 @@ test("completed successor still requires every retained failed-attempt receipt",
       closureArchiveCompletedAtUtc: '2026-09-08T03:58:00Z'},
   };
   const promotionFinalizationAuthority = {
+    measuredPromotionReceiptSha256: promotionSha,
     stagedSourceAuthorityProof: {
       ok: true, historicalBackendReceiptFile: backendReceiptPath,
       historicalBackendReceiptSha256: backendReceiptSha,
       pilotOwnerApprovalFile: promotionReceipt.ownerApproval.receipt,
       pilotOwnerApprovalSha256: promotionReceipt.ownerApproval.sha256,
+      promotionReceiptFile: promotionPath,
+      promotionReceiptSha256: promotionSha,
     },
     promotionFinalizationReceipt,
     measuredPromotionFinalizationReceiptSha256: completionSha,
@@ -1192,8 +1245,8 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: promotedPolicy,
       buildLedger: {entries: ledgers},
       promotionReceipt,
-      measuredPromotionReceiptSha256: promotionSha,
       ...promotionFinalizationAuthority,
+      measuredPromotionReceiptSha256: promotionSha,
     }).controlledPilotPromotionExact,
     true,
   );
@@ -1203,8 +1256,8 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: promotedPolicy,
       buildLedger: {entries: ledgers},
       promotionReceipt,
-      measuredPromotionReceiptSha256: "9".repeat(64).toUpperCase(),
       ...promotionFinalizationAuthority,
+      measuredPromotionReceiptSha256: "9".repeat(64).toUpperCase(),
     }).releasePolicyExact,
     false,
   );
@@ -1917,7 +1970,9 @@ test('measured backend chronology must prove authorization before ordered update
     equal.promotionBackendReceipt.authorityChronology[field] = '2026-09-08T00:48:30.433Z';
   }
   rebindMeasuredReceipt(equal);
-  assert.equal(summarizeMutableSourceAuthority(equal).controlledPilotPromotionExact, true);
+  // Equal instants are valid chronology, but rewriting this already admitted
+  // historical receipt cannot inherit the original promotion's custody.
+  assert.equal(summarizeMutableSourceAuthority(equal).controlledPilotPromotionExact, false);
 });
 
 test('PowerShell backend chronology must prove authorization before ordered updates', () => {
@@ -2121,7 +2176,8 @@ test('measured device proof cannot change its target, outcome, signer or tested 
   fallback.promotionDeviceAcceptanceReceipt.validatedSurfaces = fallback.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces;
   delete fallback.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces;
   rebindMeasuredReceipt(fallback, 'DeviceAcceptanceReceipt');
-  assert.equal(summarizeMutableSourceAuthority(fallback).controlledPilotPromotionExact, true);
+  // A compatible legacy field does not authorize replacing historical evidence.
+  assert.equal(summarizeMutableSourceAuthority(fallback).controlledPilotPromotionExact, false);
 });
 
 test('staged source proof must be successful and bound to the measured backend receipt', () => {

@@ -410,10 +410,10 @@ test('promotion governance remains bound to the recorded Git tree and complete C
   const originalPromotion = structuredClone(promotion);
   const originalDevice = structuredClone(device);
   f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
-    promotionReceiptFile: 'release/promotion.json'};
+    promotionReceiptFile: 'release/evidence/build-27-staged-controlled-pilot-authorization.json'};
   const persist = () => {
     promotion.admittedEvidence.deviceAcceptance.sha256 = f.write(promotion.admittedEvidence.deviceAcceptance.receipt, device);
-    f.policy.postBuildPromotion.promotionReceiptSha256 = f.write('release/promotion.json', promotion);
+    f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(f.policy.postBuildPromotion.promotionReceiptFile, promotion);
   };
   persist();
   // No foreign Git objects: even otherwise matching receipts must fail closed.
@@ -473,4 +473,52 @@ test('mutable Git replacement refs cannot replace the admitted approval custody'
   const result = f.verify();
   assert.equal(result.ok, false);
   assert.match(result.reasons[0], /approval.*custody/);
+});
+
+test('the actual PowerShell policy block rejects coherent changes to the complete promotion scope', (t) => {
+  const f = fixture(t);
+  const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
+  const original = readMeasured(promotionFile);
+  f.write(original.admittedEvidence.deviceAcceptance.receipt, readMeasured(original.admittedEvidence.deviceAcceptance.receipt));
+  f.write(original.ownerApproval.receipt, readMeasured(original.ownerApproval.receipt));
+  f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only', promotionReceiptFile: promotionFile};
+  const policyFile = path.join(f.root, 'release/test-policy.json');
+  const persist = (promotion) => {
+    f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(promotionFile, promotion);
+    f.write('release/test-policy.json', f.policy);
+  };
+  const quote = (value) => value.replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${quote(path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1'))}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    $statements = $ast.EndBlock.Statements
+    $start = -1
+    for ($index = 0; $index -lt $statements.Count; $index++) {
+      if ($statements[$index].Extent.Text.StartsWith('$stagedAuthorityOutput =')) { $start = $index; break }
+    }
+    if ($start -lt 0) { throw 'Shared authority predicate is missing' }
+    $block = ($statements[$start..($start + 3)] | ForEach-Object { $_.Extent.Text }) -join "\n"
+    $RepositoryRoot = '${quote(f.root)}'
+    $PolicyPath = '${quote(policyFile)}'
+    Invoke-Expression $block
+    'PASS_SHARED_STAGED_AUTHORITY'
+  `;
+  const invoke = () => execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script],
+    {cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+  persist(original);
+  assert.match(invoke(), /PASS_SHARED_STAGED_AUTHORITY/);
+  for (const mutate of [
+    (value) => { value.promotion.authorizedUsers = 'any users'; value.promotion.authorizedTargets = 'unapproved devices'; },
+    (value) => { delete value.promotion.preHandoutRequirements; },
+    (value) => { value.reArmConditions = []; },
+    (value) => { value.qualification = 'Public distribution is approved.'; },
+    (value) => { value.promotion.acceptedResidualGap = 'All mutating business flows are validated.'; },
+  ]) {
+    const promotion = structuredClone(original);
+    mutate(promotion);
+    persist(promotion);
+    assert.throws(invoke, /Command failed/);
+  }
 });
