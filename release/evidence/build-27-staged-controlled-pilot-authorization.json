@@ -8,7 +8,7 @@
   ],
   "authorityType": "PILOT_AUTHORIZATION",
   "decision": "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED",
-  "recordedAtUtc": "2026-09-08T09:02:39.0933486Z",
+  "recordedAtUtc": "2026-09-08T13:16:27.5428307Z",
   "sourceAuthority": {
     "repository": "abhishekvatsa/crm3_baf_ops",
     "artifactSourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
@@ -44,7 +44,7 @@
     },
     "deviceAcceptance": {
       "receipt": "release/evidence/build-27-device-acceptance.json",
-      "sha256": "5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1",
+      "sha256": "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028",
       "decision": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
       "physicalTargetCount": 1,
       "appDataPreserved": true,

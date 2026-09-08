@@ -369,6 +369,33 @@ build27_pilot_approval_path = ROOT / "release/approvals/build27-staged-controlle
 build27_pilot_approval = data("release/approvals/build27-staged-controlled-pilot-approval.json")
 build27_pilot_promotion_path = ROOT / "release/evidence/build-27-staged-controlled-pilot-authorization.json"
 build27_pilot_promotion = data("release/evidence/build-27-staged-controlled-pilot-authorization.json")
+build27_finalization = data("release/evidence/build-27-finalization-closure.json")
+build27_backend_deployment = data("release/evidence/build27-backend-deployment-closure.json")
+build27_firestore_readback = data("release/evidence/build27-firestore-rules-indexes-live-readback.json")
+build27_device_recorded_at = utc_instant(build27_device_acceptance.get("recordedAtUtc"))
+build27_inventory_captured_at = utc_instant(
+    build27_device_acceptance.get("synchronization", {}).get("inventoryCapturedAtUtc")
+)
+build27_promotion_recorded_at = utc_instant(build27_pilot_promotion.get("recordedAtUtc"))
+build27_admitted_evidence_instants = [
+    utc_instant(build27_pilot_approval.get("approvedAtUtc")),
+    utc_instant(build27_finalization.get("workflow", {}).get("completedAtUtc")),
+    build27_device_recorded_at,
+    utc_instant(build27_backend_deployment.get("recordedAtUtc")),
+    utc_instant(build27_firestore_readback.get("capturedAtUtc")),
+]
+build27_evidence_chronology_valid = (
+    build27_device_recorded_at is not None
+    and build27_inventory_captured_at is not None
+    and build27_device_recorded_at >= build27_inventory_captured_at
+    and build27_promotion_recorded_at is not None
+    and all(instant is not None for instant in build27_admitted_evidence_instants)
+    and all(
+        build27_promotion_recorded_at >= instant
+        for instant in build27_admitted_evidence_instants
+        if instant is not None
+    )
+)
 historical_build11_distribution = next(
     (
         entry
@@ -411,7 +438,7 @@ check(
 check(
     "Build 27 device acceptance and staged pilot authority are exact and bounded",
     sha(build27_device_acceptance_path)
-        == "5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1"
+        == "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028"
     and build27_device_acceptance.get("release", {}).get("buildNumber") == 27
     and build27_device_acceptance.get("release", {}).get("apkSha256")
         == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
@@ -436,7 +463,7 @@ check(
         "pilotHandoutPerformedByThisApproval"
     ) is False
     and sha(build27_pilot_promotion_path)
-        == "C50268F14066D3B9C7649584BE318E54D22EE3F6ACF8C1BF03BF856DD7D715FD"
+        == "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B"
     and build27_pilot_promotion.get("decision")
         == "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED"
     and build27_pilot_promotion.get("ownerApproval", {}).get("sha256")
@@ -452,7 +479,8 @@ check(
     ) is False
     and build27_pilot_promotion.get("promotion", {}).get(
         "unrestrictedDistributionAuthorized"
-    ) is False,
+    ) is False
+    and build27_evidence_chronology_valid,
 )
 check(
     "Production policy binds combined, historical and restored Firebase custody",

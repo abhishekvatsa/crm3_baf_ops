@@ -22,13 +22,17 @@ void main() {
       'release/evidence/build-27-staged-controlled-pilot-authorization.json';
   const finalizationPath =
       'release/evidence/build-27-finalization-closure.json';
+  const backendPath =
+      'release/evidence/build27-backend-deployment-closure.json';
+  const firestorePath =
+      'release/evidence/build27-firestore-rules-indexes-live-readback.json';
 
   const deviceEvidenceSha =
-      '5FEAA0AEB0FBA34E168D7BBA55A9FFC5927CE0429D8043DB99631918C1D2ABE1';
+      '0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028';
   const ownerApprovalSha =
       'A51EC5BD36854A4F0AD9353F771FAD2FD84A0695601219921467143A40D2DDF4';
   const promotionSha =
-      'C50268F14066D3B9C7649584BE318E54D22EE3F6ACF8C1BF03BF856DD7D715FD';
+      '4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B';
   const finalizationSha =
       '8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6';
   const packageSha =
@@ -152,6 +156,66 @@ void main() {
     expect(closure['firebaseMutationPerformed'], isFalse);
     expect(closure['businessDataReadOrWritten'], isFalse);
     expect(closure['unrestrictedDistributionAuthorized'], isFalse);
+  });
+
+  test('acceptance and promotion postdate every admitted evidence record', () {
+    DateTime readUtc(Object? value, String field) {
+      expect(value, isA<String>(), reason: field);
+      final text = value! as String;
+      expect(text.endsWith('Z'), isTrue, reason: field);
+      final parsed = DateTime.parse(text);
+      expect(parsed.isUtc, isTrue, reason: field);
+      return parsed;
+    }
+
+    final device = _readObject(deviceEvidencePath);
+    final sync = (device['synchronization'] as Map).cast<String, dynamic>();
+    final deviceRecordedAt = readUtc(
+      device['recordedAtUtc'],
+      'device recordedAtUtc',
+    );
+    final inventoryCapturedAt = readUtc(
+      sync['inventoryCapturedAtUtc'],
+      'device synchronization.inventoryCapturedAtUtc',
+    );
+    expect(deviceRecordedAt.isBefore(inventoryCapturedAt), isFalse);
+
+    final promotion = _readObject(promotionPath);
+    final approval = _readObject(ownerApprovalPath);
+    final finalization = _readObject(finalizationPath);
+    final backend = _readObject(backendPath);
+    final firestore = _readObject(firestorePath);
+    final finalizationWorkflow = (finalization['workflow'] as Map)
+        .cast<String, dynamic>();
+    final promotionRecordedAt = readUtc(
+      promotion['recordedAtUtc'],
+      'promotion recordedAtUtc',
+    );
+    final admittedInstants = <DateTime>[
+      readUtc(approval['approvedAtUtc'], 'owner approval approvedAtUtc'),
+      readUtc(
+        finalizationWorkflow['completedAtUtc'],
+        'finalization workflow.completedAtUtc',
+      ),
+      deviceRecordedAt,
+      readUtc(backend['recordedAtUtc'], 'backend recordedAtUtc'),
+      readUtc(firestore['capturedAtUtc'], 'Firestore capturedAtUtc'),
+    ];
+    for (final admittedAt in admittedInstants) {
+      expect(promotionRecordedAt.isBefore(admittedAt), isFalse);
+    }
+
+    final verifier = File(
+      'tools/release/Test-ProductionReleasePolicy.ps1',
+    ).readAsStringSync();
+    expect(
+      verifier,
+      contains('Device acceptance predates its synchronization inventory.'),
+    );
+    expect(
+      verifier,
+      contains('Post-build promotion predates admitted evidence:'),
+    );
   });
 
   test('current policy projects Build 27 and preserves Build 11 history', () {

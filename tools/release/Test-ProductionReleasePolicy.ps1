@@ -119,6 +119,41 @@ function Get-OptionalPropertyValue {
   $property.Value
 }
 
+function Get-UtcEvidenceInstant {
+  param(
+    [Parameter(Mandatory)][object]$Value,
+    [Parameter(Mandatory)][string]$FieldName
+  )
+
+  if ($Value -is [DateTime]) {
+    if ($Value.Kind -ne [DateTimeKind]::Utc) {
+      throw "$FieldName must be an explicit UTC timestamp."
+    }
+    return [DateTimeOffset]::new([DateTime]$Value)
+  }
+  if ($Value -is [DateTimeOffset]) {
+    if ($Value.Offset -ne [TimeSpan]::Zero) {
+      throw "$FieldName must be an explicit UTC timestamp."
+    }
+    return $Value.ToUniversalTime()
+  }
+
+  $text = [string]$Value
+  if ([string]::IsNullOrWhiteSpace($text) -or
+      -not $text.EndsWith('Z', [StringComparison]::Ordinal)) {
+    throw "$FieldName must be an explicit UTC timestamp."
+  }
+  try {
+    [DateTimeOffset]::Parse(
+      $text,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    ).ToUniversalTime()
+  } catch {
+    throw "$FieldName is not a valid UTC timestamp."
+  }
+}
+
 function Get-Sha256 {
   param([Parameter(Mandatory)][string]$Path)
 
@@ -647,6 +682,78 @@ if ([int]$deviceAcceptanceReceipt.release.buildNumber -ne
     $deviceBusinessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted -ne
       $false) {
   throw 'Promoted build device acceptance is incomplete or over-claimed.'
+}
+$deviceAcceptanceRecordedAt = Get-UtcEvidenceInstant `
+  -Value $deviceAcceptanceReceipt.recordedAtUtc `
+  -FieldName 'Device acceptance recordedAtUtc'
+$deviceInventoryCapturedAt = Get-UtcEvidenceInstant `
+  -Value $deviceAcceptanceReceipt.synchronization.inventoryCapturedAtUtc `
+  -FieldName 'Device acceptance synchronization.inventoryCapturedAtUtc'
+if ($deviceAcceptanceRecordedAt -lt $deviceInventoryCapturedAt) {
+  throw 'Device acceptance predates its synchronization inventory.'
+}
+
+$promotionOwnerApprovalPath = [string]$promotionReceipt.ownerApproval.receipt
+if ((Get-Sha256 $promotionOwnerApprovalPath) -ne
+    ([string]$promotionReceipt.ownerApproval.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion owner-approval receipt hash differs from authority.'
+}
+$promotionOwnerApproval =
+  Get-Content -LiteralPath $promotionOwnerApprovalPath -Raw | ConvertFrom-Json
+$promotionBackendAuthority = $promotionReceipt.admittedEvidence.productionBackend
+$promotionBackendPath = [string]$promotionBackendAuthority.receipt
+if ((Get-Sha256 $promotionBackendPath) -ne
+    ([string]$promotionBackendAuthority.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion backend receipt hash differs from authority.'
+}
+$promotionBackendReceipt =
+  Get-Content -LiteralPath $promotionBackendPath -Raw | ConvertFrom-Json
+$promotionFirestoreAuthority =
+  $promotionReceipt.admittedEvidence.firestoreRulesAndIndexes
+$promotionFirestorePath = [string]$promotionFirestoreAuthority.receipt
+if ((Get-Sha256 $promotionFirestorePath) -ne
+    ([string]$promotionFirestoreAuthority.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion Firestore receipt hash differs from authority.'
+}
+$promotionFirestoreReceipt =
+  Get-Content -LiteralPath $promotionFirestorePath -Raw | ConvertFrom-Json
+$promotionRecordedAt = Get-UtcEvidenceInstant `
+  -Value $promotionReceipt.recordedAtUtc `
+  -FieldName 'Post-build promotion recordedAtUtc'
+$promotionEvidenceInstants = @(
+  [PSCustomObject]@{
+    Name = 'owner approval'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionOwnerApproval.approvedAtUtc `
+      -FieldName 'Pilot owner approval approvedAtUtc'
+  }
+  [PSCustomObject]@{
+    Name = 'build finalization'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionFinalizationReceipt.workflow.completedAtUtc `
+      -FieldName 'Build finalization workflow.completedAtUtc'
+  }
+  [PSCustomObject]@{
+    Name = 'device acceptance'
+    Instant = $deviceAcceptanceRecordedAt
+  }
+  [PSCustomObject]@{
+    Name = 'backend deployment'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionBackendReceipt.recordedAtUtc `
+      -FieldName 'Backend deployment recordedAtUtc'
+  }
+  [PSCustomObject]@{
+    Name = 'Firestore live readback'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionFirestoreReceipt.capturedAtUtc `
+      -FieldName 'Firestore live readback capturedAtUtc'
+  }
+)
+foreach ($evidenceInstant in $promotionEvidenceInstants) {
+  if ($promotionRecordedAt -lt $evidenceInstant.Instant) {
+    throw "Post-build promotion predates admitted evidence: $($evidenceInstant.Name)."
+  }
 }
 $expectedPromotionDecision =
   "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"

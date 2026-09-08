@@ -3,7 +3,7 @@
   "evidenceType": "production-build-device-acceptance",
   "status": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
   "recordingTiming": "POST_FINALIZATION_DEVICE_ACCEPTANCE_RECONCILIATION",
-  "recordedAtUtc": "2026-09-08T09:02:39.0933486Z",
+  "recordedAtUtc": "2026-09-08T13:15:59.1139304Z",
   "release": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.17-b27",
     "versionName": "1.0.0-rc.17",
