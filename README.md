@@ -15,24 +15,21 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Build 27 (`1.0.0-rc.17+27`) is source-authorized from exact merged PR 355
-baseline `2ab554d`. Its 15-Function fleet was deployed with existing IAM
-preserved and App Check enforcement unchanged, then passed strict live
-readback. The unchanged Firestore Rules and 66-index set were verified exact
-and ready without redeployment. The scheduled Function was not manually
-invoked, and no production business record was changed or deleted.
+Build 27 (`1.0.0-rc.17+27`) was constructed from exact merged source
+`c933ca0a`, independently verified, and finalized into dual custody. Its
+governed package SHA-256 is
+`BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42`.
+The 15-Function fleet was deployed with existing IAM preserved and App Check
+enforcement unchanged, then passed strict live readback. The unchanged
+Firestore Rules and 66-index set were verified exact without redeployment. The
+scheduled Function was not manually invoked, and no production business record
+was changed or deleted.
 
-The Build 27 governance tranche must merge and pass exact-main CI before
-protected construction can begin. Artifact-affecting paths remain exact to the
-approved baseline, and the protected workflow must record the exact resulting
-`main` commit. No Build 27 APK or AAB exists at this stage.
-
-Build 26 remains the immutable finalized predecessor. Its governed package
-SHA-256 is
-`6DCD720F31A917D4312FF7FBC5BB6CC72416EDB838933EA103CBC12295C1846B`.
-Build 26 is consumed and cannot be reused; Build 27 is the next governed
-candidate. No consumed build number may be reused. Wider distribution still
-requires a separate exact-package decision.
+Build 27 is an immutable production-signed pre-release candidate. Finalization
+does not approve controlled-pilot or unrestricted distribution; exact-device
+migration and representative business-flow validation remain separate gates.
+Build 27 is consumed and cannot be reused. Build 28 is the next eligible build
+number and requires fresh governed approval.
 
 Authoritative status sources:
 

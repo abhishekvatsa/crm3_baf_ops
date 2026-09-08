@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-08-BUILD27",
   "asOfDate": "2026-09-08",
-  "status": "BUILD27_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD27_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.17+27",
-      "relationshipToLatestFinalizedArtifact": "BUILD27_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD26",
+      "relationshipToLatestFinalizedArtifact": "BUILD27_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD27",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -28,13 +28,13 @@
       }
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 26,
-      "version": "1.0.0-rc.16+26",
-      "sourceCommit": "0f386d4b22011614122e34cc7211aea50371fd72",
+      "buildNumber": 27,
+      "version": "1.0.0-rc.17+27",
+      "sourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-26-finalization-closure.json",
-      "completionReceiptSha256": "D844624149B67696B797C9707299F529284A8CFBCE8E86E50AF8C7392B785B9D",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD26",
+      "completionReceiptFile": "release/evidence/build-27-finalization-closure.json",
+      "completionReceiptSha256": "8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD27",
       "fullBusinessFlowValidation": "MUTATING_FLOWS_NOT_ADJUDICATED",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
@@ -76,13 +76,11 @@
       "appliesToBuild27": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 27,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD27_CONSTRUCTION",
-      "constructionRequiresFreshGovernedApproval": false,
+      "minimumBuildNumber": 28,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD28_APPROVAL",
+      "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true,
-      "versionApprovalFile": "release/approvals/build-number-27-successor-approval.json",
-      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-27.json"
+      "pilotPromotionRequiresSeparateDecision": true
     }
   },
   "localStore": {
@@ -97,6 +95,7 @@
   "authoritativeSources": [
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
+    "release/evidence/build-27-finalization-closure.json",
     "release/evidence/build-26-finalization-closure.json",
     "release/evidence/build-25-finalization-closure.json",
     "release/evidence/build-24-finalization-closure.json",
