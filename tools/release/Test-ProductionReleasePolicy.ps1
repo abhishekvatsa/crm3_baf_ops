@@ -6,7 +6,7 @@ Verifies the source-controlled CRM-III BAF Ops production-release policy.
 .DESCRIPTION
 This verifier checks identity, version, source reservation, signing, Firebase
 registration, migration-plan boundary, independently approved Linux Isar core,
-locked Firebase CLI, action pins and exact sealed-pilot distribution boundaries.
+locked Firebase CLI, action pins and exact staged-pilot distribution boundaries.
 #>
 
 [CmdletBinding()]
@@ -67,6 +67,15 @@ $ExpectedBuild18ReadOnlySurfaces = @(
   'operations-intelligence-overview-and-reliability-concentration'
   'support-diagnostics'
 )
+$ExpectedBuild27ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issues-horizontal-actions-and-resolved-record-evidence'
+  'planned-maintenance-jobs-and-personal-workflow-filters'
+  'inner-cover-filtering-inventory-and-registration-form'
+  'inspection-programmes-unused-audit-deletion-guard'
+  'issue-report-pdf-zoom-page-print-and-share-controls'
+  'home-form-and-child-screen-back-navigation'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -108,6 +117,259 @@ function Get-OptionalPropertyValue {
     return $null
   }
   $property.Value
+}
+
+function Test-ZeroSynchronizationFailureCounters {
+  param([object]$Synchronization)
+  foreach ($counter in @(
+    'pushFailed', 'fullSyncConflicts', 'processingErrors',
+    'likelyPermanentRejections', 'globalPullConflict'
+  )) {
+    $value = Get-OptionalPropertyValue -InputObject $Synchronization -Name $counter
+    if (($value -isnot [int64] -and $value -isnot [int]) -or $value -ne 0) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Test-CompletedAutomaticSynchronization {
+  param([object]$Synchronization)
+  $passes = Get-OptionalPropertyValue -InputObject $Synchronization `
+    -Name 'automaticStartupSyncPassesObserved'
+  $state = Get-OptionalPropertyValue -InputObject $Synchronization `
+    -Name 'syncStateAtInventory'
+  return (($passes -is [int64] -or $passes -is [int]) -and
+    $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
+}
+
+function Test-PromotedFinalizationDecisions {
+  param([object]$Receipt)
+  $facts = @(
+    @{ Path = 'schemaVersion'; Expected = 1 }
+    @{ Path = 'evidenceType'; Expected = 'production-build-finalization-closure' }
+    @{ Path = 'status'; Expected = 'passed-non-distributable' }
+    @{ Path = 'workflow.conclusion'; Expected = 'success' }
+    @{ Path = 'workflow.secretValuesInspected'; Expected = $false }
+    @{ Path = 'governedPackage.independentVerificationCompleted'; Expected = $true }
+    @{ Path = 'dualCustody.status'; Expected = 'passed' }
+    @{ Path = 'dualCustody.distinctVolumes'; Expected = $true }
+    @{ Path = 'dualCustody.allFileHashesMatched'; Expected = $true }
+    @{ Path = 'runtimeAdjudication.status'; Expected = 'not-adjudicated-by-build-finalization' }
+    @{ Path = 'runtimeAdjudication.runtimeValidationPassed'; Expected = $false }
+    @{ Path = 'runtimeAdjudication.physicalTargetCount'; Expected = 0 }
+    @{ Path = 'runtimeAdjudication.emulatorTargetCount'; Expected = 0 }
+    @{ Path = 'runtimeAdjudication.appDataClearPerformed'; Expected = $false }
+    @{ Path = 'runtimeAdjudication.liveBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'releaseBoundary.firebaseBackendDeploymentPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.controlledPilotApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.unrestrictedPlantReleaseApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.distributionPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.runtimeValidationPassed'; Expected = $false }
+    @{ Path = 'releaseBoundary.fullBusinessFlowValidationPassed'; Expected = $false }
+  )
+  $recovery = $Receipt.recoveryIncident
+  if ($null -eq $recovery -or $recovery.occurred -isnot [bool]) { return $false }
+  if ($recovery.occurred) {
+    # Preserve the existing governed built-tag push recovery route.
+    $facts += @(
+      @{ Path = 'recoveryIncident.failureBoundary'; Expected = 'remote-built-tag-push' }
+      @{ Path = 'recoveryIncident.sourceExpression'; Expected = 'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"' }
+      @{ Path = 'recoveryIncident.sourceCorrection.correctedExpression'; Expected = 'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"' }
+      @{ Path = 'recoveryIncident.stateBeforeRecovery.rebuildPerformed'; Expected = $false }
+      @{ Path = 'recoveryIncident.stateBeforeRecovery.workflowRerunPerformed'; Expected = $false }
+      @{ Path = 'recoveryIncident.recovery.forceUsed'; Expected = $false }
+      @{ Path = 'recoveryIncident.verification.closurePassed'; Expected = $true }
+    )
+  } else {
+    if ($null -ne $recovery.PSObject.Properties['sourceExpression']) { return $false }
+    $facts += @{ Path = 'recoveryIncident.forceUsed'; Expected = $false }
+  }
+  foreach ($fact in $facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
+    } elseif ($value -isnot [string] -or $value -cne $fact.Expected) { return $false }
+  }
+  return $true
+}
+
+function ConvertFrom-BackendReceiptJson {
+  param([Parameter(Mandatory)][string]$Text)
+  $receipt = $Text | ConvertFrom-Json
+  # Restore only these original scalar strings after PowerShell's automatic
+  # DateTime conversion, which otherwise discards nanosecond precision.
+  $document = [System.Text.Json.JsonDocument]::Parse($Text)
+  try {
+    $chronology = $document.RootElement.GetProperty('authorityChronology')
+    foreach ($name in @('ownerInstructionReceivedAtUtc', 'earliestFunctionUpdateTime', 'latestFunctionUpdateTime')) {
+      $element = $chronology.GetProperty($name)
+      $receipt.authorityChronology.$name = if ($element.ValueKind -eq [System.Text.Json.JsonValueKind]::String) {
+        $element.GetString()
+      } else { $null }
+    }
+  } finally {
+    $document.Dispose()
+  }
+  $receipt
+}
+
+function Get-BackendChronologyInstantKey {
+  param([AllowNull()][object]$Value)
+  if ($Value -isnot [string]) { return $null }
+  $match = [regex]::Match($Value, '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?Z$')
+  if (-not $match.Success) { return $null }
+  try {
+    $null = Get-UtcEvidenceInstant -Value ($match.Groups[1].Value + 'Z') -FieldName 'Backend chronology'
+  } catch { return $null }
+  $match.Groups[1].Value + '.' + $match.Groups[2].Value.PadRight(9, '0')
+}
+
+function Test-ZeroBackendReadbackFailures {
+  param([object]$Backend)
+  $deployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'deployment'
+  $smoke = Get-OptionalPropertyValue -InputObject $deployment -Name 'schedulerSmokeResult'
+  $invoked = Get-OptionalPropertyValue -InputObject $smoke -Name 'invoked'
+  $backlogZero = Get-OptionalPropertyValue -InputObject $deployment -Name 'schedulerBacklogZeroVerified'
+  if ($invoked -isnot [bool] -or $invoked -ne $false -or
+      $backlogZero -isnot [bool] -or $backlogZero -ne $true) {
+    return $false
+  }
+  $boundary = Get-OptionalPropertyValue -InputObject $Backend -Name 'controlBoundary'
+  $readbacks = Get-OptionalPropertyValue -InputObject $Backend -Name 'cleanMainLiveReadbacks'
+  $fleet = Get-OptionalPropertyValue -InputObject $readbacks -Name 'functionFleet'
+  $iam = Get-OptionalPropertyValue -InputObject $readbacks -Name 'iamDependencies'
+  $firestore = Get-OptionalPropertyValue -InputObject $readbacks -Name 'firestoreRulesAndIndexes'
+  $chronology = Get-OptionalPropertyValue -InputObject $Backend -Name 'authorityChronology'
+  foreach ($name in @('ownerInstructionReceivedAtUtc', 'earliestFunctionUpdateTime', 'latestFunctionUpdateTime')) {
+    if ($null -eq $chronology -or
+        $null -eq $chronology.PSObject.Properties[$name] -or
+        $chronology.PSObject.Properties[$name].Value -isnot [string]) {
+      return $false
+    }
+  }
+  $ownerInstruction = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'ownerInstructionReceivedAtUtc')
+  $earliestUpdate = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'earliestFunctionUpdateTime')
+  $latestUpdate = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'latestFunctionUpdateTime')
+  if ($null -eq $ownerInstruction -or $null -eq $earliestUpdate -or $null -eq $latestUpdate -or
+      [string]::CompareOrdinal($ownerInstruction, $earliestUpdate) -gt 0 -or
+      [string]::CompareOrdinal($earliestUpdate, $latestUpdate) -gt 0) {
+    return $false
+  }
+  $sourceAuthority = Get-OptionalPropertyValue -InputObject $Backend -Name 'sourceAuthority'
+  $firestoreDeployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'firestoreDeployment'
+  # These are recorded authorization/pass decisions, not descriptive metadata.
+  $closureDecisions = @(
+    @{ Object = $deployment; Name = 'functionCount'; Expected = 15 }
+    @{ Object = $chronology; Name = 'allObservedFunctionUpdatesPostdateOwnerInstruction'; Expected = $true }
+    @{ Object = $chronology; Name = 'deploymentWasRetroactivelyAuthorized'; Expected = $false }
+    @{ Object = $boundary; Name = 'aggregateBacklogQueriesPerformed'; Expected = $true }
+    @{ Object = $sourceAuthority; Name = 'postMergeReleaseGateConclusion'; Expected = 'success' }
+    @{ Object = $firestoreDeployment; Name = 'rulesActiveByteExact'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'allIndexesReady'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'indexesAlreadyExactNoMutationRequired'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'strictLiveReadbackPassed'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'rulesAlreadyExactNoMutationRequired'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'rulesDeploymentPerformed'; Expected = $false }
+    @{ Object = $fleet; Name = 'decision'; Expected = 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL' }
+    @{ Object = $iam; Name = 'decision'; Expected = 'PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK' }
+    @{ Object = $firestore; Name = 'decision'; Expected = 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' }
+    @{ Object = $firestore; Name = 'verified'; Expected = $true }
+    @{ Object = $firestore; Name = 'allIndexesReady'; Expected = $true }
+  )
+  foreach ($fact in $closureDecisions) {
+    if ($null -eq $fact.Object) { return $false }
+    $property = $fact.Object.PSObject.Properties[$fact.Name]
+    if ($null -eq $property) { return $false }
+    $value = $property.Value
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
+    } elseif ($value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
+  $counters = @(
+    (Get-OptionalPropertyValue -InputObject $boundary -Name 'schedulerSmokeChangedRecordCount')
+    (Get-OptionalPropertyValue -InputObject $smoke -Name 'changed')
+    (Get-OptionalPropertyValue -InputObject $smoke -Name 'workflowEscalationCandidateCount')
+    (Get-OptionalPropertyValue -InputObject $fleet -Name 'failedChecks')
+    (Get-OptionalPropertyValue -InputObject $iam -Name 'failedChecks')
+    (Get-OptionalPropertyValue -InputObject $iam -Name 'postureHolds')
+    (Get-OptionalPropertyValue -InputObject $firestore -Name 'failedChecks')
+  )
+  foreach ($value in $counters) {
+    if (($value -isnot [int64] -and $value -isnot [int]) -or $value -ne 0) {
+      return $false
+    }
+  }
+  return $counters.Count -eq 7
+}
+
+function Test-UniqueBuildLedgerNumbers {
+  param([object]$Ledger)
+  if ($null -eq $Ledger) { return $false }
+  $entriesProperty = $Ledger.PSObject.Properties['entries']
+  if ($null -eq $entriesProperty -or $entriesProperty.Value -isnot [array] -or
+      $entriesProperty.Value.Count -eq 0) { return $false }
+  $seen = [System.Collections.Generic.HashSet[int]]::new()
+  foreach ($entry in $entriesProperty.Value) {
+    if ($null -eq $entry) { return $false }
+    $numberProperty = $entry.PSObject.Properties['buildNumber']
+    if ($null -eq $numberProperty) { return $false }
+    $number = $numberProperty.Value
+    if (($number -isnot [int64] -and $number -isnot [int]) -or
+        $number -le 0 -or $number -gt 2147483647 -or
+        -not $seen.Add([int]$number)) { return $false }
+  }
+  return $true
+}
+
+function Get-UtcEvidenceInstant {
+  param(
+    [Parameter(Mandatory)][object]$Value,
+    [Parameter(Mandatory)][string]$FieldName
+  )
+
+  if ($Value -is [DateTime]) {
+    if ($Value.Kind -ne [DateTimeKind]::Utc) {
+      throw "$FieldName must be an explicit UTC timestamp."
+    }
+    return [DateTimeOffset]::new([DateTime]$Value)
+  }
+  if ($Value -is [DateTimeOffset]) {
+    if ($Value.Offset -ne [TimeSpan]::Zero) {
+      throw "$FieldName must be an explicit UTC timestamp."
+    }
+    return $Value.ToUniversalTime()
+  }
+
+  $text = [string]$Value
+  if ([string]::IsNullOrWhiteSpace($text) -or
+      -not $text.EndsWith('Z', [StringComparison]::Ordinal)) {
+    throw "$FieldName must be an explicit UTC timestamp."
+  }
+  try {
+    [DateTimeOffset]::Parse(
+      $text,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    ).ToUniversalTime()
+  } catch {
+    throw "$FieldName is not a valid UTC timestamp."
+  }
 }
 
 function Get-Sha256 {
@@ -479,21 +741,82 @@ if ($policy.signing.productionSigningApproved -ne $true -or
       [string]$policy.signing.backupCustodianName) {
   throw 'Production signing/custody policy is incomplete.'
 }
-if ([string]$policy.distribution.authority -ne
-      'exact-build11-sealed-small-group-pilot' -or
+$currentBuildNumber = [int]$policy.release.buildNumber
+$finalizationStatus = [string]$policy.finalization.status
+if ($finalizationStatus -notin @(
+    'completed-non-distributable'
+    'pending-source-authorized'
+  )) {
+  throw 'Production policy finalization state is unsupported.'
+}
+$currentStagedPilotAuthorized =
+  $finalizationStatus -eq 'completed-non-distributable' -and
+  $policy.distribution.approved -eq $true -and
+  $policy.distribution.preservedHistoricalAuthority -eq $false -and
+  $policy.distribution.appliesToCurrentCandidate -eq $true -and
+  [int]$policy.distribution.approvedBuildNumber -eq $currentBuildNumber -and
+  $policy.finalization.controlledPilotApproved -eq $true
+$historicalStagedPilotAuthorityPreserved =
+  $policy.distribution.approved -eq $true -and
+  $policy.distribution.preservedHistoricalAuthority -eq $true -and
+  $policy.distribution.appliesToCurrentCandidate -eq $false -and
+  [int]$policy.distribution.approvedBuildNumber -gt 0 -and
+  [int]$policy.distribution.approvedBuildNumber -lt $currentBuildNumber -and
+  $policy.finalization.controlledPilotApproved -eq $false
+if ($finalizationStatus -eq 'pending-source-authorized' -and
+    -not $historicalStagedPilotAuthorityPreserved) {
+  throw 'Pending source must retain only a historical staged-pilot authority.'
+}
+if ($finalizationStatus -eq 'completed-non-distributable' -and
+    -not $currentStagedPilotAuthorized -and
+    -not $historicalStagedPilotAuthorityPreserved) {
+  throw 'Completed source has neither exact current nor preserved historical pilot authority.'
+}
+$approvedPilotBuildNumber = [int]$policy.distribution.approvedBuildNumber
+$expectedPilotAuthority =
+  "exact-build$approvedPilotBuildNumber-staged-controlled-pilot"
+if ([string]$policy.distribution.authority -ne $expectedPilotAuthority -or
     $policy.distribution.approved -ne $true -or
-    $policy.distribution.preservedHistoricalAuthority -ne $true -or
-    $policy.distribution.appliesToCurrentCandidate -ne $false -or
-    [int]$policy.distribution.approvedBuildNumber -ne 11 -or
-    [string]$policy.distribution.approvedPackageSha256 -ne
-      '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970' -or
+    [string]$policy.distribution.approvedPackageSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    [string]$policy.distribution.approvedApkSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    [int]$policy.distribution.maximumApprovedUsers -lt 1 -or
+    [int]$policy.distribution.maximumApprovedUsers -gt 25 -or
+    [int]$policy.distribution.canaryUserCeiling -ne 2 -or
+    [int]$policy.distribution.canaryPhysicalDeviceCeiling -ne 2 -or
     $policy.distribution.pilotHandoutPerformed -ne $false -or
     $policy.distribution.unrestrictedPlantReleaseApproved -ne $false) {
-  throw 'Source policy must authorize only exact Build 11 sealed-pilot handout and unrestricted=false.'
+  throw 'Source policy staged-pilot authority is incomplete or broader than the controlled boundary.'
+}
+if ($currentStagedPilotAuthorized -and
+    [string]$policy.distribution.approvedPackageSha256 -ne
+      [string]$policy.finalization.governedPackageSha256) {
+  throw 'Current staged-pilot package differs from finalization authority.'
 }
 if ($policy.distribution.postBuildPromotionRequiredForAnyDistribution -ne
     $true) {
   throw 'Post-build promotion requirement is missing.'
+}
+$historicalBuild11Distribution = @(
+  $policy.historicalDistributionAuthorities |
+    Where-Object { [int]$_.approvedBuildNumber -eq 11 }
+)
+$historicalBuild11Promotion = @(
+  $policy.historicalPostBuildPromotions |
+    Where-Object { [int]$_.buildNumber -eq 11 }
+)
+if ($historicalBuild11Distribution.Count -ne 1 -or
+    $historicalBuild11Promotion.Count -ne 1 -or
+    [string]$historicalBuild11Distribution[0].authority -ne
+      'exact-build11-sealed-small-group-pilot' -or
+    [string]$historicalBuild11Distribution[0].approvedPackageSha256 -ne
+      '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970' -or
+    $historicalBuild11Distribution[0].preservedHistoricalAuthority -ne $true -or
+    $historicalBuild11Distribution[0].appliesToCurrentCandidate -ne $false -or
+    [string]$historicalBuild11Promotion[0].promotionReceiptSha256 -ne
+      '878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400') {
+  throw 'Historical exact Build 11 pilot authority is not preserved.'
 }
 $constructionBoundary = $policy.artifactConstructionBoundary
 if ([string]$constructionBoundary.authority -ne
@@ -523,7 +846,6 @@ $requiredFiles = @(
   [string]$policy.postBuildPromotion.promotionReceiptFile
   'tools/release/Finalize-ProductionRelease.ps1'
 )
-$finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
   if ($policy.finalization.runtimeValidationPassed -eq $true) {
@@ -536,11 +858,14 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
 } elseif ($finalizationStatus -eq 'pending-source-authorized') {
   $requiredFiles +=
     [string]$policy.finalization.priorCompletedBuild.completionReceiptFile
+  if ($policy.finalization.priorCompletedBuild.runtimeValidationPassed -eq
+      $true) {
+    $requiredFiles +=
+      [string]$policy.finalization.priorCompletedBuild.deviceAcceptanceReceiptFile
+  }
   foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
-} else {
-  throw 'Production policy finalization state is unsupported.'
 }
 
 foreach ($file in $requiredFiles) {
@@ -550,6 +875,12 @@ foreach ($file in $requiredFiles) {
 }
 $promotionReceiptPath =
   [string]$policy.postBuildPromotion.promotionReceiptFile
+$promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
+$expectedPromotionReceiptPath =
+  "release/evidence/build-$promotionBuildNumber-staged-controlled-pilot-authorization.json"
+if ($promotionReceiptPath -ne $expectedPromotionReceiptPath) {
+  throw 'Post-build promotion receipt path differs from the governed build.'
+}
 if ((Get-Sha256 $promotionReceiptPath) -ne
     ([string]$policy.postBuildPromotion.promotionReceiptSha256).
       ToUpperInvariant()) {
@@ -557,7 +888,6 @@ if ((Get-Sha256 $promotionReceiptPath) -ne
 }
 $promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
   ConvertFrom-Json
-$promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
 $promotionAuthorityBuild = $promotionReceipt.admittedEvidence.governedBuild
 if ($null -eq $promotionAuthorityBuild -or
     [int]$promotionAuthorityBuild.buildNumber -ne $promotionBuildNumber) {
@@ -565,6 +895,11 @@ if ($null -eq $promotionAuthorityBuild -or
 }
 $promotionFinalizationPath =
   [string]$promotionAuthorityBuild.finalizationReceipt
+$expectedPromotionFinalizationPath =
+  "release/evidence/build-$promotionBuildNumber-finalization-closure.json"
+if ($promotionFinalizationPath -ne $expectedPromotionFinalizationPath) {
+  throw 'Promoted build finalization receipt path is not governed.'
+}
 if ((Get-Sha256 $promotionFinalizationPath) -ne
     ([string]$promotionAuthorityBuild.finalizationReceiptSha256).
       ToUpperInvariant()) {
@@ -572,28 +907,389 @@ if ((Get-Sha256 $promotionFinalizationPath) -ne
 }
 $promotionFinalizationReceipt =
   Get-Content -LiteralPath $promotionFinalizationPath -Raw | ConvertFrom-Json
-if ([string]$promotionFinalizationReceipt.status -ne
-      'passed-non-distributable' -or
-    [int]$promotionFinalizationReceipt.release.buildNumber -ne
+if (-not (Test-PromotedFinalizationDecisions $promotionFinalizationReceipt) -or
+    ($promotionFinalizationReceipt.release.buildNumber -isnot [int] -and
+      $promotionFinalizationReceipt.release.buildNumber -isnot [int64]) -or
+    $promotionFinalizationReceipt.release.buildNumber -ne
       $promotionBuildNumber -or
-    [string]$promotionFinalizationReceipt.sourceAuthority.commit -ne
+    $promotionFinalizationReceipt.sourceAuthority.commit -isnot [string] -or
+    $promotionFinalizationReceipt.sourceAuthority.commit -cne
       [string]$promotionAuthorityBuild.sourceCommit -or
-    [string]$promotionFinalizationReceipt.governedPackage.sha256 -ne
+    $promotionFinalizationReceipt.governedPackage.sha256 -isnot [string] -or
+    $promotionFinalizationReceipt.governedPackage.sha256 -cne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    $promotionFinalizationReceipt.governedPackage.apkSha256 -isnot [string] -or
+    $promotionFinalizationReceipt.governedPackage.apkSha256 -cne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionAuthorityBuild.dualCustodyCompleted -ne $true -or
-    [string]$promotionFinalizationReceipt.dualCustody.status -ne 'passed' -or
-    $promotionAuthorityBuild.twoTargetInPlaceValidationPassed -ne $true -or
-    [string]$promotionFinalizationReceipt.runtimeAdjudication.status -ne
-      'passed-two-target-in-place') {
+    $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -isnot [bool] -or
+    $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -ne $true -or
+    $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -isnot [bool] -or
+    $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -ne $true -or
+    $promotionFinalizationReceipt.dualCustody.status -isnot [string] -or
+    $promotionFinalizationReceipt.dualCustody.status -cne 'passed') {
   throw 'Promoted build retained finalization authority is incomplete or divergent.'
 }
+$deviceAcceptanceAuthority = $promotionReceipt.admittedEvidence.deviceAcceptance
+$deviceAcceptancePath = [string]$deviceAcceptanceAuthority.receipt
+$expectedDeviceAcceptancePath =
+  "release/evidence/build-$promotionBuildNumber-device-acceptance.json"
+if ($deviceAcceptancePath -ne $expectedDeviceAcceptancePath) {
+  throw 'Promoted build device-acceptance receipt path is not governed.'
+}
+if ((Get-Sha256 $deviceAcceptancePath) -ne
+    ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant()) {
+  throw 'Promoted build device-acceptance receipt hash differs from authority.'
+}
+$deviceAcceptanceReceipt =
+  Get-Content -LiteralPath $deviceAcceptancePath -Raw | ConvertFrom-Json
+$deviceBusinessMutationBoundary =
+  $deviceAcceptanceReceipt.businessMutationBoundary
+$deviceBusinessMutationValues = @(
+  $deviceBusinessMutationBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+$deviceReleaseBoundaryValues = @(
+  $deviceAcceptanceReceipt.releaseBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([string]$deviceAcceptanceReceipt.evidenceType -ne
+      'production-build-device-acceptance' -or
+    [string]$deviceAcceptanceReceipt.status -ne
+      [string]$deviceAcceptanceAuthority.decision -or
+    [int]$deviceAcceptanceReceipt.release.buildNumber -ne
+      $promotionBuildNumber -or
+    [string]$deviceAcceptanceReceipt.release.sourceCommit -ne
+      [string]$promotionAuthorityBuild.sourceCommit -or
+    [string]$deviceAcceptanceReceipt.release.finalizationReceiptFile -ne
+      [string]$promotionAuthorityBuild.finalizationReceipt -or
+    [string]$deviceAcceptanceReceipt.release.finalizationReceiptSha256 -ne
+      [string]$promotionAuthorityBuild.finalizationReceiptSha256 -or
+    [string]$deviceAcceptanceReceipt.release.governedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$deviceAcceptanceReceipt.release.apkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
+    [int]$deviceAcceptanceAuthority.physicalTargetCount -ne 1 -or
+    [int]$deviceAcceptanceReceipt.physicalDevice.targetCount -ne
+      [int]$deviceAcceptanceAuthority.physicalTargetCount -or
+    $deviceAcceptanceReceipt.adjudication.runtimeValidationPassed -ne $true -or
+    $deviceAcceptanceReceipt.adjudication.physicalInPlaceMigrationPassed -isnot [bool] -or
+    $deviceAcceptanceReceipt.adjudication.physicalInPlaceMigrationPassed -ne $true -or
+    $deviceAcceptanceReceipt.adjudication.authenticatedReadOnlySurfaceValidationCompleted -isnot [bool] -or
+    $deviceAcceptanceReceipt.adjudication.authenticatedReadOnlySurfaceValidationCompleted -ne $true -or
+    $promotionAuthorityBuild.oneTargetInPlaceValidationPassed -isnot [bool] -or
+    $promotionAuthorityBuild.oneTargetInPlaceValidationPassed -ne $true -or
+    $promotionAuthorityBuild.mutatingBusinessFlowValidationCompleted -isnot [bool] -or
+    $promotionAuthorityBuild.mutatingBusinessFlowValidationCompleted -ne $false -or
+    $deviceAcceptanceReceipt.adjudication.fullBusinessFlowValidationCompleted -ne
+      $false -or
+    $deviceAcceptanceReceipt.adjudication.mutatingBusinessFlowValidationCompleted -ne
+      $false -or
+    $deviceAcceptanceReceipt.physicalDevice.applicationDataPreserved -ne $true -or
+    $deviceAcceptanceReceipt.physicalDevice.applicationDataCleared -ne $false -or
+    $deviceAcceptanceReceipt.physicalDevice.applicationUninstalled -ne $false -or
+    $deviceAcceptanceAuthority.appDataPreserved -ne $true -or
+    [string]$deviceAcceptanceReceipt.synchronization.lastSyncResult -ne
+      'success' -or
+    $deviceAcceptanceAuthority.automaticSyncPassed -ne $true -or
+    -not (Test-CompletedAutomaticSynchronization $deviceAcceptanceReceipt.synchronization) -or
+    -not (Test-ZeroSynchronizationFailureCounters $deviceAcceptanceReceipt.synchronization) -or
+    [int64]$deviceAcceptanceReceipt.synchronization.unsyncedRows -ne 0 -or
+    [int64]$deviceAcceptanceAuthority.unsyncedRows -ne 0 -or
+    [int64]$deviceAcceptanceReceipt.synchronization.unresolvedRejections -ne 0 -or
+    [int64]$deviceAcceptanceAuthority.unresolvedRejections -ne 0 -or
+    $deviceBusinessMutationValues.Count -eq 0 -or
+    @($deviceBusinessMutationValues | Where-Object { $_ -ne $false }).Count -ne
+      0 -or
+    $deviceBusinessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted -ne
+      $false -or
+    $deviceAcceptanceAuthority.businessDataMutated -ne $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.
+      productionBusinessMutationAuthorizedByThisReceipt -ne $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.firebaseBusinessDataChanged -ne
+      $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.deviceDataClearPerformed -ne
+      $false -or
+    $deviceReleaseBoundaryValues.Count -eq 0 -or
+    @($deviceReleaseBoundaryValues | Where-Object { $_ -ne $false }).Count -ne
+      0) {
+  throw 'Promoted build device acceptance is incomplete or over-claimed.'
+}
+$deviceAcceptanceRecordedAt = Get-UtcEvidenceInstant `
+  -Value $deviceAcceptanceReceipt.recordedAtUtc `
+  -FieldName 'Device acceptance recordedAtUtc'
+$deviceInventoryCapturedAt = Get-UtcEvidenceInstant `
+  -Value $deviceAcceptanceReceipt.synchronization.inventoryCapturedAtUtc `
+  -FieldName 'Device acceptance synchronization.inventoryCapturedAtUtc'
+if ($deviceAcceptanceRecordedAt -lt $deviceInventoryCapturedAt) {
+  throw 'Device acceptance predates its synchronization inventory.'
+}
+
+$promotionOwnerApprovalPath = [string]$promotionReceipt.ownerApproval.receipt
+$expectedPromotionOwnerApprovalPath =
+  "release/approvals/build$promotionBuildNumber-staged-controlled-pilot-approval.json"
+if ($promotionOwnerApprovalPath -ne $expectedPromotionOwnerApprovalPath) {
+  throw 'Post-build promotion owner-approval receipt path is not governed.'
+}
+if ((Get-Sha256 $promotionOwnerApprovalPath) -ne
+    ([string]$promotionReceipt.ownerApproval.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion owner-approval receipt hash differs from authority.'
+}
+$promotionOwnerApproval =
+  Get-Content -LiteralPath $promotionOwnerApprovalPath -Raw | ConvertFrom-Json
+$promotionOwnerApprovalArtifact = $promotionOwnerApproval.exactArtifact
+$promotionOwnerApprovalPilot = $promotionOwnerApproval.authorizedPilot
+$promotionOwnerApprovalBoundary = $promotionOwnerApproval.mutationBoundary
+$ownerApprovalMutationValues = @(
+  $promotionOwnerApprovalBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([int]$promotionOwnerApproval.schemaVersion -ne 1 -or
+    [string]$promotionOwnerApproval.approvalClass -ne
+      "EXACT_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_PROMOTION" -or
+    [string]$promotionOwnerApproval.approvalReference -ne
+      [string]$promotionReceipt.ownerApproval.approvalReference -or
+    [int]$promotionOwnerApprovalArtifact.buildNumber -ne
+      $promotionBuildNumber -or
+    [string]$promotionOwnerApprovalArtifact.sourceCommit -ne
+      [string]$promotionAuthorityBuild.sourceCommit -or
+    [string]$promotionOwnerApprovalArtifact.governedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$promotionOwnerApprovalArtifact.apkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
+    [string]$promotionOwnerApprovalArtifact.certificateSha256 -ne
+      [string]$promotionAuthorityBuild.certificateSha256 -or
+    [string]$promotionOwnerApprovalArtifact.applicationId -ne
+      [string]$policy.permanentApplicationId -or
+    [string]$promotionOwnerApprovalPilot.channel -ne
+      [string]$promotionReceipt.promotion.authorizedChannel -or
+    [int]$promotionOwnerApprovalPilot.maximumApprovedUsers -ne
+      [int]$promotionReceipt.promotion.maximumApprovedUsers -or
+    [int]$promotionReceipt.ownerApproval.maximumApprovedUsers -ne
+      [int]$promotionReceipt.promotion.maximumApprovedUsers -or
+    [int]$promotionOwnerApprovalPilot.maximumCanaryUsers -ne
+      [int]$promotionReceipt.promotion.canaryUserCeiling -or
+    [int]$promotionOwnerApprovalPilot.maximumCanaryPhysicalDevices -ne
+      [int]$promotionReceipt.promotion.canaryPhysicalDeviceCeiling -or
+    $promotionOwnerApprovalPilot.rosterAndRolesFrozenAtEachHandout -ne $true -or
+    $promotionOwnerApprovalPilot.
+      privacySafeUserAndDeviceIdentifiersRequired -ne $true -or
+    $promotionOwnerApprovalPilot.perHandoutExecutionReceiptRequired -ne
+      $true -or
+    $promotionOwnerApprovalPilot.
+      inPlaceUpgradeRequiredWhereAppAlreadyInstalled -ne $true -or
+    $promotionOwnerApprovalPilot.deviceDataClearAllowed -ne $false -or
+    $promotionOwnerApprovalPilot.publicArtifactAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.
+      githubActionsArtifactAsDistributionChannelAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.githubReleaseAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.firebaseAppDistributionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalPilot.playConsoleAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.playStoreAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.webDistributionAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalPilot.appCheckActivationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.
+      firebaseBusinessDataMutationAuthorizedByThisApproval -ne $false -or
+    $promotionOwnerApprovalBoundary.firebaseConfigurationMutationAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.iamMutationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.appCheckActivationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.deviceDataClearAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.githubArtifactDeletionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.pilotHandoutPerformedByThisApproval -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $ownerApprovalMutationValues.Count -eq 0 -or
+    @($ownerApprovalMutationValues | Where-Object { $_ -ne $false }).Count -ne
+      0) {
+  throw 'Post-build promotion owner approval is incomplete or divergent.'
+}
+$promotionBackendAuthority = $promotionReceipt.admittedEvidence.productionBackend
+$promotionBackendPath = [string]$promotionBackendAuthority.receipt
+$expectedPromotionBackendPath =
+  "release/evidence/build$promotionBuildNumber-backend-deployment-closure.json"
+if ($promotionBackendPath -ne $expectedPromotionBackendPath) {
+  throw 'Post-build promotion backend receipt path is not governed.'
+}
+if ((Get-Sha256 $promotionBackendPath) -ne
+    ([string]$promotionBackendAuthority.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion backend receipt hash differs from authority.'
+}
+$promotionBackendReceipt =
+  ConvertFrom-BackendReceiptJson -Text (Get-Content -LiteralPath $promotionBackendPath -Raw)
+if ([int]$promotionBackendReceipt.schemaVersion -ne 1 -or
+    [string]$promotionBackendReceipt.evidenceType -ne
+      'exact-current-source-backend-deployment-closure' -or
+    [string]$promotionBackendAuthority.decision -ne
+      "PASS_BUILD${promotionBuildNumber}_BACKEND_DEPLOYMENT_CLOSED" -or
+    [string]$promotionBackendReceipt.decision -ne
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+    [string]$promotionBackendReceipt.firebaseProjectId -ne
+      [string]$policy.firebaseProjectId -or
+    [string]$promotionBackendReceipt.region -ne 'asia-south1' -or
+    $promotionBackendReceipt.deployment.allFunctionsExactSourceVerified -ne
+      $true -or
+    $promotionBackendReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
+      $true -or
+    $promotionBackendReceipt.deployment.finalIamDependencyReadbackPassed -ne
+      $true -or
+    $promotionBackendReceipt.deployment.existingIamPreservationEnforced -ne
+      $true -or
+    $promotionBackendReceipt.deployment.appCheckEnforcement -ne $false -or
+    $promotionBackendReceipt.deployment.
+      legacyMutatingFinalizeWrapperExecuted -ne $false -or
+    $promotionBackendReceipt.controlBoundary.iamMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.serviceAccountsMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.appCheckActivated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.firestoreDocumentsRead -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.firestoreDocumentsWritten -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.productionBusinessDataMutated -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.schedulerManuallyInvoked -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.deviceDataMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.artifactConstructed -ne $false -or
+    $promotionBackendReceipt.controlBoundary.pilotPromotionPerformed -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.distributionPerformed -ne $false -or
+    $promotionBackendReceipt.controlBoundary.securityRulesMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.indexesMutated -ne $false -or
+    -not (Test-ZeroBackendReadbackFailures $promotionBackendReceipt)) {
+  throw 'Post-build promotion backend authority is incomplete or divergent.'
+}
+$promotionFirestoreAuthority =
+  $promotionReceipt.admittedEvidence.firestoreRulesAndIndexes
+$promotionFirestorePath = [string]$promotionFirestoreAuthority.receipt
+$expectedPromotionFirestorePath =
+  "release/evidence/build$promotionBuildNumber-firestore-rules-indexes-live-readback.json"
+if ($promotionFirestorePath -ne $expectedPromotionFirestorePath) {
+  throw 'Post-build promotion Firestore receipt path is not governed.'
+}
+if ((Get-Sha256 $promotionFirestorePath) -ne
+    ([string]$promotionFirestoreAuthority.sha256).ToUpperInvariant()) {
+  throw 'Post-build promotion Firestore receipt hash differs from authority.'
+}
+$promotionFirestoreReceipt =
+  Get-Content -LiteralPath $promotionFirestorePath -Raw | ConvertFrom-Json
+$promotionFirestoreMutationValues = @(
+  $promotionFirestoreReceipt.mutationBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([int]$promotionFirestoreReceipt.schemaVersion -ne 1 -or
+    [string]$promotionFirestoreReceipt.evidenceType -ne
+      'firestore-rules-indexes-live-readback' -or
+    [string]$promotionFirestoreReceipt.mode -ne 'STRICT' -or
+    [string]$promotionFirestoreReceipt.projectId -ne
+      [string]$policy.firebaseProjectId -or
+    [string]$promotionFirestoreReceipt.decision -ne
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' -or
+    [string]$promotionFirestoreReceipt.outputs.rules.sourceSha256 -ne
+      [string]$promotionFirestoreAuthority.rulesSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.rules.activeSha256 -ne
+      [string]$promotionFirestoreAuthority.rulesSha256 -or
+    $promotionFirestoreReceipt.outputs.rules.byteExact -ne $true -or
+    [int]$promotionFirestoreReceipt.outputs.indexes.sourceCount -ne
+      [int]$promotionFirestoreAuthority.indexCount -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.sourceSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.cliSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.apiSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    $promotionFirestoreReceipt.outputs.indexes.allApiIndexesReady -ne $true -or
+    $promotionFirestoreAuthority.allIndexesReady -ne $true -or
+    $promotionFirestoreMutationValues.Count -eq 0 -or
+    @($promotionFirestoreMutationValues |
+        Where-Object { $_ -ne $false }).Count -ne 0) {
+  throw 'Post-build promotion Firestore authority is incomplete or divergent.'
+}
+$promotionRecordedAt = Get-UtcEvidenceInstant `
+  -Value $promotionReceipt.recordedAtUtc `
+  -FieldName 'Post-build promotion recordedAtUtc'
+$finalizationCompletionInstants = @(
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.workflow.completedAtUtc `
+    -FieldName 'Build finalization workflow.completedAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.dualCustody.governedPackageCompletedAtUtc `
+    -FieldName 'Build finalization dualCustody.governedPackageCompletedAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.closure.decisionAtUtc `
+    -FieldName 'Build finalization closure.decisionAtUtc'
+  Get-UtcEvidenceInstant `
+    -Value $promotionFinalizationReceipt.dualCustody.closureArchiveCompletedAtUtc `
+    -FieldName 'Build finalization dualCustody.closureArchiveCompletedAtUtc'
+)
+$latestFinalizationCompletion = $finalizationCompletionInstants[0]
+foreach ($finalizationCompletion in $finalizationCompletionInstants) {
+  if ($finalizationCompletion -gt $latestFinalizationCompletion) {
+    $latestFinalizationCompletion = $finalizationCompletion
+  }
+}
+$promotionEvidenceInstants = @(
+  [PSCustomObject]@{
+    Name = 'owner approval'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionOwnerApproval.approvedAtUtc `
+      -FieldName 'Pilot owner approval approvedAtUtc'
+  }
+  [PSCustomObject]@{
+    Name = 'build finalization closure'
+    Instant = $latestFinalizationCompletion
+  }
+  [PSCustomObject]@{
+    Name = 'device acceptance'
+    Instant = $deviceAcceptanceRecordedAt
+  }
+  [PSCustomObject]@{
+    Name = 'backend deployment'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionBackendReceipt.recordedAtUtc `
+      -FieldName 'Backend deployment recordedAtUtc'
+  }
+  [PSCustomObject]@{
+    Name = 'Firestore live readback'
+    Instant = Get-UtcEvidenceInstant `
+      -Value $promotionFirestoreReceipt.capturedAtUtc `
+      -FieldName 'Firestore live readback capturedAtUtc'
+  }
+)
+foreach ($evidenceInstant in $promotionEvidenceInstants) {
+  if ($promotionRecordedAt -lt $evidenceInstant.Instant) {
+    throw "Post-build promotion predates admitted evidence: $($evidenceInstant.Name)."
+  }
+}
+$expectedPromotionDecision =
+  "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+# Share the read-only approval, child-readback and governance-CI adjudication
+# with the distribution collector so these two release gates cannot drift.
+$stagedAuthorityOutput = & node tools/release/stagedPromotionSourceAuthority.js `
+  $RepositoryRoot (Resolve-Path -LiteralPath $PolicyPath).Path
+if ($LASTEXITCODE -ne 0) {
+  throw "Staged promotion source or governance authority failed: $stagedAuthorityOutput"
+}
+$stagedAuthorityProof = ($stagedAuthorityOutput -join "`n") | ConvertFrom-Json
+if ($stagedAuthorityProof.ok -isnot [bool] -or $stagedAuthorityProof.ok -ne $true) {
+  throw 'Staged promotion source or governance authority was not verified.'
+}
 if ([string]$policy.postBuildPromotion.status -ne
-      'completed-controlled-pilot-only' -or
-    $promotionBuildNumber -ne 11 -or
+      'completed-staged-controlled-pilot-only' -or
+    $promotionBuildNumber -ne $approvedPilotBuildNumber -or
     [string]$policy.postBuildPromotion.sourceCommit -ne
       [string]$promotionAuthorityBuild.sourceCommit -or
     [string]$policy.postBuildPromotion.governedPackageSha256 -ne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$policy.distribution.approvedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$policy.distribution.approvedApkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $policy.postBuildPromotion.controlledPilotApproved -ne $true -or
     $policy.postBuildPromotion.pilotHandoutPerformed -ne $false -or
     $policy.postBuildPromotion.publicArtifactApproved -ne $false -or
@@ -603,26 +1299,68 @@ if ([string]$policy.postBuildPromotion.status -ne
     $policy.postBuildPromotion.playStoreApproved -ne $false -or
     $policy.postBuildPromotion.webDistributionApproved -ne $false -or
     $policy.postBuildPromotion.unrestrictedPlantReleaseApproved -ne $false -or
+    [int]$policy.postBuildPromotion.maximumApprovedUsers -ne
+      [int]$policy.distribution.maximumApprovedUsers -or
+    [int]$policy.postBuildPromotion.canaryUserCeiling -ne 2 -or
+    [int]$policy.postBuildPromotion.canaryPhysicalDeviceCeiling -ne 2 -or
     [string]$policy.distribution.promotionReceiptFile -ne
       $promotionReceiptPath -or
     [string]$policy.distribution.promotionReceiptSha256 -ne
       [string]$policy.postBuildPromotion.promotionReceiptSha256 -or
-    [string]$promotionReceipt.decision -ne
-      'PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED' -or
-    [int]$promotionReceipt.promotion.authorizedBuildNumber -ne 11 -or
+    [string]$promotionReceipt.evidenceType -ne
+      'production-build-staged-controlled-pilot-authorization' -or
+    [string]$promotionReceipt.decision -ne $expectedPromotionDecision -or
+    $promotionReceipt.sourceAuthority.postMergeCi.allRequiredJobsPassed -isnot [bool] -or
+    $promotionReceipt.sourceAuthority.postMergeCi.allRequiredJobsPassed -ne $true -or
+    $promotionReceipt.sourceAuthority.postMergeCi.conclusion -isnot [string] -or
+    $promotionReceipt.sourceAuthority.postMergeCi.conclusion -cne 'success' -or
+    $promotionReceipt.programmeDecision.internalControlledPilot -isnot [string] -or
+    $promotionReceipt.programmeDecision.internalControlledPilot -cne 'GO_STAGED' -or
+    $promotionReceipt.programmeDecision.pilotHandout -isnot [string] -or
+    $promotionReceipt.programmeDecision.pilotHandout -cne
+      "AUTHORIZED_EXACT_BUILD${promotionBuildNumber}_FROZEN_ROSTER_UP_TO_$($policy.distribution.maximumApprovedUsers)" -or
+    $promotionReceipt.programmeDecision.canary -isnot [string] -or
+    $promotionReceipt.programmeDecision.canary -cne 'TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION' -or
+    $promotionReceipt.programmeDecision.mutatingBusinessFlowValidation -isnot [string] -or
+    $promotionReceipt.programmeDecision.mutatingBusinessFlowValidation -cne 'OPEN_COLLECT_DURING_CANARY' -or
+    $promotionReceipt.programmeDecision.unrestrictedDistribution -isnot [string] -or
+    $promotionReceipt.programmeDecision.unrestrictedDistribution -cne 'NO_GO' -or
+    [int]$promotionReceipt.promotion.authorizedBuildNumber -ne
+      $promotionBuildNumber -or
     [string]$promotionReceipt.promotion.authorizedPackageSha256 -ne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$promotionReceipt.promotion.authorizedApkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionReceipt.promotion.pilotHandoutAuthorized -ne $true -or
     $promotionReceipt.promotion.pilotHandoutPerformedByThisRecord -ne $false -or
     $promotionReceipt.promotion.publicArtifactAuthorized -ne $false -or
+    $promotionReceipt.promotion.
+      githubActionsArtifactAsDistributionChannelAuthorized -ne $false -or
     $promotionReceipt.promotion.githubReleaseAuthorized -ne $false -or
     $promotionReceipt.promotion.firebaseAppDistributionAuthorized -ne $false -or
     $promotionReceipt.promotion.playConsoleAuthorized -ne $false -or
     $promotionReceipt.promotion.playStoreAuthorized -ne $false -or
     $promotionReceipt.promotion.webDistributionAuthorized -ne $false -or
     $promotionReceipt.promotion.unrestrictedDistributionAuthorized -ne $false -or
-    $promotionReceipt.closureBoundary.pilotHandoutPerformed -ne $false) {
-  throw 'Post-build promotion exceeds or differs from the exact Build 11 sealed-pilot boundary.'
+    $promotionReceipt.promotion.appCheckActivationAuthorized -ne $false -or
+    [int]$promotionReceipt.promotion.maximumApprovedUsers -ne
+      [int]$policy.distribution.maximumApprovedUsers -or
+    [int]$promotionReceipt.promotion.canaryUserCeiling -ne 2 -or
+    [int]$promotionReceipt.promotion.canaryPhysicalDeviceCeiling -ne 2 -or
+    $promotionReceipt.closureBoundary.deviceAcceptanceRecorded -ne $true -or
+    $promotionReceipt.closureBoundary.controlledPilotAuthorized -ne $true -or
+    $promotionReceipt.closureBoundary.pilotHandoutPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.approvedRosterFrozenByThisRecord -ne
+      $false -or
+    $promotionReceipt.closureBoundary.githubArtifactDeleted -ne $false -or
+    $promotionReceipt.closureBoundary.githubReleaseCreated -ne $false -or
+    $promotionReceipt.closureBoundary.firebaseMutationPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.deviceMutationPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.businessDataReadOrWritten -ne $false -or
+    $promotionReceipt.closureBoundary.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $promotionReceipt.closureBoundary.appCheckDeferralChanged -ne $false) {
+  throw 'Post-build promotion exceeds or differs from the exact staged-pilot boundary.'
 }
 $finalizerTokens = $null
 $finalizerParseErrors = $null
@@ -1320,10 +2058,12 @@ if ($null -ne $requiredRulesShaProperty) {
       $currentSourceAuthority.artifactConstructionAuthority -ne
         $expectedArtifactConstructionAuthority -or
       $currentSourceAuthority.deploymentAuthority -ne $false -or
-      $currentSourceAuthority.distributionAuthority -ne $false -or
+      $currentSourceAuthority.distributionAuthority -ne
+        $currentStagedPilotAuthorized -or
       [string]$currentSourceAuthority.backendDeploymentStatus -ne
         $expectedBackendDeploymentStatus -or
-      $currentSourceAuthority.productionRuntimeUseAuthorized -ne $false -or
+      $currentSourceAuthority.productionRuntimeUseAuthorized -ne
+        $currentStagedPilotAuthorized -or
       $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' -or
@@ -1385,6 +2125,9 @@ if ($RequireArtifactConstructionAuthority -and
   )
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
+$expectedConsumedControlledPilotApproved =
+  $historicalStagedPilotAuthorityPreserved -and
+  [int]$versionSource.consumedBuild.buildNumber -eq $approvedPilotBuildNumber
 $consumedAuthorityValid = $false
 if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and
     $consumedDisposition -in @('', 'failed-build') -and
@@ -1435,7 +2178,8 @@ if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
     $versionSource.consumedBuild.remoteBuiltTagCreated -eq $true -and
     $versionSource.consumedBuild.firebaseBackendDeploymentPerformed -eq
       $false -and
-    $versionSource.consumedBuild.controlledPilotApproved -eq $false -and
+    $versionSource.consumedBuild.controlledPilotApproved -eq
+      $expectedConsumedControlledPilotApproved -and
     $versionSource.consumedBuild.unrestrictedPlantReleaseApproved -eq
       $false -and
     $versionSource.consumedBuild.distributionPerformed -eq $false) {
@@ -1623,7 +2367,58 @@ $completionReceiptPath = $null
 $completionReceipt = $null
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
   ConvertFrom-Json
+if (-not (Test-UniqueBuildLedgerNumbers $ledger)) {
+  throw 'Build ledger must contain unique positive int32 build numbers throughout.'
+}
+$promotionLedgerMatches = @(
+  $ledger.entries |
+    Where-Object { [int]$_.buildNumber -eq $promotionBuildNumber }
+)
+if ($promotionLedgerMatches.Count -ne 1) {
+  throw 'Promoted build ledger authority is missing or duplicated.'
+}
+$promotionLedger = $promotionLedgerMatches[0]
+$promotionLedgerPhysicalReceiptFile = Get-OptionalPropertyValue `
+  -InputObject $promotionLedger `
+  -Name 'physicalInstallationReceiptFile'
+$promotionLedgerPhysicalReceiptSha256 = Get-OptionalPropertyValue `
+  -InputObject $promotionLedger `
+  -Name 'physicalInstallationReceiptSha256'
+if ($promotionLedger.physicalInstallationConditionPassed -ne $true -or
+    [string]$promotionLedgerPhysicalReceiptFile -ne
+      [string]$deviceAcceptanceAuthority.receipt -or
+    [string]$promotionLedgerPhysicalReceiptSha256 -ne
+      ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+    $promotionLedger.runtimeValidationPassed -ne $true -or
+    [string]$promotionLedger.runtimeDisposition -ne
+      [string]$deviceAcceptanceReceipt.status -or
+    $promotionLedger.fullBusinessFlowValidationCompleted -ne $false -or
+    $promotionLedger.controlledPilotApproved -ne $true -or
+    [string]$promotionLedger.pilotPromotionReceiptFile -ne
+      $promotionReceiptPath -or
+    [string]$promotionLedger.pilotPromotionReceiptSha256 -ne
+      ([string]$policy.postBuildPromotion.promotionReceiptSha256).
+        ToUpperInvariant()) {
+  throw 'Promoted build ledger runtime authority differs from measured acceptance.'
+}
 if ($finalizationStatus -eq 'completed-non-distributable') {
+  if ($currentStagedPilotAuthorized -and
+      $currentBuildNumber -eq $promotionBuildNumber -and
+      ($policy.finalization.physicalInstallationConditionPassed -ne $true -or
+       [string]$policy.finalization.physicalInstallationReceiptFile -ne
+         [string]$deviceAcceptanceAuthority.receipt -or
+       [string]$policy.finalization.physicalInstallationReceiptSha256 -ne
+         ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+       [string]$policy.finalization.deviceAcceptanceReceiptFile -ne
+         [string]$deviceAcceptanceAuthority.receipt -or
+       [string]$policy.finalization.deviceAcceptanceReceiptSha256 -ne
+         ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+       $policy.finalization.runtimeValidationPassed -ne $true -or
+       [string]$policy.finalization.runtimeDisposition -ne
+         [string]$deviceAcceptanceReceipt.status -or
+       $policy.finalization.fullBusinessFlowValidationCompleted -ne $false)) {
+    throw 'Current promoted runtime authority differs from measured acceptance.'
+  }
   $completionReceiptPath =
     [string]$policy.finalization.completionReceiptFile
   $completionReceipt =
@@ -1696,7 +2491,8 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $policy.finalization.dualCustodyCompleted -ne $true -or
       -not $recoveryValid -or
       $policy.finalization.firebaseBackendDeploymentPerformed -ne $false -or
-      $policy.finalization.controlledPilotApproved -ne $false -or
+      $policy.finalization.controlledPilotApproved -ne
+        $currentStagedPilotAuthorized -or
       $policy.finalization.unrestrictedPlantReleaseApproved -ne $false -or
       $completionReceipt.releaseBoundary.firebaseBackendDeploymentPerformed -ne
         $false -or
@@ -1721,34 +2517,85 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $deviceAcceptance.adjudication.authenticatedReadOnlySurfaceValidationCompleted
     $mutatingFlowsValidated =
       $deviceAcceptance.adjudication.mutatingBusinessFlowValidationCompleted
+    $validatedSurfacesProperty = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance `
+      -Name 'validatedReadOnlySurfaces'
+    if ($null -eq $validatedSurfacesProperty) {
+      $validatedSurfacesProperty = Get-OptionalPropertyValue `
+        -InputObject $deviceAcceptance `
+        -Name 'validatedSurfaces'
+    }
     $validatedSurfaces = @(
-      $deviceAcceptance.validatedSurfaces |
-        ForEach-Object { [string]$_ }
+      $validatedSurfacesProperty | ForEach-Object { [string]$_ }
     )
+    $expectedReadOnlySurfaces = switch ($currentBuildNumber) {
+      18 { $ExpectedBuild18ReadOnlySurfaces; break }
+      27 { $ExpectedBuild27ReadOnlySurfaces; break }
+      default {
+        throw "No exact read-only surface contract exists for Build $currentBuildNumber."
+      }
+    }
     $validatedSurfacesExact =
-      $validatedSurfaces.Count -eq $ExpectedBuild18ReadOnlySurfaces.Count
+      $validatedSurfaces.Count -eq $expectedReadOnlySurfaces.Count
     if ($validatedSurfacesExact) {
       for ($surfaceIndex = 0;
-          $surfaceIndex -lt $ExpectedBuild18ReadOnlySurfaces.Count;
+          $surfaceIndex -lt $expectedReadOnlySurfaces.Count;
           $surfaceIndex++) {
         if ($validatedSurfaces[$surfaceIndex] -cne
-            $ExpectedBuild18ReadOnlySurfaces[$surfaceIndex]) {
+            $expectedReadOnlySurfaces[$surfaceIndex]) {
           $validatedSurfacesExact = $false
           break
         }
       }
     }
+    $signerContinuity = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.physicalDevice `
+      -Name 'signerContinuityVerifiedByInPlaceUpdate'
+    if ($null -eq $signerContinuity) {
+      $signerContinuity = Get-OptionalPropertyValue `
+        -InputObject $deviceAcceptance.physicalDevice `
+        -Name 'signerContinuityVerified'
+    }
+    $receiptPilotAuthority = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.releaseBoundary `
+      -Name 'controlledPilotApprovedByThisReceipt'
+    if ($null -eq $receiptPilotAuthority) {
+      $receiptPilotAuthority = Get-OptionalPropertyValue `
+        -InputObject $deviceAcceptance.releaseBoundary `
+        -Name 'controlledPilotApproved'
+    }
+    $unsyncedRows = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.synchronization `
+      -Name 'unsyncedRows'
+    $unresolvedRejections = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.synchronization `
+      -Name 'unresolvedRejections'
+    $synchronizationInventoryHealthy =
+      $unsyncedRows -is [int64] -and
+      $unsyncedRows -eq 0 -and
+      $unresolvedRejections -is [int64] -and
+      $unresolvedRejections -eq 0
+    $synchronizationHealthy =
+      $synchronizationInventoryHealthy -and
+      ($currentBuildNumber -ne 27 -or (
+        [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
+        [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
+        [int64]$deviceAcceptance.synchronization.processingErrors -eq 0 -and
+        (Test-ZeroSynchronizationFailureCounters $deviceAcceptance.synchronization)
+      ))
+    $expectedRuntimeStatus =
+      "passed-exact-build$currentBuildNumber-physical-in-place-authenticated-read-only-surfaces"
     if ((Get-Sha256 $deviceAcceptancePath) -ne
         ([string]$policy.finalization.deviceAcceptanceReceiptSha256).
           ToUpperInvariant() -or
-        [string]$policy.finalization.runtimeDisposition -ne
-          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
-        $policy.finalization.fullBusinessFlowValidationCompleted -ne
+      [string]$policy.finalization.runtimeDisposition -ne
+          $expectedRuntimeStatus -or
+      $policy.finalization.fullBusinessFlowValidationCompleted -ne
           $false -or
-        [string]$deviceAcceptance.evidenceType -ne
+      [string]$deviceAcceptance.evidenceType -ne
           'production-build-device-acceptance' -or
-        [string]$deviceAcceptance.status -ne
-          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
+      [string]$deviceAcceptance.status -ne
+          $expectedRuntimeStatus -or
         [int64]$deviceAcceptance.release.buildNumber -ne
           [int64]$policy.release.buildNumber -or
         [string]$deviceAcceptance.release.finalizationReceiptSha256 -ne
@@ -1762,18 +2609,16 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $false -or
         [int64]$deviceAcceptance.physicalDevice.installedVersionCode -ne
           [int64]$policy.release.buildNumber -or
-        $deviceAcceptance.physicalDevice.exactGovernedApkMatch -ne $true -or
-        $deviceAcceptance.physicalDevice.signerContinuityVerified -ne
+      $deviceAcceptance.physicalDevice.exactGovernedApkMatch -ne $true -or
+      $signerContinuity -ne $true -or
+      $deviceAcceptance.physicalDevice.firstInstallTimePreserved -ne
           $true -or
-        $deviceAcceptance.physicalDevice.firstInstallTimePreserved -ne
-          $true -or
-        $deviceAcceptance.physicalDevice.applicationDataCleared -ne
+      $deviceAcceptance.physicalDevice.applicationDataPreserved -ne $true -or
+      $deviceAcceptance.physicalDevice.applicationDataCleared -ne
           $false -or
-        [string]$deviceAcceptance.synchronization.lastSyncResult -ne
+      [string]$deviceAcceptance.synchronization.lastSyncResult -ne
           'success' -or
-        [int64]$deviceAcceptance.synchronization.unsyncedRows -ne 0 -or
-        [int64]$deviceAcceptance.synchronization.unresolvedRejections -ne
-          0 -or
+      -not $synchronizationHealthy -or
         @($mutationValues | Where-Object { $_ -ne $false }).Count -ne 0 -or
         $deviceAcceptance.adjudication.runtimeValidationPassed -ne $true -or
         $readOnlySurfacesValidated -ne $true -or
@@ -1781,8 +2626,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $mutatingFlowsValidated -ne $false -or
         $deviceAcceptance.adjudication.fullBusinessFlowValidationCompleted -ne
           $false -or
-        $deviceAcceptance.releaseBoundary.controlledPilotApproved -ne
-          $false -or
+      $receiptPilotAuthority -ne $false -or
         $deviceAcceptance.releaseBoundary.pilotHandoutPerformed -ne
           $false -or
         $deviceAcceptance.releaseBoundary.deviceDataClearPerformed -ne
@@ -1802,15 +2646,65 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $physicalInstallation =
       Get-Content -LiteralPath $physicalInstallationPath -Raw |
         ConvertFrom-Json
-    $expectedPhysicalStatus =
-      'passed-exact-build' +
-      [string]$policy.release.buildNumber +
-      '-physical-in-place-authenticated-startup-and-local-recovery'
     $physicalMutationValues = @(
       $physicalInstallation.businessMutationBoundary.PSObject.Properties |
         ForEach-Object { $_.Value }
     )
-    if ((Get-Sha256 $physicalInstallationPath) -ne
+    if ([string]$physicalInstallation.evidenceType -eq
+        'production-build-device-acceptance') {
+      $physicalReceiptPilotAuthority = Get-OptionalPropertyValue `
+        -InputObject $physicalInstallation.releaseBoundary `
+        -Name 'controlledPilotApprovedByThisReceipt'
+      if ((Get-Sha256 $physicalInstallationPath) -ne
+          ([string]$policy.finalization.physicalInstallationReceiptSha256).
+            ToUpperInvariant() -or
+          $physicalInstallationPath -ne
+            [string]$policy.finalization.deviceAcceptanceReceiptFile -or
+          [int64]$physicalInstallation.release.buildNumber -ne
+            [int64]$policy.release.buildNumber -or
+          [string]$physicalInstallation.release.finalizationReceiptSha256 -ne
+            (Get-Sha256 $completionReceiptPath) -or
+          [string]$physicalInstallation.release.apkSha256 -ne
+            [string]$completionReceipt.governedPackage.apkSha256 -or
+          [string]$physicalInstallation.release.certificateSha256 -ne
+            [string]$completionReceipt.governedPackage.certificateSha256 -or
+          $physicalInstallation.physicalDevice.deviceSerialRecorded -ne
+            $false -or
+          $physicalInstallation.physicalDevice.accountIdentifierRecorded -ne
+            $false -or
+          [int64]$physicalInstallation.physicalDevice.installedVersionCode -ne
+            [int64]$policy.release.buildNumber -or
+          $physicalInstallation.physicalDevice.exactGovernedApkMatch -ne
+            $true -or
+          $physicalInstallation.physicalDevice.firstInstallTimePreserved -ne
+            $true -or
+          $physicalInstallation.physicalDevice.applicationDataPreserved -ne
+            $true -or
+          $physicalInstallation.physicalDevice.applicationDataCleared -ne
+            $false -or
+          $physicalInstallation.adjudication.physicalInPlaceMigrationPassed -ne
+            $true -or
+          $physicalInstallation.adjudication.runtimeValidationPassed -ne
+            $true -or
+          $physicalInstallation.adjudication.fullBusinessFlowValidationCompleted -ne
+            $false -or
+          @($physicalMutationValues | Where-Object { $_ -ne $false }).Count -ne
+            0 -or
+          $physicalReceiptPilotAuthority -ne $false -or
+          $physicalInstallation.releaseBoundary.pilotHandoutPerformed -ne
+            $false -or
+          $physicalInstallation.releaseBoundary.firebaseBusinessDataChanged -ne
+            $false -or
+          $policy.finalization.runtimeValidationPassed -ne $true -or
+          -not $currentStagedPilotAuthorized) {
+        throw 'Device-acceptance receipt differs from its exact physical-installation boundary.'
+      }
+    } else {
+      $expectedPhysicalStatus =
+        'passed-exact-build' +
+        [string]$policy.release.buildNumber +
+        '-physical-in-place-authenticated-startup-and-local-recovery'
+      if ((Get-Sha256 $physicalInstallationPath) -ne
         ([string]$policy.finalization.physicalInstallationReceiptSha256).
           ToUpperInvariant() -or
         [string]$physicalInstallation.evidenceType -ne
@@ -1871,7 +2765,8 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $false -or
         $policy.finalization.runtimeValidationPassed -ne $false -or
         $policy.finalization.controlledPilotApproved -ne $false) {
-      throw 'Physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+        throw 'Physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+      }
     }
   }
 
@@ -1903,6 +2798,60 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   $ledgerPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
     -InputObject $predecessorLedger `
     -Name 'physicalInstallationReceiptSha256'
+  $preservedPhysicalInstallationConditionPassed = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationConditionPassed'
+  $preservedPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationReceiptFile'
+  $preservedPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationReceiptSha256'
+  $preservedDeviceAcceptanceReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'deviceAcceptanceReceiptFile'
+  $preservedDeviceAcceptanceReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'deviceAcceptanceReceiptSha256'
+  $preservedRuntimeValidationPassed = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'runtimeValidationPassed'
+  $preservedRuntimeDisposition = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'runtimeDisposition'
+  $preservedFullBusinessFlowValidationCompleted = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'fullBusinessFlowValidationCompleted'
+  $preservedControlledPilotApproved = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'controlledPilotApproved'
+  $consumedPhysicalInstallationConditionPassed = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationConditionPassed'
+  $consumedPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationReceiptFile'
+  $consumedPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationReceiptSha256'
+  $consumedRuntimeValidationPassed = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'runtimeValidationPassed'
+  $consumedRuntimeDisposition = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'runtimeDisposition'
+  $consumedFullBusinessFlowValidationCompleted = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'fullBusinessFlowValidationCompleted'
+  $consumedControlledPilotApproved = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'controlledPilotApproved'
+  $priorDeviceAcceptanceReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'deviceAcceptanceReceiptFile'
+  $priorDeviceAcceptanceReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'deviceAcceptanceReceiptSha256'
   $successfulPredecessor =
     $consumed.closureFinalizationCompleted -eq $true -and
     $consumed.dualCustodyCompleted -eq $true -and
@@ -1912,9 +2861,67 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   $predecessorPhysicalInstallationConditionRecorded =
     $prior.physicalInstallationConditionPassed -eq $true -or
     $prior.physicalInstallationConditionPassed -eq $false
+  $promotedPredecessorRuntimeAuthorityInvalid = $false
+  if ($successfulPredecessor -and
+      $historicalStagedPilotAuthorityPreserved -and
+      [int]$prior.buildNumber -eq $promotionBuildNumber) {
+    $expectedPromotionDeviceAcceptanceSha256 =
+      ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant()
+    $promotedPredecessorRuntimeAuthorityInvalid =
+      $predecessorLedgerMatches.Count -ne 1 -or
+      $prior.physicalInstallationConditionPassed -ne $true -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      [string]$priorDeviceAcceptanceReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$priorDeviceAcceptanceReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $prior.runtimeValidationPassed -ne $true -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $prior.fullBusinessFlowValidationCompleted -ne $false -or
+      $prior.controlledPilotApproved -ne $true -or
+      $preservedPhysicalInstallationConditionPassed -ne $true -or
+      [string]$preservedPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$preservedPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      [string]$preservedDeviceAcceptanceReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$preservedDeviceAcceptanceReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $preservedRuntimeValidationPassed -ne $true -or
+      [string]$preservedRuntimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $preservedFullBusinessFlowValidationCompleted -ne $false -or
+      $preservedControlledPilotApproved -ne $true -or
+      $consumedPhysicalInstallationConditionPassed -ne $true -or
+      [string]$consumedPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$consumedPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $consumedRuntimeValidationPassed -ne $true -or
+      [string]$consumedRuntimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $consumedFullBusinessFlowValidationCompleted -ne $false -or
+      $consumedControlledPilotApproved -ne $true -or
+      $predecessorLedger.physicalInstallationConditionPassed -ne $true -or
+      [string]$ledgerPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$ledgerPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $predecessorLedger.runtimeValidationPassed -ne $true -or
+      [string]$predecessorLedger.runtimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $predecessorLedger.fullBusinessFlowValidationCompleted -ne $false -or
+      $predecessorLedger.controlledPilotApproved -ne $true
+  }
   $predecessorBoundaryInvalid = $false
   if ($successfulPredecessor) {
     $predecessorBoundaryInvalid =
+      $promotedPredecessorRuntimeAuthorityInvalid -or
       [int64]$prior.buildNumber -ne
         [int64]$preserved.buildNumber -or
       [int64]$prior.buildNumber -ne [int64]$consumed.buildNumber -or
@@ -1935,12 +2942,57 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$ledgerPhysicalInstallationReceiptFile -or
       [string]$priorPhysicalInstallationReceiptSha256 -ne
         [string]$ledgerPhysicalInstallationReceiptSha256 -or
+      $prior.physicalInstallationConditionPassed -ne
+        $preservedPhysicalInstallationConditionPassed -or
+      $prior.physicalInstallationConditionPassed -ne
+        $consumedPhysicalInstallationConditionPassed -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$preservedPhysicalInstallationReceiptFile -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$consumedPhysicalInstallationReceiptFile -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        [string]$preservedPhysicalInstallationReceiptSha256 -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        [string]$consumedPhysicalInstallationReceiptSha256 -or
+      [string]$priorDeviceAcceptanceReceiptFile -ne
+        [string]$preservedDeviceAcceptanceReceiptFile -or
+      [string]$priorDeviceAcceptanceReceiptSha256 -ne
+        [string]$preservedDeviceAcceptanceReceiptSha256 -or
+      ($prior.runtimeValidationPassed -eq $true -and
+        ([string]$priorDeviceAcceptanceReceiptFile -ne
+          [string]$priorPhysicalInstallationReceiptFile -or
+        [string]$priorDeviceAcceptanceReceiptSha256 -ne
+          [string]$priorPhysicalInstallationReceiptSha256)) -or
       -not $predecessorPhysicalInstallationConditionRecorded -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
       [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
       [string]$prior.governedPackageSha256 -ne
-        [string]$consumed.governedPackageSha256
+        [string]$consumed.governedPackageSha256 -or
+      $prior.runtimeValidationPassed -ne
+        $predecessorLedger.runtimeValidationPassed -or
+      $prior.runtimeValidationPassed -ne
+        $preservedRuntimeValidationPassed -or
+      $prior.runtimeValidationPassed -ne
+        $consumedRuntimeValidationPassed -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$predecessorLedger.runtimeDisposition -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$preservedRuntimeDisposition -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$consumedRuntimeDisposition -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $predecessorLedger.fullBusinessFlowValidationCompleted -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $preservedFullBusinessFlowValidationCompleted -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $consumedFullBusinessFlowValidationCompleted -or
+      $prior.controlledPilotApproved -ne
+        $predecessorLedger.controlledPilotApproved -or
+      $prior.controlledPilotApproved -ne
+        $preservedControlledPilotApproved -or
+      $prior.controlledPilotApproved -ne
+        $consumedControlledPilotApproved
   } else {
     $failed = $policy.finalization.priorFailedAttempt
     $predecessorBoundaryInvalid =
@@ -1984,7 +3036,119 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $predecessorPhysicalInstallation = Get-Content `
       -LiteralPath $predecessorPhysicalInstallationPath -Raw |
         ConvertFrom-Json
-    $expectedPredecessorPhysicalStatus =
+    $predecessorPhysicalEvidenceType =
+      [string]$predecessorPhysicalInstallation.evidenceType
+    $expectedPredecessorControlledPilotApproved =
+      $historicalStagedPilotAuthorityPreserved -and
+      [int]$prior.buildNumber -eq $approvedPilotBuildNumber
+    if ($predecessorPhysicalEvidenceType -eq
+        'production-build-device-acceptance') {
+      $predecessorDeviceMutationValues = @(
+        $predecessorPhysicalInstallation.businessMutationBoundary.
+          PSObject.Properties |
+          ForEach-Object { $_.Value }
+      )
+      $predecessorDeviceReleaseBoundaryValues = @(
+        $predecessorPhysicalInstallation.releaseBoundary.PSObject.Properties |
+          ForEach-Object { $_.Value }
+      )
+      $predecessorSignerContinuity = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.physicalDevice `
+        -Name 'signerContinuityVerifiedByInPlaceUpdate'
+      if ($null -eq $predecessorSignerContinuity) {
+        $predecessorSignerContinuity = Get-OptionalPropertyValue `
+          -InputObject $predecessorPhysicalInstallation.physicalDevice `
+          -Name 'signerContinuityVerified'
+      }
+      $predecessorUnsyncedRows = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.synchronization `
+        -Name 'unsyncedRows'
+      $predecessorUnresolvedRejections = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.synchronization `
+        -Name 'unresolvedRejections'
+      if ((Get-Sha256 $predecessorPhysicalInstallationPath) -ne
+            ([string]$prior.physicalInstallationReceiptSha256).
+              ToUpperInvariant() -or
+          [string]$predecessorPhysicalInstallation.status -ne
+            [string]$prior.runtimeDisposition -or
+          [int64]$predecessorPhysicalInstallation.release.buildNumber -ne
+            [int64]$prior.buildNumber -or
+          [string]$predecessorPhysicalInstallation.release.releaseId -ne
+            [string]$consumed.releaseId -or
+          [string]$predecessorPhysicalInstallation.release.versionName -ne
+            [string]$consumed.versionName -or
+          [string]$predecessorPhysicalInstallation.release.applicationId -ne
+            [string]$policy.permanentApplicationId -or
+          [string]$predecessorPhysicalInstallation.release.sourceCommit -ne
+            [string]$prior.sourceCommit -or
+          [string]$predecessorPhysicalInstallation.release.
+            finalizationReceiptFile -ne
+            [string]$prior.completionReceiptFile -or
+          [string]$predecessorPhysicalInstallation.release.
+            finalizationReceiptSha256 -ne
+            (Get-Sha256 ([string]$prior.completionReceiptFile)) -or
+          [string]$predecessorPhysicalInstallation.release.
+            governedPackageSha256 -ne
+            [string]$prior.governedPackageSha256 -or
+          [string]$predecessorPhysicalInstallation.release.apkSha256 -ne
+            [string]$predecessorReceipt.governedPackage.apkSha256 -or
+          [string]$predecessorPhysicalInstallation.release.certificateSha256 -ne
+            [string]$predecessorReceipt.governedPackage.certificateSha256 -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            deviceSerialRecorded -ne $false -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            accountIdentifierRecorded -ne $false -or
+          [int64]$predecessorPhysicalInstallation.physicalDevice.
+            installedVersionCode -ne [int64]$prior.buildNumber -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            exactGovernedApkMatch -ne $true -or
+          $predecessorSignerContinuity -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            firstInstallTimePreserved -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationDataPreserved -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationDataCleared -ne $false -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationUninstalled -ne $false -or
+          [string]$predecessorPhysicalInstallation.runtime.coldLaunchResult -ne
+            'passed' -or
+          $predecessorPhysicalInstallation.runtime.
+            approvedAuthenticatedSessionPreserved -ne $true -or
+          $predecessorPhysicalInstallation.runtime.authenticatedHomeRendered -ne
+            $true -or
+          $predecessorPhysicalInstallation.localStoreMigration.
+            governedOpenCompleted -ne $true -or
+          [string]$predecessorPhysicalInstallation.synchronization.
+            lastSyncResult -ne 'success' -or
+          $predecessorUnsyncedRows -isnot [int64] -or
+          $predecessorUnsyncedRows -ne 0 -or
+          $predecessorUnresolvedRejections -isnot [int64] -or
+          $predecessorUnresolvedRejections -ne 0 -or
+          -not (Test-ZeroSynchronizationFailureCounters $predecessorPhysicalInstallation.synchronization) -or
+          @($predecessorDeviceMutationValues |
+            Where-Object { $_ -ne $false }).Count -ne 0 -or
+          $predecessorPhysicalInstallation.adjudication.
+            runtimeValidationPassed -ne $true -or
+          $predecessorPhysicalInstallation.adjudication.
+            fullBusinessFlowValidationCompleted -ne $false -or
+          @($predecessorDeviceReleaseBoundaryValues |
+            Where-Object { $_ -ne $false }).Count -ne 0 -or
+          [string]$prior.deviceAcceptanceReceiptFile -ne
+            $predecessorPhysicalInstallationPath -or
+          [string]$prior.deviceAcceptanceReceiptSha256 -ne
+            [string]$prior.physicalInstallationReceiptSha256 -or
+          $prior.runtimeValidationPassed -ne $true -or
+          [string]$prior.runtimeDisposition -ne
+            [string]$predecessorPhysicalInstallation.status -or
+          $prior.fullBusinessFlowValidationCompleted -ne $false -or
+          $prior.controlledPilotApproved -ne
+            $expectedPredecessorControlledPilotApproved) {
+        throw 'Predecessor device acceptance or retained pilot state is divergent.'
+      }
+    } elseif ($predecessorPhysicalEvidenceType -eq
+        'production-build-physical-installation-acceptance') {
+      $expectedPredecessorPhysicalStatus =
       'passed-exact-build' +
       [string]$prior.buildNumber +
       '-physical-in-place-authenticated-startup-and-local-recovery'
@@ -2082,6 +3246,9 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $prior.runtimeValidationPassed -ne $false -or
         $prior.controlledPilotApproved -ne $false) {
       throw 'Predecessor physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+      }
+    } else {
+      throw 'Predecessor physical-installation evidence type is unsupported.'
     }
   } elseif ($successfulPredecessor -and
       (-not [string]::IsNullOrWhiteSpace(
@@ -2291,7 +3458,24 @@ if ($finalizationStatus -eq 'pending-source-authorized') {
     $reservation.remoteTagPushRecoveryForceUsed -ne
       $expectedRecoveryForceUsed -or
     $reservation.firebaseBackendDeploymentPerformed -ne $false -or
-    $reservation.controlledPilotApproved -ne $false -or
+    $reservation.physicalInstallationConditionPassed -ne
+      $policy.finalization.physicalInstallationConditionPassed -or
+    [string]$reservation.physicalInstallationReceiptFile -ne
+      [string]$policy.finalization.physicalInstallationReceiptFile -or
+    [string]$reservation.physicalInstallationReceiptSha256 -ne
+      [string]$policy.finalization.physicalInstallationReceiptSha256 -or
+    $reservation.runtimeValidationPassed -ne
+      $policy.finalization.runtimeValidationPassed -or
+    [string]$reservation.runtimeDisposition -ne
+      [string]$policy.finalization.runtimeDisposition -or
+    $reservation.fullBusinessFlowValidationCompleted -ne
+      $policy.finalization.fullBusinessFlowValidationCompleted -or
+    $reservation.controlledPilotApproved -ne
+      $currentStagedPilotAuthorized -or
+    [string]$reservation.pilotPromotionReceiptFile -ne
+      [string]$policy.postBuildPromotion.promotionReceiptFile -or
+    [string]$reservation.pilotPromotionReceiptSha256 -ne
+      [string]$policy.postBuildPromotion.promotionReceiptSha256 -or
     $reservation.unrestrictedPlantReleaseApproved -ne $false -or
     $reservation.distributionPerformed -ne $false) {
     throw 'Finalized build-number evidence differs from policy.'
@@ -2305,6 +3489,26 @@ $consumedMatches = @(
         [int64]$versionSource.consumedBuild.buildNumber
     }
 )
+$consumedLedgerRecord =
+  if ($consumedMatches.Count -eq 1) {
+    $consumedMatches[0]
+  } else {
+    $null
+  }
+$consumedLedgerPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+  -InputObject $consumedLedgerRecord `
+  -Name 'physicalInstallationReceiptFile'
+$consumedLedgerPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+  -InputObject $consumedLedgerRecord `
+  -Name 'physicalInstallationReceiptSha256'
+$versionSourceConsumedPhysicalInstallationReceiptFile =
+  Get-OptionalPropertyValue `
+    -InputObject $versionSource.consumedBuild `
+    -Name 'physicalInstallationReceiptFile'
+$versionSourceConsumedPhysicalInstallationReceiptSha256 =
+  Get-OptionalPropertyValue `
+    -InputObject $versionSource.consumedBuild `
+    -Name 'physicalInstallationReceiptSha256'
 $consumedLedgerValid = $false
 if ($consumedMatches.Count -eq 1 -and
     [int64]$consumedMatches[0].githubRunId -ne
@@ -2380,21 +3584,28 @@ if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].dualCustodyCompleted -eq $true -and
     $consumedMatches[0].remoteBuiltTagCreated -eq $true -and
     $consumedMatches[0].firebaseBackendDeploymentPerformed -eq $false -and
-    $consumedMatches[0].controlledPilotApproved -eq $false -and
+    $consumedMatches[0].physicalInstallationConditionPassed -eq
+      $versionSource.consumedBuild.physicalInstallationConditionPassed -and
+    [string]$consumedLedgerPhysicalInstallationReceiptFile -eq
+      [string]$versionSourceConsumedPhysicalInstallationReceiptFile -and
+    [string]$consumedLedgerPhysicalInstallationReceiptSha256 -eq
+      [string]$versionSourceConsumedPhysicalInstallationReceiptSha256 -and
+    $consumedMatches[0].runtimeValidationPassed -eq
+      $versionSource.consumedBuild.runtimeValidationPassed -and
+    [string]$consumedMatches[0].runtimeDisposition -eq
+      [string]$versionSource.consumedBuild.runtimeDisposition -and
+    $consumedMatches[0].fullBusinessFlowValidationCompleted -eq
+      $versionSource.consumedBuild.fullBusinessFlowValidationCompleted -and
+    $consumedMatches[0].controlledPilotApproved -eq
+      $expectedConsumedControlledPilotApproved -and
+    $consumedMatches[0].controlledPilotApproved -eq
+      $versionSource.consumedBuild.controlledPilotApproved -and
     $consumedMatches[0].unrestrictedPlantReleaseApproved -eq $false -and
     $consumedMatches[0].distributionPerformed -eq $false) {
   $consumedLedgerValid = $true
 }
 if (-not $consumedLedgerValid) {
   throw 'Consumed build evidence differs from rollover authority.'
-}
-
-if (@(
-    $ledger.entries |
-      Group-Object buildNumber |
-      Where-Object Count -gt 1
-  ).Count -gt 0) {
-  throw 'Duplicate build number exists in source ledger.'
 }
 
 $expectedReservationTag =
@@ -2844,5 +4055,10 @@ Write-Host '===== PRODUCTION RELEASE POLICY VERIFIED =====' `
 Write-Host "Application ID: $($policy.permanentApplicationId)"
 Write-Host "Version:        $($policy.release.versionName)+$($policy.release.buildNumber)"
 Write-Host "Reservation:    $($policy.versionPolicy.remoteReservationTag)"
-Write-Host 'Distribution:   EXACT BUILD 11 SEALED PILOT ONLY'
+if ($currentStagedPilotAuthorized) {
+  Write-Host "Distribution:   EXACT BUILD $currentBuildNumber STAGED PILOT ONLY"
+} else {
+  Write-Host "Distribution:   BUILD $currentBuildNumber NOT APPROVED; " `
+    "EXACT BUILD $approvedPilotBuildNumber REMAINS HISTORICAL ONLY"
+}
 Write-Host 'Operational package cutover remains O-10/70J.'

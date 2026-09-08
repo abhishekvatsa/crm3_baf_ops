@@ -152,7 +152,7 @@ void main() {
       expect(text, isNot(contains('authority.deployedIndexesParityStatus')));
     });
 
-    test('policy binds remote issuance and exact sealed-pilot promotion', () {
+    test('policy binds remote issuance and staged-pilot promotion', () {
       final text = read('tools/release/Test-ProductionReleasePolicy.ps1');
       final canonicalAudit = read('tools/v4/v4_2_r1_canonical_audit.py');
 
@@ -161,7 +161,8 @@ void main() {
       expect(text, contains('remoteBuiltTag'));
       expect(text, contains('failedOrWithdrawnBuildConsumesNumber'));
       expect(text, contains('exact-build11-sealed-small-group-pilot'));
-      expect(text, contains('completed-controlled-pilot-only'));
+      expect(text, contains('completed-staged-controlled-pilot-only'));
+      expect(text, contains('staged-controlled-pilot'));
       expect(text, contains('promotionReceiptSha256'));
       expect(text, contains('operationalCutoverBoundary'));
       expect(text, contains('backupProofSha256'));
@@ -1604,11 +1605,23 @@ void main() {
           _sha256(finalizedBuild['completionReceiptFile'] as String),
           finalizedBuild['completionReceiptSha256'],
         );
-        expect(finalizedBuild['runtimeValidationPassed'], isFalse);
+        expect(finalizedBuild['physicalInstallationConditionPassed'], isTrue);
+        expect(finalizedBuild['runtimeValidationPassed'], isTrue);
         expect(
           finalizedBuild['runtimeDisposition'],
-          'not-adjudicated-by-build-finalization',
+          'passed-exact-build27-physical-in-place-authenticated-read-only-surfaces',
         );
+        expect(
+          finalizedBuild['physicalInstallationReceiptFile'],
+          'release/evidence/build-27-device-acceptance.json',
+        );
+        expect(
+          _sha256(finalizedBuild['physicalInstallationReceiptFile'] as String),
+          finalizedBuild['physicalInstallationReceiptSha256'],
+        );
+        expect(finalizedBuild['fullBusinessFlowValidationCompleted'], isFalse);
+        expect(finalizedBuild['controlledPilotApproved'], isTrue);
+        expect(finalizedBuild['unrestrictedPlantReleaseApproved'], isFalse);
         expect(build22Receipt['schemaVersion'], 1);
         expect(build22Receipt['status'], 'passed-non-distributable');
         expect(
@@ -1857,7 +1870,8 @@ void main() {
         expect(build15Finalization['buildNumber'], 15);
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
-        expect(finalization['controlledPilotApproved'], isFalse);
+        expect(finalization['controlledPilotApproved'], isTrue);
+        expect(finalization['unrestrictedPlantReleaseApproved'], isFalse);
         final failedAttempt = (finalization['historicalFailedAttempts'] as List)
             .cast<Map<String, dynamic>>()
             .single;

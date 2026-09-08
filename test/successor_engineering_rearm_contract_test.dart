@@ -279,568 +279,596 @@ void main() {
     );
   });
 
-  test(
-    'current index derives each release plane from live authority records',
-    () {
-      final state = _readObject('release/current-successor-state.json');
-      final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
-      final currentSource = (planes['currentSource'] as Map)
-          .cast<String, dynamic>();
-      final currentFirestoreSource =
-          (currentSource['firestoreRulesAndIndexes'] as Map)
-              .cast<String, dynamic>();
-      final artifact = (planes['latestFinalizedArtifact'] as Map)
-          .cast<String, dynamic>();
-      final deployed = (planes['deployedBackend'] as Map)
-          .cast<String, dynamic>();
-      final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
-      final next = (planes['nextCandidate'] as Map).cast<String, dynamic>();
-      final policy = _readObject('release/production-release-policy.json');
-      final release = (policy['release'] as Map).cast<String, dynamic>();
-      final finalization = (policy['finalization'] as Map)
-          .cast<String, dynamic>();
-      final priorFinalization = (finalization['priorCompletedBuild'] as Map)
-          .cast<String, dynamic>();
-      final pendingConstruction =
-          finalization['status'] == 'pending-source-authorized';
-      final finalizedAuthority = pendingConstruction
-          ? priorFinalization
-          : finalization;
-      final runtimeValidationPassed =
-          finalizedAuthority['runtimeValidationPassed'] == true;
-      final candidateBuildNumber = release['buildNumber'] as int;
-      final finalizedBuildNumber =
-          finalizedAuthority['buildNumber'] as int? ?? candidateBuildNumber;
-      final historicalFirestoreAuthority =
-          (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
-              .cast<String, dynamic>();
-      final promotion = (policy['postBuildPromotion'] as Map)
-          .cast<String, dynamic>();
-      final ledger = _readObject('release/build-number-ledger.json');
-      final ledgerEntries = _objects(ledger['entries']);
-      final latestLedgerEntry = ledgerEntries.last;
-      final latestFinalizedLedgerEntry = ledgerEntries
-          .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
-          .single;
-      final receipt = _readObject(
-        finalizedAuthority['completionReceiptFile'] as String,
-      );
-      final receiptRelease = (receipt['release'] as Map)
-          .cast<String, dynamic>();
-      final receiptSourceAuthority = (receipt['sourceAuthority'] as Map)
-          .cast<String, dynamic>();
-      final liveBackend = _readObject(
-        deployed['functionFleetEvidenceFile'] as String,
-      );
-      final cleanMainLiveReadbacks =
-          (liveBackend['cleanMainLiveReadbacks'] as Map)
-              .cast<String, dynamic>();
-      final functionReadbackAuthority =
-          (cleanMainLiveReadbacks['functionFleet'] as Map)
-              .cast<String, dynamic>();
-      final iamReadbackAuthority =
-          (cleanMainLiveReadbacks['iamDependencies'] as Map)
-              .cast<String, dynamic>();
-      final firestoreAuthority =
-          (cleanMainLiveReadbacks['firestoreRulesAndIndexes'] as Map)
-              .cast<String, dynamic>();
-      final rulesReadback = _readObject(
-        deployed['rulesAndIndexesEvidenceFile'] as String,
-      );
-      final rulesReadbackSource = (rulesReadback['source'] as Map)
-          .cast<String, dynamic>();
-      final rulesReadbackBefore = (rulesReadbackSource['before'] as Map)
-          .cast<String, dynamic>();
-      final historicalRulesHold = _readObject(
-        'release/evidence/build15-firestore-rules-readback-hold.json',
-      );
-      final nextApproval = _readObject(
-        (policy['versionPolicy'] as Map)['sourceDocumentFile'] as String,
-      );
-      final nextEnvironment = _readObject(
-        ((policy['github'] as Map)['environmentReviewControl']
-                as Map)['approvalReceiptFile']
-            as String,
-      );
-      final requiredSource = (nextApproval['requiredSource'] as Map)
-          .cast<String, dynamic>();
-      final functionReadback = _readObject(
-        functionReadbackAuthority['file'] as String,
-      );
-      final iamReadback = _readObject(iamReadbackAuthority['file'] as String);
-      final deploymentApproval = _readObject(
-        deployed['deploymentApprovalFile'] as String,
-      );
-      final nextApprovalBuild = (nextApproval['nextBuild'] as Map)
-          .cast<String, dynamic>();
-      final backendAuthority = (liveBackend['sourceAuthority'] as Map)
-          .cast<String, dynamic>();
-      final backendDeployment = (liveBackend['deployment'] as Map)
-          .cast<String, dynamic>();
-      final backendBoundary = (liveBackend['controlBoundary'] as Map)
-          .cast<String, dynamic>();
-      final rulesReadbackOutputs = (rulesReadback['outputs'] as Map)
-          .cast<String, dynamic>();
-      final verifiedRules = (rulesReadbackOutputs['rules'] as Map)
-          .cast<String, dynamic>();
-      final verifiedIndexes = (rulesReadbackOutputs['indexes'] as Map)
-          .cast<String, dynamic>();
-      final historicalHoldBoundary =
-          (historicalRulesHold['releaseBoundary'] as Map)
-              .cast<String, dynamic>();
-      final predecessor =
-          (requiredSource['predecessorFinalizationReceipt'] as Map)
-              .cast<String, dynamic>();
-      final environmentScope = (nextEnvironment['scope'] as Map)
-          .cast<String, dynamic>();
-      final environmentEvidence = (nextEnvironment['liveStateEvidence'] as Map)
-          .cast<String, dynamic>();
-      final deployedFunctionsTree = _gitTreeObjectId(
-        backendAuthority['commit'] as String,
-        'functions',
-      );
-      final currentFunctionsTree = _gitTreeObjectId('HEAD', 'functions');
-      final expectedFunctionDeployment = _functionDeploymentStatus(
-        deployedFunctionsTree,
-        currentFunctionsTree,
-      );
-      final functionsMatchDeployed =
-          expectedFunctionDeployment ==
-          'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK';
-      final sourceIndexProbe = Process.runSync('node', <String>[
-        'tools/release/collectFirestoreRulesIndexesReadback.js',
-        '--source-index-set',
-        'firestore.indexes.json',
-      ]);
-      expect(sourceIndexProbe.exitCode, 0);
-      final sourceIndexBinding =
-          (jsonDecode(sourceIndexProbe.stdout as String) as Map)
-              .cast<String, dynamic>();
-      final currentRulesSha = _sha256('firestore.rules');
-      final rulesChanged = currentRulesSha != firestoreAuthority['rulesSha256'];
-      final indexesChanged =
-          sourceIndexBinding['count'] != firestoreAuthority['indexCount'] ||
-          sourceIndexBinding['indexSetSha256'] !=
-              firestoreAuthority['indexSetSha256'] ||
-          sourceIndexBinding['sourceFileSha256'] !=
-              verifiedIndexes['sourceFileSha256'] ||
-          sourceIndexBinding['fieldOverrideCount'] !=
-              verifiedIndexes['sourceFieldOverrideCount'] ||
-          sourceIndexBinding['fieldOverrideSetSha256'] !=
-              verifiedIndexes['sourceFieldOverrideSha256'];
-      final firestoreMatchesDeployed = !rulesChanged && !indexesChanged;
-      final backendMatchesDeployed =
-          functionsMatchDeployed && firestoreMatchesDeployed;
-      final sourceBaseline = (nextApproval['sourceBaseline'] as Map)
-          .cast<String, dynamic>();
-      final candidateSourceMatchesApproval = _approvedArtifactSourceMatches(
-        sourceBaseline['commit'] as String,
-        '${release['versionName']}+$candidateBuildNumber',
-      );
-      final finalizedArtifactSourceMatches =
-          !pendingConstruction &&
-          _approvedArtifactSourceMatches(
-            receiptSourceAuthority['commit'] as String,
-            '${release['versionName']}+$candidateBuildNumber',
-          );
-      final backendApprovedAt = DateTime.parse(
-        deploymentApproval['approvedAtUtc'] as String,
-      );
-      for (final capturedAt in <String>[
-        functionReadback['capturedAtUtc'] as String,
-        iamReadback['capturedAtUtc'] as String,
-        rulesReadback['capturedAtUtc'] as String,
-        liveBackend['recordedAtUtc'] as String,
-      ]) {
-        expect(DateTime.parse(capturedAt).isBefore(backendApprovedAt), isFalse);
-      }
-      final expectedFirestoreRelationship = _firestoreRelationship(
-        rulesChanged: rulesChanged,
-        indexesChanged: indexesChanged,
-      );
-      final expectedFirestoreDeployment = _firestoreDeploymentStatus(
-        rulesChanged: rulesChanged,
-        indexesChanged: indexesChanged,
-      );
-      final expectedBackendStatus = backendMatchesDeployed
-          ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
-          : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
+  test('current index derives each release plane from live authority records', () {
+    final state = _readObject('release/current-successor-state.json');
+    final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
+    final currentSource = (planes['currentSource'] as Map)
+        .cast<String, dynamic>();
+    final currentFirestoreSource =
+        (currentSource['firestoreRulesAndIndexes'] as Map)
+            .cast<String, dynamic>();
+    final artifact = (planes['latestFinalizedArtifact'] as Map)
+        .cast<String, dynamic>();
+    final deployed = (planes['deployedBackend'] as Map).cast<String, dynamic>();
+    final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
+    final next = (planes['nextCandidate'] as Map).cast<String, dynamic>();
+    final policy = _readObject('release/production-release-policy.json');
+    final release = (policy['release'] as Map).cast<String, dynamic>();
+    final finalization = (policy['finalization'] as Map)
+        .cast<String, dynamic>();
+    final priorFinalization = (finalization['priorCompletedBuild'] as Map)
+        .cast<String, dynamic>();
+    final pendingConstruction =
+        finalization['status'] == 'pending-source-authorized';
+    final finalizedAuthority = pendingConstruction
+        ? priorFinalization
+        : finalization;
+    final runtimeValidationPassed =
+        finalizedAuthority['runtimeValidationPassed'] == true;
+    final candidateBuildNumber = release['buildNumber'] as int;
+    final finalizedBuildNumber =
+        finalizedAuthority['buildNumber'] as int? ?? candidateBuildNumber;
+    final historicalFirestoreAuthority =
+        (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
+            .cast<String, dynamic>();
+    final promotion = (policy['postBuildPromotion'] as Map)
+        .cast<String, dynamic>();
+    final distribution = (policy['distribution'] as Map)
+        .cast<String, dynamic>();
+    final controlledPilotApproved =
+        !pendingConstruction &&
+        finalization['controlledPilotApproved'] == true &&
+        promotion['controlledPilotApproved'] == true &&
+        promotion['buildNumber'] == candidateBuildNumber &&
+        distribution['approved'] == true &&
+        distribution['approvedBuildNumber'] == candidateBuildNumber &&
+        distribution['appliesToCurrentCandidate'] == true;
+    final ledger = _readObject('release/build-number-ledger.json');
+    final ledgerEntries = _objects(ledger['entries']);
+    final latestLedgerEntry = ledgerEntries.last;
+    final latestFinalizedLedgerEntry = ledgerEntries
+        .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
+        .single;
+    final receipt = _readObject(
+      finalizedAuthority['completionReceiptFile'] as String,
+    );
+    final receiptRelease = (receipt['release'] as Map).cast<String, dynamic>();
+    final receiptSourceAuthority = (receipt['sourceAuthority'] as Map)
+        .cast<String, dynamic>();
+    final liveBackend = _readObject(
+      deployed['functionFleetEvidenceFile'] as String,
+    );
+    final cleanMainLiveReadbacks =
+        (liveBackend['cleanMainLiveReadbacks'] as Map).cast<String, dynamic>();
+    final functionReadbackAuthority =
+        (cleanMainLiveReadbacks['functionFleet'] as Map)
+            .cast<String, dynamic>();
+    final iamReadbackAuthority =
+        (cleanMainLiveReadbacks['iamDependencies'] as Map)
+            .cast<String, dynamic>();
+    final firestoreAuthority =
+        (cleanMainLiveReadbacks['firestoreRulesAndIndexes'] as Map)
+            .cast<String, dynamic>();
+    final rulesReadback = _readObject(
+      deployed['rulesAndIndexesEvidenceFile'] as String,
+    );
+    final rulesReadbackSource = (rulesReadback['source'] as Map)
+        .cast<String, dynamic>();
+    final rulesReadbackBefore = (rulesReadbackSource['before'] as Map)
+        .cast<String, dynamic>();
+    final historicalRulesHold = _readObject(
+      'release/evidence/build15-firestore-rules-readback-hold.json',
+    );
+    final nextApproval = _readObject(
+      (policy['versionPolicy'] as Map)['sourceDocumentFile'] as String,
+    );
+    final nextEnvironment = _readObject(
+      ((policy['github'] as Map)['environmentReviewControl']
+              as Map)['approvalReceiptFile']
+          as String,
+    );
+    final requiredSource = (nextApproval['requiredSource'] as Map)
+        .cast<String, dynamic>();
+    final functionReadback = _readObject(
+      functionReadbackAuthority['file'] as String,
+    );
+    final iamReadback = _readObject(iamReadbackAuthority['file'] as String);
+    final deploymentApproval = _readObject(
+      deployed['deploymentApprovalFile'] as String,
+    );
+    final nextApprovalBuild = (nextApproval['nextBuild'] as Map)
+        .cast<String, dynamic>();
+    final backendAuthority = (liveBackend['sourceAuthority'] as Map)
+        .cast<String, dynamic>();
+    final backendDeployment = (liveBackend['deployment'] as Map)
+        .cast<String, dynamic>();
+    final backendBoundary = (liveBackend['controlBoundary'] as Map)
+        .cast<String, dynamic>();
+    final rulesReadbackOutputs = (rulesReadback['outputs'] as Map)
+        .cast<String, dynamic>();
+    final verifiedRules = (rulesReadbackOutputs['rules'] as Map)
+        .cast<String, dynamic>();
+    final verifiedIndexes = (rulesReadbackOutputs['indexes'] as Map)
+        .cast<String, dynamic>();
+    final historicalHoldBoundary =
+        (historicalRulesHold['releaseBoundary'] as Map).cast<String, dynamic>();
+    final predecessor =
+        (requiredSource['predecessorFinalizationReceipt'] as Map)
+            .cast<String, dynamic>();
+    final environmentScope = (nextEnvironment['scope'] as Map)
+        .cast<String, dynamic>();
+    final environmentEvidence = (nextEnvironment['liveStateEvidence'] as Map)
+        .cast<String, dynamic>();
+    final deployedFunctionsTree = _gitTreeObjectId(
+      backendAuthority['commit'] as String,
+      'functions',
+    );
+    final currentFunctionsTree = _gitTreeObjectId('HEAD', 'functions');
+    final expectedFunctionDeployment = _functionDeploymentStatus(
+      deployedFunctionsTree,
+      currentFunctionsTree,
+    );
+    final functionsMatchDeployed =
+        expectedFunctionDeployment ==
+        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK';
+    final sourceIndexProbe = Process.runSync('node', <String>[
+      'tools/release/collectFirestoreRulesIndexesReadback.js',
+      '--source-index-set',
+      'firestore.indexes.json',
+    ]);
+    expect(sourceIndexProbe.exitCode, 0);
+    final sourceIndexBinding =
+        (jsonDecode(sourceIndexProbe.stdout as String) as Map)
+            .cast<String, dynamic>();
+    final currentRulesSha = _sha256('firestore.rules');
+    final rulesChanged = currentRulesSha != firestoreAuthority['rulesSha256'];
+    final indexesChanged =
+        sourceIndexBinding['count'] != firestoreAuthority['indexCount'] ||
+        sourceIndexBinding['indexSetSha256'] !=
+            firestoreAuthority['indexSetSha256'] ||
+        sourceIndexBinding['sourceFileSha256'] !=
+            verifiedIndexes['sourceFileSha256'] ||
+        sourceIndexBinding['fieldOverrideCount'] !=
+            verifiedIndexes['sourceFieldOverrideCount'] ||
+        sourceIndexBinding['fieldOverrideSetSha256'] !=
+            verifiedIndexes['sourceFieldOverrideSha256'];
+    final firestoreMatchesDeployed = !rulesChanged && !indexesChanged;
+    final backendMatchesDeployed =
+        functionsMatchDeployed && firestoreMatchesDeployed;
+    final sourceBaseline = (nextApproval['sourceBaseline'] as Map)
+        .cast<String, dynamic>();
+    final candidateSourceMatchesApproval = _approvedArtifactSourceMatches(
+      sourceBaseline['commit'] as String,
+      '${release['versionName']}+$candidateBuildNumber',
+    );
+    final finalizedArtifactSourceMatches =
+        !pendingConstruction &&
+        _approvedArtifactSourceMatches(
+          receiptSourceAuthority['commit'] as String,
+          '${release['versionName']}+$candidateBuildNumber',
+        );
+    final backendApprovedAt = DateTime.parse(
+      deploymentApproval['approvedAtUtc'] as String,
+    );
+    for (final capturedAt in <String>[
+      functionReadback['capturedAtUtc'] as String,
+      iamReadback['capturedAtUtc'] as String,
+      rulesReadback['capturedAtUtc'] as String,
+      liveBackend['recordedAtUtc'] as String,
+    ]) {
+      expect(DateTime.parse(capturedAt).isBefore(backendApprovedAt), isFalse);
+    }
+    final expectedFirestoreRelationship = _firestoreRelationship(
+      rulesChanged: rulesChanged,
+      indexesChanged: indexesChanged,
+    );
+    final expectedFirestoreDeployment = _firestoreDeploymentStatus(
+      rulesChanged: rulesChanged,
+      indexesChanged: indexesChanged,
+    );
+    final expectedBackendStatus = backendMatchesDeployed
+        ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
+        : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 
-      expect(state['schemaVersion'], 2);
-      expect(
-        state['status'],
-        pendingConstruction
-            ? !backendMatchesDeployed
-                  ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                        'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
-                  : !candidateSourceMatchesApproval
-                  ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
-                        'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
-                  : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                        'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
-            : backendMatchesDeployed
-            ? runtimeValidationPassed
-                  ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                        'DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_'
-                        'PILOT_DECISIONS'
-                  : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                        'AWAITING_DEVICE_AND_PILOT_DECISIONS'
-            : runtimeValidationPassed
-            ? 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
-                  'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_'
-                  'PILOT_DECISIONS'
-            : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
-                  'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
-                  'PILOT_DECISIONS',
-      );
-      expect(currentSource['reference'], 'refs/heads/main');
-      expect(currentSource['packageVersion'], _packageVersion());
-      expect(
-        currentSource['relationshipToLatestFinalizedArtifact'],
-        pendingConstruction || !finalizedArtifactSourceMatches
-            ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
-                  'FINALIZED_BUILD$finalizedBuildNumber'
-            : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'
-                  'FINALIZED_BUILD$finalizedBuildNumber',
-      );
-      expect(currentSource['sourceAndCiAuthority'], isTrue);
-      expect(
-        currentSource['artifactConstructionAuthority'],
-        _artifactConstructionAuthority(
-          pendingSourceAuthorization: pendingConstruction,
-          backendMatchesDeployed: backendMatchesDeployed,
-          artifactSourceMatchesApproval: candidateSourceMatchesApproval,
-        ),
-      );
-      expect(currentSource['deploymentAuthority'], isFalse);
-      expect(currentSource['distributionAuthority'], isFalse);
-      expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
-      expect(currentSource['backendDeploymentStatus'], expectedBackendStatus);
-      expect(currentSource['productionRuntimeUseAuthorized'], isFalse);
+    expect(state['schemaVersion'], 2);
+    expect(
+      state['status'],
+      pendingConstruction
+          ? !backendMatchesDeployed
+                ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                      'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
+                : !candidateSourceMatchesApproval
+                ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
+                      'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
+                : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                      'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
+          : backendMatchesDeployed
+          ? runtimeValidationPassed
+                ? controlledPilotApproved
+                      ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                            'DEVICE_ACCEPTED_STAGED_PILOT_AUTHORIZED_'
+                            'AWAITING_MUTATING_FLOW_AND_HANDOUT_RECEIPTS'
+                      : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                            'DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_'
+                            'PILOT_DECISIONS'
+                : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                      'AWAITING_DEVICE_AND_PILOT_DECISIONS'
+          : runtimeValidationPassed
+          ? 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
+                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_'
+                'PILOT_DECISIONS'
+          : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
+                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
+                'PILOT_DECISIONS',
+    );
+    expect(currentSource['reference'], 'refs/heads/main');
+    expect(currentSource['packageVersion'], _packageVersion());
+    expect(
+      currentSource['relationshipToLatestFinalizedArtifact'],
+      pendingConstruction || !finalizedArtifactSourceMatches
+          ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
+                'FINALIZED_BUILD$finalizedBuildNumber'
+          : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'
+                'FINALIZED_BUILD$finalizedBuildNumber',
+    );
+    expect(currentSource['sourceAndCiAuthority'], isTrue);
+    expect(
+      currentSource['artifactConstructionAuthority'],
+      _artifactConstructionAuthority(
+        pendingSourceAuthorization: pendingConstruction,
+        backendMatchesDeployed: backendMatchesDeployed,
+        artifactSourceMatchesApproval: candidateSourceMatchesApproval,
+      ),
+    );
+    expect(currentSource['deploymentAuthority'], isFalse);
+    expect(currentSource['distributionAuthority'], controlledPilotApproved);
+    expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
+    expect(currentSource['backendDeploymentStatus'], expectedBackendStatus);
+    expect(
+      currentSource['productionRuntimeUseAuthorized'],
+      controlledPilotApproved,
+    );
 
-      expect(artifact['buildNumber'], finalizedBuildNumber);
+    expect(artifact['buildNumber'], finalizedBuildNumber);
+    expect(artifact['buildNumber'], latestFinalizedLedgerEntry['buildNumber']);
+    expect(artifact['buildNumber'], receiptRelease['buildNumber']);
+    expect(
+      artifact['version'],
+      '${latestFinalizedLedgerEntry['versionName']}+$finalizedBuildNumber',
+    );
+    expect(artifact['sourceCommit'], finalizedAuthority['sourceCommit']);
+    expect(release['buildNumber'], latestLedgerEntry['buildNumber']);
+    expect(
+      latestLedgerEntry['status'],
+      pendingConstruction
+          ? 'source-reserved-awaiting-remote-consumption'
+          : 'remote-consumed-artifact-built-finalized-non-distributable',
+    );
+    if (!pendingConstruction) {
+      expect(latestLedgerEntry['githubRunId'], finalization['githubRunId']);
       expect(
-        artifact['buildNumber'],
-        latestFinalizedLedgerEntry['buildNumber'],
+        latestLedgerEntry['governedPackageSha256'],
+        finalization['governedPackageSha256'],
       );
-      expect(artifact['buildNumber'], receiptRelease['buildNumber']);
+    }
+    final artifactIsAncestor = Process.runSync('git', <String>[
+      'merge-base',
+      '--is-ancestor',
+      artifact['sourceCommit'] as String,
+      'HEAD',
+    ]);
+    expect(
+      artifactIsAncestor.exitCode,
+      0,
+      reason: 'Current source must descend from the finalized artifact.',
+    );
+    expect(
+      artifact['status'],
+      controlledPilotApproved
+          ? 'COMPLETED_STAGED_CONTROLLED_PILOT_AUTHORIZED'
+          : 'COMPLETED_NON_DISTRIBUTABLE',
+    );
+    expect(
+      artifact['completionReceiptFile'],
+      finalizedAuthority['completionReceiptFile'],
+    );
+    expect(
+      artifact['completionReceiptSha256'],
+      finalizedAuthority['completionReceiptSha256'],
+    );
+    expect(
+      _sha256(artifact['completionReceiptFile'] as String),
+      artifact['completionReceiptSha256'],
+    );
+    expect(
+      artifact['runtimeValidation'],
+      runtimeValidationPassed
+          ? 'PASSED_EXACT_BUILD${finalizedBuildNumber}_PHYSICAL_IN_PLACE_'
+                'AUTHENTICATED_READ_ONLY_SURFACES'
+          : 'NOT_ADJUDICATED_FOR_EXACT_BUILD$finalizedBuildNumber',
+    );
+    if (runtimeValidationPassed) {
       expect(
-        artifact['version'],
-        '${latestFinalizedLedgerEntry['versionName']}+$finalizedBuildNumber',
-      );
-      expect(artifact['sourceCommit'], finalizedAuthority['sourceCommit']);
-      expect(release['buildNumber'], latestLedgerEntry['buildNumber']);
-      expect(
-        latestLedgerEntry['status'],
-        pendingConstruction
-            ? 'source-reserved-awaiting-remote-consumption'
-            : 'remote-consumed-artifact-built-finalized-non-distributable',
-      );
-      if (!pendingConstruction) {
-        expect(latestLedgerEntry['githubRunId'], finalization['githubRunId']);
-        expect(
-          latestLedgerEntry['governedPackageSha256'],
-          finalization['governedPackageSha256'],
-        );
-      }
-      final artifactIsAncestor = Process.runSync('git', <String>[
-        'merge-base',
-        '--is-ancestor',
-        artifact['sourceCommit'] as String,
-        'HEAD',
-      ]);
-      expect(
-        artifactIsAncestor.exitCode,
-        0,
-        reason: 'Current source must descend from the finalized artifact.',
-      );
-      expect(artifact['status'], 'COMPLETED_NON_DISTRIBUTABLE');
-      expect(
-        artifact['completionReceiptFile'],
-        finalizedAuthority['completionReceiptFile'],
-      );
-      expect(
-        artifact['completionReceiptSha256'],
-        finalizedAuthority['completionReceiptSha256'],
-      );
-      expect(
-        _sha256(artifact['completionReceiptFile'] as String),
-        artifact['completionReceiptSha256'],
+        artifact['deviceAcceptanceReceiptFile'],
+        finalizedAuthority['deviceAcceptanceReceiptFile'],
       );
       expect(
-        artifact['runtimeValidation'],
-        runtimeValidationPassed
-            ? 'PASSED_EXACT_BUILD${finalizedBuildNumber}_PHYSICAL_IN_PLACE_'
-                  'AUTHENTICATED_READ_ONLY_SURFACES'
-            : 'NOT_ADJUDICATED_FOR_EXACT_BUILD$finalizedBuildNumber',
+        artifact['deviceAcceptanceReceiptSha256'],
+        finalizedAuthority['deviceAcceptanceReceiptSha256'],
       );
-      if (runtimeValidationPassed) {
-        expect(
-          artifact['deviceAcceptanceReceiptFile'],
-          finalizedAuthority['deviceAcceptanceReceiptFile'],
-        );
-        expect(
-          artifact['deviceAcceptanceReceiptSha256'],
-          finalizedAuthority['deviceAcceptanceReceiptSha256'],
-        );
-        expect(
-          _sha256(artifact['deviceAcceptanceReceiptFile'] as String),
-          artifact['deviceAcceptanceReceiptSha256'],
-        );
-        expect(
-          artifact['fullBusinessFlowValidation'],
-          'MUTATING_FLOWS_NOT_ADJUDICATED',
-        );
-      }
-      expect(artifact['pilotPromotion'], 'NOT_AUTHORIZED');
-      expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
+      expect(
+        _sha256(artifact['deviceAcceptanceReceiptFile'] as String),
+        artifact['deviceAcceptanceReceiptSha256'],
+      );
+      expect(
+        artifact['fullBusinessFlowValidation'],
+        'MUTATING_FLOWS_NOT_ADJUDICATED',
+      );
+    }
+    expect(
+      artifact['pilotPromotion'],
+      controlledPilotApproved
+          ? 'AUTHORIZED_STAGED_EXACT_BUILD${finalizedBuildNumber}_UP_TO_25'
+          : 'NOT_AUTHORIZED',
+    );
+    if (controlledPilotApproved) {
+      expect(
+        artifact['pilotPromotionReceiptFile'],
+        promotion['promotionReceiptFile'],
+      );
+      expect(
+        artifact['pilotPromotionReceiptSha256'],
+        promotion['promotionReceiptSha256'],
+      );
+      expect(
+        _sha256(artifact['pilotPromotionReceiptFile'] as String),
+        artifact['pilotPromotionReceiptSha256'],
+      );
+    }
+    expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
 
-      expect(
-        finalization['exactFunctionFleetDeploymentReceiptFile'],
-        requiredSource['exactFunctionFleetDeploymentReceiptFile'],
-      );
-      expect(
-        _sha256(
-          finalization['exactFunctionFleetDeploymentReceiptFile'] as String,
-        ),
-        requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
-      );
-      expect(
-        _sha256(deployed['functionFleetEvidenceFile'] as String),
-        deployed['functionFleetEvidenceSha256'],
-      );
-      expect(
-        deployed['functionFleetReadbackDecision'],
-        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK',
-      );
-      expect(
-        deployed['rulesAndIndexesReadbackDecision'],
-        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
-      );
-      expect(
-        liveBackend['decision'],
-        deployed['functionFleetReadbackDecision'],
-      );
-      expect(
-        deployed['currentSourceFunctionDeployment'],
-        expectedFunctionDeployment,
-      );
-      expect(
-        deployed['currentSourceRulesAndIndexesDeployment'],
-        expectedFirestoreDeployment,
-      );
-      expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
-      expect(
-        _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
-        backendAuthority['functionsGitObjectId'],
-      );
-      expect(
-        backendAuthority['pullRequestNumber'],
-        (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
-      );
-      final approvalAuthority = (liveBackend['approvalAuthority'] as Map)
-          .cast<String, dynamic>();
-      expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
-      expect(
-        _sha256(deployed['deploymentApprovalFile'] as String),
-        approvalAuthority['sha256'],
-      );
-      expect(deploymentApproval['approved'], isTrue);
-      expect(
-        (deploymentApproval['sourceAuthority'] as Map)['commit'],
-        backendAuthority['commit'],
-      );
-      expect(backendDeployment['functionCount'], 15);
-      expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
-      expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
-      expect(backendBoundary['iamMutated'], isFalse);
-      expect(backendBoundary['productionBusinessDataMutated'], isFalse);
-      expect(backendBoundary['distributionPerformed'], isFalse);
-      final campaignReceipts = _objects(
-        (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
-      );
-      final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
-      expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
-      expect(
-        campaignReceiptFiles,
-        containsAll(<String>[
-          '01-preflight.json',
-          '02-provisioned.json',
-          '03-callables.json',
-          '04-events.json',
-          '05-scheduler-preflight.json',
-          '06-fleet.json',
-          '07-lr03-lr06-prefinal.json',
-          '08-final.json',
-          '09-lr03-lr06-final.json',
-        ]),
-      );
-      for (final receipt in campaignReceipts) {
-        expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
-      }
-      expect(
-        _sha256(functionReadbackAuthority['file'] as String),
-        functionReadbackAuthority['physicalSha256'],
-      );
-      expect(
-        (functionReadback['receiptSha256'] as String).toUpperCase(),
-        functionReadbackAuthority['canonicalReceiptSha256'],
-      );
-      expect(
-        _sha256(iamReadbackAuthority['file'] as String),
-        iamReadbackAuthority['physicalSha256'],
-      );
-      expect(
-        (iamReadback['receiptSha256'] as String).toUpperCase(),
-        iamReadbackAuthority['canonicalReceiptSha256'],
-      );
-      expect(
-        rulesReadback['decision'],
-        deployed['rulesAndIndexesReadbackDecision'],
-      );
-      expect(
-        firestoreAuthority['file'],
-        deployed['rulesAndIndexesEvidenceFile'],
-      );
-      expect(
-        _sha256(deployed['rulesAndIndexesEvidenceFile'] as String),
-        firestoreAuthority['physicalSha256'],
-      );
-      expect(
-        (rulesReadback['receiptSha256'] as String).toUpperCase(),
-        firestoreAuthority['canonicalReceiptSha256'],
-      );
-      expect(
-        deployed['rulesAndIndexesSourceCommit'],
-        firestoreAuthority['sourceCommit'],
-      );
-      expect(
-        deployed['rulesAndIndexesSourceCommit'],
-        rulesReadbackBefore['commit'],
-      );
-      expect(verifiedRules['sourceSha256'], firestoreAuthority['rulesSha256']);
-      expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
-      expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
-      expect(verifiedRules['byteExact'], isTrue);
-      expect(verifiedIndexes['sourceCount'], firestoreAuthority['indexCount']);
-      expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
-      expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
-      expect(verifiedIndexes['allApiIndexesReady'], isTrue);
-      expect(
-        verifiedIndexes['sourceSetSha256'],
-        firestoreAuthority['indexSetSha256'],
-      );
-      expect(
-        historicalFirestoreAuthority['receiptFile'],
-        requiredSource['exactFirestoreRulesReceiptFile'],
-      );
-      expect(sourceIndexBinding['count'], currentFirestoreSource['indexCount']);
-      expect(
-        sourceIndexBinding['indexSetSha256'],
-        currentFirestoreSource['indexSetSha256'],
-      );
-      expect(
-        sourceIndexBinding['sourceFileSha256'],
-        currentFirestoreSource['indexFileSha256'],
-      );
-      expect(
-        sourceIndexBinding['fieldOverrideCount'],
-        currentFirestoreSource['fieldOverrideCount'],
-      );
-      expect(
-        sourceIndexBinding['fieldOverrideSetSha256'],
-        currentFirestoreSource['fieldOverrideSetSha256'],
-      );
-      expect(
-        currentFirestoreSource['relationshipToDeployedBackend'],
-        expectedFirestoreRelationship,
-      );
-      expect(
-        currentFirestoreSource['productionDeploymentPerformed'],
-        firestoreMatchesDeployed,
-      );
-      expect(
-        currentFirestoreSource['productionRuntimeUseAuthorized'],
-        firestoreMatchesDeployed,
-      );
-      expect(
-        historicalRulesHold['decision'],
-        'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
-      );
-      expect(
-        historicalHoldBoundary['build15ConstructionAuthorizedByThisEvidence'],
-        isFalse,
-      );
-      expect(
-        historicalHoldBoundary['productionRulesDeploymentApprovedByThisEvidence'],
-        isFalse,
-      );
-      expect(historicalHoldBoundary['pilotPromotionApproved'], isFalse);
-      expect(predecessor['buildNumber'], priorFinalization['buildNumber']);
-      expect(predecessor['file'], priorFinalization['completionReceiptFile']);
-      expect(
-        predecessor['sha256'],
-        priorFinalization['completionReceiptSha256'],
-      );
-      expect(nextApproval['approved'], isTrue);
-      expect(nextApprovalBuild['buildNumber'], candidateBuildNumber);
-      expect(nextApproval['distributionApproved'], isFalse);
-      expect(nextEnvironment['approved'], isTrue);
-      expect(environmentScope['buildNumber'], nextApprovalBuild['buildNumber']);
-      expect(environmentEvidence['requiredReviewerRulePresent'], isTrue);
-      expect(environmentEvidence['secretValuesInspected'], isFalse);
-      expect(
-        (environmentEvidence['requiredReviewer'] as Map)['login'],
-        'abhishekvatsa',
-      );
-      expect(pilot['buildNumber'], promotion['buildNumber']);
-      expect(
-        pilot['buildNumber'],
-        policy['distribution']['approvedBuildNumber'],
-      );
-      expect(pilot['handoutPerformed'], isFalse);
-      expect(pilot['appliesToCurrentSource'], isFalse);
-      expect(pilot['appliesToBuild14'], isFalse);
-      expect(pilot['appliesToBuild15'], isFalse);
-      expect(pilot['appliesToBuild16'], isFalse);
-      expect(pilot['appliesToBuild17'], isFalse);
-      expect(pilot['appliesToBuild$candidateBuildNumber'], isFalse);
-      expect(
-        next['minimumBuildNumber'],
-        candidateBuildNumber + (pendingConstruction ? 0 : 1),
-      );
-      expect(
-        next['status'],
-        pendingConstruction
-            ? !backendMatchesDeployed
-                  ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
-                  : !candidateSourceMatchesApproval
-                  ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
-                        'ARTIFACT_SOURCE_REBIND'
-                  : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
-                        'BUILD${candidateBuildNumber}_CONSTRUCTION'
-            : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
-                  'APPROVAL',
-      );
-      expect(next.containsKey('versionApprovalFile'), pendingConstruction);
-      expect(next.containsKey('environmentApprovalFile'), pendingConstruction);
-      expect(
-        next['constructionRequiresFreshGovernedApproval'],
-        !pendingConstruction,
-      );
-      expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
-      expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
-      expect(state['localStore']['schemaVersion'], _currentIsarSchemaVersion());
-      expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
+    expect(
+      finalization['exactFunctionFleetDeploymentReceiptFile'],
+      requiredSource['exactFunctionFleetDeploymentReceiptFile'],
+    );
+    expect(
+      _sha256(
+        finalization['exactFunctionFleetDeploymentReceiptFile'] as String,
+      ),
+      requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
+    );
+    expect(
+      _sha256(deployed['functionFleetEvidenceFile'] as String),
+      deployed['functionFleetEvidenceSha256'],
+    );
+    expect(
+      deployed['functionFleetReadbackDecision'],
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK',
+    );
+    expect(
+      deployed['rulesAndIndexesReadbackDecision'],
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+    );
+    expect(liveBackend['decision'], deployed['functionFleetReadbackDecision']);
+    expect(
+      deployed['currentSourceFunctionDeployment'],
+      expectedFunctionDeployment,
+    );
+    expect(
+      deployed['currentSourceRulesAndIndexesDeployment'],
+      expectedFirestoreDeployment,
+    );
+    expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
+    expect(
+      _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
+      backendAuthority['functionsGitObjectId'],
+    );
+    expect(
+      backendAuthority['pullRequestNumber'],
+      (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
+    );
+    final approvalAuthority = (liveBackend['approvalAuthority'] as Map)
+        .cast<String, dynamic>();
+    expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
+    expect(
+      _sha256(deployed['deploymentApprovalFile'] as String),
+      approvalAuthority['sha256'],
+    );
+    expect(deploymentApproval['approved'], isTrue);
+    expect(
+      (deploymentApproval['sourceAuthority'] as Map)['commit'],
+      backendAuthority['commit'],
+    );
+    expect(backendDeployment['functionCount'], 15);
+    expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
+    expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
+    expect(backendBoundary['iamMutated'], isFalse);
+    expect(backendBoundary['productionBusinessDataMutated'], isFalse);
+    expect(backendBoundary['distributionPerformed'], isFalse);
+    final campaignReceipts = _objects(
+      (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
+    );
+    final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
+    expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
+    expect(
+      campaignReceiptFiles,
+      containsAll(<String>[
+        '01-preflight.json',
+        '02-provisioned.json',
+        '03-callables.json',
+        '04-events.json',
+        '05-scheduler-preflight.json',
+        '06-fleet.json',
+        '07-lr03-lr06-prefinal.json',
+        '08-final.json',
+        '09-lr03-lr06-final.json',
+      ]),
+    );
+    for (final receipt in campaignReceipts) {
+      expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+    }
+    expect(
+      _sha256(functionReadbackAuthority['file'] as String),
+      functionReadbackAuthority['physicalSha256'],
+    );
+    expect(
+      (functionReadback['receiptSha256'] as String).toUpperCase(),
+      functionReadbackAuthority['canonicalReceiptSha256'],
+    );
+    expect(
+      _sha256(iamReadbackAuthority['file'] as String),
+      iamReadbackAuthority['physicalSha256'],
+    );
+    expect(
+      (iamReadback['receiptSha256'] as String).toUpperCase(),
+      iamReadbackAuthority['canonicalReceiptSha256'],
+    );
+    expect(
+      rulesReadback['decision'],
+      deployed['rulesAndIndexesReadbackDecision'],
+    );
+    expect(firestoreAuthority['file'], deployed['rulesAndIndexesEvidenceFile']);
+    expect(
+      _sha256(deployed['rulesAndIndexesEvidenceFile'] as String),
+      firestoreAuthority['physicalSha256'],
+    );
+    expect(
+      (rulesReadback['receiptSha256'] as String).toUpperCase(),
+      firestoreAuthority['canonicalReceiptSha256'],
+    );
+    expect(
+      deployed['rulesAndIndexesSourceCommit'],
+      firestoreAuthority['sourceCommit'],
+    );
+    expect(
+      deployed['rulesAndIndexesSourceCommit'],
+      rulesReadbackBefore['commit'],
+    );
+    expect(verifiedRules['sourceSha256'], firestoreAuthority['rulesSha256']);
+    expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
+    expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
+    expect(verifiedRules['byteExact'], isTrue);
+    expect(verifiedIndexes['sourceCount'], firestoreAuthority['indexCount']);
+    expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
+    expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
+    expect(verifiedIndexes['allApiIndexesReady'], isTrue);
+    expect(
+      verifiedIndexes['sourceSetSha256'],
+      firestoreAuthority['indexSetSha256'],
+    );
+    expect(
+      historicalFirestoreAuthority['receiptFile'],
+      requiredSource['exactFirestoreRulesReceiptFile'],
+    );
+    expect(sourceIndexBinding['count'], currentFirestoreSource['indexCount']);
+    expect(
+      sourceIndexBinding['indexSetSha256'],
+      currentFirestoreSource['indexSetSha256'],
+    );
+    expect(
+      sourceIndexBinding['sourceFileSha256'],
+      currentFirestoreSource['indexFileSha256'],
+    );
+    expect(
+      sourceIndexBinding['fieldOverrideCount'],
+      currentFirestoreSource['fieldOverrideCount'],
+    );
+    expect(
+      sourceIndexBinding['fieldOverrideSetSha256'],
+      currentFirestoreSource['fieldOverrideSetSha256'],
+    );
+    expect(
+      currentFirestoreSource['relationshipToDeployedBackend'],
+      expectedFirestoreRelationship,
+    );
+    expect(
+      currentFirestoreSource['productionDeploymentPerformed'],
+      firestoreMatchesDeployed,
+    );
+    expect(
+      currentFirestoreSource['productionRuntimeUseAuthorized'],
+      firestoreMatchesDeployed,
+    );
+    expect(
+      historicalRulesHold['decision'],
+      'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
+    );
+    expect(
+      historicalHoldBoundary['build15ConstructionAuthorizedByThisEvidence'],
+      isFalse,
+    );
+    expect(
+      historicalHoldBoundary['productionRulesDeploymentApprovedByThisEvidence'],
+      isFalse,
+    );
+    expect(historicalHoldBoundary['pilotPromotionApproved'], isFalse);
+    expect(predecessor['buildNumber'], priorFinalization['buildNumber']);
+    expect(predecessor['file'], priorFinalization['completionReceiptFile']);
+    expect(predecessor['sha256'], priorFinalization['completionReceiptSha256']);
+    expect(nextApproval['approved'], isTrue);
+    expect(nextApprovalBuild['buildNumber'], candidateBuildNumber);
+    expect(nextApproval['distributionApproved'], isFalse);
+    expect(nextEnvironment['approved'], isTrue);
+    expect(environmentScope['buildNumber'], nextApprovalBuild['buildNumber']);
+    expect(environmentEvidence['requiredReviewerRulePresent'], isTrue);
+    expect(environmentEvidence['secretValuesInspected'], isFalse);
+    expect(
+      (environmentEvidence['requiredReviewer'] as Map)['login'],
+      'abhishekvatsa',
+    );
+    expect(pilot['buildNumber'], promotion['buildNumber']);
+    expect(pilot['buildNumber'], policy['distribution']['approvedBuildNumber']);
+    expect(pilot['handoutPerformed'], isFalse);
+    expect(pilot['appliesToCurrentSource'], controlledPilotApproved);
+    expect(pilot['maximumApprovedUsers'], distribution['maximumApprovedUsers']);
+    expect(pilot['canaryUserCeiling'], distribution['canaryUserCeiling']);
+    expect(
+      pilot['canaryPhysicalDeviceCeiling'],
+      distribution['canaryPhysicalDeviceCeiling'],
+    );
+    expect(pilot['appliesToBuild14'], isFalse);
+    expect(pilot['appliesToBuild15'], isFalse);
+    expect(pilot['appliesToBuild16'], isFalse);
+    expect(pilot['appliesToBuild17'], isFalse);
+    expect(
+      pilot['appliesToBuild$candidateBuildNumber'],
+      controlledPilotApproved,
+    );
+    expect(
+      next['minimumBuildNumber'],
+      candidateBuildNumber + (pendingConstruction ? 0 : 1),
+    );
+    expect(
+      next['status'],
+      pendingConstruction
+          ? !backendMatchesDeployed
+                ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
+                : !candidateSourceMatchesApproval
+                ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
+                      'ARTIFACT_SOURCE_REBIND'
+                : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
+                      'BUILD${candidateBuildNumber}_CONSTRUCTION'
+          : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
+                'APPROVAL',
+    );
+    expect(next.containsKey('versionApprovalFile'), pendingConstruction);
+    expect(next.containsKey('environmentApprovalFile'), pendingConstruction);
+    expect(
+      next['constructionRequiresFreshGovernedApproval'],
+      !pendingConstruction,
+    );
+    expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
+    expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
+    expect(state['localStore']['schemaVersion'], _currentIsarSchemaVersion());
+    expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
 
-      final readme = File('README.md').readAsStringSync();
-      expect(
-        readme,
-        contains('Build $candidateBuildNumber (`${_packageVersion()}`)'),
-      );
-      expect(readme, isNot(contains('Build 12 is source authorized')));
-    },
-  );
+    final readme = File('README.md').readAsStringSync();
+    expect(
+      readme,
+      contains('Build $candidateBuildNumber (`${_packageVersion()}`)'),
+    );
+    expect(readme, isNot(contains('Build 12 is source authorized')));
+  });
 
   test('Build 16 phone smoke never implies migration or pilot authority', () {
     final build17Approval = _readObject(

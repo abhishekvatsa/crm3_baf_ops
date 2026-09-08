@@ -295,6 +295,45 @@ void main() {
       expect(source, contains('latestContainmentFinalizationExact'));
       expect(source, contains('historicalFailedAttemptsExact'));
       expect(source, contains('latestContainmentWorkflowRunExact'));
+      expect(source, contains('approvedApkSha256'));
+      expect(source, contains('authorizedApkSha256'));
+      expect(source, contains('promotionFinalizationReceipt'));
+      expect(source, contains('measuredPromotionFinalizationReceiptSha256'));
+      expect(source, contains('promotionDeviceAcceptanceReceipt'));
+      expect(
+        source,
+        contains('measuredPromotionDeviceAcceptanceReceiptSha256'),
+      );
+      expect(
+        source,
+        contains('promotionFinalizationReceipt?.governedPackage?.apkSha256'),
+      );
+      expect(
+        source,
+        contains(
+          'promotionDeviceAcceptanceReceipt.adjudication?.runtimeValidationPassed',
+        ),
+      );
+      expect(source, contains('preservedRuntimeMirrorExact'));
+      expect(source, contains('stagedPromotionMutationBoundaryExact'));
+      expect(source, contains('stagedPromotionMutationClaimsExact'));
+      expect(source, contains('promotedLedgerEntryUnique'));
+      expect(source, contains('promotedLedgerPromotionReceiptExact'));
+      expect(source, contains('historicalBuild11PromotionExact'));
+      expect(source, contains('HISTORICAL_BUILD11_PROMOTION_SHA256'));
+      expect(source, contains('promotionOwnerApproval'));
+      expect(source, contains('measuredPromotionOwnerApprovalSha256'));
+      expect(source, contains('stagedPromotionOwnerApprovalExact'));
+      expect(source, contains('promotionBackendReceipt'));
+      expect(source, contains('measuredPromotionBackendReceiptSha256'));
+      expect(source, contains('promotionFirestoreReceipt'));
+      expect(source, contains('measuredPromotionFirestoreReceiptSha256'));
+      expect(source, contains('stagedPromotionInfrastructureExact'));
+      expect(source, contains('stagedPromotionDeviceReleaseBoundaryExact'));
+      expect(source, contains('stagedPromotionClosureBoundaryExact'));
+      expect(source, contains('applicationDataCleared'));
+      expect(source, contains('applicationUninstalled'));
+      expect(source, contains('deviceDataClearPerformed'));
       expect(source, contains('collectorAuthorizesClosure: false'));
       expect(source, contains('flag: "wx"'));
       expect(decision, contains('collector itself does not close `LR-07`'));

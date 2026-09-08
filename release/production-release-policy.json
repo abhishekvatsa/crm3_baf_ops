@@ -96,12 +96,16 @@
     "governedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
     "closurePackageSha256": "92C18EC23424F00A74230A7EB7ECA74C76DA64E9B461200796F29CC96EDE4EA7",
     "custodyRecordSha256": "BC29BD64DED93E9CEC04913982B113937F565F8818C24A36D541BC04FE48581A",
-    "physicalInstallationConditionPassed": false,
-    "runtimeValidationPassed": false,
-    "runtimeDisposition": "not-adjudicated-by-build-finalization",
+    "physicalInstallationConditionPassed": true,
+    "physicalInstallationReceiptFile": "release/evidence/build-27-device-acceptance.json",
+    "physicalInstallationReceiptSha256": "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028",
+    "deviceAcceptanceReceiptFile": "release/evidence/build-27-device-acceptance.json",
+    "deviceAcceptanceReceiptSha256": "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028",
+    "runtimeValidationPassed": true,
+    "runtimeDisposition": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
     "fullBusinessFlowValidationCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
-    "controlledPilotApproved": false,
+    "controlledPilotApproved": true,
     "unrestrictedPlantReleaseApproved": false,
     "priorCompletedBuild": {
       "status": "completed-non-distributable",
@@ -365,13 +369,16 @@
     ]
   },
   "postBuildPromotion": {
-    "status": "completed-controlled-pilot-only",
-    "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
-    "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
-    "buildNumber": 11,
-    "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
-    "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "status": "completed-staged-controlled-pilot-only",
+    "promotionReceiptFile": "release/evidence/build-27-staged-controlled-pilot-authorization.json",
+    "promotionReceiptSha256": "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B",
+    "buildNumber": 27,
+    "sourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
+    "governedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
     "controlledPilotApproved": true,
+    "maximumApprovedUsers": 25,
+    "canaryUserCeiling": 2,
+    "canaryPhysicalDeviceCeiling": 2,
     "pilotHandoutPerformed": false,
     "publicArtifactApproved": false,
     "githubReleaseApproved": false,
@@ -381,6 +388,25 @@
     "webDistributionApproved": false,
     "unrestrictedPlantReleaseApproved": false
   },
+  "historicalPostBuildPromotions": [
+    {
+      "status": "completed-controlled-pilot-only",
+      "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+      "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+      "buildNumber": 11,
+      "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+      "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+      "controlledPilotApproved": true,
+      "pilotHandoutPerformed": false,
+      "publicArtifactApproved": false,
+      "githubReleaseApproved": false,
+      "firebaseAppDistributionApproved": false,
+      "playConsoleApproved": false,
+      "playStoreApproved": false,
+      "webDistributionApproved": false,
+      "unrestrictedPlantReleaseApproved": false
+    }
+  ],
   "artifactConstructionBoundary": {
     "authority": "production-signed-pre-release-candidate",
     "distributionApproved": false,
@@ -442,35 +468,56 @@
     "buildNumber": 27
   },
   "distribution": {
-    "authority": "exact-build11-sealed-small-group-pilot",
+    "authority": "exact-build27-staged-controlled-pilot",
     "approved": true,
-    "preservedHistoricalAuthority": true,
-    "appliesToCurrentCandidate": false,
-    "scope": "Conditional direct handout of exact governed Build 11 to the frozen approved-user and physical-device pilot rosters only, after the acceptance script passes and a privacy-safe execution receipt is recorded.",
-    "approvedBuildNumber": 11,
-    "approvedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
-    "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
-    "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+    "preservedHistoricalAuthority": false,
+    "appliesToCurrentCandidate": true,
+    "scope": "Staged direct handout of exact governed Build 27 to frozen approved-user and physical-device entries only, beginning with a two-user/two-device canary and capped at 25 approved users.",
+    "approvedBuildNumber": 27,
+    "approvedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
+    "approvedApkSha256": "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C",
+    "promotionReceiptFile": "release/evidence/build-27-staged-controlled-pilot-authorization.json",
+    "promotionReceiptSha256": "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B",
+    "maximumApprovedUsers": 25,
+    "canaryUserCeiling": 2,
+    "canaryPhysicalDeviceCeiling": 2,
     "pilotHandoutPerformed": false,
     "restrictions": [
       "Unrestricted plant release is not approved",
-      "Only the exact governed Build 11 package may be handed directly from dual custody to the sealed small-group pilot",
-      "Every actual handout requires frozen user and physical-device rosters, successful acceptance-script execution and a separate privacy-safe receipt",
-      "GitHub artifacts, GitHub Releases, Firebase App Distribution, Play Console, Play Store, web and public distribution remain prohibited",
+      "Only the exact governed Build 27 APK may be handed directly from dual custody to the staged controlled pilot",
+      "Every actual handout requires a frozen approved-user and physical-device entry plus a privacy-safe execution receipt",
+      "Expansion beyond two canary users requires two successful physical-device receipts including a representative user-owned operation and clean synchronization",
+      "GitHub Actions artifacts may not be used as the handout channel; GitHub Releases, Firebase App Distribution, Play Console, Play Store, web and public distribution remain prohibited",
       "App Check activation remains under its explicit governed deferral",
-      "70K-RECOVERY is closed only by the separately sealed Build 11 in-place inventory, migration, restart and reconciliation evidence",
-      "Do not uninstall or clear either installed app before device-specific no-loss proof is sealed",
+      "Mutating business-flow convergence remains open and must be gathered during the canary before expansion",
+      "Do not uninstall or clear app data during a pilot upgrade",
       "Dependency audits must be re-run on the exact artifact-construction lockfiles"
     ],
     "unrestrictedPlantReleaseApproved": false,
     "postBuildPromotionRequiredForAnyDistribution": true
   },
+  "historicalDistributionAuthorities": [
+    {
+      "authority": "exact-build11-sealed-small-group-pilot",
+      "approved": true,
+      "preservedHistoricalAuthority": true,
+      "appliesToCurrentCandidate": false,
+      "scope": "Conditional direct handout of exact governed Build 11 to its frozen approved-user and physical-device pilot rosters only.",
+      "approvedBuildNumber": 11,
+      "approvedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+      "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+      "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+      "pilotHandoutPerformed": false,
+      "unrestrictedPlantReleaseApproved": false,
+      "postBuildPromotionRequiredForAnyDistribution": true
+    }
+  ],
   "toolchain": {
     "bundletoolUrl": "https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar",
     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
     "firebaseToolsVersion": "15.22.4",
     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
-    "firebaseToolsLockfileSha256": "6E4B1FE3E7A52320D84648A4F281437A4842514720104D6E7A1FAD1398CC8680",
+    "firebaseToolsLockfileSha256": "2BB3049EC1BC16B1032E197E9BC890C46918A3D8F59505B8497CBADB24632F48",
     "linuxIsarCoreSha256": "142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259",
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-community-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",
@@ -483,8 +530,8 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD27_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
-    "BUILD27_EXPLICIT_PILOT_PROMOTION"
+    "BUILD27_MUTATING_BUSINESS_FLOW_VALIDATION",
+    "BUILD27_STAGED_PILOT_HANDOUT_EXECUTION_RECEIPTS"
   ],
   "ownerAcceptedCompatibilityRisks": [
     "STAGED_LEGACY_ABNORMALITY_DIRECT_WRITE_VALIDATION_GAP"

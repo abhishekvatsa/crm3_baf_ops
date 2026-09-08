@@ -11,9 +11,9 @@ conflated:
 
 - **Current source:** the latest admitted application, Rules, Functions,
   tests, governance and documentation on `main`.
-- **Sealed pilot artifact:** the exact signed Build 11 package, source,
-  certificate, backend and roster evidence recorded by the release policy and
-  programme ledger.
+- **Current staged pilot artifact:** the exact signed Build 27 package, source,
+  certificate, backend, device-acceptance and promotion evidence recorded by
+  the release policy. The earlier Build 11 authority remains historical.
 
 Build 27 (`1.0.0-rc.17+27`) was constructed from exact merged source
 `c933ca0a`, independently verified, and finalized into dual custody. Its
@@ -25,11 +25,14 @@ Firestore Rules and 66-index set were verified exact without redeployment. The
 scheduled Function was not manually invoked, and no production business record
 was changed or deleted.
 
-Build 27 is an immutable production-signed pre-release candidate. Finalization
-does not approve controlled-pilot or unrestricted distribution; exact-device
-migration and representative business-flow validation remain separate gates.
-Build 27 is consumed and cannot be reused. Build 28 is the next eligible build
-number and requires fresh governed approval.
+Build 27 is an immutable production-signed candidate approved for a staged,
+direct-custody controlled pilot of no more than 25 approved users. One exact
+physical in-place upgrade and the reviewed read-side interactions passed. The
+first handout stage is limited to two approved users on two named devices;
+mutating business-flow convergence must be gathered there before expansion.
+Every handout requires a privacy-safe receipt. Build 27 is consumed and cannot
+be reused. Build 28 is the next eligible build number and requires fresh
+governed approval.
 
 Authoritative status sources:
 
@@ -40,12 +43,14 @@ Authoritative status sources:
 - `release/backend-current-state.prod.json` (historic deployed-state capture)
 - `docs/v4_2/PROGRAMME_AUTHORITY.md`
 
-The sealed Build 11 decision remains exact to that artifact and roster. A
+The sealed Build 11 decision remains exact historical authority for that
+artifact and roster. A
 separate source-and-CI successor campaign was re-armed on 16 August 2026 for
 audit remediation, remaining business capability and UI/UX redesign. Any new
 artifact requires its own governed reservation, exact signed-device validation
-and a separate pilot decision. Unrestricted
-distribution remains prohibited, and App Check/Play Integrity activation
+and a separate pilot decision. Build 27 now has that bounded decision. GitHub
+Release, Firebase App Distribution, Play, web, public and unrestricted
+distribution remain prohibited, and App Check/Play Integrity activation
 remains a governed decision.
 
 ## Product scope
@@ -97,7 +102,7 @@ versions include:
 
 - Flutter `3.44.0`
 - Dart `3.12.0`
-- Isar `3.1.0+1`
+- Isar Community `3.3.2`
 - Java `21.0.11+10`
 - Node `22.23.1`
 - npm `10.9.8`
@@ -123,12 +128,12 @@ See `docs/FIREBASE_CONFIGURATION_CUSTODY.md`.
 
 ## Isar persistence authority
 
-The current local-store contract is Isar schema v7. Authentic checked-in
+The current local-store contract is Isar schema v10. Authentic checked-in
 generated bindings contain zero `PROVISIONAL_V4_ISAR_CODEGEN` markers. Schema
-v5 added governed asset identity to workflow and equipment projections; v6
-added operational-event issue-link projections; v7 adds durable maintenance
-ticket reopening evidence while retaining explicit v1, v3, v4, v5 and v6
-fingerprints and ordered migration steps.
+v8 added originating-user evidence to synchronization rejections, v9 added the
+maintenance-derived Plant Condition effect, and v10 added its durable
+contribution index. Earlier governed fingerprints and ordered migration steps
+remain explicit.
 
 Before any release claim, run:
 
@@ -138,7 +143,7 @@ dart run build_runner build --delete-conflicting-outputs
 python tools/isar/verify_v4_isar_schema.py --release
 ```
 
-The release verifier must report schema v7, zero provisional bindings and
+The release verifier must report schema v10, zero provisional bindings and
 `release_authority=YES`. Existing-store adoption, migration, quarantine and
 recovery evidence remain governed separately from successful code generation.
 

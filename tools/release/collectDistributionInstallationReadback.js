@@ -4,6 +4,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const {sealReceipt} = require("./collectProductionGlobalPullBackend.js");
+const {verifyStagedPromotionSourceAuthority, promotionCiAuthorityExact} = require("./stagedPromotionSourceAuthority.js");
 const {
   collectSourceBinding,
   isPathInside,
@@ -14,6 +15,10 @@ const POLICY_PATH =
   "release/lr07-distribution-installation-readback-policy.json";
 const EXPECTED_REPOSITORY = "abhishekvatsa/crm3_baf_ops";
 const EXPECTED_PROJECT_ID = "crm3-baf-ops-b8638";
+const HISTORICAL_BUILD11_PROMOTION_PATH =
+  "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json";
+const HISTORICAL_BUILD11_PROMOTION_SHA256 =
+  "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400";
 
 function fail(message) {
   throw new Error(message);
@@ -116,13 +121,160 @@ function fileAuthority(repositoryRoot, expected) {
   };
 }
 
+function explicitUtcEvidenceInstant(value) {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/.exec(value);
+  if (match == null || match[1].startsWith("0000-")) return null;
+  const seconds = Date.parse(`${match[1]}Z`);
+  if (!Number.isFinite(seconds) || new Date(seconds).toISOString().slice(0, 19) !== match[1]) {
+    return null;
+  }
+  // Function receipts use nanosecond fractions; retain their ordering.
+  return BigInt(seconds) * 1000000n + BigInt((match[2] ?? "").padEnd(9, "0"));
+}
+
+function backendAuthorityChronologyExact(chronology) {
+  const owner = explicitUtcEvidenceInstant(chronology?.ownerInstructionReceivedAtUtc);
+  const earliest = explicitUtcEvidenceInstant(chronology?.earliestFunctionUpdateTime);
+  const latest = explicitUtcEvidenceInstant(chronology?.latestFunctionUpdateTime);
+  return owner != null && earliest != null && latest != null &&
+    owner <= earliest && earliest <= latest;
+}
+
+function evidenceInstantAtOrAfter(recordedAt, admittedTimes) {
+  const recorded = explicitUtcEvidenceInstant(recordedAt);
+  return recorded != null && admittedTimes.every((value) => {
+    const admitted = explicitUtcEvidenceInstant(value);
+    return admitted != null && recorded >= admitted;
+  });
+}
+
+function build27ReadOnlyDeviceProofExact(receipt, certificateSha256) {
+  const expectedSurfaces = [
+    'authenticated-shift-overview-and-plant-condition',
+    'maintenance-issues-horizontal-actions-and-resolved-record-evidence',
+    'planned-maintenance-jobs-and-personal-workflow-filters',
+    'inner-cover-filtering-inventory-and-registration-form',
+    'inspection-programmes-unused-audit-deletion-guard',
+    'issue-report-pdf-zoom-page-print-and-share-controls',
+    'home-form-and-child-screen-back-navigation',
+  ];
+  const surfaces = receipt?.validatedReadOnlySurfaces ?? receipt?.validatedSurfaces;
+  return receipt?.status === 'passed-exact-build27-physical-in-place-authenticated-read-only-surfaces' &&
+    typeof certificateSha256 === 'string' && receipt?.release?.certificateSha256 === certificateSha256 &&
+    receipt?.physicalDevice?.deviceSerialRecorded === false &&
+    receipt?.physicalDevice?.accountIdentifierRecorded === false &&
+    Array.isArray(surfaces) && surfaces.length === expectedSurfaces.length &&
+    surfaces.every((value, index) => value === expectedSurfaces[index]);
+}
+
+function promotedFinalizationDecisionsExact(receipt) {
+  const facts = [
+    ['schemaVersion', 1],
+    ['evidenceType', 'production-build-finalization-closure'],
+    ['status', 'passed-non-distributable'],
+    ['workflow.conclusion', 'success'],
+    ['workflow.secretValuesInspected', false],
+    ['governedPackage.independentVerificationCompleted', true],
+    ['dualCustody.status', 'passed'],
+    ['dualCustody.distinctVolumes', true],
+    ['dualCustody.allFileHashesMatched', true],
+    ['runtimeAdjudication.status', 'not-adjudicated-by-build-finalization'],
+    ['runtimeAdjudication.runtimeValidationPassed', false],
+    ['runtimeAdjudication.physicalTargetCount', 0],
+    ['runtimeAdjudication.emulatorTargetCount', 0],
+    ['runtimeAdjudication.appDataClearPerformed', false],
+    ['runtimeAdjudication.liveBusinessFlowValidationCompleted', false],
+    ['releaseBoundary.firebaseBackendDeploymentPerformed', false],
+    ['releaseBoundary.controlledPilotApproved', false],
+    ['releaseBoundary.unrestrictedPlantReleaseApproved', false],
+    ['releaseBoundary.distributionPerformed', false],
+    ['releaseBoundary.runtimeValidationPassed', false],
+    ['releaseBoundary.fullBusinessFlowValidationPassed', false],
+  ];
+  const recovery = receipt?.recoveryIncident;
+  if (typeof recovery?.occurred !== 'boolean') return false;
+  if (recovery.occurred) {
+    facts.push(
+      ['recoveryIncident.failureBoundary', 'remote-built-tag-push'],
+      ['recoveryIncident.sourceExpression', 'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"'],
+      ['recoveryIncident.sourceCorrection.correctedExpression', 'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"'],
+      ['recoveryIncident.stateBeforeRecovery.rebuildPerformed', false],
+      ['recoveryIncident.stateBeforeRecovery.workflowRerunPerformed', false],
+      ['recoveryIncident.recovery.forceUsed', false],
+      ['recoveryIncident.verification.closurePassed', true],
+    );
+  } else {
+    if (Object.hasOwn(recovery, 'sourceExpression')) return false;
+    facts.push(['recoveryIncident.forceUsed', false]);
+  }
+  return facts.every(([field, expected]) => field.split('.').reduce(
+    (value, key) => value != null && !Array.isArray(value) ? value[key] : undefined,
+    receipt,
+  ) === expected);
+}
+
+function loadedFirestoreEvidenceExact(receipt, backendAuthority, promotionAuthority) {
+  const checks = receipt?.checks;
+  const source = receipt?.source;
+  const indexes = receipt?.outputs?.indexes;
+  const mutation = receipt?.mutationBoundary;
+  const sourceCommit = backendAuthority?.sourceCommit;
+  const sourceTree = backendAuthority?.sourceTree;
+  const canonicalSha = backendAuthority?.canonicalReceiptSha256;
+  const indexCount = promotionAuthority?.indexCount;
+  // A successful alias must retain the actual measurements and source binding.
+  // The canonical seal itself is verified when the source receipt chain loads.
+  return Array.isArray(receipt?.failedChecks) && receipt.failedChecks.length === 0 &&
+    checks != null && typeof checks === 'object' && !Array.isArray(checks) &&
+    Object.keys(checks).length > 0 && Object.values(checks).every((value) => value === true) &&
+    Number.isInteger(indexCount) && indexCount > 0 &&
+    indexes?.cliCount === indexCount && indexes?.apiCount === indexCount &&
+    indexes?.apiReadyCount === indexCount &&
+    typeof sourceCommit === 'string' && /^[0-9a-f]{40}$/i.test(sourceCommit) &&
+    typeof sourceTree === 'string' && /^[0-9a-f]{40}$/i.test(sourceTree) &&
+    source?.before?.branch === 'main' &&
+    source?.before?.commit === sourceCommit && source?.before?.tree === sourceTree &&
+    source?.before?.originMain === sourceCommit && source?.after?.commit === sourceCommit &&
+    typeof canonicalSha === 'string' && /^[0-9a-f]{64}$/i.test(canonicalSha) &&
+    typeof receipt?.receiptSha256 === 'string' && /^[0-9a-f]{64}$/i.test(receipt.receiptSha256) &&
+    receipt.receiptSha256.toUpperCase() === canonicalSha.toUpperCase() &&
+    mutation?.firestoreRulesDeployed === false && mutation?.firestoreIndexesDeployed === false &&
+    mutation?.firestoreDocumentsRead === false && mutation?.firestoreDocumentsWritten === false &&
+    mutation?.businessDataMutated === false;
+}
+
 function summarizeMutableSourceAuthority({
   policy,
   releasePolicy,
   buildLedger,
   promotionReceipt = null,
+  measuredPromotionReceiptSha256 = null,
+  promotionFinalizationReceipt = null,
+  measuredPromotionFinalizationReceiptSha256 = null,
+  promotionDeviceAcceptanceReceipt = null,
+  measuredPromotionDeviceAcceptanceReceiptSha256 = null,
+  promotionOwnerApproval = null,
+  measuredPromotionOwnerApprovalSha256 = null,
+  promotionBackendReceipt = null,
+  measuredPromotionBackendReceiptSha256 = null,
+  promotionFirestoreReceipt = null,
+  measuredPromotionFirestoreReceiptSha256 = null,
+  stagedSourceAuthorityProof = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
+  // A first matching row cannot establish authority when another row reuses
+  // any build number, including historical builds outside expectedArtifacts.
+  const ledgerEntries = buildLedger.entries ?? [];
+  const ledgerBuildNumbers = new Set();
+  const ledgerBuildNumbersUnique = Array.isArray(ledgerEntries) && ledgerEntries.length > 0 &&
+    ledgerEntries.every((entry) => {
+      const number = entry?.buildNumber;
+      if (!Number.isInteger(number) || number <= 0 || number > 2147483647 ||
+          ledgerBuildNumbers.has(number)) return false;
+      ledgerBuildNumbers.add(number);
+      return true;
+    });
   const latestExpectedArtifact = expectedArtifacts.reduce(
     (latest, entry) =>
       latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
@@ -145,11 +297,20 @@ function summarizeMutableSourceAuthority({
   const latestReceiptAuthority = policy.sourceEvidence.find(
     (entry) => entry.path === receiptPathFor(latestExpectedArtifact),
   );
-  const promotionReceiptAuthority = policy.sourceEvidence.find(
-    (entry) =>
-      entry.path ===
-      "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
-  );
+  const promotionReceiptPath =
+    releasePolicy.postBuildPromotion?.promotionReceiptFile;
+  const promotionReceiptAuthority =
+    policy.sourceEvidence.find((entry) => entry.path === promotionReceiptPath) ??
+    (typeof promotionReceiptPath === "string" &&
+    typeof releasePolicy.postBuildPromotion?.promotionReceiptSha256 === "string" &&
+    typeof measuredPromotionReceiptSha256 === "string" &&
+    measuredPromotionReceiptSha256 ===
+      releasePolicy.postBuildPromotion.promotionReceiptSha256
+      ? {
+          path: promotionReceiptPath,
+          sha256: measuredPromotionReceiptSha256,
+        }
+      : null);
   const finalization = releasePolicy.finalization ?? {};
   const currentBuildNumber = releasePolicy.release?.buildNumber;
   let preservedFinalization = null;
@@ -170,7 +331,48 @@ function summarizeMutableSourceAuthority({
   ) {
     preservedFinalization = finalization.priorCompletedBuild ?? null;
   }
+  const latestCompletedLedger = buildLedger.entries?.find(
+    (entry) => entry.buildNumber === latestCompletedArtifact?.buildNumber,
+  );
+  const modernStagedPromotion =
+    promotionReceipt?.evidenceType ===
+    "production-build-staged-controlled-pilot-authorization";
+  const preservedFinalizationIsPromoted =
+    latestCompletedArtifact?.buildNumber ===
+    releasePolicy.distribution?.approvedBuildNumber;
 
+  const preservedPilotStateExact =
+    releasePolicy.distribution?.approved !== true ||
+    (preservedFinalization?.controlledPilotApproved ===
+      (latestCompletedArtifact?.buildNumber ===
+        releasePolicy.distribution?.approvedBuildNumber) &&
+      latestCompletedLedger?.controlledPilotApproved ===
+        preservedFinalization?.controlledPilotApproved);
+  const preservedRuntimeMirrorExact =
+    !modernStagedPromotion ||
+    !preservedFinalizationIsPromoted ||
+    (latestCompletedLedger != null &&
+      preservedFinalization?.physicalInstallationConditionPassed === true &&
+      preservedFinalization?.physicalInstallationConditionPassed ===
+        latestCompletedLedger.physicalInstallationConditionPassed &&
+      preservedFinalization?.physicalInstallationReceiptFile ===
+        latestCompletedLedger.physicalInstallationReceiptFile &&
+      preservedFinalization?.physicalInstallationReceiptSha256 ===
+        latestCompletedLedger.physicalInstallationReceiptSha256 &&
+      preservedFinalization?.deviceAcceptanceReceiptFile ===
+        preservedFinalization?.physicalInstallationReceiptFile &&
+      preservedFinalization?.deviceAcceptanceReceiptSha256 ===
+        preservedFinalization?.physicalInstallationReceiptSha256 &&
+      preservedFinalization?.runtimeValidationPassed === true &&
+      preservedFinalization?.runtimeValidationPassed ===
+        latestCompletedLedger.runtimeValidationPassed &&
+      typeof preservedFinalization?.runtimeDisposition === "string" &&
+      preservedFinalization.runtimeDisposition.length > 0 &&
+      preservedFinalization.runtimeDisposition ===
+        latestCompletedLedger.runtimeDisposition &&
+      preservedFinalization?.fullBusinessFlowValidationCompleted === false &&
+      preservedFinalization?.fullBusinessFlowValidationCompleted ===
+        latestCompletedLedger.fullBusinessFlowValidationCompleted);
   const preservedFinalizationExact =
     latestCompletedArtifact != null &&
     completedReceiptAuthority != null &&
@@ -185,7 +387,9 @@ function summarizeMutableSourceAuthority({
       latestCompletedArtifact.workflowRunId &&
     preservedFinalization?.governedPackageSha256 ===
       latestCompletedArtifact.governedPackageSha256 &&
-    preservedFinalization?.dualCustodyCompleted === true;
+    preservedFinalization?.dualCustodyCompleted === true &&
+    preservedPilotStateExact &&
+    preservedRuntimeMirrorExact;
   const failedAttempt = finalization.priorFailedAttempt ?? null;
   const historicalFailedAttempts = [
     ...(finalization.historicalFailedAttempts ?? []),
@@ -285,14 +489,476 @@ function summarizeMutableSourceAuthority({
     (artifact) =>
       artifact.buildNumber === releasePolicy.distribution?.approvedBuildNumber,
   );
+  const promotedFinalizationReceiptAuthority = policy.sourceEvidence.find(
+    (entry) => entry.path === receiptPathFor(promotedArtifact),
+  );
   const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
+  const promotedDeviceAcceptanceAuthority =
+    promotionReceipt?.admittedEvidence?.deviceAcceptance;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
-  const promotionReceiptExact =
-    promotionReceipt?.schemaVersion === 1 &&
+  const promotedLedgerEntries = (buildLedger.entries ?? []).filter(
+    (entry) => entry.buildNumber === promotedArtifact?.buildNumber,
+  );
+  const promotedLedgerEntryUnique =
+    promotedArtifact == null || promotedLedgerEntries.length === 1;
+  const promotedLedger = promotedLedgerEntryUnique
+    ? promotedLedgerEntries[0]
+    : null;
+  const expectedStagedPromotionPath =
+    `release/evidence/build-${promotedArtifact?.buildNumber}-` +
+    "staged-controlled-pilot-authorization.json";
+  const stagedPromotion =
+    promotionReceiptPath === expectedStagedPromotionPath &&
+    promotionReceipt?.evidenceType ===
+      "production-build-staged-controlled-pilot-authorization" &&
+    promotionReceipt?.decision ===
+      `PASS_BUILD${promotedArtifact?.buildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED`;
+  const historicalBuild11PromotionExact =
+    promotedArtifact?.buildNumber === 11 &&
+    promotedReceiptBuild?.buildNumber === 11 &&
+    promotionReceiptPath === HISTORICAL_BUILD11_PROMOTION_PATH &&
+    promotionReceiptAuthority?.path === HISTORICAL_BUILD11_PROMOTION_PATH &&
+    promotionReceiptAuthority?.sha256 ===
+      HISTORICAL_BUILD11_PROMOTION_SHA256 &&
+    measuredPromotionReceiptSha256 ===
+      HISTORICAL_BUILD11_PROMOTION_SHA256 &&
     promotionReceipt?.evidenceType ===
       "stage2d-f6-build11-controlled-pilot-authorization" &&
     promotionReceipt?.decision ===
-      "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED" &&
+      "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED";
+  const promotedOwnerApprovalAuthority = promotionReceipt?.ownerApproval;
+  const promotedOwnerApprovalArtifact = promotionOwnerApproval?.exactArtifact;
+  const promotedOwnerApprovalPilot = promotionOwnerApproval?.authorizedPilot;
+  const promotedOwnerApprovalBoundary = promotionOwnerApproval?.mutationBoundary;
+  const promotedOwnerApprovalMutationValues =
+    promotedOwnerApprovalBoundary == null
+      ? []
+      : Object.values(promotedOwnerApprovalBoundary);
+  const expectedOwnerApprovalPath =
+    `release/approvals/build${promotedArtifact?.buildNumber}-` +
+    "staged-controlled-pilot-approval.json";
+  const stagedPromotionOwnerApprovalExact =
+    !stagedPromotion ||
+    (promotedOwnerApprovalAuthority?.receipt === expectedOwnerApprovalPath &&
+      stagedSourceAuthorityProof?.pilotOwnerApprovalFile === promotedOwnerApprovalAuthority?.receipt &&
+      stagedSourceAuthorityProof?.pilotOwnerApprovalSha256 === measuredPromotionOwnerApprovalSha256 &&
+      measuredPromotionOwnerApprovalSha256 ===
+        promotedOwnerApprovalAuthority?.sha256 &&
+      promotionOwnerApproval?.schemaVersion === 1 &&
+      promotionOwnerApproval?.approvalClass ===
+        `EXACT_BUILD${promotedArtifact?.buildNumber}_STAGED_CONTROLLED_PILOT_PROMOTION` &&
+      promotionOwnerApproval?.approvalReference ===
+        promotedOwnerApprovalAuthority?.approvalReference &&
+      promotedOwnerApprovalArtifact?.buildNumber ===
+        promotedArtifact?.buildNumber &&
+      promotedOwnerApprovalArtifact?.sourceCommit === promotedArtifact?.headSha &&
+      promotedOwnerApprovalArtifact?.governedPackageSha256 ===
+        promotedArtifact?.governedPackageSha256 &&
+      promotedOwnerApprovalArtifact?.apkSha256 ===
+        promotedReceiptBuild?.apkSha256 &&
+      promotedOwnerApprovalArtifact?.certificateSha256 ===
+        promotedReceiptBuild?.certificateSha256 &&
+      promotedOwnerApprovalArtifact?.applicationId === policy.applicationId &&
+      promotedOwnerApprovalPilot?.channel ===
+        promotedReceiptBoundary?.authorizedChannel &&
+      promotedOwnerApprovalPilot?.maximumApprovedUsers ===
+        promotedReceiptBoundary?.maximumApprovedUsers &&
+      promotedOwnerApprovalAuthority?.maximumApprovedUsers ===
+        promotedReceiptBoundary?.maximumApprovedUsers &&
+      promotedOwnerApprovalPilot?.maximumCanaryUsers ===
+        promotedReceiptBoundary?.canaryUserCeiling &&
+      promotedOwnerApprovalPilot?.maximumCanaryPhysicalDevices ===
+        promotedReceiptBoundary?.canaryPhysicalDeviceCeiling &&
+      promotedOwnerApprovalPilot?.rosterAndRolesFrozenAtEachHandout === true &&
+      promotedOwnerApprovalPilot?.privacySafeUserAndDeviceIdentifiersRequired ===
+        true &&
+      promotedOwnerApprovalPilot?.perHandoutExecutionReceiptRequired === true &&
+      promotedOwnerApprovalPilot?.inPlaceUpgradeRequiredWhereAppAlreadyInstalled ===
+        true &&
+      promotedOwnerApprovalPilot?.deviceDataClearAllowed === false &&
+      promotedOwnerApprovalPilot?.publicArtifactAuthorized === false &&
+      promotedOwnerApprovalPilot
+        ?.githubActionsArtifactAsDistributionChannelAuthorized === false &&
+      promotedOwnerApprovalPilot?.githubReleaseAuthorized === false &&
+      promotedOwnerApprovalPilot?.firebaseAppDistributionAuthorized === false &&
+      promotedOwnerApprovalPilot?.playConsoleAuthorized === false &&
+      promotedOwnerApprovalPilot?.playStoreAuthorized === false &&
+      promotedOwnerApprovalPilot?.webDistributionAuthorized === false &&
+      promotedOwnerApprovalPilot?.unrestrictedDistributionAuthorized === false &&
+      promotedOwnerApprovalPilot?.appCheckActivationAuthorized === false &&
+      promotedOwnerApprovalMutationValues.length > 0 &&
+      promotedOwnerApprovalMutationValues.every((value) => value === false) &&
+      promotedOwnerApprovalBoundary
+        ?.firebaseBusinessDataMutationAuthorizedByThisApproval === false &&
+      promotedOwnerApprovalBoundary?.firebaseConfigurationMutationAuthorized ===
+        false &&
+      promotedOwnerApprovalBoundary?.iamMutationAuthorized === false &&
+      promotedOwnerApprovalBoundary?.appCheckActivationAuthorized === false &&
+      promotedOwnerApprovalBoundary?.deviceDataClearAuthorized === false &&
+      promotedOwnerApprovalBoundary?.githubArtifactDeletionAuthorized === false &&
+      promotedOwnerApprovalBoundary?.pilotHandoutPerformedByThisApproval ===
+        false &&
+      promotedOwnerApprovalBoundary?.unrestrictedDistributionAuthorized ===
+        false);
+  const promotedBackendAuthority =
+    promotionReceipt?.admittedEvidence?.productionBackend;
+  const promotedBackendBoundary = promotionBackendReceipt?.controlBoundary;
+  const promotedFirestoreAuthority =
+    promotionReceipt?.admittedEvidence?.firestoreRulesAndIndexes;
+  const promotedFirestoreBoundary = promotionFirestoreReceipt?.mutationBoundary;
+  const promotedFirestoreBoundaryValues =
+    promotedFirestoreBoundary == null
+      ? []
+      : Object.values(promotedFirestoreBoundary);
+  const stagedPromotionInfrastructureExact =
+    !stagedPromotion ||
+    (stagedSourceAuthorityProof?.ok === true &&
+      stagedSourceAuthorityProof.historicalBackendReceiptFile === promotedBackendAuthority?.receipt &&
+      stagedSourceAuthorityProof.historicalBackendReceiptSha256 === measuredPromotionBackendReceiptSha256 &&
+      promotedBackendAuthority?.receipt ===
+      `release/evidence/build${promotedArtifact?.buildNumber}-backend-deployment-closure.json` &&
+      measuredPromotionBackendReceiptSha256 ===
+        promotedBackendAuthority?.sha256 &&
+      promotionBackendReceipt?.schemaVersion === 1 &&
+      promotionBackendReceipt?.evidenceType ===
+        "exact-current-source-backend-deployment-closure" &&
+      promotedBackendAuthority?.decision ===
+        `PASS_BUILD${promotedArtifact?.buildNumber}_BACKEND_DEPLOYMENT_CLOSED` &&
+      promotionBackendReceipt?.decision ===
+        "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK" &&
+      promotionBackendReceipt?.firebaseProjectId ===
+        policy.productionProjectId &&
+      promotionBackendReceipt?.region === "asia-south1" &&
+      backendAuthorityChronologyExact(promotionBackendReceipt?.authorityChronology) &&
+      promotionBackendReceipt?.authorityChronology
+        ?.allObservedFunctionUpdatesPostdateOwnerInstruction === true &&
+      promotionBackendReceipt?.authorityChronology
+        ?.deploymentWasRetroactivelyAuthorized === false &&
+      promotionBackendReceipt?.sourceAuthority
+        ?.postMergeReleaseGateConclusion === "success" &&
+      promotionBackendReceipt?.deployment?.allFunctionsExactSourceVerified ===
+        true &&
+      promotionBackendReceipt?.deployment?.functionCount === 15 &&
+      promotionBackendReceipt?.deployment?.finalRuntimeIdentityReadbackPassed ===
+        true &&
+      promotionBackendReceipt?.deployment?.finalIamDependencyReadbackPassed ===
+        true &&
+      promotionBackendReceipt?.deployment?.existingIamPreservationEnforced ===
+        true &&
+      promotionBackendReceipt?.deployment?.appCheckEnforcement === false &&
+      promotionBackendReceipt?.deployment?.legacyMutatingFinalizeWrapperExecuted ===
+        false &&
+      promotionBackendReceipt?.deployment?.schedulerBacklogZeroVerified === true &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult?.invoked === false &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult
+        ?.workflowEscalationCandidateCount === 0 &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult?.changed === 0 &&
+      promotedBackendBoundary?.iamMutated === false &&
+      promotedBackendBoundary?.serviceAccountsMutated === false &&
+      promotedBackendBoundary?.appCheckActivated === false &&
+      promotedBackendBoundary?.firestoreDocumentsRead === false &&
+      promotedBackendBoundary?.firestoreDocumentsWritten === false &&
+      promotedBackendBoundary?.productionBusinessDataMutated === false &&
+      promotedBackendBoundary?.schedulerManuallyInvoked === false &&
+      promotedBackendBoundary?.deviceDataMutated === false &&
+      promotedBackendBoundary?.artifactConstructed === false &&
+      promotedBackendBoundary?.pilotPromotionPerformed === false &&
+      promotedBackendBoundary?.distributionPerformed === false &&
+      promotedBackendBoundary?.securityRulesMutated === false &&
+      promotedBackendBoundary?.indexesMutated === false &&
+      promotedBackendBoundary?.schedulerSmokeChangedRecordCount === 0 &&
+      promotedBackendBoundary?.aggregateBacklogQueriesPerformed === true &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesActiveByteExact === true &&
+      promotionBackendReceipt?.firestoreDeployment?.allIndexesReady === true &&
+      promotionBackendReceipt?.firestoreDeployment?.indexesAlreadyExactNoMutationRequired === true &&
+      promotionBackendReceipt?.firestoreDeployment?.strictLiveReadbackPassed === true &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesAlreadyExactNoMutationRequired === true &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesDeploymentPerformed === false &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.functionFleet?.decision ===
+        "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies?.decision ===
+        "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.decision ===
+        "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.verified === true &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.allIndexesReady === true &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.functionFleet
+        ?.failedChecks === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies
+        ?.failedChecks === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies
+        ?.postureHolds === 0 &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes
+        ?.failedChecks === 0 &&
+      promotedFirestoreAuthority?.receipt ===
+        `release/evidence/build${promotedArtifact?.buildNumber}-firestore-rules-indexes-live-readback.json` &&
+      measuredPromotionFirestoreReceiptSha256 ===
+        promotedFirestoreAuthority?.sha256 &&
+      promotionFirestoreReceipt?.schemaVersion === 1 &&
+      loadedFirestoreEvidenceExact(promotionFirestoreReceipt,
+        promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes,
+        promotedFirestoreAuthority) &&
+      promotionFirestoreReceipt?.evidenceType ===
+        "firestore-rules-indexes-live-readback" &&
+      promotionFirestoreReceipt?.mode === "STRICT" &&
+      promotionFirestoreReceipt?.projectId === policy.productionProjectId &&
+      promotionFirestoreReceipt?.decision ===
+        "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK" &&
+      promotionFirestoreReceipt?.outputs?.rules?.sourceSha256 ===
+        promotedFirestoreAuthority?.rulesSha256 &&
+      promotionFirestoreReceipt?.outputs?.rules?.activeSha256 ===
+        promotedFirestoreAuthority?.rulesSha256 &&
+      promotionFirestoreReceipt?.outputs?.rules?.byteExact === true &&
+      promotionFirestoreReceipt?.outputs?.indexes?.sourceCount ===
+        promotedFirestoreAuthority?.indexCount &&
+      promotionFirestoreReceipt?.outputs?.indexes?.sourceSetSha256 ===
+        promotedFirestoreAuthority?.indexSetSha256 &&
+      promotionFirestoreReceipt?.outputs?.indexes?.cliSetSha256 ===
+        promotedFirestoreAuthority?.indexSetSha256 &&
+      promotionFirestoreReceipt?.outputs?.indexes?.apiSetSha256 ===
+        promotedFirestoreAuthority?.indexSetSha256 &&
+      promotionFirestoreReceipt?.outputs?.indexes?.allApiIndexesReady ===
+        true &&
+      promotedFirestoreAuthority?.allIndexesReady === true &&
+      promotedFirestoreBoundaryValues.length > 0 &&
+      promotedFirestoreBoundaryValues.every((value) => value === false));
+  const stagedPromotionFinalizationExact =
+    !stagedPromotion ||
+    (promotedFinalizationDecisionsExact(promotionFinalizationReceipt) &&
+      promotedFinalizationReceiptAuthority != null &&
+      promotedReceiptBuild?.finalizationReceipt ===
+        promotedFinalizationReceiptAuthority.path &&
+      promotedReceiptBuild?.finalizationReceiptSha256 ===
+        promotedFinalizationReceiptAuthority.sha256 &&
+      measuredPromotionFinalizationReceiptSha256 ===
+        promotedFinalizationReceiptAuthority.sha256 &&
+      promotionFinalizationReceipt?.release?.buildNumber ===
+        promotedArtifact?.buildNumber &&
+      promotionFinalizationReceipt?.sourceAuthority?.commit ===
+        promotedArtifact?.headSha &&
+      promotionFinalizationReceipt?.governedPackage?.sha256 ===
+        promotedArtifact?.governedPackageSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
+        promotedReceiptBuild?.apkSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.certificateSha256 ===
+        promotedReceiptBuild?.certificateSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.independentVerificationCompleted === true &&
+      promotionFinalizationReceipt?.dualCustody?.allFileHashesMatched === true &&
+      promotionFinalizationReceipt?.dualCustody?.status === "passed" &&
+      promotedReceiptBuild?.dualCustodyCompleted === true &&
+      promotedReceiptBuild?.oneTargetInPlaceValidationPassed === true &&
+      promotedReceiptBuild?.mutatingBusinessFlowValidationCompleted === false);
+  const promotedMutationBoundary =
+    promotionDeviceAcceptanceReceipt?.businessMutationBoundary;
+  const promotedMutationValues =
+    promotedMutationBoundary == null
+      ? []
+      : Object.values(promotedMutationBoundary);
+  const stagedPromotionMutationClaimsExact =
+    !stagedPromotion ||
+    (promotionDeviceAcceptanceReceipt?.adjudication
+      ?.mutatingBusinessFlowValidationCompleted === false &&
+      promotionDeviceAcceptanceReceipt?.releaseBoundary
+        ?.productionBusinessMutationAuthorizedByThisReceipt === false &&
+      promotionDeviceAcceptanceReceipt?.releaseBoundary
+        ?.firebaseBusinessDataChanged === false);
+  const stagedPromotionMutationBoundaryExact =
+    !stagedPromotion ||
+    (promotedMutationValues.length > 0 &&
+      promotedMutationValues.every((value) => value === false) &&
+      promotedMutationBoundary
+        ?.productionBusinessDataCreatedUpdatedOrDeleted === false &&
+      promotedDeviceAcceptanceAuthority?.businessDataMutated === false &&
+      stagedPromotionMutationClaimsExact);
+  const promotedDeviceReleaseBoundary =
+    promotionDeviceAcceptanceReceipt?.releaseBoundary;
+  const promotedDeviceReleaseBoundaryValues =
+    promotedDeviceReleaseBoundary == null
+      ? []
+      : Object.values(promotedDeviceReleaseBoundary);
+  const stagedPromotionDeviceReleaseBoundaryExact =
+    !stagedPromotion ||
+    (promotedDeviceReleaseBoundaryValues.length > 0 &&
+      promotedDeviceReleaseBoundaryValues.every((value) => value === false));
+  const promotedClosureBoundary = promotionReceipt?.closureBoundary;
+  const stagedPromotionClosureBoundaryExact =
+    !stagedPromotion ||
+    (promotedClosureBoundary?.deviceAcceptanceRecorded === true &&
+      promotedClosureBoundary?.controlledPilotAuthorized === true &&
+      promotedClosureBoundary?.pilotHandoutPerformed === false &&
+      promotedClosureBoundary?.approvedRosterFrozenByThisRecord === false &&
+      promotedClosureBoundary?.githubArtifactDeleted === false &&
+      promotedClosureBoundary?.githubReleaseCreated === false &&
+      promotedClosureBoundary?.firebaseMutationPerformed === false &&
+      promotedClosureBoundary?.deviceMutationPerformed === false &&
+      promotedClosureBoundary?.businessDataReadOrWritten === false &&
+      promotedClosureBoundary?.unrestrictedDistributionAuthorized === false &&
+      promotedClosureBoundary?.appCheckDeferralChanged === false);
+  const promotedLedgerPromotionReceiptExact =
+    !stagedPromotion ||
+    (promotedLedgerEntryUnique &&
+      promotedLedger?.pilotPromotionReceiptFile ===
+      promotionReceiptAuthority?.path &&
+      promotedLedger?.pilotPromotionReceiptSha256 ===
+        promotionReceiptAuthority?.sha256);
+  const expectedDeviceAcceptancePath =
+    `release/evidence/build-${promotedArtifact?.buildNumber}-` +
+    "device-acceptance.json";
+  const stagedPromotionRuntimeExact =
+    !stagedPromotion ||
+    (promotedDeviceAcceptanceAuthority != null &&
+      promotionDeviceAcceptanceReceipt != null &&
+      measuredPromotionDeviceAcceptanceReceiptSha256 ===
+        promotedDeviceAcceptanceAuthority.sha256 &&
+      promotedDeviceAcceptanceAuthority.receipt ===
+        expectedDeviceAcceptancePath &&
+      promotionDeviceAcceptanceReceipt.evidenceType ===
+        "production-build-device-acceptance" &&
+      promotionDeviceAcceptanceReceipt.status ===
+        promotedDeviceAcceptanceAuthority.decision &&
+      promotionDeviceAcceptanceReceipt.release?.buildNumber ===
+        promotedArtifact?.buildNumber &&
+      promotionDeviceAcceptanceReceipt.release?.sourceCommit ===
+        promotedArtifact?.headSha &&
+      promotionDeviceAcceptanceReceipt.release?.finalizationReceiptFile ===
+        promotedReceiptBuild?.finalizationReceipt &&
+      promotionDeviceAcceptanceReceipt.release?.finalizationReceiptSha256 ===
+        promotedReceiptBuild?.finalizationReceiptSha256 &&
+      promotionDeviceAcceptanceReceipt.release?.governedPackageSha256 ===
+        promotedArtifact?.governedPackageSha256 &&
+      promotionDeviceAcceptanceReceipt.release?.apkSha256 ===
+        promotedReceiptBuild?.apkSha256 &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.applicationDataPreserved ===
+        true &&
+      promotedDeviceAcceptanceAuthority?.physicalTargetCount === 1 &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.targetCount ===
+        promotedDeviceAcceptanceAuthority?.physicalTargetCount &&
+      evidenceInstantAtOrAfter(promotionDeviceAcceptanceReceipt.recordedAtUtc, [
+        promotionDeviceAcceptanceReceipt.synchronization?.inventoryCapturedAtUtc,
+      ]) &&
+      (promotedArtifact?.buildNumber !== 27 || build27ReadOnlyDeviceProofExact(
+        promotionDeviceAcceptanceReceipt, promotionFinalizationReceipt?.governedPackage?.certificateSha256,
+      )) &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.installedVersionCode ===
+        promotedArtifact?.buildNumber &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.installationResult ===
+        "success" &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.exactGovernedApkMatch ===
+        true &&
+      promotionDeviceAcceptanceReceipt.physicalDevice
+        ?.signerContinuityVerifiedByInPlaceUpdate === true &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.firstInstallTimePreserved ===
+        true &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.applicationDataCleared ===
+        false &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.applicationUninstalled ===
+        false &&
+      promotionDeviceAcceptanceReceipt.releaseBoundary
+        ?.deviceDataClearPerformed === false &&
+      promotionDeviceAcceptanceReceipt.runtime?.coldLaunchResult === "passed" &&
+      promotionDeviceAcceptanceReceipt.runtime?.processRemainedAlive === true &&
+      promotionDeviceAcceptanceReceipt.runtime?.androidCrashObserved === false &&
+      promotionDeviceAcceptanceReceipt.runtime?.androidAnrObserved === false &&
+      promotionDeviceAcceptanceReceipt.runtime?.flutterFatalErrorObserved ===
+        false &&
+      promotionDeviceAcceptanceReceipt.runtime?.firebaseCallableFailureObserved ===
+        false &&
+      promotionDeviceAcceptanceReceipt.runtime?.permissionDenialObserved ===
+        false &&
+      promotionDeviceAcceptanceReceipt.runtime
+        ?.approvedAuthenticatedSessionPreserved === true &&
+      promotionDeviceAcceptanceReceipt.runtime?.authenticatedHomeRendered ===
+        true &&
+      promotionDeviceAcceptanceReceipt.localStoreMigration
+        ?.governedOpenCompleted ===
+        true &&
+      promotionDeviceAcceptanceReceipt.localStoreMigration
+        ?.applicationDataPreserved === true &&
+      promotionDeviceAcceptanceReceipt.localStoreMigration
+        ?.isarOpenFailureObserved ===
+        false &&
+      promotionDeviceAcceptanceReceipt.synchronization?.lastSyncResult ===
+        "success" &&
+      promotionDeviceAcceptanceReceipt.synchronization?.syncStateAtInventory ===
+        "idle" &&
+      Number.isInteger(promotionDeviceAcceptanceReceipt.synchronization
+        ?.automaticStartupSyncPassesObserved) &&
+      promotionDeviceAcceptanceReceipt.synchronization
+        .automaticStartupSyncPassesObserved > 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.unsyncedRows === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization
+        ?.unresolvedRejections === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.pushFailed === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.likelyPermanentRejections === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.fullSyncConflicts ===
+        0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.processingErrors === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.globalPullConflict === 0 &&
+      promotionDeviceAcceptanceReceipt.adjudication?.runtimeValidationPassed ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication?.physicalInPlaceMigrationPassed ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication?.authenticatedReadOnlySurfaceValidationCompleted ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication
+        ?.fullBusinessFlowValidationCompleted === false &&
+      promotedDeviceAcceptanceAuthority.appDataPreserved === true &&
+      promotedDeviceAcceptanceAuthority.automaticSyncPassed === true &&
+      promotedDeviceAcceptanceAuthority.unsyncedRows === 0 &&
+      promotedDeviceAcceptanceAuthority.unresolvedRejections === 0 &&
+      (!preservedFinalizationIsPromoted ||
+        (preservedFinalization?.physicalInstallationConditionPassed === true &&
+          preservedFinalization?.physicalInstallationReceiptFile ===
+            promotedDeviceAcceptanceAuthority.receipt &&
+          preservedFinalization?.physicalInstallationReceiptSha256 ===
+            promotedDeviceAcceptanceAuthority.sha256 &&
+          preservedFinalization?.deviceAcceptanceReceiptFile ===
+            promotedDeviceAcceptanceAuthority.receipt &&
+          preservedFinalization?.deviceAcceptanceReceiptSha256 ===
+            promotedDeviceAcceptanceAuthority.sha256 &&
+          preservedFinalization?.runtimeValidationPassed === true &&
+          preservedFinalization?.runtimeDisposition ===
+            promotedDeviceAcceptanceAuthority.decision &&
+          preservedFinalization?.fullBusinessFlowValidationCompleted ===
+            false)) &&
+      promotedLedger?.physicalInstallationConditionPassed === true &&
+      promotedLedger?.physicalInstallationReceiptFile ===
+        promotedDeviceAcceptanceAuthority.receipt &&
+      promotedLedger?.physicalInstallationReceiptSha256 ===
+        promotedDeviceAcceptanceAuthority.sha256 &&
+      promotedLedger?.runtimeValidationPassed === true &&
+      promotedLedger?.runtimeDisposition ===
+        promotedDeviceAcceptanceAuthority.decision &&
+      promotedLedger?.fullBusinessFlowValidationCompleted === false &&
+      promotedLedger?.controlledPilotApproved === true &&
+      stagedPromotionOwnerApprovalExact &&
+      stagedPromotionInfrastructureExact &&
+      stagedPromotionMutationBoundaryExact &&
+      stagedPromotionDeviceReleaseBoundaryExact &&
+      stagedPromotionClosureBoundaryExact &&
+      promotedLedgerPromotionReceiptExact);
+  const promotionReceiptExact =
+    promotionReceipt?.schemaVersion === 1 &&
+    (stagedPromotion || historicalBuild11PromotionExact) &&
+    (!stagedPromotion || (stagedSourceAuthorityProof?.promotionReceiptFile === promotionReceiptPath &&
+      stagedSourceAuthorityProof?.promotionReceiptSha256 === measuredPromotionReceiptSha256)) &&
+    (!stagedPromotion ||
+      (evidenceInstantAtOrAfter(promotionReceipt?.recordedAtUtc, [
+        promotionOwnerApproval?.approvedAtUtc,
+        promotionFinalizationReceipt?.workflow?.completedAtUtc,
+        promotionFinalizationReceipt?.dualCustody?.governedPackageCompletedAtUtc,
+        promotionFinalizationReceipt?.closure?.decisionAtUtc,
+        promotionFinalizationReceipt?.dualCustody?.closureArchiveCompletedAtUtc,
+        promotionDeviceAcceptanceReceipt?.recordedAtUtc,
+        promotionBackendReceipt?.recordedAtUtc,
+        promotionFirestoreReceipt?.capturedAtUtc,
+      ]) && promotionCiAuthorityExact(promotionReceipt, promotionDeviceAcceptanceReceipt) &&
+        promotionReceipt?.programmeDecision?.internalControlledPilot === "GO_STAGED" &&
+        promotionReceipt?.programmeDecision?.pilotHandout ===
+          `AUTHORIZED_EXACT_BUILD${promotedArtifact?.buildNumber}_FROZEN_ROSTER_UP_TO_${promotedReceiptBoundary?.maximumApprovedUsers}` &&
+        promotionReceipt?.programmeDecision?.canary === "TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION" &&
+        promotionReceipt?.programmeDecision?.mutatingBusinessFlowValidation === "OPEN_COLLECT_DURING_CANARY" &&
+        promotionReceipt?.programmeDecision?.unrestrictedDistribution === "NO_GO")) &&
     promotedReceiptBuild?.buildNumber === promotedArtifact?.buildNumber &&
     promotedReceiptBuild?.sourceCommit === promotedArtifact?.headSha &&
     promotedReceiptBuild?.governedPackageSha256 ===
@@ -301,20 +967,57 @@ function summarizeMutableSourceAuthority({
       promotedArtifact?.buildNumber &&
     promotedReceiptBoundary?.authorizedPackageSha256 ===
       promotedArtifact?.governedPackageSha256 &&
+    (!stagedPromotion ||
+      (promotedReceiptBuild?.apkSha256 != null &&
+        promotedReceiptBoundary?.authorizedApkSha256 ===
+          promotedReceiptBuild.apkSha256 &&
+        stagedPromotionFinalizationExact &&
+        stagedPromotionRuntimeExact)) &&
     promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
     promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
     promotedReceiptBoundary?.publicArtifactAuthorized === false &&
+    (!stagedPromotion ||
+      promotedReceiptBoundary
+        ?.githubActionsArtifactAsDistributionChannelAuthorized === false) &&
     promotedReceiptBoundary?.githubReleaseAuthorized === false &&
     promotedReceiptBoundary?.firebaseAppDistributionAuthorized === false &&
     promotedReceiptBoundary?.playConsoleAuthorized === false &&
     promotedReceiptBoundary?.playStoreAuthorized === false &&
     promotedReceiptBoundary?.webDistributionAuthorized === false &&
-    promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false;
+    promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false &&
+    (!stagedPromotion ||
+      promotedReceiptBoundary?.appCheckActivationAuthorized === false) &&
+    (!stagedPromotion ||
+      (promotedReceiptBoundary?.status === "STAGED_CONTROLLED_PILOT_AUTHORIZED" &&
+        promotedReceiptBoundary?.maximumApprovedUsers > 0 &&
+        promotedReceiptBoundary?.maximumApprovedUsers <= 25 &&
+        Number.isInteger(promotedReceiptBoundary?.maximumApprovedUsers) &&
+        releasePolicy.distribution?.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
+        postBuildPromotion.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
+        releasePolicy.distribution?.canaryUserCeiling ===
+          promotedReceiptBoundary.canaryUserCeiling &&
+        releasePolicy.distribution?.canaryPhysicalDeviceCeiling ===
+          promotedReceiptBoundary.canaryPhysicalDeviceCeiling &&
+        postBuildPromotion.canaryUserCeiling ===
+          promotedReceiptBoundary.canaryUserCeiling &&
+        postBuildPromotion.canaryPhysicalDeviceCeiling ===
+          promotedReceiptBoundary.canaryPhysicalDeviceCeiling &&
+        promotedReceiptBoundary?.canaryUserCeiling === 2 &&
+        promotedReceiptBoundary?.canaryPhysicalDeviceCeiling === 2));
+  const expectedPromotionStatus = stagedPromotion
+    ? "completed-staged-controlled-pilot-only"
+    : "completed-controlled-pilot-only";
+  const expectedDistributionAuthority = stagedPromotion
+    ? `exact-build${promotedArtifact?.buildNumber}-staged-controlled-pilot`
+    : "exact-build11-sealed-small-group-pilot";
   const controlledPilotPromotionExact =
+    ledgerBuildNumbersUnique &&
     promotedArtifact != null &&
     promotionReceiptAuthority != null &&
     promotionReceiptExact &&
-    postBuildPromotion.status === "completed-controlled-pilot-only" &&
+    postBuildPromotion.status === expectedPromotionStatus &&
     postBuildPromotion.promotionReceiptFile === promotionReceiptAuthority.path &&
     postBuildPromotion.promotionReceiptSha256 === promotionReceiptAuthority.sha256 &&
     postBuildPromotion.buildNumber === promotedArtifact.buildNumber &&
@@ -330,13 +1033,15 @@ function summarizeMutableSourceAuthority({
     postBuildPromotion.playStoreApproved === false &&
     postBuildPromotion.webDistributionApproved === false &&
     postBuildPromotion.unrestrictedPlantReleaseApproved === false &&
-    releasePolicy.distribution?.authority ===
-      "exact-build11-sealed-small-group-pilot" &&
+    releasePolicy.distribution?.authority === expectedDistributionAuthority &&
     releasePolicy.distribution?.approved === true &&
     releasePolicy.distribution?.approvedBuildNumber ===
       promotedArtifact.buildNumber &&
     releasePolicy.distribution?.approvedPackageSha256 ===
       promotedArtifact.governedPackageSha256 &&
+    (!stagedPromotion ||
+      releasePolicy.distribution?.approvedApkSha256 ===
+        promotedReceiptBuild?.apkSha256) &&
     releasePolicy.distribution?.promotionReceiptFile ===
       promotionReceiptAuthority.path &&
     releasePolicy.distribution?.promotionReceiptSha256 ===
@@ -363,9 +1068,12 @@ function summarizeMutableSourceAuthority({
       pendingSuccessorExact &&
       (nonDistributionExact || controlledPilotPromotionExact),
     buildLedgerExact:
+      ledgerBuildNumbersUnique &&
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
-      pendingSuccessorExact,
+      pendingSuccessorExact &&
+      promotedLedgerEntryUnique &&
+      promotedLedgerPromotionReceiptExact,
     latestContainmentAttemptExact,
     controlledPilotPromotionExact,
   };
@@ -384,12 +1092,138 @@ function summarizeSource(repositoryRoot, policy) {
   const releasePolicy = readJson(
     path.join(repositoryRoot, "release/production-release-policy.json"),
   );
-  const promotionReceipt = readJson(
-    path.join(
-      repositoryRoot,
-      releasePolicy.postBuildPromotion.promotionReceiptFile,
-    ),
+  const promotionReceiptRelativePath =
+    releasePolicy.postBuildPromotion?.promotionReceiptFile;
+  if (
+    typeof promotionReceiptRelativePath !== "string" ||
+    promotionReceiptRelativePath.length === 0
+  ) {
+    fail("Production release policy has no promotion receipt path.");
+  }
+  const promotionReceiptPath = path.resolve(
+    repositoryRoot,
+    promotionReceiptRelativePath,
   );
+  if (!isPathInside(repositoryRoot, promotionReceiptPath)) {
+    fail("Promotion receipt escapes the repository root.");
+  }
+  const promotionReceipt = readJson(promotionReceiptPath);
+  const measuredPromotionReceiptSha256 = sha256(
+    fs.readFileSync(promotionReceiptPath),
+  );
+  const promotionFinalizationRelativePath =
+    promotionReceipt?.admittedEvidence?.governedBuild?.finalizationReceipt;
+  let promotionFinalizationReceipt = null;
+  let measuredPromotionFinalizationReceiptSha256 = null;
+  if (
+    typeof promotionFinalizationRelativePath === "string" &&
+    promotionFinalizationRelativePath.length > 0
+  ) {
+    const promotionFinalizationPath = path.resolve(
+      repositoryRoot,
+      promotionFinalizationRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionFinalizationPath)) {
+      fail("Promotion finalization receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionFinalizationPath)) {
+      const finalizationBytes = fs.readFileSync(promotionFinalizationPath);
+      promotionFinalizationReceipt = JSON.parse(
+        finalizationBytes.toString("utf8"),
+      );
+      measuredPromotionFinalizationReceiptSha256 = sha256(finalizationBytes);
+    }
+  }
+  const promotionDeviceAcceptanceRelativePath =
+    promotionReceipt?.admittedEvidence?.deviceAcceptance?.receipt;
+  let promotionDeviceAcceptanceReceipt = null;
+  let measuredPromotionDeviceAcceptanceReceiptSha256 = null;
+  if (
+    typeof promotionDeviceAcceptanceRelativePath === "string" &&
+    promotionDeviceAcceptanceRelativePath.length > 0
+  ) {
+    const promotionDeviceAcceptancePath = path.resolve(
+      repositoryRoot,
+      promotionDeviceAcceptanceRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionDeviceAcceptancePath)) {
+      fail("Promotion device-acceptance receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionDeviceAcceptancePath)) {
+      const deviceAcceptanceBytes = fs.readFileSync(
+        promotionDeviceAcceptancePath,
+      );
+      promotionDeviceAcceptanceReceipt = JSON.parse(
+        deviceAcceptanceBytes.toString("utf8"),
+      );
+      measuredPromotionDeviceAcceptanceReceiptSha256 = sha256(
+        deviceAcceptanceBytes,
+      );
+    }
+  }
+  const promotionOwnerApprovalRelativePath =
+    promotionReceipt?.ownerApproval?.receipt;
+  let promotionOwnerApproval = null;
+  let measuredPromotionOwnerApprovalSha256 = null;
+  if (
+    typeof promotionOwnerApprovalRelativePath === "string" &&
+    promotionOwnerApprovalRelativePath.length > 0
+  ) {
+    const promotionOwnerApprovalPath = path.resolve(
+      repositoryRoot,
+      promotionOwnerApprovalRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionOwnerApprovalPath)) {
+      fail("Promotion owner-approval receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionOwnerApprovalPath)) {
+      const ownerApprovalBytes = fs.readFileSync(promotionOwnerApprovalPath);
+      promotionOwnerApproval = JSON.parse(ownerApprovalBytes.toString("utf8"));
+      measuredPromotionOwnerApprovalSha256 = sha256(ownerApprovalBytes);
+    }
+  }
+  const promotionBackendRelativePath =
+    promotionReceipt?.admittedEvidence?.productionBackend?.receipt;
+  let promotionBackendReceipt = null;
+  let measuredPromotionBackendReceiptSha256 = null;
+  if (
+    typeof promotionBackendRelativePath === "string" &&
+    promotionBackendRelativePath.length > 0
+  ) {
+    const promotionBackendPath = path.resolve(
+      repositoryRoot,
+      promotionBackendRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionBackendPath)) {
+      fail("Promotion backend receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionBackendPath)) {
+      const backendBytes = fs.readFileSync(promotionBackendPath);
+      promotionBackendReceipt = JSON.parse(backendBytes.toString("utf8"));
+      measuredPromotionBackendReceiptSha256 = sha256(backendBytes);
+    }
+  }
+  const promotionFirestoreRelativePath =
+    promotionReceipt?.admittedEvidence?.firestoreRulesAndIndexes?.receipt;
+  let promotionFirestoreReceipt = null;
+  let measuredPromotionFirestoreReceiptSha256 = null;
+  if (
+    typeof promotionFirestoreRelativePath === "string" &&
+    promotionFirestoreRelativePath.length > 0
+  ) {
+    const promotionFirestorePath = path.resolve(
+      repositoryRoot,
+      promotionFirestoreRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionFirestorePath)) {
+      fail("Promotion Firestore receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionFirestorePath)) {
+      const firestoreBytes = fs.readFileSync(promotionFirestorePath);
+      promotionFirestoreReceipt = JSON.parse(firestoreBytes.toString("utf8"));
+      measuredPromotionFirestoreReceiptSha256 = sha256(firestoreBytes);
+    }
+  }
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
   );
@@ -444,6 +1278,19 @@ function summarizeSource(repositoryRoot, policy) {
     releasePolicy,
     buildLedger,
     promotionReceipt,
+    measuredPromotionReceiptSha256,
+    promotionFinalizationReceipt,
+    measuredPromotionFinalizationReceiptSha256,
+    promotionDeviceAcceptanceReceipt,
+    measuredPromotionDeviceAcceptanceReceiptSha256,
+    promotionOwnerApproval,
+    measuredPromotionOwnerApprovalSha256,
+    promotionBackendReceipt,
+    measuredPromotionBackendReceiptSha256,
+    promotionFirestoreReceipt,
+    measuredPromotionFirestoreReceiptSha256,
+    stagedSourceAuthorityProof: releasePolicy.postBuildPromotion?.status === 'completed-staged-controlled-pilot-only'
+      ? verifyStagedPromotionSourceAuthority({repoRoot: repositoryRoot, releasePolicy}) : null,
   });
   const semanticAuthority = new Map([
     [

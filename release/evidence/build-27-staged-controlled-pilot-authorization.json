@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "BUILD27-STAGED-CONTROLLED-PILOT-AUTHORIZATION-20260908",
+  "evidenceType": "production-build-staged-controlled-pilot-authorization",
+  "recordIds": [
+    "BUILD27_SIGNED_DEVICE_MIGRATION",
+    "BUILD27_EXPLICIT_PILOT_PROMOTION"
+  ],
+  "authorityType": "PILOT_AUTHORIZATION",
+  "decision": "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED",
+  "recordedAtUtc": "2026-09-08T13:16:27.5428307Z",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "artifactSourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
+    "governanceMainCommit": "41adfaecd7974f3f48b9f023a90890c860ab44af",
+    "governanceMainTree": "249c6c1555d422cd0ac43384a47b34b2743c5804",
+    "postMergeCi": {
+      "runId": 34187627918,
+      "headSha": "41adfaecd7974f3f48b9f023a90890c860ab44af",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsPassed": true
+    }
+  },
+  "ownerApproval": {
+    "receipt": "release/approvals/build27-staged-controlled-pilot-approval.json",
+    "sha256": "A51EC5BD36854A4F0AD9353F771FAD2FD84A0695601219921467143A40D2DDF4",
+    "approvalReference": "BAF-REF-004-C27-PILOT",
+    "maximumApprovedUsers": 25
+  },
+  "admittedEvidence": {
+    "governedBuild": {
+      "buildNumber": 27,
+      "version": "1.0.0-rc.17+27",
+      "sourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
+      "governedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
+      "apkSha256": "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+      "finalizationReceipt": "release/evidence/build-27-finalization-closure.json",
+      "finalizationReceiptSha256": "8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6",
+      "dualCustodyCompleted": true,
+      "oneTargetInPlaceValidationPassed": true,
+      "mutatingBusinessFlowValidationCompleted": false
+    },
+    "deviceAcceptance": {
+      "receipt": "release/evidence/build-27-device-acceptance.json",
+      "sha256": "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028",
+      "decision": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
+      "physicalTargetCount": 1,
+      "appDataPreserved": true,
+      "automaticSyncPassed": true,
+      "unsyncedRows": 0,
+      "unresolvedRejections": 0,
+      "businessDataMutated": false
+    },
+    "productionBackend": {
+      "receipt": "release/evidence/build27-backend-deployment-closure.json",
+      "sha256": "F014CEC663878837DF84F7E6A4EC01D45B2F138239C63D1C5FE3DD51F10F5742",
+      "decision": "PASS_BUILD27_BACKEND_DEPLOYMENT_CLOSED"
+    },
+    "firestoreRulesAndIndexes": {
+      "receipt": "release/evidence/build27-firestore-rules-indexes-live-readback.json",
+      "sha256": "644C0E92B28E6C41AC14E4D452D3B7D545DCA4D4C902F50003819E73E865529C",
+      "rulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "indexCount": 66,
+      "allIndexesReady": true
+    }
+  },
+  "promotion": {
+    "status": "STAGED_CONTROLLED_PILOT_AUTHORIZED",
+    "authorizedBuildNumber": 27,
+    "authorizedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
+    "authorizedApkSha256": "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C",
+    "authorizedChannel": "direct-dual-custody-controlled-pilot",
+    "maximumApprovedUsers": 25,
+    "canaryUserCeiling": 2,
+    "canaryPhysicalDeviceCeiling": 2,
+    "authorizedTargets": "frozen privacy-safe physical-device roster only",
+    "authorizedUsers": "frozen approved-user roster at or below 25 only",
+    "preHandoutRequirements": [
+      "verify the exact Build 27 APK hash and production signing certificate",
+      "freeze the approved pilot-user and physical-device entry for that handout",
+      "install in place when the application is already present and preserve app data",
+      "record a privacy-safe execution receipt for the handout",
+      "stop expansion until two canary targets complete launch, authentication, synchronization and one representative user-owned operation without a stop condition"
+    ],
+    "acceptedResidualGap": "Mutating business-flow convergence is not yet adjudicated for exact Build 27; it must be gathered during the two-target canary before expansion.",
+    "pilotHandoutAuthorized": true,
+    "pilotHandoutPerformedByThisRecord": false,
+    "publicArtifactAuthorized": false,
+    "githubActionsArtifactAsDistributionChannelAuthorized": false,
+    "githubReleaseAuthorized": false,
+    "firebaseAppDistributionAuthorized": false,
+    "playConsoleAuthorized": false,
+    "playStoreAuthorized": false,
+    "webDistributionAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckActivationAuthorized": false
+  },
+  "programmeDecision": {
+    "internalControlledPilot": "GO_STAGED",
+    "pilotHandout": "AUTHORIZED_EXACT_BUILD27_FROZEN_ROSTER_UP_TO_25",
+    "canary": "TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION",
+    "mutatingBusinessFlowValidation": "OPEN_COLLECT_DURING_CANARY",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "reArmConditions": [
+    "The Build 27 package hash, signer, source or custody authority changes or cannot be reproduced.",
+    "The approved-user or physical-device roster is not frozen at handout, exceeds 25 users or admits an unapproved subject or target.",
+    "A canary acceptance step fails, local provenance is incomplete, synchronization loses or quarantines data, or a sign-in, revocation or wrong-role control fails.",
+    "A crash, ANR, critical-alarm feed failure, malformed workflow evidence, duplicate submission or unexplained terminal obligation is observed.",
+    "Rules, indexes, callable authority, backend identity, IAM, App Check posture, recovery controls or signing custody drift from admitted evidence.",
+    "A public, GitHub Release, Firebase App Distribution, Play, web or unrestricted distribution path is introduced."
+  ],
+  "closureBoundary": {
+    "deviceAcceptanceRecorded": true,
+    "controlledPilotAuthorized": true,
+    "pilotHandoutPerformed": false,
+    "approvedRosterFrozenByThisRecord": false,
+    "githubArtifactDeleted": false,
+    "githubReleaseCreated": false,
+    "firebaseMutationPerformed": false,
+    "deviceMutationPerformed": false,
+    "businessDataReadOrWritten": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckDeferralChanged": false
+  },
+  "qualification": "This record promotes only exact governed Build 27 to a staged, direct-custody controlled pilot capped at 25 approved users. It authorizes a two-user/two-device canary first and requires a privacy-safe receipt for every actual handout. It does not itself hand out the APK and does not authorize public, Play, web, GitHub Release, Firebase App Distribution or unrestricted plant distribution."
+}
