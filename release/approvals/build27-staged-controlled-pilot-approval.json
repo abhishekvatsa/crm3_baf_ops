@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "approvalClass": "EXACT_BUILD27_STAGED_CONTROLLED_PILOT_PROMOTION",
+  "approvalReference": "BAF-REF-004-C27-PILOT",
+  "approvedAtUtc": "2026-09-08T09:02:39.0933486Z",
+  "authority": {
+    "type": "project-owner instruction",
+    "codexThreadId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "instructionVerbatim": "please go ahead and do that",
+    "instructionContext": "The immediately preceding decision asked for the separate pilot/distribution authorization required to qualify exact Build 27 for the existing controlled pilot group, explicitly excluding public and Play Store release.",
+    "scopeInterpretation": "Authorize exact Build 27 for a staged, direct-custody controlled pilot of no more than 25 approved users. Preserve a two-device canary, per-handout privacy-safe receipts and immediate stop conditions. This does not authorize public, Play Store, web, GitHub Release, Firebase App Distribution or unrestricted distribution."
+  },
+  "exactArtifact": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.17-b27",
+    "version": "1.0.0-rc.17+27",
+    "buildNumber": 27,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
+    "governedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
+    "apkSha256": "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+  },
+  "authorizedPilot": {
+    "channel": "direct-dual-custody-controlled-pilot",
+    "maximumApprovedUsers": 25,
+    "maximumCanaryUsers": 2,
+    "maximumCanaryPhysicalDevices": 2,
+    "rosterAndRolesFrozenAtEachHandout": true,
+    "privacySafeUserAndDeviceIdentifiersRequired": true,
+    "perHandoutExecutionReceiptRequired": true,
+    "inPlaceUpgradeRequiredWhereAppAlreadyInstalled": true,
+    "deviceDataClearAllowed": false,
+    "pilotMayGatherMutatingFlowEvidence": true,
+    "publicArtifactAuthorized": false,
+    "githubActionsArtifactAsDistributionChannelAuthorized": false,
+    "githubReleaseAuthorized": false,
+    "firebaseAppDistributionAuthorized": false,
+    "playConsoleAuthorized": false,
+    "playStoreAuthorized": false,
+    "webDistributionAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckActivationAuthorized": false
+  },
+  "stagePlan": {
+    "phase1": "Hand exact Build 27 directly to no more than two approved users on two named physical devices. Verify hash, signer, in-place upgrade, authenticated launch, clean synchronization and one representative user-owned operation on each target.",
+    "phase1Observation": "Observe through one normal operating shift. Any stop condition blocks further handout.",
+    "phase2": "After both canary receipts pass, expand only to the remaining frozen approved-user and physical-device roster, keeping the total at or below 25.",
+    "phase2Evidence": "Record a privacy-safe execution receipt for every handout and retain the exact package hash in the handout log.",
+    "mutatingFlowQualification": "Mutating business-flow evidence may be collected during the controlled canary. It is not claimed by this approval and remains an open qualification for broader release."
+  },
+  "stopConditions": [
+    "The package, signer, source commit or governed package hash differs from the exact Build 27 authority.",
+    "An installation would require uninstalling, clearing app data or bypassing signer continuity.",
+    "A target reports a crash, ANR, repeated startup failure, authorization failure or critical-alarm feed failure.",
+    "Synchronization reports a permanent rejection, unresolved conflict, unexplained pending row, duplicate command, row loss or different users seeing irreconcilable state.",
+    "A required workflow action cannot be completed, its actor/time evidence is malformed, or a terminal obligation remains without an explained business reason.",
+    "The approved-user or physical-device roster is not frozen, exceeds 25 users or includes an unapproved user.",
+    "The APK is placed on a public link, GitHub Release, Firebase App Distribution, Play channel, web channel or another unapproved distribution path.",
+    "Production Rules, indexes, Functions, IAM, App Check posture, signing authority or recovery controls drift from admitted evidence."
+  ],
+  "mutationBoundary": {
+    "firebaseBusinessDataMutationAuthorizedByThisApproval": false,
+    "firebaseConfigurationMutationAuthorized": false,
+    "iamMutationAuthorized": false,
+    "appCheckActivationAuthorized": false,
+    "deviceDataClearAuthorized": false,
+    "githubArtifactDeletionAuthorized": false,
+    "pilotHandoutPerformedByThisApproval": false,
+    "unrestrictedDistributionAuthorized": false
+  }
+}

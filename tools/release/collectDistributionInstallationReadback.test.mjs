@@ -382,18 +382,21 @@ test("completed successor still requires every retained failed-attempt receipt",
   );
 
   const promotionPath =
-    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json";
+    "release/evidence/build-11-staged-controlled-pilot-authorization.json";
   const promotionSha = "1".repeat(64).toUpperCase();
   policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
   const promotedPolicy = structuredClone(releasePolicy);
   promotedPolicy.postBuildPromotion = {
-    status: "completed-controlled-pilot-only",
+    status: "completed-staged-controlled-pilot-only",
     promotionReceiptFile: promotionPath,
     promotionReceiptSha256: promotionSha,
     buildNumber: completed.buildNumber,
     sourceCommit: completed.headSha,
     governedPackageSha256: completed.governedPackageSha256,
     controlledPilotApproved: true,
+    maximumApprovedUsers: 25,
+    canaryUserCeiling: 2,
+    canaryPhysicalDeviceCeiling: 2,
     pilotHandoutPerformed: false,
     publicArtifactApproved: false,
     githubReleaseApproved: false,
@@ -404,7 +407,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     unrestrictedPlantReleaseApproved: false,
   };
   promotedPolicy.distribution = {
-    authority: "exact-build11-sealed-small-group-pilot",
+    authority: "exact-build11-staged-controlled-pilot",
     approved: true,
     approvedBuildNumber: completed.buildNumber,
     approvedPackageSha256: completed.governedPackageSha256,
@@ -416,8 +419,8 @@ test("completed successor still requires every retained failed-attempt receipt",
   };
   const promotionReceipt = {
     schemaVersion: 1,
-    evidenceType: "stage2d-f6-build11-controlled-pilot-authorization",
-    decision: "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED",
+    evidenceType: "production-build-staged-controlled-pilot-authorization",
+    decision: "PASS_BUILD11_STAGED_CONTROLLED_PILOT_AUTHORIZED",
     admittedEvidence: {
       governedBuild: {
         buildNumber: completed.buildNumber,
@@ -437,6 +440,9 @@ test("completed successor still requires every retained failed-attempt receipt",
       playStoreAuthorized: false,
       webDistributionAuthorized: false,
       unrestrictedDistributionAuthorized: false,
+      maximumApprovedUsers: 25,
+      canaryUserCeiling: 2,
+      canaryPhysicalDeviceCeiling: 2,
     },
   };
   assert.deepEqual(

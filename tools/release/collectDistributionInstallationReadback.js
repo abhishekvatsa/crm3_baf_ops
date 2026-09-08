@@ -145,11 +145,17 @@ function summarizeMutableSourceAuthority({
   const latestReceiptAuthority = policy.sourceEvidence.find(
     (entry) => entry.path === receiptPathFor(latestExpectedArtifact),
   );
-  const promotionReceiptAuthority = policy.sourceEvidence.find(
-    (entry) =>
-      entry.path ===
-      "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
-  );
+  const promotionReceiptPath =
+    releasePolicy.postBuildPromotion?.promotionReceiptFile;
+  const promotionReceiptAuthority =
+    policy.sourceEvidence.find((entry) => entry.path === promotionReceiptPath) ??
+    (typeof promotionReceiptPath === "string" &&
+    typeof releasePolicy.postBuildPromotion?.promotionReceiptSha256 === "string"
+      ? {
+          path: promotionReceiptPath,
+          sha256: releasePolicy.postBuildPromotion.promotionReceiptSha256,
+        }
+      : null);
   const finalization = releasePolicy.finalization ?? {};
   const currentBuildNumber = releasePolicy.release?.buildNumber;
   let preservedFinalization = null;
@@ -287,12 +293,19 @@ function summarizeMutableSourceAuthority({
   );
   const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
-  const promotionReceiptExact =
-    promotionReceipt?.schemaVersion === 1 &&
+  const stagedPromotion =
+    promotionReceipt?.evidenceType ===
+      "production-build-staged-controlled-pilot-authorization" &&
+    promotionReceipt?.decision ===
+      `PASS_BUILD${promotedArtifact?.buildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED`;
+  const historicalBuild11Promotion =
     promotionReceipt?.evidenceType ===
       "stage2d-f6-build11-controlled-pilot-authorization" &&
     promotionReceipt?.decision ===
-      "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED" &&
+      "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED";
+  const promotionReceiptExact =
+    promotionReceipt?.schemaVersion === 1 &&
+    (stagedPromotion || historicalBuild11Promotion) &&
     promotedReceiptBuild?.buildNumber === promotedArtifact?.buildNumber &&
     promotedReceiptBuild?.sourceCommit === promotedArtifact?.headSha &&
     promotedReceiptBuild?.governedPackageSha256 ===
@@ -309,12 +322,23 @@ function summarizeMutableSourceAuthority({
     promotedReceiptBoundary?.playConsoleAuthorized === false &&
     promotedReceiptBoundary?.playStoreAuthorized === false &&
     promotedReceiptBoundary?.webDistributionAuthorized === false &&
-    promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false;
+    promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false &&
+    (!stagedPromotion ||
+      (promotedReceiptBoundary?.maximumApprovedUsers > 0 &&
+        promotedReceiptBoundary?.maximumApprovedUsers <= 25 &&
+        promotedReceiptBoundary?.canaryUserCeiling === 2 &&
+        promotedReceiptBoundary?.canaryPhysicalDeviceCeiling === 2));
+  const expectedPromotionStatus = stagedPromotion
+    ? "completed-staged-controlled-pilot-only"
+    : "completed-controlled-pilot-only";
+  const expectedDistributionAuthority = stagedPromotion
+    ? `exact-build${promotedArtifact?.buildNumber}-staged-controlled-pilot`
+    : "exact-build11-sealed-small-group-pilot";
   const controlledPilotPromotionExact =
     promotedArtifact != null &&
     promotionReceiptAuthority != null &&
     promotionReceiptExact &&
-    postBuildPromotion.status === "completed-controlled-pilot-only" &&
+    postBuildPromotion.status === expectedPromotionStatus &&
     postBuildPromotion.promotionReceiptFile === promotionReceiptAuthority.path &&
     postBuildPromotion.promotionReceiptSha256 === promotionReceiptAuthority.sha256 &&
     postBuildPromotion.buildNumber === promotedArtifact.buildNumber &&
@@ -330,8 +354,7 @@ function summarizeMutableSourceAuthority({
     postBuildPromotion.playStoreApproved === false &&
     postBuildPromotion.webDistributionApproved === false &&
     postBuildPromotion.unrestrictedPlantReleaseApproved === false &&
-    releasePolicy.distribution?.authority ===
-      "exact-build11-sealed-small-group-pilot" &&
+    releasePolicy.distribution?.authority === expectedDistributionAuthority &&
     releasePolicy.distribution?.approved === true &&
     releasePolicy.distribution?.approvedBuildNumber ===
       promotedArtifact.buildNumber &&

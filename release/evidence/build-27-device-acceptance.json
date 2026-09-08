@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-device-acceptance",
+  "status": "passed-exact-build27-physical-in-place-authenticated-read-only-surfaces",
+  "recordingTiming": "POST_FINALIZATION_DEVICE_ACCEPTANCE_RECONCILIATION",
+  "recordedAtUtc": "2026-09-08T09:02:39.0933486Z",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.17-b27",
+    "versionName": "1.0.0-rc.17",
+    "buildNumber": 27,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "c933ca0a8399f9e69d9c900a50a365cd4f75c994",
+    "sourceTree": "7a13948f2ab31006869b7763c47cbf1263a5b5f3",
+    "finalizationReceiptFile": "release/evidence/build-27-finalization-closure.json",
+    "finalizationReceiptSha256": "8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6",
+    "governedPackageSha256": "BCA671188C2CDA1298E415A4DF0EBD30DDA694A23DFEB27BF1D669A6956E2B42",
+    "apkSha256": "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C",
+    "apkSizeBytes": 99165646,
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+  },
+  "sourceAndCiAuthority": {
+    "governanceMainCommit": "41adfaecd7974f3f48b9f023a90890c860ab44af",
+    "governanceMainTree": "249c6c1555d422cd0ac43384a47b34b2743c5804",
+    "postMergeReleaseGateRunId": 34187627918,
+    "postMergeReleaseGateHeadSha": "41adfaecd7974f3f48b9f023a90890c860ab44af",
+    "postMergeReleaseGateConclusion": "success",
+    "requiredJobCount": 5,
+    "allRequiredJobsPassed": true
+  },
+  "physicalDevice": {
+    "targetCount": 1,
+    "manufacturer": "samsung",
+    "model": "SM-G990E",
+    "androidRelease": "16",
+    "androidApiLevel": 36,
+    "deviceSerialRecorded": false,
+    "deviceIdentifierDigestRecorded": true,
+    "deviceIdentifierSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "accountIdentifierRecorded": false,
+    "priorVersionCode": 24,
+    "installedVersionCode": 27,
+    "installedVersionName": "1.0.0-rc.17",
+    "installationMode": "adb-install-r-in-place",
+    "installationResult": "success",
+    "exactGovernedApkMatch": true,
+    "signerContinuityVerifiedByInPlaceUpdate": true,
+    "firstInstallTimeBeforeLocal": "2026-09-01 09:19:07",
+    "firstInstallTimeAfterLocal": "2026-09-01 09:19:07",
+    "lastUpdateTimeAfterLocal": "2026-09-08 13:40:29",
+    "firstInstallTimePreserved": true,
+    "applicationDataPreserved": true,
+    "applicationDataCleared": false,
+    "applicationUninstalled": false
+  },
+  "runtime": {
+    "coldLaunchResult": "passed",
+    "coldLaunchMilliseconds": 932,
+    "processRemainedAlive": true,
+    "androidCrashObserved": false,
+    "androidAnrObserved": false,
+    "flutterFatalErrorObserved": false,
+    "firebaseCallableFailureObserved": false,
+    "permissionDenialObserved": false,
+    "approvedAuthenticatedSessionPreserved": true,
+    "authenticatedHomeRendered": true
+  },
+  "localStoreMigration": {
+    "targetSchemaVersion": 10,
+    "governedOpenCompleted": true,
+    "provenanceState": "SCHEMA_MIGRATION",
+    "applicationDataPreserved": true,
+    "isarOpenFailureObserved": false
+  },
+  "synchronization": {
+    "automaticStartupSyncPassesObserved": 2,
+    "manualSyncTriggered": false,
+    "lastSyncResult": "success",
+    "pushFailed": 0,
+    "fullSyncConflicts": 0,
+    "processingErrors": 0,
+    "globalPullInserted": 0,
+    "globalPullUpdated": 0,
+    "globalPullDeleted": 0,
+    "globalPullConflict": 0,
+    "unchangedOrStaleSafeSkippedPerPass": 1
+  },
+  "validatedReadOnlySurfaces": [
+    "authenticated-shift-overview-and-plant-condition",
+    "maintenance-issues-horizontal-actions-and-resolved-record-evidence",
+    "planned-maintenance-jobs-and-personal-workflow-filters",
+    "inner-cover-filtering-inventory-and-registration-form",
+    "inspection-programmes-unused-audit-deletion-guard",
+    "issue-report-pdf-zoom-page-print-and-share-controls",
+    "home-form-and-child-screen-back-navigation"
+  ],
+  "businessMutationBoundary": {
+    "ticketSubmitted": false,
+    "ticketAcknowledgedOrClosed": false,
+    "plannedMaintenanceCommandSubmitted": false,
+    "workflowCommandSubmitted": false,
+    "qualityCommandSubmitted": false,
+    "criticalSafetyAlarmRaised": false,
+    "burnerOrUvRoundSubmitted": false,
+    "assetOrInnerCoverRecordChanged": false,
+    "productionBusinessDataCreatedUpdatedOrDeleted": false
+  },
+  "supplementaryLocalEvidence": {
+    "reportPath": "output/build27-device-validation/DEVICE_ACCEPTANCE_REPORT.md",
+    "reportSha256": "C4A3B0428CFA1148D8F327603836468BBBB3282AA652125DABBC7CCAFFC7804A",
+    "rawScreenshotsCommitted": false,
+    "rawLogsCommitted": false,
+    "businessPayloadCommitted": false
+  },
+  "adjudication": {
+    "physicalInPlaceMigrationPassed": true,
+    "authenticatedReadOnlySurfaceValidationCompleted": true,
+    "mutatingBusinessFlowValidationCompleted": false,
+    "fullBusinessFlowValidationCompleted": false,
+    "runtimeValidationPassed": true,
+    "qualification": "Exact Build 27 upgraded the retained Build 24 installation in place, preserved app data and the authenticated session, opened the governed schema 10 store, completed two clean automatic synchronization passes and rendered the reviewed business surfaces without a fatal error. No production business command was submitted, so mutating-flow validation remains open."
+  },
+  "releaseBoundary": {
+    "build27FinalizationReceiptChanged": false,
+    "controlledPilotApprovedByThisReceipt": false,
+    "pilotHandoutPerformed": false,
+    "unrestrictedDistributionApproved": false,
+    "productionBusinessMutationAuthorizedByThisReceipt": false,
+    "firebaseBusinessDataChanged": false,
+    "appCheckActivationPerformed": false,
+    "deviceDataClearPerformed": false
+  }
+}

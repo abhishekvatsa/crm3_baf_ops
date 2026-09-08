@@ -363,6 +363,28 @@ latest_finalization_source_valid = (
     and latest_finalization_source_files is not None
 )
 combined_policy = data("release/production-release-policy.json")
+build27_device_acceptance_path = ROOT / "release/evidence/build-27-device-acceptance.json"
+build27_device_acceptance = data("release/evidence/build-27-device-acceptance.json")
+build27_pilot_approval_path = ROOT / "release/approvals/build27-staged-controlled-pilot-approval.json"
+build27_pilot_approval = data("release/approvals/build27-staged-controlled-pilot-approval.json")
+build27_pilot_promotion_path = ROOT / "release/evidence/build-27-staged-controlled-pilot-authorization.json"
+build27_pilot_promotion = data("release/evidence/build-27-staged-controlled-pilot-authorization.json")
+historical_build11_distribution = next(
+    (
+        entry
+        for entry in combined_policy.get("historicalDistributionAuthorities", [])
+        if entry.get("approvedBuildNumber") == 11
+    ),
+    {},
+)
+historical_build11_promotion = next(
+    (
+        entry
+        for entry in combined_policy.get("historicalPostBuildPromotions", [])
+        if entry.get("buildNumber") == 11
+    ),
+    {},
+)
 combined_receipt_path = ROOT / "release/approvals/firebase-production-signing-restoration-receipt.json"
 combined_receipt = data("release/approvals/firebase-production-signing-restoration-receipt.json")
 combined_receipt_crlf_sha = text_sha_with_eol(combined_receipt_path, "\r\n")
@@ -385,6 +407,52 @@ check(
         ("41C2B828C71683A50EC346D19E1D44048758438D", "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"),
     },
     f"repository={sha(combined_config_path)} restoration={combined_crlf_sha} semantic={combined_semantic} oauth={len(android_oauth)}",
+)
+check(
+    "Build 27 device acceptance and staged pilot authority are exact and bounded",
+    sha(build27_device_acceptance_path)
+        == "DF9D15B5538D935BC0AAB754D6AE715137B93A544E26A25EC96F80FEF0E05382"
+    and build27_device_acceptance.get("release", {}).get("buildNumber") == 27
+    and build27_device_acceptance.get("release", {}).get("apkSha256")
+        == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
+    and build27_device_acceptance.get("physicalDevice", {}).get(
+        "deviceSerialRecorded"
+    ) is False
+    and build27_device_acceptance.get("physicalDevice", {}).get(
+        "applicationDataPreserved"
+    ) is True
+    and build27_device_acceptance.get("adjudication", {}).get(
+        "runtimeValidationPassed"
+    ) is True
+    and build27_device_acceptance.get("adjudication", {}).get(
+        "fullBusinessFlowValidationCompleted"
+    ) is False
+    and sha(build27_pilot_approval_path)
+        == "A51EC5BD36854A4F0AD9353F771FAD2FD84A0695601219921467143A40D2DDF4"
+    and build27_pilot_approval.get("authorizedPilot", {}).get(
+        "maximumApprovedUsers"
+    ) == 25
+    and build27_pilot_approval.get("mutationBoundary", {}).get(
+        "pilotHandoutPerformedByThisApproval"
+    ) is False
+    and sha(build27_pilot_promotion_path)
+        == "E5C22E28C09D5835BF5BCFC3F7F6BEF33A339ADF44DFF2CF6A73660600641750"
+    and build27_pilot_promotion.get("decision")
+        == "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+    and build27_pilot_promotion.get("ownerApproval", {}).get("sha256")
+        == sha(build27_pilot_approval_path)
+    and build27_pilot_promotion.get("admittedEvidence", {}).get(
+        "deviceAcceptance", {}
+    ).get("sha256") == sha(build27_device_acceptance_path)
+    and build27_pilot_promotion.get("promotion", {}).get(
+        "pilotHandoutAuthorized"
+    ) is True
+    and build27_pilot_promotion.get("promotion", {}).get(
+        "pilotHandoutPerformedByThisRecord"
+    ) is False
+    and build27_pilot_promotion.get("promotion", {}).get(
+        "unrestrictedDistributionAuthorized"
+    ) is False,
 )
 check(
     "Production policy binds combined, historical and restored Firebase custody",
@@ -5031,6 +5099,26 @@ candidate_runtime_accepted = (
     combined_policy.get("finalization", {}).get("runtimeValidationPassed")
     is True
 )
+candidate_controlled_pilot_approved = (
+    not candidate_pending
+    and combined_policy.get("finalization", {}).get(
+        "controlledPilotApproved"
+    )
+        is True
+    and combined_policy.get("postBuildPromotion", {}).get(
+        "controlledPilotApproved"
+    )
+        is True
+    and combined_policy.get("postBuildPromotion", {}).get("buildNumber")
+        == candidate_build_number
+    and combined_policy.get("distribution", {}).get("approved") is True
+    and combined_policy.get("distribution", {}).get(
+        "appliesToCurrentCandidate"
+    )
+        is True
+    and combined_policy.get("distribution", {}).get("approvedBuildNumber")
+        == candidate_build_number
+)
 if candidate_pending:
     if not backend_matches_deployed:
         expected_successor_state_status = (
@@ -5061,8 +5149,17 @@ if candidate_pending:
 else:
     if backend_matches_deployed:
         expected_successor_state_status = (
-            f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
-            "DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_PILOT_DECISIONS"
+            (
+                f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
+                "DEVICE_ACCEPTED_STAGED_PILOT_AUTHORIZED_AWAITING_"
+                "MUTATING_FLOW_AND_HANDOUT_RECEIPTS"
+            )
+            if candidate_runtime_accepted
+            and candidate_controlled_pilot_approved
+            else (
+                f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
+                "DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_PILOT_DECISIONS"
+            )
             if candidate_runtime_accepted
             else (
                 f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
@@ -5524,7 +5621,7 @@ check(
     and combined_policy.get("finalization", {}).get(
         "controlledPilotApproved"
     )
-        is False
+        is True
     and combined_policy.get("finalization", {}).get(
         "unrestrictedPlantReleaseApproved"
     )
@@ -5532,21 +5629,36 @@ check(
     and combined_policy.get("distribution", {}).get("approved") is True
     and combined_policy.get("distribution", {}).get(
         "preservedHistoricalAuthority"
-    ) is True
+    ) is False
     and combined_policy.get("distribution", {}).get(
         "appliesToCurrentCandidate"
-    ) is False
+    ) is True
     and combined_policy.get("distribution", {}).get("approvedBuildNumber")
-        == 11
+        == candidate_build_number
     and combined_policy.get("distribution", {}).get("authority")
-        == "exact-build11-sealed-small-group-pilot"
-    and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 11
+        == f"exact-build{candidate_build_number}-staged-controlled-pilot"
+    and combined_policy.get("distribution", {}).get("maximumApprovedUsers")
+        == 25
+    and combined_policy.get("distribution", {}).get("canaryUserCeiling") == 2
+    and combined_policy.get("distribution", {}).get(
+        "canaryPhysicalDeviceCeiling"
+    ) == 2
     and combined_policy.get("distribution", {}).get("pilotHandoutPerformed")
         is False
     and combined_policy.get("distribution", {}).get(
         "unrestrictedPlantReleaseApproved"
     )
         is False
+    and historical_build11_distribution.get("authority")
+        == "exact-build11-sealed-small-group-pilot"
+    and historical_build11_distribution.get("approvedPackageSha256")
+        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+    and historical_build11_distribution.get("preservedHistoricalAuthority")
+        is True
+    and historical_build11_distribution.get("appliesToCurrentCandidate")
+        is False
+    and historical_build11_promotion.get("promotionReceiptSha256")
+        == "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
     and build9_completion.get("status") == "passed-non-distributable"
     and build9_completion.get("sourceAuthority", {}).get("commit")
         == "f51749c3f0200a5a03b065f0644d7759c747de7f"
@@ -7382,7 +7494,10 @@ check(
     ) == expected_current_source_artifact_relationship
     and current_successor_planes.get("currentSource", {}).get(
         "productionRuntimeUseAuthorized"
-    ) is False
+    ) is candidate_controlled_pilot_approved
+    and current_successor_planes.get("currentSource", {}).get(
+        "distributionAuthority"
+    ) is candidate_controlled_pilot_approved
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "buildNumber"
     ) == latest_finalized_build_number
@@ -7391,7 +7506,21 @@ check(
     ) == sha(latest_finalized_completion_path)
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "runtimeValidation"
-    ) == f"NOT_ADJUDICATED_FOR_EXACT_BUILD{latest_finalized_build_number}"
+    )
+        == (
+            f"PASSED_EXACT_BUILD{latest_finalized_build_number}_PHYSICAL_"
+            "IN_PLACE_AUTHENTICATED_READ_ONLY_SURFACES"
+            if candidate_runtime_accepted
+            else f"NOT_ADJUDICATED_FOR_EXACT_BUILD{latest_finalized_build_number}"
+        )
+    and current_successor_planes.get("latestFinalizedArtifact", {}).get(
+        "pilotPromotion"
+    )
+        == (
+            f"AUTHORIZED_STAGED_EXACT_BUILD{latest_finalized_build_number}_UP_TO_25"
+            if candidate_controlled_pilot_approved
+            else "NOT_AUTHORIZED"
+        )
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "fullBusinessFlowValidation"
     ) == "MUTATING_FLOWS_NOT_ADJUDICATED"
@@ -7798,20 +7927,29 @@ check(
     )
     and combined_policy.get("knownOpenGates")
         == (
-            (
-                [f"BUILD{candidate_build_number}_PRODUCTION_SIGNED_FINALIZATION"]
-                if candidate_pending
-                else []
-            )
-            + [
-                (
-                    f"BUILD{candidate_build_number}_SIGNED_DEVICE_MIGRATION_"
-                    "AND_BUSINESS_FLOW_VALIDATION"
-                ),
-                (
-                    f"BUILD{candidate_build_number}_EXPLICIT_PILOT_PROMOTION"
-                ),
+            [
+                f"BUILD{candidate_build_number}_MUTATING_BUSINESS_FLOW_VALIDATION",
+                f"BUILD{candidate_build_number}_STAGED_PILOT_HANDOUT_EXECUTION_RECEIPTS",
             ]
+            if candidate_controlled_pilot_approved
+            else (
+                (
+                    [
+                        f"BUILD{candidate_build_number}_PRODUCTION_SIGNED_FINALIZATION"
+                    ]
+                    if candidate_pending
+                    else []
+                )
+                + [
+                    (
+                        f"BUILD{candidate_build_number}_SIGNED_DEVICE_MIGRATION_"
+                        "AND_BUSINESS_FLOW_VALIDATION"
+                    ),
+                    (
+                        f"BUILD{candidate_build_number}_EXPLICIT_PILOT_PROMOTION"
+                    ),
+                ]
+            )
         ),
     (
         f"functions={'exact' if functions_match_deployed else 'pending'} "
@@ -13965,11 +14103,20 @@ check(
         )
     )
     and combined_policy.get("distribution", {}).get("authority")
-        == "exact-build11-sealed-small-group-pilot"
+        == f"exact-build{lr07_current_build}-staged-controlled-pilot"
     and combined_policy.get("distribution", {}).get("approved") is True
-    and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 11
+    and combined_policy.get("distribution", {}).get("approvedBuildNumber")
+        == lr07_current_build
     and combined_policy.get("distribution", {}).get("approvedPackageSha256")
-        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+        == lr07_latest_artifact.get("governedPackageSha256")
+    and combined_policy.get("distribution", {}).get("appliesToCurrentCandidate")
+        is True
+    and combined_policy.get("distribution", {}).get("maximumApprovedUsers")
+        == 25
+    and combined_policy.get("distribution", {}).get("canaryUserCeiling") == 2
+    and combined_policy.get("distribution", {}).get(
+        "canaryPhysicalDeviceCeiling"
+    ) == 2
     and combined_policy.get("distribution", {}).get("pilotHandoutPerformed")
         is False
     and combined_policy.get("distribution", {}).get(
@@ -13979,10 +14126,10 @@ check(
         "postBuildPromotionRequiredForAnyDistribution"
     ) is True
     and combined_policy.get("postBuildPromotion", {}).get("status")
-        == "completed-controlled-pilot-only"
+        == "completed-staged-controlled-pilot-only"
     and combined_policy.get("postBuildPromotion", {}).get(
         "promotionReceiptSha256"
-    ) == "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
+    ) == sha(build27_pilot_promotion_path)
     and combined_policy.get("artifactConstructionBoundary", {}).get("authority")
         == "production-signed-pre-release-candidate"
     and combined_policy.get("artifactConstructionBoundary", {}).get(

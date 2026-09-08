@@ -35,178 +35,205 @@ String _receiptSeal(Map<String, dynamic> receipt) {
 }
 
 void main() {
-  test('Build 11 closure remains exact while current build gates stay separate', () {
-    const evidencePath =
-        'release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json';
-    final evidence = _object(jsonDecode(File(evidencePath).readAsStringSync()));
-    final ledger = _object(
-      jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
-    );
-    final policy = _object(
-      jsonDecode(
-        File('release/production-release-policy.json').readAsStringSync(),
-      ),
-    );
-
-    expect(
-      _sha256(evidencePath),
-      '878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400',
-    );
-    expect(
-      evidence['decision'],
-      'PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED',
-    );
-    final source = _object(evidence['sourceAuthority']);
-    expect(source['adjudicatedPullRequest'], 201);
-    expect(
-      source['adjudicatedMergeCommit'],
-      '38654b9385cd91cdf4dab743ca007f07d0430f76',
-    );
-    expect(_object(source['pullRequestCi'])['runId'], 31578415848);
-    expect(_object(source['postMergeCi'])['runId'], 31579340418);
-    for (final phase in <String>['pullRequestCi', 'postMergeCi']) {
-      final ci = _object(source[phase]);
-      expect(ci['conclusion'], 'success');
-      expect(_objects(ci['jobs']), hasLength(5));
-      expect(
-        _objects(ci['jobs']).map((job) => job['conclusion']),
-        everyElement('success'),
+  test(
+    'Build 11 closure remains exact while current build gates stay separate',
+    () {
+      const evidencePath =
+          'release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json';
+      final evidence = _object(
+        jsonDecode(File(evidencePath).readAsStringSync()),
       );
-    }
-
-    final promotion = _object(evidence['promotion']);
-    expect(promotion['authorizedBuildNumber'], 11);
-    expect(
-      promotion['authorizedPackageSha256'],
-      '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970',
-    );
-    expect(promotion['pilotHandoutAuthorized'], isTrue);
-    expect(promotion['pilotHandoutPerformedByThisRecord'], isFalse);
-    for (final key in <String>[
-      'publicArtifactAuthorized',
-      'githubReleaseAuthorized',
-      'firebaseAppDistributionAuthorized',
-      'playConsoleAuthorized',
-      'playStoreAuthorized',
-      'webDistributionAuthorized',
-      'unrestrictedDistributionAuthorized',
-      'appCheckActivationAuthorized',
-    ]) {
-      expect(promotion[key], isFalse, reason: key);
-    }
-
-    final transitions = _objects(evidence['gateTransitions']);
-    expect(transitions.map((entry) => entry['to']), <String>[
-      'CLOSED',
-      'PILOT_AUTHORIZED',
-      'CLOSED',
-    ]);
-    final gates = _objects(ledger['programmeGates']);
-    expect(gates, everyElement(containsPair('currentStatus', 'CLOSED')));
-    final decision = _object(ledger['programmeDecision']);
-    expect(decision['internalControlledPilot'], 'GO');
-    expect(decision['pilotHandout'], 'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER');
-    expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
-    expect(decision['unrestrictedDistribution'], 'NO_GO');
-
-    final postBuildPromotion = _object(policy['postBuildPromotion']);
-    expect(postBuildPromotion['promotionReceiptFile'], evidencePath);
-    expect(postBuildPromotion['promotionReceiptSha256'], _sha256(evidencePath));
-    expect(postBuildPromotion['controlledPilotApproved'], isTrue);
-    expect(postBuildPromotion['pilotHandoutPerformed'], isFalse);
-    expect(postBuildPromotion['unrestrictedPlantReleaseApproved'], isFalse);
-    final distribution = _object(policy['distribution']);
-    expect(distribution['approved'], isTrue);
-    expect(distribution['approvedBuildNumber'], 11);
-    expect(distribution['preservedHistoricalAuthority'], isTrue);
-    expect(distribution['appliesToCurrentCandidate'], isFalse);
-    expect(distribution['pilotHandoutPerformed'], isFalse);
-    expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
-    final firestoreAuthority = _object(
-      _object(policy['finalization'])['exactFirestoreRulesIndexesLiveReadback'],
-    );
-    final firestoreReceiptPath = firestoreAuthority['receiptFile'] as String;
-    final firestoreReceipt = _object(
-      jsonDecode(File(firestoreReceiptPath).readAsStringSync()),
-    );
-    expect(firestoreAuthority['verified'], isTrue);
-    expect(
-      _sha256(firestoreReceiptPath),
-      firestoreAuthority['receiptFileSha256'],
-    );
-    expect(
-      firestoreReceipt['receiptSha256'].toString().toUpperCase(),
-      firestoreAuthority['receiptCanonicalSha256'].toString().toUpperCase(),
-    );
-    expect(_receiptSeal(firestoreReceipt), firestoreReceipt['receiptSha256']);
-    expect(firestoreReceipt['mode'], 'STRICT');
-    expect(
-      firestoreReceipt['decision'],
-      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
-    );
-    expect(firestoreReceipt['failedChecks'], isEmpty);
-    expect(_object(firestoreReceipt['checks']).values, everyElement(isTrue));
-    final rules = _object(_object(firestoreReceipt['outputs'])['rules']);
-    expect(rules['byteExact'], isTrue);
-    expect(rules['sourceSha256'], firestoreAuthority['rulesSha256']);
-    expect(rules['activeSha256'], firestoreAuthority['rulesSha256']);
-    final indexes = _object(_object(firestoreReceipt['outputs'])['indexes']);
-    for (final key in <String>[
-      'sourceCount',
-      'cliCount',
-      'apiCount',
-      'apiReadyCount',
-    ]) {
-      expect(indexes[key], firestoreAuthority['indexCount'], reason: key);
-    }
-    for (final key in <String>[
-      'sourceSetSha256',
-      'cliSetSha256',
-      'apiSetSha256',
-    ]) {
-      expect(indexes[key], firestoreAuthority['indexSetSha256'], reason: key);
-    }
-    expect(indexes['allApiIndexesReady'], isTrue);
-    expect(
-      _object(firestoreReceipt['mutationBoundary']).values,
-      everyElement(isFalse),
-    );
-    final candidateBuild = _object(policy['release'])['buildNumber'];
-    final finalization = _object(policy['finalization']);
-    final pendingConstruction =
-        finalization['status'] == 'pending-source-authorized';
-    final runtimeValidationPassed =
-        finalization['runtimeValidationPassed'] == true;
-    final versionPolicy = _object(policy['versionPolicy']);
-    final sourceApproval = _object(
-      jsonDecode(
-        File(versionPolicy['sourceDocumentFile'] as String).readAsStringSync(),
-      ),
-    );
-    final pilotIntentValue = sourceApproval['postBuildPilotIntent'];
-    final pilotIntent = pilotIntentValue is Map
-        ? _object(pilotIntentValue)
-        : <String, dynamic>{};
-    final expandedPilot = pilotIntent['maximumRosterSize'] == 25;
-    if (expandedPilot) {
-      expect(pilotIntent['projectOwnerAuthorized'], isTrue);
-      expect(
-        pilotIntent['requiresExactBuild${candidateBuild}PackageHash'],
-        isTrue,
+      final ledger = _object(
+        jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
       );
-      expect(pilotIntent['requiresPhysicalDeviceStartup'], isTrue);
-      expect(pilotIntent['requiresTwoAccountConvergenceEvidence'], isTrue);
-      expect(pilotIntent['requiresSeparatePromotionReceipt'], isTrue);
-      expect(pilotIntent['unrestrictedPublicDistributionAuthorized'], isFalse);
-    }
-    expect(policy['knownOpenGates'], <String>[
-      if (pendingConstruction)
-        'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
-      if (runtimeValidationPassed)
-        'BUILD${candidateBuild}_MUTATING_BUSINESS_FLOW_VALIDATION'
-      else
-        'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
-    ]);
-  });
+      final policy = _object(
+        jsonDecode(
+          File('release/production-release-policy.json').readAsStringSync(),
+        ),
+      );
+
+      expect(
+        _sha256(evidencePath),
+        '878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400',
+      );
+      expect(
+        evidence['decision'],
+        'PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED',
+      );
+      final source = _object(evidence['sourceAuthority']);
+      expect(source['adjudicatedPullRequest'], 201);
+      expect(
+        source['adjudicatedMergeCommit'],
+        '38654b9385cd91cdf4dab743ca007f07d0430f76',
+      );
+      expect(_object(source['pullRequestCi'])['runId'], 31578415848);
+      expect(_object(source['postMergeCi'])['runId'], 31579340418);
+      for (final phase in <String>['pullRequestCi', 'postMergeCi']) {
+        final ci = _object(source[phase]);
+        expect(ci['conclusion'], 'success');
+        expect(_objects(ci['jobs']), hasLength(5));
+        expect(
+          _objects(ci['jobs']).map((job) => job['conclusion']),
+          everyElement('success'),
+        );
+      }
+
+      final promotion = _object(evidence['promotion']);
+      expect(promotion['authorizedBuildNumber'], 11);
+      expect(
+        promotion['authorizedPackageSha256'],
+        '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970',
+      );
+      expect(promotion['pilotHandoutAuthorized'], isTrue);
+      expect(promotion['pilotHandoutPerformedByThisRecord'], isFalse);
+      for (final key in <String>[
+        'publicArtifactAuthorized',
+        'githubReleaseAuthorized',
+        'firebaseAppDistributionAuthorized',
+        'playConsoleAuthorized',
+        'playStoreAuthorized',
+        'webDistributionAuthorized',
+        'unrestrictedDistributionAuthorized',
+        'appCheckActivationAuthorized',
+      ]) {
+        expect(promotion[key], isFalse, reason: key);
+      }
+
+      final transitions = _objects(evidence['gateTransitions']);
+      expect(transitions.map((entry) => entry['to']), <String>[
+        'CLOSED',
+        'PILOT_AUTHORIZED',
+        'CLOSED',
+      ]);
+      final gates = _objects(ledger['programmeGates']);
+      expect(gates, everyElement(containsPair('currentStatus', 'CLOSED')));
+      final decision = _object(ledger['programmeDecision']);
+      expect(decision['internalControlledPilot'], 'GO');
+      expect(
+        decision['pilotHandout'],
+        'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
+      );
+      expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
+      expect(decision['unrestrictedDistribution'], 'NO_GO');
+
+      final postBuildPromotion = _objects(
+        policy['historicalPostBuildPromotions'],
+      ).singleWhere((entry) => entry['buildNumber'] == 11);
+      expect(postBuildPromotion['promotionReceiptFile'], evidencePath);
+      expect(
+        postBuildPromotion['promotionReceiptSha256'],
+        _sha256(evidencePath),
+      );
+      expect(postBuildPromotion['controlledPilotApproved'], isTrue);
+      expect(postBuildPromotion['pilotHandoutPerformed'], isFalse);
+      expect(postBuildPromotion['unrestrictedPlantReleaseApproved'], isFalse);
+      final distribution = _objects(
+        policy['historicalDistributionAuthorities'],
+      ).singleWhere((entry) => entry['approvedBuildNumber'] == 11);
+      expect(distribution['approved'], isTrue);
+      expect(distribution['approvedBuildNumber'], 11);
+      expect(distribution['preservedHistoricalAuthority'], isTrue);
+      expect(distribution['appliesToCurrentCandidate'], isFalse);
+      expect(distribution['pilotHandoutPerformed'], isFalse);
+      expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
+      final firestoreAuthority = _object(
+        _object(
+          policy['finalization'],
+        )['exactFirestoreRulesIndexesLiveReadback'],
+      );
+      final firestoreReceiptPath = firestoreAuthority['receiptFile'] as String;
+      final firestoreReceipt = _object(
+        jsonDecode(File(firestoreReceiptPath).readAsStringSync()),
+      );
+      expect(firestoreAuthority['verified'], isTrue);
+      expect(
+        _sha256(firestoreReceiptPath),
+        firestoreAuthority['receiptFileSha256'],
+      );
+      expect(
+        firestoreReceipt['receiptSha256'].toString().toUpperCase(),
+        firestoreAuthority['receiptCanonicalSha256'].toString().toUpperCase(),
+      );
+      expect(_receiptSeal(firestoreReceipt), firestoreReceipt['receiptSha256']);
+      expect(firestoreReceipt['mode'], 'STRICT');
+      expect(
+        firestoreReceipt['decision'],
+        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+      );
+      expect(firestoreReceipt['failedChecks'], isEmpty);
+      expect(_object(firestoreReceipt['checks']).values, everyElement(isTrue));
+      final rules = _object(_object(firestoreReceipt['outputs'])['rules']);
+      expect(rules['byteExact'], isTrue);
+      expect(rules['sourceSha256'], firestoreAuthority['rulesSha256']);
+      expect(rules['activeSha256'], firestoreAuthority['rulesSha256']);
+      final indexes = _object(_object(firestoreReceipt['outputs'])['indexes']);
+      for (final key in <String>[
+        'sourceCount',
+        'cliCount',
+        'apiCount',
+        'apiReadyCount',
+      ]) {
+        expect(indexes[key], firestoreAuthority['indexCount'], reason: key);
+      }
+      for (final key in <String>[
+        'sourceSetSha256',
+        'cliSetSha256',
+        'apiSetSha256',
+      ]) {
+        expect(indexes[key], firestoreAuthority['indexSetSha256'], reason: key);
+      }
+      expect(indexes['allApiIndexesReady'], isTrue);
+      expect(
+        _object(firestoreReceipt['mutationBoundary']).values,
+        everyElement(isFalse),
+      );
+      final candidateBuild = _object(policy['release'])['buildNumber'];
+      final finalization = _object(policy['finalization']);
+      final pendingConstruction =
+          finalization['status'] == 'pending-source-authorized';
+      final runtimeValidationPassed =
+          finalization['runtimeValidationPassed'] == true;
+      final controlledPilotApproved =
+          finalization['controlledPilotApproved'] == true;
+      final versionPolicy = _object(policy['versionPolicy']);
+      final sourceApproval = _object(
+        jsonDecode(
+          File(
+            versionPolicy['sourceDocumentFile'] as String,
+          ).readAsStringSync(),
+        ),
+      );
+      final pilotIntentValue = sourceApproval['postBuildPilotIntent'];
+      final pilotIntent = pilotIntentValue is Map
+          ? _object(pilotIntentValue)
+          : <String, dynamic>{};
+      final expandedPilot = pilotIntent['maximumRosterSize'] == 25;
+      if (expandedPilot) {
+        expect(pilotIntent['projectOwnerAuthorized'], isTrue);
+        expect(
+          pilotIntent['requiresExactBuild${candidateBuild}PackageHash'],
+          isTrue,
+        );
+        expect(pilotIntent['requiresPhysicalDeviceStartup'], isTrue);
+        expect(pilotIntent['requiresTwoAccountConvergenceEvidence'], isTrue);
+        expect(pilotIntent['requiresSeparatePromotionReceipt'], isTrue);
+        expect(
+          pilotIntent['unrestrictedPublicDistributionAuthorized'],
+          isFalse,
+        );
+      }
+      expect(policy['knownOpenGates'], <String>[
+        if (pendingConstruction)
+          'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
+        if (runtimeValidationPassed)
+          'BUILD${candidateBuild}_MUTATING_BUSINESS_FLOW_VALIDATION'
+        else
+          'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
+        if (controlledPilotApproved)
+          'BUILD${candidateBuild}_STAGED_PILOT_HANDOUT_EXECUTION_RECEIPTS'
+        else
+          'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
+      ]);
+    },
+  );
 }
