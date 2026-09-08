@@ -307,6 +307,11 @@ test("completed successor still requires every retained failed-attempt receipt",
   const failurePath = failed.authorityReceiptPath;
   const completionSha = "e".repeat(64).toUpperCase();
   const failureSha = "f".repeat(64).toUpperCase();
+  const deviceAcceptancePath =
+    "release/evidence/build-11-device-acceptance.json";
+  const deviceAcceptanceSha = "6".repeat(64).toUpperCase();
+  const runtimeDisposition =
+    "passed-exact-build11-physical-in-place-authenticated-read-only-surfaces";
   const policy = {
     repository: "abhishekvatsa/crm3_baf_ops",
     productionProjectId: "crm3-baf-ops-b8638",
@@ -347,6 +352,14 @@ test("completed successor still requires every retained failed-attempt receipt",
       githubRunId: completed.workflowRunId,
       governedPackageSha256: completed.governedPackageSha256,
       dualCustodyCompleted: true,
+      physicalInstallationConditionPassed: true,
+      physicalInstallationReceiptFile: deviceAcceptancePath,
+      physicalInstallationReceiptSha256: deviceAcceptanceSha,
+      deviceAcceptanceReceiptFile: deviceAcceptancePath,
+      deviceAcceptanceReceiptSha256: deviceAcceptanceSha,
+      runtimeValidationPassed: true,
+      runtimeDisposition,
+      fullBusinessFlowValidationCompleted: false,
       historicalFailedAttempts: [historicalFailure],
     },
     distribution: {
@@ -366,6 +379,18 @@ test("completed successor still requires every retained failed-attempt receipt",
     dualCustodyCompleted: artifact.dualCustodyCompleted,
     distributionPerformed: false,
   }));
+  Object.assign(
+    ledgers.find((entry) => entry.buildNumber === completed.buildNumber),
+    {
+      physicalInstallationConditionPassed: true,
+      physicalInstallationReceiptFile: deviceAcceptancePath,
+      physicalInstallationReceiptSha256: deviceAcceptanceSha,
+      runtimeValidationPassed: true,
+      runtimeDisposition,
+      fullBusinessFlowValidationCompleted: false,
+      controlledPilotApproved: false,
+    },
+  );
 
   assert.deepEqual(
     summarizeMutableSourceAuthority({
@@ -388,6 +413,9 @@ test("completed successor still requires every retained failed-attempt receipt",
   policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
   const promotedPolicy = structuredClone(releasePolicy);
   promotedPolicy.finalization.controlledPilotApproved = true;
+  ledgers.find(
+    (entry) => entry.buildNumber === completed.buildNumber,
+  ).controlledPilotApproved = true;
   promotedPolicy.postBuildPromotion = {
     status: "completed-staged-controlled-pilot-only",
     promotionReceiptFile: promotionPath,
@@ -433,6 +461,15 @@ test("completed successor still requires every retained failed-attempt receipt",
         finalizationReceipt: completionPath,
         finalizationReceiptSha256: completionSha,
       },
+      deviceAcceptance: {
+        receipt: deviceAcceptancePath,
+        sha256: deviceAcceptanceSha,
+        decision: runtimeDisposition,
+        appDataPreserved: true,
+        automaticSyncPassed: true,
+        unsyncedRows: 0,
+        unresolvedRejections: 0,
+      },
     },
     promotion: {
       authorizedBuildNumber: completed.buildNumber,
@@ -464,6 +501,33 @@ test("completed successor still requires every retained failed-attempt receipt",
     promotionFinalizationReceipt,
     measuredPromotionFinalizationReceiptSha256: completionSha,
   };
+  const promotionDeviceAcceptanceReceipt = {
+    evidenceType: "production-build-device-acceptance",
+    status: runtimeDisposition,
+    release: {
+      buildNumber: completed.buildNumber,
+      sourceCommit: completed.headSha,
+      finalizationReceiptFile: completionPath,
+      finalizationReceiptSha256: completionSha,
+      governedPackageSha256: completed.governedPackageSha256,
+      apkSha256: apkSha,
+    },
+    physicalDevice: {applicationDataPreserved: true},
+    synchronization: {
+      lastSyncResult: "success",
+      unsyncedRows: 0,
+      unresolvedRejections: 0,
+    },
+    adjudication: {
+      runtimeValidationPassed: true,
+      fullBusinessFlowValidationCompleted: false,
+    },
+  };
+  const promotionRuntimeAuthority = {
+    promotionDeviceAcceptanceReceipt,
+    measuredPromotionDeviceAcceptanceReceiptSha256: deviceAcceptanceSha,
+  };
+  Object.assign(promotionFinalizationAuthority, promotionRuntimeAuthority);
   assert.deepEqual(
     summarizeMutableSourceAuthority({
       policy,
@@ -568,6 +632,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     remoteReservationCommit: successor.headSha,
     disposition: successor.ledgerDisposition,
     dualCustodyCompleted: true,
+    controlledPilotApproved: false,
     distributionPerformed: false,
   };
   assert.deepEqual(
@@ -630,6 +695,69 @@ test("completed successor still requires every retained failed-attempt receipt",
       buildLedger: {entries: [...ledgers, pendingLedger]},
       promotionReceipt,
       ...promotionFinalizationAuthority,
+    }).releasePolicyExact,
+    false,
+  );
+
+  for (const mutateRuntimeAuthority of [
+    (prior) => {
+      prior.runtimeValidationPassed = false;
+    },
+    (prior) => {
+      delete prior.runtimeDisposition;
+    },
+    (prior) => {
+      delete prior.deviceAcceptanceReceiptFile;
+    },
+    (prior) => {
+      prior.deviceAcceptanceReceiptSha256 = "5".repeat(64).toUpperCase();
+    },
+  ]) {
+    const weakenedPendingAcceptance = structuredClone(pendingPolicy);
+    mutateRuntimeAuthority(
+      weakenedPendingAcceptance.finalization.priorCompletedBuild,
+    );
+    const weakenedSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: weakenedPendingAcceptance,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+    });
+    assert.equal(weakenedSummary.releasePolicyExact, false);
+    assert.equal(weakenedSummary.controlledPilotPromotionExact, false);
+  }
+
+  const coordinatedRuntimeWeakening = structuredClone(pendingPolicy);
+  coordinatedRuntimeWeakening.finalization.priorCompletedBuild.runtimeValidationPassed =
+    false;
+  const coordinatedRuntimeLedger = structuredClone(ledgers);
+  coordinatedRuntimeLedger.find(
+    (entry) => entry.buildNumber === completed.buildNumber,
+  ).runtimeValidationPassed = false;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: coordinatedRuntimeWeakening,
+      buildLedger: {entries: [...coordinatedRuntimeLedger, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+    }).releasePolicyExact,
+    false,
+  );
+
+  const weakenedMeasuredAcceptance = structuredClone(
+    promotionDeviceAcceptanceReceipt,
+  );
+  weakenedMeasuredAcceptance.adjudication.runtimeValidationPassed = false;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+      promotionDeviceAcceptanceReceipt: weakenedMeasuredAcceptance,
     }).releasePolicyExact,
     false,
   );

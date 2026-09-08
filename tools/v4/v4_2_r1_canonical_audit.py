@@ -14230,6 +14230,14 @@ check(
     and "promotedReceiptBuild" in lr07_collector
     and "promotionFinalizationReceipt" in lr07_collector
     and "measuredPromotionFinalizationReceiptSha256" in lr07_collector
+    and "promotionDeviceAcceptanceReceipt" in lr07_collector
+    and "measuredPromotionDeviceAcceptanceReceiptSha256" in lr07_collector
+    and "preservedRuntimeMirrorExact" in lr07_collector
+    and "$promotedPredecessorRuntimeAuthorityInvalid" in c04_production_policy
+    and "$expectedPromotionDeviceAcceptanceSha256" in c04_production_policy
+    and "$promotionLedgerPhysicalReceiptFile" in c04_production_policy
+    and "Current promoted runtime authority differs from measured acceptance."
+        in c04_production_policy
     and "retention-days: 1" in lr07_workflow
     and "retention-days: 90" not in lr07_workflow
     and "npm run test:distribution-readback-custody" in lr07_release_gate

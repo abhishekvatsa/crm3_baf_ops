@@ -386,6 +386,28 @@ void main() {
     expect(verifier, contains("'production-build-device-acceptance'"));
     expect(verifier, contains(r'$expectedPredecessorControlledPilotApproved'));
     expect(verifier, contains(r'$expectedConsumedControlledPilotApproved'));
+    for (final runtimeMirror in <String>[
+      r'$preservedRuntimeValidationPassed',
+      r'$consumedRuntimeValidationPassed',
+      r'$predecessorLedger.runtimeValidationPassed',
+      r'$preservedRuntimeDisposition',
+      r'$consumedRuntimeDisposition',
+      r'$predecessorLedger.runtimeDisposition',
+      r'$preservedDeviceAcceptanceReceiptFile',
+      r'$preservedDeviceAcceptanceReceiptSha256',
+      r'$consumedMatches[0].runtimeValidationPassed -eq',
+      r'$consumedMatches[0].runtimeDisposition -eq',
+      r'$promotedPredecessorRuntimeAuthorityInvalid',
+      r'$deviceAcceptanceAuthority.receipt',
+      r'$expectedPromotionDeviceAcceptanceSha256',
+      r'$deviceAcceptanceReceipt.status',
+      r'$promotionLedgerPhysicalReceiptFile',
+      r'$promotionLedger.runtimeValidationPassed',
+      'Promoted build ledger runtime authority differs from measured acceptance.',
+      'Current promoted runtime authority differs from measured acceptance.',
+    ]) {
+      expect(verifier, contains(runtimeMirror));
+    }
     expect(
       verifier,
       contains(

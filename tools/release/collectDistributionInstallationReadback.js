@@ -124,6 +124,8 @@ function summarizeMutableSourceAuthority({
   measuredPromotionReceiptSha256 = null,
   promotionFinalizationReceipt = null,
   measuredPromotionFinalizationReceiptSha256 = null,
+  promotionDeviceAcceptanceReceipt = null,
+  measuredPromotionDeviceAcceptanceReceiptSha256 = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
   const latestExpectedArtifact = expectedArtifacts.reduce(
@@ -182,12 +184,48 @@ function summarizeMutableSourceAuthority({
   ) {
     preservedFinalization = finalization.priorCompletedBuild ?? null;
   }
+  const latestCompletedLedger = buildLedger.entries?.find(
+    (entry) => entry.buildNumber === latestCompletedArtifact?.buildNumber,
+  );
+  const modernStagedPromotion =
+    promotionReceipt?.evidenceType ===
+    "production-build-staged-controlled-pilot-authorization";
+  const preservedFinalizationIsPromoted =
+    latestCompletedArtifact?.buildNumber ===
+    releasePolicy.distribution?.approvedBuildNumber;
 
   const preservedPilotStateExact =
     releasePolicy.distribution?.approved !== true ||
-    preservedFinalization?.controlledPilotApproved ===
+    (preservedFinalization?.controlledPilotApproved ===
       (latestCompletedArtifact?.buildNumber ===
-        releasePolicy.distribution?.approvedBuildNumber);
+        releasePolicy.distribution?.approvedBuildNumber) &&
+      latestCompletedLedger?.controlledPilotApproved ===
+        preservedFinalization?.controlledPilotApproved);
+  const preservedRuntimeMirrorExact =
+    !modernStagedPromotion ||
+    !preservedFinalizationIsPromoted ||
+    (latestCompletedLedger != null &&
+      preservedFinalization?.physicalInstallationConditionPassed === true &&
+      preservedFinalization?.physicalInstallationConditionPassed ===
+        latestCompletedLedger.physicalInstallationConditionPassed &&
+      preservedFinalization?.physicalInstallationReceiptFile ===
+        latestCompletedLedger.physicalInstallationReceiptFile &&
+      preservedFinalization?.physicalInstallationReceiptSha256 ===
+        latestCompletedLedger.physicalInstallationReceiptSha256 &&
+      preservedFinalization?.deviceAcceptanceReceiptFile ===
+        preservedFinalization?.physicalInstallationReceiptFile &&
+      preservedFinalization?.deviceAcceptanceReceiptSha256 ===
+        preservedFinalization?.physicalInstallationReceiptSha256 &&
+      preservedFinalization?.runtimeValidationPassed === true &&
+      preservedFinalization?.runtimeValidationPassed ===
+        latestCompletedLedger.runtimeValidationPassed &&
+      typeof preservedFinalization?.runtimeDisposition === "string" &&
+      preservedFinalization.runtimeDisposition.length > 0 &&
+      preservedFinalization.runtimeDisposition ===
+        latestCompletedLedger.runtimeDisposition &&
+      preservedFinalization?.fullBusinessFlowValidationCompleted === false &&
+      preservedFinalization?.fullBusinessFlowValidationCompleted ===
+        latestCompletedLedger.fullBusinessFlowValidationCompleted);
   const preservedFinalizationExact =
     latestCompletedArtifact != null &&
     completedReceiptAuthority != null &&
@@ -203,7 +241,8 @@ function summarizeMutableSourceAuthority({
     preservedFinalization?.governedPackageSha256 ===
       latestCompletedArtifact.governedPackageSha256 &&
     preservedFinalization?.dualCustodyCompleted === true &&
-    preservedPilotStateExact;
+    preservedPilotStateExact &&
+    preservedRuntimeMirrorExact;
   const failedAttempt = finalization.priorFailedAttempt ?? null;
   const historicalFailedAttempts = [
     ...(finalization.historicalFailedAttempts ?? []),
@@ -307,7 +346,12 @@ function summarizeMutableSourceAuthority({
     (entry) => entry.path === receiptPathFor(promotedArtifact),
   );
   const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
+  const promotedDeviceAcceptanceAuthority =
+    promotionReceipt?.admittedEvidence?.deviceAcceptance;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
+  const promotedLedger = buildLedger.entries?.find(
+    (entry) => entry.buildNumber === promotedArtifact?.buildNumber,
+  );
   const stagedPromotion =
     promotionReceipt?.evidenceType ===
       "production-build-staged-controlled-pilot-authorization" &&
@@ -335,6 +379,68 @@ function summarizeMutableSourceAuthority({
         promotedArtifact?.governedPackageSha256 &&
       promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
         promotedReceiptBuild?.apkSha256);
+  const stagedPromotionRuntimeExact =
+    !stagedPromotion ||
+    (promotedDeviceAcceptanceAuthority != null &&
+      promotionDeviceAcceptanceReceipt != null &&
+      measuredPromotionDeviceAcceptanceReceiptSha256 ===
+        promotedDeviceAcceptanceAuthority.sha256 &&
+      promotionDeviceAcceptanceReceipt.evidenceType ===
+        "production-build-device-acceptance" &&
+      promotionDeviceAcceptanceReceipt.status ===
+        promotedDeviceAcceptanceAuthority.decision &&
+      promotionDeviceAcceptanceReceipt.release?.buildNumber ===
+        promotedArtifact?.buildNumber &&
+      promotionDeviceAcceptanceReceipt.release?.sourceCommit ===
+        promotedArtifact?.headSha &&
+      promotionDeviceAcceptanceReceipt.release?.finalizationReceiptFile ===
+        promotedReceiptBuild?.finalizationReceipt &&
+      promotionDeviceAcceptanceReceipt.release?.finalizationReceiptSha256 ===
+        promotedReceiptBuild?.finalizationReceiptSha256 &&
+      promotionDeviceAcceptanceReceipt.release?.governedPackageSha256 ===
+        promotedArtifact?.governedPackageSha256 &&
+      promotionDeviceAcceptanceReceipt.release?.apkSha256 ===
+        promotedReceiptBuild?.apkSha256 &&
+      promotionDeviceAcceptanceReceipt.physicalDevice?.applicationDataPreserved ===
+        true &&
+      promotionDeviceAcceptanceReceipt.synchronization?.lastSyncResult ===
+        "success" &&
+      promotionDeviceAcceptanceReceipt.synchronization?.unsyncedRows === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization
+        ?.unresolvedRejections === 0 &&
+      promotionDeviceAcceptanceReceipt.adjudication?.runtimeValidationPassed ===
+        true &&
+      promotionDeviceAcceptanceReceipt.adjudication
+        ?.fullBusinessFlowValidationCompleted === false &&
+      promotedDeviceAcceptanceAuthority.appDataPreserved === true &&
+      promotedDeviceAcceptanceAuthority.automaticSyncPassed === true &&
+      promotedDeviceAcceptanceAuthority.unsyncedRows === 0 &&
+      promotedDeviceAcceptanceAuthority.unresolvedRejections === 0 &&
+      (!preservedFinalizationIsPromoted ||
+        (preservedFinalization?.physicalInstallationConditionPassed === true &&
+          preservedFinalization?.physicalInstallationReceiptFile ===
+            promotedDeviceAcceptanceAuthority.receipt &&
+          preservedFinalization?.physicalInstallationReceiptSha256 ===
+            promotedDeviceAcceptanceAuthority.sha256 &&
+          preservedFinalization?.deviceAcceptanceReceiptFile ===
+            promotedDeviceAcceptanceAuthority.receipt &&
+          preservedFinalization?.deviceAcceptanceReceiptSha256 ===
+            promotedDeviceAcceptanceAuthority.sha256 &&
+          preservedFinalization?.runtimeValidationPassed === true &&
+          preservedFinalization?.runtimeDisposition ===
+            promotedDeviceAcceptanceAuthority.decision &&
+          preservedFinalization?.fullBusinessFlowValidationCompleted ===
+            false)) &&
+      promotedLedger?.physicalInstallationConditionPassed === true &&
+      promotedLedger?.physicalInstallationReceiptFile ===
+        promotedDeviceAcceptanceAuthority.receipt &&
+      promotedLedger?.physicalInstallationReceiptSha256 ===
+        promotedDeviceAcceptanceAuthority.sha256 &&
+      promotedLedger?.runtimeValidationPassed === true &&
+      promotedLedger?.runtimeDisposition ===
+        promotedDeviceAcceptanceAuthority.decision &&
+      promotedLedger?.fullBusinessFlowValidationCompleted === false &&
+      promotedLedger?.controlledPilotApproved === true);
   const promotionReceiptExact =
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11Promotion) &&
@@ -350,7 +456,8 @@ function summarizeMutableSourceAuthority({
       (promotedReceiptBuild?.apkSha256 != null &&
         promotedReceiptBoundary?.authorizedApkSha256 ===
           promotedReceiptBuild.apkSha256 &&
-        stagedPromotionFinalizationExact)) &&
+        stagedPromotionFinalizationExact &&
+        stagedPromotionRuntimeExact)) &&
     promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
     promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
     promotedReceiptBoundary?.publicArtifactAuthorized === false &&
@@ -478,6 +585,33 @@ function summarizeSource(repositoryRoot, policy) {
       measuredPromotionFinalizationReceiptSha256 = sha256(finalizationBytes);
     }
   }
+  const promotionDeviceAcceptanceRelativePath =
+    promotionReceipt?.admittedEvidence?.deviceAcceptance?.receipt;
+  let promotionDeviceAcceptanceReceipt = null;
+  let measuredPromotionDeviceAcceptanceReceiptSha256 = null;
+  if (
+    typeof promotionDeviceAcceptanceRelativePath === "string" &&
+    promotionDeviceAcceptanceRelativePath.length > 0
+  ) {
+    const promotionDeviceAcceptancePath = path.resolve(
+      repositoryRoot,
+      promotionDeviceAcceptanceRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionDeviceAcceptancePath)) {
+      fail("Promotion device-acceptance receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionDeviceAcceptancePath)) {
+      const deviceAcceptanceBytes = fs.readFileSync(
+        promotionDeviceAcceptancePath,
+      );
+      promotionDeviceAcceptanceReceipt = JSON.parse(
+        deviceAcceptanceBytes.toString("utf8"),
+      );
+      measuredPromotionDeviceAcceptanceReceiptSha256 = sha256(
+        deviceAcceptanceBytes,
+      );
+    }
+  }
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
   );
@@ -535,6 +669,8 @@ function summarizeSource(repositoryRoot, policy) {
     measuredPromotionReceiptSha256,
     promotionFinalizationReceipt,
     measuredPromotionFinalizationReceiptSha256,
+    promotionDeviceAcceptanceReceipt,
+    measuredPromotionDeviceAcceptanceReceiptSha256,
   });
   const semanticAuthority = new Map([
     [

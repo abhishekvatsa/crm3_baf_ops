@@ -640,6 +640,11 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
 } elseif ($finalizationStatus -eq 'pending-source-authorized') {
   $requiredFiles +=
     [string]$policy.finalization.priorCompletedBuild.completionReceiptFile
+  if ($policy.finalization.priorCompletedBuild.runtimeValidationPassed -eq
+      $true) {
+    $requiredFiles +=
+      [string]$policy.finalization.priorCompletedBuild.deviceAcceptanceReceiptFile
+  }
   foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
@@ -698,18 +703,40 @@ $deviceAcceptanceReceipt =
   Get-Content -LiteralPath $deviceAcceptancePath -Raw | ConvertFrom-Json
 $deviceBusinessMutationBoundary =
   $deviceAcceptanceReceipt.businessMutationBoundary
-if ([int]$deviceAcceptanceReceipt.release.buildNumber -ne
+if ([string]$deviceAcceptanceReceipt.evidenceType -ne
+      'production-build-device-acceptance' -or
+    [string]$deviceAcceptanceReceipt.status -ne
+      [string]$deviceAcceptanceAuthority.decision -or
+    [int]$deviceAcceptanceReceipt.release.buildNumber -ne
       $promotionBuildNumber -or
     [string]$deviceAcceptanceReceipt.release.sourceCommit -ne
       [string]$promotionAuthorityBuild.sourceCommit -or
+    [string]$deviceAcceptanceReceipt.release.finalizationReceiptFile -ne
+      [string]$promotionAuthorityBuild.finalizationReceipt -or
+    [string]$deviceAcceptanceReceipt.release.finalizationReceiptSha256 -ne
+      [string]$promotionAuthorityBuild.finalizationReceiptSha256 -or
+    [string]$deviceAcceptanceReceipt.release.governedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
     [string]$deviceAcceptanceReceipt.release.apkSha256 -ne
       [string]$promotionAuthorityBuild.apkSha256 -or
+    [int]$deviceAcceptanceAuthority.physicalTargetCount -ne 1 -or
+    [int]$deviceAcceptanceReceipt.physicalDevice.targetCount -ne
+      [int]$deviceAcceptanceAuthority.physicalTargetCount -or
     $deviceAcceptanceReceipt.adjudication.runtimeValidationPassed -ne $true -or
     $deviceAcceptanceReceipt.adjudication.fullBusinessFlowValidationCompleted -ne
       $false -or
     $deviceAcceptanceReceipt.physicalDevice.applicationDataPreserved -ne $true -or
+    $deviceAcceptanceAuthority.appDataPreserved -ne $true -or
+    [string]$deviceAcceptanceReceipt.synchronization.lastSyncResult -ne
+      'success' -or
+    $deviceAcceptanceAuthority.automaticSyncPassed -ne $true -or
+    [int64]$deviceAcceptanceReceipt.synchronization.unsyncedRows -ne 0 -or
+    [int64]$deviceAcceptanceAuthority.unsyncedRows -ne 0 -or
+    [int64]$deviceAcceptanceReceipt.synchronization.unresolvedRejections -ne 0 -or
+    [int64]$deviceAcceptanceAuthority.unresolvedRejections -ne 0 -or
     $deviceBusinessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted -ne
-      $false) {
+      $false -or
+    $deviceAcceptanceAuthority.businessDataMutated -ne $false) {
   throw 'Promoted build device acceptance is incomplete or over-claimed.'
 }
 $deviceAcceptanceRecordedAt = Get-UtcEvidenceInstant `
@@ -1862,7 +1889,55 @@ $completionReceiptPath = $null
 $completionReceipt = $null
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
   ConvertFrom-Json
+$promotionLedgerMatches = @(
+  $ledger.entries |
+    Where-Object { [int]$_.buildNumber -eq $promotionBuildNumber }
+)
+if ($promotionLedgerMatches.Count -ne 1) {
+  throw 'Promoted build ledger authority is missing or duplicated.'
+}
+$promotionLedger = $promotionLedgerMatches[0]
+$promotionLedgerPhysicalReceiptFile = Get-OptionalPropertyValue `
+  -InputObject $promotionLedger `
+  -Name 'physicalInstallationReceiptFile'
+$promotionLedgerPhysicalReceiptSha256 = Get-OptionalPropertyValue `
+  -InputObject $promotionLedger `
+  -Name 'physicalInstallationReceiptSha256'
+if ($promotionLedger.physicalInstallationConditionPassed -ne $true -or
+    [string]$promotionLedgerPhysicalReceiptFile -ne
+      [string]$deviceAcceptanceAuthority.receipt -or
+    [string]$promotionLedgerPhysicalReceiptSha256 -ne
+      ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+    $promotionLedger.runtimeValidationPassed -ne $true -or
+    [string]$promotionLedger.runtimeDisposition -ne
+      [string]$deviceAcceptanceReceipt.status -or
+    $promotionLedger.fullBusinessFlowValidationCompleted -ne $false -or
+    $promotionLedger.controlledPilotApproved -ne $true -or
+    [string]$promotionLedger.pilotPromotionReceiptFile -ne
+      $promotionReceiptPath -or
+    [string]$promotionLedger.pilotPromotionReceiptSha256 -ne
+      ([string]$policy.postBuildPromotion.promotionReceiptSha256).
+        ToUpperInvariant()) {
+  throw 'Promoted build ledger runtime authority differs from measured acceptance.'
+}
 if ($finalizationStatus -eq 'completed-non-distributable') {
+  if ($currentStagedPilotAuthorized -and
+      $currentBuildNumber -eq $promotionBuildNumber -and
+      ($policy.finalization.physicalInstallationConditionPassed -ne $true -or
+       [string]$policy.finalization.physicalInstallationReceiptFile -ne
+         [string]$deviceAcceptanceAuthority.receipt -or
+       [string]$policy.finalization.physicalInstallationReceiptSha256 -ne
+         ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+       [string]$policy.finalization.deviceAcceptanceReceiptFile -ne
+         [string]$deviceAcceptanceAuthority.receipt -or
+       [string]$policy.finalization.deviceAcceptanceReceiptSha256 -ne
+         ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant() -or
+       $policy.finalization.runtimeValidationPassed -ne $true -or
+       [string]$policy.finalization.runtimeDisposition -ne
+         [string]$deviceAcceptanceReceipt.status -or
+       $policy.finalization.fullBusinessFlowValidationCompleted -ne $false)) {
+    throw 'Current promoted runtime authority differs from measured acceptance.'
+  }
   $completionReceiptPath =
     [string]$policy.finalization.completionReceiptFile
   $completionReceipt =
@@ -2241,6 +2316,60 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   $ledgerPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
     -InputObject $predecessorLedger `
     -Name 'physicalInstallationReceiptSha256'
+  $preservedPhysicalInstallationConditionPassed = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationConditionPassed'
+  $preservedPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationReceiptFile'
+  $preservedPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'physicalInstallationReceiptSha256'
+  $preservedDeviceAcceptanceReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'deviceAcceptanceReceiptFile'
+  $preservedDeviceAcceptanceReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'deviceAcceptanceReceiptSha256'
+  $preservedRuntimeValidationPassed = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'runtimeValidationPassed'
+  $preservedRuntimeDisposition = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'runtimeDisposition'
+  $preservedFullBusinessFlowValidationCompleted = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'fullBusinessFlowValidationCompleted'
+  $preservedControlledPilotApproved = Get-OptionalPropertyValue `
+    -InputObject $preserved `
+    -Name 'controlledPilotApproved'
+  $consumedPhysicalInstallationConditionPassed = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationConditionPassed'
+  $consumedPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationReceiptFile'
+  $consumedPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'physicalInstallationReceiptSha256'
+  $consumedRuntimeValidationPassed = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'runtimeValidationPassed'
+  $consumedRuntimeDisposition = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'runtimeDisposition'
+  $consumedFullBusinessFlowValidationCompleted = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'fullBusinessFlowValidationCompleted'
+  $consumedControlledPilotApproved = Get-OptionalPropertyValue `
+    -InputObject $consumed `
+    -Name 'controlledPilotApproved'
+  $priorDeviceAcceptanceReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'deviceAcceptanceReceiptFile'
+  $priorDeviceAcceptanceReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'deviceAcceptanceReceiptSha256'
   $successfulPredecessor =
     $consumed.closureFinalizationCompleted -eq $true -and
     $consumed.dualCustodyCompleted -eq $true -and
@@ -2250,9 +2379,67 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   $predecessorPhysicalInstallationConditionRecorded =
     $prior.physicalInstallationConditionPassed -eq $true -or
     $prior.physicalInstallationConditionPassed -eq $false
+  $promotedPredecessorRuntimeAuthorityInvalid = $false
+  if ($successfulPredecessor -and
+      $historicalStagedPilotAuthorityPreserved -and
+      [int]$prior.buildNumber -eq $promotionBuildNumber) {
+    $expectedPromotionDeviceAcceptanceSha256 =
+      ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant()
+    $promotedPredecessorRuntimeAuthorityInvalid =
+      $predecessorLedgerMatches.Count -ne 1 -or
+      $prior.physicalInstallationConditionPassed -ne $true -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      [string]$priorDeviceAcceptanceReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$priorDeviceAcceptanceReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $prior.runtimeValidationPassed -ne $true -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $prior.fullBusinessFlowValidationCompleted -ne $false -or
+      $prior.controlledPilotApproved -ne $true -or
+      $preservedPhysicalInstallationConditionPassed -ne $true -or
+      [string]$preservedPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$preservedPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      [string]$preservedDeviceAcceptanceReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$preservedDeviceAcceptanceReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $preservedRuntimeValidationPassed -ne $true -or
+      [string]$preservedRuntimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $preservedFullBusinessFlowValidationCompleted -ne $false -or
+      $preservedControlledPilotApproved -ne $true -or
+      $consumedPhysicalInstallationConditionPassed -ne $true -or
+      [string]$consumedPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$consumedPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $consumedRuntimeValidationPassed -ne $true -or
+      [string]$consumedRuntimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $consumedFullBusinessFlowValidationCompleted -ne $false -or
+      $consumedControlledPilotApproved -ne $true -or
+      $predecessorLedger.physicalInstallationConditionPassed -ne $true -or
+      [string]$ledgerPhysicalInstallationReceiptFile -ne
+        [string]$deviceAcceptanceAuthority.receipt -or
+      [string]$ledgerPhysicalInstallationReceiptSha256 -ne
+        $expectedPromotionDeviceAcceptanceSha256 -or
+      $predecessorLedger.runtimeValidationPassed -ne $true -or
+      [string]$predecessorLedger.runtimeDisposition -ne
+        [string]$deviceAcceptanceReceipt.status -or
+      $predecessorLedger.fullBusinessFlowValidationCompleted -ne $false -or
+      $predecessorLedger.controlledPilotApproved -ne $true
+  }
   $predecessorBoundaryInvalid = $false
   if ($successfulPredecessor) {
     $predecessorBoundaryInvalid =
+      $promotedPredecessorRuntimeAuthorityInvalid -or
       [int64]$prior.buildNumber -ne
         [int64]$preserved.buildNumber -or
       [int64]$prior.buildNumber -ne [int64]$consumed.buildNumber -or
@@ -2273,6 +2460,27 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$ledgerPhysicalInstallationReceiptFile -or
       [string]$priorPhysicalInstallationReceiptSha256 -ne
         [string]$ledgerPhysicalInstallationReceiptSha256 -or
+      $prior.physicalInstallationConditionPassed -ne
+        $preservedPhysicalInstallationConditionPassed -or
+      $prior.physicalInstallationConditionPassed -ne
+        $consumedPhysicalInstallationConditionPassed -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$preservedPhysicalInstallationReceiptFile -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$consumedPhysicalInstallationReceiptFile -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        [string]$preservedPhysicalInstallationReceiptSha256 -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        [string]$consumedPhysicalInstallationReceiptSha256 -or
+      [string]$priorDeviceAcceptanceReceiptFile -ne
+        [string]$preservedDeviceAcceptanceReceiptFile -or
+      [string]$priorDeviceAcceptanceReceiptSha256 -ne
+        [string]$preservedDeviceAcceptanceReceiptSha256 -or
+      ($prior.runtimeValidationPassed -eq $true -and
+        ([string]$priorDeviceAcceptanceReceiptFile -ne
+          [string]$priorPhysicalInstallationReceiptFile -or
+        [string]$priorDeviceAcceptanceReceiptSha256 -ne
+          [string]$priorPhysicalInstallationReceiptSha256)) -or
       -not $predecessorPhysicalInstallationConditionRecorded -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
@@ -2281,10 +2489,28 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.governedPackageSha256 -or
       $prior.runtimeValidationPassed -ne
         $predecessorLedger.runtimeValidationPassed -or
+      $prior.runtimeValidationPassed -ne
+        $preservedRuntimeValidationPassed -or
+      $prior.runtimeValidationPassed -ne
+        $consumedRuntimeValidationPassed -or
       [string]$prior.runtimeDisposition -ne
         [string]$predecessorLedger.runtimeDisposition -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$preservedRuntimeDisposition -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$consumedRuntimeDisposition -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $predecessorLedger.fullBusinessFlowValidationCompleted -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $preservedFullBusinessFlowValidationCompleted -or
+      $prior.fullBusinessFlowValidationCompleted -ne
+        $consumedFullBusinessFlowValidationCompleted -or
       $prior.controlledPilotApproved -ne
-        $predecessorLedger.controlledPilotApproved
+        $predecessorLedger.controlledPilotApproved -or
+      $prior.controlledPilotApproved -ne
+        $preservedControlledPilotApproved -or
+      $prior.controlledPilotApproved -ne
+        $consumedControlledPilotApproved
   } else {
     $failed = $policy.finalization.priorFailedAttempt
     $predecessorBoundaryInvalid =
@@ -2780,6 +3006,26 @@ $consumedMatches = @(
         [int64]$versionSource.consumedBuild.buildNumber
     }
 )
+$consumedLedgerRecord =
+  if ($consumedMatches.Count -eq 1) {
+    $consumedMatches[0]
+  } else {
+    $null
+  }
+$consumedLedgerPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+  -InputObject $consumedLedgerRecord `
+  -Name 'physicalInstallationReceiptFile'
+$consumedLedgerPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+  -InputObject $consumedLedgerRecord `
+  -Name 'physicalInstallationReceiptSha256'
+$versionSourceConsumedPhysicalInstallationReceiptFile =
+  Get-OptionalPropertyValue `
+    -InputObject $versionSource.consumedBuild `
+    -Name 'physicalInstallationReceiptFile'
+$versionSourceConsumedPhysicalInstallationReceiptSha256 =
+  Get-OptionalPropertyValue `
+    -InputObject $versionSource.consumedBuild `
+    -Name 'physicalInstallationReceiptSha256'
 $consumedLedgerValid = $false
 if ($consumedMatches.Count -eq 1 -and
     [int64]$consumedMatches[0].githubRunId -ne
@@ -2855,6 +3101,18 @@ if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].dualCustodyCompleted -eq $true -and
     $consumedMatches[0].remoteBuiltTagCreated -eq $true -and
     $consumedMatches[0].firebaseBackendDeploymentPerformed -eq $false -and
+    $consumedMatches[0].physicalInstallationConditionPassed -eq
+      $versionSource.consumedBuild.physicalInstallationConditionPassed -and
+    [string]$consumedLedgerPhysicalInstallationReceiptFile -eq
+      [string]$versionSourceConsumedPhysicalInstallationReceiptFile -and
+    [string]$consumedLedgerPhysicalInstallationReceiptSha256 -eq
+      [string]$versionSourceConsumedPhysicalInstallationReceiptSha256 -and
+    $consumedMatches[0].runtimeValidationPassed -eq
+      $versionSource.consumedBuild.runtimeValidationPassed -and
+    [string]$consumedMatches[0].runtimeDisposition -eq
+      [string]$versionSource.consumedBuild.runtimeDisposition -and
+    $consumedMatches[0].fullBusinessFlowValidationCompleted -eq
+      $versionSource.consumedBuild.fullBusinessFlowValidationCompleted -and
     $consumedMatches[0].controlledPilotApproved -eq
       $expectedConsumedControlledPilotApproved -and
     $consumedMatches[0].controlledPilotApproved -eq

@@ -299,10 +299,22 @@ void main() {
       expect(source, contains('authorizedApkSha256'));
       expect(source, contains('promotionFinalizationReceipt'));
       expect(source, contains('measuredPromotionFinalizationReceiptSha256'));
+      expect(source, contains('promotionDeviceAcceptanceReceipt'));
+      expect(
+        source,
+        contains('measuredPromotionDeviceAcceptanceReceiptSha256'),
+      );
       expect(
         source,
         contains('promotionFinalizationReceipt?.governedPackage?.apkSha256'),
       );
+      expect(
+        source,
+        contains(
+          'promotionDeviceAcceptanceReceipt.adjudication?.runtimeValidationPassed',
+        ),
+      );
+      expect(source, contains('preservedRuntimeMirrorExact'));
       expect(source, contains('collectorAuthorizesClosure: false'));
       expect(source, contains('flag: "wx"'));
       expect(decision, contains('collector itself does not close `LR-07`'));
