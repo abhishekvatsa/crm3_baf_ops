@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
+import {createHash} from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -116,6 +117,165 @@ print(json.dumps(rows))
     const parent = path.resolve(os.tmpdir());
     assert.equal(path.dirname(path.resolve(fixtureRoot)), parent);
     assert.ok(path.basename(fixtureRoot).startsWith("crm3-source-authority-"));
+    fs.rmSync(fixtureRoot, {recursive: true, force: true});
+  }
+});
+
+test("Build 28 cloud custody consumes all six generation proofs and preserves historical volume custody", (t) => {
+  const read = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, name), "utf8"));
+  const digest = (value) => createHash("sha256").update(value).digest("hex").toUpperCase();
+  const approvalFile = "release/approvals/build28-private-cloud-custody-approval.json";
+  const verificationFile = "release/evidence/build28-private-gcs-custody-readback.json";
+  const authority = {
+    commit: "e1db8eaa4b34c26254d3fd2a4cfc533747e187a4", file: approvalFile,
+    sha256: "3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88",
+  };
+  const completion = read("release/evidence/build-27-finalization-closure.json");
+  const policy = read("release/production-release-policy.json");
+  const historical = {label: "historical27", completion: structuredClone(completion), policy: structuredClone(policy), accepted: true};
+  Object.assign(completion.release, {buildNumber: 28, versionName: "1.0.0-rc.18", releaseId: "crm3-baf-ops-1.0.0-rc.18-b28"});
+  const bucket = "crm3-baf-ops-b8638-firestore-restore";
+  const prefix = `gs://${bucket}/release-custody/build-28/fixture-campaign`;
+  const controls = {bucket, location: "ASIA-SOUTH1", publicAccessPrevention: "enforced", uniformBucketLevelAccess: true, versioningEnabled: true, publicIamPrincipalsAbsent: true, retentionSeconds: 7776000, softDeleteSeconds: 604800, checkedAtUtc: "2026-09-09T01:00:02Z"};
+  const objects = [];
+  for (const [purpose, name, target, field, sidecarTarget, sidecarField] of [
+    ["productionPackage", `${completion.release.releaseId}-GOVERNED-PACKAGE.zip`, completion.governedPackage, "sha256", completion.governedPackage, "sidecarSha256"],
+    ["closurePackage", "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260909_010000.zip", completion.closure, "closurePackageSha256", completion.closure, "closurePackageSidecarSha256"],
+    ["custodyRecord", "CRM_III_BAF_Ops_O1_O5_CUSTODY_20260909_010000.json", completion.closure, "custodyRecordSha256", null, null],
+  ]) {
+    const payload = Buffer.from(`synthetic ${purpose} bytes`);
+    const hash = digest(payload);
+    target[field] = hash;
+    const sidecar = Buffer.from(`${hash}  ${name}\n`);
+    if (sidecarTarget) sidecarTarget[sidecarField] = digest(sidecar);
+    for (const [entryPurpose, entryName, bytes] of [[purpose, name, payload], [`${purpose}Sidecar`, `${name}.sha256.txt`, sidecar]]) {
+      const objectUri = `${prefix}/${entryName}`;
+      const generation = String(1788915600000000 + objects.length);
+      objects.push({schemaVersion: 1, provider: "gcs", purpose: entryPurpose, buildNumber: 28, bucket, prefix,
+        objectName: objectUri.slice(`gs://${bucket}/`.length), objectUri, generation, generationUri: `${objectUri}#${generation}`,
+        bytes: bytes.length, sha256: digest(bytes), downloadedBytes: bytes.length, downloadedSha256: digest(bytes),
+        createOnly: true, generationPinnedReadback: true, verified: true, verifiedAtUtc: "2026-09-09T01:00:03Z",
+        approval: structuredClone(authority), bucketControls: structuredClone(controls)});
+    }
+  }
+  Object.assign(completion.dualCustody, {mode: "local-primary-private-gcs-backup", distinctVolumes: false, independentlyStored: true,
+    backupVerification: {file: verificationFile, sha256: "REBOUND_BY_FIXTURE"}});
+  const verification = {schemaVersion: 1, evidenceType: "private-gcs-release-custody", mode: "local-primary-private-gcs-backup", buildNumber: 28,
+    sourceCommit: completion.sourceAuthority.commit, githubRunId: String(completion.workflow.runId), primaryDirectory: "C:\\OwnerCustody\\Build28",
+    backupPrefix: prefix, independentlyStored: true, approval: authority, objects, status: "passed", completedAtUtc: "2026-09-09T01:00:04Z"};
+  const base = {label: "complete28", completion, policy, verification, accepted: true};
+  const cases = [historical, base];
+  const change = (label, edit) => { const row = structuredClone(base); row.label = label; row.accepted = false; edit(row); cases.push(row); };
+  const set = (object, field, value) => { const parts = field.split("."); const parent = parts.slice(0, -1).reduce((current, part) => current[part], object); if (value === undefined) delete parent[parts.at(-1)]; else parent[parts.at(-1)] = value; };
+  for (const field of ["schemaVersion", "evidenceType", "mode", "buildNumber", "sourceCommit", "githubRunId", "primaryDirectory", "backupPrefix", "independentlyStored", "status", "completedAtUtc"]) {
+    for (const value of [undefined, null, [verification[field]]]) change(`manifest ${field}: ${JSON.stringify(value)}`, (row) => set(row.verification, field, value));
+  }
+  for (const field of ["mode", "independentlyStored", "distinctVolumes", "status", "allFileHashesMatched"]) {
+    change(`missing completion custody ${field}`, (row) => delete row.completion.dualCustody[field]);
+  }
+  change("cloud must not claim distinct volumes", (row) => { row.completion.dualCustody.distinctVolumes = true; });
+  change("Build28 cannot strip mode and proof to claim legacy volumes", (row) => {
+    delete row.completion.dualCustody.mode;
+    delete row.completion.dualCustody.backupVerification;
+    row.completion.dualCustody.distinctVolumes = true;
+  });
+  change("Build28 cannot strip mode and ignore a bad cloud proof", (row) => {
+    delete row.completion.dualCustody.mode;
+    row.completion.dualCustody.distinctVolumes = true;
+    row.tamperVerificationHash = true;
+    row.verification.objects = [];
+  });
+  change("unknown custody mode", (row) => { row.completion.dualCustody.mode = "unknown"; row.completion.dualCustody.distinctVolumes = true; });
+  change("wrong readback digest", (row) => { row.tamperVerificationHash = true; });
+  change("wrong readback path", (row) => { row.completion.dualCustody.backupVerification.file = "release/evidence/other.json"; });
+  change("approval file modified", (row) => { row.tamperApproval = true; });
+  change("wrong immutable approval", (row) => { row.verification.approval.commit = "0".repeat(40); });
+  change("Build27 cannot use cloud mode", (row) => { row.completion.release.buildNumber = 27; row.verification.buildNumber = 27; });
+  change("missing sixth purpose", (row) => row.verification.objects.pop());
+  change("duplicate purpose", (row) => { row.verification.objects[5] = structuredClone(row.verification.objects[0]); });
+  change("duplicated object identity", (row) => { Object.assign(row.verification.objects[5], {objectName: objects[0].objectName, objectUri: objects[0].objectUri, generationUri: objects[0].generationUri}); });
+  for (let index = 0; index < 6; index++) {
+    for (const field of ["verified", "createOnly", "generationPinnedReadback"]) change(`proof${index} ${field} false`, (row) => { row.verification.objects[index][field] = false; });
+    change(`proof${index} foreign digest`, (row) => { row.verification.objects[index].sha256 = "0".repeat(64); row.verification.objects[index].downloadedSha256 = "0".repeat(64); });
+    change(`proof${index} readback mismatch`, (row) => { row.verification.objects[index].downloadedBytes++; });
+    change(`proof${index} foreign approval`, (row) => { row.verification.objects[index].approval.sha256 = "0".repeat(64); });
+  }
+  for (const field of ["schemaVersion", "provider", "purpose", "buildNumber", "bucket", "prefix", "objectName", "objectUri", "generation", "generationUri", "bytes", "sha256", "downloadedBytes", "downloadedSha256", "createOnly", "generationPinnedReadback", "verified", "verifiedAtUtc"]) {
+    for (const value of [undefined, [objects[0][field]]]) change(`proof scalar ${field}: ${JSON.stringify(value)}`, (row) => set(row.verification.objects[0], field, value));
+  }
+  for (const field of Object.keys(controls)) {
+    change(`missing bucket control ${field}`, (row) => delete row.verification.objects[0].bucketControls[field]);
+    change(`array bucket control ${field}`, (row) => { row.verification.objects[0].bucketControls[field] = [controls[field]]; });
+  }
+  change("public bucket", (row) => { row.verification.objects[0].bucketControls.publicAccessPrevention = "inherited"; });
+  change("shortened retention", (row) => { row.verification.objects[0].bucketControls.retentionSeconds = 1; });
+  change("nonzero generation must be string", (row) => { row.verification.objects[0].generation = 1; });
+  change("generation zero", (row) => { row.verification.objects[0].generation = "0"; });
+  change("unqualified readback", (row) => { row.verification.objects[0].generationUri = row.verification.objects[0].objectUri; });
+  change("unfinished manifest", (row) => { row.verification.completedAtUtc = "2026-09-09T01:00:01Z"; });
+  change("control inspection after verification", (row) => { row.verification.objects[0].bucketControls.checkedAtUtc = "2026-09-09T01:00:04Z"; });
+
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-custody-consumption-"));
+  try {
+    execFileSync("git", ["init", "--quiet"], {cwd: fixtureRoot});
+    const objectRoot = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-path", "objects"], {cwd: repositoryRoot, encoding: "utf8"}).trim();
+    fs.writeFileSync(path.join(fixtureRoot, ".git/objects/info/alternates"), `${objectRoot.replaceAll("\\", "/")}\n`);
+    for (const file of [approvalFile, "tools/release/Private-GcsReleaseCustody.ps1"]) {
+      fs.mkdirSync(path.dirname(path.join(fixtureRoot, file)), {recursive: true});
+      fs.copyFileSync(path.join(repositoryRoot, file), path.join(fixtureRoot, file));
+    }
+    fs.mkdirSync(path.join(fixtureRoot, "release/evidence"), {recursive: true});
+    fs.writeFileSync(path.join(fixtureRoot, "cases.json"), JSON.stringify(cases));
+    fs.writeFileSync(path.join(fixtureRoot, "check.ps1"), String.raw`
+param([string]$ProductionSource, [string]$ActualRepository)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$RepositoryRoot = (Get-Location).Path
+$ast = [Management.Automation.Language.Parser]::ParseFile($ProductionSource, [ref]$null, [ref]$null)
+foreach ($definition in $ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) { Invoke-Expression $definition.Extent.Text }
+$guard = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and $node.Clauses[0].Item2.Statements.Count -eq 1 -and $node.Clauses[0].Item2.Statements[0].Extent.Text -eq "throw 'Finalization receipt differs from policy or release boundary.'"}, $true))
+if ($guard.Count -ne 1) { throw 'Actual finalization guard must be unique' }
+$approvalBytes = [IO.File]::ReadAllBytes((Join-Path $ActualRepository 'release/approvals/build28-private-cloud-custody-approval.json'))
+$rows = foreach ($case in (Get-Content cases.json -Raw | ConvertFrom-Json)) {
+  [IO.File]::WriteAllBytes((Join-Path $RepositoryRoot 'release/approvals/build28-private-cloud-custody-approval.json'), $approvalBytes)
+  $hasCloud = $null -ne $case.PSObject.Properties['verification']
+  if ($hasCloud) {
+    $case.verification | ConvertTo-Json -Depth 40 | Set-Content 'release/evidence/build28-private-gcs-custody-readback.json' -Encoding utf8
+    if ($null -ne $case.completion.dualCustody.PSObject.Properties['backupVerification']) {
+      $case.completion.dualCustody.backupVerification.sha256 = Get-Sha256 'release/evidence/build28-private-gcs-custody-readback.json'
+    }
+    if ($null -ne $case.PSObject.Properties['tamperVerificationHash']) { $case.completion.dualCustody.backupVerification.sha256 = '0' * 64 }
+    if ($null -ne $case.PSObject.Properties['tamperApproval']) { Add-Content 'release/approvals/build28-private-cloud-custody-approval.json' ' ' }
+  }
+  $completionReceiptPath = 'completion.json'
+  $case.completion | ConvertTo-Json -Depth 40 | Set-Content $completionReceiptPath -Encoding utf8
+  $completionReceipt = Get-Content $completionReceiptPath -Raw | ConvertFrom-Json
+  $policy = $case.policy
+  $policy.release = $completionReceipt.release
+  $currentStagedPilotAuthorized = -not $hasCloud
+  $currentBuildNumber = [int]$completionReceipt.release.buildNumber
+  $recoveryValid = $true
+  $policy.finalization.completionReceiptSha256 = Get-Sha256 $completionReceiptPath
+  $policy.finalization.sourceCommit = $completionReceipt.sourceAuthority.commit
+  $policy.finalization.githubRunId = $completionReceipt.workflow.runId
+  $policy.finalization.governedPackageSha256 = $completionReceipt.governedPackage.sha256
+  $policy.finalization.closurePackageSha256 = $completionReceipt.closure.closurePackageSha256
+  $policy.finalization.custodyRecordSha256 = $completionReceipt.closure.custodyRecordSha256
+  $policy.finalization.controlledPilotApproved = $currentStagedPilotAuthorized
+  $accepted = $true; $failure = $null
+  try { Invoke-Expression $guard[0].Extent.Text }
+  catch { $accepted = $false; $failure = $_.Exception.Message }
+  [ordered]@{label = $case.label; accepted = $accepted; expected = $case.accepted; failure = $failure}
+}
+$rows | ConvertTo-Json -Compress -Depth 4
+`);
+    const rows = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", path.join(fixtureRoot, "check.ps1"), path.join(repositoryRoot, "tools/release/Test-ProductionReleasePolicy.ps1"), repositoryRoot], {cwd: fixtureRoot, encoding: "utf8", windowsHide: true, maxBuffer: 4 * 1024 * 1024}));
+    assert.equal(rows.length, cases.length);
+    assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+    t.diagnostic(`${rows.length} coherently rebound finalization custody cases`);
+  } finally {
+    assert.equal(path.dirname(path.resolve(fixtureRoot)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(fixtureRoot).startsWith("crm3-custody-consumption-"));
     fs.rmSync(fixtureRoot, {recursive: true, force: true});
   }
 });

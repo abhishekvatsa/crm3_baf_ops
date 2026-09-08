@@ -324,6 +324,170 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     (Test-CompletedAutomaticSynchronization $Receipt.synchronization))
 }
 
+function Test-PrivateCustodyFacts {
+  param([object]$Receipt, [array]$Facts)
+  foreach ($fact in $Facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int] -or $fact.Expected -is [int64]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -isnot [string] -or $value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Get-PrivateCustodyUtcInstant {
+  param([object]$Value)
+  if ($Value -isnot [string] -and $Value -isnot [DateTime] -and $Value -isnot [DateTimeOffset]) {
+    throw 'Private custody requires a scalar explicit UTC instant.'
+  }
+  Get-UtcEvidenceInstant -Value $Value -FieldName 'Private custody observation'
+}
+
+function Test-CompletedReleaseCustody {
+  param([object]$Receipt, [string]$RepositoryRoot)
+  $modeProperty = $Receipt.dualCustody.PSObject.Properties['mode']
+  if ($null -eq $modeProperty) {
+    # Only historical builds have the mode-less filesystem contract. Build28's
+    # decision selects private cloud custody; removing its discriminator cannot
+    # turn an absent or invalid cloud proof into a claimed second local volume.
+    $legacyBuild = $Receipt.release.buildNumber
+    return (($legacyBuild -is [int] -or $legacyBuild -is [int64]) -and
+      $legacyBuild -ge 1 -and $legacyBuild -le 27 -and
+      $Receipt.dualCustody.distinctVolumes -eq $true)
+  }
+  try {
+    if ($modeProperty.Value -isnot [string] -or
+        $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
+        -not (Test-PrivateCustodyFacts $Receipt @(
+          @{ Path = 'release.buildNumber'; Expected = 28 }
+          @{ Path = 'dualCustody.distinctVolumes'; Expected = $false }
+          @{ Path = 'dualCustody.independentlyStored'; Expected = $true }
+          @{ Path = 'dualCustody.status'; Expected = 'passed' }
+          @{ Path = 'dualCustody.allFileHashesMatched'; Expected = $true }
+          @{ Path = 'dualCustody.backupVerification.file'; Expected = 'release/evidence/build28-private-gcs-custody-readback.json' }
+        ))) { return $false }
+    $binding = $Receipt.dualCustody.backupVerification
+    if ($binding.sha256 -isnot [string] -or $binding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
+    $verificationPath = Join-Path $RepositoryRoot $binding.file
+    if ((Get-Sha256 $verificationPath) -cne $binding.sha256) { return $false }
+    $verification = Get-Content -LiteralPath $verificationPath -Raw | ConvertFrom-Json
+    if ($Receipt.sourceAuthority.commit -isnot [string] -or
+        $Receipt.sourceAuthority.commit -cnotmatch '^[0-9a-f]{40}$' -or
+        ($Receipt.workflow.runId -isnot [int] -and $Receipt.workflow.runId -isnot [int64]) -or
+        $Receipt.workflow.runId -le 0 -or
+        -not (Test-PrivateCustodyFacts $verification @(
+          @{ Path = 'schemaVersion'; Expected = 1 }
+          @{ Path = 'evidenceType'; Expected = 'private-gcs-release-custody' }
+          @{ Path = 'mode'; Expected = 'local-primary-private-gcs-backup' }
+          @{ Path = 'buildNumber'; Expected = 28 }
+          @{ Path = 'sourceCommit'; Expected = $Receipt.sourceAuthority.commit }
+          @{ Path = 'githubRunId'; Expected = [string]$Receipt.workflow.runId }
+          @{ Path = 'independentlyStored'; Expected = $true }
+          @{ Path = 'status'; Expected = 'passed' }
+        ))) { return $false }
+    $bucket = 'crm3-baf-ops-b8638-firestore-restore'
+    $prefix = $verification.backupPrefix
+    if ($prefix -isnot [string] -or
+        $prefix -cnotmatch '^gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+        $verification.primaryDirectory -isnot [string] -or
+        $verification.primaryDirectory -cnotmatch '^[A-Za-z]:[\\/]' -or
+        $verification.primaryDirectory -match '(^|[\\/])\.{1,2}([\\/]|$)' -or
+        $verification.objects -isnot [array] -or $verification.objects.Count -ne 6) { return $false }
+    $primary = $verification.primaryDirectory.Replace('\', '/').TrimEnd('/')
+    $repository = [IO.Path]::GetFullPath($RepositoryRoot).Replace('\', '/').TrimEnd('/')
+    if ($primary.Equals($repository, [StringComparison]::OrdinalIgnoreCase) -or
+        $primary.StartsWith("$repository/", [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    $completedAt = Get-PrivateCustodyUtcInstant $verification.completedAtUtc
+    $approvalFacts = @(
+      @{ Path = 'commit'; Expected = 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4' }
+      @{ Path = 'file'; Expected = 'release/approvals/build28-private-cloud-custody-approval.json' }
+      @{ Path = 'sha256'; Expected = '3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88' }
+    )
+    if (-not (Test-PrivateCustodyFacts $verification.approval $approvalFacts)) { return $false }
+    $approvedAt = Get-PrivateCustodyUtcInstant '2026-09-08T21:21:49Z'
+    $purposes = @('productionPackage', 'productionPackageSidecar', 'closurePackage', 'closurePackageSidecar', 'custodyRecord', 'custodyRecordSidecar')
+    $proofs = @{}
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($proof in $verification.objects) {
+      if ($proof.purpose -isnot [string] -or $proof.purpose -cnotin $purposes -or
+          $proofs.ContainsKey($proof.purpose) -or
+          -not (Test-PrivateCustodyFacts $proof @(
+            @{ Path = 'schemaVersion'; Expected = 1 }
+            @{ Path = 'provider'; Expected = 'gcs' }
+            @{ Path = 'buildNumber'; Expected = 28 }
+            @{ Path = 'bucket'; Expected = $bucket }
+            @{ Path = 'prefix'; Expected = $prefix }
+            @{ Path = 'createOnly'; Expected = $true }
+            @{ Path = 'generationPinnedReadback'; Expected = $true }
+            @{ Path = 'verified'; Expected = $true }
+          )) -or -not (Test-PrivateCustodyFacts $proof.approval $approvalFacts)) { return $false }
+      if ($proof.objectName -isnot [string] -or $proof.objectUri -isnot [string] -or
+          $proof.generation -isnot [string] -or $proof.generation -cnotmatch '^[1-9][0-9]*$' -or
+          $proof.generationUri -isnot [string] -or
+          ($proof.bytes -isnot [int] -and $proof.bytes -isnot [int64]) -or $proof.bytes -le 0 -or
+          ($proof.downloadedBytes -isnot [int] -and $proof.downloadedBytes -isnot [int64]) -or
+          $proof.downloadedBytes -ne $proof.bytes -or
+          $proof.sha256 -isnot [string] -or $proof.sha256 -cnotmatch '^[0-9A-F]{64}$' -or
+          $proof.downloadedSha256 -isnot [string] -or $proof.downloadedSha256 -cne $proof.sha256) { return $false }
+      $name = ($proof.objectName -split '/')[-1]
+      $expectedUri = "$prefix/$name"
+      if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,239}$' -or
+          $proof.objectUri -cne $expectedUri -or
+          $proof.objectName -cne $expectedUri.Substring("gs://$bucket/".Length) -or
+          $proof.generationUri -cne "$expectedUri#$($proof.generation)" -or
+          -not $names.Add($proof.objectName)) { return $false }
+      if (-not (Test-PrivateCustodyFacts $proof.bucketControls @(
+        @{ Path = 'bucket'; Expected = $bucket }
+        @{ Path = 'location'; Expected = 'ASIA-SOUTH1' }
+        @{ Path = 'publicAccessPrevention'; Expected = 'enforced' }
+        @{ Path = 'uniformBucketLevelAccess'; Expected = $true }
+        @{ Path = 'versioningEnabled'; Expected = $true }
+        @{ Path = 'publicIamPrincipalsAbsent'; Expected = $true }
+        @{ Path = 'retentionSeconds'; Expected = 7776000 }
+        @{ Path = 'softDeleteSeconds'; Expected = 604800 }
+      ))) { return $false }
+      $checkedAt = Get-PrivateCustodyUtcInstant $proof.bucketControls.checkedAtUtc
+      $verifiedAt = Get-PrivateCustodyUtcInstant $proof.verifiedAtUtc
+      if ($checkedAt -lt $approvedAt -or $verifiedAt -lt $checkedAt -or $completedAt -lt $verifiedAt) { return $false }
+      $proofs[$proof.purpose] = $proof
+    }
+    $expectedHashes = @{
+      productionPackage = $Receipt.governedPackage.sha256
+      closurePackage = $Receipt.closure.closurePackageSha256
+      custodyRecord = $Receipt.closure.custodyRecordSha256
+    }
+    if (($proofs.productionPackage.objectName -split '/')[-1] -cne
+        "$($Receipt.release.releaseId)-GOVERNED-PACKAGE.zip") { return $false }
+    foreach ($purpose in @('productionPackage', 'closurePackage', 'custodyRecord')) {
+      $parent = $proofs[$purpose]
+      $sidecar = $proofs["${purpose}Sidecar"]
+      if ($expectedHashes[$purpose] -isnot [string] -or $parent.sha256 -cne $expectedHashes[$purpose] -or
+          $sidecar.objectName -cne "$($parent.objectName).sha256.txt") { return $false }
+      $parentName = ($parent.objectName -split '/')[-1]
+      $sidecarBytes = [Text.Encoding]::UTF8.GetBytes("$($parent.sha256)  $parentName`n")
+      $sidecarHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($sidecarBytes))
+      if ($sidecar.sha256 -cne $sidecarHash -or $sidecar.bytes -ne $sidecarBytes.Length) { return $false }
+    }
+    if ($proofs.productionPackageSidecar.sha256 -cne $Receipt.governedPackage.sidecarSha256 -or
+        $proofs.closurePackageSidecar.sha256 -cne $Receipt.closure.closurePackageSidecarSha256) { return $false }
+    # This function only reads the fixed approval's file/Git object. It does not
+    # call the helper's upload or bucket APIs, so CI needs no cloud credentials.
+    . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
+    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix 28
+    return (Test-PrivateCustodyFacts $authority $approvalFacts)
+  } catch { return $false }
+}
+
 function Test-PromotedFinalizationDecisions {
   param([object]$Receipt)
   $facts = @(
@@ -2706,7 +2870,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$policy.finalization.closurePackageSha256 -or
       [string]$completionReceipt.closure.custodyRecordSha256 -ne
         [string]$policy.finalization.custodyRecordSha256 -or
-      $completionReceipt.dualCustody.distinctVolumes -ne $true -or
+      -not (Test-CompletedReleaseCustody -Receipt $completionReceipt -RepositoryRoot $RepositoryRoot) -or
       $completionReceipt.dualCustody.allFileHashesMatched -ne $true -or
       $policy.finalization.dualCustodyCompleted -ne $true -or
       -not $recoveryValid -or
