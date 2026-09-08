@@ -123,7 +123,7 @@ function Test-ZeroSynchronizationFailureCounters {
   param([object]$Synchronization)
   foreach ($counter in @(
     'pushFailed', 'fullSyncConflicts', 'processingErrors',
-    'likelyPermanentRejections'
+    'likelyPermanentRejections', 'globalPullConflict'
   )) {
     $value = Get-OptionalPropertyValue -InputObject $Synchronization -Name $counter
     if (($value -isnot [int64] -and $value -isnot [int]) -or $value -ne 0) {
@@ -131,6 +131,38 @@ function Test-ZeroSynchronizationFailureCounters {
     }
   }
   return $true
+}
+
+function Test-CompletedAutomaticSynchronization {
+  param([object]$Synchronization)
+  $passes = Get-OptionalPropertyValue -InputObject $Synchronization `
+    -Name 'automaticStartupSyncPassesObserved'
+  $state = Get-OptionalPropertyValue -InputObject $Synchronization `
+    -Name 'syncStateAtInventory'
+  return (($passes -is [int64] -or $passes -is [int]) -and
+    $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
+}
+
+function Test-ZeroBackendReadbackFailures {
+  param([object]$Backend)
+  $boundary = Get-OptionalPropertyValue -InputObject $Backend -Name 'controlBoundary'
+  $readbacks = Get-OptionalPropertyValue -InputObject $Backend -Name 'cleanMainLiveReadbacks'
+  $fleet = Get-OptionalPropertyValue -InputObject $readbacks -Name 'functionFleet'
+  $iam = Get-OptionalPropertyValue -InputObject $readbacks -Name 'iamDependencies'
+  $firestore = Get-OptionalPropertyValue -InputObject $readbacks -Name 'firestoreRulesAndIndexes'
+  $counters = @(
+    (Get-OptionalPropertyValue -InputObject $boundary -Name 'schedulerSmokeChangedRecordCount')
+    (Get-OptionalPropertyValue -InputObject $fleet -Name 'failedChecks')
+    (Get-OptionalPropertyValue -InputObject $iam -Name 'failedChecks')
+    (Get-OptionalPropertyValue -InputObject $iam -Name 'postureHolds')
+    (Get-OptionalPropertyValue -InputObject $firestore -Name 'failedChecks')
+  )
+  foreach ($value in $counters) {
+    if (($value -isnot [int64] -and $value -isnot [int]) -or $value -ne 0) {
+      return $false
+    }
+  }
+  return $counters.Count -eq 5
 }
 
 function Get-UtcEvidenceInstant {
@@ -760,6 +792,14 @@ if ([string]$deviceAcceptanceReceipt.evidenceType -ne
     [int]$deviceAcceptanceReceipt.physicalDevice.targetCount -ne
       [int]$deviceAcceptanceAuthority.physicalTargetCount -or
     $deviceAcceptanceReceipt.adjudication.runtimeValidationPassed -ne $true -or
+    $deviceAcceptanceReceipt.adjudication.physicalInPlaceMigrationPassed -isnot [bool] -or
+    $deviceAcceptanceReceipt.adjudication.physicalInPlaceMigrationPassed -ne $true -or
+    $deviceAcceptanceReceipt.adjudication.authenticatedReadOnlySurfaceValidationCompleted -isnot [bool] -or
+    $deviceAcceptanceReceipt.adjudication.authenticatedReadOnlySurfaceValidationCompleted -ne $true -or
+    $promotionAuthorityBuild.oneTargetInPlaceValidationPassed -isnot [bool] -or
+    $promotionAuthorityBuild.oneTargetInPlaceValidationPassed -ne $true -or
+    $promotionAuthorityBuild.mutatingBusinessFlowValidationCompleted -isnot [bool] -or
+    $promotionAuthorityBuild.mutatingBusinessFlowValidationCompleted -ne $false -or
     $deviceAcceptanceReceipt.adjudication.fullBusinessFlowValidationCompleted -ne
       $false -or
     $deviceAcceptanceReceipt.adjudication.mutatingBusinessFlowValidationCompleted -ne
@@ -771,6 +811,8 @@ if ([string]$deviceAcceptanceReceipt.evidenceType -ne
     [string]$deviceAcceptanceReceipt.synchronization.lastSyncResult -ne
       'success' -or
     $deviceAcceptanceAuthority.automaticSyncPassed -ne $true -or
+    -not (Test-CompletedAutomaticSynchronization $deviceAcceptanceReceipt.synchronization) -or
+    -not (Test-ZeroSynchronizationFailureCounters $deviceAcceptanceReceipt.synchronization) -or
     [int64]$deviceAcceptanceReceipt.synchronization.unsyncedRows -ne 0 -or
     [int64]$deviceAcceptanceAuthority.unsyncedRows -ne 0 -or
     [int64]$deviceAcceptanceReceipt.synchronization.unresolvedRejections -ne 0 -or
@@ -937,7 +979,8 @@ if ([int]$promotionBackendReceipt.schemaVersion -ne 1 -or
       $false -or
     $promotionBackendReceipt.controlBoundary.distributionPerformed -ne $false -or
     $promotionBackendReceipt.controlBoundary.securityRulesMutated -ne $false -or
-    $promotionBackendReceipt.controlBoundary.indexesMutated -ne $false) {
+    $promotionBackendReceipt.controlBoundary.indexesMutated -ne $false -or
+    -not (Test-ZeroBackendReadbackFailures $promotionBackendReceipt)) {
   throw 'Post-build promotion backend authority is incomplete or divergent.'
 }
 $promotionFirestoreAuthority =
