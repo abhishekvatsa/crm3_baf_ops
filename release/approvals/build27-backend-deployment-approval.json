@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-09-08T01:02:04.000Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a07e89-532e-7fa3-ae13-935f13d4f824",
+    "turnStartedAtUnixSeconds": 1788829324,
+    "authorityType": "project-owner instruction",
+    "instructionVerbatim": "I explicitly approve the governed Build 27 campaign using application and backend source baseline commit `2ab554d143bd778cfa1b4d9ab2ed3c35cf62b056`.\nI approve deploying the existing 15-function fleet to production project `crm3-baf-ops-b8638`, region `asia-south1`, using the existing dedicated service accounts, `PreserveExistingIam`, and App Check enforcement remaining false. The scheduled function may be deployed but must not be manually invoked.\nI approve strict live readback of the unchanged Firestore Rules SHA-256 `823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04` and unchanged 66-index set SHA-256 `E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4`; neither rules nor indexes are to be redeployed.\nAfter successful readback, I approve creating, pushing, reviewing and merging the necessary backend-reconciliation and Build 27 governance changes, provided review and CI are clean. I approve allocating and constructing production-signed Build 27 (`1.0.0-rc.17+27`) from the exact resulting `main` commit, followed by independent package verification, dual custody, copying the verified APK to Downloads, and installing it on the attached phone as an in-place upgrade preserving all app data.\nNo IAM change, App Check activation, production business-data mutation or deletion, scheduler invocation, device-data clearing, wider distribution, Play Store publication, or unrestricted publication is authorized.",
+    "instructionSummary": "Deploy and strictly read back the exact Build 27 function fleet without invoking the scheduler or redeploying Firestore rules or indexes, then prepare, construct, verify, retain and install one protected Build 27 after clean review and CI.",
+    "timestampSource": "Codex task history turn.startedAt",
+    "scopeInterpretation": "The instruction authorizes the exact IAM-preserving Function deployment, read-only Firestore control-plane readback, governance reconciliation, one production-signed Build 27 construction, independent verification, dual custody, Downloads copy and one in-place attached-phone installation. It does not authorize manual scheduler invocation, IAM mutation, App Check activation, production business-data mutation or deletion, device-data clearing, wider distribution or publication."
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "2ab554d143bd778cfa1b4d9ab2ed3c35cf62b056",
+    "tree": "eff972f19ee22f5df080a1ec20a0863d402773da",
+    "functionTree": "3a92061dabbe001f461e43c317ba51469dead527",
+    "pullRequestNumber": 355,
+    "requiredPostMergeReleaseGateRunId": 34156963308
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "scheduledFunctionDeploymentAuthorized": true,
+    "scheduledFunctionManualInvocationAuthorized": false,
+    "firestoreRulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
+    "firestoreRulesMutationAuthorized": false,
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "firestoreIndexMutationAuthorized": false,
+    "strictLiveReadbackRequired": true,
+    "postMergeReleaseGateMustPassBeforeDeployment": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "production business-data deletion or mutation",
+    "manual scheduler invocation",
+    "device-data clearing",
+    "wider distribution",
+    "unrestricted publication",
+    "Play Store publication"
+  ]
+}

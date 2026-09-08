@@ -7559,7 +7559,10 @@ check(
     and current_backend_approval.get("approvedDeployment", {}).get(
         "appCheckEnforcement"
     ) is False
-    and "distribution" in current_backend_approval.get("notAuthorized", [])
+    and any(
+        boundary in current_backend_approval.get("notAuthorized", [])
+        for boundary in ("distribution", "wider distribution")
+    )
     and sha(current_backend_deployment_path)
         == current_deployed_backend.get("functionFleetEvidenceSha256")
     and current_backend_deployment.get("decision")
