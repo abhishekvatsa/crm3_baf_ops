@@ -74,6 +74,8 @@ function rebindMeasuredReceipt(input, receiptKey = 'BackendReceipt') {
   const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex').toUpperCase();
   const replace = (object, before, after) => {
     for (const key of Object.keys(object)) {
+      // This proof comes from fixed Git custody, not mutable receipt aliases.
+      if (receiptKey === 'OwnerApproval' && key === 'stagedSourceAuthorityProof') continue;
       if (object[key] === before) object[key] = after;
       else if (object[key] != null && typeof object[key] === 'object') replace(object[key], before, after);
     }
@@ -102,6 +104,23 @@ test('measured backend authorization and readback decisions cannot contradict pi
       assert.equal(result.releasePolicyExact, false, `${field}: ${JSON.stringify(value)}`);
       assert.equal(result.controlledPilotPromotionExact, false, `${field}: ${JSON.stringify(value)}`);
     }
+  }
+});
+
+test('rebound pilot owner instructions cannot inherit immutable approval custody', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  for (const mutate of [
+    (approval) => { approval.authority.instructionVerbatim = 'Do not distribute or pilot this build.'; },
+    (approval) => { approval.authority.codexThreadId = 'different-owner-task'; },
+    (approval) => { approval.authority.instructionContext = 'Different instruction; no pilot approval.'; },
+  ]) {
+    const input = structuredClone(healthy);
+    mutate(input.promotionOwnerApproval);
+    rebindMeasuredReceipt(input, 'OwnerApproval');
+    const result = summarizeMutableSourceAuthority(input);
+    assert.equal(result.releasePolicyExact, false);
+    assert.equal(result.controlledPilotPromotionExact, false);
   }
 });
 
@@ -768,6 +787,8 @@ test("completed successor still requires every retained failed-attempt receipt",
     stagedSourceAuthorityProof: {
       ok: true, historicalBackendReceiptFile: backendReceiptPath,
       historicalBackendReceiptSha256: backendReceiptSha,
+      pilotOwnerApprovalFile: promotionReceipt.ownerApproval.receipt,
+      pilotOwnerApprovalSha256: promotionReceipt.ownerApproval.sha256,
     },
     promotionFinalizationReceipt,
     measuredPromotionFinalizationReceiptSha256: completionSha,

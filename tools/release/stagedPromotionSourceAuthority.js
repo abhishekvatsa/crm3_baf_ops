@@ -24,6 +24,10 @@ const BUILD27_GOVERNANCE = Object.freeze({
   runId: 34187627918,
   requiredJobCount: 5,
 });
+// The owner-designated PR snapshot retains the separate pilot instruction.
+// Unlike the backend's merged main authority, this is approval custody in the
+// explicitly designated proposal snapshot. New approvals require new anchors.
+const BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT = "d95e399de07d43051d94debf36098e7998fe76d4";
 
 function promotionCiAuthorityExact(promotionReceipt, deviceReceipt) {
   const source = promotionReceipt?.sourceAuthority;
@@ -91,7 +95,7 @@ function readChild(repoRoot, file, expectedHash, label) {
 function commitTree(repoRoot, commit, label) {
   requireEvidence(typeof commit === "string" && COMMIT.test(commit),
     `${label}: source commit must be exactly 40 hexadecimal characters.`);
-  const tree = execFileSync("git", ["-C", repoRoot, "rev-parse", "--verify", `${commit}^{tree}`],
+  const tree = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${commit}^{tree}`],
     {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
   requireEvidence(COMMIT.test(tree), `${label}: source tree could not be verified.`);
   return tree;
@@ -109,8 +113,21 @@ function verifyDeployment(receipt, label) {
 }
 
 function gitSourceValue(repoRoot, commit, file) {
-  return execFileSync("git", ["-C", repoRoot, "show", `${commit}:${file}`],
+  return execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "show", `${commit}:${file}`],
     {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]});
+}
+
+function readApprovalCustody(repoRoot, commit, authority, label) {
+  const bytes = gitSourceValue(repoRoot, commit, authority.file);
+  const hash = crypto.createHash("sha256").update(bytes, "utf8").digest("hex").toUpperCase();
+  requireEvidence(sameHash(hash, authority.sha256), `${label}: committed approval custody digest differs.`);
+  return {file: authority.file, sha256: hash};
+}
+
+function requireApprovalCustody(receiptAuthority, measuredApproval, custody, label) {
+  requireEvidence(receiptAuthority?.file === custody.file &&
+    sameHash(receiptAuthority?.sha256, custody.sha256) && sameHash(measuredApproval.hash, custody.sha256),
+  `${label}: approval differs from immutable owner-instruction custody.`);
 }
 
 function verifyApproval(repoRoot, receipt, approval) {
@@ -121,7 +138,7 @@ function verifyApproval(repoRoot, receipt, approval) {
   const ownerAt = explicitUtcInstant(receipt.authorityChronology?.ownerInstructionReceivedAtUtc);
   const earliest = explicitUtcInstant(receipt.authorityChronology?.earliestFunctionUpdateTime);
   const latest = explicitUtcInstant(receipt.authorityChronology?.latestFunctionUpdateTime);
-  const functionTree = execFileSync("git", ["-C", repoRoot, "rev-parse", "--verify", `${source.commit}:functions`],
+  const functionTree = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${source.commit}:functions`],
     {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
   requireEvidence(approval.schemaVersion === 1 &&
     approval.documentType === "governed-current-source-backend-deployment-approval" &&
@@ -290,8 +307,9 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
     const current = readChild(root, deployed.functionFleetEvidenceFile,
       deployed.functionFleetEvidenceSha256, "Current backend");
     const receipt = current.value;
-    const approval = readChild(root, deployed.deploymentApprovalFile,
-      deployed.deploymentApprovalSha256, "Backend approval").value;
+    const approvalRead = readChild(root, deployed.deploymentApprovalFile,
+      deployed.deploymentApprovalSha256, "Backend approval");
+    const approval = approvalRead.value;
     verifyDeployment(receipt, "Current backend");
     const currentTree = commitTree(root, deployed.functionFleetSourceCommit, "Current backend");
     requireEvidence(receipt.sourceAuthority?.commit === deployed.functionFleetSourceCommit &&
@@ -308,6 +326,14 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       receipt.controlBoundary.artifactConstructed === false,
     "Current backend: source, approval or preserved control boundary differs from authority.");
     verifyApproval(root, receipt, approval);
+    const anchoredBackend = JSON.parse(gitSourceValue(root, BUILD27_GOVERNANCE.commit,
+      "release/current-successor-state.json")).authorityPlanes.deployedBackend;
+    const backendApprovalCustody = readApprovalCustody(root, BUILD27_GOVERNANCE.commit,
+      {file: anchoredBackend.deploymentApprovalFile, sha256: anchoredBackend.deploymentApprovalSha256}, "Backend");
+    requireEvidence(receipt.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit &&
+      historical.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit,
+    "Backend approval custody: this source has no separately admitted immutable owner approval.");
+    requireApprovalCustody(receipt.approvalAuthority, approvalRead, backendApprovalCustody, "Current backend");
 
     const deployments = historicalRead.hash === current.hash ? [receipt] : [historical, receipt];
     for (const measured of deployments) {
@@ -315,8 +341,9 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
         requireEvidence(sameHash(measured.approvalAuthority?.sha256, measured.approvalAuthority?.sha256),
           "Historical backend approval: physical SHA-256 authority is absent.");
         const historicalApproval = readChild(root, measured.approvalAuthority?.file,
-          measured.approvalAuthority?.sha256, "Historical backend approval").value;
-        verifyApproval(root, measured, historicalApproval);
+          measured.approvalAuthority?.sha256, "Historical backend approval");
+        verifyApproval(root, measured, historicalApproval.value);
+        requireApprovalCustody(measured.approvalAuthority, historicalApproval, backendApprovalCustody, "Historical backend");
       }
       for (const key of ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"]) {
         const authority = measured.cleanMainLiveReadbacks?.[key];
@@ -329,11 +356,20 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
         verifyReadbackDecision(root, measured, key, child);
       }
     }
+    let pilotApprovalCustody;
     if (releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only") {
       const promotion = readChild(root, releasePolicy.postBuildPromotion.promotionReceiptFile,
         releasePolicy.postBuildPromotion.promotionReceiptSha256, "Staged promotion").value;
       const deviceAuthority = promotion.admittedEvidence?.deviceAcceptance;
       const device = readChild(root, deviceAuthority?.receipt, deviceAuthority?.sha256, "Promotion device evidence").value;
+      const anchoredPilot = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+        "release/evidence/build-27-staged-controlled-pilot-authorization.json")).ownerApproval;
+      pilotApprovalCustody = readApprovalCustody(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+        {file: anchoredPilot.receipt, sha256: anchoredPilot.sha256}, "Pilot");
+      const pilotApproval = readChild(root, promotion.ownerApproval?.receipt,
+        promotion.ownerApproval?.sha256, "Pilot owner approval");
+      requireApprovalCustody({file: promotion.ownerApproval?.receipt, sha256: promotion.ownerApproval?.sha256},
+        pilotApproval, pilotApprovalCustody, "Pilot owner");
       requireEvidence(promotionCiAuthorityExact(promotion, device) &&
         commitTree(root, BUILD27_GOVERNANCE.commit, "Promotion governance") === BUILD27_GOVERNANCE.tree,
       "Promotion governance: commit, Git tree or complete CI authority differs from the recorded Build27 gate and device evidence.");
@@ -342,7 +378,9 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       historicalBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
       historicalBackendReceiptSha256: historicalRead.hash,
       currentBackendReceiptFile: deployed.functionFleetEvidenceFile,
-      currentBackendReceiptSha256: current.hash};
+      currentBackendReceiptSha256: current.hash,
+      ...(pilotApprovalCustody ? {pilotOwnerApprovalFile: pilotApprovalCustody.file,
+        pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {})};
   } catch (error) {
     return {ok: false, reasons: [error instanceof Error ? error.message : String(error)]};
   }

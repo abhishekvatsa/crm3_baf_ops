@@ -540,6 +540,8 @@ function summarizeMutableSourceAuthority({
   const stagedPromotionOwnerApprovalExact =
     !stagedPromotion ||
     (promotedOwnerApprovalAuthority?.receipt === expectedOwnerApprovalPath &&
+      stagedSourceAuthorityProof?.pilotOwnerApprovalFile === promotedOwnerApprovalAuthority?.receipt &&
+      stagedSourceAuthorityProof?.pilotOwnerApprovalSha256 === measuredPromotionOwnerApprovalSha256 &&
       measuredPromotionOwnerApprovalSha256 ===
         promotedOwnerApprovalAuthority?.sha256 &&
       promotionOwnerApproval?.schemaVersion === 1 &&
