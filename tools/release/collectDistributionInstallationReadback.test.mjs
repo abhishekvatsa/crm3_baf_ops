@@ -387,6 +387,7 @@ test("completed successor still requires every retained failed-attempt receipt",
   const apkSha = "a".repeat(64).toUpperCase();
   policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
   const promotedPolicy = structuredClone(releasePolicy);
+  promotedPolicy.finalization.controlledPilotApproved = true;
   promotedPolicy.postBuildPromotion = {
     status: "completed-staged-controlled-pilot-only",
     promotionReceiptFile: promotionPath,
@@ -429,6 +430,8 @@ test("completed successor still requires every retained failed-attempt receipt",
         sourceCommit: completed.headSha,
         governedPackageSha256: completed.governedPackageSha256,
         apkSha256: apkSha,
+        finalizationReceipt: completionPath,
+        finalizationReceiptSha256: completionSha,
       },
     },
     promotion: {
@@ -449,12 +452,25 @@ test("completed successor still requires every retained failed-attempt receipt",
       canaryPhysicalDeviceCeiling: 2,
     },
   };
+  const promotionFinalizationReceipt = {
+    release: {buildNumber: completed.buildNumber},
+    sourceAuthority: {commit: completed.headSha},
+    governedPackage: {
+      sha256: completed.governedPackageSha256,
+      apkSha256: apkSha,
+    },
+  };
+  const promotionFinalizationAuthority = {
+    promotionFinalizationReceipt,
+    measuredPromotionFinalizationReceiptSha256: completionSha,
+  };
   assert.deepEqual(
     summarizeMutableSourceAuthority({
       policy,
       releasePolicy: promotedPolicy,
       buildLedger: {entries: ledgers},
       promotionReceipt,
+      ...promotionFinalizationAuthority,
     }),
     {
       releasePolicyExact: true,
@@ -474,6 +490,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: mismatchedPolicyApk,
       buildLedger: {entries: ledgers},
       promotionReceipt,
+      ...promotionFinalizationAuthority,
     }).releasePolicyExact,
     false,
   );
@@ -489,6 +506,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       buildLedger: {entries: ledgers},
       promotionReceipt,
       measuredPromotionReceiptSha256: promotionSha,
+      ...promotionFinalizationAuthority,
     }).controlledPilotPromotionExact,
     true,
   );
@@ -499,6 +517,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       buildLedger: {entries: ledgers},
       promotionReceipt,
       measuredPromotionReceiptSha256: "9".repeat(64).toUpperCase(),
+      ...promotionFinalizationAuthority,
     }).releasePolicyExact,
     false,
   );
@@ -557,6 +576,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: preservedPolicy,
       buildLedger: {entries: [...ledgers, successorLedger]},
       promotionReceipt,
+      ...promotionFinalizationAuthority,
     }),
     {
       releasePolicyExact: true,
@@ -590,6 +610,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: pendingPolicy,
       buildLedger: {entries: [...ledgers, pendingLedger]},
       promotionReceipt,
+      ...promotionFinalizationAuthority,
     }),
     {
       releasePolicyExact: true,
@@ -597,6 +618,20 @@ test("completed successor still requires every retained failed-attempt receipt",
       latestContainmentAttemptExact: true,
       controlledPilotPromotionExact: true,
     },
+  );
+
+  const droppedPendingPredecessorPilot = structuredClone(pendingPolicy);
+  droppedPendingPredecessorPilot.finalization.priorCompletedBuild.controlledPilotApproved =
+    false;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: droppedPendingPredecessorPilot,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+    }).releasePolicyExact,
+    false,
   );
 
   const broadenedPromotion = structuredClone(promotedPolicy);
@@ -607,6 +642,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicy: broadenedPromotion,
       buildLedger: {entries: ledgers},
       promotionReceipt,
+      ...promotionFinalizationAuthority,
     }).releasePolicyExact,
     false,
   );
@@ -641,10 +677,64 @@ test("completed successor still requires every retained failed-attempt receipt",
         releasePolicy: promotedPolicy,
         buildLedger: {entries: ledgers},
         promotionReceipt: mismatchedReceipt,
+        ...promotionFinalizationAuthority,
       }).releasePolicyExact,
       false,
     );
   }
+
+  const coordinatedApkSha = "7".repeat(64).toUpperCase();
+  const coordinatedApkPolicy = structuredClone(promotedPolicy);
+  coordinatedApkPolicy.distribution.approvedApkSha256 = coordinatedApkSha;
+  const coordinatedApkReceipt = structuredClone(promotionReceipt);
+  coordinatedApkReceipt.admittedEvidence.governedBuild.apkSha256 =
+    coordinatedApkSha;
+  coordinatedApkReceipt.promotion.authorizedApkSha256 = coordinatedApkSha;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: coordinatedApkPolicy,
+      buildLedger: {entries: ledgers},
+      promotionReceipt: coordinatedApkReceipt,
+      ...promotionFinalizationAuthority,
+    }).releasePolicyExact,
+    false,
+  );
+
+  const mismatchedFinalizationReceipt = structuredClone(
+    promotionFinalizationReceipt,
+  );
+  mismatchedFinalizationReceipt.governedPackage.apkSha256 = coordinatedApkSha;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: promotedPolicy,
+      buildLedger: {entries: ledgers},
+      promotionReceipt,
+      promotionFinalizationReceipt: mismatchedFinalizationReceipt,
+      measuredPromotionFinalizationReceiptSha256: completionSha,
+    }).releasePolicyExact,
+    false,
+  );
+
+  const redirectedFinalizationReceipt = structuredClone(promotionReceipt);
+  redirectedFinalizationReceipt.admittedEvidence.governedBuild.finalizationReceipt =
+    "release/evidence/unmeasured-finalization.json";
+  redirectedFinalizationReceipt.admittedEvidence.governedBuild.finalizationReceiptSha256 =
+    "8".repeat(64).toUpperCase();
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: promotedPolicy,
+      buildLedger: {entries: ledgers},
+      promotionReceipt: redirectedFinalizationReceipt,
+      promotionFinalizationReceipt,
+      measuredPromotionFinalizationReceiptSha256: "8"
+        .repeat(64)
+        .toUpperCase(),
+    }).releasePolicyExact,
+    false,
+  );
 
   const missingFailure = structuredClone(releasePolicy);
   missingFailure.finalization.historicalFailedAttempts = [];

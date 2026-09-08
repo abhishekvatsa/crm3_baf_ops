@@ -122,6 +122,8 @@ function summarizeMutableSourceAuthority({
   buildLedger,
   promotionReceipt = null,
   measuredPromotionReceiptSha256 = null,
+  promotionFinalizationReceipt = null,
+  measuredPromotionFinalizationReceiptSha256 = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
   const latestExpectedArtifact = expectedArtifacts.reduce(
@@ -181,6 +183,11 @@ function summarizeMutableSourceAuthority({
     preservedFinalization = finalization.priorCompletedBuild ?? null;
   }
 
+  const preservedPilotStateExact =
+    releasePolicy.distribution?.approved !== true ||
+    preservedFinalization?.controlledPilotApproved ===
+      (latestCompletedArtifact?.buildNumber ===
+        releasePolicy.distribution?.approvedBuildNumber);
   const preservedFinalizationExact =
     latestCompletedArtifact != null &&
     completedReceiptAuthority != null &&
@@ -195,7 +202,8 @@ function summarizeMutableSourceAuthority({
       latestCompletedArtifact.workflowRunId &&
     preservedFinalization?.governedPackageSha256 ===
       latestCompletedArtifact.governedPackageSha256 &&
-    preservedFinalization?.dualCustodyCompleted === true;
+    preservedFinalization?.dualCustodyCompleted === true &&
+    preservedPilotStateExact;
   const failedAttempt = finalization.priorFailedAttempt ?? null;
   const historicalFailedAttempts = [
     ...(finalization.historicalFailedAttempts ?? []),
@@ -295,6 +303,9 @@ function summarizeMutableSourceAuthority({
     (artifact) =>
       artifact.buildNumber === releasePolicy.distribution?.approvedBuildNumber,
   );
+  const promotedFinalizationReceiptAuthority = policy.sourceEvidence.find(
+    (entry) => entry.path === receiptPathFor(promotedArtifact),
+  );
   const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
   const stagedPromotion =
@@ -307,6 +318,23 @@ function summarizeMutableSourceAuthority({
       "stage2d-f6-build11-controlled-pilot-authorization" &&
     promotionReceipt?.decision ===
       "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED";
+  const stagedPromotionFinalizationExact =
+    !stagedPromotion ||
+    (promotedFinalizationReceiptAuthority != null &&
+      promotedReceiptBuild?.finalizationReceipt ===
+        promotedFinalizationReceiptAuthority.path &&
+      promotedReceiptBuild?.finalizationReceiptSha256 ===
+        promotedFinalizationReceiptAuthority.sha256 &&
+      measuredPromotionFinalizationReceiptSha256 ===
+        promotedFinalizationReceiptAuthority.sha256 &&
+      promotionFinalizationReceipt?.release?.buildNumber ===
+        promotedArtifact?.buildNumber &&
+      promotionFinalizationReceipt?.sourceAuthority?.commit ===
+        promotedArtifact?.headSha &&
+      promotionFinalizationReceipt?.governedPackage?.sha256 ===
+        promotedArtifact?.governedPackageSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
+        promotedReceiptBuild?.apkSha256);
   const promotionReceiptExact =
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11Promotion) &&
@@ -321,7 +349,8 @@ function summarizeMutableSourceAuthority({
     (!stagedPromotion ||
       (promotedReceiptBuild?.apkSha256 != null &&
         promotedReceiptBoundary?.authorizedApkSha256 ===
-          promotedReceiptBuild.apkSha256)) &&
+          promotedReceiptBuild.apkSha256 &&
+        stagedPromotionFinalizationExact)) &&
     promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
     promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
     promotedReceiptBoundary?.publicArtifactAuthorized === false &&
@@ -426,6 +455,29 @@ function summarizeSource(repositoryRoot, policy) {
   const measuredPromotionReceiptSha256 = sha256(
     fs.readFileSync(promotionReceiptPath),
   );
+  const promotionFinalizationRelativePath =
+    promotionReceipt?.admittedEvidence?.governedBuild?.finalizationReceipt;
+  let promotionFinalizationReceipt = null;
+  let measuredPromotionFinalizationReceiptSha256 = null;
+  if (
+    typeof promotionFinalizationRelativePath === "string" &&
+    promotionFinalizationRelativePath.length > 0
+  ) {
+    const promotionFinalizationPath = path.resolve(
+      repositoryRoot,
+      promotionFinalizationRelativePath,
+    );
+    if (!isPathInside(repositoryRoot, promotionFinalizationPath)) {
+      fail("Promotion finalization receipt escapes the repository root.");
+    }
+    if (fs.existsSync(promotionFinalizationPath)) {
+      const finalizationBytes = fs.readFileSync(promotionFinalizationPath);
+      promotionFinalizationReceipt = JSON.parse(
+        finalizationBytes.toString("utf8"),
+      );
+      measuredPromotionFinalizationReceiptSha256 = sha256(finalizationBytes);
+    }
+  }
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
   );
@@ -481,6 +533,8 @@ function summarizeSource(repositoryRoot, policy) {
     buildLedger,
     promotionReceipt,
     measuredPromotionReceiptSha256,
+    promotionFinalizationReceipt,
+    measuredPromotionFinalizationReceiptSha256,
   });
   const semanticAuthority = new Map([
     [

@@ -341,6 +341,59 @@ void main() {
     );
   });
 
+  test('pending successor preserves Build 27 runtime and pilot history', () {
+    final policy = _readObject('release/production-release-policy.json');
+    final currentFinalization = (policy['finalization'] as Map)
+        .cast<String, dynamic>();
+    final currentDistribution = (policy['distribution'] as Map)
+        .cast<String, dynamic>();
+    final pendingFinalization = <String, dynamic>{
+      'status': 'pending-source-authorized',
+      'controlledPilotApproved': false,
+      'priorCompletedBuild': <String, dynamic>{
+        ...currentFinalization,
+        'buildNumber': 27,
+      },
+    };
+    final historicalDistribution = <String, dynamic>{
+      ...currentDistribution,
+      'preservedHistoricalAuthority': true,
+      'appliesToCurrentCandidate': false,
+    };
+    final prior = (pendingFinalization['priorCompletedBuild'] as Map)
+        .cast<String, dynamic>();
+    final historicalPilotPreserved =
+        historicalDistribution['approved'] == true &&
+        historicalDistribution['preservedHistoricalAuthority'] == true &&
+        historicalDistribution['appliesToCurrentCandidate'] == false &&
+        historicalDistribution['approvedBuildNumber'] == prior['buildNumber'] &&
+        pendingFinalization['controlledPilotApproved'] == false;
+
+    expect(historicalPilotPreserved, isTrue);
+    expect(prior['runtimeValidationPassed'], isTrue);
+    expect(prior['controlledPilotApproved'], isTrue);
+    expect(prior['physicalInstallationReceiptFile'], deviceEvidencePath);
+    expect(
+      prior['controlledPilotApproved'],
+      historicalPilotPreserved &&
+          prior['buildNumber'] == historicalDistribution['approvedBuildNumber'],
+    );
+
+    final verifier = File(
+      'tools/release/Test-ProductionReleasePolicy.ps1',
+    ).readAsStringSync();
+    expect(verifier, contains(r'$predecessorPhysicalEvidenceType'));
+    expect(verifier, contains("'production-build-device-acceptance'"));
+    expect(verifier, contains(r'$expectedPredecessorControlledPilotApproved'));
+    expect(verifier, contains(r'$expectedConsumedControlledPilotApproved'));
+    expect(
+      verifier,
+      contains(
+        'Predecessor device acceptance or retained pilot state is divergent.',
+      ),
+    );
+  });
+
   test('ledger and current index do not claim a distribution occurred', () {
     final ledger = _readObject('release/build-number-ledger.json');
     final build27 = _objects(

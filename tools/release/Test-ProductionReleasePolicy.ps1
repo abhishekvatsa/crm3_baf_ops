@@ -1620,6 +1620,9 @@ if ($RequireArtifactConstructionAuthority -and
   )
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
+$expectedConsumedControlledPilotApproved =
+  $historicalStagedPilotAuthorityPreserved -and
+  [int]$versionSource.consumedBuild.buildNumber -eq $approvedPilotBuildNumber
 $consumedAuthorityValid = $false
 if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and
     $consumedDisposition -in @('', 'failed-build') -and
@@ -1670,7 +1673,8 @@ if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
     $versionSource.consumedBuild.remoteBuiltTagCreated -eq $true -and
     $versionSource.consumedBuild.firebaseBackendDeploymentPerformed -eq
       $false -and
-    $versionSource.consumedBuild.controlledPilotApproved -eq $false -and
+    $versionSource.consumedBuild.controlledPilotApproved -eq
+      $expectedConsumedControlledPilotApproved -and
     $versionSource.consumedBuild.unrestrictedPlantReleaseApproved -eq
       $false -and
     $versionSource.consumedBuild.distributionPerformed -eq $false) {
@@ -2274,7 +2278,13 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.remoteBuiltCommit -or
       [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
       [string]$prior.governedPackageSha256 -ne
-        [string]$consumed.governedPackageSha256
+        [string]$consumed.governedPackageSha256 -or
+      $prior.runtimeValidationPassed -ne
+        $predecessorLedger.runtimeValidationPassed -or
+      [string]$prior.runtimeDisposition -ne
+        [string]$predecessorLedger.runtimeDisposition -or
+      $prior.controlledPilotApproved -ne
+        $predecessorLedger.controlledPilotApproved
   } else {
     $failed = $policy.finalization.priorFailedAttempt
     $predecessorBoundaryInvalid =
@@ -2318,7 +2328,118 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $predecessorPhysicalInstallation = Get-Content `
       -LiteralPath $predecessorPhysicalInstallationPath -Raw |
         ConvertFrom-Json
-    $expectedPredecessorPhysicalStatus =
+    $predecessorPhysicalEvidenceType =
+      [string]$predecessorPhysicalInstallation.evidenceType
+    $expectedPredecessorControlledPilotApproved =
+      $historicalStagedPilotAuthorityPreserved -and
+      [int]$prior.buildNumber -eq $approvedPilotBuildNumber
+    if ($predecessorPhysicalEvidenceType -eq
+        'production-build-device-acceptance') {
+      $predecessorDeviceMutationValues = @(
+        $predecessorPhysicalInstallation.businessMutationBoundary.
+          PSObject.Properties |
+          ForEach-Object { $_.Value }
+      )
+      $predecessorDeviceReleaseBoundaryValues = @(
+        $predecessorPhysicalInstallation.releaseBoundary.PSObject.Properties |
+          ForEach-Object { $_.Value }
+      )
+      $predecessorSignerContinuity = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.physicalDevice `
+        -Name 'signerContinuityVerifiedByInPlaceUpdate'
+      if ($null -eq $predecessorSignerContinuity) {
+        $predecessorSignerContinuity = Get-OptionalPropertyValue `
+          -InputObject $predecessorPhysicalInstallation.physicalDevice `
+          -Name 'signerContinuityVerified'
+      }
+      $predecessorUnsyncedRows = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.synchronization `
+        -Name 'unsyncedRows'
+      $predecessorUnresolvedRejections = Get-OptionalPropertyValue `
+        -InputObject $predecessorPhysicalInstallation.synchronization `
+        -Name 'unresolvedRejections'
+      if ((Get-Sha256 $predecessorPhysicalInstallationPath) -ne
+            ([string]$prior.physicalInstallationReceiptSha256).
+              ToUpperInvariant() -or
+          [string]$predecessorPhysicalInstallation.status -ne
+            [string]$prior.runtimeDisposition -or
+          [int64]$predecessorPhysicalInstallation.release.buildNumber -ne
+            [int64]$prior.buildNumber -or
+          [string]$predecessorPhysicalInstallation.release.releaseId -ne
+            [string]$consumed.releaseId -or
+          [string]$predecessorPhysicalInstallation.release.versionName -ne
+            [string]$consumed.versionName -or
+          [string]$predecessorPhysicalInstallation.release.applicationId -ne
+            [string]$policy.permanentApplicationId -or
+          [string]$predecessorPhysicalInstallation.release.sourceCommit -ne
+            [string]$prior.sourceCommit -or
+          [string]$predecessorPhysicalInstallation.release.
+            finalizationReceiptFile -ne
+            [string]$prior.completionReceiptFile -or
+          [string]$predecessorPhysicalInstallation.release.
+            finalizationReceiptSha256 -ne
+            (Get-Sha256 ([string]$prior.completionReceiptFile)) -or
+          [string]$predecessorPhysicalInstallation.release.
+            governedPackageSha256 -ne
+            [string]$prior.governedPackageSha256 -or
+          [string]$predecessorPhysicalInstallation.release.apkSha256 -ne
+            [string]$predecessorReceipt.governedPackage.apkSha256 -or
+          [string]$predecessorPhysicalInstallation.release.certificateSha256 -ne
+            [string]$predecessorReceipt.governedPackage.certificateSha256 -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            deviceSerialRecorded -ne $false -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            accountIdentifierRecorded -ne $false -or
+          [int64]$predecessorPhysicalInstallation.physicalDevice.
+            installedVersionCode -ne [int64]$prior.buildNumber -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            exactGovernedApkMatch -ne $true -or
+          $predecessorSignerContinuity -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            firstInstallTimePreserved -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationDataPreserved -ne $true -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationDataCleared -ne $false -or
+          $predecessorPhysicalInstallation.physicalDevice.
+            applicationUninstalled -ne $false -or
+          [string]$predecessorPhysicalInstallation.runtime.coldLaunchResult -ne
+            'passed' -or
+          $predecessorPhysicalInstallation.runtime.
+            approvedAuthenticatedSessionPreserved -ne $true -or
+          $predecessorPhysicalInstallation.runtime.authenticatedHomeRendered -ne
+            $true -or
+          $predecessorPhysicalInstallation.localStoreMigration.
+            governedOpenCompleted -ne $true -or
+          [string]$predecessorPhysicalInstallation.synchronization.
+            lastSyncResult -ne 'success' -or
+          $predecessorUnsyncedRows -isnot [int64] -or
+          $predecessorUnsyncedRows -ne 0 -or
+          $predecessorUnresolvedRejections -isnot [int64] -or
+          $predecessorUnresolvedRejections -ne 0 -or
+          @($predecessorDeviceMutationValues |
+            Where-Object { $_ -ne $false }).Count -ne 0 -or
+          $predecessorPhysicalInstallation.adjudication.
+            runtimeValidationPassed -ne $true -or
+          $predecessorPhysicalInstallation.adjudication.
+            fullBusinessFlowValidationCompleted -ne $false -or
+          @($predecessorDeviceReleaseBoundaryValues |
+            Where-Object { $_ -ne $false }).Count -ne 0 -or
+          [string]$prior.deviceAcceptanceReceiptFile -ne
+            $predecessorPhysicalInstallationPath -or
+          [string]$prior.deviceAcceptanceReceiptSha256 -ne
+            [string]$prior.physicalInstallationReceiptSha256 -or
+          $prior.runtimeValidationPassed -ne $true -or
+          [string]$prior.runtimeDisposition -ne
+            [string]$predecessorPhysicalInstallation.status -or
+          $prior.fullBusinessFlowValidationCompleted -ne $false -or
+          $prior.controlledPilotApproved -ne
+            $expectedPredecessorControlledPilotApproved) {
+        throw 'Predecessor device acceptance or retained pilot state is divergent.'
+      }
+    } elseif ($predecessorPhysicalEvidenceType -eq
+        'production-build-physical-installation-acceptance') {
+      $expectedPredecessorPhysicalStatus =
       'passed-exact-build' +
       [string]$prior.buildNumber +
       '-physical-in-place-authenticated-startup-and-local-recovery'
@@ -2416,6 +2537,9 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $prior.runtimeValidationPassed -ne $false -or
         $prior.controlledPilotApproved -ne $false) {
       throw 'Predecessor physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+      }
+    } else {
+      throw 'Predecessor physical-installation evidence type is unsupported.'
     }
   } elseif ($successfulPredecessor -and
       (-not [string]::IsNullOrWhiteSpace(
@@ -2731,7 +2855,10 @@ if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].dualCustodyCompleted -eq $true -and
     $consumedMatches[0].remoteBuiltTagCreated -eq $true -and
     $consumedMatches[0].firebaseBackendDeploymentPerformed -eq $false -and
-    $consumedMatches[0].controlledPilotApproved -eq $false -and
+    $consumedMatches[0].controlledPilotApproved -eq
+      $expectedConsumedControlledPilotApproved -and
+    $consumedMatches[0].controlledPilotApproved -eq
+      $versionSource.consumedBuild.controlledPilotApproved -and
     $consumedMatches[0].unrestrictedPlantReleaseApproved -eq $false -and
     $consumedMatches[0].distributionPerformed -eq $false) {
   $consumedLedgerValid = $true

@@ -489,6 +489,7 @@ check(
             "authorizedApkSha256"
         )
         == combined_policy.get("distribution", {}).get("approvedApkSha256")
+        == build27_finalization.get("governedPackage", {}).get("apkSha256")
         == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
     and build27_pilot_promotion.get("promotion", {}).get(
         "pilotHandoutAuthorized"
@@ -14227,6 +14228,8 @@ check(
         "tools/release/Test-ProductionReleaseManifest.ps1"
     )
     and "promotedReceiptBuild" in lr07_collector
+    and "promotionFinalizationReceipt" in lr07_collector
+    and "measuredPromotionFinalizationReceiptSha256" in lr07_collector
     and "retention-days: 1" in lr07_workflow
     and "retention-days: 90" not in lr07_workflow
     and "npm run test:distribution-readback-custody" in lr07_release_gate
