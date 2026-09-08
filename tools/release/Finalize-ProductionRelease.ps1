@@ -15,7 +15,7 @@ O-05 closes only as a production-signed, independently verified,
 non-distributable pre-release artifact. Controlled-pilot promotion is separate.
 #>
 
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'FileSystem')]
 param(
   [Parameter(Mandatory)][string]$RepoPath,
   [Parameter(Mandatory)]
@@ -25,7 +25,9 @@ param(
   [Parameter(Mandatory)][long]$GitHubRunId,
   [Parameter(Mandatory)][string]$ArtifactName,
   [Parameter(Mandatory)][string]$PrimaryCustodyDirectory,
-  [Parameter(Mandatory)][string]$BackupCustodyDirectory,
+  [Parameter(Mandatory, ParameterSetName = 'FileSystem')][string]$BackupCustodyDirectory,
+  [Parameter(Mandatory, ParameterSetName = 'PrivateGcs')][string]$BackupCustodyGsPrefix,
+  [Parameter(ParameterSetName = 'PrivateGcs')][string]$GcloudCommand = 'gcloud',
   [Parameter(Mandatory)][string]$CustodyApprover,
   [Parameter(Mandatory)][string]$CustodyReference,
   [string]$OutputDirectory = "$HOME\Downloads"
@@ -44,6 +46,12 @@ $ExpectedEnvironmentSecretNames = @(
   'CRM_ANDROID_RELEASE_KEYSTORE_BASE64'
   'CRM_ANDROID_RELEASE_STORE_PASSWORD'
 )
+
+$privateCloudCustody = $PSCmdlet.ParameterSetName -eq 'PrivateGcs'
+$cloudCustodyProofs = [Collections.Generic.List[object]]::new()
+if ($privateCloudCustody) {
+  . (Join-Path $PSScriptRoot 'Private-GcsReleaseCustody.ps1')
+}
 
 if ($PullRequestNumber -le 0 -or $GitHubRunId -le 0) {
   throw 'PullRequestNumber and GitHubRunId must be positive.'
@@ -209,7 +217,8 @@ function Copy-And-Verify {
   param(
     [Parameter(Mandatory)][string]$SourcePath,
     [Parameter(Mandatory)][string]$DestinationDirectory,
-    [Parameter(Mandatory)][string]$ExpectedSha256
+    [Parameter(Mandatory)][string]$ExpectedSha256,
+    [switch]$CreateOnly
   )
 
   New-Item -ItemType Directory -Force -Path $DestinationDirectory |
@@ -217,13 +226,31 @@ function Copy-And-Verify {
   $destination = Join-Path $DestinationDirectory (
     Split-Path -Leaf $SourcePath
   )
-  Copy-Item -LiteralPath $SourcePath -Destination $destination -Force
+  if ($CreateOnly) {
+    [IO.File]::Copy($SourcePath, $destination, $false)
+  } else {
+    Copy-Item -LiteralPath $SourcePath -Destination $destination -Force
+  }
 
   if ((Get-Sha256 $destination) -ne $ExpectedSha256) {
     throw "Custody-copy hash mismatch: $destination"
   }
 
   [IO.Path]::GetFullPath($destination)
+}
+
+function Copy-BackupCustody {
+  param([string]$SourcePath, [string]$ExpectedSha256, [string]$Purpose)
+  if ($privateCloudCustody) {
+    $proof = Copy-PrivateGcsCustodyFile -RepositoryRoot $repo `
+      -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber) `
+      -SourcePath $SourcePath -ExpectedSha256 $ExpectedSha256 -Purpose $Purpose `
+      -GcloudCommand $GcloudCommand
+    $cloudCustodyProofs.Add($proof)
+    return $proof.generationUri
+  }
+  Copy-And-Verify -SourcePath $SourcePath -DestinationDirectory $backupRoot `
+    -ExpectedSha256 $ExpectedSha256
 }
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -714,9 +741,15 @@ if ($null -ne $existingBuiltCommit -and
 }
 
 $primaryRoot = [IO.Path]::GetFullPath($PrimaryCustodyDirectory)
-$backupRoot = [IO.Path]::GetFullPath($BackupCustodyDirectory)
+$backupRoot = $null
+if ($privateCloudCustody) {
+  $privateCloudApproval = Assert-PrivateGcsCustodyAuthority -RepositoryRoot $repo `
+    -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber)
+} else {
+  $backupRoot = [IO.Path]::GetFullPath($BackupCustodyDirectory)
+}
 
-if ($primaryRoot.Equals(
+if (-not $privateCloudCustody -and $primaryRoot.Equals(
       $backupRoot,
       [StringComparison]::OrdinalIgnoreCase
     )) {
@@ -727,7 +760,9 @@ $repoRoot = [IO.Path]::GetFullPath($repo).TrimEnd(
   [IO.Path]::AltDirectorySeparatorChar
 )
 $repoPrefix = $repoRoot + [IO.Path]::DirectorySeparatorChar
-foreach ($custodyRoot in @($primaryRoot, $backupRoot)) {
+$localCustodyRoots = @($primaryRoot)
+if (-not $privateCloudCustody) { $localCustodyRoots += $backupRoot }
+foreach ($custodyRoot in $localCustodyRoots) {
   if ($custodyRoot.Equals(
         $repoRoot,
         [StringComparison]::OrdinalIgnoreCase
@@ -740,34 +775,34 @@ foreach ($custodyRoot in @($primaryRoot, $backupRoot)) {
   }
 }
 
-$primaryQualifier = Split-Path $primaryRoot -Qualifier
-$backupQualifier = Split-Path $backupRoot -Qualifier
-if (-not [string]::IsNullOrWhiteSpace($primaryQualifier) -and
-    $primaryQualifier.Equals(
-      $backupQualifier,
-      [StringComparison]::OrdinalIgnoreCase
-    )) {
-  throw 'Primary and backup custody must use distinct volume/share roots.'
+if (-not $privateCloudCustody) {
+  $primaryQualifier = Split-Path $primaryRoot -Qualifier
+  $backupQualifier = Split-Path $backupRoot -Qualifier
+  if (-not [string]::IsNullOrWhiteSpace($primaryQualifier) -and
+      $primaryQualifier.Equals(
+        $backupQualifier,
+        [StringComparison]::OrdinalIgnoreCase
+      )) {
+    throw 'Primary and backup custody must use distinct volume/share roots.'
+  }
 }
 
 $primaryPackagePath = Copy-And-Verify `
   -SourcePath $packageZip `
   -DestinationDirectory $primaryRoot `
-  -ExpectedSha256 $packageSha256
-$backupPackagePath = Copy-And-Verify `
+  -ExpectedSha256 $packageSha256 -CreateOnly:$privateCloudCustody
+$backupPackagePath = Copy-BackupCustody `
   -SourcePath $packageZip `
-  -DestinationDirectory $backupRoot `
-  -ExpectedSha256 $packageSha256
+  -ExpectedSha256 $packageSha256 -Purpose productionPackage
 
 $sidecarSha256 = Get-Sha256 $packageSidecar
 $primarySidecarPath = Copy-And-Verify `
   -SourcePath $packageSidecar `
   -DestinationDirectory $primaryRoot `
-  -ExpectedSha256 $sidecarSha256
-$backupSidecarPath = Copy-And-Verify `
+  -ExpectedSha256 $sidecarSha256 -CreateOnly:$privateCloudCustody
+$backupSidecarPath = Copy-BackupCustody `
   -SourcePath $packageSidecar `
-  -DestinationDirectory $backupRoot `
-  -ExpectedSha256 $sidecarSha256
+  -ExpectedSha256 $sidecarSha256 -Purpose productionPackageSidecar
 
 $productionCustodyReceipt = [ordered]@{
   schemaVersion = 1
@@ -784,6 +819,17 @@ $productionCustodyReceipt = [ordered]@{
   custodyApprover = $CustodyApprover
   custodyReference = $CustodyReference
   status = 'passed'
+}
+if ($privateCloudCustody) {
+  $productionCustodyReceipt.schemaVersion = 2
+  $productionCustodyReceipt.Remove('backupPackagePath')
+  $productionCustodyReceipt.Remove('backupSidecarPath')
+  $productionCustodyReceipt.mode = 'local-primary-private-gcs-backup'
+  $productionCustodyReceipt.independentlyStored = $true
+  $productionCustodyReceipt.backup = [ordered]@{
+    provider = 'gcs'; prefix = $BackupCustodyGsPrefix; approval = $privateCloudApproval
+    objects = @($cloudCustodyProofs.ToArray())
+  }
 }
 $productionCustodyReceiptPath =
   Join-Path $closureDirectory 'production-package-dual-custody.json'
@@ -985,6 +1031,10 @@ $closureDecision = [ordered]@{
 }
 $closureDecisionPath =
   Join-Path $closureDirectory 'O1_O5_CLOSURE_DECISION.json'
+if ($privateCloudCustody) {
+  $closureDecision.schemaVersion = 5
+  $closureDecision.custodyMode = 'local-primary-private-gcs-backup'
+}
 Write-Utf8NoBom `
   -Path $closureDecisionPath `
   -Text (($closureDecision | ConvertTo-Json -Depth 30) + "`n")
@@ -1030,21 +1080,19 @@ Write-Utf8NoBom `
 $primaryClosurePath = Copy-And-Verify `
   -SourcePath $closureZip `
   -DestinationDirectory $primaryRoot `
-  -ExpectedSha256 $closureSha256
-$backupClosurePath = Copy-And-Verify `
+  -ExpectedSha256 $closureSha256 -CreateOnly:$privateCloudCustody
+$backupClosurePath = Copy-BackupCustody `
   -SourcePath $closureZip `
-  -DestinationDirectory $backupRoot `
-  -ExpectedSha256 $closureSha256
+  -ExpectedSha256 $closureSha256 -Purpose closurePackage
 
 $closureSidecarSha256 = Get-Sha256 $closureSidecar
 $primaryClosureSidecarPath = Copy-And-Verify `
   -SourcePath $closureSidecar `
   -DestinationDirectory $primaryRoot `
-  -ExpectedSha256 $closureSidecarSha256
-$backupClosureSidecarPath = Copy-And-Verify `
+  -ExpectedSha256 $closureSidecarSha256 -CreateOnly:$privateCloudCustody
+$backupClosureSidecarPath = Copy-BackupCustody `
   -SourcePath $closureSidecar `
-  -DestinationDirectory $backupRoot `
-  -ExpectedSha256 $closureSidecarSha256
+  -ExpectedSha256 $closureSidecarSha256 -Purpose closurePackageSidecar
 
 $finalCustodyRecord = [ordered]@{
   schemaVersion = 2
@@ -1080,6 +1128,18 @@ $finalCustodyRecord = [ordered]@{
   backupVerified = $true
   status = 'passed'
 }
+if ($privateCloudCustody) {
+  $finalCustodyRecord.schemaVersion = 3
+  foreach ($field in @('backupProductionPackagePath','backupClosurePackagePath','backupClosureSidecarPath')) {
+    $finalCustodyRecord.Remove($field)
+  }
+  $finalCustodyRecord.mode = 'local-primary-private-gcs-backup'
+  $finalCustodyRecord.independentlyStored = $true
+  $finalCustodyRecord.backup = [ordered]@{
+    provider = 'gcs'; prefix = $BackupCustodyGsPrefix; approval = $privateCloudApproval
+    objects = @($cloudCustodyProofs.ToArray())
+  }
+}
 $custodyRecordPath =
   Join-Path $OutputDirectory (
     "CRM_III_BAF_Ops_O1_O5_CUSTODY_$timestamp.json"
@@ -1093,15 +1153,40 @@ Write-Utf8NoBom `
   -Path $custodySidecar `
   -Text "$custodyRecordSha256  $(Split-Path -Leaf $custodyRecordPath)`n"
 
-foreach ($destination in @($primaryRoot, $backupRoot)) {
+foreach ($destination in $localCustodyRoots) {
   Copy-And-Verify `
     -SourcePath $custodyRecordPath `
     -DestinationDirectory $destination `
-    -ExpectedSha256 $custodyRecordSha256 | Out-Null
+    -ExpectedSha256 $custodyRecordSha256 -CreateOnly:$privateCloudCustody | Out-Null
   Copy-And-Verify `
     -SourcePath $custodySidecar `
     -DestinationDirectory $destination `
-    -ExpectedSha256 (Get-Sha256 $custodySidecar) | Out-Null
+    -ExpectedSha256 (Get-Sha256 $custodySidecar) -CreateOnly:$privateCloudCustody | Out-Null
+}
+
+if ($privateCloudCustody) {
+  Copy-BackupCustody -SourcePath $custodyRecordPath -ExpectedSha256 $custodyRecordSha256 `
+    -Purpose custodyRecord | Out-Null
+  Copy-BackupCustody -SourcePath $custodySidecar -ExpectedSha256 (Get-Sha256 $custodySidecar) `
+    -Purpose custodyRecordSidecar | Out-Null
+  if ($cloudCustodyProofs.Count -ne 6 -or @($cloudCustodyProofs.purpose | Select-Object -Unique).Count -ne 6) {
+    throw 'Private custody did not independently verify every required package, sidecar and custody record.'
+  }
+  # External evidence includes the custody-record copy itself without a self-hash cycle.
+  $cloudVerification = [ordered]@{
+    schemaVersion = 1; evidenceType = 'private-gcs-release-custody'
+    mode = 'local-primary-private-gcs-backup'; buildNumber = 28
+    sourceCommit = $expected; githubRunId = [string]$GitHubRunId
+    primaryDirectory = $primaryRoot; backupPrefix = $BackupCustodyGsPrefix
+    independentlyStored = $true; approval = $privateCloudApproval
+    objects = @($cloudCustodyProofs.ToArray()); status = 'passed'
+    completedAtUtc = [DateTime]::UtcNow.ToString('o')
+  }
+  $cloudVerificationPath = Join-Path $OutputDirectory "PRIVATE_GCS_CUSTODY_READBACK_$timestamp.json"
+  Write-Utf8NoBom -Path $cloudVerificationPath -Text (($cloudVerification | ConvertTo-Json -Depth 30) + "`n")
+  Copy-And-Verify -SourcePath $cloudVerificationPath -DestinationDirectory $primaryRoot `
+    -ExpectedSha256 (Get-Sha256 $cloudVerificationPath) -CreateOnly | Out-Null
+  Write-Host "Private cloud custody verification: $cloudVerificationPath"
 }
 
 Write-Host ''
