@@ -8,6 +8,7 @@ import fs from "node:fs";
 import {createHash} from "node:crypto";
 
 const require = createRequire(import.meta.url);
+const {verifyStagedPromotionSourceAuthority} = require('./stagedPromotionSourceAuthority.js');
 const {
   adjudicateReadback,
   parseArgs,
@@ -22,6 +23,7 @@ const repositoryRoot = path.resolve(
 );
 
 const backendClosureDecisions = [
+  ['deployment.functionCount', 15],
   ['authorityChronology.allObservedFunctionUpdatesPostdateOwnerInstruction', true],
   ['authorityChronology.deploymentWasRetroactivelyAuthorized', false],
   ['controlBoundary.aggregateBacklogQueriesPerformed', true],
@@ -39,6 +41,7 @@ const backendClosureDecisions = [
   ['cleanMainLiveReadbacks.firestoreRulesAndIndexes.allIndexesReady', true],
 ];
 
+let measuredStagedSourceAuthorityProof;
 function measuredPromotionFixture() {
   const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'));
   const hashFile = (file) => createHash('sha256')
@@ -46,6 +49,11 @@ function measuredPromotionFixture() {
   const input = {policy: read('release/lr07-distribution-installation-readback-policy.json'),
     releasePolicy: read('release/production-release-policy.json'),
     buildLedger: read('release/build-number-ledger.json')};
+  measuredStagedSourceAuthorityProof ??= verifyStagedPromotionSourceAuthority({
+    repoRoot: repositoryRoot, releasePolicy: input.releasePolicy,
+  });
+  assert.equal(measuredStagedSourceAuthorityProof.ok, true, JSON.stringify(measuredStagedSourceAuthorityProof.reasons));
+  input.stagedSourceAuthorityProof = structuredClone(measuredStagedSourceAuthorityProof);
   input.promotionReceipt = read(input.releasePolicy.postBuildPromotion.promotionReceiptFile);
   input.measuredPromotionReceiptSha256 = hashFile(input.releasePolicy.postBuildPromotion.promotionReceiptFile);
   const receiptPaths = [
@@ -81,9 +89,7 @@ test('measured backend authorization and readback decisions cannot contradict pi
   const healthy = measuredPromotionFixture();
   assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
   for (const [field, expected] of backendClosureDecisions) {
-    const badValues = typeof expected === 'boolean' ?
-      [!expected, String(expected), 0, 1, null, undefined, [expected]] :
-      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, undefined, [expected]];
+    const badValues = badDecisionValues(expected);
     for (const value of badValues) {
       const input = structuredClone(healthy);
       const parts = field.split('.');
@@ -99,6 +105,41 @@ test('measured backend authorization and readback decisions cannot contradict pi
   }
 });
 
+const finalizationDecisions = [
+  ['schemaVersion', 1],
+  ['evidenceType', 'production-build-finalization-closure'],
+  ['status', 'passed-non-distributable'],
+  ['workflow.conclusion', 'success'],
+  ['workflow.secretValuesInspected', false],
+  ['governedPackage.independentVerificationCompleted', true],
+  ['dualCustody.status', 'passed'],
+  ['dualCustody.distinctVolumes', true],
+  ['dualCustody.allFileHashesMatched', true],
+  ['recoveryIncident.occurred', false],
+  ['recoveryIncident.forceUsed', false],
+  ['runtimeAdjudication.status', 'not-adjudicated-by-build-finalization'],
+  ['runtimeAdjudication.runtimeValidationPassed', false],
+  ['runtimeAdjudication.physicalTargetCount', 0],
+  ['runtimeAdjudication.emulatorTargetCount', 0],
+  ['runtimeAdjudication.appDataClearPerformed', false],
+  ['runtimeAdjudication.liveBusinessFlowValidationCompleted', false],
+  ['releaseBoundary.firebaseBackendDeploymentPerformed', false],
+  ['releaseBoundary.controlledPilotApproved', false],
+  ['releaseBoundary.unrestrictedPlantReleaseApproved', false],
+  ['releaseBoundary.distributionPerformed', false],
+  ['releaseBoundary.runtimeValidationPassed', false],
+  ['releaseBoundary.fullBusinessFlowValidationPassed', false],
+];
+
+function badDecisionValues(expected) {
+  return typeof expected === 'boolean' ?
+    [!expected, String(expected), 0, 1, null, undefined, [expected], {}] :
+    typeof expected === 'number' ?
+      [expected + 1, String(expected), false, null, undefined, [expected], {}] :
+      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(),
+        false, null, undefined, [expected], {}];
+}
+
 const promotionAndCustodyDecisions = [
   ['Receipt', 'sourceAuthority.postMergeCi.allRequiredJobsPassed', true],
   ['Receipt', 'sourceAuthority.postMergeCi.conclusion', 'success'],
@@ -107,18 +148,18 @@ const promotionAndCustodyDecisions = [
   ['Receipt', 'programmeDecision.canary', 'TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION'],
   ['Receipt', 'programmeDecision.mutatingBusinessFlowValidation', 'OPEN_COLLECT_DURING_CANARY'],
   ['Receipt', 'programmeDecision.unrestrictedDistribution', 'NO_GO'],
-  ['FinalizationReceipt', 'governedPackage.independentVerificationCompleted', true],
-  ['FinalizationReceipt', 'dualCustody.allFileHashesMatched', true],
-  ['FinalizationReceipt', 'dualCustody.status', 'passed'],
+  ...finalizationDecisions.map(([field, expected]) => ['FinalizationReceipt', field, expected]),
+  ...['release.buildNumber', 'sourceAuthority.commit', 'governedPackage.sha256', 'governedPackage.apkSha256'].map((field) => [
+    'FinalizationReceipt', field, field.split('.').reduce((value, key) => value[key],
+      measuredPromotionFixture().promotionFinalizationReceipt),
+  ]),
 ];
 
 test('measured promotion and custody verdicts cannot contradict retained pilot authority', () => {
   const healthy = measuredPromotionFixture();
   assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
   for (const [receiptKey, field, expected] of promotionAndCustodyDecisions) {
-    const badValues = typeof expected === 'boolean' ?
-      [!expected, String(expected), 0, null, undefined, [expected]] :
-      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, undefined, [expected]];
+    const badValues = badDecisionValues(expected);
     for (const value of badValues) {
       const input = structuredClone(healthy);
       const parts = field.split('.');
@@ -602,6 +643,7 @@ test("completed successor still requires every retained failed-attempt receipt",
   };
   const promotionReceipt = {
     schemaVersion: 1,
+    recordedAtUtc: '2026-09-08T14:00:00Z',
     evidenceType: "production-build-staged-controlled-pilot-authorization",
     decision: "PASS_BUILD11_STAGED_CONTROLLED_PILOT_AUTHORIZED",
     sourceAuthority: {postMergeCi: {allRequiredJobsPassed: true, conclusion: 'success'}},
@@ -694,20 +736,29 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   };
   const promotionFinalizationReceipt = {
+    ...measuredPromotionFixture().promotionFinalizationReceipt,
     release: {buildNumber: completed.buildNumber},
     sourceAuthority: {commit: completed.headSha},
     governedPackage: {
       sha256: completed.governedPackageSha256,
       apkSha256: apkSha,
+      certificateSha256: certificateSha,
       independentVerificationCompleted: true,
     },
-    dualCustody: {allFileHashesMatched: true, status: 'passed'},
+    dualCustody: {allFileHashesMatched: true, distinctVolumes: true, status: 'passed',
+      governedPackageCompletedAtUtc: '2026-09-08T03:56:00Z',
+      closureArchiveCompletedAtUtc: '2026-09-08T03:58:00Z'},
   };
   const promotionFinalizationAuthority = {
+    stagedSourceAuthorityProof: {
+      ok: true, historicalBackendReceiptFile: backendReceiptPath,
+      historicalBackendReceiptSha256: backendReceiptSha,
+    },
     promotionFinalizationReceipt,
     measuredPromotionFinalizationReceiptSha256: completionSha,
   };
   const promotionDeviceAcceptanceReceipt = {
+    recordedAtUtc: '2026-09-08T13:15:00Z',
     evidenceType: "production-build-device-acceptance",
     status: runtimeDisposition,
     release: {
@@ -750,6 +801,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       ticketSubmitted: false,
     },
     synchronization: {
+      inventoryCapturedAtUtc: '2026-09-08T12:44:00Z',
       automaticStartupSyncPassesObserved: 2,
       syncStateAtInventory: "idle",
       globalPullConflict: 0,
@@ -780,6 +832,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   };
   const promotionOwnerApproval = {
+    approvedAtUtc: '2026-09-08T09:00:00Z',
     schemaVersion: 1,
     approvalClass: "EXACT_BUILD11_STAGED_CONTROLLED_PILOT_PROMOTION",
     approvalReference: "BAF-REF-004-C11-PILOT",
@@ -823,6 +876,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   };
   const promotionBackendReceipt = {
+    recordedAtUtc: '2026-09-08T01:00:00Z',
     schemaVersion: 1,
     evidenceType: "exact-current-source-backend-deployment-closure",
     decision: "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
@@ -847,9 +901,15 @@ test("completed successor still requires every retained failed-attempt receipt",
     cleanMainLiveReadbacks: {
       functionFleet: {failedChecks: 0, decision: 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL'},
       iamDependencies: {failedChecks: 0, postureHolds: 0, decision: 'PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK'},
-      firestoreRulesAndIndexes: {failedChecks: 0, verified: true, allIndexesReady: true, decision: 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK'},
+      firestoreRulesAndIndexes: {
+        failedChecks: 0, verified: true, allIndexesReady: true,
+        decision: 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+        sourceCommit: completed.headSha, sourceTree: 'f'.repeat(40),
+        canonicalReceiptSha256: 'c'.repeat(64).toUpperCase(),
+      },
     },
     deployment: {
+      functionCount: 15,
       allFunctionsExactSourceVerified: true,
       finalRuntimeIdentityReadbackPassed: true,
       finalIamDependencyReadbackPassed: true,
@@ -883,10 +943,21 @@ test("completed successor still requires every retained failed-attempt receipt",
   };
   const promotionFirestoreReceipt = {
     schemaVersion: 1,
+    capturedAtUtc: '2026-09-08T13:59:00Z',
     evidenceType: "firestore-rules-indexes-live-readback",
     mode: "STRICT",
     projectId: policy.productionProjectId,
     decision: "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+    failedChecks: [],
+    checks: {rulesByteExact: true, indexCountsExact: true},
+    receiptSha256: 'c'.repeat(64),
+    source: {
+      before: {
+        branch: 'main', commit: completed.headSha, originMain: completed.headSha,
+        tree: 'f'.repeat(40),
+      },
+      after: {commit: completed.headSha},
+    },
     outputs: {
       rules: {
         sourceSha256: rulesSha,
@@ -895,6 +966,9 @@ test("completed successor still requires every retained failed-attempt receipt",
       },
       indexes: {
         sourceCount: 66,
+        cliCount: 66,
+        apiCount: 66,
+        apiReadyCount: 66,
         sourceSetSha256: indexSetSha,
         cliSetSha256: indexSetSha,
         apiSetSha256: indexSetSha,
@@ -1880,9 +1954,7 @@ test('PowerShell rejects every measured backend authorization/readback contradic
   const backendPath = path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''");
   const cases = backendClosureDecisions.map(([field, expected]) => ({
     field,
-    badValues: typeof expected === 'boolean' ?
-      [!expected, String(expected), 0, 1, null, [expected]] :
-      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, [expected]],
+    badValues: badDecisionValues(expected).filter((value) => value !== undefined),
   }));
   const script = `
     $ErrorActionPreference = 'Stop'
@@ -1921,9 +1993,7 @@ test('PowerShell promotion and custody guards reject contradictory measured verd
   const rootPath = repositoryRoot.replaceAll("'", "''");
   const cases = promotionAndCustodyDecisions.map(([receiptKey, field, expected]) => ({
     receiptKey, field,
-    badValues: typeof expected === 'boolean' ?
-      [!expected, String(expected), 0, null, [expected]] :
-      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, [expected]],
+    badValues: badDecisionValues(expected).filter((value) => value !== undefined),
   }));
   const script = `
     $ErrorActionPreference = 'Stop'
@@ -1933,6 +2003,8 @@ test('PowerShell promotion and custody guards reject contradictory measured verd
     $promotionGuard = $ast.Find({param($node) $node -is [System.Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw 'Post-build promotion exceeds or differs from the exact staged-pilot boundary.'")}, $true)
     $custodyGuard = $ast.Find({param($node) $node -is [System.Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw 'Promoted build retained finalization authority is incomplete or divergent.'")}, $true)
     if ($null -eq $promotionGuard -or $null -eq $custodyGuard) { throw 'Missing measured receipt guard' }
+    $decisionPredicate = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-PromotedFinalizationDecisions'}, $true)
+    Invoke-Expression $decisionPredicate.Extent.Text
     $policy = [IO.File]::ReadAllText('${policyPath}') | ConvertFrom-Json
     $promotionReceiptPath = $policy.postBuildPromotion.promotionReceiptFile
     $promotionJson = [IO.File]::ReadAllText((Join-Path '${rootPath}' $promotionReceiptPath))
@@ -1953,7 +2025,7 @@ test('PowerShell promotion and custody guards reject contradictory measured verd
         $target = if ($case.receiptKey -eq 'Receipt') { $promotionReceipt } else { $promotionFinalizationReceipt }
         $guard = if ($case.receiptKey -eq 'Receipt') { $promotionGuard } else { $custodyGuard }
         $parts = $case.field.Split('.')
-        foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
+        for ($index = 0; $index -lt $parts.Length - 1; $index++) { $target = $target.($parts[$index]) }
         $target.($parts[-1]) = $badValue
         $rejected = $false
         try { Invoke-Expression $guard.Extent.Text } catch { $rejected = $true }
@@ -1968,6 +2040,98 @@ test('PowerShell promotion and custody guards reject contradictory measured verd
   `;
   const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
   assert.match(output, /PASS_MEASURED_PROMOTION_CUSTODY_DECISIONS/);
+});
+
+test('measured device proof cannot change its target, outcome, signer or tested surfaces', () => {
+  const healthy = measuredPromotionFixture();
+  const cases = [
+    (input) => {
+      input.promotionDeviceAcceptanceReceipt.physicalDevice.targetCount = 2;
+      input.promotionReceipt.admittedEvidence.deviceAcceptance.physicalTargetCount = 2;
+    },
+    (input) => {
+      const original = input.promotionDeviceAcceptanceReceipt.status;
+      const replace = (object) => {
+        for (const key of Object.keys(object)) {
+          if (object[key] === original) object[key] = 'passed-unmeasured-surface';
+          else if (object[key] != null && typeof object[key] === 'object') replace(object[key]);
+        }
+      };
+      replace(input);
+    },
+    (input) => { input.promotionDeviceAcceptanceReceipt.release.certificateSha256 = '0'.repeat(64); },
+    (input) => { input.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces.reverse(); },
+    (input) => { delete input.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces; },
+    (input) => { input.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces.pop(); },
+    (input) => { input.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces[0] = ['authenticated-shift-overview-and-plant-condition']; },
+    ...['deviceSerialRecorded', 'accountIdentifierRecorded'].flatMap((key) =>
+      [true, 'false', 0, null, undefined, [false]].map((value) => (input) => {
+        if (value === undefined) delete input.promotionDeviceAcceptanceReceipt.physicalDevice[key];
+        else input.promotionDeviceAcceptanceReceipt.physicalDevice[key] = value;
+      })),
+  ];
+  for (const [index, mutate] of cases.entries()) {
+    const input = structuredClone(healthy);
+    mutate(input);
+    rebindMeasuredReceipt(input, 'DeviceAcceptanceReceipt');
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false, `device case ${index}`);
+  }
+  const fallback = structuredClone(healthy);
+  fallback.promotionDeviceAcceptanceReceipt.validatedSurfaces = fallback.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces;
+  delete fallback.promotionDeviceAcceptanceReceipt.validatedReadOnlySurfaces;
+  rebindMeasuredReceipt(fallback, 'DeviceAcceptanceReceipt');
+  assert.equal(summarizeMutableSourceAuthority(fallback).controlledPilotPromotionExact, true);
+});
+
+test('staged source proof must be successful and bound to the measured backend receipt', () => {
+  const healthy = measuredPromotionFixture();
+  for (const proof of [null, {}, {ok: true},
+    {...healthy.stagedSourceAuthorityProof, ok: false},
+    {...healthy.stagedSourceAuthorityProof, ok: 'true'},
+    {...healthy.stagedSourceAuthorityProof, historicalBackendReceiptFile: 'release/evidence/unrelated.json'},
+    {...healthy.stagedSourceAuthorityProof, historicalBackendReceiptSha256: '0'.repeat(64)}]) {
+    const input = structuredClone(healthy);
+    input.stagedSourceAuthorityProof = proof;
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false);
+  }
+});
+
+test('measured promotion and device evidence must follow every admitted UTC timestamp', () => {
+  const healthy = measuredPromotionFixture();
+  const fields = [
+    ['OwnerApproval', 'approvedAtUtc'],
+    ['FinalizationReceipt', 'workflow.completedAtUtc'],
+    ['FinalizationReceipt', 'dualCustody.governedPackageCompletedAtUtc'],
+    ['FinalizationReceipt', 'closure.decisionAtUtc'],
+    ['FinalizationReceipt', 'dualCustody.closureArchiveCompletedAtUtc'],
+    ['DeviceAcceptanceReceipt', 'recordedAtUtc'],
+    ['BackendReceipt', 'recordedAtUtc'],
+    ['FirestoreReceipt', 'capturedAtUtc'],
+    ['DeviceAcceptanceReceipt', 'synchronization.inventoryCapturedAtUtc'],
+  ];
+  for (const [receiptKey, field] of fields) {
+    for (const value of ['2099-09-08T00:00:00Z', 'not-a-time', '2026-09-08T00:00:00+00:00', null, undefined, false, ['2026-09-08T00:00:00Z']]) {
+      const input = structuredClone(healthy);
+      const parts = field.split('.');
+      let target = input[`promotion${receiptKey}`];
+      for (const key of parts.slice(0, -1)) target = target[key];
+      if (value === undefined) delete target[parts.at(-1)];
+      else target[parts.at(-1)] = value;
+      rebindMeasuredReceipt(input, receiptKey);
+      assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false, `${receiptKey}.${field}: ${JSON.stringify(value)}`);
+    }
+  }
+  for (const value of ['2020-01-01T00:00:00Z', null, undefined, ['2026-09-08T14:00:00Z']]) {
+    const input = structuredClone(healthy);
+    if (value === undefined) delete input.promotionReceipt.recordedAtUtc;
+    else input.promotionReceipt.recordedAtUtc = value;
+    rebindMeasuredReceipt(input, 'Receipt');
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false);
+  }
+  const beforeInventory = structuredClone(healthy);
+  beforeInventory.promotionDeviceAcceptanceReceipt.recordedAtUtc = '2026-09-08T12:00:00Z';
+  rebindMeasuredReceipt(beforeInventory, 'DeviceAcceptanceReceipt');
+  assert.equal(summarizeMutableSourceAuthority(beforeInventory).controlledPilotPromotionExact, false);
 });
 
 test("argument parser rejects the wrong repository and missing receipt", () => {
@@ -2001,4 +2165,70 @@ test("argument parser rejects the wrong repository and missing receipt", () => {
       ]),
     /installationReceiptPath/,
   );
+});
+
+function rebindLoadedFirestoreEvidence(input) {
+  const {sealReceipt} = require('./collectProductionGlobalPullBackend.js');
+  const {receiptSha256: oldSeal, ...body} = input.promotionFirestoreReceipt;
+  input.promotionFirestoreReceipt = sealReceipt(body);
+  input.promotionBackendReceipt.cleanMainLiveReadbacks.firestoreRulesAndIndexes
+    .canonicalReceiptSha256 = input.promotionFirestoreReceipt.receiptSha256.toUpperCase();
+  rebindMeasuredReceipt(input, 'FirestoreReceipt');
+  rebindMeasuredReceipt(input, 'BackendReceipt');
+}
+
+test('loaded Firestore measurements reject adverse or missing evidence despite rebound receipt hashes', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  const cases = [
+    ['failedChecks', [['rulesByteExact'], {}, 0, false, null, undefined]],
+    ['checks', [{rulesByteExact: false}, {rulesByteExact: 'true'}, {rulesByteExact: 1}, {}, [], [true], null, undefined]],
+    ...['cliCount', 'apiCount', 'apiReadyCount'].map((field) =>
+      [`outputs.indexes.${field}`, [65, '66', 66.5, -1, false, null, undefined]]),
+    ['source.before.branch', ['topic', ['main'], null, undefined]],
+    ...['source.before.commit', 'source.before.originMain', 'source.after.commit'].map((field) =>
+      [field, ['0'.repeat(40), false, null, undefined]]),
+    ['source.before.tree', ['0'.repeat(40), false, null, undefined]],
+    ...['firestoreRulesDeployed', 'firestoreIndexesDeployed', 'firestoreDocumentsRead',
+      'firestoreDocumentsWritten', 'businessDataMutated'].map((field) =>
+      [`mutationBoundary.${field}`, [true, 'false', 0, null, undefined]]),
+  ];
+  for (const [field, values] of cases) {
+    for (const value of values) {
+      const input = structuredClone(healthy);
+      const parts = field.split('.');
+      let target = input.promotionFirestoreReceipt;
+      for (const key of parts.slice(0, -1)) target = target[key];
+      if (value === undefined) delete target[parts.at(-1)];
+      else target[parts.at(-1)] = value;
+      rebindLoadedFirestoreEvidence(input);
+      const result = summarizeMutableSourceAuthority(input);
+      assert.equal(result.controlledPilotPromotionExact, false, `${field}: ${JSON.stringify(value)}`);
+      assert.equal(result.releasePolicyExact, false, `${field}: ${JSON.stringify(value)}`);
+    }
+  }
+});
+
+test('loaded Firestore canonical and source bindings require exact scalar authority', () => {
+  const healthy = measuredPromotionFixture();
+  for (const field of ['canonicalReceiptSha256', 'sourceCommit', 'sourceTree']) {
+    for (const value of [null, undefined, false, [], '0'.repeat(field === 'canonicalReceiptSha256' ? 64 : 40)]) {
+      const input = structuredClone(healthy);
+      const authority = input.promotionBackendReceipt.cleanMainLiveReadbacks.firestoreRulesAndIndexes;
+      if (value === undefined) delete authority[field];
+      else authority[field] = value;
+      rebindMeasuredReceipt(input, 'BackendReceipt');
+      assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false,
+        `${field}: ${JSON.stringify(value)}`);
+    }
+  }
+  for (const value of [null, undefined, false, [], '0'.repeat(64)]) {
+    const input = structuredClone(healthy);
+    if (value === undefined) delete input.promotionFirestoreReceipt.receiptSha256;
+    else input.promotionFirestoreReceipt.receiptSha256 = value;
+    rebindMeasuredReceipt(input, 'FirestoreReceipt');
+    rebindMeasuredReceipt(input, 'BackendReceipt');
+    assert.equal(summarizeMutableSourceAuthority(input).controlledPilotPromotionExact, false,
+      `receiptSha256: ${JSON.stringify(value)}`);
+  }
 });

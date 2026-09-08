@@ -143,6 +143,65 @@ function Test-CompletedAutomaticSynchronization {
     $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
 }
 
+function Test-PromotedFinalizationDecisions {
+  param([object]$Receipt)
+  $facts = @(
+    @{ Path = 'schemaVersion'; Expected = 1 }
+    @{ Path = 'evidenceType'; Expected = 'production-build-finalization-closure' }
+    @{ Path = 'status'; Expected = 'passed-non-distributable' }
+    @{ Path = 'workflow.conclusion'; Expected = 'success' }
+    @{ Path = 'workflow.secretValuesInspected'; Expected = $false }
+    @{ Path = 'governedPackage.independentVerificationCompleted'; Expected = $true }
+    @{ Path = 'dualCustody.status'; Expected = 'passed' }
+    @{ Path = 'dualCustody.distinctVolumes'; Expected = $true }
+    @{ Path = 'dualCustody.allFileHashesMatched'; Expected = $true }
+    @{ Path = 'runtimeAdjudication.status'; Expected = 'not-adjudicated-by-build-finalization' }
+    @{ Path = 'runtimeAdjudication.runtimeValidationPassed'; Expected = $false }
+    @{ Path = 'runtimeAdjudication.physicalTargetCount'; Expected = 0 }
+    @{ Path = 'runtimeAdjudication.emulatorTargetCount'; Expected = 0 }
+    @{ Path = 'runtimeAdjudication.appDataClearPerformed'; Expected = $false }
+    @{ Path = 'runtimeAdjudication.liveBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'releaseBoundary.firebaseBackendDeploymentPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.controlledPilotApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.unrestrictedPlantReleaseApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.distributionPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.runtimeValidationPassed'; Expected = $false }
+    @{ Path = 'releaseBoundary.fullBusinessFlowValidationPassed'; Expected = $false }
+  )
+  $recovery = $Receipt.recoveryIncident
+  if ($null -eq $recovery -or $recovery.occurred -isnot [bool]) { return $false }
+  if ($recovery.occurred) {
+    # Preserve the existing governed built-tag push recovery route.
+    $facts += @(
+      @{ Path = 'recoveryIncident.failureBoundary'; Expected = 'remote-built-tag-push' }
+      @{ Path = 'recoveryIncident.sourceExpression'; Expected = 'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"' }
+      @{ Path = 'recoveryIncident.sourceCorrection.correctedExpression'; Expected = 'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"' }
+      @{ Path = 'recoveryIncident.stateBeforeRecovery.rebuildPerformed'; Expected = $false }
+      @{ Path = 'recoveryIncident.stateBeforeRecovery.workflowRerunPerformed'; Expected = $false }
+      @{ Path = 'recoveryIncident.recovery.forceUsed'; Expected = $false }
+      @{ Path = 'recoveryIncident.verification.closurePassed'; Expected = $true }
+    )
+  } else {
+    if ($null -ne $recovery.PSObject.Properties['sourceExpression']) { return $false }
+    $facts += @{ Path = 'recoveryIncident.forceUsed'; Expected = $false }
+  }
+  foreach ($fact in $facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
+    } elseif ($value -isnot [string] -or $value -cne $fact.Expected) { return $false }
+  }
+  return $true
+}
+
 function ConvertFrom-BackendReceiptJson {
   param([Parameter(Mandatory)][string]$Text)
   $receipt = $Text | ConvertFrom-Json
@@ -212,6 +271,7 @@ function Test-ZeroBackendReadbackFailures {
   $firestoreDeployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'firestoreDeployment'
   # These are recorded authorization/pass decisions, not descriptive metadata.
   $closureDecisions = @(
+    @{ Object = $deployment; Name = 'functionCount'; Expected = 15 }
     @{ Object = $chronology; Name = 'allObservedFunctionUpdatesPostdateOwnerInstruction'; Expected = $true }
     @{ Object = $chronology; Name = 'deploymentWasRetroactivelyAuthorized'; Expected = $false }
     @{ Object = $boundary; Name = 'aggregateBacklogQueriesPerformed'; Expected = $true }
@@ -235,6 +295,8 @@ function Test-ZeroBackendReadbackFailures {
     $value = $property.Value
     if ($fact.Expected -is [bool]) {
       if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
     } elseif ($value -isnot [string] -or $value -cne $fact.Expected) {
       return $false
     }
@@ -845,15 +907,19 @@ if ((Get-Sha256 $promotionFinalizationPath) -ne
 }
 $promotionFinalizationReceipt =
   Get-Content -LiteralPath $promotionFinalizationPath -Raw | ConvertFrom-Json
-if ([string]$promotionFinalizationReceipt.status -ne
-      'passed-non-distributable' -or
-    [int]$promotionFinalizationReceipt.release.buildNumber -ne
+if (-not (Test-PromotedFinalizationDecisions $promotionFinalizationReceipt) -or
+    ($promotionFinalizationReceipt.release.buildNumber -isnot [int] -and
+      $promotionFinalizationReceipt.release.buildNumber -isnot [int64]) -or
+    $promotionFinalizationReceipt.release.buildNumber -ne
       $promotionBuildNumber -or
-    [string]$promotionFinalizationReceipt.sourceAuthority.commit -ne
+    $promotionFinalizationReceipt.sourceAuthority.commit -isnot [string] -or
+    $promotionFinalizationReceipt.sourceAuthority.commit -cne
       [string]$promotionAuthorityBuild.sourceCommit -or
-    [string]$promotionFinalizationReceipt.governedPackage.sha256 -ne
+    $promotionFinalizationReceipt.governedPackage.sha256 -isnot [string] -or
+    $promotionFinalizationReceipt.governedPackage.sha256 -cne
       [string]$promotionAuthorityBuild.governedPackageSha256 -or
-    [string]$promotionFinalizationReceipt.governedPackage.apkSha256 -ne
+    $promotionFinalizationReceipt.governedPackage.apkSha256 -isnot [string] -or
+    $promotionFinalizationReceipt.governedPackage.apkSha256 -cne
       [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionAuthorityBuild.dualCustodyCompleted -ne $true -or
     $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -isnot [bool] -or

@@ -4,6 +4,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const {sealReceipt} = require("./collectProductionGlobalPullBackend.js");
+const {verifyStagedPromotionSourceAuthority} = require("./stagedPromotionSourceAuthority.js");
 const {
   collectSourceBinding,
   isPathInside,
@@ -140,6 +141,109 @@ function backendAuthorityChronologyExact(chronology) {
     owner <= earliest && earliest <= latest;
 }
 
+function evidenceInstantAtOrAfter(recordedAt, admittedTimes) {
+  const recorded = explicitUtcEvidenceInstant(recordedAt);
+  return recorded != null && admittedTimes.every((value) => {
+    const admitted = explicitUtcEvidenceInstant(value);
+    return admitted != null && recorded >= admitted;
+  });
+}
+
+function build27ReadOnlyDeviceProofExact(receipt, certificateSha256) {
+  const expectedSurfaces = [
+    'authenticated-shift-overview-and-plant-condition',
+    'maintenance-issues-horizontal-actions-and-resolved-record-evidence',
+    'planned-maintenance-jobs-and-personal-workflow-filters',
+    'inner-cover-filtering-inventory-and-registration-form',
+    'inspection-programmes-unused-audit-deletion-guard',
+    'issue-report-pdf-zoom-page-print-and-share-controls',
+    'home-form-and-child-screen-back-navigation',
+  ];
+  const surfaces = receipt?.validatedReadOnlySurfaces ?? receipt?.validatedSurfaces;
+  return receipt?.status === 'passed-exact-build27-physical-in-place-authenticated-read-only-surfaces' &&
+    typeof certificateSha256 === 'string' && receipt?.release?.certificateSha256 === certificateSha256 &&
+    receipt?.physicalDevice?.deviceSerialRecorded === false &&
+    receipt?.physicalDevice?.accountIdentifierRecorded === false &&
+    Array.isArray(surfaces) && surfaces.length === expectedSurfaces.length &&
+    surfaces.every((value, index) => value === expectedSurfaces[index]);
+}
+
+function promotedFinalizationDecisionsExact(receipt) {
+  const facts = [
+    ['schemaVersion', 1],
+    ['evidenceType', 'production-build-finalization-closure'],
+    ['status', 'passed-non-distributable'],
+    ['workflow.conclusion', 'success'],
+    ['workflow.secretValuesInspected', false],
+    ['governedPackage.independentVerificationCompleted', true],
+    ['dualCustody.status', 'passed'],
+    ['dualCustody.distinctVolumes', true],
+    ['dualCustody.allFileHashesMatched', true],
+    ['runtimeAdjudication.status', 'not-adjudicated-by-build-finalization'],
+    ['runtimeAdjudication.runtimeValidationPassed', false],
+    ['runtimeAdjudication.physicalTargetCount', 0],
+    ['runtimeAdjudication.emulatorTargetCount', 0],
+    ['runtimeAdjudication.appDataClearPerformed', false],
+    ['runtimeAdjudication.liveBusinessFlowValidationCompleted', false],
+    ['releaseBoundary.firebaseBackendDeploymentPerformed', false],
+    ['releaseBoundary.controlledPilotApproved', false],
+    ['releaseBoundary.unrestrictedPlantReleaseApproved', false],
+    ['releaseBoundary.distributionPerformed', false],
+    ['releaseBoundary.runtimeValidationPassed', false],
+    ['releaseBoundary.fullBusinessFlowValidationPassed', false],
+  ];
+  const recovery = receipt?.recoveryIncident;
+  if (typeof recovery?.occurred !== 'boolean') return false;
+  if (recovery.occurred) {
+    facts.push(
+      ['recoveryIncident.failureBoundary', 'remote-built-tag-push'],
+      ['recoveryIncident.sourceExpression', 'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"'],
+      ['recoveryIncident.sourceCorrection.correctedExpression', 'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"'],
+      ['recoveryIncident.stateBeforeRecovery.rebuildPerformed', false],
+      ['recoveryIncident.stateBeforeRecovery.workflowRerunPerformed', false],
+      ['recoveryIncident.recovery.forceUsed', false],
+      ['recoveryIncident.verification.closurePassed', true],
+    );
+  } else {
+    if (Object.hasOwn(recovery, 'sourceExpression')) return false;
+    facts.push(['recoveryIncident.forceUsed', false]);
+  }
+  return facts.every(([field, expected]) => field.split('.').reduce(
+    (value, key) => value != null && !Array.isArray(value) ? value[key] : undefined,
+    receipt,
+  ) === expected);
+}
+
+function loadedFirestoreEvidenceExact(receipt, backendAuthority, promotionAuthority) {
+  const checks = receipt?.checks;
+  const source = receipt?.source;
+  const indexes = receipt?.outputs?.indexes;
+  const mutation = receipt?.mutationBoundary;
+  const sourceCommit = backendAuthority?.sourceCommit;
+  const sourceTree = backendAuthority?.sourceTree;
+  const canonicalSha = backendAuthority?.canonicalReceiptSha256;
+  const indexCount = promotionAuthority?.indexCount;
+  // A successful alias must retain the actual measurements and source binding.
+  // The canonical seal itself is verified when the source receipt chain loads.
+  return Array.isArray(receipt?.failedChecks) && receipt.failedChecks.length === 0 &&
+    checks != null && typeof checks === 'object' && !Array.isArray(checks) &&
+    Object.keys(checks).length > 0 && Object.values(checks).every((value) => value === true) &&
+    Number.isInteger(indexCount) && indexCount > 0 &&
+    indexes?.cliCount === indexCount && indexes?.apiCount === indexCount &&
+    indexes?.apiReadyCount === indexCount &&
+    typeof sourceCommit === 'string' && /^[0-9a-f]{40}$/i.test(sourceCommit) &&
+    typeof sourceTree === 'string' && /^[0-9a-f]{40}$/i.test(sourceTree) &&
+    source?.before?.branch === 'main' &&
+    source?.before?.commit === sourceCommit && source?.before?.tree === sourceTree &&
+    source?.before?.originMain === sourceCommit && source?.after?.commit === sourceCommit &&
+    typeof canonicalSha === 'string' && /^[0-9a-f]{64}$/i.test(canonicalSha) &&
+    typeof receipt?.receiptSha256 === 'string' && /^[0-9a-f]{64}$/i.test(receipt.receiptSha256) &&
+    receipt.receiptSha256.toUpperCase() === canonicalSha.toUpperCase() &&
+    mutation?.firestoreRulesDeployed === false && mutation?.firestoreIndexesDeployed === false &&
+    mutation?.firestoreDocumentsRead === false && mutation?.firestoreDocumentsWritten === false &&
+    mutation?.businessDataMutated === false;
+}
+
 function summarizeMutableSourceAuthority({
   policy,
   releasePolicy,
@@ -156,6 +260,7 @@ function summarizeMutableSourceAuthority({
   measuredPromotionBackendReceiptSha256 = null,
   promotionFirestoreReceipt = null,
   measuredPromotionFirestoreReceiptSha256 = null,
+  stagedSourceAuthorityProof = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
   // A first matching row cannot establish authority when another row reuses
@@ -505,7 +610,10 @@ function summarizeMutableSourceAuthority({
       : Object.values(promotedFirestoreBoundary);
   const stagedPromotionInfrastructureExact =
     !stagedPromotion ||
-    (promotedBackendAuthority?.receipt ===
+    (stagedSourceAuthorityProof?.ok === true &&
+      stagedSourceAuthorityProof.historicalBackendReceiptFile === promotedBackendAuthority?.receipt &&
+      stagedSourceAuthorityProof.historicalBackendReceiptSha256 === measuredPromotionBackendReceiptSha256 &&
+      promotedBackendAuthority?.receipt ===
       `release/evidence/build${promotedArtifact?.buildNumber}-backend-deployment-closure.json` &&
       measuredPromotionBackendReceiptSha256 ===
         promotedBackendAuthority?.sha256 &&
@@ -528,6 +636,7 @@ function summarizeMutableSourceAuthority({
         ?.postMergeReleaseGateConclusion === "success" &&
       promotionBackendReceipt?.deployment?.allFunctionsExactSourceVerified ===
         true &&
+      promotionBackendReceipt?.deployment?.functionCount === 15 &&
       promotionBackendReceipt?.deployment?.finalRuntimeIdentityReadbackPassed ===
         true &&
       promotionBackendReceipt?.deployment?.finalIamDependencyReadbackPassed ===
@@ -584,6 +693,9 @@ function summarizeMutableSourceAuthority({
       measuredPromotionFirestoreReceiptSha256 ===
         promotedFirestoreAuthority?.sha256 &&
       promotionFirestoreReceipt?.schemaVersion === 1 &&
+      loadedFirestoreEvidenceExact(promotionFirestoreReceipt,
+        promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes,
+        promotedFirestoreAuthority) &&
       promotionFirestoreReceipt?.evidenceType ===
         "firestore-rules-indexes-live-readback" &&
       promotionFirestoreReceipt?.mode === "STRICT" &&
@@ -610,7 +722,8 @@ function summarizeMutableSourceAuthority({
       promotedFirestoreBoundaryValues.every((value) => value === false));
   const stagedPromotionFinalizationExact =
     !stagedPromotion ||
-    (promotedFinalizationReceiptAuthority != null &&
+    (promotedFinalizationDecisionsExact(promotionFinalizationReceipt) &&
+      promotedFinalizationReceiptAuthority != null &&
       promotedReceiptBuild?.finalizationReceipt ===
         promotedFinalizationReceiptAuthority.path &&
       promotedReceiptBuild?.finalizationReceiptSha256 ===
@@ -625,6 +738,8 @@ function summarizeMutableSourceAuthority({
         promotedArtifact?.governedPackageSha256 &&
       promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
         promotedReceiptBuild?.apkSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.certificateSha256 ===
+        promotedReceiptBuild?.certificateSha256 &&
       promotionFinalizationReceipt?.governedPackage?.independentVerificationCompleted === true &&
       promotionFinalizationReceipt?.dualCustody?.allFileHashesMatched === true &&
       promotionFinalizationReceipt?.dualCustody?.status === "passed" &&
@@ -713,8 +828,15 @@ function summarizeMutableSourceAuthority({
         promotedReceiptBuild?.apkSha256 &&
       promotionDeviceAcceptanceReceipt.physicalDevice?.applicationDataPreserved ===
         true &&
+      promotedDeviceAcceptanceAuthority?.physicalTargetCount === 1 &&
       promotionDeviceAcceptanceReceipt.physicalDevice?.targetCount ===
         promotedDeviceAcceptanceAuthority?.physicalTargetCount &&
+      evidenceInstantAtOrAfter(promotionDeviceAcceptanceReceipt.recordedAtUtc, [
+        promotionDeviceAcceptanceReceipt.synchronization?.inventoryCapturedAtUtc,
+      ]) &&
+      (promotedArtifact?.buildNumber !== 27 || build27ReadOnlyDeviceProofExact(
+        promotionDeviceAcceptanceReceipt, promotionFinalizationReceipt?.governedPackage?.certificateSha256,
+      )) &&
       promotionDeviceAcceptanceReceipt.physicalDevice?.installedVersionCode ===
         promotedArtifact?.buildNumber &&
       promotionDeviceAcceptanceReceipt.physicalDevice?.installationResult ===
@@ -817,7 +939,16 @@ function summarizeMutableSourceAuthority({
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11PromotionExact) &&
     (!stagedPromotion ||
-      (promotionReceipt?.sourceAuthority?.postMergeCi?.allRequiredJobsPassed === true &&
+      (evidenceInstantAtOrAfter(promotionReceipt?.recordedAtUtc, [
+        promotionOwnerApproval?.approvedAtUtc,
+        promotionFinalizationReceipt?.workflow?.completedAtUtc,
+        promotionFinalizationReceipt?.dualCustody?.governedPackageCompletedAtUtc,
+        promotionFinalizationReceipt?.closure?.decisionAtUtc,
+        promotionFinalizationReceipt?.dualCustody?.closureArchiveCompletedAtUtc,
+        promotionDeviceAcceptanceReceipt?.recordedAtUtc,
+        promotionBackendReceipt?.recordedAtUtc,
+        promotionFirestoreReceipt?.capturedAtUtc,
+      ]) && promotionReceipt?.sourceAuthority?.postMergeCi?.allRequiredJobsPassed === true &&
         promotionReceipt?.sourceAuthority?.postMergeCi?.conclusion === "success" &&
         promotionReceipt?.programmeDecision?.internalControlledPilot === "GO_STAGED" &&
         promotionReceipt?.programmeDecision?.pilotHandout ===
@@ -1155,6 +1286,8 @@ function summarizeSource(repositoryRoot, policy) {
     measuredPromotionBackendReceiptSha256,
     promotionFirestoreReceipt,
     measuredPromotionFirestoreReceiptSha256,
+    stagedSourceAuthorityProof: releasePolicy.postBuildPromotion?.status === 'completed-staged-controlled-pilot-only'
+      ? verifyStagedPromotionSourceAuthority({repoRoot: repositoryRoot, releasePolicy}) : null,
   });
   const semanticAuthority = new Map([
     [
