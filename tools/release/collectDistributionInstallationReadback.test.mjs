@@ -410,6 +410,15 @@ test("completed successor still requires every retained failed-attempt receipt",
     "release/evidence/build-11-staged-controlled-pilot-authorization.json";
   const promotionSha = "1".repeat(64).toUpperCase();
   const apkSha = "a".repeat(64).toUpperCase();
+  const certificateSha = "5".repeat(64).toUpperCase();
+  const backendReceiptPath =
+    "release/evidence/build11-backend-deployment-closure.json";
+  const backendReceiptSha = "2".repeat(64).toUpperCase();
+  const firestoreReceiptPath =
+    "release/evidence/build11-firestore-rules-indexes-live-readback.json";
+  const firestoreReceiptSha = "3".repeat(64).toUpperCase();
+  const rulesSha = "7".repeat(64).toUpperCase();
+  const indexSetSha = "8".repeat(64).toUpperCase();
   policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
   const promotedPolicy = structuredClone(releasePolicy);
   promotedPolicy.finalization.controlledPilotApproved = true;
@@ -459,12 +468,20 @@ test("completed successor still requires every retained failed-attempt receipt",
     schemaVersion: 1,
     evidenceType: "production-build-staged-controlled-pilot-authorization",
     decision: "PASS_BUILD11_STAGED_CONTROLLED_PILOT_AUTHORIZED",
+    ownerApproval: {
+      receipt:
+        "release/approvals/build11-staged-controlled-pilot-approval.json",
+      sha256: "4".repeat(64).toUpperCase(),
+      approvalReference: "BAF-REF-004-C11-PILOT",
+      maximumApprovedUsers: 25,
+    },
     admittedEvidence: {
       governedBuild: {
         buildNumber: completed.buildNumber,
         sourceCommit: completed.headSha,
         governedPackageSha256: completed.governedPackageSha256,
         apkSha256: apkSha,
+        certificateSha256: certificateSha,
         finalizationReceipt: completionPath,
         finalizationReceiptSha256: completionSha,
       },
@@ -472,29 +489,61 @@ test("completed successor still requires every retained failed-attempt receipt",
         receipt: deviceAcceptancePath,
         sha256: deviceAcceptanceSha,
         decision: runtimeDisposition,
+        physicalTargetCount: 1,
         appDataPreserved: true,
         automaticSyncPassed: true,
         unsyncedRows: 0,
         unresolvedRejections: 0,
         businessDataMutated: false,
       },
+      productionBackend: {
+        receipt: backendReceiptPath,
+        sha256: backendReceiptSha,
+        decision: "PASS_BUILD11_BACKEND_DEPLOYMENT_CLOSED",
+      },
+      firestoreRulesAndIndexes: {
+        receipt: firestoreReceiptPath,
+        sha256: firestoreReceiptSha,
+        decision: "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+        rulesSha256: rulesSha,
+        indexSetSha256: indexSetSha,
+        indexCount: 66,
+        allIndexesReady: true,
+      },
     },
     promotion: {
+      status: "STAGED_CONTROLLED_PILOT_AUTHORIZED",
       authorizedBuildNumber: completed.buildNumber,
       authorizedPackageSha256: completed.governedPackageSha256,
       authorizedApkSha256: apkSha,
+      authorizedChannel: "direct-dual-custody-controlled-pilot",
       pilotHandoutAuthorized: true,
       pilotHandoutPerformedByThisRecord: false,
       publicArtifactAuthorized: false,
+      githubActionsArtifactAsDistributionChannelAuthorized: false,
       githubReleaseAuthorized: false,
       firebaseAppDistributionAuthorized: false,
       playConsoleAuthorized: false,
       playStoreAuthorized: false,
       webDistributionAuthorized: false,
       unrestrictedDistributionAuthorized: false,
+      appCheckActivationAuthorized: false,
       maximumApprovedUsers: 25,
       canaryUserCeiling: 2,
       canaryPhysicalDeviceCeiling: 2,
+    },
+    closureBoundary: {
+      deviceAcceptanceRecorded: true,
+      controlledPilotAuthorized: true,
+      pilotHandoutPerformed: false,
+      approvedRosterFrozenByThisRecord: false,
+      githubArtifactDeleted: false,
+      githubReleaseCreated: false,
+      firebaseMutationPerformed: false,
+      deviceMutationPerformed: false,
+      businessDataReadOrWritten: false,
+      unrestrictedDistributionAuthorized: false,
+      appCheckDeferralChanged: false,
     },
   };
   const promotionFinalizationReceipt = {
@@ -520,7 +569,33 @@ test("completed successor still requires every retained failed-attempt receipt",
       governedPackageSha256: completed.governedPackageSha256,
       apkSha256: apkSha,
     },
-    physicalDevice: {applicationDataPreserved: true},
+    physicalDevice: {
+      targetCount: 1,
+      installedVersionCode: completed.buildNumber,
+      installationResult: "success",
+      exactGovernedApkMatch: true,
+      signerContinuityVerifiedByInPlaceUpdate: true,
+      firstInstallTimePreserved: true,
+      applicationDataPreserved: true,
+      applicationDataCleared: false,
+      applicationUninstalled: false,
+    },
+    runtime: {
+      coldLaunchResult: "passed",
+      processRemainedAlive: true,
+      androidCrashObserved: false,
+      androidAnrObserved: false,
+      flutterFatalErrorObserved: false,
+      firebaseCallableFailureObserved: false,
+      permissionDenialObserved: false,
+      approvedAuthenticatedSessionPreserved: true,
+      authenticatedHomeRendered: true,
+    },
+    localStoreMigration: {
+      governedOpenCompleted: true,
+      applicationDataPreserved: true,
+      isarOpenFailureObserved: false,
+    },
     businessMutationBoundary: {
       productionBusinessDataCreatedUpdatedOrDeleted: false,
       ticketSubmitted: false,
@@ -529,6 +604,9 @@ test("completed successor still requires every retained failed-attempt receipt",
       lastSyncResult: "success",
       unsyncedRows: 0,
       unresolvedRejections: 0,
+      pushFailed: 0,
+      fullSyncConflicts: 0,
+      processingErrors: 0,
     },
     adjudication: {
       mutatingBusinessFlowValidationCompleted: false,
@@ -536,13 +614,129 @@ test("completed successor still requires every retained failed-attempt receipt",
       fullBusinessFlowValidationCompleted: false,
     },
     releaseBoundary: {
+      build11FinalizationReceiptChanged: false,
+      controlledPilotApprovedByThisReceipt: false,
+      pilotHandoutPerformed: false,
+      unrestrictedDistributionApproved: false,
       productionBusinessMutationAuthorizedByThisReceipt: false,
       firebaseBusinessDataChanged: false,
+      appCheckActivationPerformed: false,
+      deviceDataClearPerformed: false,
+    },
+  };
+  const promotionOwnerApproval = {
+    schemaVersion: 1,
+    approvalClass: "EXACT_BUILD11_STAGED_CONTROLLED_PILOT_PROMOTION",
+    approvalReference: "BAF-REF-004-C11-PILOT",
+    exactArtifact: {
+      buildNumber: completed.buildNumber,
+      applicationId: policy.applicationId,
+      sourceCommit: completed.headSha,
+      governedPackageSha256: completed.governedPackageSha256,
+      apkSha256: apkSha,
+      certificateSha256: certificateSha,
+    },
+    authorizedPilot: {
+      channel: "direct-dual-custody-controlled-pilot",
+      maximumApprovedUsers: 25,
+      maximumCanaryUsers: 2,
+      maximumCanaryPhysicalDevices: 2,
+      rosterAndRolesFrozenAtEachHandout: true,
+      privacySafeUserAndDeviceIdentifiersRequired: true,
+      perHandoutExecutionReceiptRequired: true,
+      inPlaceUpgradeRequiredWhereAppAlreadyInstalled: true,
+      deviceDataClearAllowed: false,
+      publicArtifactAuthorized: false,
+      githubActionsArtifactAsDistributionChannelAuthorized: false,
+      githubReleaseAuthorized: false,
+      firebaseAppDistributionAuthorized: false,
+      playConsoleAuthorized: false,
+      playStoreAuthorized: false,
+      webDistributionAuthorized: false,
+      unrestrictedDistributionAuthorized: false,
+      appCheckActivationAuthorized: false,
+    },
+    mutationBoundary: {
+      firebaseBusinessDataMutationAuthorizedByThisApproval: false,
+      firebaseConfigurationMutationAuthorized: false,
+      iamMutationAuthorized: false,
+      appCheckActivationAuthorized: false,
+      deviceDataClearAuthorized: false,
+      githubArtifactDeletionAuthorized: false,
+      pilotHandoutPerformedByThisApproval: false,
+      unrestrictedDistributionAuthorized: false,
+    },
+  };
+  const promotionBackendReceipt = {
+    schemaVersion: 1,
+    evidenceType: "exact-current-source-backend-deployment-closure",
+    decision: "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+    firebaseProjectId: policy.productionProjectId,
+    region: "asia-south1",
+    deployment: {
+      allFunctionsExactSourceVerified: true,
+      finalRuntimeIdentityReadbackPassed: true,
+      finalIamDependencyReadbackPassed: true,
+      existingIamPreservationEnforced: true,
+      appCheckEnforcement: false,
+      legacyMutatingFinalizeWrapperExecuted: false,
+    },
+    controlBoundary: {
+      iamMutated: false,
+      appCheckActivated: false,
+      firestoreDocumentsRead: false,
+      firestoreDocumentsWritten: false,
+      productionBusinessDataMutated: false,
+      schedulerManuallyInvoked: false,
+      deviceDataMutated: false,
+      artifactConstructed: false,
+      pilotPromotionPerformed: false,
+      distributionPerformed: false,
+      securityRulesMutated: false,
+      indexesMutated: false,
+    },
+  };
+  const promotionFirestoreReceipt = {
+    schemaVersion: 1,
+    evidenceType: "firestore-rules-indexes-live-readback",
+    mode: "STRICT",
+    projectId: policy.productionProjectId,
+    decision: "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+    outputs: {
+      rules: {
+        sourceSha256: rulesSha,
+        activeSha256: rulesSha,
+        byteExact: true,
+      },
+      indexes: {
+        sourceCount: 66,
+        sourceSetSha256: indexSetSha,
+        cliSetSha256: indexSetSha,
+        apiSetSha256: indexSetSha,
+        allApiIndexesReady: true,
+      },
+    },
+    mutationBoundary: {
+      firestoreRulesDeployed: false,
+      firestoreIndexesDeployed: false,
+      firestoreDocumentsRead: false,
+      firestoreDocumentsWritten: false,
+      functionsMutated: false,
+      iamMutated: false,
+      appCheckMutated: false,
+      businessDataMutated: false,
     },
   };
   const promotionRuntimeAuthority = {
     promotionDeviceAcceptanceReceipt,
     measuredPromotionDeviceAcceptanceReceiptSha256: deviceAcceptanceSha,
+    promotionOwnerApproval,
+    measuredPromotionOwnerApprovalSha256:
+      promotionReceipt.ownerApproval.sha256,
+    promotionBackendReceipt,
+    measuredPromotionBackendReceiptSha256: backendReceiptSha,
+    promotionFirestoreReceipt,
+    measuredPromotionFirestoreReceiptSha256: firestoreReceiptSha,
   };
   Object.assign(promotionFinalizationAuthority, promotionRuntimeAuthority);
   assert.deepEqual(
@@ -811,6 +1005,102 @@ test("completed successor still requires every retained failed-attempt receipt",
     assert.equal(mutatedBusinessSummary.controlledPilotPromotionExact, false);
   }
 
+  for (const mutateDevicePreservation of [
+    (receipt) => {
+      receipt.physicalDevice.applicationDataCleared = true;
+    },
+    (receipt) => {
+      receipt.physicalDevice.applicationUninstalled = true;
+    },
+    (receipt) => {
+      receipt.releaseBoundary.deviceDataClearPerformed = true;
+    },
+    (receipt) => {
+      receipt.runtime.androidCrashObserved = true;
+    },
+    (receipt) => {
+      receipt.localStoreMigration.isarOpenFailureObserved = true;
+    },
+  ]) {
+    const weakenedDeviceAcceptance = structuredClone(
+      promotionDeviceAcceptanceReceipt,
+    );
+    mutateDevicePreservation(weakenedDeviceAcceptance);
+    const weakenedDeviceSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+      promotionDeviceAcceptanceReceipt: weakenedDeviceAcceptance,
+    });
+    assert.equal(weakenedDeviceSummary.releasePolicyExact, false);
+    assert.equal(weakenedDeviceSummary.controlledPilotPromotionExact, false);
+  }
+
+  for (const weakenOwnerApproval of [
+    ({receipt}) => {
+      receipt.ownerApproval.receipt =
+        "release/approvals/unmeasured-pilot-approval.json";
+    },
+    ({approval}) => {
+      approval.exactArtifact.apkSha256 = "7".repeat(64).toUpperCase();
+    },
+    ({approval}) => {
+      approval.authorizedPilot.deviceDataClearAllowed = true;
+    },
+  ]) {
+    const weakenedReceipt = structuredClone(promotionReceipt);
+    const weakenedApproval = structuredClone(promotionOwnerApproval);
+    weakenOwnerApproval({receipt: weakenedReceipt, approval: weakenedApproval});
+    const weakenedOwnerSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt: weakenedReceipt,
+      ...promotionFinalizationAuthority,
+      promotionOwnerApproval: weakenedApproval,
+    });
+    assert.equal(weakenedOwnerSummary.releasePolicyExact, false);
+    assert.equal(weakenedOwnerSummary.controlledPilotPromotionExact, false);
+  }
+
+  for (const weakenInfrastructure of [
+    ({backend}) => {
+      backend.controlBoundary.productionBusinessDataMutated = true;
+    },
+    ({firestore}) => {
+      firestore.mutationBoundary.businessDataMutated = true;
+    },
+    ({receipt}) => {
+      receipt.admittedEvidence.productionBackend.receipt =
+        "release/evidence/unmeasured-backend.json";
+    },
+  ]) {
+    const weakenedReceipt = structuredClone(promotionReceipt);
+    const weakenedBackend = structuredClone(promotionBackendReceipt);
+    const weakenedFirestore = structuredClone(promotionFirestoreReceipt);
+    weakenInfrastructure({
+      receipt: weakenedReceipt,
+      backend: weakenedBackend,
+      firestore: weakenedFirestore,
+    });
+    const weakenedInfrastructureSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...ledgers, pendingLedger]},
+      promotionReceipt: weakenedReceipt,
+      ...promotionFinalizationAuthority,
+      promotionBackendReceipt: weakenedBackend,
+      promotionFirestoreReceipt: weakenedFirestore,
+    });
+    assert.equal(weakenedInfrastructureSummary.releasePolicyExact, false);
+    assert.equal(
+      weakenedInfrastructureSummary.controlledPilotPromotionExact,
+      false,
+    );
+  }
+
   for (const mutateLedgerPromotionReceipt of [
     (ledger) => {
       delete ledger.pilotPromotionReceiptFile;
@@ -902,6 +1192,16 @@ test("completed successor still requires every retained failed-attempt receipt",
         .repeat(64)
         .toUpperCase();
     },
+    (receipt) => {
+      receipt.promotion.githubActionsArtifactAsDistributionChannelAuthorized =
+        true;
+    },
+    (receipt) => {
+      receipt.promotion.appCheckActivationAuthorized = true;
+    },
+    (receipt) => {
+      receipt.closureBoundary.pilotHandoutPerformed = true;
+    },
   ]) {
     const mismatchedReceipt = structuredClone(promotionReceipt);
     mutateReceipt(mismatchedReceipt);
@@ -980,6 +1280,44 @@ test("completed successor still requires every retained failed-attempt receipt",
     }).releasePolicyExact,
     false,
   );
+});
+
+test("the fixed Build 11 exception cannot relabel a later promotion", () => {
+  const policy = structuredClone(
+    require("../../release/lr07-distribution-installation-readback-policy.json"),
+  );
+  const releasePolicy = structuredClone(
+    require("../../release/production-release-policy.json"),
+  );
+  const buildLedger = structuredClone(
+    require("../../release/build-number-ledger.json"),
+  );
+  const promotionReceipt = structuredClone(
+    require("../../release/evidence/build-27-staged-controlled-pilot-authorization.json"),
+  );
+  const relabeledReceiptSha = "8".repeat(64).toUpperCase();
+  promotionReceipt.evidenceType =
+    "stage2d-f6-build11-controlled-pilot-authorization";
+  promotionReceipt.decision =
+    "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED";
+  releasePolicy.postBuildPromotion.status = "completed-controlled-pilot-only";
+  releasePolicy.postBuildPromotion.promotionReceiptSha256 = relabeledReceiptSha;
+  releasePolicy.distribution.authority =
+    "exact-build11-sealed-small-group-pilot";
+  releasePolicy.distribution.promotionReceiptSha256 = relabeledReceiptSha;
+  buildLedger.entries.find(
+    (entry) => entry.buildNumber === 27,
+  ).pilotPromotionReceiptSha256 = relabeledReceiptSha;
+
+  const summary = summarizeMutableSourceAuthority({
+    policy,
+    releasePolicy,
+    buildLedger,
+    promotionReceipt,
+    measuredPromotionReceiptSha256: relabeledReceiptSha,
+  });
+  assert.equal(summary.releasePolicyExact, false);
+  assert.equal(summary.controlledPilotPromotionExact, false);
 });
 
 test("source summary semantically revalidates mutable authority after byte drift", () => {

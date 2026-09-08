@@ -14237,9 +14237,28 @@ check(
     and "stagedPromotionMutationClaimsExact" in lr07_collector
     and "promotedLedgerEntryUnique" in lr07_collector
     and "promotedLedgerPromotionReceiptExact" in lr07_collector
+    and "historicalBuild11PromotionExact" in lr07_collector
+    and "HISTORICAL_BUILD11_PROMOTION_SHA256" in lr07_collector
+    and "promotionOwnerApproval" in lr07_collector
+    and "measuredPromotionOwnerApprovalSha256" in lr07_collector
+    and "stagedPromotionOwnerApprovalExact" in lr07_collector
+    and "promotionBackendReceipt" in lr07_collector
+    and "measuredPromotionBackendReceiptSha256" in lr07_collector
+    and "promotionFirestoreReceipt" in lr07_collector
+    and "measuredPromotionFirestoreReceiptSha256" in lr07_collector
+    and "stagedPromotionInfrastructureExact" in lr07_collector
+    and "stagedPromotionDeviceReleaseBoundaryExact" in lr07_collector
+    and "stagedPromotionClosureBoundaryExact" in lr07_collector
+    and "applicationDataCleared" in lr07_collector
+    and "applicationUninstalled" in lr07_collector
+    and "deviceDataClearPerformed" in lr07_collector
     and "$promotedPredecessorRuntimeAuthorityInvalid" in c04_production_policy
     and "$expectedPromotionDeviceAcceptanceSha256" in c04_production_policy
     and "$promotionLedgerPhysicalReceiptFile" in c04_production_policy
+    and "$expectedPromotionOwnerApprovalPath" in c04_production_policy
+    and "$ownerApprovalMutationValues" in c04_production_policy
+    and "applicationUninstalled" in c04_production_policy
+    and "deviceDataClearPerformed" in c04_production_policy
     and "Current promoted runtime authority differs from measured acceptance."
         in c04_production_policy
     and "retention-days: 1" in lr07_workflow

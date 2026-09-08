@@ -657,6 +657,12 @@ foreach ($file in $requiredFiles) {
 }
 $promotionReceiptPath =
   [string]$policy.postBuildPromotion.promotionReceiptFile
+$promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
+$expectedPromotionReceiptPath =
+  "release/evidence/build-$promotionBuildNumber-staged-controlled-pilot-authorization.json"
+if ($promotionReceiptPath -ne $expectedPromotionReceiptPath) {
+  throw 'Post-build promotion receipt path differs from the governed build.'
+}
 if ((Get-Sha256 $promotionReceiptPath) -ne
     ([string]$policy.postBuildPromotion.promotionReceiptSha256).
       ToUpperInvariant()) {
@@ -664,7 +670,6 @@ if ((Get-Sha256 $promotionReceiptPath) -ne
 }
 $promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
   ConvertFrom-Json
-$promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
 $promotionAuthorityBuild = $promotionReceipt.admittedEvidence.governedBuild
 if ($null -eq $promotionAuthorityBuild -or
     [int]$promotionAuthorityBuild.buildNumber -ne $promotionBuildNumber) {
@@ -672,6 +677,11 @@ if ($null -eq $promotionAuthorityBuild -or
 }
 $promotionFinalizationPath =
   [string]$promotionAuthorityBuild.finalizationReceipt
+$expectedPromotionFinalizationPath =
+  "release/evidence/build-$promotionBuildNumber-finalization-closure.json"
+if ($promotionFinalizationPath -ne $expectedPromotionFinalizationPath) {
+  throw 'Promoted build finalization receipt path is not governed.'
+}
 if ((Get-Sha256 $promotionFinalizationPath) -ne
     ([string]$promotionAuthorityBuild.finalizationReceiptSha256).
       ToUpperInvariant()) {
@@ -695,6 +705,11 @@ if ([string]$promotionFinalizationReceipt.status -ne
 }
 $deviceAcceptanceAuthority = $promotionReceipt.admittedEvidence.deviceAcceptance
 $deviceAcceptancePath = [string]$deviceAcceptanceAuthority.receipt
+$expectedDeviceAcceptancePath =
+  "release/evidence/build-$promotionBuildNumber-device-acceptance.json"
+if ($deviceAcceptancePath -ne $expectedDeviceAcceptancePath) {
+  throw 'Promoted build device-acceptance receipt path is not governed.'
+}
 if ((Get-Sha256 $deviceAcceptancePath) -ne
     ([string]$deviceAcceptanceAuthority.sha256).ToUpperInvariant()) {
   throw 'Promoted build device-acceptance receipt hash differs from authority.'
@@ -703,6 +718,14 @@ $deviceAcceptanceReceipt =
   Get-Content -LiteralPath $deviceAcceptancePath -Raw | ConvertFrom-Json
 $deviceBusinessMutationBoundary =
   $deviceAcceptanceReceipt.businessMutationBoundary
+$deviceBusinessMutationValues = @(
+  $deviceBusinessMutationBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+$deviceReleaseBoundaryValues = @(
+  $deviceAcceptanceReceipt.releaseBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
 if ([string]$deviceAcceptanceReceipt.evidenceType -ne
       'production-build-device-acceptance' -or
     [string]$deviceAcceptanceReceipt.status -ne
@@ -725,7 +748,11 @@ if ([string]$deviceAcceptanceReceipt.evidenceType -ne
     $deviceAcceptanceReceipt.adjudication.runtimeValidationPassed -ne $true -or
     $deviceAcceptanceReceipt.adjudication.fullBusinessFlowValidationCompleted -ne
       $false -or
+    $deviceAcceptanceReceipt.adjudication.mutatingBusinessFlowValidationCompleted -ne
+      $false -or
     $deviceAcceptanceReceipt.physicalDevice.applicationDataPreserved -ne $true -or
+    $deviceAcceptanceReceipt.physicalDevice.applicationDataCleared -ne $false -or
+    $deviceAcceptanceReceipt.physicalDevice.applicationUninstalled -ne $false -or
     $deviceAcceptanceAuthority.appDataPreserved -ne $true -or
     [string]$deviceAcceptanceReceipt.synchronization.lastSyncResult -ne
       'success' -or
@@ -734,9 +761,21 @@ if ([string]$deviceAcceptanceReceipt.evidenceType -ne
     [int64]$deviceAcceptanceAuthority.unsyncedRows -ne 0 -or
     [int64]$deviceAcceptanceReceipt.synchronization.unresolvedRejections -ne 0 -or
     [int64]$deviceAcceptanceAuthority.unresolvedRejections -ne 0 -or
+    $deviceBusinessMutationValues.Count -eq 0 -or
+    @($deviceBusinessMutationValues | Where-Object { $_ -ne $false }).Count -ne
+      0 -or
     $deviceBusinessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted -ne
       $false -or
-    $deviceAcceptanceAuthority.businessDataMutated -ne $false) {
+    $deviceAcceptanceAuthority.businessDataMutated -ne $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.
+      productionBusinessMutationAuthorizedByThisReceipt -ne $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.firebaseBusinessDataChanged -ne
+      $false -or
+    $deviceAcceptanceReceipt.releaseBoundary.deviceDataClearPerformed -ne
+      $false -or
+    $deviceReleaseBoundaryValues.Count -eq 0 -or
+    @($deviceReleaseBoundaryValues | Where-Object { $_ -ne $false }).Count -ne
+      0) {
   throw 'Promoted build device acceptance is incomplete or over-claimed.'
 }
 $deviceAcceptanceRecordedAt = Get-UtcEvidenceInstant `
@@ -750,29 +789,188 @@ if ($deviceAcceptanceRecordedAt -lt $deviceInventoryCapturedAt) {
 }
 
 $promotionOwnerApprovalPath = [string]$promotionReceipt.ownerApproval.receipt
+$expectedPromotionOwnerApprovalPath =
+  "release/approvals/build$promotionBuildNumber-staged-controlled-pilot-approval.json"
+if ($promotionOwnerApprovalPath -ne $expectedPromotionOwnerApprovalPath) {
+  throw 'Post-build promotion owner-approval receipt path is not governed.'
+}
 if ((Get-Sha256 $promotionOwnerApprovalPath) -ne
     ([string]$promotionReceipt.ownerApproval.sha256).ToUpperInvariant()) {
   throw 'Post-build promotion owner-approval receipt hash differs from authority.'
 }
 $promotionOwnerApproval =
   Get-Content -LiteralPath $promotionOwnerApprovalPath -Raw | ConvertFrom-Json
+$promotionOwnerApprovalArtifact = $promotionOwnerApproval.exactArtifact
+$promotionOwnerApprovalPilot = $promotionOwnerApproval.authorizedPilot
+$promotionOwnerApprovalBoundary = $promotionOwnerApproval.mutationBoundary
+$ownerApprovalMutationValues = @(
+  $promotionOwnerApprovalBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([int]$promotionOwnerApproval.schemaVersion -ne 1 -or
+    [string]$promotionOwnerApproval.approvalClass -ne
+      "EXACT_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_PROMOTION" -or
+    [string]$promotionOwnerApproval.approvalReference -ne
+      [string]$promotionReceipt.ownerApproval.approvalReference -or
+    [int]$promotionOwnerApprovalArtifact.buildNumber -ne
+      $promotionBuildNumber -or
+    [string]$promotionOwnerApprovalArtifact.sourceCommit -ne
+      [string]$promotionAuthorityBuild.sourceCommit -or
+    [string]$promotionOwnerApprovalArtifact.governedPackageSha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    [string]$promotionOwnerApprovalArtifact.apkSha256 -ne
+      [string]$promotionAuthorityBuild.apkSha256 -or
+    [string]$promotionOwnerApprovalArtifact.certificateSha256 -ne
+      [string]$promotionAuthorityBuild.certificateSha256 -or
+    [string]$promotionOwnerApprovalArtifact.applicationId -ne
+      [string]$policy.permanentApplicationId -or
+    [string]$promotionOwnerApprovalPilot.channel -ne
+      [string]$promotionReceipt.promotion.authorizedChannel -or
+    [int]$promotionOwnerApprovalPilot.maximumApprovedUsers -ne
+      [int]$promotionReceipt.promotion.maximumApprovedUsers -or
+    [int]$promotionReceipt.ownerApproval.maximumApprovedUsers -ne
+      [int]$promotionReceipt.promotion.maximumApprovedUsers -or
+    [int]$promotionOwnerApprovalPilot.maximumCanaryUsers -ne
+      [int]$promotionReceipt.promotion.canaryUserCeiling -or
+    [int]$promotionOwnerApprovalPilot.maximumCanaryPhysicalDevices -ne
+      [int]$promotionReceipt.promotion.canaryPhysicalDeviceCeiling -or
+    $promotionOwnerApprovalPilot.rosterAndRolesFrozenAtEachHandout -ne $true -or
+    $promotionOwnerApprovalPilot.
+      privacySafeUserAndDeviceIdentifiersRequired -ne $true -or
+    $promotionOwnerApprovalPilot.perHandoutExecutionReceiptRequired -ne
+      $true -or
+    $promotionOwnerApprovalPilot.
+      inPlaceUpgradeRequiredWhereAppAlreadyInstalled -ne $true -or
+    $promotionOwnerApprovalPilot.deviceDataClearAllowed -ne $false -or
+    $promotionOwnerApprovalPilot.publicArtifactAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.
+      githubActionsArtifactAsDistributionChannelAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.githubReleaseAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.firebaseAppDistributionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalPilot.playConsoleAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.playStoreAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.webDistributionAuthorized -ne $false -or
+    $promotionOwnerApprovalPilot.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalPilot.appCheckActivationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.
+      firebaseBusinessDataMutationAuthorizedByThisApproval -ne $false -or
+    $promotionOwnerApprovalBoundary.firebaseConfigurationMutationAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.iamMutationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.appCheckActivationAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.deviceDataClearAuthorized -ne $false -or
+    $promotionOwnerApprovalBoundary.githubArtifactDeletionAuthorized -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.pilotHandoutPerformedByThisApproval -ne
+      $false -or
+    $promotionOwnerApprovalBoundary.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $ownerApprovalMutationValues.Count -eq 0 -or
+    @($ownerApprovalMutationValues | Where-Object { $_ -ne $false }).Count -ne
+      0) {
+  throw 'Post-build promotion owner approval is incomplete or divergent.'
+}
 $promotionBackendAuthority = $promotionReceipt.admittedEvidence.productionBackend
 $promotionBackendPath = [string]$promotionBackendAuthority.receipt
+$expectedPromotionBackendPath =
+  "release/evidence/build$promotionBuildNumber-backend-deployment-closure.json"
+if ($promotionBackendPath -ne $expectedPromotionBackendPath) {
+  throw 'Post-build promotion backend receipt path is not governed.'
+}
 if ((Get-Sha256 $promotionBackendPath) -ne
     ([string]$promotionBackendAuthority.sha256).ToUpperInvariant()) {
   throw 'Post-build promotion backend receipt hash differs from authority.'
 }
 $promotionBackendReceipt =
   Get-Content -LiteralPath $promotionBackendPath -Raw | ConvertFrom-Json
+if ([int]$promotionBackendReceipt.schemaVersion -ne 1 -or
+    [string]$promotionBackendReceipt.evidenceType -ne
+      'exact-current-source-backend-deployment-closure' -or
+    [string]$promotionBackendAuthority.decision -ne
+      "PASS_BUILD${promotionBuildNumber}_BACKEND_DEPLOYMENT_CLOSED" -or
+    [string]$promotionBackendReceipt.decision -ne
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+    [string]$promotionBackendReceipt.firebaseProjectId -ne
+      [string]$policy.firebaseProjectId -or
+    [string]$promotionBackendReceipt.region -ne 'asia-south1' -or
+    $promotionBackendReceipt.deployment.allFunctionsExactSourceVerified -ne
+      $true -or
+    $promotionBackendReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
+      $true -or
+    $promotionBackendReceipt.deployment.finalIamDependencyReadbackPassed -ne
+      $true -or
+    $promotionBackendReceipt.deployment.existingIamPreservationEnforced -ne
+      $true -or
+    $promotionBackendReceipt.deployment.appCheckEnforcement -ne $false -or
+    $promotionBackendReceipt.deployment.
+      legacyMutatingFinalizeWrapperExecuted -ne $false -or
+    $promotionBackendReceipt.controlBoundary.iamMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.appCheckActivated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.firestoreDocumentsRead -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.firestoreDocumentsWritten -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.productionBusinessDataMutated -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.schedulerManuallyInvoked -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.deviceDataMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.artifactConstructed -ne $false -or
+    $promotionBackendReceipt.controlBoundary.pilotPromotionPerformed -ne
+      $false -or
+    $promotionBackendReceipt.controlBoundary.distributionPerformed -ne $false -or
+    $promotionBackendReceipt.controlBoundary.securityRulesMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.indexesMutated -ne $false) {
+  throw 'Post-build promotion backend authority is incomplete or divergent.'
+}
 $promotionFirestoreAuthority =
   $promotionReceipt.admittedEvidence.firestoreRulesAndIndexes
 $promotionFirestorePath = [string]$promotionFirestoreAuthority.receipt
+$expectedPromotionFirestorePath =
+  "release/evidence/build$promotionBuildNumber-firestore-rules-indexes-live-readback.json"
+if ($promotionFirestorePath -ne $expectedPromotionFirestorePath) {
+  throw 'Post-build promotion Firestore receipt path is not governed.'
+}
 if ((Get-Sha256 $promotionFirestorePath) -ne
     ([string]$promotionFirestoreAuthority.sha256).ToUpperInvariant()) {
   throw 'Post-build promotion Firestore receipt hash differs from authority.'
 }
 $promotionFirestoreReceipt =
   Get-Content -LiteralPath $promotionFirestorePath -Raw | ConvertFrom-Json
+$promotionFirestoreMutationValues = @(
+  $promotionFirestoreReceipt.mutationBoundary.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([int]$promotionFirestoreReceipt.schemaVersion -ne 1 -or
+    [string]$promotionFirestoreReceipt.evidenceType -ne
+      'firestore-rules-indexes-live-readback' -or
+    [string]$promotionFirestoreReceipt.mode -ne 'STRICT' -or
+    [string]$promotionFirestoreReceipt.projectId -ne
+      [string]$policy.firebaseProjectId -or
+    [string]$promotionFirestoreReceipt.decision -ne
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' -or
+    [string]$promotionFirestoreReceipt.outputs.rules.sourceSha256 -ne
+      [string]$promotionFirestoreAuthority.rulesSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.rules.activeSha256 -ne
+      [string]$promotionFirestoreAuthority.rulesSha256 -or
+    $promotionFirestoreReceipt.outputs.rules.byteExact -ne $true -or
+    [int]$promotionFirestoreReceipt.outputs.indexes.sourceCount -ne
+      [int]$promotionFirestoreAuthority.indexCount -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.sourceSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.cliSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    [string]$promotionFirestoreReceipt.outputs.indexes.apiSetSha256 -ne
+      [string]$promotionFirestoreAuthority.indexSetSha256 -or
+    $promotionFirestoreReceipt.outputs.indexes.allApiIndexesReady -ne $true -or
+    $promotionFirestoreAuthority.allIndexesReady -ne $true -or
+    $promotionFirestoreMutationValues.Count -eq 0 -or
+    @($promotionFirestoreMutationValues |
+        Where-Object { $_ -ne $false }).Count -ne 0) {
+  throw 'Post-build promotion Firestore authority is incomplete or divergent.'
+}
 $promotionRecordedAt = Get-UtcEvidenceInstant `
   -Value $promotionReceipt.recordedAtUtc `
   -FieldName 'Post-build promotion recordedAtUtc'
@@ -871,17 +1069,32 @@ if ([string]$policy.postBuildPromotion.status -ne
     $promotionReceipt.promotion.pilotHandoutAuthorized -ne $true -or
     $promotionReceipt.promotion.pilotHandoutPerformedByThisRecord -ne $false -or
     $promotionReceipt.promotion.publicArtifactAuthorized -ne $false -or
+    $promotionReceipt.promotion.
+      githubActionsArtifactAsDistributionChannelAuthorized -ne $false -or
     $promotionReceipt.promotion.githubReleaseAuthorized -ne $false -or
     $promotionReceipt.promotion.firebaseAppDistributionAuthorized -ne $false -or
     $promotionReceipt.promotion.playConsoleAuthorized -ne $false -or
     $promotionReceipt.promotion.playStoreAuthorized -ne $false -or
     $promotionReceipt.promotion.webDistributionAuthorized -ne $false -or
     $promotionReceipt.promotion.unrestrictedDistributionAuthorized -ne $false -or
+    $promotionReceipt.promotion.appCheckActivationAuthorized -ne $false -or
     [int]$promotionReceipt.promotion.maximumApprovedUsers -ne
       [int]$policy.distribution.maximumApprovedUsers -or
     [int]$promotionReceipt.promotion.canaryUserCeiling -ne 2 -or
     [int]$promotionReceipt.promotion.canaryPhysicalDeviceCeiling -ne 2 -or
-    $promotionReceipt.closureBoundary.pilotHandoutPerformed -ne $false) {
+    $promotionReceipt.closureBoundary.deviceAcceptanceRecorded -ne $true -or
+    $promotionReceipt.closureBoundary.controlledPilotAuthorized -ne $true -or
+    $promotionReceipt.closureBoundary.pilotHandoutPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.approvedRosterFrozenByThisRecord -ne
+      $false -or
+    $promotionReceipt.closureBoundary.githubArtifactDeleted -ne $false -or
+    $promotionReceipt.closureBoundary.githubReleaseCreated -ne $false -or
+    $promotionReceipt.closureBoundary.firebaseMutationPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.deviceMutationPerformed -ne $false -or
+    $promotionReceipt.closureBoundary.businessDataReadOrWritten -ne $false -or
+    $promotionReceipt.closureBoundary.unrestrictedDistributionAuthorized -ne
+      $false -or
+    $promotionReceipt.closureBoundary.appCheckDeferralChanged -ne $false) {
   throw 'Post-build promotion exceeds or differs from the exact staged-pilot boundary.'
 }
 $finalizerTokens = $null

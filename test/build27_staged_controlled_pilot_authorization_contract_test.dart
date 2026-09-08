@@ -74,6 +74,7 @@ void main() {
     expect(physicalDevice['installationMode'], 'adb-install-r-in-place');
     expect(physicalDevice['applicationDataPreserved'], isTrue);
     expect(physicalDevice['applicationDataCleared'], isFalse);
+    expect(physicalDevice['applicationUninstalled'], isFalse);
     expect(sync['lastSyncResult'], 'success');
     expect(sync['unsyncedRows'], 0);
     expect(sync['unresolvedRejections'], 0);
@@ -82,6 +83,7 @@ void main() {
     expect(mutation['productionBusinessDataCreatedUpdatedOrDeleted'], isFalse);
     expect(deviceBoundary['controlledPilotApprovedByThisReceipt'], isFalse);
     expect(deviceBoundary['pilotHandoutPerformed'], isFalse);
+    expect(deviceBoundary['deviceDataClearPerformed'], isFalse);
   });
 
   test('Build 27 promotion is staged, bounded, and not a handout claim', () {
@@ -252,6 +254,10 @@ void main() {
     );
     expect(verifier, contains('latestFinalizationCompletion'));
     expect(verifier, contains('closureArchiveCompletedAtUtc'));
+    expect(verifier, contains('expectedPromotionOwnerApprovalPath'));
+    expect(verifier, contains('ownerApprovalMutationValues'));
+    expect(verifier, contains('applicationUninstalled'));
+    expect(verifier, contains('deviceDataClearPerformed'));
   });
 
   test('current policy projects Build 27 and preserves Build 11 history', () {
