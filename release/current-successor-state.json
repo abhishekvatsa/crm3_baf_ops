@@ -7,7 +7,7 @@
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.17+27",
-      "relationshipToLatestFinalizedArtifact": "BUILD27_SOURCE_CONTAINS_FINALIZED_BUILD27",
+      "relationshipToLatestFinalizedArtifact": "BUILD27_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD27",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
