@@ -216,7 +216,7 @@ void sample(String id, {String? reason}) {
         'lastConflictKeys.clear();',
         '_hadRecordProcessingError = false;',
         'final prefs = await SharedPreferences.getInstance();',
-        'FirebaseAuth.instance.currentUser?.uid',
+        '_authentication.currentUser?.uid',
         'IsarSchemaMigrator.readCommittedMarker(',
         '_authorityReader.beginRun(expectedUid: actorUid)',
         'cursorStore.begin(',

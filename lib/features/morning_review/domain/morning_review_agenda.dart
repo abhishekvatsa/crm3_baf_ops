@@ -8,6 +8,7 @@ enum MorningReviewAgendaFilter {
   stuckUp,
   open,
   resolved,
+  settled,
 }
 
 class MorningReviewAgenda {
@@ -17,12 +18,11 @@ class MorningReviewAgenda {
 
   List<MorningReviewAgendaSubject> subjectsFor(
     MorningReviewAgendaFilter filter,
-  ) =>
-      filter == MorningReviewAgendaFilter.all
-          ? subjects
-          : subjects
-              .where((subject) => subject.categories.contains(filter))
-              .toList(growable: false);
+  ) => filter == MorningReviewAgendaFilter.all
+      ? subjects
+      : subjects
+            .where((subject) => subject.categories.contains(filter))
+            .toList(growable: false);
 
   int countFor(MorningReviewAgendaFilter filter) => subjectsFor(filter).length;
 
@@ -80,6 +80,21 @@ class MorningReviewAgendaMatter {
 
   MorningReviewSourceFact? get primaryFact =>
       sourceFacts.isEmpty ? null : sourceFacts.first;
+
+  bool get hasUnverifiedCompletionStatement => sourceFacts.any(
+    (fact) =>
+        fact.sourceType == 'carriedAction' &&
+        _normalized(fact.status) != 'completed' &&
+        !_hasCarriedActionCompletionEntry(fact, entries) &&
+        entries.any(
+          (entry) =>
+              entry.kind == MorningReviewEntryKind.currentCompliance &&
+              entry.sourceReferences.contains(fact.factId) &&
+              entry.text.trimLeft().startsWith(
+                'Action ${fact.sourceDocumentId} completed:',
+              ),
+        ),
+  );
 
   List<String> get linkedAssetLabels => sourceFacts
       .map(
@@ -164,11 +179,10 @@ MorningReviewAgenda compileMorningReviewAgenda({
 
   for (final entry in entries) {
     if (sharedEntryIds.contains(entry.entryId)) continue;
-    final referencedMatter =
-        entry.sourceReferences
-            .map((reference) => matterByFactId[reference])
-            .whereType<_MatterBuilder>()
-            .firstOrNull;
+    final referencedMatter = entry.sourceReferences
+        .map((reference) => matterByFactId[reference])
+        .whereType<_MatterBuilder>()
+        .firstOrNull;
     if (referencedMatter != null) {
       referencedMatter.entries.add(entry);
       continue;
@@ -187,10 +201,12 @@ MorningReviewAgenda compileMorningReviewAgenda({
     );
   }
 
-  final subjects = subjectBuilders.values
-    .map((builder) => builder.build())
-    .where((subject) => subject.matters.isNotEmpty)
-    .toList(growable: false)..sort(_compareSubjects);
+  final subjects =
+      subjectBuilders.values
+          .map((builder) => builder.build())
+          .where((subject) => subject.matters.isNotEmpty)
+          .toList(growable: false)
+        ..sort(_compareSubjects);
   return MorningReviewAgenda(subjects: List.unmodifiable(subjects));
 }
 
@@ -279,8 +295,8 @@ class _SubjectBuilder {
   final List<_MatterBuilder> matters = [];
 
   MorningReviewAgendaSubject build() {
-    final builtMatters =
-        matters.map((matter) => matter.build()).toList()..sort(_compareMatters);
+    final builtMatters = matters.map((matter) => matter.build()).toList()
+      ..sort(_compareMatters);
     return MorningReviewAgendaSubject(
       key: key,
       section: section,
@@ -311,11 +327,10 @@ class _MatterBuilder {
   MorningReviewAgendaMatter build() {
     final orderedEntries = [...entries]
       ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
-    final statuses =
-        sourceFacts
-            .map((fact) => fact.status.trim())
-            .where((status) => status.isNotEmpty)
-            .toSet();
+    final statuses = sourceFacts
+        .map((fact) => fact.status.trim())
+        .where((status) => status.isNotEmpty)
+        .toSet();
     final categories = <MorningReviewAgendaFilter>{};
     for (final fact in sourceFacts) {
       categories.addAll(_categoriesForFact(fact, orderedEntries));
@@ -344,6 +359,12 @@ Set<MorningReviewAgendaFilter> _categoriesForFact(
 ) {
   final normalized = _normalized(fact.status);
   final categories = <MorningReviewAgendaFilter>{};
+  final condition = fact.plantConditionEffect;
+  if (condition == 'unfit') categories.add(MorningReviewAgendaFilter.unfit);
+  if (condition == 'unavailable') {
+    categories.add(MorningReviewAgendaFilter.unavailable);
+  }
+  if (condition == 'stuckUp') categories.add(MorningReviewAgendaFilter.stuckUp);
   if (normalized == 'down') categories.add(MorningReviewAgendaFilter.down);
   if (normalized == 'unavailable') {
     categories.add(MorningReviewAgendaFilter.unavailable);
@@ -366,6 +387,9 @@ Set<MorningReviewAgendaFilter> _categoriesForFact(
       (fact.sourceType == 'carriedAction' && normalized == 'completed')) {
     categories.add(MorningReviewAgendaFilter.resolved);
   }
+  if (_settledStatuses.contains(normalized)) {
+    categories.add(MorningReviewAgendaFilter.settled);
+  }
   return categories;
 }
 
@@ -373,13 +397,16 @@ bool _hasCarriedActionCompletionEntry(
   MorningReviewSourceFact fact,
   List<MorningReviewEntry> entries,
 ) {
-  if (fact.sourceType != 'carriedAction') return false;
-  final completionPrefix = 'Action ${fact.sourceDocumentId} completed:';
+  if (fact.sourceType != 'carriedAction' ||
+      fact.sourceCollection != 'morning_review_actions' ||
+      fact.factId != 'morning_review_actions/${fact.sourceDocumentId}') {
+    return false;
+  }
   return entries.any(
     (entry) =>
-        entry.kind == MorningReviewEntryKind.currentCompliance &&
-        entry.sourceReferences.contains(fact.factId) &&
-        entry.text.trimLeft().startsWith(completionPrefix),
+        entry.actionCompletion?.actionId == fact.sourceDocumentId &&
+        (fact.observedAt == null ||
+            !entry.createdAt.isBefore(fact.observedAt!)),
   );
 }
 
@@ -412,12 +439,15 @@ const _resolvedStatuses = <String>{
   'resolved',
   'closed',
   'completed',
-  'cancelled',
   'restored',
   'available',
+  'verifiedresolved',
+};
+
+const _settledStatuses = <String>{
+  'cancelled',
   'withdrawn',
   'withdrawninerror',
-  'verifiedresolved',
   'acceptedcondition',
   'invalidated',
   'closedwithoutresolutionrelevanceended',
@@ -470,11 +500,10 @@ String _matterTitle(
 }
 
 String _matterSummary(List<MorningReviewSourceFact> facts) {
-  final summaries =
-      facts
-          .map((fact) => fact.summary.trim())
-          .where((summary) => summary.isNotEmpty)
-          .toSet();
+  final summaries = facts
+      .map((fact) => fact.summary.trim())
+      .where((summary) => summary.isNotEmpty)
+      .toSet();
   return summaries.join('\n');
 }
 

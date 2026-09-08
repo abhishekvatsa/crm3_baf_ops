@@ -79,7 +79,10 @@ interface ParsedRequest {
   resolutionNote: string | null;
   resolvedAtIso: string | null;
   fingerprint: string;
+  expectedActorUid: string | null;
 }
+
+type RejectedCreation = {ok: false; error: AssetHierarchyMutationError};
 
 export interface OperationalEventMutationResult {
   ok: true;
@@ -244,7 +247,7 @@ export function isOperationalEventOperation(
 export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedRequest {
   const allowed = new Set([
     "requestId", "operation", "eventId", "expectedVersion", "reason",
-    "eventDraft", "resolutionNote", "resolvedAt",
+    "eventDraft", "resolutionNote", "resolvedAt", "expectedActorUid",
   ]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) invalid(key, "is unsupported");
@@ -259,6 +262,11 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     40,
   ) as OperationalEventOperation;
   if (!OPERATIONS.has(operation)) invalid("operation", "is unsupported");
+  const expectedActorUid = raw.expectedActorUid == null ? null :
+    requiredString(raw.expectedActorUid, "expectedActorUid", 128);
+  if (expectedActorUid != null && operation !== "CREATE_OPERATIONAL_EVENT") {
+    invalid("expectedActorUid", "is only supported when creating an event");
+  }
   if (!Number.isSafeInteger(raw.expectedVersion) ||
       (raw.expectedVersion as number) < 0) {
     invalid("expectedVersion", "must be a non-negative integer");
@@ -307,6 +315,9 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     ...requestWithoutResolutionTime,
     resolvedAtIso,
     fingerprint,
+    // This authorization guard must not invalidate a legacy receipt when an
+    // existing saved intent is retried by a newer client.
+    expectedActorUid,
   };
 }
 
@@ -649,16 +660,88 @@ function verifyAsset(data: JsonMap, assetId: string): string {
   return data.assetClassId as string;
 }
 
+const TERMINAL_CREATE_TARGET_REASONS = new Set([
+  "operational-event-asset-class-missing", "operational-event-asset-missing",
+  "operational-event-asset-class-invalid", "operational-event-asset-invalid",
+  "operational-event-asset-class-mismatch",
+]);
+
+function targetRecord(value: SnapshotLike, kind: "asset" | "asset-class", id: string): JsonMap {
+  const data = value.data();
+  if (!value.exists || data == null) {
+    throw new AssetHierarchyMutationError(
+      "not-found",
+      `Affected ${kind === "asset" ? "asset" : "asset class"} ${id} was not found.`,
+      {reasonCode: `operational-event-${kind}-missing`,
+        [kind === "asset" ? "assetId" : "classId"]: id},
+    );
+  }
+  return data;
+}
+
+function rejectionFromReceipt(
+  request: ParsedRequest,
+  actorUid: string,
+  data: JsonMap,
+): RejectedCreation {
+  const details = data.rejectionDetails as JsonMap | null;
+  const reasonCode = details?.reasonCode;
+  const classMismatch = reasonCode === "operational-event-asset-class-mismatch";
+  const classTarget = typeof reasonCode === "string" && reasonCode.includes("asset-class");
+  const targetId = details?.[classTarget ? "classId" : "assetId"];
+  const missing = typeof reasonCode === "string" && reasonCode.endsWith("-missing");
+  const targetIds = classTarget ? request.eventDraft?.affectedAssetClassIds :
+    request.eventDraft?.affectedAssetInstanceIds;
+  const message = classMismatch ?
+    "Affected asset classes must exactly match the selected assets." :
+    `Affected ${classTarget ? "asset class" : "asset"} ${targetId} ` +
+      (missing ? "was not found." : "is malformed or retired.");
+  const targetEvidenceValid = details != null && !Array.isArray(details) &&
+    (classMismatch ? Object.keys(details).length === 1 && request.eventDraft?.scope === "assets" :
+      Object.keys(details).length === 2 && typeof targetId === "string" && targetIds?.includes(targetId));
+  if (Object.keys(data).length !== 12 || data.schemaVersion !== 1 ||
+      data.outcome !== "rejected" || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+      request.operation !== "CREATE_OPERATIONAL_EVENT" ||
+      data.operation !== request.operation || data.eventId !== request.eventId ||
+      !targetEvidenceValid ||
+      !TERMINAL_CREATE_TARGET_REASONS.has(reasonCode as string) ||
+      data.rejectionCode !== (missing ? "not-found" : "failed-precondition") ||
+      data.rejectionMessage !== message || typeof data.committedAtIso !== "string" ||
+      !Number.isFinite(Date.parse(data.committedAtIso)) ||
+      new Date(data.committedAtIso).toISOString() !== data.committedAtIso ||
+      timestampDate(data.committedAt)?.valueOf() !== Date.parse(data.committedAtIso)) {
+    throw new AssetHierarchyMutationError(
+      "data-loss", "The operational-event rejection receipt is malformed or mismatched.",
+      {reasonCode: "operational-event-receipt-mismatch"},
+    );
+  }
+  return {ok: false, error: new AssetHierarchyMutationError(
+    missing ? "not-found" : "failed-precondition",
+    message,
+    {...details, terminalRejection: {
+      schemaVersion: 1, outcome: "rejected", requestId: request.requestId,
+      eventId: request.eventId, actorUid, operation: request.operation,
+      fingerprint: request.fingerprint, committedAt: data.committedAtIso,
+    }},
+  )};
+}
+
 function resultFromReceipt(
   request: ParsedRequest,
   actorUid: string,
   data: JsonMap,
 ): OperationalEventMutationResult {
-  if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+  if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
       data.operation !== request.operation || data.eventId !== request.eventId ||
-      !Number.isSafeInteger(data.version) ||
+      data.version !== request.expectedVersion + 1 ||
       !["open", "resolved"].includes(data.status as string) ||
-      typeof data.auditId !== "string" || typeof data.committedAtIso !== "string") {
+      data.auditId !== `operational_event_${request.requestId}` ||
+      typeof data.committedAtIso !== "string" ||
+      !Number.isFinite(Date.parse(data.committedAtIso)) ||
+      new Date(data.committedAtIso).toISOString() !== data.committedAtIso ||
+      timestampDate(data.committedAt)?.valueOf() !== Date.parse(data.committedAtIso)) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "The operational-event receipt is malformed or mismatched.",
@@ -693,6 +776,12 @@ export async function mutateOperationalEventWithDb(args: {
   }
   const actorUid = args.authUid.trim();
   const request = parseOperationalEventMutationRequest(args.data);
+  if (request.expectedActorUid != null && request.expectedActorUid !== actorUid) {
+    throw new AssetHierarchyMutationError(
+      "permission-denied", "The signed-in account changed before the event was sent.",
+      {reasonCode: "operational-event-actor-mismatch"},
+    );
+  }
   const db = args.db;
   const users = db.collection("users");
   const events = db.collection("operational_events");
@@ -710,7 +799,7 @@ export async function mutateOperationalEventWithDb(args: {
 
   actor(await actorRef.get(), request.operation);
 
-  return db.runTransaction(async (rawTransaction) => {
+  const outcome = await db.runTransaction<OperationalEventMutationResult | RejectedCreation>(async (rawTransaction) => {
     const transaction = rawTransaction as unknown as TransactionLike;
     const receiptValue = asSnapshot(
       await transaction.get(receiptRef),
@@ -724,27 +813,40 @@ export async function mutateOperationalEventWithDb(args: {
       asSnapshot(await transaction.get(actorRef), "Operational-event actor lookup"),
       request.operation,
     );
-    const eventValue = asSnapshot(
-      await transaction.get(eventRef),
-      "Operational-event lookup",
-    );
-    const current = eventValue.exists ? eventValue.data() ?? {} : null;
-    const currentVersion = validateCurrentEvent(current, request.eventId);
-
     if (receiptValue.exists) {
+      const receiptData = receiptValue.data() ?? {};
+      if (receiptData.outcome === "rejected") {
+        const rejection = rejectionFromReceipt(request, actorUid, receiptData);
+        if (auditValue.exists) {
+          throw new AssetHierarchyMutationError(
+            "data-loss", "A rejected operational event has accepted audit evidence.",
+            {reasonCode: "operational-event-replay-evidence-drift"},
+          );
+        }
+        return rejection;
+      }
       const replay = resultFromReceipt(request, actorUid, receiptValue.data() ?? {});
       const auditData = record(auditValue, "Recorded operational-event audit");
-      if (current == null || current.version !== replay.version ||
-          current.lastMutationId !== request.requestId ||
+      const after = auditData.after as JsonMap | null;
+      const before = auditData.before as JsonMap | null;
+      if (auditData.schemaVersion !== 1 || auditData.auditId !== replay.auditId ||
           auditData.requestId !== request.requestId ||
+          auditData.operation !== request.operation ||
           auditData.performedByUid !== actorUid ||
-          auditData.eventId !== request.eventId) {
+          auditData.eventId !== request.eventId ||
+          timestampDate(auditData.performedAt)?.valueOf() !== Date.parse(replay.committedAt) ||
+          after == null || Array.isArray(after) || after.eventId !== request.eventId ||
+          after.version !== replay.version || after.status !== replay.status ||
+          after.lastMutationId !== request.requestId ||
+          (request.expectedVersion === 0 ? before != null :
+            before == null || before.version !== request.expectedVersion)) {
         throw new AssetHierarchyMutationError(
           "data-loss",
-          "The operational-event receipt no longer matches its state and audit evidence.",
+          "The operational-event receipt no longer matches its committed audit evidence.",
           {reasonCode: "operational-event-replay-evidence-drift"},
         );
       }
+      // Acceptance is historical evidence, not a replacement for the live event.
       return replay;
     }
     if (auditValue.exists) {
@@ -754,6 +856,12 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-orphan-audit"},
       );
     }
+    const eventValue = asSnapshot(
+      await transaction.get(eventRef),
+      "Operational-event lookup",
+    );
+    const current = eventValue.exists ? eventValue.data() ?? {} : null;
+    const currentVersion = validateCurrentEvent(current, request.eventId);
     if (request.operation === "CREATE_OPERATIONAL_EVENT" && current != null) {
       throw new AssetHierarchyMutationError(
         "already-exists",
@@ -813,33 +921,54 @@ export async function mutateOperationalEventWithDb(args: {
         affectedAssetClassIds: current!.affectedAssetClassIds as ReadonlyArray<string>,
         affectedAssetInstanceIds: current!.affectedAssetInstanceIds as ReadonlyArray<string>,
       } : null);
-    if (targetScope != null) {
-      const classIds = new Set(targetScope.affectedAssetClassIds);
-      const assetClassIds = new Set<string>();
-      for (const classId of targetScope.affectedAssetClassIds) {
-        const value = asSnapshot(
-          await transaction.get(classes.doc(classId)),
-          `Affected asset class ${classId} lookup`,
-        );
-        verifyClass(record(value, `Affected asset class ${classId}`), classId);
+    try {
+      if (targetScope != null) {
+        const classIds = new Set(targetScope.affectedAssetClassIds);
+        const assetClassIds = new Set<string>();
+        for (const classId of targetScope.affectedAssetClassIds) {
+          const value = asSnapshot(
+            await transaction.get(classes.doc(classId)),
+            `Affected asset class ${classId} lookup`,
+          );
+          verifyClass(targetRecord(value, "asset-class", classId), classId);
+        }
+        for (const assetId of targetScope.affectedAssetInstanceIds) {
+          const value = asSnapshot(
+            await transaction.get(assets.doc(assetId)),
+            `Affected asset ${assetId} lookup`,
+          );
+          const classId = verifyAsset(targetRecord(value, "asset", assetId), assetId);
+          assetClassIds.add(classId);
+        }
+        if (targetScope.scope === "assets" &&
+            (classIds.size !== assetClassIds.size ||
+              [...classIds].some((classId) => !assetClassIds.has(classId)))) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "Affected asset classes must exactly match the selected assets.",
+            {reasonCode: "operational-event-asset-class-mismatch"},
+          );
+        }
       }
-      for (const assetId of targetScope.affectedAssetInstanceIds) {
-        const value = asSnapshot(
-          await transaction.get(assets.doc(assetId)),
-          `Affected asset ${assetId} lookup`,
-        );
-        const classId = verifyAsset(record(value, `Affected asset ${assetId}`), assetId);
-        assetClassIds.add(classId);
-      }
-      if (targetScope.scope === "assets" &&
-          (classIds.size !== assetClassIds.size ||
-            [...classIds].some((classId) => !assetClassIds.has(classId)))) {
-        throw new AssetHierarchyMutationError(
-          "failed-precondition",
-          "Affected asset classes must exactly match the selected assets.",
-          {reasonCode: "operational-event-asset-class-mismatch"},
-        );
-      }
+    } catch (error) {
+      const details = error instanceof AssetHierarchyMutationError ?
+        error.details as JsonMap | undefined : undefined;
+      if (request.operation !== "CREATE_OPERATIONAL_EVENT" ||
+          !(error instanceof AssetHierarchyMutationError) ||
+          !TERMINAL_CREATE_TARGET_REASONS.has(details?.reasonCode as string)) throw error;
+      // Read-before-write and the same receipt document fence every concurrent
+      // accepted/rejected attempt. Return first: throwing here would roll back.
+      const rejectedAt = now();
+      const receipt: JsonMap = {
+        schemaVersion: 1, outcome: "rejected", requestId: request.requestId,
+        actorUid, fingerprint: request.fingerprint, operation: request.operation,
+        eventId: request.eventId, rejectionCode: error.code,
+        rejectionMessage: error.message, rejectionDetails: details,
+        committedAt: timestampFromDate(rejectedAt), committedAtIso: rejectedAt.toISOString(),
+      };
+      const rejection = rejectionFromReceipt(request, actorUid, receipt);
+      transaction.set(receiptRef as unknown as DocumentRefLike, receipt);
+      return rejection;
     }
 
     const committed = now();
@@ -999,4 +1128,6 @@ export async function mutateOperationalEventWithDb(args: {
       idempotentReplay: false,
     };
   });
+  if (!outcome.ok) throw outcome.error;
+  return outcome;
 }

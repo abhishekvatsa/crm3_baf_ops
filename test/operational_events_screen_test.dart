@@ -9,11 +9,59 @@ import 'package:crm3_baf_ops/features/operational_events/data/operational_event.
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:crm3_baf_ops/features/operational_events/services/operational_event_service.dart';
+import 'package:crm3_baf_ops/features/operational_events/services/operational_event_creation_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('event entry offers retained creation retry before a new form', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final service = _PendingCreationService();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref, actorUid) => Stream.value(const []),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref, actorUid) => Stream.value(const []),
+          ),
+          operationsReportClockProvider.overrideWith(
+            (ref) => Stream.value(now),
+          ),
+          operationalEventServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('operational-events-add')));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm your previous event'), findsOneWidget);
+    expect(find.textContaining('Saved supply interruption'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('operational-event-retry-creation')),
+    );
+    await tester.pumpAndSettle();
+    expect(service.retried, isTrue);
+    expect(service.expectedActor, 'operations-1');
+    expect(service.expectedRequest, 'pending-request');
+    expect(
+      find.textContaining('Earlier event submission confirmed'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('resolution defaults to verified server closure time', (
     tester,
   ) async {
@@ -489,6 +537,44 @@ class _RecordingOperationalEventService extends OperationalEventService {
       auditId: 'resolution-audit',
       committedAt: DateTime.now(),
       idempotentReplay: false,
+    );
+  }
+}
+
+class _PendingCreationService extends OperationalEventService {
+  bool retried = false;
+  String? expectedActor;
+  String? expectedRequest;
+
+  @override
+  Future<PendingOperationalEventCreation?> pendingCreation() async =>
+      const PendingOperationalEventCreation(
+        requestId: 'pending-request',
+        eventId: 'pending-event',
+        payloadFingerprint: 'pending-fingerprint',
+        payload: <String, dynamic>{
+          'reason': 'Saved original submission',
+          'eventDraft': <String, dynamic>{'title': 'Saved supply interruption'},
+        },
+      );
+
+  @override
+  Future<OperationalEventCommandResult> retryPendingCreation({
+    String? expectedActorUid,
+    String? expectedRequestId,
+  }) async {
+    retried = true;
+    expectedActor = expectedActorUid;
+    expectedRequest = expectedRequestId;
+    return OperationalEventCommandResult(
+      requestId: 'pending-request',
+      operation: OperationalEventCommand.create,
+      eventId: 'pending-event',
+      status: OperationalEventStatus.open,
+      version: 1,
+      auditId: 'operational_event_pending-request',
+      committedAt: DateTime.utc(2026, 8, 14),
+      idempotentReplay: true,
     );
   }
 }

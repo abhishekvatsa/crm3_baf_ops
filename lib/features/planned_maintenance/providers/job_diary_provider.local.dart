@@ -303,8 +303,11 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
         remoteUpdatedAt: remote.updatedAt,
       )) {
         return RemoteRecordApplyResult<JobDiaryEntry>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 

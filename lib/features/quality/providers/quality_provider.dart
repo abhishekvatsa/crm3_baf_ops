@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/security/actor_session_cache_trust.dart';
@@ -58,13 +59,13 @@ final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
       .limit(qualityWarningLiveWindowLimit)
       .snapshots()
       .map(_decodeQualityWarnings);
-  return _combineQualityWarningWindows(nonClosed, recent);
+  return combineQualityWarningWindows(nonClosed, recent);
 });
 
 String linkedQualityAbnormalityId(QualityWarning warning) =>
     warning.sourceType == QualityWarningSourceType.issue
-        ? 'issue_quality_${warning.sourceId}'
-        : warning.sourceId;
+    ? 'issue_quality_${warning.sourceId}'
+    : warning.sourceId;
 
 /// Reads the exact canonical case used by the quality command transaction.
 ///
@@ -117,10 +118,22 @@ List<QualityWarning> mergeQualityWarningWindows(
   List<QualityWarning> nonClosed,
   List<QualityWarning> recent,
 ) {
-  final byId = <String, QualityWarning>{
-    for (final warning in recent) warning.warningId: warning,
-    for (final warning in nonClosed) warning.warningId: warning,
-  };
+  final byId = <String, QualityWarning>{};
+  for (final warning in [...recent, ...nonClosed]) {
+    final previous = byId[warning.warningId];
+    if (previous == null || warning.version > previous.version) {
+      byId[warning.warningId] = warning;
+    } else if (warning.version == previous.version &&
+        !listEquals(
+          _warningRevisionEvidence(warning),
+          _warningRevisionEvidence(previous),
+        )) {
+      throw StateError(
+        'Quality warning ${warning.warningId} has contradictory revision '
+        '${warning.version} evidence. Refresh to verify its current state.',
+      );
+    }
+  }
   final warnings = byId.values.toList();
   warnings.sort((left, right) {
     final status = _warningStatusRank(
@@ -132,7 +145,47 @@ List<QualityWarning> mergeQualityWarningWindows(
   return List<QualityWarning>.unmodifiable(warnings);
 }
 
-Stream<List<QualityWarning>> _combineQualityWarningWindows(
+// Compare persisted meaning, including attribution and governed asset identity.
+// Object identity and timestamps alone cannot establish an equal revision.
+List<Object?> _warningRevisionEvidence(QualityWarning warning) => [
+  warning.warningId,
+  warning.version,
+  warning.sourceType,
+  warning.sourceId,
+  warning.sourceVersion,
+  warning.sourceChargeNo,
+  warning.sourceSummary,
+  warning.sourceSeverity,
+  warning.warningReason,
+  warning.component,
+  warning.status,
+  warning.closureRequestReason,
+  warning.closureRequestedAt,
+  warning.closureRequestedByUid,
+  warning.closureRequestedByName,
+  warning.closedAt,
+  warning.closedByUid,
+  warning.closedByName,
+  warning.closureDisposition,
+  warning.decisionReason,
+  warning.createdAt,
+  warning.createdByUid,
+  warning.createdByName,
+  warning.updatedAt,
+  warning.updatedByUid,
+  warning.updatedByName,
+  warning.affectedAssets.length,
+  for (final asset in warning.affectedAssets)
+    (
+      asset.assetType,
+      asset.assetNumber,
+      asset.assetHierarchyReference?.encode(),
+    ),
+  warning.linkedReannealingChargeNos.length,
+  ...warning.linkedReannealingChargeNos,
+];
+
+Stream<List<QualityWarning>> combineQualityWarningWindows(
   Stream<List<QualityWarning>> nonClosed,
   Stream<List<QualityWarning>> recent,
 ) {
@@ -141,22 +194,52 @@ Stream<List<QualityWarning>> _combineQualityWarningWindows(
   StreamSubscription<List<QualityWarning>>? recentSubscription;
   List<QualityWarning>? latestNonClosed;
   List<QualityWarning>? latestRecent;
+  var observed = <String, QualityWarning>{};
 
   void emitWhenReady() {
     if (latestNonClosed == null || latestRecent == null) return;
-    controller.add(mergeQualityWarningWindows(latestNonClosed!, latestRecent!));
+    try {
+      final merged = mergeQualityWarningWindows(
+        latestNonClosed!,
+        latestRecent!,
+      );
+      // Keep the greatest observed revision while an identity is in either
+      // window, even if both listeners later deliver a delayed older snapshot.
+      // Removing an identity from both windows also releases this memory.
+      final previous = [
+        for (final warning in merged)
+          if (observed[warning.warningId] case final value?) value,
+      ];
+      final current = mergeQualityWarningWindows(merged, previous);
+      observed = {for (final warning in current) warning.warningId: warning};
+      controller.add(current);
+    } catch (error, stack) {
+      controller.addError(error, stack);
+    }
   }
 
   controller = StreamController<List<QualityWarning>>(
     onListen: () {
-      nonClosedSubscription = nonClosed.listen((value) {
-        latestNonClosed = value;
-        emitWhenReady();
-      }, onError: controller.addError);
-      recentSubscription = recent.listen((value) {
-        latestRecent = value;
-        emitWhenReady();
-      }, onError: controller.addError);
+      nonClosedSubscription = nonClosed.listen(
+        (value) {
+          latestNonClosed = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stack) {
+          latestNonClosed = null;
+          controller.addError(error, stack);
+        },
+      );
+      recentSubscription = recent.listen(
+        (value) {
+          latestRecent = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stack) {
+          latestRecent = null;
+          controller.addError(error, stack);
+        },
+      );
     },
     onCancel: () async {
       await nonClosedSubscription?.cancel();

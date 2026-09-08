@@ -247,9 +247,10 @@ class SyncCoordinator {
     this._ref,
     this._sync,
     this._pull,
-    this._recoverySessionGuard,
-  ) {
-    _initConnectivityListener();
+    this._recoverySessionGuard, {
+    Connectivity? connectivity,
+  }) {
+    _initConnectivityListener(connectivity ?? Connectivity());
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -489,6 +490,7 @@ class SyncCoordinator {
       );
       final conflictCount = _sync.lastConflictCount + _pull.lastConflicted;
 
+      _ref.read(syncConflictProvider.notifier).state = conflictCount;
       _ref.read(syncStatusProvider.notifier).state = SyncStatus.failed;
       _ref.read(syncRunHealthProvider.notifier).state = _health.copyWith(
         isRunning: false,
@@ -806,11 +808,11 @@ class SyncCoordinator {
   // CONNECTIVITY LISTENER
   // ─────────────────────────────────────────────────────────────
 
-  void _initConnectivityListener() {
+  void _initConnectivityListener(Connectivity connectivity) {
     if (_initialized) return;
     _initialized = true;
 
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+    _connectivitySub = connectivity.onConnectivityChanged.listen((results) {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
       if (hasConnection) {

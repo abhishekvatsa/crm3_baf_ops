@@ -598,8 +598,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         remoteUpdatedAt: remote.updatedAt,
       )) {
         return RemoteRecordApplyResult<TemplatePackage>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 
@@ -787,8 +790,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         remoteUpdatedAt: remote.updatedAt,
       )) {
         return RemoteRecordApplyResult<TemplateVersion>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 
@@ -979,8 +985,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
           remoteUpdatedAt: remote.updatedAt,
         )) {
           return RemoteRecordApplyResult<TemplatePublishAudit>(
-            RemoteRecordApplyOutcome.staleRemoteSkipped,
+            remoteIsNewer
+                ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+                : RemoteRecordApplyOutcome.staleRemoteSkipped,
             localRecord: local,
+            remoteIsNewer: remoteIsNewer,
           );
         }
 

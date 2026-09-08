@@ -229,10 +229,9 @@ class OperationsManagementReadout extends StatelessWidget {
         label: 'Assurance due',
         value: '${report.assuranceBacklogCount}',
         detail: 'Cadence and inspection follow-through',
-        color:
-            report.assuranceBacklogCount == 0
-                ? BafColors.success
-                : BafColors.warning,
+        color: report.assuranceBacklogCount == 0
+            ? BafColors.success
+            : BafColors.warning,
       ),
     ];
 
@@ -424,12 +423,12 @@ class OperationsDecisionBrief extends StatelessWidget {
               ),
             ),
             StatusBadge(
-              label:
-                  signals.isEmpty ? 'All clear' : '${signals.length} signals',
-              color:
-                  signals.isEmpty
-                      ? BafColors.success
-                      : _signalColor(signals.first.level),
+              label: signals.isEmpty
+                  ? 'All clear'
+                  : '${signals.length} signals',
+              color: signals.isEmpty
+                  ? BafColors.success
+                  : _signalColor(signals.first.level),
             ),
           ],
         ),
@@ -473,25 +472,25 @@ class OperationsDecisionBrief extends StatelessWidget {
     );
   }
 
-  VoidCallback _actionFor(
-    OperationsManagementSignalType type,
-  ) => switch (type) {
-    OperationsManagementSignalType.safetyCriticalAlarms =>
-      onSafetyCriticalAlarms,
-    OperationsManagementSignalType.unavailableAssets => onPlantCondition,
-    OperationsManagementSignalType.criticalIssues => onIssues,
-    OperationsManagementSignalType.operationalDisruptions =>
-      onOperationalEvents,
-    OperationsManagementSignalType.overdueMaintenance => onMaintenanceRhythm,
-    OperationsManagementSignalType.inspectionFindings => onInspections,
-    OperationsManagementSignalType.qualityWarnings => onQuality,
-    OperationsManagementSignalType.workflowObligations => onWorkflow,
-    OperationsManagementSignalType.activeDirectives => onDirectives,
-    OperationsManagementSignalType.criticalAbnormalities => onAbnormalities,
-    OperationsManagementSignalType.qualityMonitoring => onQualityMonitoring,
-    OperationsManagementSignalType.openIssues => onIssues,
-    OperationsManagementSignalType.openPlannedWork => onPlannedWork,
-  };
+  VoidCallback _actionFor(OperationsManagementSignalType type) =>
+      switch (type) {
+        OperationsManagementSignalType.safetyCriticalAlarms =>
+          onSafetyCriticalAlarms,
+        OperationsManagementSignalType.unavailableAssets => onPlantCondition,
+        OperationsManagementSignalType.criticalIssues => onIssues,
+        OperationsManagementSignalType.operationalDisruptions =>
+          onOperationalEvents,
+        OperationsManagementSignalType.overdueMaintenance =>
+          onMaintenanceRhythm,
+        OperationsManagementSignalType.inspectionFindings => onInspections,
+        OperationsManagementSignalType.qualityWarnings => onQuality,
+        OperationsManagementSignalType.workflowObligations => onWorkflow,
+        OperationsManagementSignalType.activeDirectives => onDirectives,
+        OperationsManagementSignalType.criticalAbnormalities => onAbnormalities,
+        OperationsManagementSignalType.qualityMonitoring => onQualityMonitoring,
+        OperationsManagementSignalType.openIssues => onIssues,
+        OperationsManagementSignalType.openPlannedWork => onPlannedWork,
+      };
 
   static Color _signalColor(OperationsManagementSignalLevel level) =>
       switch (level) {
@@ -662,12 +661,11 @@ OperationsReportSelection reconcileOperationsReportSelection({
   };
   final resolvedClassId =
       assetClassId != null && activeClassIds.contains(assetClassId)
-          ? assetClassId
-          : null;
-  final selectedAsset =
-      assetInstanceId == null
-          ? null
-          : assets.where((item) => item.id == assetInstanceId).firstOrNull;
+      ? assetClassId
+      : null;
+  final selectedAsset = assetInstanceId == null
+      ? null
+      : assets.where((item) => item.id == assetInstanceId).firstOrNull;
   final assetRemainsAvailable =
       selectedAsset != null &&
       selectedAsset.isActive &&
@@ -686,6 +684,7 @@ void _invalidateReportSources(
 ]) {
   ref.invalidate(operationsReportTicketsProvider);
   ref.invalidate(operationsReportExecutionsProvider);
+  ref.invalidate(operationsReportIdentitySourcesProvider);
   ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(maintenanceDueStatesProvider);
   ref.invalidate(allInspectionFindingsProvider);

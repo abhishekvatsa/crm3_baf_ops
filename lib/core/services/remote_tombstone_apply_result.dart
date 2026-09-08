@@ -32,8 +32,22 @@ enum RemoteRecordApplyOutcome {
   updated,
   unchanged,
   staleRemoteSkipped,
+
+  /// A higher server version was retained for reconciliation because the
+  /// supposedly clean local row has a later clock. Neither side may be lost,
+  /// and a pull must not advance its cursor over this unresolved decision.
+  cleanLocalReconciliationRequired,
   localDirtyPreserved,
   duplicateLocalIdentity,
+}
+
+class RemoteRecordReconciliationRequiredException implements Exception {
+  const RemoteRecordReconciliationRequiredException();
+
+  @override
+  String toString() =>
+      'A newer server version could not safely replace a saved local record. '
+      'Both versions need reconciliation; local work has been preserved.';
 }
 
 class RemoteRecordApplyResult<T extends Object> {

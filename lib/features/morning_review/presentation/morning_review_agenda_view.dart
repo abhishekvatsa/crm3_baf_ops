@@ -75,36 +75,33 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               BafScreenIntro(
-                title:
-                    widget.session.isOpen ? 'Today\'s room' : 'Frozen meeting',
-                subtitle:
-                    widget.session.isOpen
-                        ? widget.joined
-                            ? 'Add updates under your own name; source facts remain read-only.'
-                            : 'Join explicitly to contribute. Viewing alone is not attendance.'
-                        : widget.session.finalSummary ?? 'Meeting finalized.',
-                icon:
-                    widget.session.isOpen
-                        ? Icons.forum_outlined
-                        : Icons.inventory_2_outlined,
+                title: widget.session.isOpen
+                    ? 'Today\'s room'
+                    : 'Frozen meeting',
+                subtitle: widget.session.isOpen
+                    ? widget.joined
+                          ? 'Add updates under your own name; source facts remain read-only.'
+                          : 'Join explicitly to contribute. Viewing alone is not attendance.'
+                    : widget.session.finalSummary ?? 'Meeting finalized.',
+                icon: widget.session.isOpen
+                    ? Icons.forum_outlined
+                    : Icons.inventory_2_outlined,
                 accent: BafColors.cobalt,
-                trailing:
-                    widget.onAddEntry != null
-                        ? FilledButton.icon(
-                          onPressed:
-                              widget.busy
-                                  ? null
-                                  : () => widget.onAddEntry!(null),
-                          icon: const Icon(Icons.add_comment_outlined),
-                          label: const Text('Add contribution'),
-                        )
-                        : widget.onAddAddendum != null
-                        ? OutlinedButton.icon(
-                          onPressed: widget.busy ? null : widget.onAddAddendum,
-                          icon: const Icon(Icons.note_add_outlined),
-                          label: const Text('Add addendum'),
-                        )
-                        : null,
+                trailing: widget.onAddEntry != null
+                    ? FilledButton.icon(
+                        onPressed: widget.busy
+                            ? null
+                            : () => widget.onAddEntry!(null),
+                        icon: const Icon(Icons.add_comment_outlined),
+                        label: const Text('Add contribution'),
+                      )
+                    : widget.onAddAddendum != null
+                    ? OutlinedButton.icon(
+                        onPressed: widget.busy ? null : widget.onAddAddendum,
+                        icon: const Icon(Icons.note_add_outlined),
+                        label: const Text('Add addendum'),
+                      )
+                    : null,
               ),
               if (widget.session.sourceCaptureState ==
                   MorningReviewSourceCaptureState.bounded) ...[
@@ -152,21 +149,19 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
                     subtitle: _sectionSubtitle(section),
                     trailing:
                         section == MorningReviewSection.safety &&
-                                widget.onAddConcern != null
-                            ? IconButton.filledTonal(
-                              tooltip: 'Add standing concern',
-                              style: IconButton.styleFrom(
-                                backgroundColor: BafColors.cobalt,
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    BafColors.surfaceStrong,
-                                disabledForegroundColor: BafColors.textTertiary,
-                              ),
-                              onPressed:
-                                  widget.busy ? null : widget.onAddConcern,
-                              icon: const Icon(Icons.push_pin_outlined),
-                            )
-                            : null,
+                            widget.onAddConcern != null
+                        ? IconButton.filledTonal(
+                            tooltip: 'Add standing concern',
+                            style: IconButton.styleFrom(
+                              backgroundColor: BafColors.cobalt,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: BafColors.surfaceStrong,
+                              disabledForegroundColor: BafColors.textTertiary,
+                            ),
+                            onPressed: widget.busy ? null : widget.onAddConcern,
+                            icon: const Icon(Icons.push_pin_outlined),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: BafSpacing.sm),
                   if (section == MorningReviewSection.safety)
@@ -178,18 +173,18 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
                           check: checksByConcern[concern.concernId],
                           onCheck:
                               concern.status ==
-                                          MorningReviewConcernStatus.active &&
-                                      checksByConcern[concern.concernId] == null
-                                  ? widget.onCheckConcern == null
-                                      ? null
-                                      : () => widget.onCheckConcern!(concern)
-                                  : null,
+                                      MorningReviewConcernStatus.active &&
+                                  checksByConcern[concern.concernId] == null
+                              ? widget.onCheckConcern == null
+                                    ? null
+                                    : () => widget.onCheckConcern!(concern)
+                              : null,
                           onResolve:
                               concern.status ==
-                                          MorningReviewConcernStatus.active &&
-                                      widget.onResolveConcern != null
-                                  ? () => widget.onResolveConcern!(concern)
-                                  : null,
+                                      MorningReviewConcernStatus.active &&
+                                  widget.onResolveConcern != null
+                              ? () => widget.onResolveConcern!(concern)
+                              : null,
                         ),
                       ),
                     ),
@@ -241,10 +236,9 @@ class MorningReviewConcernCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = concern.status == MorningReviewConcernStatus.active;
-    final color =
-        concern.criticality == MorningReviewConcernCriticality.safety
-            ? BafColors.danger
-            : BafColors.warning;
+    final color = concern.criticality == MorningReviewConcernCriticality.safety
+        ? BafColors.danger
+        : BafColors.warning;
     return BafRecordSurface(
       accent: active ? color : BafColors.success,
       child: Column(
@@ -284,14 +278,12 @@ class MorningReviewConcernCard extends StatelessWidget {
           if (check != null) ...[
             const SizedBox(height: BafSpacing.sm),
             _AgendaInlineNotice(
-              icon:
-                  check!.state == MorningReviewConcernCheckState.complied
-                      ? Icons.check_circle_outline
-                      : Icons.error_outline_rounded,
-              color:
-                  check!.state == MorningReviewConcernCheckState.complied
-                      ? BafColors.success
-                      : BafColors.danger,
+              icon: check!.state == MorningReviewConcernCheckState.complied
+                  ? Icons.check_circle_outline
+                  : Icons.error_outline_rounded,
+              color: check!.state == MorningReviewConcernCheckState.complied
+                  ? BafColors.success
+                  : BafColors.danger,
               text:
                   '${check!.state.name}: ${check!.note} · ${check!.checkedByName}',
             ),
@@ -462,12 +454,11 @@ class _AgendaSubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final matters =
-        filter == MorningReviewAgendaFilter.all
-            ? subject.matters
-            : subject.matters
-                .where((matter) => matter.categories.contains(filter))
-                .toList(growable: false);
+    final matters = filter == MorningReviewAgendaFilter.all
+        ? subject.matters
+        : subject.matters
+              .where((matter) => matter.categories.contains(filter))
+              .toList(growable: false);
     return BafRecordSurface(
       key: ValueKey('morning-review-subject-${subject.key}'),
       accent: _subjectAccent(subject),
@@ -540,8 +531,8 @@ class _AgendaSubjectCard extends StatelessWidget {
               matter: matters[index],
               onDiscuss:
                   onDiscuss == null || matters[index].sourceFacts.length != 1
-                      ? null
-                      : () => onDiscuss!(matters[index].sourceFacts.single),
+                  ? null
+                  : () => onDiscuss!(matters[index].sourceFacts.single),
             ),
           ],
         ],
@@ -565,7 +556,8 @@ class _AgendaMatterView extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${matter.status} · '
-          '${matter.sourceFacts.map((fact) => fact.sourceType).toSet().join(', ')}',
+          '${matter.sourceFacts.map((fact) => fact.sourceTypeLabel).toSet().join(', ')}'
+          '${matter.hasUnverifiedCompletionStatement ? '\nCompletion statement retained; native completion is not verified.' : ''}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: BafColors.cobalt,
             fontWeight: FontWeight.w700,
@@ -747,6 +739,7 @@ String _agendaFilterLabel(MorningReviewAgendaFilter filter) => switch (filter) {
   MorningReviewAgendaFilter.stuckUp => 'Stuck-up',
   MorningReviewAgendaFilter.open => 'Open',
   MorningReviewAgendaFilter.resolved => 'Resolved',
+  MorningReviewAgendaFilter.settled => 'Closed / accepted',
 };
 
 IconData _agendaFilterIcon(MorningReviewAgendaFilter filter) =>
@@ -758,6 +751,7 @@ IconData _agendaFilterIcon(MorningReviewAgendaFilter filter) =>
       MorningReviewAgendaFilter.stuckUp => Icons.link_off_outlined,
       MorningReviewAgendaFilter.open => Icons.pending_actions_outlined,
       MorningReviewAgendaFilter.resolved => Icons.task_alt_outlined,
+      MorningReviewAgendaFilter.settled => Icons.inventory_2_outlined,
     };
 
 Color _agendaFilterColor(MorningReviewAgendaFilter filter) => switch (filter) {
@@ -768,6 +762,7 @@ Color _agendaFilterColor(MorningReviewAgendaFilter filter) => switch (filter) {
   MorningReviewAgendaFilter.stuckUp => BafColors.audit,
   MorningReviewAgendaFilter.open => BafColors.maintenance,
   MorningReviewAgendaFilter.resolved => BafColors.success,
+  MorningReviewAgendaFilter.settled => BafColors.audit,
 };
 
 Color _subjectAccent(MorningReviewAgendaSubject subject) {

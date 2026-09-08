@@ -444,8 +444,11 @@ class IsarDirectiveRepository implements DirectiveRepository {
           remoteUpdatedAt: remote.updatedAt,
         )) {
           return RemoteRecordApplyResult<OperationalDirective>(
-            RemoteRecordApplyOutcome.staleRemoteSkipped,
+            remoteIsNewer
+                ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+                : RemoteRecordApplyOutcome.staleRemoteSkipped,
             localRecord: local,
+            remoteIsNewer: remoteIsNewer,
           );
         }
 

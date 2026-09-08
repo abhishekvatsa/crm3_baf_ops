@@ -760,8 +760,11 @@ class IsarJobModuleRepository implements JobModuleRepository {
         remoteUpdatedAt: remote.updatedAt,
       )) {
         return RemoteRecordApplyResult<JobModuleInstance>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 

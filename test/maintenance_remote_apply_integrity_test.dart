@@ -95,7 +95,7 @@ void main() {
   );
 
   test(
-    'higher remote version cannot overwrite a later clean local snapshot',
+    'higher remote version with older time preserves evidence and requires reconciliation',
     () async {
       await _withMaintenanceIsar((isar) async {
         final remoteTime = DateTime.utc(2026, 9, 6, 8);
@@ -112,17 +112,22 @@ void main() {
               _record(
                 version: 7,
                 updatedAt: remoteTime,
-                description: 'Older remote snapshot',
+                description: 'Higher server version with an older timestamp',
                 isSynced: true,
               ),
             );
         final stored = await isar.maintenanceRecords.get(local.id);
 
-        expect(result.outcome, RemoteRecordApplyOutcome.staleRemoteSkipped);
-        expect(result.remoteIsNewer, isFalse);
+        // A preservation decision must not be advertised as a harmless stale
+        // server record: the server version is higher and convergence is owed.
+        expect(result.outcome.name, 'cleanLocalReconciliationRequired');
+        expect(result.remoteIsNewer, isTrue);
+        expect(result.applied, isFalse);
         expect(stored!.description, 'Later clean local evidence');
         expect(stored.version, 3);
         expect(stored.isSynced, isTrue);
+        expect(stored.updatedAt.toUtc(), local.updatedAt.toUtc());
+        expect(result.localRecord!.toAuditMap(), stored.toAuditMap());
       });
     },
   );

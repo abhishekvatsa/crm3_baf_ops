@@ -59,7 +59,7 @@ void main() {
 
   for (final entry in cleanClockGuardCases.entries) {
     test(
-      '${entry.key} remote apply preserves a later clean local snapshot',
+      '${entry.key} remote apply preserves later clean evidence and requires reconciliation',
       () async => _withIsar(entry.value),
     );
   }
@@ -357,7 +357,10 @@ void _expectDirtyPreserved(RemoteRecordApplyResult<Object> result) {
 }
 
 void _expectCleanClockGuard(RemoteRecordApplyResult<Object> result) {
-  expect(result.outcome, RemoteRecordApplyOutcome.staleRemoteSkipped);
+  expect(result.outcome.name, 'cleanLocalReconciliationRequired');
+  expect(result.remoteIsNewer, isTrue);
+  expect(result.applied, isFalse);
+  expect(result.localRecord, isNotNull);
 }
 
 OperationalDirective _directive(

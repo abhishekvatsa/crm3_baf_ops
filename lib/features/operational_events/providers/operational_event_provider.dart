@@ -17,7 +17,14 @@ const operationalEventResolvedHistoryDisclosure =
     'events. Older resolved events may not be shown.';
 
 final operationalEventServiceProvider = Provider<OperationalEventService>(
-  (ref) => OperationalEventService(),
+  (ref) => OperationalEventService(
+    actorUidResolver: () {
+      final authority = ref.read(currentAppUserProvider);
+      if (authority.isLoading || authority.hasError) return null;
+      final actor = authority.value;
+      return actor != null && actor.isApproved ? actor.uid : null;
+    },
+  ),
 );
 
 final operationalEventIssueLinkServiceProvider =

@@ -68,9 +68,12 @@ class GlobalPullService {
   final AuditRepository _auditRepo;
   final GlobalPullAuthorityReader _authorityReader;
   final String Function() _runIdFactory;
+  final FirebaseAuth? _auth;
+  FirebaseAuth get _authentication => _auth ?? FirebaseAuth.instance;
 
   bool _isPulling = false;
   bool _hadRecordProcessingError = false;
+  bool _hadCleanLocalReconciliation = false;
   GlobalPullDomain? lastFailedDomain;
 
   int lastInserted = 0;
@@ -100,9 +103,11 @@ class GlobalPullService {
     this._auditRepo, {
     GlobalPullAuthorityReader? authorityReader,
     String Function()? runIdFactory,
+    FirebaseAuth? auth,
   }) : _authorityReader =
            authorityReader ?? const FirebaseGlobalPullAuthorityReader(),
-       _runIdFactory = runIdFactory ?? const Uuid().v4;
+       _runIdFactory = runIdFactory ?? const Uuid().v4,
+       _auth = auth;
 
   // ─────────────────────────────────────────────────────────────
   // ENTRY POINT
@@ -124,7 +129,7 @@ class GlobalPullService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final actorUid = FirebaseAuth.instance.currentUser?.uid;
+      final actorUid = _authentication.currentUser?.uid;
       if (actorUid == null || actorUid.trim().isEmpty) {
         throw const GlobalPullProtocolException(
           'Authentication is required before global pull.',
@@ -247,6 +252,7 @@ class GlobalPullService {
 
     _requireCurrentActor(envelope.actorUid);
     _hadRecordProcessingError = false;
+    _hadCleanLocalReconciliation = false;
     try {
       await pull(cursor.cursor, envelope.serverAnchor);
     } catch (_) {
@@ -254,6 +260,14 @@ class GlobalPullService {
       rethrow;
     }
     _requireCurrentActor(envelope.actorUid);
+    if (_hadCleanLocalReconciliation) {
+      lastFailedDomain = domain;
+      throw GlobalPullCursorException(
+        'Newer server records in ${domain.wireName} need reconciliation with '
+        'preserved local evidence. This domain cursor has not advanced.',
+        reasonCode: 'domain-clean-local-reconciliation-required',
+      );
+    }
     if (_hadRecordProcessingError) {
       lastFailedDomain = domain;
       throw GlobalPullCursorException(
@@ -265,7 +279,7 @@ class GlobalPullService {
   }
 
   void _requireCurrentActor(String expectedUid) {
-    if (FirebaseAuth.instance.currentUser?.uid != expectedUid) {
+    if (_authentication.currentUser?.uid != expectedUid) {
       throw const GlobalPullCursorException(
         'The authenticated actor changed during global pull.',
         reasonCode: 'cursor-actor-changed-during-run',

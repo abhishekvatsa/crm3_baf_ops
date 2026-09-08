@@ -102,6 +102,15 @@ $ApprovedArtifactExactSourcePaths = @(
   'tooling'
   'tools/release'
 )
+# These are the shipped application inputs. Governance and test-only commits do
+# not change the installed application; backend parity is checked separately.
+$PromotedApplicationSourcePaths = @(
+  'android'
+  'assets'
+  'lib'
+  'pubspec.yaml'
+  'pubspec.lock'
+)
 
 function Get-OptionalPropertyValue {
   param(
@@ -293,6 +302,35 @@ function Get-ApprovedArtifactSourceStatus {
     matches = $driftedPaths.Count -eq 0
     driftedPaths = @($driftedPaths)
   }
+}
+
+function Test-PromotedApplicationSourceMatches {
+  param(
+    [Parameter(Mandatory)][string]$PromotedCommit,
+    [Parameter(Mandatory)][string]$CurrentCommit
+  )
+
+  foreach ($path in $PromotedApplicationSourcePaths) {
+    $promotedObject = Get-GitTreeObjectId -Commit $PromotedCommit -Path $path
+    $currentObject = Get-GitTreeObjectId -Commit $CurrentCommit -Path $path
+    if ($null -eq $promotedObject -or $null -eq $currentObject -or
+        $promotedObject -cne $currentObject) {
+      return $false
+    }
+  }
+  $true
+}
+
+function Get-CurrentSourceRuntimeAuthority {
+  param(
+    [Parameter(Mandatory)][bool]$ArtifactPilotApproved,
+    [Parameter(Mandatory)][bool]$BackendMatchesDeployed,
+    [Parameter(Mandatory)][bool]$ApplicationMatchesPromotedArtifact
+  )
+
+  $ArtifactPilotApproved -and
+    $BackendMatchesDeployed -and
+    $ApplicationMatchesPromotedArtifact
 }
 
 function Get-ArtifactConstructionAuthority {
@@ -1787,6 +1825,14 @@ if ($null -ne $requiredRulesShaProperty) {
       ) `
       -BackendMatchesDeployed $backendMatchesDeployed `
       -ArtifactSourceMatchesApproval ([bool]$artifactSourceStatus.matches)
+  $applicationMatchesPromotedArtifact = $currentStagedPilotAuthorized -and
+    (Test-PromotedApplicationSourceMatches `
+      -PromotedCommit ([string]$promotionAuthorityBuild.sourceCommit) `
+      -CurrentCommit 'HEAD')
+  $expectedCurrentSourceRuntimeAuthority = Get-CurrentSourceRuntimeAuthority `
+    -ArtifactPilotApproved $currentStagedPilotAuthorized `
+    -BackendMatchesDeployed $backendMatchesDeployed `
+    -ApplicationMatchesPromotedArtifact $applicationMatchesPromotedArtifact
   if ($currentSuccessorState.schemaVersion -lt 2 -or
       [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
       $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
@@ -1794,11 +1840,13 @@ if ($null -ne $requiredRulesShaProperty) {
         $expectedArtifactConstructionAuthority -or
       $currentSourceAuthority.deploymentAuthority -ne $false -or
       $currentSourceAuthority.distributionAuthority -ne
-        $currentStagedPilotAuthorized -or
+        $expectedCurrentSourceRuntimeAuthority -or
       [string]$currentSourceAuthority.backendDeploymentStatus -ne
         $expectedBackendDeploymentStatus -or
       $currentSourceAuthority.productionRuntimeUseAuthorized -ne
-        $currentStagedPilotAuthorized -or
+        $expectedCurrentSourceRuntimeAuthority -or
+      $currentSuccessorState.authorityPlanes.controlledPilot.
+        appliesToCurrentSource -ne $expectedCurrentSourceRuntimeAuthority -or
       $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' -or

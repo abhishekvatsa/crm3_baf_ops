@@ -1238,17 +1238,29 @@ describe('Morning Review governed lifecycle', () => {
 
     expect(memory.store.get(`morning_review_actions/${priorActionId}`))
       .toMatchObject({status: 'completed', version: 2});
-    expect(memory.store.get(`morning_review_entries/${IDS.complete}`))
+    const completionEntryId = `action-completed-v2-${IDS.complete}`;
+    expect(memory.store.get(`morning_review_entries/${completionEntryId}`))
       .toMatchObject({
         sessionId,
         kind: 'currentCompliance',
         sourceReferences: [`morning_review_actions/${priorActionId}`],
         authorUid: 'ops-1',
+        entryId: completionEntryId,
+        createdAt: meetingTime,
       });
-    expect(memory.store.get(`morning_review_entries/${IDS.complete}`).text)
+    expect(memory.store.get(`morning_review_entries/${completionEntryId}`).text)
       .toContain(priorActionId);
     expect(memory.store.get(`morning_review_sessions/${sessionId}`).version)
       .toBe(3);
+    // The Flutter agenda test decodes this same contract. Compare the actual
+    // native command output and immutable capture, not a copied transition.
+    const contract = require('../../test/fixtures/morning_review_native_completion_v1.json');
+    expect(JSON.parse(JSON.stringify(memory.store.get(
+      `morning_review_entries/${completionEntryId}`,
+    )))).toEqual(contract.entry);
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`).sourceFacts
+      .find((fact) => fact.factId === `morning_review_actions/${priorActionId}`))
+      .toEqual(contract.fact);
   });
 
   test('requires explicit attendance and preserves attributed append-only entries', async () => {
@@ -1444,6 +1456,71 @@ describe('Morning Review governed lifecycle', () => {
       });
     expect(memory.store.has(`morning_review_entries/${IDS.entry}`))
       .toBe(false);
+  });
+
+  test('preserves issue-derived Unfit separately from lifecycle in source capture', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/unfit-issue': {
+        ...baseSeed()['maintenance_records/ticket-1'],
+        plantConditionEffect: 'unfit',
+      },
+      'maintenance_records/closed-unfit': {
+        ...baseSeed()['maintenance_records/ticket-1'],
+        status: 'resolved', isResolved: true,
+        plantConditionEffect: 'unfit',
+        endDate: '2026-08-30T06:30:00.000Z',
+      },
+    });
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db, plantDay: sessionId, capturedAt: meetingTime,
+    });
+    expect(capture.facts.find((fact) => fact.sourceDocumentId === 'unfit-issue'))
+      .toMatchObject({status: 'open', sourceType: 'maintenanceIssue:unfit'});
+    expect(capture.facts.find((fact) => fact.sourceDocumentId === 'closed-unfit')
+      .sourceType).toBe('maintenanceIssue');
+  });
+
+  test('ordinary entry requests cannot forge the reserved completion identity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const requestId = `action-completed-v2-${IDS.entry}`;
+    await expect(invoke(memory, 'si-1', entryRequest({requestId})))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    expect(memory.store.has(`morning_review_entries/${requestId}`)).toBe(false);
+  });
+
+  test('admission rejects excess UTF-8 content while accepted entries can still finalize', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    let rejectedRequestId = null;
+    let accepted = 0;
+    for (let index = 0; index < 160; index += 1) {
+      const requestId = `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+      const request = entryRequest({requestId});
+      request.entryDraft.text = 'अ'.repeat(2000);
+      try {
+        await invoke(memory, 'si-1', request);
+        accepted += 1;
+      } catch (error) {
+        expect(error).toMatchObject({
+          code: 'failed-precondition',
+          details: {reasonCode: 'morning-review-content-capacity-reached'},
+        });
+        rejectedRequestId = requestId;
+        break;
+      }
+    }
+    expect(accepted).toBeGreaterThan(0);
+    expect(rejectedRequestId).not.toBeNull();
+    expect(memory.store.has(`morning_review_entries/${rejectedRequestId}`)).toBe(false);
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize, operation: 'FINALIZE_MORNING_REVIEW', sessionId,
+      expectedVersion: session.version, summary: 'अ'.repeat(2000),
+    });
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).entries)
+      .toHaveLength(accepted);
   });
 
   test('rejects a join that would make finalization exceed capacity', async () => {

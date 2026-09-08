@@ -841,8 +841,11 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       }
       if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
         return RemoteRecordApplyResult<AbnormalityType>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 
@@ -930,8 +933,11 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       }
       if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
         return RemoteRecordApplyResult<ChargeAbnormality>(
-          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
+          remoteIsNewer: remoteIsNewer,
         );
       }
 
