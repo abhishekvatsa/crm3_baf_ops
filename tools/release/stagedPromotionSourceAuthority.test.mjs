@@ -157,6 +157,127 @@ function delegatedCurrentFixture(t) {
     persistCurrent: persist};
 }
 
+function rolloverFixture(t) {
+  const f = delegatedCurrentFixture(t);
+  const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
+  const promotion = readMeasured(promotionFile);
+  const history = promotion.admittedEvidence.productionBackend;
+  const historical = readMeasured(history.receipt);
+  for (const file of [promotionFile, promotion.ownerApproval.receipt,
+    promotion.admittedEvidence.deviceAcceptance.receipt, history.receipt,
+    historical.approvalAuthority.file,
+    ...Object.values(historical.cleanMainLiveReadbacks).map((value) => value.file)]) {
+    fs.mkdirSync(path.dirname(path.join(f.root, file)), {recursive: true});
+    fs.copyFileSync(path.join(repositoryRoot, file), path.join(f.root, file));
+  }
+  f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
+    promotionReceiptFile: promotionFile, promotionReceiptSha256: sha(fs.readFileSync(path.join(f.root, promotionFile)))};
+  f.policy.versionPolicy.buildNumber = 28;
+  f.version.sourceBaseline.commit = f.currentReceipt.sourceAuthority.commit;
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentSourceCommit: f.currentReceipt.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.currentReceipt.sourceAuthority.pullRequestNumber,
+    exactFunctionFleetDeploymentReceiptFile: f.deployed.functionFleetEvidenceFile,
+  });
+  const persistCandidate = () => {
+    const required = f.version.requiredSource;
+    required.exactFunctionFleetDeploymentReceiptSha256 = sha(fs.readFileSync(path.join(f.root,
+      required.exactFunctionFleetDeploymentReceiptFile)));
+    Object.assign(f.policy.finalization, {
+      exactFunctionFleetDeploymentReceiptFile: required.exactFunctionFleetDeploymentReceiptFile,
+      exactFunctionFleetDeploymentReceiptSha256: required.exactFunctionFleetDeploymentReceiptSha256,
+    });
+    f.policy.versionPolicy.sourceDocumentSha256 = f.write('release/version.json', f.version);
+  };
+  persistCandidate();
+  return {...f, history, historical, persistCandidate};
+}
+
+test('Build28 rollover retains fixed Build27 history and separately verifies candidate and current backend', (t) => {
+  const f = rolloverFixture(t);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptFile, f.history.receipt);
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptFile, f.deployed.functionFleetEvidenceFile);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+
+  // A later readback remains separate from the already selected candidate.
+  f.deployed.functionFleetEvidenceFile = 'release/later-current28.json';
+  f.currentReceipt.recordedAtUtc = '2026-09-08T21:04:00Z';
+  f.persistCurrent();
+  const later = f.verify();
+  assert.equal(later.ok, true, later.reasons.join('; '));
+  assert.notEqual(later.candidateBackendReceiptSha256, later.currentBackendReceiptSha256);
+  assert.equal(later.historicalBackendReceiptSha256, f.history.sha256);
+});
+
+test('Build28 rollover rejects coherent candidate, historical and mutable promotion substitutions', (t) => {
+  const f = rolloverFixture(t);
+  const required = structuredClone(f.version.requiredSource);
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentReceiptFile: f.history.receipt,
+    exactFunctionFleetDeploymentSourceCommit: f.historical.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.historical.sourceAuthority.pullRequestNumber,
+  });
+  f.persistCandidate();
+  assert.equal(f.verify().ok, false, 'Build28 candidate cannot substitute historical27 deployment');
+  Object.assign(f.version.requiredSource, required);
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+  const promotion = readMeasured(f.policy.postBuildPromotion.promotionReceiptFile);
+  promotion.admittedEvidence.productionBackend = {receipt: f.deployed.functionFleetEvidenceFile,
+    sha256: f.deployed.functionFleetEvidenceSha256, decision: PASS};
+  f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(f.policy.postBuildPromotion.promotionReceiptFile, promotion);
+  assert.equal(f.verify().ok, false, 'rehashing promotion cannot substitute current28 as historical27');
+  delete f.policy.postBuildPromotion;
+  assert.equal(f.verify().ok, false, 'rollover cannot omit its preserved promotion authority');
+});
+
+test('Build28 rollover adjudicates a distinct candidate child even when current backend passes', (t) => {
+  const f = rolloverFixture(t);
+  const candidate = structuredClone(f.currentReceipt);
+  f.write('release/candidate28.json', candidate);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = 'release/candidate28.json';
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+  const child = structuredClone(f.currentChildren.functionFleet);
+  child.outputs.functions[0].firebaseFunctionsHash = '0'.repeat(40);
+  const sealed = sealReceipt(child);
+  candidate.cleanMainLiveReadbacks.functionFleet = {file: 'release/candidate-bad-fleet.json',
+    physicalSha256: f.write('release/candidate-bad-fleet.json', sealed), canonicalReceiptSha256: sealed.receiptSha256};
+  f.write('release/candidate28.json', candidate);
+  f.persistCandidate();
+  const result = f.verify();
+  assert.equal(result.ok, false, 'candidate children cannot borrow a valid current receipt verdict');
+  assert.match(result.reasons[0], /functionFleet: measured function source hashes/);
+});
+
+test('Build28 rollover keeps candidate version, approval and scope bindings independent from current', (t) => {
+  const f = rolloverFixture(t);
+  const original = structuredClone(f.currentReceipt);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = 'release/candidate28.json';
+  for (const [mutate, reason] of [
+    [(value) => { value.sourceAuthority.pullRequestNumber = 1; }, /version authority/],
+    [(value) => { value.deployment.schedulerCount = 2; }, /deployment scope/],
+    [(value) => { value.authorityChronology.delegatedDecisionAtUtc = '2026-09-08T20:59:00Z'; }, /authorization/],
+    [(value) => {
+      const approval = structuredClone(f.currentApproval);
+      approval.approvalEvidence.instructionVerbatim = 'Deployment is prohibited.';
+      value.approvalAuthority = {file: 'release/substituted-approval.json',
+        sha256: f.write('release/substituted-approval.json', approval)};
+    }, /immutable owner-instruction custody/],
+  ]) {
+    const candidate = structuredClone(original);
+    mutate(candidate);
+    f.write('release/candidate28.json', candidate);
+    f.persistCandidate();
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons[0], reason);
+  }
+});
+
 test("verifies and returns exact historical/current receipt identities", (t) => {
   const f = fixture(t);
   assert.deepEqual(f.verify(), {ok: true, reasons: [],

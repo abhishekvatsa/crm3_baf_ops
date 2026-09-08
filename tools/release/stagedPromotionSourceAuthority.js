@@ -313,20 +313,37 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       finalization?.exactFunctionFleetDeploymentReceiptFile &&
       sameHash(required?.exactFunctionFleetDeploymentReceiptSha256,
         finalization?.exactFunctionFleetDeploymentReceiptSha256),
-    "Historical backend: finalization and version-source receipt authorities differ.");
-    const historicalRead = readChild(root, finalization.exactFunctionFleetDeploymentReceiptFile,
-      finalization.exactFunctionFleetDeploymentReceiptSha256, "Historical backend");
-    const historical = historicalRead.value;
+    "Candidate backend: finalization and version-source receipt authorities differ.");
+    const candidateRead = readChild(root, finalization.exactFunctionFleetDeploymentReceiptFile,
+      finalization.exactFunctionFleetDeploymentReceiptSha256, "Candidate backend");
+    const candidate = candidateRead.value;
     const expectedCommit = required.exactFunctionFleetDeploymentSourceCommit ?? version.sourceBaseline?.commit;
     const expectedPr = required.exactFunctionFleetDeploymentPullRequest ?? 265;
     requireEvidence(Number.isSafeInteger(expectedPr) && expectedPr > 0,
-      "Historical backend: deployment pull request is invalid.");
-    const expectedTree = commitTree(root, expectedCommit, "Historical backend");
-    verifyDeployment(historical, "Historical backend");
-    requireEvidence(historical.sourceAuthority?.commit === expectedCommit &&
-      historical.sourceAuthority?.tree === expectedTree &&
-      historical.sourceAuthority?.pullRequestNumber === expectedPr,
-    "Historical backend: deployed commit, Git tree or pull request differs from version authority.");
+      "Candidate backend: deployment pull request is invalid.");
+    const expectedTree = commitTree(root, expectedCommit, "Candidate backend");
+    verifyDeployment(candidate, "Candidate backend");
+    requireEvidence(candidate.sourceAuthority?.commit === expectedCommit &&
+      candidate.sourceAuthority?.tree === expectedTree &&
+      candidate.sourceAuthority?.pullRequestNumber === expectedPr,
+    "Candidate backend: deployed commit, Git tree or pull request differs from version authority.");
+    const build28 = versionPolicy.buildNumber === 28;
+    let historicalFile = finalization.exactFunctionFleetDeploymentReceiptFile;
+    let historicalRead = candidateRead;
+    if (build28) {
+      requireEvidence(expectedCommit === BUILD28_BACKEND_APPROVAL.sourceCommit &&
+        releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only",
+      "Build28 candidate: the admitted c00 backend and preserved Build27 promotion are required.");
+      // The successor's version/finalization selects its candidate backend. It
+      // cannot redirect the retained pilot's historical deployment authority.
+      const anchoredPromotion = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+        BUILD27_PROMOTION_RECEIPT_PATH));
+      const authority = anchoredPromotion.admittedEvidence.productionBackend;
+      historicalFile = authority.receipt;
+      historicalRead = readChild(root, historicalFile, authority.sha256, "Historical backend");
+      verifyDeployment(historicalRead.value, "Historical backend");
+    }
+    const historical = historicalRead.value;
 
     const state = readChild(root, "release/current-successor-state.json", undefined,
       "Current successor state").value;
@@ -362,16 +379,18 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       {file: anchoredBackend.deploymentApprovalFile, sha256: anchoredBackend.deploymentApprovalSha256}, "Backend");
     requireEvidence(historical.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit,
     "Backend approval custody: this source has no separately admitted immutable owner approval.");
-    let currentApprovalCustody = backendApprovalCustody;
-    if (receipt.sourceAuthority.commit !== anchoredBackend.functionFleetSourceCommit) {
-      requireEvidence(receipt.sourceAuthority.commit === BUILD28_BACKEND_APPROVAL.sourceCommit,
+    const approvalCustodyFor = (sourceCommit) => {
+      if (sourceCommit === anchoredBackend.functionFleetSourceCommit) return backendApprovalCustody;
+      requireEvidence(sourceCommit === BUILD28_BACKEND_APPROVAL.sourceCommit,
         "Backend approval custody: this source has no separately admitted immutable owner approval.");
-      currentApprovalCustody = readApprovalCustody(root, BUILD28_BACKEND_APPROVAL.commit,
+      return readApprovalCustody(root, BUILD28_BACKEND_APPROVAL.commit,
         BUILD28_BACKEND_APPROVAL, "Delegated backend");
-    }
+    };
+    const currentApprovalCustody = approvalCustodyFor(receipt.sourceAuthority.commit);
     requireApprovalCustody(receipt.approvalAuthority, approvalRead, currentApprovalCustody, "Current backend");
 
-    const deployments = historicalRead.hash === current.hash ? [receipt] : [historical, receipt];
+    const deployments = [...new Map([historicalRead, candidateRead, current]
+      .map((read) => [read.hash, read.value])).values()];
     for (const measured of deployments) {
       if (measured !== receipt) {
         requireEvidence(sameHash(measured.approvalAuthority?.sha256, measured.approvalAuthority?.sha256),
@@ -379,7 +398,8 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
         const historicalApproval = readChild(root, measured.approvalAuthority?.file,
           measured.approvalAuthority?.sha256, "Historical backend approval");
         verifyApproval(root, measured, historicalApproval.value);
-        requireApprovalCustody(measured.approvalAuthority, historicalApproval, backendApprovalCustody, "Historical backend");
+        requireApprovalCustody(measured.approvalAuthority, historicalApproval,
+          approvalCustodyFor(measured.sourceAuthority.commit), "Selected backend");
       }
       for (const key of ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"]) {
         const authority = measured.cleanMainLiveReadbacks?.[key];
@@ -421,10 +441,12 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       "Promotion decision custody: the complete historical authorization differs from its admitted fixed snapshot.");
     }
     return {ok: true, reasons: [],
-      historicalBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
+      historicalBackendReceiptFile: historicalFile,
       historicalBackendReceiptSha256: historicalRead.hash,
       currentBackendReceiptFile: deployed.functionFleetEvidenceFile,
       currentBackendReceiptSha256: current.hash,
+      ...(build28 ? {candidateBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
+        candidateBackendReceiptSha256: candidateRead.hash} : {}),
       ...(pilotApprovalCustody ? {pilotOwnerApprovalFile: pilotApprovalCustody.file,
         pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {}),
       ...(promotionDecisionCustody ? {promotionReceiptFile: promotionDecisionCustody.file,
