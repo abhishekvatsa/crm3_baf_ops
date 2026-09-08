@@ -119,6 +119,20 @@ function Get-OptionalPropertyValue {
   $property.Value
 }
 
+function Test-ZeroSynchronizationFailureCounters {
+  param([object]$Synchronization)
+  foreach ($counter in @(
+    'pushFailed', 'fullSyncConflicts', 'processingErrors',
+    'likelyPermanentRejections'
+  )) {
+    $value = Get-OptionalPropertyValue -InputObject $Synchronization -Name $counter
+    if (($value -isnot [int64] -and $value -isnot [int]) -or $value -ne 0) {
+      return $false
+    }
+  }
+  return $true
+}
+
 function Get-UtcEvidenceInstant {
   param(
     [Parameter(Mandatory)][object]$Value,
@@ -907,6 +921,7 @@ if ([int]$promotionBackendReceipt.schemaVersion -ne 1 -or
     $promotionBackendReceipt.deployment.
       legacyMutatingFinalizeWrapperExecuted -ne $false -or
     $promotionBackendReceipt.controlBoundary.iamMutated -ne $false -or
+    $promotionBackendReceipt.controlBoundary.serviceAccountsMutated -ne $false -or
     $promotionBackendReceipt.controlBoundary.appCheckActivated -ne $false -or
     $promotionBackendReceipt.controlBoundary.firestoreDocumentsRead -ne
       $false -or
@@ -2312,7 +2327,8 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       ($currentBuildNumber -ne 27 -or (
         [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
         [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
-        [int64]$deviceAcceptance.synchronization.processingErrors -eq 0
+        [int64]$deviceAcceptance.synchronization.processingErrors -eq 0 -and
+        (Test-ZeroSynchronizationFailureCounters $deviceAcceptance.synchronization)
       ))
     $expectedRuntimeStatus =
       "passed-exact-build$currentBuildNumber-physical-in-place-authenticated-read-only-surfaces"
@@ -2856,6 +2872,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $predecessorUnsyncedRows -ne 0 -or
           $predecessorUnresolvedRejections -isnot [int64] -or
           $predecessorUnresolvedRejections -ne 0 -or
+          -not (Test-ZeroSynchronizationFailureCounters $predecessorPhysicalInstallation.synchronization) -or
           @($predecessorDeviceMutationValues |
             Where-Object { $_ -ne $false }).Count -ne 0 -or
           $predecessorPhysicalInstallation.adjudication.

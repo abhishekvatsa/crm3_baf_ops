@@ -3,6 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
+import {execFileSync} from "node:child_process";
 
 const require = createRequire(import.meta.url);
 const {
@@ -453,6 +454,7 @@ test("completed successor still requires every retained failed-attempt receipt",
     unrestrictedPlantReleaseApproved: false,
   };
   promotedPolicy.distribution = {
+    maximumApprovedUsers: 25,
     authority: "exact-build11-staged-controlled-pilot",
     approved: true,
     approvedBuildNumber: completed.buildNumber,
@@ -601,6 +603,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       ticketSubmitted: false,
     },
     synchronization: {
+      likelyPermanentRejections: 0,
       lastSyncResult: "success",
       unsyncedRows: 0,
       unresolvedRejections: 0,
@@ -682,6 +685,7 @@ test("completed successor still requires every retained failed-attempt receipt",
       legacyMutatingFinalizeWrapperExecuted: false,
     },
     controlBoundary: {
+      serviceAccountsMutated: false,
       iamMutated: false,
       appCheckActivated: false,
       firestoreDocumentsRead: false,
@@ -754,6 +758,29 @@ test("completed successor still requires every retained failed-attempt receipt",
       controlledPilotPromotionExact: true,
     },
   );
+
+  for (const section of ['distribution', 'postBuildPromotion']) {
+    for (const cap of [26, 0, 24, '25', null]) {
+      const mismatchedCap = structuredClone(promotedPolicy);
+      mismatchedCap[section].maximumApprovedUsers = cap;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: mismatchedCap, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+      }).releasePolicyExact, false, `${section} cap ${cap} must match approval`);
+    }
+  }
+
+  for (const counter of ['likelyPermanentRejections', 'pushFailed', 'fullSyncConflicts', 'processingErrors']) {
+    for (const value of [1, '0', null]) {
+      const badSync = structuredClone(promotionDeviceAcceptanceReceipt);
+      badSync.synchronization[counter] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionDeviceAcceptanceReceipt: badSync,
+      }).releasePolicyExact, false, `${counter} must be numeric zero`);
+    }
+  }
 
   const mismatchedPolicyApk = structuredClone(promotedPolicy);
   mismatchedPolicyApk.distribution.approvedApkSha256 = "b"
@@ -1067,6 +1094,12 @@ test("completed successor still requires every retained failed-attempt receipt",
 
   for (const weakenInfrastructure of [
     ({backend}) => {
+      backend.controlBoundary.serviceAccountsMutated = true;
+    },
+    ({backend}) => {
+      delete backend.controlBoundary.serviceAccountsMutated;
+    },
+    ({backend}) => {
       backend.controlBoundary.productionBusinessDataMutated = true;
     },
     ({firestore}) => {
@@ -1350,6 +1383,37 @@ test("source summary semantically revalidates mutable authority after byte drift
         entry.exact === true,
     ),
   );
+});
+
+test("PowerShell current and successor sync counters reject missing and nonnumeric evidence", () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1')
+    .replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    foreach ($name in @('Get-OptionalPropertyValue','Test-ZeroSynchronizationFailureCounters')) {
+      $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+      if ($null -eq $definition) { throw "Missing runtime predicate: $name" }
+      Invoke-Expression $definition.Extent.Text
+    }
+    $healthy = '{"pushFailed":0,"fullSyncConflicts":0,"processingErrors":0,"likelyPermanentRejections":0}'
+    if (-not (Test-ZeroSynchronizationFailureCounters ($healthy | ConvertFrom-Json))) { throw 'Healthy rejected' }
+    foreach ($counter in @('pushFailed','fullSyncConflicts','processingErrors','likelyPermanentRejections')) {
+      foreach ($badValue in @(1, -1, '0', $null, $false)) {
+        $bad = $healthy | ConvertFrom-Json
+        $bad.$counter = $badValue
+        if (Test-ZeroSynchronizationFailureCounters $bad) { throw "Accepted invalid $counter" }
+      }
+      $missing = $healthy | ConvertFrom-Json
+      $missing.PSObject.Properties.Remove($counter)
+      if (Test-ZeroSynchronizationFailureCounters $missing) { throw "Accepted missing $counter" }
+    }
+    'PASS_RUNTIME_SYNC_COUNTERS'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_RUNTIME_SYNC_COUNTERS/);
 });
 
 test("argument parser rejects the wrong repository and missing receipt", () => {

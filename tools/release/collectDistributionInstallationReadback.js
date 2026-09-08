@@ -499,6 +499,7 @@ function summarizeMutableSourceAuthority({
       promotionBackendReceipt?.deployment?.legacyMutatingFinalizeWrapperExecuted ===
         false &&
       promotedBackendBoundary?.iamMutated === false &&
+      promotedBackendBoundary?.serviceAccountsMutated === false &&
       promotedBackendBoundary?.appCheckActivated === false &&
       promotedBackendBoundary?.firestoreDocumentsRead === false &&
       promotedBackendBoundary?.firestoreDocumentsWritten === false &&
@@ -684,6 +685,7 @@ function summarizeMutableSourceAuthority({
       promotionDeviceAcceptanceReceipt.synchronization
         ?.unresolvedRejections === 0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.pushFailed === 0 &&
+      promotionDeviceAcceptanceReceipt.synchronization?.likelyPermanentRejections === 0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.fullSyncConflicts ===
         0 &&
       promotionDeviceAcceptanceReceipt.synchronization?.processingErrors === 0 &&
@@ -761,6 +763,11 @@ function summarizeMutableSourceAuthority({
       (promotedReceiptBoundary?.status === "STAGED_CONTROLLED_PILOT_AUTHORIZED" &&
         promotedReceiptBoundary?.maximumApprovedUsers > 0 &&
         promotedReceiptBoundary?.maximumApprovedUsers <= 25 &&
+        Number.isInteger(promotedReceiptBoundary?.maximumApprovedUsers) &&
+        releasePolicy.distribution?.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
+        postBuildPromotion.maximumApprovedUsers ===
+          promotedReceiptBoundary.maximumApprovedUsers &&
         promotedReceiptBoundary?.canaryUserCeiling === 2 &&
         promotedReceiptBoundary?.canaryPhysicalDeviceCeiling === 2));
   const expectedPromotionStatus = stagedPromotion
