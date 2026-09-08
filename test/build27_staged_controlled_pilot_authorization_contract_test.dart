@@ -71,6 +71,8 @@ void main() {
     expect(physicalDevice['applicationDataPreserved'], isTrue);
     expect(physicalDevice['applicationDataCleared'], isFalse);
     expect(sync['lastSyncResult'], 'success');
+    expect(sync['unsyncedRows'], 0);
+    expect(sync['unresolvedRejections'], 0);
     expect(sync['pushFailed'], 0);
     expect(sync['processingErrors'], 0);
     expect(mutation['productionBusinessDataCreatedUpdatedOrDeleted'], isFalse);

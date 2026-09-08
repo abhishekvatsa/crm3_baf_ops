@@ -460,6 +460,31 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   );
 
+  const fallbackPolicy = structuredClone(policy);
+  fallbackPolicy.sourceEvidence = fallbackPolicy.sourceEvidence.filter(
+    (entry) => entry.path !== promotionPath,
+  );
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy: fallbackPolicy,
+      releasePolicy: promotedPolicy,
+      buildLedger: {entries: ledgers},
+      promotionReceipt,
+      measuredPromotionReceiptSha256: promotionSha,
+    }).controlledPilotPromotionExact,
+    true,
+  );
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy: fallbackPolicy,
+      releasePolicy: promotedPolicy,
+      buildLedger: {entries: ledgers},
+      promotionReceipt,
+      measuredPromotionReceiptSha256: "9".repeat(64).toUpperCase(),
+    }).releasePolicyExact,
+    false,
+  );
+
   const successor = {
     buildNumber: 12,
     id: 121,

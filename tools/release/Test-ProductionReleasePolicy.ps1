@@ -1844,14 +1844,24 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         -InputObject $deviceAcceptance.releaseBoundary `
         -Name 'controlledPilotApproved'
     }
-    $synchronizationHealthy = if ($currentBuildNumber -eq 27) {
-      [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
+    $unsyncedRows = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.synchronization `
+      -Name 'unsyncedRows'
+    $unresolvedRejections = Get-OptionalPropertyValue `
+      -InputObject $deviceAcceptance.synchronization `
+      -Name 'unresolvedRejections'
+    $synchronizationInventoryHealthy =
+      $unsyncedRows -is [int64] -and
+      $unsyncedRows -eq 0 -and
+      $unresolvedRejections -is [int64] -and
+      $unresolvedRejections -eq 0
+    $synchronizationHealthy =
+      $synchronizationInventoryHealthy -and
+      ($currentBuildNumber -ne 27 -or (
+        [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
         [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
         [int64]$deviceAcceptance.synchronization.processingErrors -eq 0
-    } else {
-      [int64]$deviceAcceptance.synchronization.unsyncedRows -eq 0 -and
-        [int64]$deviceAcceptance.synchronization.unresolvedRejections -eq 0
-    }
+      ))
     $expectedRuntimeStatus =
       "passed-exact-build$currentBuildNumber-physical-in-place-authenticated-read-only-surfaces"
     if ((Get-Sha256 $deviceAcceptancePath) -ne

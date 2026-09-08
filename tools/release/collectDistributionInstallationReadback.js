@@ -121,6 +121,7 @@ function summarizeMutableSourceAuthority({
   releasePolicy,
   buildLedger,
   promotionReceipt = null,
+  measuredPromotionReceiptSha256 = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
   const latestExpectedArtifact = expectedArtifacts.reduce(
@@ -150,10 +151,13 @@ function summarizeMutableSourceAuthority({
   const promotionReceiptAuthority =
     policy.sourceEvidence.find((entry) => entry.path === promotionReceiptPath) ??
     (typeof promotionReceiptPath === "string" &&
-    typeof releasePolicy.postBuildPromotion?.promotionReceiptSha256 === "string"
+    typeof releasePolicy.postBuildPromotion?.promotionReceiptSha256 === "string" &&
+    typeof measuredPromotionReceiptSha256 === "string" &&
+    measuredPromotionReceiptSha256 ===
+      releasePolicy.postBuildPromotion.promotionReceiptSha256
       ? {
           path: promotionReceiptPath,
-          sha256: releasePolicy.postBuildPromotion.promotionReceiptSha256,
+          sha256: measuredPromotionReceiptSha256,
         }
       : null);
   const finalization = releasePolicy.finalization ?? {};
@@ -407,11 +411,13 @@ function summarizeSource(repositoryRoot, policy) {
   const releasePolicy = readJson(
     path.join(repositoryRoot, "release/production-release-policy.json"),
   );
-  const promotionReceipt = readJson(
-    path.join(
-      repositoryRoot,
-      releasePolicy.postBuildPromotion.promotionReceiptFile,
-    ),
+  const promotionReceiptPath = path.join(
+    repositoryRoot,
+    releasePolicy.postBuildPromotion.promotionReceiptFile,
+  );
+  const promotionReceipt = readJson(promotionReceiptPath);
+  const measuredPromotionReceiptSha256 = sha256(
+    fs.readFileSync(promotionReceiptPath),
   );
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
@@ -467,6 +473,7 @@ function summarizeSource(repositoryRoot, policy) {
     releasePolicy,
     buildLedger,
     promotionReceipt,
+    measuredPromotionReceiptSha256,
   });
   const semanticAuthority = new Map([
     [
