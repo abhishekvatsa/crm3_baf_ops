@@ -76,6 +76,18 @@ $ExpectedBuild27ReadOnlySurfaces = @(
   'issue-report-pdf-zoom-page-print-and-share-controls'
   'home-form-and-child-screen-back-navigation'
 )
+# Retain the measured read-side baseline for the successor. This contract does
+# not stand in for the separate mutating-flow, retained Build 21 or two-device
+# acceptance plan, and cannot grant a pilot from a single owner's phone.
+$ExpectedBuild28ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issues-horizontal-actions-and-resolved-record-evidence'
+  'planned-maintenance-jobs-and-personal-workflow-filters'
+  'inner-cover-filtering-inventory-and-registration-form'
+  'inspection-programmes-unused-audit-deletion-guard'
+  'issue-report-pdf-zoom-page-print-and-share-controls'
+  'home-form-and-child-screen-back-navigation'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -150,6 +162,166 @@ function Test-CompletedAutomaticSynchronization {
     -Name 'syncStateAtInventory'
   return (($passes -is [int64] -or $passes -is [int]) -and
     $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
+}
+
+function Test-Build28OwnerInstallationAuthority {
+  param([object]$VersionSource, [object]$EnvironmentApproval)
+  foreach ($binding in @(
+    @{ Source = $VersionSource; Path = 'controls.attachedPhoneInPlaceInstallationAuthorized' }
+    @{ Source = $EnvironmentApproval; Path = 'controls.installationApproved' }
+  )) {
+    $value = $binding.Source
+    foreach ($part in $binding.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($value -isnot [bool] -or $value -ne $true) { return $false }
+  }
+  return $true
+}
+
+function Test-Build28ReadOnlyDeviceAcceptance {
+  param(
+    [object]$Receipt,
+    [object]$CompletionReceipt,
+    [string]$CompletionReceiptPath,
+    [string]$CompletionReceiptSha256
+  )
+  # Every field below is an existing measured receipt field. Require scalar
+  # evidence: a string "false", absent count or nonempty array is not a pass.
+  $facts = @(
+    @{ Path = 'schemaVersion'; Expected = 1 }
+    @{ Path = 'evidenceType'; Expected = 'production-build-device-acceptance' }
+    @{ Path = 'status'; Expected = 'passed-exact-build28-physical-in-place-authenticated-read-only-surfaces' }
+    @{ Path = 'release.buildNumber'; Expected = 28 }
+    @{ Path = 'release.releaseId'; Expected = $CompletionReceipt.release.releaseId }
+    @{ Path = 'release.versionName'; Expected = $CompletionReceipt.release.versionName }
+    @{ Path = 'release.applicationId'; Expected = $CompletionReceipt.release.applicationId }
+    @{ Path = 'release.sourceCommit'; Expected = $CompletionReceipt.sourceAuthority.commit }
+    @{ Path = 'release.sourceTree'; Expected = $CompletionReceipt.sourceAuthority.tree }
+    @{ Path = 'release.finalizationReceiptFile'; Expected = $CompletionReceiptPath }
+    @{ Path = 'release.finalizationReceiptSha256'; Expected = $CompletionReceiptSha256 }
+    @{ Path = 'release.governedPackageSha256'; Expected = $CompletionReceipt.governedPackage.sha256 }
+    @{ Path = 'release.apkSha256'; Expected = $CompletionReceipt.governedPackage.apkSha256 }
+    @{ Path = 'release.apkSizeBytes'; Expected = [int64]$CompletionReceipt.governedPackage.apkSizeBytes }
+    @{ Path = 'release.certificateSha256'; Expected = $CompletionReceipt.governedPackage.certificateSha256 }
+    @{ Path = 'physicalDevice.targetCount'; Expected = 1 }
+    @{ Path = 'physicalDevice.installedVersionCode'; Expected = 28 }
+    @{ Path = 'physicalDevice.installedVersionName'; Expected = $CompletionReceipt.release.versionName }
+    @{ Path = 'physicalDevice.deviceSerialRecorded'; Expected = $false }
+    @{ Path = 'physicalDevice.accountIdentifierRecorded'; Expected = $false }
+    @{ Path = 'physicalDevice.installationMode'; Expected = 'adb-install-r-in-place' }
+    @{ Path = 'physicalDevice.installationResult'; Expected = 'success' }
+    @{ Path = 'physicalDevice.exactGovernedApkMatch'; Expected = $true }
+    @{ Path = 'physicalDevice.signerContinuityVerifiedByInPlaceUpdate'; Expected = $true }
+    @{ Path = 'physicalDevice.firstInstallTimePreserved'; Expected = $true }
+    @{ Path = 'physicalDevice.applicationDataPreserved'; Expected = $true }
+    @{ Path = 'physicalDevice.applicationDataCleared'; Expected = $false }
+    @{ Path = 'physicalDevice.applicationUninstalled'; Expected = $false }
+    @{ Path = 'runtime.coldLaunchResult'; Expected = 'passed' }
+    @{ Path = 'runtime.processRemainedAlive'; Expected = $true }
+    @{ Path = 'runtime.androidCrashObserved'; Expected = $false }
+    @{ Path = 'runtime.androidAnrObserved'; Expected = $false }
+    @{ Path = 'runtime.flutterFatalErrorObserved'; Expected = $false }
+    @{ Path = 'runtime.firebaseCallableFailureObserved'; Expected = $false }
+    @{ Path = 'runtime.permissionDenialObserved'; Expected = $false }
+    @{ Path = 'runtime.approvedAuthenticatedSessionPreserved'; Expected = $true }
+    @{ Path = 'runtime.authenticatedHomeRendered'; Expected = $true }
+    @{ Path = 'localStoreMigration.targetSchemaVersion'; Expected = 10 }
+    @{ Path = 'localStoreMigration.governedOpenCompleted'; Expected = $true }
+    @{ Path = 'localStoreMigration.applicationDataPreserved'; Expected = $true }
+    @{ Path = 'localStoreMigration.isarOpenFailureObserved'; Expected = $false }
+    @{ Path = 'synchronization.unsyncedRows'; Expected = 0 }
+    @{ Path = 'synchronization.unresolvedRejections'; Expected = 0 }
+    @{ Path = 'synchronization.pushFailed'; Expected = 0 }
+    @{ Path = 'synchronization.fullSyncConflicts'; Expected = 0 }
+    @{ Path = 'synchronization.processingErrors'; Expected = 0 }
+    @{ Path = 'synchronization.likelyPermanentRejections'; Expected = 0 }
+    @{ Path = 'synchronization.globalPullConflict'; Expected = 0 }
+    @{ Path = 'synchronization.syncStateAtInventory'; Expected = 'idle' }
+    @{ Path = 'synchronization.lastSyncResult'; Expected = 'success' }
+    @{ Path = 'adjudication.physicalInPlaceMigrationPassed'; Expected = $true }
+    @{ Path = 'adjudication.authenticatedReadOnlySurfaceValidationCompleted'; Expected = $true }
+    @{ Path = 'adjudication.runtimeValidationPassed'; Expected = $true }
+    @{ Path = 'adjudication.mutatingBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'adjudication.fullBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'releaseBoundary.build27FinalizationReceiptChanged'; Expected = $false }
+    @{ Path = 'releaseBoundary.controlledPilotApprovedByThisReceipt'; Expected = $false }
+    @{ Path = 'releaseBoundary.pilotHandoutPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.unrestrictedDistributionApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.productionBusinessMutationAuthorizedByThisReceipt'; Expected = $false }
+    @{ Path = 'releaseBoundary.firebaseBusinessDataChanged'; Expected = $false }
+    @{ Path = 'releaseBoundary.appCheckActivationPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.deviceDataClearPerformed'; Expected = $false }
+  )
+  foreach ($name in @(
+    'ticketSubmitted', 'ticketAcknowledgedOrClosed',
+    'plannedMaintenanceCommandSubmitted', 'workflowCommandSubmitted',
+    'qualityCommandSubmitted', 'criticalSafetyAlarmRaised',
+    'burnerOrUvRoundSubmitted', 'assetOrInnerCoverRecordChanged',
+    'productionBusinessDataCreatedUpdatedOrDeleted'
+  )) {
+    $facts += @{ Path = "businessMutationBoundary.$name"; Expected = $false }
+  }
+  foreach ($fact in $facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      # Read directly to preserve one-element arrays as arrays. A function
+      # returning the value through PowerShell's pipeline can unwrap them.
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int] -or $fact.Expected -is [int64]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or
+          $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -isnot [string] -or
+        $value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
+  $priorProperty = $Receipt.physicalDevice.PSObject.Properties['priorVersionCode']
+  if ($null -eq $priorProperty) { return $false }
+  $priorVersion = $priorProperty.Value
+  if (($priorVersion -isnot [int] -and $priorVersion -isnot [int64]) -or
+      $priorVersion -lt 1 -or $priorVersion -ge 28) { return $false }
+  $passesProperty = $Receipt.synchronization.PSObject.Properties['automaticStartupSyncPassesObserved']
+  if ($null -eq $passesProperty) { return $false }
+  $passes = $passesProperty.Value
+  if (($passes -isnot [int] -and $passes -isnot [int64]) -or $passes -lt 1) { return $false }
+  $surfacesProperty = $Receipt.PSObject.Properties['validatedReadOnlySurfaces']
+  if ($null -eq $surfacesProperty) { return $false }
+  $surfaces = $surfacesProperty.Value
+  if ($surfaces -isnot [array] -or
+      $surfaces.Count -ne $ExpectedBuild28ReadOnlySurfaces.Count) { return $false }
+  for ($index = 0; $index -lt $surfaces.Count; $index++) {
+    if ($surfaces[$index] -isnot [string] -or
+        $surfaces[$index] -cne $ExpectedBuild28ReadOnlySurfaces[$index]) { return $false }
+  }
+  $recordedProperty = $Receipt.PSObject.Properties['recordedAtUtc']
+  $inventoryProperty = $Receipt.synchronization.PSObject.Properties['inventoryCapturedAtUtc']
+  if ($null -eq $recordedProperty -or $null -eq $inventoryProperty) { return $false }
+  foreach ($property in @($recordedProperty, $inventoryProperty)) {
+    # Preserve the scalar type before the historical parser's string cast.
+    # ConvertFrom-Json may already have parsed an ISO value into DateTime.
+    $value = $property.Value
+    if ($value -isnot [string] -and $value -isnot [DateTime] -and
+        $value -isnot [DateTimeOffset]) { return $false }
+  }
+  try {
+    $recordedAt = Get-UtcEvidenceInstant -Value $recordedProperty.Value `
+      -FieldName 'Build 28 acceptance recordedAtUtc'
+    $inventoryAt = Get-UtcEvidenceInstant -Value $inventoryProperty.Value `
+      -FieldName 'Build 28 acceptance synchronization.inventoryCapturedAtUtc'
+  } catch { return $false }
+  if ($recordedAt -lt $inventoryAt) { return $false }
+  return ((Test-ZeroSynchronizationFailureCounters $Receipt.synchronization) -and
+    (Test-CompletedAutomaticSynchronization $Receipt.synchronization))
 }
 
 function Test-PromotedFinalizationDecisions {
@@ -2557,6 +2729,15 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $deviceAcceptance =
       Get-Content -LiteralPath $deviceAcceptancePath -Raw |
         ConvertFrom-Json
+    if ($currentBuildNumber -eq 28 -and (
+        -not (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval) -or
+        -not (Test-Build28ReadOnlyDeviceAcceptance `
+          -Receipt $deviceAcceptance `
+          -CompletionReceipt $completionReceipt `
+          -CompletionReceiptPath $completionReceiptPath `
+          -CompletionReceiptSha256 (Get-Sha256 $completionReceiptPath)))) {
+      throw 'Build 28 owner acceptance requires exact healthy read-only evidence and installation authority.'
+    }
     $mutationValues = @(
       $deviceAcceptance.businessMutationBoundary.PSObject.Properties |
         ForEach-Object { $_.Value }
@@ -2579,6 +2760,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $expectedReadOnlySurfaces = switch ($currentBuildNumber) {
       18 { $ExpectedBuild18ReadOnlySurfaces; break }
       27 { $ExpectedBuild27ReadOnlySurfaces; break }
+      28 { $ExpectedBuild28ReadOnlySurfaces; break }
       default {
         throw "No exact read-only surface contract exists for Build $currentBuildNumber."
       }
@@ -2625,7 +2807,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $unresolvedRejections -eq 0
     $synchronizationHealthy =
       $synchronizationInventoryHealthy -and
-      ($currentBuildNumber -ne 27 -or (
+      ($currentBuildNumber -notin @(27, 28) -or (
         [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
         [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
         [int64]$deviceAcceptance.synchronization.processingErrors -eq 0 -and
@@ -2744,7 +2926,10 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $physicalInstallation.releaseBoundary.firebaseBusinessDataChanged -ne
             $false -or
           $policy.finalization.runtimeValidationPassed -ne $true -or
-          -not $currentStagedPilotAuthorized) {
+          (-not $currentStagedPilotAuthorized -and -not (
+            $currentBuildNumber -eq 28 -and
+            $historicalStagedPilotAuthorityPreserved -and
+            (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval)))) {
         throw 'Device-acceptance receipt differs from its exact physical-installation boundary.'
       }
     } else {
