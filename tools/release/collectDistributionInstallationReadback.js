@@ -138,6 +138,18 @@ function summarizeMutableSourceAuthority({
   measuredPromotionFirestoreReceiptSha256 = null,
 }) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
+  // A first matching row cannot establish authority when another row reuses
+  // any build number, including historical builds outside expectedArtifacts.
+  const ledgerEntries = buildLedger.entries ?? [];
+  const ledgerBuildNumbers = new Set();
+  const ledgerBuildNumbersUnique = Array.isArray(ledgerEntries) && ledgerEntries.length > 0 &&
+    ledgerEntries.every((entry) => {
+      const number = entry?.buildNumber;
+      if (!Number.isInteger(number) || number <= 0 || number > 2147483647 ||
+          ledgerBuildNumbers.has(number)) return false;
+      ledgerBuildNumbers.add(number);
+      return true;
+    });
   const latestExpectedArtifact = expectedArtifacts.reduce(
     (latest, entry) =>
       latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
@@ -487,6 +499,12 @@ function summarizeMutableSourceAuthority({
       promotionBackendReceipt?.firebaseProjectId ===
         policy.productionProjectId &&
       promotionBackendReceipt?.region === "asia-south1" &&
+      promotionBackendReceipt?.authorityChronology
+        ?.allObservedFunctionUpdatesPostdateOwnerInstruction === true &&
+      promotionBackendReceipt?.authorityChronology
+        ?.deploymentWasRetroactivelyAuthorized === false &&
+      promotionBackendReceipt?.sourceAuthority
+        ?.postMergeReleaseGateConclusion === "success" &&
       promotionBackendReceipt?.deployment?.allFunctionsExactSourceVerified ===
         true &&
       promotionBackendReceipt?.deployment?.finalRuntimeIdentityReadbackPassed ===
@@ -498,6 +516,11 @@ function summarizeMutableSourceAuthority({
       promotionBackendReceipt?.deployment?.appCheckEnforcement === false &&
       promotionBackendReceipt?.deployment?.legacyMutatingFinalizeWrapperExecuted ===
         false &&
+      promotionBackendReceipt?.deployment?.schedulerBacklogZeroVerified === true &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult?.invoked === false &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult
+        ?.workflowEscalationCandidateCount === 0 &&
+      promotionBackendReceipt?.deployment?.schedulerSmokeResult?.changed === 0 &&
       promotedBackendBoundary?.iamMutated === false &&
       promotedBackendBoundary?.serviceAccountsMutated === false &&
       promotedBackendBoundary?.appCheckActivated === false &&
@@ -512,6 +535,20 @@ function summarizeMutableSourceAuthority({
       promotedBackendBoundary?.securityRulesMutated === false &&
       promotedBackendBoundary?.indexesMutated === false &&
       promotedBackendBoundary?.schedulerSmokeChangedRecordCount === 0 &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesActiveByteExact === true &&
+      promotionBackendReceipt?.firestoreDeployment?.allIndexesReady === true &&
+      promotionBackendReceipt?.firestoreDeployment?.indexesAlreadyExactNoMutationRequired === true &&
+      promotionBackendReceipt?.firestoreDeployment?.strictLiveReadbackPassed === true &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesAlreadyExactNoMutationRequired === true &&
+      promotionBackendReceipt?.firestoreDeployment?.rulesDeploymentPerformed === false &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.functionFleet?.decision ===
+        "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies?.decision ===
+        "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.decision ===
+        "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK" &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.verified === true &&
+      promotionBackendReceipt?.cleanMainLiveReadbacks?.firestoreRulesAndIndexes?.allIndexesReady === true &&
       promotionBackendReceipt?.cleanMainLiveReadbacks?.functionFleet
         ?.failedChecks === 0 &&
       promotionBackendReceipt?.cleanMainLiveReadbacks?.iamDependencies
@@ -566,6 +603,8 @@ function summarizeMutableSourceAuthority({
         promotedArtifact?.governedPackageSha256 &&
       promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
         promotedReceiptBuild?.apkSha256 &&
+      promotionFinalizationReceipt?.governedPackage?.independentVerificationCompleted === true &&
+      promotionFinalizationReceipt?.dualCustody?.allFileHashesMatched === true &&
       promotedReceiptBuild?.dualCustodyCompleted === true &&
       promotedReceiptBuild?.oneTargetInPlaceValidationPassed === true &&
       promotedReceiptBuild?.mutatingBusinessFlowValidationCompleted === false);
@@ -754,6 +793,15 @@ function summarizeMutableSourceAuthority({
   const promotionReceiptExact =
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11PromotionExact) &&
+    (!stagedPromotion ||
+      (promotionReceipt?.sourceAuthority?.postMergeCi?.allRequiredJobsPassed === true &&
+        promotionReceipt?.sourceAuthority?.postMergeCi?.conclusion === "success" &&
+        promotionReceipt?.programmeDecision?.internalControlledPilot === "GO_STAGED" &&
+        promotionReceipt?.programmeDecision?.pilotHandout ===
+          `AUTHORIZED_EXACT_BUILD${promotedArtifact?.buildNumber}_FROZEN_ROSTER_UP_TO_${promotedReceiptBoundary?.maximumApprovedUsers}` &&
+        promotionReceipt?.programmeDecision?.canary === "TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION" &&
+        promotionReceipt?.programmeDecision?.mutatingBusinessFlowValidation === "OPEN_COLLECT_DURING_CANARY" &&
+        promotionReceipt?.programmeDecision?.unrestrictedDistribution === "NO_GO")) &&
     promotedReceiptBuild?.buildNumber === promotedArtifact?.buildNumber &&
     promotedReceiptBuild?.sourceCommit === promotedArtifact?.headSha &&
     promotedReceiptBuild?.governedPackageSha256 ===
@@ -808,6 +856,7 @@ function summarizeMutableSourceAuthority({
     ? `exact-build${promotedArtifact?.buildNumber}-staged-controlled-pilot`
     : "exact-build11-sealed-small-group-pilot";
   const controlledPilotPromotionExact =
+    ledgerBuildNumbersUnique &&
     promotedArtifact != null &&
     promotionReceiptAuthority != null &&
     promotionReceiptExact &&
@@ -862,6 +911,7 @@ function summarizeMutableSourceAuthority({
       pendingSuccessorExact &&
       (nonDistributionExact || controlledPilotPromotionExact),
     buildLedgerExact:
+      ledgerBuildNumbersUnique &&
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
       pendingSuccessorExact &&

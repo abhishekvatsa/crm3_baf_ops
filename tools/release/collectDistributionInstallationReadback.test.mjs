@@ -4,6 +4,8 @@ import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
 import {execFileSync} from "node:child_process";
+import fs from "node:fs";
+import {createHash} from "node:crypto";
 
 const require = createRequire(import.meta.url);
 const {
@@ -18,6 +20,117 @@ const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+
+const backendClosureDecisions = [
+  ['authorityChronology.allObservedFunctionUpdatesPostdateOwnerInstruction', true],
+  ['authorityChronology.deploymentWasRetroactivelyAuthorized', false],
+  ['sourceAuthority.postMergeReleaseGateConclusion', 'success'],
+  ['firestoreDeployment.rulesActiveByteExact', true],
+  ['firestoreDeployment.allIndexesReady', true],
+  ['firestoreDeployment.indexesAlreadyExactNoMutationRequired', true],
+  ['firestoreDeployment.strictLiveReadbackPassed', true],
+  ['firestoreDeployment.rulesAlreadyExactNoMutationRequired', true],
+  ['firestoreDeployment.rulesDeploymentPerformed', false],
+  ['cleanMainLiveReadbacks.functionFleet.decision', 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL'],
+  ['cleanMainLiveReadbacks.iamDependencies.decision', 'PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK'],
+  ['cleanMainLiveReadbacks.firestoreRulesAndIndexes.decision', 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK'],
+  ['cleanMainLiveReadbacks.firestoreRulesAndIndexes.verified', true],
+  ['cleanMainLiveReadbacks.firestoreRulesAndIndexes.allIndexesReady', true],
+];
+
+function measuredPromotionFixture() {
+  const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'));
+  const hashFile = (file) => createHash('sha256')
+    .update(fs.readFileSync(path.join(repositoryRoot, file))).digest('hex').toUpperCase();
+  const input = {policy: read('release/lr07-distribution-installation-readback-policy.json'),
+    releasePolicy: read('release/production-release-policy.json'),
+    buildLedger: read('release/build-number-ledger.json')};
+  input.promotionReceipt = read(input.releasePolicy.postBuildPromotion.promotionReceiptFile);
+  input.measuredPromotionReceiptSha256 = hashFile(input.releasePolicy.postBuildPromotion.promotionReceiptFile);
+  const receiptPaths = [
+    ['FinalizationReceipt', input.promotionReceipt.admittedEvidence.governedBuild.finalizationReceipt],
+    ['DeviceAcceptanceReceipt', input.promotionReceipt.admittedEvidence.deviceAcceptance.receipt],
+    ['OwnerApproval', input.promotionReceipt.ownerApproval.receipt],
+    ['BackendReceipt', input.promotionReceipt.admittedEvidence.productionBackend.receipt],
+    ['FirestoreReceipt', input.promotionReceipt.admittedEvidence.firestoreRulesAndIndexes.receipt],
+  ];
+  for (const [key, file] of receiptPaths) {
+    input[`promotion${key}`] = read(file);
+    input[`measuredPromotion${key}Sha256`] = hashFile(file);
+  }
+  return input;
+}
+
+function rebindMeasuredReceipt(input, receiptKey = 'BackendReceipt') {
+  const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex').toUpperCase();
+  const replace = (object, before, after) => {
+    for (const key of Object.keys(object)) {
+      if (object[key] === before) object[key] = after;
+      else if (object[key] != null && typeof object[key] === 'object') replace(object[key], before, after);
+    }
+  };
+  replace(input, input[`measuredPromotion${receiptKey}Sha256`], hash(input[`promotion${receiptKey}`]));
+  if (receiptKey === 'FinalizationReceipt') {
+    replace(input, input.measuredPromotionDeviceAcceptanceReceiptSha256, hash(input.promotionDeviceAcceptanceReceipt));
+  }
+  if (receiptKey !== 'Receipt') replace(input, input.measuredPromotionReceiptSha256, hash(input.promotionReceipt));
+}
+
+test('measured backend authorization and readback decisions cannot contradict pilot authority', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  for (const [field, expected] of backendClosureDecisions) {
+    const badValues = typeof expected === 'boolean' ?
+      [!expected, String(expected), 0, 1, null, undefined, [expected]] :
+      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, undefined, [expected]];
+    for (const value of badValues) {
+      const input = structuredClone(healthy);
+      const parts = field.split('.');
+      let target = input.promotionBackendReceipt;
+      for (const key of parts.slice(0, -1)) target = target[key];
+      if (value === undefined) delete target[parts.at(-1)];
+      else target[parts.at(-1)] = value;
+      rebindMeasuredReceipt(input);
+      const result = summarizeMutableSourceAuthority(input);
+      assert.equal(result.releasePolicyExact, false, `${field}: ${JSON.stringify(value)}`);
+      assert.equal(result.controlledPilotPromotionExact, false, `${field}: ${JSON.stringify(value)}`);
+    }
+  }
+});
+
+const promotionAndCustodyDecisions = [
+  ['Receipt', 'sourceAuthority.postMergeCi.allRequiredJobsPassed', true],
+  ['Receipt', 'sourceAuthority.postMergeCi.conclusion', 'success'],
+  ['Receipt', 'programmeDecision.internalControlledPilot', 'GO_STAGED'],
+  ['Receipt', 'programmeDecision.pilotHandout', 'AUTHORIZED_EXACT_BUILD27_FROZEN_ROSTER_UP_TO_25'],
+  ['Receipt', 'programmeDecision.canary', 'TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION'],
+  ['Receipt', 'programmeDecision.mutatingBusinessFlowValidation', 'OPEN_COLLECT_DURING_CANARY'],
+  ['Receipt', 'programmeDecision.unrestrictedDistribution', 'NO_GO'],
+  ['FinalizationReceipt', 'governedPackage.independentVerificationCompleted', true],
+  ['FinalizationReceipt', 'dualCustody.allFileHashesMatched', true],
+];
+
+test('measured promotion and custody verdicts cannot contradict retained pilot authority', () => {
+  const healthy = measuredPromotionFixture();
+  assert.equal(summarizeMutableSourceAuthority(healthy).controlledPilotPromotionExact, true);
+  for (const [receiptKey, field, expected] of promotionAndCustodyDecisions) {
+    const badValues = typeof expected === 'boolean' ?
+      [!expected, String(expected), 0, null, undefined, [expected]] :
+      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, undefined, [expected]];
+    for (const value of badValues) {
+      const input = structuredClone(healthy);
+      const parts = field.split('.');
+      let target = input[`promotion${receiptKey}`];
+      for (const key of parts.slice(0, -1)) target = target[key];
+      if (value === undefined) delete target[parts.at(-1)];
+      else target[parts.at(-1)] = value;
+      rebindMeasuredReceipt(input, receiptKey);
+      const result = summarizeMutableSourceAuthority(input);
+      assert.equal(result.releasePolicyExact, false, `${field}: ${JSON.stringify(value)}`);
+      assert.equal(result.controlledPilotPromotionExact, false, `${field}: ${JSON.stringify(value)}`);
+    }
+  }
+});
 
 function fixture() {
   const build8 = {
@@ -250,6 +363,23 @@ test("preserved latest authority admits only a source-reserved successor", () =>
     controlledPilotPromotionExact: false,
   });
 
+  for (const extraEntries of [
+    [structuredClone(build9Ledger)],
+    [{...build9Ledger, distributionPerformed: true}],
+    [{buildNumber: 8}, {buildNumber: 8, distributionPerformed: true}],
+  ]) {
+    assert.equal(summarizeMutableSourceAuthority({
+      policy, releasePolicy,
+      buildLedger: {entries: [build9Ledger, build10Ledger, ...extraEntries]},
+    }).buildLedgerExact, false, 'every historical build number must be unique');
+  }
+  for (const buildNumber of ['8', null, false, 0, -1, 8.5, 2147483648, undefined]) {
+    assert.equal(summarizeMutableSourceAuthority({
+      policy, releasePolicy,
+      buildLedger: {entries: [{buildNumber}, build9Ledger, build10Ledger]},
+    }).buildLedgerExact, false, 'ledger identities must be positive int32 numbers');
+  }
+
   const malformedPrior = structuredClone(releasePolicy);
   delete malformedPrior.finalization.priorCompletedBuild.completionReceiptSha256;
   assert.equal(
@@ -472,6 +602,14 @@ test("completed successor still requires every retained failed-attempt receipt",
     schemaVersion: 1,
     evidenceType: "production-build-staged-controlled-pilot-authorization",
     decision: "PASS_BUILD11_STAGED_CONTROLLED_PILOT_AUTHORIZED",
+    sourceAuthority: {postMergeCi: {allRequiredJobsPassed: true, conclusion: 'success'}},
+    programmeDecision: {
+      internalControlledPilot: 'GO_STAGED',
+      pilotHandout: 'AUTHORIZED_EXACT_BUILD11_FROZEN_ROSTER_UP_TO_25',
+      canary: 'TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION',
+      mutatingBusinessFlowValidation: 'OPEN_COLLECT_DURING_CANARY',
+      unrestrictedDistribution: 'NO_GO',
+    },
     ownerApproval: {
       receipt:
         "release/approvals/build11-staged-controlled-pilot-approval.json",
@@ -559,7 +697,9 @@ test("completed successor still requires every retained failed-attempt receipt",
     governedPackage: {
       sha256: completed.governedPackageSha256,
       apkSha256: apkSha,
+      independentVerificationCompleted: true,
     },
+    dualCustody: {allFileHashesMatched: true},
   };
   const promotionFinalizationAuthority = {
     promotionFinalizationReceipt,
@@ -686,10 +826,23 @@ test("completed successor still requires every retained failed-attempt receipt",
     decision: "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
     firebaseProjectId: policy.productionProjectId,
     region: "asia-south1",
+    authorityChronology: {
+      allObservedFunctionUpdatesPostdateOwnerInstruction: true,
+      deploymentWasRetroactivelyAuthorized: false,
+    },
+    sourceAuthority: {postMergeReleaseGateConclusion: 'success'},
+    firestoreDeployment: {
+      rulesActiveByteExact: true,
+      allIndexesReady: true,
+      indexesAlreadyExactNoMutationRequired: true,
+      strictLiveReadbackPassed: true,
+      rulesAlreadyExactNoMutationRequired: true,
+      rulesDeploymentPerformed: false,
+    },
     cleanMainLiveReadbacks: {
-      functionFleet: {failedChecks: 0},
-      iamDependencies: {failedChecks: 0, postureHolds: 0},
-      firestoreRulesAndIndexes: {failedChecks: 0},
+      functionFleet: {failedChecks: 0, decision: 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL'},
+      iamDependencies: {failedChecks: 0, postureHolds: 0, decision: 'PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK'},
+      firestoreRulesAndIndexes: {failedChecks: 0, verified: true, allIndexesReady: true, decision: 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK'},
     },
     deployment: {
       allFunctionsExactSourceVerified: true,
@@ -698,6 +851,12 @@ test("completed successor still requires every retained failed-attempt receipt",
       existingIamPreservationEnforced: true,
       appCheckEnforcement: false,
       legacyMutatingFinalizeWrapperExecuted: false,
+      schedulerBacklogZeroVerified: true,
+      schedulerSmokeResult: {
+        invoked: false,
+        workflowEscalationCandidateCount: 0,
+        changed: 0,
+      },
     },
     controlBoundary: {
       schedulerSmokeChangedRecordCount: 0,
@@ -850,6 +1009,8 @@ test("completed successor still requires every retained failed-attempt receipt",
 
   for (const segments of [
     ['controlBoundary', 'schedulerSmokeChangedRecordCount'],
+    ['deployment', 'schedulerSmokeResult', 'changed'],
+    ['deployment', 'schedulerSmokeResult', 'workflowEscalationCandidateCount'],
     ['cleanMainLiveReadbacks', 'functionFleet', 'failedChecks'],
     ['cleanMainLiveReadbacks', 'iamDependencies', 'failedChecks'],
     ['cleanMainLiveReadbacks', 'iamDependencies', 'postureHolds'],
@@ -865,6 +1026,23 @@ test("completed successor still requires every retained failed-attempt receipt",
         promotionReceipt, ...promotionFinalizationAuthority,
         promotionBackendReceipt: badBackend,
       }).releasePolicyExact, false, `${segments.join('.')} must be numeric zero`);
+    }
+  }
+
+  for (const [segments, values] of [
+    [['deployment', 'schedulerSmokeResult', 'invoked'], [true, 0, 'false', null, undefined]],
+    [['deployment', 'schedulerBacklogZeroVerified'], [false, 1, 'true', null, undefined]],
+  ]) {
+    for (const value of values) {
+      const badBackend = structuredClone(promotionBackendReceipt);
+      let target = badBackend;
+      for (const segment of segments.slice(0, -1)) target = target[segment];
+      target[segments.at(-1)] = value;
+      assert.equal(summarizeMutableSourceAuthority({
+        policy, releasePolicy: promotedPolicy, buildLedger: {entries: ledgers},
+        promotionReceipt, ...promotionFinalizationAuthority,
+        promotionBackendReceipt: badBackend,
+      }).releasePolicyExact, false, `${segments.join('.')} must substantiate scheduler boundaries`);
     }
   }
 
@@ -1516,9 +1694,9 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
       $bad.PSObject.Properties.Remove($field)
       if (Test-CompletedAutomaticSynchronization $bad) { throw "Accepted missing $field" }
     }
-    $backend = '{"controlBoundary":{"schedulerSmokeChangedRecordCount":0},"cleanMainLiveReadbacks":{"functionFleet":{"failedChecks":0},"iamDependencies":{"failedChecks":0,"postureHolds":0},"firestoreRulesAndIndexes":{"failedChecks":0}}}'
+    $backend = [IO.File]::ReadAllText('${path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''")}')
     if (-not (Test-ZeroBackendReadbackFailures ($backend | ConvertFrom-Json))) { throw 'Healthy backend rejected' }
-    foreach ($path in @('controlBoundary.schedulerSmokeChangedRecordCount','cleanMainLiveReadbacks.functionFleet.failedChecks','cleanMainLiveReadbacks.iamDependencies.failedChecks','cleanMainLiveReadbacks.iamDependencies.postureHolds','cleanMainLiveReadbacks.firestoreRulesAndIndexes.failedChecks')) {
+    foreach ($path in @('controlBoundary.schedulerSmokeChangedRecordCount','deployment.schedulerSmokeResult.changed','deployment.schedulerSmokeResult.workflowEscalationCandidateCount','cleanMainLiveReadbacks.functionFleet.failedChecks','cleanMainLiveReadbacks.iamDependencies.failedChecks','cleanMainLiveReadbacks.iamDependencies.postureHolds','cleanMainLiveReadbacks.firestoreRulesAndIndexes.failedChecks')) {
       foreach ($badValue in @(1, -1, '0', $null, $false)) {
         $bad = $backend | ConvertFrom-Json
         $parts = $path.Split('.')
@@ -1530,10 +1708,153 @@ test("PowerShell current and successor sync counters reject missing and nonnumer
         if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing backend $path" }
       }
     }
+    foreach ($path in @('deployment.schedulerSmokeResult.invoked','deployment.schedulerBacklogZeroVerified')) {
+      foreach ($badValue in @(0, 1, 'false', 'true', $null, @($true, $false))) {
+        $bad = $backend | ConvertFrom-Json
+        $parts = $path.Split('.')
+        $target = $bad
+        foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
+        $target.($parts[-1]) = $badValue
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted invalid scheduler boundary $path" }
+        $target.PSObject.Properties.Remove($parts[-1])
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing scheduler boundary $path" }
+      }
+      $bad = $backend | ConvertFrom-Json
+      if ($path.EndsWith('.invoked')) { $bad.deployment.schedulerSmokeResult.invoked = $true }
+      else { $bad.deployment.schedulerBacklogZeroVerified = $false }
+      if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted adverse scheduler boundary $path" }
+    }
     'PASS_RUNTIME_SYNC_COUNTERS'
   `;
   const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
   assert.match(output, /PASS_RUNTIME_SYNC_COUNTERS/);
+});
+
+test("PowerShell rejects duplicate build numbers anywhere in the ledger", () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1')
+    .replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-UniqueBuildLedgerNumbers'}, $true)
+    if ($null -eq $definition) { throw 'Missing whole-ledger uniqueness predicate' }
+    Invoke-Expression $definition.Extent.Text
+    $healthy = '{"entries":[{"buildNumber":26},{"buildNumber":27},{"buildNumber":28}]}'
+    if (-not (Test-UniqueBuildLedgerNumbers ($healthy | ConvertFrom-Json))) { throw 'Unique ledger rejected' }
+    foreach ($number in @(26, 27, 28)) {
+      $bad = $healthy | ConvertFrom-Json
+      $bad.entries += [pscustomobject]@{buildNumber=$number; distributionPerformed=$true}
+      if (Test-UniqueBuildLedgerNumbers $bad) { throw "Accepted duplicate build $number" }
+    }
+    foreach ($number in @('26', $null, $false, 0, -1, 26.5, 2147483648)) {
+      $bad = $healthy | ConvertFrom-Json
+      $bad.entries[0].buildNumber = $number
+      if (Test-UniqueBuildLedgerNumbers $bad) { throw 'Accepted invalid ledger identity' }
+    }
+    $bad = $healthy | ConvertFrom-Json
+    $bad.entries[0].PSObject.Properties.Remove('buildNumber')
+    if (Test-UniqueBuildLedgerNumbers $bad) { throw 'Accepted missing ledger identity' }
+    'PASS_WHOLE_LEDGER_UNIQUENESS'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_WHOLE_LEDGER_UNIQUENESS/);
+});
+
+test('PowerShell rejects every measured backend authorization/readback contradiction', () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1').replaceAll("'", "''");
+  const backendPath = path.join(repositoryRoot, 'release/evidence/build27-backend-deployment-closure.json').replaceAll("'", "''");
+  const cases = backendClosureDecisions.map(([field, expected]) => ({
+    field,
+    badValues: typeof expected === 'boolean' ?
+      [!expected, String(expected), 0, 1, null, [expected]] :
+      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, [expected]],
+  }));
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    foreach ($name in @('Get-OptionalPropertyValue','Test-ZeroBackendReadbackFailures')) {
+      $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+      if ($null -eq $definition) { throw "Missing predicate: $name" }
+      Invoke-Expression $definition.Extent.Text
+    }
+    $healthy = [IO.File]::ReadAllText('${backendPath}')
+    if (-not (Test-ZeroBackendReadbackFailures ($healthy | ConvertFrom-Json))) { throw 'Healthy measured backend rejected' }
+    $cases = '${JSON.stringify(cases)}' | ConvertFrom-Json
+    foreach ($case in $cases) {
+      foreach ($badValue in $case.badValues) {
+        $bad = $healthy | ConvertFrom-Json
+        $parts = $case.field.Split('.')
+        $target = $bad
+        foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
+        $target.($parts[-1]) = $badValue
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted contradictory backend $($case.field)" }
+        $target.PSObject.Properties.Remove($parts[-1])
+        if (Test-ZeroBackendReadbackFailures $bad) { throw "Accepted missing backend $($case.field)" }
+      }
+    }
+    'PASS_MEASURED_BACKEND_CLOSURE_DECISIONS'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_MEASURED_BACKEND_CLOSURE_DECISIONS/);
+});
+
+test('PowerShell promotion and custody guards reject contradictory measured verdicts', () => {
+  const verifierPath = path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1').replaceAll("'", "''");
+  const policyPath = path.join(repositoryRoot, 'release/production-release-policy.json').replaceAll("'", "''");
+  const rootPath = repositoryRoot.replaceAll("'", "''");
+  const cases = promotionAndCustodyDecisions.map(([receiptKey, field, expected]) => ({
+    receiptKey, field,
+    badValues: typeof expected === 'boolean' ?
+      [!expected, String(expected), 0, null, [expected]] :
+      ['FAIL', expected === expected.toUpperCase() ? expected.toLowerCase() : expected.toUpperCase(), false, null, [expected]],
+  }));
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile('${verifierPath}', [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Verifier does not parse' }
+    $promotionGuard = $ast.Find({param($node) $node -is [System.Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw 'Post-build promotion exceeds or differs from the exact staged-pilot boundary.'")}, $true)
+    $custodyGuard = $ast.Find({param($node) $node -is [System.Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw 'Promoted build retained finalization authority is incomplete or divergent.'")}, $true)
+    if ($null -eq $promotionGuard -or $null -eq $custodyGuard) { throw 'Missing measured receipt guard' }
+    $policy = [IO.File]::ReadAllText('${policyPath}') | ConvertFrom-Json
+    $promotionReceiptPath = $policy.postBuildPromotion.promotionReceiptFile
+    $promotionJson = [IO.File]::ReadAllText((Join-Path '${rootPath}' $promotionReceiptPath))
+    $promotionReceipt = $promotionJson | ConvertFrom-Json
+    $promotionBuildNumber = $policy.postBuildPromotion.buildNumber
+    $approvedPilotBuildNumber = $policy.distribution.approvedBuildNumber
+    $promotionAuthorityBuild = $promotionReceipt.admittedEvidence.governedBuild
+    $expectedPromotionDecision = "PASS_BUILD$($promotionBuildNumber)_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+    $finalizationJson = [IO.File]::ReadAllText((Join-Path '${rootPath}' $promotionAuthorityBuild.finalizationReceipt))
+    $promotionFinalizationReceipt = $finalizationJson | ConvertFrom-Json
+    Invoke-Expression $promotionGuard.Extent.Text
+    Invoke-Expression $custodyGuard.Extent.Text
+    $cases = '${JSON.stringify(cases)}' | ConvertFrom-Json
+    foreach ($case in $cases) {
+      foreach ($badValue in $case.badValues) {
+        $promotionReceipt = $promotionJson | ConvertFrom-Json
+        $promotionFinalizationReceipt = $finalizationJson | ConvertFrom-Json
+        $target = if ($case.receiptKey -eq 'Receipt') { $promotionReceipt } else { $promotionFinalizationReceipt }
+        $guard = if ($case.receiptKey -eq 'Receipt') { $promotionGuard } else { $custodyGuard }
+        $parts = $case.field.Split('.')
+        foreach ($part in $parts[0..($parts.Length - 2)]) { $target = $target.$part }
+        $target.($parts[-1]) = $badValue
+        $rejected = $false
+        try { Invoke-Expression $guard.Extent.Text } catch { $rejected = $true }
+        if (-not $rejected) { throw "Accepted contradictory verdict $($case.field)" }
+        $target.PSObject.Properties.Remove($parts[-1])
+        $rejected = $false
+        try { Invoke-Expression $guard.Extent.Text } catch { $rejected = $true }
+        if (-not $rejected) { throw "Accepted missing verdict $($case.field)" }
+      }
+    }
+    'PASS_MEASURED_PROMOTION_CUSTODY_DECISIONS'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {encoding: 'utf8'});
+  assert.match(output, /PASS_MEASURED_PROMOTION_CUSTODY_DECISIONS/);
 });
 
 test("argument parser rejects the wrong repository and missing receipt", () => {

@@ -154,13 +154,54 @@ function Test-CompletedAutomaticSynchronization {
 
 function Test-ZeroBackendReadbackFailures {
   param([object]$Backend)
+  $deployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'deployment'
+  $smoke = Get-OptionalPropertyValue -InputObject $deployment -Name 'schedulerSmokeResult'
+  $invoked = Get-OptionalPropertyValue -InputObject $smoke -Name 'invoked'
+  $backlogZero = Get-OptionalPropertyValue -InputObject $deployment -Name 'schedulerBacklogZeroVerified'
+  if ($invoked -isnot [bool] -or $invoked -ne $false -or
+      $backlogZero -isnot [bool] -or $backlogZero -ne $true) {
+    return $false
+  }
   $boundary = Get-OptionalPropertyValue -InputObject $Backend -Name 'controlBoundary'
   $readbacks = Get-OptionalPropertyValue -InputObject $Backend -Name 'cleanMainLiveReadbacks'
   $fleet = Get-OptionalPropertyValue -InputObject $readbacks -Name 'functionFleet'
   $iam = Get-OptionalPropertyValue -InputObject $readbacks -Name 'iamDependencies'
   $firestore = Get-OptionalPropertyValue -InputObject $readbacks -Name 'firestoreRulesAndIndexes'
+  $chronology = Get-OptionalPropertyValue -InputObject $Backend -Name 'authorityChronology'
+  $sourceAuthority = Get-OptionalPropertyValue -InputObject $Backend -Name 'sourceAuthority'
+  $firestoreDeployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'firestoreDeployment'
+  # These are recorded authorization/pass decisions, not descriptive metadata.
+  $closureDecisions = @(
+    @{ Object = $chronology; Name = 'allObservedFunctionUpdatesPostdateOwnerInstruction'; Expected = $true }
+    @{ Object = $chronology; Name = 'deploymentWasRetroactivelyAuthorized'; Expected = $false }
+    @{ Object = $sourceAuthority; Name = 'postMergeReleaseGateConclusion'; Expected = 'success' }
+    @{ Object = $firestoreDeployment; Name = 'rulesActiveByteExact'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'allIndexesReady'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'indexesAlreadyExactNoMutationRequired'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'strictLiveReadbackPassed'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'rulesAlreadyExactNoMutationRequired'; Expected = $true }
+    @{ Object = $firestoreDeployment; Name = 'rulesDeploymentPerformed'; Expected = $false }
+    @{ Object = $fleet; Name = 'decision'; Expected = 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL' }
+    @{ Object = $iam; Name = 'decision'; Expected = 'PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK' }
+    @{ Object = $firestore; Name = 'decision'; Expected = 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' }
+    @{ Object = $firestore; Name = 'verified'; Expected = $true }
+    @{ Object = $firestore; Name = 'allIndexesReady'; Expected = $true }
+  )
+  foreach ($fact in $closureDecisions) {
+    if ($null -eq $fact.Object) { return $false }
+    $property = $fact.Object.PSObject.Properties[$fact.Name]
+    if ($null -eq $property) { return $false }
+    $value = $property.Value
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
   $counters = @(
     (Get-OptionalPropertyValue -InputObject $boundary -Name 'schedulerSmokeChangedRecordCount')
+    (Get-OptionalPropertyValue -InputObject $smoke -Name 'changed')
+    (Get-OptionalPropertyValue -InputObject $smoke -Name 'workflowEscalationCandidateCount')
     (Get-OptionalPropertyValue -InputObject $fleet -Name 'failedChecks')
     (Get-OptionalPropertyValue -InputObject $iam -Name 'failedChecks')
     (Get-OptionalPropertyValue -InputObject $iam -Name 'postureHolds')
@@ -171,7 +212,26 @@ function Test-ZeroBackendReadbackFailures {
       return $false
     }
   }
-  return $counters.Count -eq 5
+  return $counters.Count -eq 7
+}
+
+function Test-UniqueBuildLedgerNumbers {
+  param([object]$Ledger)
+  if ($null -eq $Ledger) { return $false }
+  $entriesProperty = $Ledger.PSObject.Properties['entries']
+  if ($null -eq $entriesProperty -or $entriesProperty.Value -isnot [array] -or
+      $entriesProperty.Value.Count -eq 0) { return $false }
+  $seen = [System.Collections.Generic.HashSet[int]]::new()
+  foreach ($entry in $entriesProperty.Value) {
+    if ($null -eq $entry) { return $false }
+    $numberProperty = $entry.PSObject.Properties['buildNumber']
+    if ($null -eq $numberProperty) { return $false }
+    $number = $numberProperty.Value
+    if (($number -isnot [int64] -and $number -isnot [int]) -or
+        $number -le 0 -or $number -gt 2147483647 -or
+        -not $seen.Add([int]$number)) { return $false }
+  }
+  return $true
 }
 
 function Get-UtcEvidenceInstant {
@@ -784,6 +844,10 @@ if ([string]$promotionFinalizationReceipt.status -ne
     [string]$promotionFinalizationReceipt.governedPackage.apkSha256 -ne
       [string]$promotionAuthorityBuild.apkSha256 -or
     $promotionAuthorityBuild.dualCustodyCompleted -ne $true -or
+    $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -isnot [bool] -or
+    $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -ne $true -or
+    $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -isnot [bool] -or
+    $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -ne $true -or
     [string]$promotionFinalizationReceipt.dualCustody.status -ne 'passed') {
   throw 'Promoted build retained finalization authority is incomplete or divergent.'
 }
@@ -1156,6 +1220,21 @@ if ([string]$policy.postBuildPromotion.status -ne
     [string]$promotionReceipt.evidenceType -ne
       'production-build-staged-controlled-pilot-authorization' -or
     [string]$promotionReceipt.decision -ne $expectedPromotionDecision -or
+    $promotionReceipt.sourceAuthority.postMergeCi.allRequiredJobsPassed -isnot [bool] -or
+    $promotionReceipt.sourceAuthority.postMergeCi.allRequiredJobsPassed -ne $true -or
+    $promotionReceipt.sourceAuthority.postMergeCi.conclusion -isnot [string] -or
+    $promotionReceipt.sourceAuthority.postMergeCi.conclusion -cne 'success' -or
+    $promotionReceipt.programmeDecision.internalControlledPilot -isnot [string] -or
+    $promotionReceipt.programmeDecision.internalControlledPilot -cne 'GO_STAGED' -or
+    $promotionReceipt.programmeDecision.pilotHandout -isnot [string] -or
+    $promotionReceipt.programmeDecision.pilotHandout -cne
+      "AUTHORIZED_EXACT_BUILD${promotionBuildNumber}_FROZEN_ROSTER_UP_TO_$($policy.distribution.maximumApprovedUsers)" -or
+    $promotionReceipt.programmeDecision.canary -isnot [string] -or
+    $promotionReceipt.programmeDecision.canary -cne 'TWO_USERS_TWO_PHYSICAL_DEVICES_BEFORE_EXPANSION' -or
+    $promotionReceipt.programmeDecision.mutatingBusinessFlowValidation -isnot [string] -or
+    $promotionReceipt.programmeDecision.mutatingBusinessFlowValidation -cne 'OPEN_COLLECT_DURING_CANARY' -or
+    $promotionReceipt.programmeDecision.unrestrictedDistribution -isnot [string] -or
+    $promotionReceipt.programmeDecision.unrestrictedDistribution -cne 'NO_GO' -or
     [int]$promotionReceipt.promotion.authorizedBuildNumber -ne
       $promotionBuildNumber -or
     [string]$promotionReceipt.promotion.authorizedPackageSha256 -ne
@@ -2208,6 +2287,9 @@ $completionReceiptPath = $null
 $completionReceipt = $null
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
   ConvertFrom-Json
+if (-not (Test-UniqueBuildLedgerNumbers $ledger)) {
+  throw 'Build ledger must contain unique positive int32 build numbers throughout.'
+}
 $promotionLedgerMatches = @(
   $ledger.entries |
     Where-Object { [int]$_.buildNumber -eq $promotionBuildNumber }
@@ -3444,14 +3526,6 @@ if ($consumedMatches.Count -eq 1 -and
 }
 if (-not $consumedLedgerValid) {
   throw 'Consumed build evidence differs from rollover authority.'
-}
-
-if (@(
-    $ledger.entries |
-      Group-Object buildNumber |
-      Where-Object Count -gt 1
-  ).Count -gt 0) {
-  throw 'Duplicate build number exists in source ledger.'
 }
 
 $expectedReservationTag =
