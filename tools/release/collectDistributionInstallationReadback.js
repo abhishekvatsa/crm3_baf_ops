@@ -379,6 +379,25 @@ function summarizeMutableSourceAuthority({
         promotedArtifact?.governedPackageSha256 &&
       promotionFinalizationReceipt?.governedPackage?.apkSha256 ===
         promotedReceiptBuild?.apkSha256);
+  const promotedMutationBoundary =
+    promotionDeviceAcceptanceReceipt?.businessMutationBoundary;
+  const promotedMutationValues =
+    promotedMutationBoundary == null
+      ? []
+      : Object.values(promotedMutationBoundary);
+  const stagedPromotionMutationBoundaryExact =
+    !stagedPromotion ||
+    (promotedMutationValues.length > 0 &&
+      promotedMutationValues.every((value) => value === false) &&
+      promotedMutationBoundary
+        ?.productionBusinessDataCreatedUpdatedOrDeleted === false &&
+      promotedDeviceAcceptanceAuthority?.businessDataMutated === false);
+  const promotedLedgerPromotionReceiptExact =
+    !stagedPromotion ||
+    (promotedLedger?.pilotPromotionReceiptFile ===
+      promotionReceiptAuthority?.path &&
+      promotedLedger?.pilotPromotionReceiptSha256 ===
+        promotionReceiptAuthority?.sha256);
   const stagedPromotionRuntimeExact =
     !stagedPromotion ||
     (promotedDeviceAcceptanceAuthority != null &&
@@ -440,7 +459,9 @@ function summarizeMutableSourceAuthority({
       promotedLedger?.runtimeDisposition ===
         promotedDeviceAcceptanceAuthority.decision &&
       promotedLedger?.fullBusinessFlowValidationCompleted === false &&
-      promotedLedger?.controlledPilotApproved === true);
+      promotedLedger?.controlledPilotApproved === true &&
+      stagedPromotionMutationBoundaryExact &&
+      promotedLedgerPromotionReceiptExact);
   const promotionReceiptExact =
     promotionReceipt?.schemaVersion === 1 &&
     (stagedPromotion || historicalBuild11Promotion) &&
@@ -535,7 +556,8 @@ function summarizeMutableSourceAuthority({
     buildLedgerExact:
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
-      pendingSuccessorExact,
+      pendingSuccessorExact &&
+      promotedLedgerPromotionReceiptExact,
     latestContainmentAttemptExact,
     controlledPilotPromotionExact,
   };

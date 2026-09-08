@@ -14233,6 +14233,8 @@ check(
     and "promotionDeviceAcceptanceReceipt" in lr07_collector
     and "measuredPromotionDeviceAcceptanceReceiptSha256" in lr07_collector
     and "preservedRuntimeMirrorExact" in lr07_collector
+    and "stagedPromotionMutationBoundaryExact" in lr07_collector
+    and "promotedLedgerPromotionReceiptExact" in lr07_collector
     and "$promotedPredecessorRuntimeAuthorityInvalid" in c04_production_policy
     and "$expectedPromotionDeviceAcceptanceSha256" in c04_production_policy
     and "$promotionLedgerPhysicalReceiptFile" in c04_production_policy

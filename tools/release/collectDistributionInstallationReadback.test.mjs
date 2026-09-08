@@ -416,6 +416,13 @@ test("completed successor still requires every retained failed-attempt receipt",
   ledgers.find(
     (entry) => entry.buildNumber === completed.buildNumber,
   ).controlledPilotApproved = true;
+  Object.assign(
+    ledgers.find((entry) => entry.buildNumber === completed.buildNumber),
+    {
+      pilotPromotionReceiptFile: promotionPath,
+      pilotPromotionReceiptSha256: promotionSha,
+    },
+  );
   promotedPolicy.postBuildPromotion = {
     status: "completed-staged-controlled-pilot-only",
     promotionReceiptFile: promotionPath,
@@ -469,6 +476,7 @@ test("completed successor still requires every retained failed-attempt receipt",
         automaticSyncPassed: true,
         unsyncedRows: 0,
         unresolvedRejections: 0,
+        businessDataMutated: false,
       },
     },
     promotion: {
@@ -513,6 +521,10 @@ test("completed successor still requires every retained failed-attempt receipt",
       apkSha256: apkSha,
     },
     physicalDevice: {applicationDataPreserved: true},
+    businessMutationBoundary: {
+      productionBusinessDataCreatedUpdatedOrDeleted: false,
+      ticketSubmitted: false,
+    },
     synchronization: {
       lastSyncResult: "success",
       unsyncedRows: 0,
@@ -761,6 +773,51 @@ test("completed successor still requires every retained failed-attempt receipt",
     }).releasePolicyExact,
     false,
   );
+
+  const mutatedBusinessAcceptance = structuredClone(
+    promotionDeviceAcceptanceReceipt,
+  );
+  mutatedBusinessAcceptance.businessMutationBoundary.productionBusinessDataCreatedUpdatedOrDeleted =
+    true;
+  const mutatedBusinessSummary = summarizeMutableSourceAuthority({
+    policy,
+    releasePolicy: pendingPolicy,
+    buildLedger: {entries: [...ledgers, pendingLedger]},
+    promotionReceipt,
+    ...promotionFinalizationAuthority,
+    promotionDeviceAcceptanceReceipt: mutatedBusinessAcceptance,
+  });
+  assert.equal(mutatedBusinessSummary.releasePolicyExact, false);
+  assert.equal(mutatedBusinessSummary.controlledPilotPromotionExact, false);
+
+  for (const mutateLedgerPromotionReceipt of [
+    (ledger) => {
+      delete ledger.pilotPromotionReceiptFile;
+    },
+    (ledger) => {
+      ledger.pilotPromotionReceiptSha256 = "7".repeat(64).toUpperCase();
+    },
+  ]) {
+    const unrelatedPromotionLedger = structuredClone(ledgers);
+    mutateLedgerPromotionReceipt(
+      unrelatedPromotionLedger.find(
+        (entry) => entry.buildNumber === completed.buildNumber,
+      ),
+    );
+    const unrelatedPromotionSummary = summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: pendingPolicy,
+      buildLedger: {entries: [...unrelatedPromotionLedger, pendingLedger]},
+      promotionReceipt,
+      ...promotionFinalizationAuthority,
+    });
+    assert.equal(unrelatedPromotionSummary.buildLedgerExact, false);
+    assert.equal(unrelatedPromotionSummary.releasePolicyExact, false);
+    assert.equal(
+      unrelatedPromotionSummary.controlledPilotPromotionExact,
+      false,
+    );
+  }
 
   const broadenedPromotion = structuredClone(promotedPolicy);
   broadenedPromotion.postBuildPromotion.publicArtifactApproved = true;

@@ -315,6 +315,8 @@ void main() {
         ),
       );
       expect(source, contains('preservedRuntimeMirrorExact'));
+      expect(source, contains('stagedPromotionMutationBoundaryExact'));
+      expect(source, contains('promotedLedgerPromotionReceiptExact'));
       expect(source, contains('collectorAuthorizesClosure: false'));
       expect(source, contains('flag: "wx"'));
       expect(decision, contains('collector itself does not close `LR-07`'));
