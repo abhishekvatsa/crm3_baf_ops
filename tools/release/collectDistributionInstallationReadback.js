@@ -120,6 +120,26 @@ function fileAuthority(repositoryRoot, expected) {
   };
 }
 
+function explicitUtcEvidenceInstant(value) {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/.exec(value);
+  if (match == null || match[1].startsWith("0000-")) return null;
+  const seconds = Date.parse(`${match[1]}Z`);
+  if (!Number.isFinite(seconds) || new Date(seconds).toISOString().slice(0, 19) !== match[1]) {
+    return null;
+  }
+  // Function receipts use nanosecond fractions; retain their ordering.
+  return BigInt(seconds) * 1000000n + BigInt((match[2] ?? "").padEnd(9, "0"));
+}
+
+function backendAuthorityChronologyExact(chronology) {
+  const owner = explicitUtcEvidenceInstant(chronology?.ownerInstructionReceivedAtUtc);
+  const earliest = explicitUtcEvidenceInstant(chronology?.earliestFunctionUpdateTime);
+  const latest = explicitUtcEvidenceInstant(chronology?.latestFunctionUpdateTime);
+  return owner != null && earliest != null && latest != null &&
+    owner <= earliest && earliest <= latest;
+}
+
 function summarizeMutableSourceAuthority({
   policy,
   releasePolicy,
@@ -499,6 +519,7 @@ function summarizeMutableSourceAuthority({
       promotionBackendReceipt?.firebaseProjectId ===
         policy.productionProjectId &&
       promotionBackendReceipt?.region === "asia-south1" &&
+      backendAuthorityChronologyExact(promotionBackendReceipt?.authorityChronology) &&
       promotionBackendReceipt?.authorityChronology
         ?.allObservedFunctionUpdatesPostdateOwnerInstruction === true &&
       promotionBackendReceipt?.authorityChronology
@@ -535,6 +556,7 @@ function summarizeMutableSourceAuthority({
       promotedBackendBoundary?.securityRulesMutated === false &&
       promotedBackendBoundary?.indexesMutated === false &&
       promotedBackendBoundary?.schedulerSmokeChangedRecordCount === 0 &&
+      promotedBackendBoundary?.aggregateBacklogQueriesPerformed === true &&
       promotionBackendReceipt?.firestoreDeployment?.rulesActiveByteExact === true &&
       promotionBackendReceipt?.firestoreDeployment?.allIndexesReady === true &&
       promotionBackendReceipt?.firestoreDeployment?.indexesAlreadyExactNoMutationRequired === true &&
@@ -605,6 +627,7 @@ function summarizeMutableSourceAuthority({
         promotedReceiptBuild?.apkSha256 &&
       promotionFinalizationReceipt?.governedPackage?.independentVerificationCompleted === true &&
       promotionFinalizationReceipt?.dualCustody?.allFileHashesMatched === true &&
+      promotionFinalizationReceipt?.dualCustody?.status === "passed" &&
       promotedReceiptBuild?.dualCustodyCompleted === true &&
       promotedReceiptBuild?.oneTargetInPlaceValidationPassed === true &&
       promotedReceiptBuild?.mutatingBusinessFlowValidationCompleted === false);

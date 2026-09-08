@@ -152,6 +152,37 @@ function Test-CompletedAutomaticSynchronization {
     $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
 }
 
+function ConvertFrom-BackendReceiptJson {
+  param([Parameter(Mandatory)][string]$Text)
+  $receipt = $Text | ConvertFrom-Json
+  # Restore only these original scalar strings after PowerShell's automatic
+  # DateTime conversion, which otherwise discards nanosecond precision.
+  $document = [System.Text.Json.JsonDocument]::Parse($Text)
+  try {
+    $chronology = $document.RootElement.GetProperty('authorityChronology')
+    foreach ($name in @('ownerInstructionReceivedAtUtc', 'earliestFunctionUpdateTime', 'latestFunctionUpdateTime')) {
+      $element = $chronology.GetProperty($name)
+      $receipt.authorityChronology.$name = if ($element.ValueKind -eq [System.Text.Json.JsonValueKind]::String) {
+        $element.GetString()
+      } else { $null }
+    }
+  } finally {
+    $document.Dispose()
+  }
+  $receipt
+}
+
+function Get-BackendChronologyInstantKey {
+  param([AllowNull()][object]$Value)
+  if ($Value -isnot [string]) { return $null }
+  $match = [regex]::Match($Value, '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?Z$')
+  if (-not $match.Success) { return $null }
+  try {
+    $null = Get-UtcEvidenceInstant -Value ($match.Groups[1].Value + 'Z') -FieldName 'Backend chronology'
+  } catch { return $null }
+  $match.Groups[1].Value + '.' + $match.Groups[2].Value.PadRight(9, '0')
+}
+
 function Test-ZeroBackendReadbackFailures {
   param([object]$Backend)
   $deployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'deployment'
@@ -168,12 +199,31 @@ function Test-ZeroBackendReadbackFailures {
   $iam = Get-OptionalPropertyValue -InputObject $readbacks -Name 'iamDependencies'
   $firestore = Get-OptionalPropertyValue -InputObject $readbacks -Name 'firestoreRulesAndIndexes'
   $chronology = Get-OptionalPropertyValue -InputObject $Backend -Name 'authorityChronology'
+  foreach ($name in @('ownerInstructionReceivedAtUtc', 'earliestFunctionUpdateTime', 'latestFunctionUpdateTime')) {
+    if ($null -eq $chronology -or
+        $null -eq $chronology.PSObject.Properties[$name] -or
+        $chronology.PSObject.Properties[$name].Value -isnot [string]) {
+      return $false
+    }
+  }
+  $ownerInstruction = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'ownerInstructionReceivedAtUtc')
+  $earliestUpdate = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'earliestFunctionUpdateTime')
+  $latestUpdate = Get-BackendChronologyInstantKey `
+    -Value (Get-OptionalPropertyValue -InputObject $chronology -Name 'latestFunctionUpdateTime')
+  if ($null -eq $ownerInstruction -or $null -eq $earliestUpdate -or $null -eq $latestUpdate -or
+      [string]::CompareOrdinal($ownerInstruction, $earliestUpdate) -gt 0 -or
+      [string]::CompareOrdinal($earliestUpdate, $latestUpdate) -gt 0) {
+    return $false
+  }
   $sourceAuthority = Get-OptionalPropertyValue -InputObject $Backend -Name 'sourceAuthority'
   $firestoreDeployment = Get-OptionalPropertyValue -InputObject $Backend -Name 'firestoreDeployment'
   # These are recorded authorization/pass decisions, not descriptive metadata.
   $closureDecisions = @(
     @{ Object = $chronology; Name = 'allObservedFunctionUpdatesPostdateOwnerInstruction'; Expected = $true }
     @{ Object = $chronology; Name = 'deploymentWasRetroactivelyAuthorized'; Expected = $false }
+    @{ Object = $boundary; Name = 'aggregateBacklogQueriesPerformed'; Expected = $true }
     @{ Object = $sourceAuthority; Name = 'postMergeReleaseGateConclusion'; Expected = 'success' }
     @{ Object = $firestoreDeployment; Name = 'rulesActiveByteExact'; Expected = $true }
     @{ Object = $firestoreDeployment; Name = 'allIndexesReady'; Expected = $true }
@@ -848,7 +898,8 @@ if ([string]$promotionFinalizationReceipt.status -ne
     $promotionFinalizationReceipt.governedPackage.independentVerificationCompleted -ne $true -or
     $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -isnot [bool] -or
     $promotionFinalizationReceipt.dualCustody.allFileHashesMatched -ne $true -or
-    [string]$promotionFinalizationReceipt.dualCustody.status -ne 'passed') {
+    $promotionFinalizationReceipt.dualCustody.status -isnot [string] -or
+    $promotionFinalizationReceipt.dualCustody.status -cne 'passed') {
   throw 'Promoted build retained finalization authority is incomplete or divergent.'
 }
 $deviceAcceptanceAuthority = $promotionReceipt.admittedEvidence.deviceAcceptance
@@ -1042,7 +1093,7 @@ if ((Get-Sha256 $promotionBackendPath) -ne
   throw 'Post-build promotion backend receipt hash differs from authority.'
 }
 $promotionBackendReceipt =
-  Get-Content -LiteralPath $promotionBackendPath -Raw | ConvertFrom-Json
+  ConvertFrom-BackendReceiptJson -Text (Get-Content -LiteralPath $promotionBackendPath -Raw)
 if ([int]$promotionBackendReceipt.schemaVersion -ne 1 -or
     [string]$promotionBackendReceipt.evidenceType -ne
       'exact-current-source-backend-deployment-closure' -or
