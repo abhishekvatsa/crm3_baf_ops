@@ -4475,6 +4475,31 @@ current_backend_approval_relative = current_deployed_backend.get(
 )
 current_backend_approval_path = ROOT / current_backend_approval_relative
 current_backend_approval = data(current_backend_approval_relative)
+current_backend_approval_evidence = current_backend_approval.get(
+    "approvalEvidence", {}
+)
+current_backend_authority_chronology = current_backend_deployment.get(
+    "authorityChronology", {}
+)
+current_function_update_time_values = sorted(
+    function.get("updateTime", "")
+    for function in current_function_readback.get("outputs", {}).get(
+        "functions", []
+    )
+)
+try:
+    current_backend_approved_at = datetime.fromisoformat(
+        current_backend_approval.get("approvedAtUtc", "").replace(
+            "Z", "+00:00"
+        )
+    )
+    current_function_update_times = [
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        for value in current_function_update_time_values
+    ]
+except (TypeError, ValueError):
+    current_backend_approved_at = None
+    current_function_update_times = []
 build12_custody_reconciliation_path = (
     ROOT
     / "release/evidence/build-12-closure-custody-reconciliation.json"
@@ -7556,10 +7581,40 @@ check(
         == current_backend_deployment.get("approvalAuthority", {}).get("sha256")
     and current_backend_approval.get("sourceAuthority", {}).get("commit")
         == current_backend_deployment.get("sourceAuthority", {}).get("commit")
+    and current_backend_approval.get("approvedAtUtc")
+        == current_backend_approval_evidence.get("messageReceivedAtUtc")
+        == current_backend_authority_chronology.get(
+            "ownerInstructionReceivedAtUtc"
+        )
+    and current_backend_approval_evidence.get("codexTurnId")
+        == current_backend_authority_chronology.get("codexTurnId")
+    and current_backend_approval_evidence.get("codexMessageId")
+        == current_backend_authority_chronology.get("codexMessageId")
+    and current_backend_approved_at is not None
+    and len(current_function_update_times) == 15
+    and all(
+        update_time > current_backend_approved_at
+        for update_time in current_function_update_times
+    )
+    and current_backend_authority_chronology.get(
+        "earliestFunctionUpdateTime"
+    ) == current_function_update_time_values[0]
+    and current_backend_authority_chronology.get(
+        "latestFunctionUpdateTime"
+    ) == current_function_update_time_values[-1]
+    and current_backend_authority_chronology.get(
+        "allObservedFunctionUpdatesPostdateOwnerInstruction"
+    ) is True
+    and current_backend_authority_chronology.get(
+        "deploymentWasRetroactivelyAuthorized"
+    ) is False
     and current_backend_approval.get("approvedDeployment", {}).get(
         "appCheckEnforcement"
     ) is False
-    and "distribution" in current_backend_approval.get("notAuthorized", [])
+    and any(
+        boundary in current_backend_approval.get("notAuthorized", [])
+        for boundary in ("distribution", "wider distribution")
+    )
     and sha(current_backend_deployment_path)
         == current_deployed_backend.get("functionFleetEvidenceSha256")
     and current_backend_deployment.get("decision")

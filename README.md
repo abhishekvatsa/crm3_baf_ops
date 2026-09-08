@@ -15,23 +15,24 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Build 26 (`1.0.0-rc.16+26`) was constructed from exact merged commit
-`0f386d4` after PR 353 and exact-main CI passed. The production-signed APK and
-AAB were independently verified under the approved certificate and copied to
-dual custody. Build 26 is finalized non-distributable; its immutable governed
-package SHA-256 is
+Build 27 (`1.0.0-rc.17+27`) is source-authorized from exact merged PR 355
+baseline `2ab554d`. Its 15-Function fleet was deployed with existing IAM
+preserved and App Check enforcement unchanged, then passed strict live
+readback. The unchanged Firestore Rules and 66-index set were verified exact
+and ready without redeployment. The scheduled Function was not manually
+invoked, and no production business record was changed or deleted.
+
+The Build 27 governance tranche must merge and pass exact-main CI before
+protected construction can begin. Artifact-affecting paths remain exact to the
+approved baseline, and the protected workflow must record the exact resulting
+`main` commit. No Build 27 APK or AAB exists at this stage.
+
+Build 26 remains the immutable finalized predecessor. Its governed package
+SHA-256 is
 `6DCD720F31A917D4312FF7FBC5BB6CC72416EDB838933EA103CBC12295C1846B`.
-
-All 15 production Functions and the deployed Firestore Rules match the Build
-26 baseline `7156d45` and passed strict live readback with existing IAM
-preserved and App Check enforcement unchanged. The unchanged 66-index set was
-verified exact and ready. No production business record was changed or deleted.
-
-Build 25 remains an immutable finalized predecessor. Build 26 device migration,
-mutating-flow validation, pilot promotion and distribution were not adjudicated
-by construction. Build 26 is consumed and cannot be reused; the next eligible
-artifact is Build 27 after a fresh governed approval. No consumed build number
-may be reused.
+Build 26 is consumed and cannot be reused; Build 27 is the next governed
+candidate. No consumed build number may be reused. Wider distribution still
+requires a separate exact-package decision.
 
 Authoritative status sources:
 
