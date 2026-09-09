@@ -24,6 +24,7 @@ import 'remote_tombstone_apply_result.dart';
 import 'global_pull_cursor_store.dart';
 import 'global_pull_protocol.dart';
 import 'isar_schema_migration.dart';
+import 'server_anchored_clock.dart';
 
 part 'global_pull_service.watermark.dart';
 part 'global_pull_service.conflicts.dart';
@@ -146,6 +147,11 @@ class GlobalPullService {
         );
       }
       final authority = await _authorityReader.beginRun(expectedUid: actorUid);
+      // The run authority carries the backend's own instant. Adopting it here
+      // keeps locally persisted timestamps on the server's timeline, so a
+      // device whose clock runs ahead cannot stamp rows that later make a
+      // higher server version look stale during ingest.
+      ServerAnchoredClock.anchorToServer(serverAnchor: authority.serverAnchor);
       final cursorStore = SharedPreferencesGlobalPullCursorStore(prefs);
       var envelope = await cursorStore.begin(
         actorUid: actorUid,

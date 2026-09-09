@@ -10,6 +10,7 @@ import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'remote_abnormality_timestamps.dart';
+import '../../../core/services/server_anchored_clock.dart';
 
 part 'abnormality_model.g.dart';
 part 'remote_abnormality_reader.dart';
@@ -268,7 +269,7 @@ class AbnormalityType {
   }) {
     lastEditedByUid = editedByUid;
     lastEditedByName = editedByName;
-    updatedAt = DateTime.now();
+    updatedAt = ServerAnchoredClock.now();
     version += 1;
     isSynced = false;
   }
@@ -536,7 +537,7 @@ class ChargeAbnormality {
 
     updatedByUid = editedByUid;
     updatedByName = editedByName;
-    updatedAt = DateTime.now();
+    updatedAt = ServerAnchoredClock.now();
     version += 1;
     isSynced = false;
   }
@@ -547,14 +548,14 @@ class ChargeAbnormality {
     String? reason,
   }) {
     isDeleted = true;
-    deletedAt = DateTime.now();
+    deletedAt = ServerAnchoredClock.now();
     this.deletedByUid = deletedByUid;
     this.deletedByName = deletedByName;
     deleteReason = reason;
 
     updatedByUid = deletedByUid;
     updatedByName = deletedByName;
-    updatedAt = DateTime.now();
+    updatedAt = ServerAnchoredClock.now();
     version += 1;
     isSynced = false;
   }

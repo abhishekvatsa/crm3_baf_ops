@@ -128,19 +128,19 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
           // User-initiated delete: full bookkeeping + version bump so
           // updateTemplateFromRemote reconciliation correctly identifies the
           // delete as the winner against concurrent peer edits.
-          t.deletedAt = DateTime.now();
+          t.deletedAt = ServerAnchoredClock.now();
           t.deletedByUid = auditContext.performedByUid;
           t.deletedByName = auditContext.performedByName;
           t.deleteReason =
               auditContext.reason?.name ?? auditContext.reasonNotes;
-          t.updatedAt = DateTime.now();
+          t.updatedAt = ServerAnchoredClock.now();
           t.version += 1;
         } else {
           // Legacy pull-replay path (until global_pull_service is switched
           // to applyTombstoneFromTemplateRemote). Minimal write only — the
           // remote tombstone metadata is applied separately by
           // updateTemplateFromRemote when this branch is taken.
-          t.updatedAt = DateTime.now();
+          t.updatedAt = ServerAnchoredClock.now();
         }
         t.isSynced = false;
         await isar.jobTemplates.put(t);
@@ -296,16 +296,16 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
         e.isDeleted = true;
         if (auditContext != null) {
           // User-initiated delete: full bookkeeping + version bump.
-          e.deletedAt = DateTime.now();
+          e.deletedAt = ServerAnchoredClock.now();
           e.deletedByUid = auditContext.performedByUid;
           e.deletedByName = auditContext.performedByName;
           e.deleteReason =
               auditContext.reason?.name ?? auditContext.reasonNotes;
-          e.updatedAt = DateTime.now();
+          e.updatedAt = ServerAnchoredClock.now();
           e.version += 1;
         } else {
           // Legacy pull-replay path. Minimal write only.
-          e.updatedAt = DateTime.now();
+          e.updatedAt = ServerAnchoredClock.now();
         }
         e.isSynced = false;
         await isar.jobExecutions.put(e);

@@ -9,7 +9,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   @override
   Future<void> saveTicket(MaintenanceRecord record) async {
     _requireValidMaintenanceEvidence(record);
-    record.updatedAt = DateTime.now();
+    record.updatedAt = ServerAnchoredClock.now();
     record.version += 1;
     record.isSynced = false;
 
@@ -286,7 +286,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           // User-initiated delete: full bookkeeping + version bump so
           // updateFromRemote reconciliation correctly identifies the delete
           // as the winner against concurrent peer edits.
-          t.deletedAt = DateTime.now();
+          t.deletedAt = ServerAnchoredClock.now();
           t.deletedByUid = auditContext.performedByUid;
           t.deletedByName = auditContext.performedByName;
           t.deleteReason =
@@ -297,7 +297,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         // to applyTombstoneFromMaintenanceRemote). Minimal write only — remote
         // tombstone metadata is applied separately by updateFromRemote.
 
-        t.updatedAt = DateTime.now();
+        t.updatedAt = ServerAnchoredClock.now();
         t.isSynced = false;
 
         await isar.maintenanceRecords.put(t);
@@ -443,7 +443,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           ...?teamsInvolved,
         }.toList(growable: false);
         if (actions != null) t.actions = actions;
-        t.updatedAt = DateTime.now();
+        t.updatedAt = ServerAnchoredClock.now();
         t.version += 1;
         t.isSynced = false;
         await isar.maintenanceRecords.put(t);
