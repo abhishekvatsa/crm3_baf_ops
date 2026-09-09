@@ -17,13 +17,21 @@ enum ReportExportChannel {
   };
 }
 
-/// Records that a rendered report left the device.
+/// Instruments report exports so a distributed copy can usually be attributed.
 ///
 /// Printing and sharing distribute plant condition, maintenance history and
 /// named accountability outside the application, where none of the reading
 /// controls that govern the source records still apply. The preview surface
 /// itself owns no persistence; it reports the act and this service writes the
 /// audit entry.
+///
+/// This is best-effort instrumentation, not a guarantee that every distributed
+/// copy carries a durable record. Two cases deliberately produce no entry: an
+/// export with no signed-in actor, and an audit write that fails. Both favour
+/// completing the operator's export over blocking it, so the absence of an
+/// entry is not evidence that no copy was made. Making attribution durable
+/// would need a stable export identity, the exact document snapshot identity
+/// and a retried pending outcome; that is deferred, not implied here.
 ///
 /// The entry uses [AuditAction.create] with a dedicated `report_export` entity
 /// type: an export creates a distributed copy. No new persisted action value is
