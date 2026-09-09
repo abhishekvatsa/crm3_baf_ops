@@ -9,8 +9,233 @@ import {fileURLToPath} from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+test("canonical backend authority consumes the real delegated proof and retains historical owner restrictions", (t) => {
+  const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), "utf8"));
+  const digest = (bytes) => createHash("sha256").update(bytes).digest("hex").toUpperCase();
+  const backendFile = "release/evidence/build28-backend-deployment-closure.json";
+  const historicalFile = "release/evidence/build27-backend-deployment-closure.json";
+  const versionFile = "release/approvals/build-number-27-successor-approval.json";
+  const promotionFile = "release/evidence/build-27-staged-controlled-pilot-authorization.json";
+  const backend = read(backendFile);
+  const historical = read(historicalFile);
+  const promotion = read(promotionFile);
+  const approval = read(backend.approvalAuthority.file);
+  const base = {label: "actual delegated closure", backend, approval, accepted: true};
+  const cases = [base, {label: "historical owner closure", backend: historical,
+    approval: read(historical.approvalAuthority.file), accepted: true}];
+  const change = (label, mutate, original = base) => {
+    const row = structuredClone(original);
+    row.label = label;
+    row.accepted = false;
+    mutate(row);
+    cases.push(row);
+  };
+  change("historical owner restrictions still required", (row) => { row.approval.notAuthorized = []; }, cases[1]);
+  change("historical owner timestamp still required", (row) => { delete row.backend.authorityChronology.ownerInstructionReceivedAtUtc; }, cases[1]);
+  for (const [field, value] of [
+    ["delegatedDecisionAtUtc", "2026-09-09T21:00:08Z"],
+    ["delegatedDecisionAtUtc", ["2026-09-08T21:00:08Z"]],
+    ["delegatedDecisionAtUtc", "2026-09-08T21:00:08+00:00"],
+    ["earliestFunctionUpdateTime", "2026-02-30T21:00:08Z"],
+    ["latestFunctionUpdateTime", [backend.authorityChronology.latestFunctionUpdateTime]],
+    ["allObservedFunctionUpdatesPostdateDelegatedDecision", "true"],
+    ["allObservedFunctionUpdatesPostdateDelegatedDecision", false],
+    ["deploymentWasRetroactivelyAuthorized", true],
+  ]) change(`invalid delegated ${field}: ${JSON.stringify(value)}`, (row) => { row.backend.authorityChronology[field] = value; });
+  change("missing delegated time", (row) => { delete row.backend.authorityChronology.delegatedDecisionAtUtc; });
+  change("reverse nanosecond order", (row) => {
+    row.backend.authorityChronology.earliestFunctionUpdateTime = "2026-09-08T21:23:01.123456789Z";
+    row.backend.authorityChronology.latestFunctionUpdateTime = "2026-09-08T21:23:01.123456788Z";
+  });
+  change("mixed owner and delegated chronology", (row) => {
+    row.backend.authorityChronology.ownerInstructionReceivedAtUtc = approval.approvedAtUtc;
+  });
+  change("c00 cannot fall back to an invented owner instruction", (row) => {
+    row.backend.authorityChronology = structuredClone(historical.authorityChronology);
+    row.approval = read(historical.approvalAuthority.file);
+    row.approval.sourceAuthority = structuredClone(approval.sourceAuthority);
+  });
+  change("delegated receipt cannot change source", (row) => { row.backend.sourceAuthority.commit = historical.sourceAuthority.commit; });
+  change("another real source cannot invent owner approval to bypass custody", (row) => {
+    row.backend.sourceAuthority.commit = "2e7f7e8f914e4238d9f1665ba2fd8fce284bb6a9";
+    row.approval = read(historical.approvalAuthority.file);
+    row.approval.sourceAuthority = structuredClone(row.backend.sourceAuthority);
+    row.backend.authorityChronology = {...structuredClone(historical.authorityChronology),
+      earliestFunctionUpdateTime: backend.authorityChronology.earliestFunctionUpdateTime,
+      latestFunctionUpdateTime: backend.authorityChronology.latestFunctionUpdateTime};
+  });
+  change("coherently rehashed approval is not immutable custody", (row) => { row.approval.approvalEvidence.agentDecision = "Different deployment scope"; });
+  change("receipt approval custody commit cannot change", (row) => { row.backend.approvalAuthority.commit = "0".repeat(40); });
+  for (const [field, value] of [["callableCount", 8], ["eventAndProtocolTriggerCount", "5"], ["schedulerCount", [1]]]) {
+    change(`invalid delegated scope ${field}`, (row) => { row.backend.deployment[field] = value; });
+  }
+  change("verified flag cannot replace failed approval", (row) => {
+    row.backend.verified = true;
+    row.backend.authorityChronology.allObservedFunctionUpdatesPostdateDelegatedDecision = false;
+  });
+  change("loaded receipt must match verified physical bytes", (row) => { row.loadedMutation = true; });
+  change("state digest must match verified physical bytes", (row) => { row.stateHashMutation = true; });
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-canonical-backend-"));
+  const copy = (file) => {
+    fs.mkdirSync(path.dirname(path.join(fixtureRoot, file)), {recursive: true});
+    fs.copyFileSync(path.join(repositoryRoot, file), path.join(fixtureRoot, file));
+  };
+  try {
+    execFileSync("git", ["init", "--quiet", fixtureRoot], {stdio: "pipe", windowsHide: true});
+    const objects = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-path", "objects"], {cwd: repositoryRoot, encoding: "utf8"}).trim();
+    fs.mkdirSync(path.join(fixtureRoot, ".git/objects/info"), {recursive: true});
+    fs.writeFileSync(path.join(fixtureRoot, ".git/objects/info/alternates"), `${objects.replace(/\\/g, "/")}\n`);
+    for (const file of [versionFile, promotionFile, promotion.ownerApproval.receipt,
+      promotion.admittedEvidence.deviceAcceptance.receipt, backendFile, historicalFile,
+      backend.approvalAuthority.file, historical.approvalAuthority.file,
+      ...Object.values(backend.cleanMainLiveReadbacks).map((value) => value.file),
+      ...Object.values(historical.cleanMainLiveReadbacks).map((value) => value.file),
+      ...["stagedPromotionSourceAuthority", "collectProductionGlobalPullBackend",
+        "collectFunctionFleetRuntimeIdentityReadback", "collectFunctionsIamDependenciesReadback",
+        "collectFirestoreRulesIndexesReadback"].map((name) => `tools/release/${name}.js`)]) copy(file);
+    const policy = {firebaseProjectId: "crm3-baf-ops-b8638", versionPolicy: {buildNumber: 27,
+      sourceDocumentFile: versionFile, sourceDocumentSha256: digest(fs.readFileSync(path.join(fixtureRoot, versionFile)))},
+    finalization: {exactFunctionFleetDeploymentReceiptFile: historicalFile,
+      exactFunctionFleetDeploymentReceiptSha256: digest(fs.readFileSync(path.join(fixtureRoot, historicalFile)))},
+    postBuildPromotion: {status: "completed-staged-controlled-pilot-only", promotionReceiptFile: promotionFile,
+      promotionReceiptSha256: digest(fs.readFileSync(path.join(fixtureRoot, promotionFile)))}};
+    fs.writeFileSync(path.join(fixtureRoot, "release/production-release-policy.json"), JSON.stringify(policy));
+    fs.writeFileSync(path.join(fixtureRoot, "cases.json"), JSON.stringify(cases));
+    fs.writeFileSync(path.join(fixtureRoot, "check.py"), String.raw`
+import ast, hashlib, json, pathlib, subprocess, sys
+from datetime import datetime
+source = pathlib.Path(sys.argv[1])
+root = pathlib.Path.cwd()
+tree = ast.parse(source.read_text(encoding="utf-8"))
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "current_backend_authority_proof_exact")
+proof = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
+    isinstance(target, ast.Name) and target.id == "current_backend_immutable_authority_exact" for target in node.targets))
+branch = next(node for node in tree.body if isinstance(node, ast.If) and any(
+    isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "current_backend_approval_scope_exact" for target in child.targets)
+    for child in node.body))
+definitions = compile(ast.Module(body=[helper], type_ignores=[]), str(source), "exec")
+consumer = compile(ast.Module(body=[proof, branch], type_ignores=[]), str(source), "exec")
+original_approvals = {file: (root / file).read_bytes() for file in [
+    "release/approvals/build27-backend-deployment-approval.json",
+    "release/approvals/build28-backend-deployment-approval.json"]}
+rows = []
+for case in json.loads((root / "cases.json").read_text(encoding="utf-8")):
+    receipt = case["backend"]
+    approval = case["approval"]
+    approval_file = receipt["approvalAuthority"]["file"]
+    approval_bytes = original_approvals[approval_file]
+    if json.loads(approval_bytes) != approval:
+        approval_bytes = json.dumps(approval).encode("utf-8")
+    (root / approval_file).write_bytes(approval_bytes)
+    receipt["approvalAuthority"]["sha256"] = hashlib.sha256(approval_bytes).hexdigest().upper()
+    receipt_file = "release/current-test-backend.json"
+    receipt_bytes = json.dumps(receipt).encode("utf-8")
+    (root / receipt_file).write_bytes(receipt_bytes)
+    deployed = dict(functionFleetSourceCommit=receipt["sourceAuthority"]["commit"],
+        functionFleetEvidenceFile=receipt_file, functionFleetEvidenceSha256=hashlib.sha256(receipt_bytes).hexdigest().upper(),
+        deploymentApprovalFile=approval_file, deploymentApprovalSha256=receipt["approvalAuthority"]["sha256"])
+    if case.get("stateHashMutation"):
+        deployed["functionFleetEvidenceSha256"] = "0" * 64
+    (root / "release/current-successor-state.json").write_text(json.dumps(dict(authorityPlanes=dict(deployedBackend=deployed))), encoding="utf-8")
+    readback = json.loads((root / receipt["cleanMainLiveReadbacks"]["functionFleet"]["file"]).read_bytes())
+    if case.get("loadedMutation"):
+        receipt["recordedAtUtc"] = "2026-09-08T23:00:00Z"
+    scope = dict(ROOT=root, subprocess=subprocess, hashlib=hashlib, json=json, datetime=datetime,
+        current_backend_deployment=receipt, current_deployed_backend=deployed,
+        current_backend_deployment_relative=receipt_file, current_backend_approval=approval,
+        current_backend_approval_evidence=approval.get("approvalEvidence", {}),
+        current_backend_authority_chronology=receipt.get("authorityChronology", {}),
+        current_function_readback=readback)
+    exec(definitions, scope)
+    exec(consumer, scope)
+    rows.append(dict(label=case["label"], accepted=scope["current_backend_approval_scope_exact"], expected=case["accepted"]))
+    for file, content in original_approvals.items():
+        (root / file).write_bytes(content)
+print(json.dumps(rows))
+`);
+    const rows = JSON.parse(execFileSync(process.platform === "win32" ? "python" : "python3", [path.join(fixtureRoot, "check.py"), path.join(repositoryRoot, "tools/v4/v4_2_r1_canonical_audit.py")], {
+      cwd: fixtureRoot, encoding: "utf8", windowsHide: true,
+    }));
+    assert.equal(rows.length, cases.length);
+    assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+    t.diagnostic(`${rows.length} actual canonical authority cases with the real shared verifier`);
+  } finally {
+    assert.equal(path.dirname(path.resolve(fixtureRoot)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(fixtureRoot).startsWith("crm3-canonical-backend-"));
+    fs.rmSync(fixtureRoot, {recursive: true, force: true});
+  }
+});
+
 // Execute the production classifiers against real Git trees without running
 // the complete release gate or changing the application's repository.
+test("canonical pending Build 28 preserves measured Build 27 labels without inheriting them", () => {
+  const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), "utf8"));
+  const policy = read("release/production-release-policy.json");
+  const historical = {...policy.finalization, buildNumber: 27};
+  const state = read("release/current-successor-state.json").authorityPlanes;
+  const device = read("release/evidence/build-27-device-acceptance.json");
+  const promotion = read("release/evidence/build-27-staged-controlled-pilot-authorization.json");
+  const base = {pending: true, build: 28, latest: 27, finalization: historical,
+    policy: {...policy, finalization: {runtimeValidationPassed: false, controlledPilotApproved: false}},
+    state, device, promotion, accepted: true};
+  const cases = [{...structuredClone(base), label: "pending28 retains proved27"},
+    {...structuredClone(base), label: "completed27 unchanged", pending: false, build: 27, policy}];
+  const change = (label, mutate) => {
+    const row = structuredClone(base);
+    Object.assign(row, {label, accepted: false});
+    mutate(row);
+    cases.push(row);
+  };
+  change("pending candidate cannot erase prior validation", (row) => { row.state.latestFinalizedArtifact.runtimeValidation = "NOT_ADJUDICATED_FOR_EXACT_BUILD27"; });
+  change("pending candidate cannot erase prior pilot", (row) => { row.state.latestFinalizedArtifact.pilotPromotion = "NOT_AUTHORIZED"; });
+  change("prior finalization runtime admission required", (row) => { row.finalization.runtimeValidationPassed = false; });
+  change("prior finalization pilot admission required", (row) => { row.finalization.controlledPilotApproved = false; });
+  change("prior device must name same APK", (row) => { row.device.release.apkSha256 = "0".repeat(64); });
+  change("prior device must name same build", (row) => { row.device.release.buildNumber = 28; });
+  change("prior promotion must name same build", (row) => { row.promotion.admittedEvidence.governedBuild.buildNumber = 28; });
+  change("prior runtime cannot use another acceptance hash", (row) => { row.finalization.deviceAcceptanceReceiptSha256 = "0".repeat(64); });
+  const completed = structuredClone(base);
+  Object.assign(completed, {label: "completed28 does not inherit27", pending: false, latest: 28});
+  completed.state.latestFinalizedArtifact.runtimeValidation = "NOT_ADJUDICATED_FOR_EXACT_BUILD28";
+  completed.state.latestFinalizedArtifact.pilotPromotion = "NOT_AUTHORIZED";
+  cases.push(completed);
+  const script = String.raw`
+import ast, hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+source = root / "tools/v4/v4_2_r1_canonical_audit.py"
+tree = ast.parse(source.read_text(encoding="utf-8"))
+names = {"candidate_runtime_accepted", "candidate_controlled_pilot_approved", "latest_finalized_runtime_accepted", "latest_finalized_controlled_pilot_approved"}
+nodes = [node for node in tree.body if (
+    isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)
+) or (isinstance(node, ast.If) and any(isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in child.targets) for child in node.body))]
+comparisons = [node for node in ast.walk(tree) if isinstance(node, ast.Compare) and
+    "current_successor_planes.get('latestFinalizedArtifact'" in ast.unparse(node.left) and
+    any(".get('" + field + "')" in ast.unparse(node.left) for field in ["runtimeValidation", "pilotPromotion"])]
+assert len(comparisons) == 2
+rows = []
+for case in json.load(sys.stdin):
+    scope = dict(candidate_pending=case["pending"], candidate_build_number=case["build"],
+        latest_finalized_build_number=case["latest"], latest_completed_finalization=case["finalization"],
+        combined_policy=case["policy"], current_successor_planes=case["state"],
+        build27_device_acceptance=case["device"], build27_pilot_promotion=case["promotion"],
+        build27_device_acceptance_path=root / "release/evidence/build-27-device-acceptance.json",
+        build27_pilot_promotion_path=root / "release/evidence/build-27-staged-controlled-pilot-authorization.json",
+        sha=lambda path: hashlib.sha256(path.read_bytes()).hexdigest().upper())
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), scope)
+    accepted = all(eval(compile(ast.Expression(body=node), str(source), "eval"), scope) for node in comparisons)
+    rows.append(dict(label=case["label"], accepted=accepted, expected=case["accepted"]))
+    if case["pending"]:
+        assert scope["candidate_runtime_accepted"] is False
+        assert scope["candidate_controlled_pilot_approved"] is False
+print(json.dumps(rows))
+`;
+  const rows = JSON.parse(execFileSync(process.platform === "win32" ? "python" : "python3", ["-c", script, repositoryRoot], {
+    input: JSON.stringify(cases), encoding: "utf8", windowsHide: true,
+  }));
+  assert.equal(rows.length, cases.length);
+  assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+});
+
 test("source authority follows shipped inputs and backend parity, not governance commits", () => {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-source-authority-"));
   const git = (...args) => execFileSync("git", args, {
