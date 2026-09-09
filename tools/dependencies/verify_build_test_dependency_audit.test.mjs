@@ -7,6 +7,7 @@ import {
   EXCEPTION_PATH,
   assess,
   resolveAdvisories,
+  validateAuditReport,
 } from "./verify_build_test_dependency_audit.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
@@ -58,8 +59,9 @@ const jsYaml = {
 };
 
 test("one advisory reaching a dependent resolves to one advisory, not two findings", () => {
-  const resolved = resolveAdvisories(reportWith([jsYaml]));
+  const {found: resolved, unresolved} = resolveAdvisories(reportWith([jsYaml]));
   assert.equal(resolved.size, 1);
+  assert.equal(unresolved.length, 0);
   assert.ok(resolved.has(recorded));
   // npm would report two vulnerable packages here; the exception is written
   // against advisory identity so a count could not admit a second advisory.
@@ -110,6 +112,15 @@ test("an unavailable audit is not treated as clean", () => {
     {report: null, auditOk: false},
     {report: undefined, auditOk: true},
     {report: "not a report", auditOk: true},
+    // A parseable payload is not an audit report. npm can emit a JSON error
+    // envelope, and each of these previously resolved to "no advisories" and
+    // therefore reported the exception as closable.
+    {report: {error: {code: "ENOAUDIT", summary: "Audit endpoint unavailable"}}, auditOk: true},
+    {report: {}, auditOk: true},
+    {report: [], auditOk: true},
+    {report: {auditReportVersion: 2}, auditOk: true},
+    {report: {auditReportVersion: 1, vulnerabilities: {}}, auditOk: true},
+    {report: {auditReportVersion: 2, vulnerabilities: []}, auditOk: true},
   ]) {
     const verdict = assess({
       ...bad,
@@ -161,4 +172,51 @@ test("the machine-readable exception and its human record agree", () => {
   }
   assert.ok(record.includes(exception.reviewBy), "review date absent from the record");
   assert.ok(exception.owner && exception.owner.length > 0);
+});
+
+test("an advisory without a usable identity fails closed rather than vanishing", () => {
+  for (const via of [
+    {name: "x", url: "not-a-url"},
+    {name: "x", url: ""},
+    {name: "x"},
+    {name: "x", url: "https://example.com/advisories/CVE-2026-1"},
+  ]) {
+    const report = {
+      auditReportVersion: 2,
+      vulnerabilities: {x: {severity: "high", range: "*", via: [via], effects: []}},
+    };
+    const {found, unresolved} = resolveAdvisories(report);
+    assert.equal(found.size, 0, JSON.stringify(via));
+    assert.equal(unresolved.length, 1, JSON.stringify(via));
+
+    const verdict = assess({report, exception, population: "root", now: withinPeriod});
+    assert.equal(verdict.ok, false);
+    assert.equal(verdict.reason, "advisory-unresolvable");
+  }
+});
+
+test("the recorded package, range and severity bound the exception", () => {
+  const cases = [
+    [{...jsYaml, pkg: "some-other-package"}, "package"],
+    [{...jsYaml, range: "4.0.0 - 4.3.1"}, "range"],
+    [{...jsYaml, severity: "critical"}, "severity"],
+  ];
+  for (const [finding, label] of cases) {
+    const verdict = assess({
+      report: reportWith([finding]),
+      exception,
+      population: "root",
+      now: withinPeriod,
+    });
+    assert.equal(verdict.ok, false, `${label} drift was accepted`);
+    assert.ok(
+      ["exception-scope-exceeded", "unrecorded-advisory"].includes(verdict.reason),
+      `${label}: unexpected ${verdict.reason}`,
+    );
+  }
+});
+
+test("a valid envelope with findings is still accepted", () => {
+  assert.equal(validateAuditReport(reportWith([jsYaml])).ok, true);
+  assert.equal(validateAuditReport(reportWith([])).ok, true);
 });
