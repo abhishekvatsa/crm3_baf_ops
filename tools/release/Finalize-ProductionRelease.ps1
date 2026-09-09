@@ -781,8 +781,18 @@ if (-not $privateCloudCustody) {
   # Without that fallback this guard was inert on a Linux runner and would have
   # admitted both custody copies onto one volume, which is the single condition
   # it exists to prevent.
-  $primaryQualifier = Split-Path $primaryRoot -Qualifier
-  $backupQualifier = Split-Path $backupRoot -Qualifier
+  # Split-Path does not return an empty qualifier on POSIX, it raises
+  # "does not have a qualifier specified", which under Stop preference would
+  # terminate before the mount fallback below could run.
+  $primaryQualifier = $null
+  $backupQualifier = $null
+  try {
+    $primaryQualifier = Split-Path $primaryRoot -Qualifier
+    $backupQualifier = Split-Path $backupRoot -Qualifier
+  } catch {
+    $primaryQualifier = $null
+    $backupQualifier = $null
+  }
   if ([string]::IsNullOrWhiteSpace($primaryQualifier) -and
       [string]::IsNullOrWhiteSpace($backupQualifier)) {
     $mountRoots = @(
