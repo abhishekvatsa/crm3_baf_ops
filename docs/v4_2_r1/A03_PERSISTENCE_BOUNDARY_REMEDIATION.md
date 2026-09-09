@@ -168,3 +168,24 @@ instead of the prior batch paths, preserving server-owned timestamps. The
 inventory remains exact; no presentation persistence exception was added.
 Earlier counts and CI receipts above describe their historical source, not
 deployment or release authority for this successor.
+
+## Server-Anchored Timestamp Repair Re-arm, 2026-09-09
+
+The current governed successor contains 559 operations across 1,980
+persistence sites and 62 classified surfaces. Its measured inventory digest is
+`50790C0A0590A5A7664FA8C157568A8040C26B56B1C009B68943C9EDE20DAEAD`.
+
+The additional surface is the future-dated local timestamp repair. It clears
+the backlog of clean local rows whose `updatedAt` or `deletedAt` was stamped by
+a device clock running ahead of the backend, which made every higher server
+version look stale on ingest and blocked domain cursor completion. The repair
+reads and rewrites only those instants, in a separate transaction per
+collection so one unavailable collection cannot discard progress on the others.
+Dirty rows are never touched, because their timestamps are part of the unpushed
+evidence they carry.
+
+The global pull service gained no persistence of its own. It takes the repair
+as an injected post-anchor hook, preserving its repository-only contract and
+keeping it safe where the local store is absent. Earlier counts and CI receipts
+above describe their historical source, not deployment or release authority for
+this successor.
