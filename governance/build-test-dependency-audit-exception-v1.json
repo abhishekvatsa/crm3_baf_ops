@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "documentType": "build-test-dependency-audit-exception",
+  "humanRecord": "docs/BUILD_TEST_DEPENDENCY_AUDIT_EXCEPTION_20260909.md",
+  "owner": "Repository owner",
+  "recordedOn": "2026-09-09",
+  "reviewBy": "2026-12-09",
+  "populations": {
+    "root": {
+      "auditCommand": ["npm", "audit", "--json"],
+      "runtimeGate": ["npm", "audit", "--audit-level=low", "--omit=dev"]
+    },
+    "functions": {
+      "auditCommand": ["npm", "--prefix", "functions", "audit", "--json"],
+      "runtimeGate": ["npm", "--prefix", "functions", "audit", "--audit-level=low", "--omit=dev"]
+    }
+  },
+  "accepted": [
+    {
+      "advisory": "GHSA-2883-xcg3-v3hh",
+      "package": "js-yaml",
+      "vulnerableRange": "3.0.0 - 3.15.1",
+      "severity": "high",
+      "populations": ["root", "functions"],
+      "reason": "Reaches both roots only through jest and its coverage tooling. Test-time only; absent from the Flutter artifact and from the deployed Cloud Functions runtime dependency set.",
+      "correctionBlockedBy": "Editing functions/package.json changes the functions git tree bound by build28-backend-deployment-closure.json sourceAuthority.functionsGitObjectId. The correction belongs with the next governed backend deployment."
+    }
+  ]
+}

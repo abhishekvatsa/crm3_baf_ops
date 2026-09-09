@@ -338,14 +338,13 @@ jobs:
           npm audit --audit-level=low --omit=dev
           npm --prefix functions audit --audit-level=low --omit=dev
           npm --prefix tooling/firebase-cli audit --audit-level=low
-          # The omitted build/test population is reported rather than assumed
-          # safe. Open findings are held under a dated, owned exception in
-          # docs/BUILD_TEST_DEPENDENCY_AUDIT_EXCEPTION_20260909.md; this step
-          # keeps them visible on every run instead of silently excluded.
-          echo "::group::Build/test dependency advisories (reported, not gated)"
-          npm audit --audit-level=low || true
-          npm --prefix functions audit --audit-level=low || true
-          echo "::endgroup::"
+          # The omitted build/test population is assessed against a recorded,
+          # dated, owned exception rather than ignored. This fails on a new
+          # advisory, on an expired exception, and on an audit that cannot be
+          # read, so the deferral stays narrow instead of becoming a blanket
+          # pass for every present and future development dependency.
+          npm run test:build-test-dependency-exception
+          node tools/dependencies/verify_build_test_dependency_audit.mjs "$PWD"
           npm run test:dependency-compat
           npm run test:firebase-client-key-custody
           npm run test:firestore-live-readback-custody

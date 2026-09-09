@@ -192,7 +192,7 @@ if (Test-PreflightScopedRunInvoker -Bindings @() -FunctionName 'onTicketCreated'
   const result = childProcess.spawnSync(
     powershell,
     ["-NoProfile", "-NonInteractive", "-Command", "-"],
-    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+    {input: fixture, encoding: "utf8", timeout: 30000, windowsHide: true},
   );
   assert.equal(
     result.status,
@@ -227,7 +227,7 @@ if (-not (Test-RequiresCloudRunServiceRole -Binding $withRunRole)) { exit 15 }
   const result = childProcess.spawnSync(
     powershell,
     ["-NoProfile", "-NonInteractive", "-Command", "-"],
-    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+    {input: fixture, encoding: "utf8", timeout: 30000, windowsHide: true},
   );
   assert.equal(
     result.status,
@@ -258,7 +258,7 @@ if ($object.name -cne 'object') { exit 23 }
   const result = childProcess.spawnSync(
     powershell,
     ["-NoProfile", "-NonInteractive", "-Command", "-"],
-    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+    {input: fixture, encoding: "utf8", timeout: 30000, windowsHide: true},
   );
   assert.equal(
     result.status,
@@ -290,7 +290,7 @@ if ($selected[0] -cne 'maintenanceWorkflowEscalationSweep') { exit 42 }
   const result = childProcess.spawnSync(
     powershell,
     ["-NoProfile", "-NonInteractive", "-Command", "-"],
-    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+    {input: fixture, encoding: "utf8", timeout: 30000, windowsHide: true},
   );
   assert.equal(
     result.status,

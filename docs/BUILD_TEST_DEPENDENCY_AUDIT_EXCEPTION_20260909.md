@@ -27,15 +27,23 @@ One advisory is currently open in that population.
     jest -> @jest/core -> @jest/transform -> babel-plugin-istanbul
          -> @istanbuljs/load-nyc-config -> js-yaml
 
-It is a test-time dependency. It is absent from the Flutter application
-artifact, and absent from the deployed Cloud Functions runtime, whose deployed
-archives are separately proven byte-exact against built source by
-`build28-deployed-code-byte-comparison.json`. The advisory describes
-CPU exhaustion when parsing adversarial YAML; the only YAML this population
-parses is repository-owned coverage configuration, not untrusted input.
+It is a `devDependency` in both roots, so it is not installed into the
+production dependency tree that `--omit=dev` audits, and it is not bundled into
+the Flutter application artifact. The advisory describes CPU exhaustion when
+parsing adversarial YAML; the only YAML this population parses is
+repository-owned coverage configuration, not untrusted input.
 
-That is the reason the exception is bounded, not a claim that the advisory is
-harmless in general.
+Two limits on that reasoning, stated deliberately:
+
+The byte-exact archive comparison in `build28-deployed-code-byte-comparison.json`
+establishes that the deployed archives match the expected built source. It does
+**not** by itself establish the installed runtime dependency population, and it
+is not offered here as proof that the parser is unreachable. The reachability
+claim rests on the dependency graph and install configuration above, which
+should be re-checked rather than assumed at each review.
+
+This is a bounded deferral of one identified advisory, not a claim that the
+advisory is harmless in general.
 
 ## Why it is not corrected in place
 
@@ -60,8 +68,28 @@ production dependencies of that package. Its `hono`, `js-yaml` and `morgan`
 advisories were patched through the existing override mechanism rather than
 scoped away, and both lockfile hash pins were updated under LF custody.
 
+## Enforcement
+
+This document is the human record. Its machine-readable counterpart is
+`governance/build-test-dependency-audit-exception-v1.json`, and the release gate
+runs `tools/dependencies/verify_build_test_dependency_audit.mjs` against it.
+
+The checker resolves findings to advisory identity rather than counting them,
+because npm reports one entry per affected package: this single advisory shows
+as two vulnerabilities, `js-yaml` and the `@istanbuljs/load-nyc-config` that
+depends on it. A count would silently admit a second, unrelated advisory.
+
+It fails the gate on a new advisory, on an advisory appearing in a population
+the exception was not recorded for, on an exception past its review date while
+still in use, and on an audit that cannot be read. An unavailable assessment is
+never treated as a clean one.
+
 ## Closure
 
 This exception closes when the root and Cloud Functions `devDependencies`
-resolve `js-yaml` at `3.15.2` or later under a governed source decision, and
-the reporting step records no advisory in the omitted population.
+resolve `js-yaml` at `3.15.2` or later under a governed source decision, and the
+checker reports `exception-closable` for both populations.
+
+The review date is an outer bound, not a target. The correction should be taken
+at the next appropriate dependency-maintenance change or the review deadline,
+whichever comes first.
