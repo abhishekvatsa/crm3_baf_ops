@@ -7,7 +7,6 @@ import 'job_module_model.dart';
 import '../domain/module_composer_models.dart';
 import '../domain/module_registry_content_hash.dart';
 import '../domain/module_workshop_actions.dart';
-import '../../../core/services/server_anchored_clock.dart';
 
 part 'remote_module_registry_reader.dart';
 
@@ -414,7 +413,7 @@ class ModuleRegistryRevision {
     lineageJson = _prettyJson.convert(lineage);
     updatedByUid = actor.uid;
     updatedByName = actor.name;
-    updatedAt = ServerAnchoredClock.now();
+    updatedAt = DateTime.now();
     version += 1;
   }
 

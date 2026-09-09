@@ -12,7 +12,6 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
-import '../../../core/services/server_anchored_clock.dart';
 
 class TemplateDesignerScreen extends ConsumerStatefulWidget {
   final JobTemplate template;
@@ -107,7 +106,7 @@ class _TemplateDesignerScreenState
 
       final updatedTemplate =
           widget.template
-            ..updatedAt = ServerAnchoredClock.now()
+            ..updatedAt = DateTime.now()
             ..isSynced = false;
       updatedTemplate.setFields(orderedFields);
 

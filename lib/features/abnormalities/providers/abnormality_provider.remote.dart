@@ -114,7 +114,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     final isCreate = beforeSnapshot == null;
 
     type
-      ..updatedAt = ServerAnchoredClock.now()
+      ..updatedAt = DateTime.now()
       ..version = isCreate
           ? (type.version <= 0 ? 1 : type.version)
           : type.version + 1

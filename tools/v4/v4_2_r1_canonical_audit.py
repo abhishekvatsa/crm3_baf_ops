@@ -12810,16 +12810,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 559
-    and a03_inventory_report.get("siteCount") == 1980
+    and a03_inventory_report.get("operationCount") == 556
+    and a03_inventory_report.get("siteCount") == 1923
     and a03_inventory_report.get("inventoryDigest")
-        == "50790C0A0590A5A7664FA8C157568A8040C26B56B1C009B68943C9EDE20DAEAD"
+        == "7E0E44484E55893F50DC62D1C61A36C6F444729FD847D7B0EDFD71A77773007B"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 62
-    and len({surface.get("path") for surface in a03_surfaces}) == 62
+    and len(a03_surfaces) == 61
+    and len({surface.get("path") for surface in a03_surfaces}) == 61
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles

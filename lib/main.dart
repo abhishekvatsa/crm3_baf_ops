@@ -56,7 +56,6 @@ import 'core/services/isar_installed_store_provenance.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
 import 'core/services/isar_schema_migration.dart';
-import 'core/services/server_anchored_clock.dart';
 import 'core/services/live_remote_sync_service.dart';
 import 'core/services/maintenance_plant_condition_index_repair.dart';
 import 'core/services/operational_assurance_local_repair.dart';
@@ -137,10 +136,6 @@ Future<Isar> _openLocalIsar() async {
   );
   final localIsar = await Isar.open(_isarSchemas, directory: dir.path);
   try {
-    // Restored before any local write, including the repairs below. A handset
-    // that launches offline would otherwise stamp rows from the raw device
-    // clock until the first successful pull supplied a fresh server anchor.
-    await ServerAnchoredClock.restorePersistedOffset();
     final repair = await repairPlannedJobLocalLinks(localIsar);
     if (repair.changed) {
       debugPrint(

@@ -160,15 +160,15 @@ class IsarDirectiveRepository implements DirectiveRepository {
 
         d.isDeleted = true;
         if (auditContext != null) {
-          d.deletedAt = ServerAnchoredClock.now();
+          d.deletedAt = DateTime.now();
           d.deletedByUid = auditContext.performedByUid;
           d.deletedByName = auditContext.performedByName;
           d.deleteReason =
               auditContext.reason?.name ?? auditContext.reasonNotes;
-          d.updatedAt = ServerAnchoredClock.now();
+          d.updatedAt = DateTime.now();
           d.version += 1;
         } else {
-          d.updatedAt = ServerAnchoredClock.now();
+          d.updatedAt = DateTime.now();
         }
         d.isSynced = false;
         await isar.operationalDirectives.put(d);

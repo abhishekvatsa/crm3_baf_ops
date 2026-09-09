@@ -447,7 +447,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       );
     }
     final now = (endDate ?? DateTime.now()).toIso8601String();
-    final updatedAt = ServerAnchoredClock.now().toIso8601String();
+    final updatedAt = DateTime.now().toIso8601String();
     final updateData = <String, dynamic>{
       'isResolved': true,
       'status': TicketStatus.resolved.name,

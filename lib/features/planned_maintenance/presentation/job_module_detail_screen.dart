@@ -24,7 +24,6 @@ import '../widgets/action_bottom_sheet.dart';
 import '../widgets/action_mini_card.dart';
 import 'widgets/job_module_response_form.dart';
 import 'widgets/job_module_response_summary.dart';
-import '../../../core/services/server_anchored_clock.dart';
 
 /// Detail workspace for a single process module inside a planned job.
 ///
@@ -125,7 +124,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           ..status = nextStatus
           ..updatedByUid = actor.uid
           ..updatedByName = actor.name
-          ..updatedAt = ServerAnchoredClock.now();
+          ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage:
@@ -189,7 +188,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           ..requiresFollowUp = draft.requiresFollowUp
           ..updatedByUid = actor.uid
           ..updatedByName = actor.name
-          ..updatedAt = ServerAnchoredClock.now();
+          ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage: 'Module progress saved',
@@ -262,7 +261,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
           ..updatedByUid = actor.uid
           ..updatedByName = actor.name
-          ..updatedAt = ServerAnchoredClock.now();
+          ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage: 'Component work action saved',

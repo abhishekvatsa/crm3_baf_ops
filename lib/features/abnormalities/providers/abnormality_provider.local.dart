@@ -143,7 +143,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       type.version = type.version <= 0 ? 1 : type.version;
     }
 
-    type.updatedAt = ServerAnchoredClock.now();
+    type.updatedAt = DateTime.now();
     type.isSynced = false;
 
     await isar.writeTxn(() async {
@@ -421,7 +421,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       abnormality.version = abnormality.version <= 0 ? 1 : abnormality.version;
     }
 
-    abnormality.updatedAt = ServerAnchoredClock.now();
+    abnormality.updatedAt = DateTime.now();
     abnormality.isSynced = false;
 
     await isar.writeTxn(() async {

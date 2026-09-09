@@ -699,7 +699,7 @@ void main() {
     );
     expect(a03Manifest['findingId'], 'A-03');
     expect(a03Manifest['inventoryDigest'], matches(RegExp(r'^[A-F0-9]{64}$')));
-    expect(_objects(a03Manifest['surfaces']), hasLength(62));
+    expect(_objects(a03Manifest['surfaces']), hasLength(61));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');

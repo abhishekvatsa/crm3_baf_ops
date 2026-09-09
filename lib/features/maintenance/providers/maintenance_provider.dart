@@ -24,7 +24,6 @@ import '../../quality/domain/quality_warning_projection.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/issue_administrative_closure.dart';
-import '../../../core/services/server_anchored_clock.dart';
 
 part 'maintenance_provider.local.dart';
 part 'maintenance_provider.copy.dart';
