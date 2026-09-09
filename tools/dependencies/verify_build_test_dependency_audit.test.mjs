@@ -59,9 +59,11 @@ const jsYaml = {
 };
 
 test("one advisory reaching a dependent resolves to one advisory, not two findings", () => {
-  const {found: resolved, unresolved} = resolveAdvisories(reportWith([jsYaml]));
+  const {found: resolved, unresolved, unaccounted} =
+    resolveAdvisories(reportWith([jsYaml]));
   assert.equal(resolved.size, 1);
   assert.equal(unresolved.length, 0);
+  assert.equal(unaccounted.length, 0, "the dependent must resolve through js-yaml");
   assert.ok(resolved.has(recorded));
   // npm would report two vulnerable packages here; the exception is written
   // against advisory identity so a count could not admit a second advisory.
@@ -219,4 +221,52 @@ test("the recorded package, range and severity bound the exception", () => {
 test("a valid envelope with findings is still accepted", () => {
   assert.equal(validateAuditReport(reportWith([jsYaml])).ok, true);
   assert.equal(validateAuditReport(reportWith([])).ok, true);
+});
+
+test("a vulnerability no advisory explains fails closed", () => {
+  // A dangling string reference, an entry with no via, and a reference cycle
+  // all previously reduced to "no advisories" and reported the exception as
+  // closable. A missing reference is an incomplete assessment.
+  const cases = {
+    "dangling string reference": {
+      "@istanbuljs/load-nyc-config": {severity: "high", range: "*", via: ["js-yaml"]},
+    },
+    "entry with no via": {x: {severity: "high", range: "*"}},
+    "reference cycle with no advisory": {
+      a: {severity: "high", range: "*", via: ["b"]},
+      b: {severity: "high", range: "*", via: ["a"]},
+    },
+  };
+  for (const [label, vulnerabilities] of Object.entries(cases)) {
+    const report = {auditReportVersion: 2, vulnerabilities};
+    const {unaccounted} = resolveAdvisories(report);
+    assert.ok(unaccounted.length > 0, label);
+
+    const verdict = assess({report, exception, population: "root", now: withinPeriod});
+    assert.equal(verdict.ok, false, label);
+    assert.equal(verdict.reason, "advisory-unaccounted", label);
+  }
+});
+
+test("a permitted observation cannot conceal a contradictory one", () => {
+  // Both observations carry the recorded advisory id. Merging them into sets
+  // let the matching one satisfy the scope check, and made the verdict depend
+  // on which appeared first in the report.
+  const contradictory = {
+    ...jsYaml,
+    pkg: "evil-pkg",
+    range: "9.9.9",
+    severity: "critical",
+    dependent: undefined,
+  };
+  for (const order of [[jsYaml, contradictory], [contradictory, jsYaml]]) {
+    const verdict = assess({
+      report: reportWith(order),
+      exception,
+      population: "root",
+      now: withinPeriod,
+    });
+    assert.equal(verdict.ok, false, JSON.stringify(order.map((o) => o.pkg)));
+    assert.equal(verdict.reason, "exception-scope-exceeded");
+  }
 });

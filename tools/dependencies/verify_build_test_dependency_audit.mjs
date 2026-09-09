@@ -57,32 +57,70 @@ export function validateAuditReport(report) {
  * Resolving to advisory identity is what makes the exception narrow: a count
  * would silently admit a second, unrelated advisory.
  *
- * An advisory-shaped entry without a usable identity is reported as unresolved
- * rather than dropped, so it cannot disappear into an empty result.
+ * Every observation is kept separately rather than merged into sets, because a
+ * permitted observation must not conceal a contradictory one recorded under the
+ * same advisory id.
+ *
+ * Two shapes fail closed rather than reducing to "no advisory". An
+ * advisory-shaped entry without a usable identity is `unresolved`. A
+ * vulnerability entry that no advisory explains, directly or through its string
+ * references, is `unaccounted`: a dangling reference is an incomplete
+ * assessment, not an absence of findings.
  */
 export function resolveAdvisories(report) {
   const found = new Map();
   const unresolved = [];
+  const references = new Map();
+  const accounted = new Set();
+
   for (const [name, entry] of Object.entries(report.vulnerabilities)) {
-    for (const via of entry?.via ?? []) {
-      if (!via || typeof via !== "object") continue;
-      const id = String(via.url ?? "").split("/").filter(Boolean).pop();
-      if (!id || !id.startsWith("GHSA-")) {
-        unresolved.push(`${name}: ${JSON.stringify(via.url ?? via)}`);
+    const via = Array.isArray(entry?.via) ? entry.via : [];
+    const stringReferences = [];
+    let explained = false;
+
+    for (const member of via) {
+      if (typeof member === "string") {
+        stringReferences.push(member);
         continue;
       }
-      const existing = found.get(id) ?? {
-        advisory: id,
-        severity: via.severity ?? entry?.severity ?? "unknown",
-        packages: new Set(),
-        ranges: new Set(),
-      };
-      existing.packages.add(via.name ?? name);
-      if (entry?.range) existing.ranges.add(entry.range);
-      found.set(id, existing);
+      if (!member || typeof member !== "object") {
+        unresolved.push(`${name}: ${JSON.stringify(member)}`);
+        continue;
+      }
+      const id = String(member.url ?? "").split("/").filter(Boolean).pop();
+      if (!id || !id.startsWith("GHSA-")) {
+        unresolved.push(`${name}: ${JSON.stringify(member.url ?? member)}`);
+        continue;
+      }
+      explained = true;
+      const record = found.get(id) ?? {advisory: id, observations: []};
+      record.observations.push({
+        package: member.name ?? name,
+        range: entry?.range ?? "",
+        severity: member.severity ?? entry?.severity ?? "unknown",
+      });
+      found.set(id, record);
+    }
+
+    references.set(name, stringReferences);
+    if (explained) accounted.add(name);
+  }
+
+  // A dependent is explained when something it arrives through is explained.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [name, targets] of references) {
+      if (accounted.has(name)) continue;
+      if (targets.some((target) => accounted.has(target))) {
+        accounted.add(name);
+        changed = true;
+      }
     }
   }
-  return {found, unresolved};
+
+  const unaccounted = [...references.keys()].filter((name) => !accounted.has(name));
+  return {found, unresolved, unaccounted};
 }
 
 /**
@@ -110,7 +148,7 @@ export function assess({report, exception, population, now, auditOk = true}) {
     return {ok: false, reason: "exception-invalid", message: "reviewBy is not a date."};
   }
 
-  const {found: advisories, unresolved} = resolveAdvisories(report);
+  const {found: advisories, unresolved, unaccounted} = resolveAdvisories(report);
   if (unresolved.length > 0) {
     return {
       ok: false,
@@ -120,6 +158,18 @@ export function assess({report, exception, population, now, auditOk = true}) {
         `identified: ${unresolved.join("; ")}. An unidentifiable advisory ` +
         "cannot be matched against the exception and must be assessed.",
       unresolved,
+    };
+  }
+
+  if (unaccounted.length > 0) {
+    return {
+      ok: false,
+      reason: "advisory-unaccounted",
+      message:
+        `A reported vulnerability in the ${population} build/test population ` +
+        `is explained by no advisory: ${unaccounted.join(", ")}. A dangling ` +
+        "reference is an incomplete assessment, not an absence of findings.",
+      unaccounted,
     };
   }
 
@@ -145,27 +195,32 @@ export function assess({report, exception, population, now, auditOk = true}) {
   // The recorded package, range and severity are the scope of the exception,
   // not decoration. An advisory that has widened to another package, another
   // version range or a higher severity is no longer the one that was assessed.
+  // Every observation is checked independently. Merging them first would let a
+  // permitted observation conceal a contradictory one recorded under the same
+  // advisory id, and would make the verdict depend on report ordering.
   const outOfScope = [];
   for (const [id, finding] of advisories) {
     const row = accepted.get(id);
-    if (!finding.packages.has(row.package)) {
-      outOfScope.push(
-        `${id} now affects ${[...finding.packages].join(", ")}, not ${row.package}`,
-      );
-      continue;
-    }
-    if (row.vulnerableRange && finding.ranges.size > 0 &&
-        ![...finding.ranges].includes(row.vulnerableRange)) {
-      outOfScope.push(
-        `${id} range is now ${[...finding.ranges].join(", ")}, ` +
-        `recorded as ${row.vulnerableRange}`,
-      );
-      continue;
-    }
-    if (row.severity && finding.severity !== row.severity) {
-      outOfScope.push(
-        `${id} severity is now ${finding.severity}, recorded as ${row.severity}`,
-      );
+    for (const observation of finding.observations) {
+      if (observation.package !== row.package) {
+        outOfScope.push(
+          `${id} affects ${observation.package}, recorded as ${row.package}`,
+        );
+        continue;
+      }
+      if (row.vulnerableRange && observation.range &&
+          observation.range !== row.vulnerableRange) {
+        outOfScope.push(
+          `${id} range is ${observation.range}, ` +
+          `recorded as ${row.vulnerableRange}`,
+        );
+        continue;
+      }
+      if (row.severity && observation.severity !== row.severity) {
+        outOfScope.push(
+          `${id} severity is ${observation.severity}, recorded as ${row.severity}`,
+        );
+      }
     }
   }
   if (outOfScope.length > 0) {
@@ -210,8 +265,11 @@ export function assess({report, exception, population, now, auditOk = true}) {
     message:
       `Deferred under the recorded exception (review by ${exception.reviewBy}): ` +
       present
-        .map((id) => `${id} [${advisories.get(id).severity}] ` +
-          `${[...advisories.get(id).packages].join(", ")}`)
+        .map((id) => {
+          const observations = advisories.get(id).observations;
+          const packages = [...new Set(observations.map((o) => o.package))];
+          return `${id} [${observations[0].severity}] ${packages.join(", ")}`;
+        })
         .join("; "),
     present,
   };
