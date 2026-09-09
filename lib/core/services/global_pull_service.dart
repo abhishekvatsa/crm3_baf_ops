@@ -23,6 +23,7 @@ import '../../features/audit/providers/audit_provider.dart';
 import 'remote_tombstone_apply_result.dart';
 import 'global_pull_cursor_store.dart';
 import 'global_pull_protocol.dart';
+import 'future_dated_local_timestamp_repair.dart';
 import 'isar_schema_migration.dart';
 import 'server_anchored_clock.dart';
 
@@ -41,6 +42,9 @@ part 'global_pull_service.knowledge_base.dart';
 // GLOBAL PULL SERVICE (PAGINATED & WEB-SAFE)
 // Depends on abstract repositories – prevents Isar init crashes on Web.
 // ─────────────────────────────────────────────────────────────
+
+/// Hook run after the backend instant is adopted and before any domain pull.
+typedef ServerAnchorAdoptedCallback = Future<void> Function();
 
 class GlobalPullService {
   final MaintenanceRepository _maintenanceRepo;
@@ -72,7 +76,13 @@ class GlobalPullService {
   final FirebaseAuth? _auth;
   FirebaseAuth get _authentication => _auth ?? FirebaseAuth.instance;
 
+  /// Invoked once the backend instant has been adopted, before any domain is
+  /// pulled. Injected rather than called directly so this service keeps its
+  /// repository-only contract and stays safe where the local store is absent.
+  final ServerAnchorAdoptedCallback? _onServerAnchorAdopted;
+
   bool _isPulling = false;
+  bool _serverAnchorAdoptedHookAttempted = false;
   bool _hadRecordProcessingError = false;
   bool _hadCleanLocalReconciliation = false;
   GlobalPullDomain? lastFailedDomain;
@@ -105,10 +115,12 @@ class GlobalPullService {
     GlobalPullAuthorityReader? authorityReader,
     String Function()? runIdFactory,
     FirebaseAuth? auth,
+    ServerAnchorAdoptedCallback? onServerAnchorAdopted,
   }) : _authorityReader =
            authorityReader ?? const FirebaseGlobalPullAuthorityReader(),
        _runIdFactory = runIdFactory ?? const Uuid().v4,
-       _auth = auth;
+       _auth = auth,
+       _onServerAnchorAdopted = onServerAnchorAdopted;
 
   // ─────────────────────────────────────────────────────────────
   // ENTRY POINT
@@ -152,6 +164,11 @@ class GlobalPullService {
       // device whose clock runs ahead cannot stamp rows that later make a
       // higher server version look stale during ingest.
       ServerAnchoredClock.anchorToServer(serverAnchor: authority.serverAnchor);
+      // Rows written before the clock was anchored can already carry instants
+      // the backend could not have produced. Those block their domain cursor
+      // permanently, so they are re-anchored once per session before any domain
+      // is pulled, allowing the same run to advance.
+      await _runServerAnchorAdoptedHookOnce();
       final cursorStore = SharedPreferencesGlobalPullCursorStore(prefs);
       var envelope = await cursorStore.begin(
         actorUid: actorUid,
@@ -247,6 +264,22 @@ class GlobalPullService {
     }
   }
 
+  /// Runs the injected post-anchor hook once per session. Rows written before
+  /// the clock was anchored can carry instants the backend could not have
+  /// produced, which block their domain cursor permanently; the hook clears
+  /// that backlog. A failure must not fail the pull, because the unrepaired
+  /// state is exactly what this run is trying to make progress against.
+  Future<void> _runServerAnchorAdoptedHookOnce() async {
+    final hook = _onServerAnchorAdopted;
+    if (hook == null || _serverAnchorAdoptedHookAttempted) return;
+    _serverAnchorAdoptedHookAttempted = true;
+    try {
+      await hook();
+    } catch (error, stackTrace) {
+      debugPrint('Post-anchor local repair skipped: $error\n$stackTrace');
+    }
+  }
+
   Future<GlobalPullRunEnvelope> _runDomain({
     required SharedPreferencesGlobalPullCursorStore cursorStore,
     required GlobalPullRunEnvelope envelope,
@@ -316,5 +349,9 @@ final pullServiceProvider = Provider<GlobalPullService>((ref) {
     ref.read(firestoreAbnormalityRepoProvider),
     ref.read(bafKnowledgeRepositoryProvider),
     ref.read(auditRepositoryProvider),
+    onServerAnchorAdopted: () => runFutureDatedLocalTimestampRepair(
+      auditRepository: ref.read(auditRepositoryProvider),
+      actorUid: FirebaseAuth.instance.currentUser?.uid,
+    ),
   );
 });
