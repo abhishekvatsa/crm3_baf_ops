@@ -31,7 +31,6 @@
     "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js test/userAuthorityMutation.firestoreEmulator.test.js test/chargeAbnormalityMutation.firestoreEmulator.test.js test/assetHierarchyMutation.firestoreEmulator.test.js test/innerCoverLifecycleMutation.firestoreEmulator.test.js test/callableAbuseControl.firestoreEmulator.test.js test/globalPullServerClockGovernance.firestoreEmulator.test.js test/notificationEventReceipt.firestoreEmulator.test.js"
   },
   "dependencies": {
-    "crm3_baf_ops": "file:..",
     "firebase-admin": "^13.10.0",
     "firebase-functions": "^7.2.5",
     "uuid": "11.1.1"
@@ -48,7 +47,7 @@
     "uuid": "11.1.1",
     "@grpc/grpc-js": "1.14.4",
     "browserslist": "4.28.8",
-    "js-yaml": "3.15.2",
+    "js-yaml": "3.15.1",
     "brace-expansion": "$brace-expansion"
   }
 }
