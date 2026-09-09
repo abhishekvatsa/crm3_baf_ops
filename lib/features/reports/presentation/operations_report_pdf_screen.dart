@@ -77,6 +77,10 @@ class OperationsReportPdfPreviewScreen extends StatelessWidget {
     body: ZoomablePdfPreview(
       pageFormat: PdfPageFormat.a4.landscape,
       fileName: request.fileName,
+      documentKind: 'Operations report (${request.preset.label})',
+      documentSubject: assetLabel.trim().isEmpty
+          ? assetClassLabel
+          : '$assetClassLabel / $assetLabel',
       documentBuilder:
           (_) => OperationsReportPdfService.build(
             report: report,
