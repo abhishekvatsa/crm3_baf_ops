@@ -776,9 +776,34 @@ foreach ($custodyRoot in $localCustodyRoots) {
 }
 
 if (-not $privateCloudCustody) {
+  # Windows exposes the volume as a drive or UNC share qualifier. POSIX has no
+  # qualifier, so the longest matching mount point is the volume boundary.
+  # Without that fallback this guard was inert on a Linux runner and would have
+  # admitted both custody copies onto one volume, which is the single condition
+  # it exists to prevent.
   $primaryQualifier = Split-Path $primaryRoot -Qualifier
   $backupQualifier = Split-Path $backupRoot -Qualifier
-  if (-not [string]::IsNullOrWhiteSpace($primaryQualifier) -and
+  if ([string]::IsNullOrWhiteSpace($primaryQualifier) -and
+      [string]::IsNullOrWhiteSpace($backupQualifier)) {
+    $mountRoots = @(
+      [IO.DriveInfo]::GetDrives() |
+        ForEach-Object { $_.RootDirectory.FullName } |
+        Sort-Object -Property Length -Descending
+    )
+    $primaryQualifier = @(
+      $mountRoots | Where-Object {
+        $primaryRoot.StartsWith($_, [StringComparison]::Ordinal)
+      }
+    ) | Select-Object -First 1
+    $backupQualifier = @(
+      $mountRoots | Where-Object {
+        $backupRoot.StartsWith($_, [StringComparison]::Ordinal)
+      }
+    ) | Select-Object -First 1
+  }
+  # Fail closed: an undeterminable volume is not evidence of separation.
+  if ([string]::IsNullOrWhiteSpace($primaryQualifier) -or
+      [string]::IsNullOrWhiteSpace($backupQualifier) -or
       $primaryQualifier.Equals(
         $backupQualifier,
         [StringComparison]::OrdinalIgnoreCase

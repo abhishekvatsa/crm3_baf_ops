@@ -18,14 +18,19 @@ void main() {
 
       expect(source, contains('allowPrinting: true'));
       expect(source, contains('allowSharing: true'));
-      expect(
-        source,
-        contains('onPrinted: (_) => _recordExport(ref, ReportExportChannel.printed)'),
-      );
-      expect(
-        source,
-        contains('onShared: (_) => _recordExport(ref, ReportExportChannel.shared)'),
-      );
+
+      // Bound to the enum rather than a literal, so a renamed or added channel
+      // fails here instead of silently leaving an export unattributed.
+      for (final channel in ReportExportChannel.values) {
+        expect(
+          source,
+          contains('ReportExportChannel.${channel.name}'),
+          reason: 'The ${channel.name} channel is never attributed.',
+        );
+      }
+      expect(ReportExportChannel.values, hasLength(2));
+      expect(ReportExportChannel.printed.label, 'printed');
+      expect(ReportExportChannel.shared.label, 'shared');
     });
 
     test('every export surface declares what it is distributing', () {
