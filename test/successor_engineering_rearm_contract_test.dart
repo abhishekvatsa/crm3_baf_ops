@@ -7,11 +7,39 @@ import 'package:flutter_test/flutter_test.dart';
 Map<String, dynamic> _readObject(String path) =>
     (jsonDecode(File(path).readAsStringSync()) as Map).cast<String, dynamic>();
 
-List<Map<String, dynamic>> _objects(dynamic value) => (value as List<dynamic>)
-    .map((entry) => (entry as Map).cast<String, dynamic>())
-    .toList(growable: false);
+/// Release evidence is read as untyped JSON, so a missing or reshaped section
+/// must fail as a governed verdict naming what was expected. A raw cast reports
+/// only `type 'Null' is not a subtype of type 'List<dynamic>'`, which stops the
+/// surrounding plane from being validated at all instead of failing it loudly.
+List<Map<String, dynamic>> _objects(dynamic value, {String? field}) {
+  if (value is! List) {
+    throw StateError(
+      'Expected a list of evidence objects'
+      '${field == null ? '' : ' at $field'}, found ${value.runtimeType}.',
+    );
+  }
+  return value
+      .map(
+        (entry) => entry is Map
+            ? entry.cast<String, dynamic>()
+            : throw StateError(
+                'Expected an evidence object'
+                '${field == null ? '' : ' in $field'}, '
+                'found ${entry.runtimeType}.',
+              ),
+      )
+      .toList(growable: false);
+}
 
-List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
+List<String> _strings(dynamic value, {String? field}) {
+  if (value is! List) {
+    throw StateError(
+      'Expected a list of strings'
+      '${field == null ? '' : ' at $field'}, found ${value.runtimeType}.',
+    );
+  }
+  return value.cast<String>();
+}
 
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
@@ -719,27 +747,131 @@ void main() {
     expect(backendBoundary['iamMutated'], isFalse);
     expect(backendBoundary['productionBusinessDataMutated'], isFalse);
     expect(backendBoundary['distributionPerformed'], isFalse);
-    final campaignReceipts = _objects(
-      (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
+    // The deployment closure carries its external execution evidence in one of
+    // two governed shapes:
+    //
+    //   enumerated  a named receipt chain, each step recorded by file and hash;
+    //   bound       hash-bound workspace artifacts plus first-class sibling
+    //               receipts, which additionally prove the deployed archives
+    //               byte-match the built source rather than only that a step
+    //               was recorded.
+    //
+    // The shape is detected structurally rather than by schemaVersion, because
+    // a recorded receipt is hash-bound by the byte proofs taken when it was
+    // produced and must never be amended afterwards to relabel itself. Both
+    // shapes remain authoritative for the builds that used them, so both are
+    // validated. A closure carrying neither must fail rather than pass
+    // unchecked, and a closure carrying both is equally a contract error.
+    final privacySafeEvidence =
+        (liveBackend['privacySafeExternalEvidence'] as Map)
+            .cast<String, dynamic>();
+    final hasEnumeratedReceipts = privacySafeEvidence.containsKey('receipts');
+    final hasBoundArtifacts = privacySafeEvidence.containsKey(
+      'byteComparisonLog',
     );
-    final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
-    expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
     expect(
-      campaignReceiptFiles,
-      containsAll(<String>[
-        '01-preflight.json',
-        '02-provisioned.json',
-        '03-callables.json',
-        '04-events.json',
-        '05-scheduler-preflight.json',
-        '06-fleet.json',
-        '07-lr03-lr06-prefinal.json',
-        '08-final.json',
-        '09-lr03-lr06-final.json',
-      ]),
+      hasEnumeratedReceipts != hasBoundArtifacts,
+      isTrue,
+      reason:
+          'The backend deployment closure must declare exactly one external '
+          'evidence shape: an enumerated receipt chain or hash-bound '
+          'artifacts. Found receipts=$hasEnumeratedReceipts, '
+          'byteComparisonLog=$hasBoundArtifacts.',
     );
-    for (final receipt in campaignReceipts) {
-      expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+    expect(privacySafeEvidence['folderName'], isA<String>());
+
+    if (hasEnumeratedReceipts) {
+      final campaignReceipts = _objects(
+        privacySafeEvidence['receipts'],
+        field: 'privacySafeExternalEvidence.receipts',
+      );
+      final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
+      expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
+      expect(
+        campaignReceiptFiles,
+        containsAll(<String>[
+          '01-preflight.json',
+          '02-provisioned.json',
+          '03-callables.json',
+          '04-events.json',
+          '05-scheduler-preflight.json',
+          '06-fleet.json',
+          '07-lr03-lr06-prefinal.json',
+          '08-final.json',
+          '09-lr03-lr06-final.json',
+        ]),
+      );
+      for (final receipt in campaignReceipts) {
+        expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+      }
+    } else {
+      // Workspace artifacts stay outside the repository, so the closure must
+      // bind each one by hash for it to carry any authority at all.
+      for (final artifact in const <String>[
+        'byteComparisonLog',
+        'expectedBuiltSourceInventory',
+        'executionAid',
+      ]) {
+        final binding = (privacySafeEvidence[artifact] as Map)
+            .cast<String, dynamic>();
+        expect(binding['file'], isNotEmpty, reason: '$artifact has no file.');
+        expect(
+          binding['sha256'],
+          matches(RegExp(r'^[0-9A-F]{64}$')),
+          reason: '$artifact is not bound by hash.',
+        );
+      }
+
+      // The receipt chain became first-class sibling evidence. Every referenced
+      // file must exist and match the hash the closure recorded for it, so the
+      // chain is no weaker than the enumerated one it replaced.
+      final deploymentCohorts = _objects(
+        backendDeployment['cohorts'],
+        field: 'deployment.cohorts',
+      );
+      expect(deploymentCohorts, hasLength(3));
+      expect(
+        deploymentCohorts.map((cohort) => cohort['phase']),
+        containsAll(<String>['callables', 'events', 'fleet']),
+      );
+
+      final controlComparison = (backendDeployment['controlComparison'] as Map)
+          .cast<String, dynamic>();
+      final byteComparison =
+          (backendDeployment['deployedCodeByteComparison'] as Map)
+              .cast<String, dynamic>();
+
+      for (final linked in <Map<String, dynamic>>[
+        ...deploymentCohorts,
+        controlComparison,
+        byteComparison,
+      ]) {
+        final linkedFile = linked['file'] as String;
+        expect(
+          File(linkedFile).existsSync(),
+          isTrue,
+          reason: '$linkedFile is referenced by the closure but absent.',
+        );
+        expect(
+          _sha256(linkedFile),
+          linked['physicalSha256'],
+          reason: '$linkedFile does not match its recorded hash.',
+        );
+      }
+
+      expect(
+        controlComparison['decision'],
+        'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON',
+      );
+      expect(
+        byteComparison['decision'],
+        'PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE',
+      );
+      expect(byteComparison['allArchiveMembersMatchExactBuiltSource'], isTrue);
+      expect(
+        byteComparison['functionCount'],
+        backendDeployment['functionCount'],
+      );
     }
     expect(
       _sha256(functionReadbackAuthority['file'] as String),
