@@ -180,6 +180,13 @@ class IsarWorkflowRepository implements WorkflowRepository {
       isar.writeTxn(() async => isar.workflowCommandReceiptRecords.put(record));
 
   @override
+  Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId) => isar
+      .workflowCommandReceiptRecords
+      .where()
+      .commandIdEqualTo(commandId)
+      .findFirst();
+
+  @override
   Future<void> saveRetryCommand(WorkflowCommandRecord record) =>
       isar.writeTxn(() async => isar.workflowCommandRecords.put(record));
 

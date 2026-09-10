@@ -7,10 +7,14 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow
 /// The behaviour under test is which row the executor writes and what it
 /// leaves alone, so the fake keeps every save rather than collapsing them.
 class RecordingWorkflowRepository implements WorkflowRepository {
-  RecordingWorkflowRepository({WorkflowCommandRecord? existing})
-    : _existing = existing;
+  RecordingWorkflowRepository({
+    WorkflowCommandRecord? existing,
+    WorkflowCommandReceiptRecord? acceptedReceipt,
+  }) : _existing = existing,
+       _receipt = acceptedReceipt;
 
   WorkflowCommandRecord? _existing;
+  WorkflowCommandReceiptRecord? _receipt;
 
   final List<WorkflowCommandRecord> saved = <WorkflowCommandRecord>[];
   final List<String> deleted = <String>[];
@@ -38,6 +42,13 @@ class RecordingWorkflowRepository implements WorkflowRepository {
   @override
   Future<void> saveReceipt(WorkflowCommandReceiptRecord record) async {
     receipts.add(record);
+    _receipt = record;
+  }
+
+  @override
+  Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId) async {
+    if (_receipt?.commandId == commandId) return _receipt;
+    return null;
   }
 
   @override

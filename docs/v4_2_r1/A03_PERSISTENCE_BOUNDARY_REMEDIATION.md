@@ -198,3 +198,28 @@ The frozen source-implemented closure receipt of 484 operations and 1,548 sites
 stands unaltered. This entry records classified growth inside already-closed
 boundaries; it is not a new closure, and it carries no deployment or release
 authority.
+
+## Successor Review Correction Re-arm, 2026-09-10
+
+The current governed successor contains 561 operations across 1,949
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`44B79AC49CA95EEB4A65771AFE9CFDFDF041E925BC4F197404DBADF352A99B7E`.
+
+One operation was added: the Isar workflow repository can now read a stored
+command receipt. A receipt is authoritative evidence that the server accepted a
+command, and the executor consults it before recording a failure. Without that
+check, an attempt whose claim had expired could return late with a transport
+error and recreate an uncertain-outcome row for work another caller had already
+settled, so an accepted command would reappear as unresolved and invite replay.
+
+No re-arm trigger fired. The operation is a classified read inside the existing
+`repository` surface, which already declares `isar` with read and mutating
+modes. No direct Firestore or Isar access entered presentation code and the
+presentation persistence count remains zero. No registered diagnostic exception
+became mutating or lost authority-first admission. The surface count is
+unchanged at 61.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure and carries no deployment or release
+authority.

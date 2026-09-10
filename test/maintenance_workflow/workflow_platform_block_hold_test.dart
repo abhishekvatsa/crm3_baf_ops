@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_receipt_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_error.dart';
@@ -186,6 +187,69 @@ void main() {
 
         expect(repository.saved, isEmpty, reason: '$state must stay $state');
       }
+    });
+  });
+
+  group('a late failure cannot downgrade established acceptance', () {
+    WorkflowCommandReceiptRecord receiptFor(String commandId) =>
+        WorkflowCommandReceiptRecord()
+          ..commandId = commandId
+          ..aggregateId = command.aggregateId
+          ..resultKey = 'applied'
+          ..aggregateVersion = 1
+          ..appliedAt = now;
+
+    test('no retry row is recreated after the command was accepted', () async {
+      // B already settled and removed the row; A arrives late with a
+      // transport error.
+      final repository = RecordingWorkflowRepository(
+        existing: null,
+        acceptedReceipt: receiptFor(command.commandId),
+      );
+      final executor = executorWith(repository: repository, blocked: false);
+
+      await expectLater(
+        () => executor.execute(command),
+        throwsA(isA<WorkflowException>()),
+      );
+
+      expect(
+        repository.saved,
+        isEmpty,
+        reason: 'an accepted command must not reappear as unresolved',
+      );
+    });
+
+    test('an existing row is not downgraded after acceptance either', () async {
+      // Acceptance was recorded but the row removal did not complete. The
+      // receipt still outranks a late transport failure.
+      final repository = RecordingWorkflowRepository(
+        existing: retained(attemptCount: 2),
+        acceptedReceipt: receiptFor(command.commandId),
+      );
+      final executor = executorWith(repository: repository, blocked: false);
+
+      await expectLater(
+        () => executor.execute(command),
+        throwsA(isA<WorkflowException>()),
+      );
+
+      expect(repository.saved, isEmpty);
+    });
+
+    test('a receipt for another command does not suppress the failure', () async {
+      final repository = RecordingWorkflowRepository(
+        existing: retained(attemptCount: 2),
+        acceptedReceipt: receiptFor('some-other-command'),
+      );
+      final executor = executorWith(repository: repository, blocked: false);
+
+      await expectLater(
+        () => executor.execute(command),
+        throwsA(isA<WorkflowException>()),
+      );
+
+      expect(repository.saved.single.attemptCount, 3);
     });
   });
 

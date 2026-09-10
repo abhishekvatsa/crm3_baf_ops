@@ -10,8 +10,6 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -29,12 +27,16 @@ class MainActivity : FlutterActivity() {
     private var networkAccessSink: EventChannel.EventSink? = null
     private var networkAccessCallback: ConnectivityManager.NetworkCallback? = null
 
-    /// Blocked state of every network currently satisfying the request.
+    /// Whether a default network exists, and whether this app may use it.
     ///
-    /// A device can hold several matching networks at once. Reporting the loss
-    /// of one of them as "no network" would tell an operator they were offline
-    /// while mobile data was still carrying their work.
-    private val networkBlockedStates = LinkedHashMap<Network, Boolean>()
+    /// The question that matters is not "does some network exist" but "may
+    /// this app use the route its requests actually take". Watching every
+    /// matching network answered a broader question and could report `allowed`
+    /// on a network Firestore was not using. `hasDefaultNetwork` false means no
+    /// route; a null `defaultNetworkBlocked` means the platform has not yet
+    /// said whether this app may use the route it has.
+    private var hasDefaultNetwork = false
+    private var defaultNetworkBlocked: Boolean? = null
     private val mainThread = Handler(Looper.getMainLooper())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -375,12 +377,15 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /// The app is blocked only when every usable network refuses it.
-    private fun publishAggregateNetworkAccess() {
+    private fun publishDefaultNetworkAccess() {
         val status =
             when {
-                networkBlockedStates.isEmpty() -> STATUS_NO_NETWORK
-                networkBlockedStates.values.all { it } -> STATUS_BLOCKED
+                !hasDefaultNetwork -> STATUS_NO_NETWORK
+                // Discovering a route is not permission to use it. Reporting
+                // `allowed` here would be an affirmative answer the platform
+                // has not given, and the caller would act on it.
+                defaultNetworkBlocked == null -> STATUS_UNKNOWN
+                defaultNetworkBlocked == true -> STATUS_BLOCKED
                 else -> STATUS_ALLOWED
             }
         emitNetworkAccess(status)
@@ -401,35 +406,38 @@ class MainActivity : FlutterActivity() {
             return
         }
         stopNetworkAccessWatch()
-        networkBlockedStates.clear()
+        hasDefaultNetwork = false
+        defaultNetworkBlocked = null
         val callback =
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    // Unblocked until the platform says otherwise; a network
-                    // that is immediately blocked reports it straight away.
-                    networkBlockedStates[network] = false
-                    publishAggregateNetworkAccess()
+                    // A route now exists. Whether this app may use it is a
+                    // separate observation that arrives on its own callback.
+                    hasDefaultNetwork = true
+                    defaultNetworkBlocked = null
+                    publishDefaultNetworkAccess()
                 }
 
                 override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-                    networkBlockedStates[network] = blocked
-                    publishAggregateNetworkAccess()
+                    hasDefaultNetwork = true
+                    defaultNetworkBlocked = blocked
+                    publishDefaultNetworkAccess()
                 }
 
                 override fun onLost(network: Network) {
-                    // Losing one network is not losing connectivity, and being
-                    // blocked on a network is a different condition again.
-                    // Neither may be reported as the other.
-                    networkBlockedStates.remove(network)
-                    publishAggregateNetworkAccess()
+                    // Losing the route is a different condition from being
+                    // refused on it, and must not be reported as the same.
+                    // A handover brings onAvailable for the replacement.
+                    hasDefaultNetwork = false
+                    defaultNetworkBlocked = null
+                    publishDefaultNetworkAccess()
                 }
             }
-        val request =
-            NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
         try {
-            manager.registerNetworkCallback(request, callback, mainThread)
+            // Follows the route this app's requests actually take, including
+            // an applicable VPN, rather than every network that happens to
+            // match a capability filter.
+            manager.registerDefaultNetworkCallback(callback, mainThread)
             networkAccessCallback = callback
         } catch (error: SecurityException) {
             networkAccessCallback = null
@@ -440,7 +448,8 @@ class MainActivity : FlutterActivity() {
     private fun stopNetworkAccessWatch() {
         val callback = networkAccessCallback ?: return
         networkAccessCallback = null
-        networkBlockedStates.clear()
+        hasDefaultNetwork = false
+        defaultNetworkBlocked = null
         val manager =
             getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         try {

@@ -41,6 +41,12 @@ abstract interface class WorkflowRepository {
   Future<void> upsertEventFromRemote(WorkflowEventRecord record);
   Future<void> saveReceipt(WorkflowCommandReceiptRecord record);
 
+  /// The stored receipt for a command, if the server has already accepted it.
+  ///
+  /// A receipt is authoritative evidence that the command was applied. It
+  /// outranks a transport failure arriving later from an older attempt.
+  Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId);
+
   Future<void> saveRetryCommand(WorkflowCommandRecord record);
   Future<WorkflowCommandRecord?> getRetryCommand(String commandId);
   Future<List<WorkflowCommandRecord>> getRetryableCommands(DateTime now);

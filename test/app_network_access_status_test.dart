@@ -112,6 +112,44 @@ void main() {
     });
   });
 
+  group('the native bridge reports the default route, not any network', () {
+    late String source;
+
+    setUpAll(() {
+      source =
+          File(
+            'android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/'
+            'MainActivity.kt',
+          ).readAsStringSync();
+    });
+
+    test('it follows the route the app actually uses', () {
+      // "Some matching network is unblocked" does not establish that the
+      // app's own requests are permitted on the route they take.
+      expect(source, contains('registerDefaultNetworkCallback'));
+      expect(source, isNot(contains('addCapability')));
+    });
+
+    test('discovering a route is not permission to use it', () {
+      // onAvailable must not manufacture an affirmative answer before the
+      // blocked-status callback supplies one.
+      expect(source, contains('defaultNetworkBlocked == null -> STATUS_UNKNOWN'));
+      expect(source, contains('defaultNetworkBlocked = null'));
+    });
+
+    test('callbacks reach Flutter on the platform main thread', () {
+      // ConnectivityManager delivers on its own thread unless given a
+      // handler, and an EventSink must be invoked on the main thread.
+      expect(source, contains('registerDefaultNetworkCallback(callback, mainThread)'));
+      expect(source, contains('Looper.getMainLooper()'));
+    });
+
+    test('losing the route is not reported as being refused on it', () {
+      expect(source, contains('hasDefaultNetwork = false'));
+      expect(source, contains('!hasDefaultNetwork -> STATUS_NO_NETWORK'));
+    });
+  });
+
   group('platform stream', () {
     tearDown(() {
       TestDefaultBinaryMessengerBinding

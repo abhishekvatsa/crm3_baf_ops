@@ -118,6 +118,17 @@ class WorkflowOnlineExecutor {
     }
   }
 
+  Future<bool> _hasAcceptedReceipt(String commandId) async {
+    try {
+      return await repository.getReceipt(commandId) != null;
+    } catch (_) {
+      // An unreadable receipt store is not evidence of acceptance. Fall
+      // through to the ordinary failure path rather than silently discarding
+      // a real failure.
+      return false;
+    }
+  }
+
   Future<bool> _platformIsWithholdingNetwork() async {
     final reader = isNetworkBlocked;
     if (reader == null) return false;
@@ -153,6 +164,14 @@ class WorkflowOnlineExecutor {
     WorkflowCommand command,
     WorkflowException error,
   ) async {
+    // A stored receipt means the server already accepted this command. A
+    // transport failure arriving afterwards belongs to an attempt that lost
+    // the race, and must not downgrade established acceptance: without this,
+    // a caller whose claim expired could return late and recreate an
+    // `uncertainOutcome` row for work another caller had already settled,
+    // leaving an accepted command showing as unresolved and inviting replay.
+    if (await _hasAcceptedReceipt(command.commandId)) return;
+
     final existing = await repository.getRetryCommand(command.commandId);
     final disposition = retryPolicy.classify(error);
     if (existing == null &&
