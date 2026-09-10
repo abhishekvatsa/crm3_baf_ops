@@ -187,23 +187,40 @@ abstract interface class WorkflowRepository {
 /// The operator-facing description of outstanding submitted work, or null when
 /// there is nothing to say.
 ///
-/// Pure so the two-run behaviour can be exercised directly: the defect this
-/// replaces was that attention cleared on a quiet second run, and a test that
-/// only checked a value survives `copyWith` could never have shown it.
+/// Pure, and the single place this decision is made. The defects it replaces
+/// were both in the deciding rather than in any value: attention cleared on a
+/// quiet second run, and a run whose verification failed reported nothing
+/// because only a *thrown* phase was counted.
 ///
 /// [inventory] is null when the journal could not be read. That is reported as
-/// unverified rather than as nothing outstanding: an unread journal establishes
-/// no absence.
-String? describeWorkflowAttention(WorkflowOutcomeInventory? inventory) {
+/// unverified rather than as nothing outstanding: an unread journal
+/// establishes no absence.
+///
+/// [verificationIncomplete] covers the other way a phase reports failure -
+/// returning normally while carrying commands whose outcome it could not
+/// establish. An exception is only one of the two.
+String? describeWorkflowAttention(
+  WorkflowOutcomeInventory? inventory, {
+  bool verificationIncomplete = false,
+}) {
   if (inventory == null) {
     return 'Submitted work could not be checked against local records.';
   }
-  if (inventory.needingAction == 0) return null;
-  final parts = <String>[
-    if (inventory.rejected > 0) '${inventory.rejected} rejected',
-    if (inventory.manualReview > 0) '${inventory.manualReview} need review',
-  ];
-  // Retrying work is deliberately excluded: it progresses on its own and
-  // calling it "action needed" would train operators to ignore the warning.
-  return 'Submitted work needs attention: ${parts.join(', ')}';
+  if (inventory.needingAction > 0) {
+    final parts = <String>[
+      if (inventory.rejected > 0) '${inventory.rejected} rejected',
+      if (inventory.manualReview > 0) '${inventory.manualReview} need review',
+    ];
+    // Retrying work is deliberately excluded: it progresses on its own and
+    // calling it "action needed" would train operators to ignore the warning.
+    return 'Submitted work needs attention: ${parts.join(', ')}';
+  }
+  if (verificationIncomplete) {
+    // The journal looks quiet, but this run could not establish the outcome of
+    // work it attempted - a released command sits back in the retry queue and
+    // the inventory counts it as progressing on its own, which is not what was
+    // observed.
+    return 'Submitted work could not be fully verified on this run.';
+  }
+  return null;
 }

@@ -21,3 +21,40 @@ Before execution, record the exact successor APK version, SHA-256, package/signi
 Record **pass / fail / not demonstrated**, artifact/backend identifiers, aliases, actual record/receipt IDs and versions, timestamps, before/after evidence and observer conclusion. Store business content in the approved evidence location.
 
 **Stop** for artifact/signature mismatch, missing authorization, data loss, duplicate work, silent overwrite, false success/completion, or unfinalizable accepted content. Preserve evidence and pending work; do not reset, delete, invent receipts or replace uncertain submission identities. Pilot promotion/distribution requires a separate decision after review of executed evidence.
+
+## Shared-contract caller matrix, 2026-09-10
+
+Four defects in this corrective round had the same shape: a result type was
+correct and one caller did not use its full meaning, or an earlier throw
+stopped the caller reaching it. Recovered receipts lost their payload because
+one consumer was never checked; the attention inventory reused a query that
+excludes rejections; the blocked-network branch read only the receipt from an
+evidence object with three states; and a returned verification failure was
+logged but never fed the decision.
+
+None of these was found by the test suite. They were found by asking, for each
+outcome a shared contract can produce, what every caller does with it. That
+question is cheap and belongs here rather than in another governance document.
+
+| Outcome | What a caller must do | Executing evidence |
+| --- | --- | --- |
+| Accepted | Return the full receipt and pass its real business validator, not the losing attempt's transport error | `test/maintenance_workflow/recovered_receipt_consumer_test.dart` drives the executor into `validateMaintenanceIssueLaneCommandReceipt` |
+| Verified absent | Do not invent acceptance, and do not imply a request was retained when it was not | `test/maintenance_workflow/workflow_platform_block_hold_test.dart`, first-submission cases |
+| Evidence unavailable | Say the previous outcome could not be checked; never report it as verified absence | Same file: Wi-Fi present, platform blocked, receipt store throwing, no retry row |
+| Earlier phase failed, **by throwing or by returning** | Still inspect the journal; carry unresolved verification into health without collapsing the data-plane result | Decision cases in `test/workflow_attention_persistence_test.dart`; the returned-failure path in `test/workflow_uncertain_retry_service_test.dart` |
+
+The last row is the one that keeps recurring. An exception is only one of the
+two ways a phase reports that it established nothing.
+
+### Evidence labels
+
+These are three different claims and this round has produced them unevenly:
+
+- **Source corrected** - the code no longer contains the defect.
+- **Behaviour tested at a boundary** - a real repository, executor or service
+  demonstrates it, with controlled dependencies.
+- **Device path demonstrated** - an exact artifact did it on a handset.
+
+Every row above reaches the second. None reaches the third. The coordinator's
+own wiring is guarded structurally, not executed, and is labelled as such in
+its test.

@@ -620,7 +620,11 @@ class SyncCoordinator {
   String? _workflowAttentionReason;
 
   Future<void> _runWorkflowSupplementalSync({required String reason}) async {
-    var retryPhaseFailed = false;
+    // Two different ways this phase reports that an outcome was not
+    // established: it throws, or it returns carrying commands it could not
+    // verify. Only counting the first left a logged verification failure
+    // invisible to the operator.
+    var retryVerificationIncomplete = false;
     try {
       final summary = await _ref
           .read(workflowUncertainRetryServiceProvider)
@@ -628,6 +632,8 @@ class SyncCoordinator {
       // The run's own account of what it did. Awaiting it and discarding it
       // left a rejection, a command needing review and an empty queue looking
       // identical from the outside.
+      // A returned summary is not proof that every outcome was established.
+      retryVerificationIncomplete = summary.failedVerification.isNotEmpty;
       final line = summary.summaryLine;
       if (line != null) {
         AppLogger.info(
@@ -646,7 +652,7 @@ class SyncCoordinator {
         );
       }
     } catch (error, stackTrace) {
-      retryPhaseFailed = true;
+      retryVerificationIncomplete = true;
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',
         context: {
@@ -701,13 +707,10 @@ class SyncCoordinator {
           ),
         );
       }
-      final described = describeWorkflowAttention(inventory);
-      // A retry phase that threw leaves its own outcome unestablished, even if
-      // the journal reads cleanly afterwards.
-      _workflowAttentionReason = described ??
-          (retryPhaseFailed
-              ? 'Submitted work could not be fully verified on this run.'
-              : null);
+      _workflowAttentionReason = describeWorkflowAttention(
+        inventory,
+        verificationIncomplete: retryVerificationIncomplete,
+      );
     }
 
     try {

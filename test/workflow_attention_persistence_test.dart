@@ -101,6 +101,36 @@ void main() {
     expect(describeWorkflowAttention(inventory), isNull);
   });
 
+  test('both ways a phase reports failure produce attention', () {
+    // An exception is only one of them. A phase can return normally while
+    // carrying commands whose outcome it could not establish, and the journal
+    // will look quiet because the released row is back in the retry queue.
+    const quiet = WorkflowOutcomeInventory(retrying: 1);
+
+    expect(describeWorkflowAttention(quiet), isNull);
+    expect(
+      describeWorkflowAttention(quiet, verificationIncomplete: true),
+      contains('could not be fully verified'),
+    );
+  });
+
+  test('outstanding work outranks an unverified run', () {
+    // Both are true; the one a person must act on is the one to say.
+    const withRejection = WorkflowOutcomeInventory(rejected: 1, retrying: 1);
+
+    expect(
+      describeWorkflowAttention(withRejection, verificationIncomplete: true),
+      contains('1 rejected'),
+    );
+  });
+
+  test('an unreadable journal outranks everything', () {
+    expect(
+      describeWorkflowAttention(null, verificationIncomplete: true),
+      contains('could not be checked'),
+    );
+  });
+
   test('a retry phase that throws cannot skip the inventory', () {
     // The coordinator reads the journal through claimRetryableCommands first,
     // so a failure there used to jump past the inventory block entirely -
@@ -116,11 +146,18 @@ void main() {
     );
     final body = method.substring(0, method.indexOf('workflowPullServiceProvider'));
 
-    expect(body, contains('retryPhaseFailed = true'));
-    expect(body, contains('could not be fully verified on this run'));
+    // Structural, not behavioural: it guards the arrangement, and the
+    // decision itself is covered by the cases above. Labelled honestly rather
+    // than described as a coordinator execution test.
+    expect(body, contains('retryVerificationIncomplete = true'));
+    expect(
+      body,
+      contains('summary.failedVerification.isNotEmpty'),
+      reason: 'a returned failure must feed the decision, not only a throw',
+    );
     // The inventory must come after the retry catch closes, not inside it.
     expect(
-      body.indexOf('retryPhaseFailed = true'),
+      body.indexOf('retryVerificationIncomplete = true'),
       lessThan(body.indexOf('readOutcomeInventory()')),
     );
   });

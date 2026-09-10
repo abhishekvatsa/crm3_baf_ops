@@ -188,6 +188,42 @@ void main() {
       expect(summary.needsAttention, isTrue);
     });
 
+    test('a returned verification failure reaches the operator', () async {
+      // Following the StateError case one caller farther. The service catches
+      // the fault, records it and returns normally, so nothing throws - and
+      // the released row sits back in the retry queue, which the journal
+      // counts as progressing on its own. Reading only the inventory, or only
+      // an exception, reports nothing wrong.
+      await seedDue(
+        commandId: 'cmd-good',
+        payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
+      );
+      final summary = await serviceWith(
+        _Gateway.throwing(StateError('gateway fault')),
+      ).retryDueCommands();
+
+      final inventory = await repository.readOutcomeInventory();
+      expect(
+        inventory.needingAction,
+        0,
+        reason: 'the journal alone looks quiet, which is the trap',
+      );
+      expect(
+        describeWorkflowAttention(inventory),
+        isNull,
+        reason: 'the inventory on its own says nothing is wrong',
+      );
+
+      expect(summary.failedVerification, <String>['cmd-good']);
+      expect(
+        describeWorkflowAttention(
+          inventory,
+          verificationIncomplete: summary.failedVerification.isNotEmpty,
+        ),
+        contains('could not be fully verified'),
+      );
+    });
+
     test('one unresolvable command does not block the ones behind it', () async {
       // The run used to release the oldest command, immediately reclaim it,
       // see it again and stop - so every command behind it went unattempted.
