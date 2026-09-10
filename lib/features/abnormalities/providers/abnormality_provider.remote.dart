@@ -498,7 +498,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedAbnormalityTypesResult(
-      records: decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
+      records: snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );
@@ -536,7 +536,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedChargeAbnormalitiesResult(
-      records: decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality')
+      records: snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );

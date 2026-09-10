@@ -588,7 +588,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, JobTemplate.fromMap, source: 'JobTemplate'),
+        snap.docs.map((doc) => JobTemplate.fromMap(doc.data(), doc.id)),
       );
     }
     return results;

@@ -379,7 +379,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     if (classId == null) return null;
     return resolveSelectedIssueAssetRoute(
       classId: classId,
-      liveClasses: ref.read(assetClassesProvider).value,
+      // valueOrNull, not value: on AsyncError with no previous data
+      // AsyncValue.value throws, so the retained fallback would never have
+      // run in the very case it exists for.
+      liveClasses: ref.read(assetClassesProvider).valueOrNull,
       retained: _selectedRouteRecord,
     );
   }
@@ -394,7 +397,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     return resolveSelectedPhysicalAsset(
       assetId: assetId,
       physicalClassId: physicalClassId,
-      liveAssets: ref.read(assetInstancesProvider(physicalClassId)).value,
+      liveAssets:
+          ref.read(assetInstancesProvider(physicalClassId)).valueOrNull,
       retained: _selectedAssetRecord,
     );
   }

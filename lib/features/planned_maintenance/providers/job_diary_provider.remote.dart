@@ -239,7 +239,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedDiaryResult(
-      records: decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
+      records: snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -256,7 +256,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry'),
+        snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id)),
       );
     }
     return results;

@@ -27,6 +27,24 @@ import 'package:flutter/foundation.dart';
 /// evidence that something upstream is wrong, and hiding it would trade a
 /// loud failure for a quiet one. It is reported here and counted for
 /// diagnostics; it is never repaired, guessed at or substituted.
+///
+/// **Where this must not be used.** The result is a plain list: it carries no
+/// raw document count, no rejected identities and no completeness flag, so a
+/// caller cannot tell a short list from a complete one. That makes it unsafe
+/// anywhere absence changes a decision rather than a display:
+///
+/// - Authoritative paginated pull reads. They page on the decoded count, so a
+///   dropped document ends the page loop early, later valid pages are never
+///   fetched, and the domain still completes - advancing its cursor past
+///   records never read.
+/// - Condition and availability reads. A dropped restriction record reads as
+///   no restriction, so an asset that is Down can compute as Available.
+///   Unreadable evidence is not absent evidence.
+/// - Evidence for a document that claims completeness. A dropped record is
+///   simply not there to contradict the completeness check.
+///
+/// Those callers stay strict until the batch can carry its own completeness.
+/// `test/tolerant_decode_scope_contract_test.dart` enforces the first case.
 List<T> decodeSnapshotDocuments<T>(
   QuerySnapshot<Map<String, dynamic>> snapshot,
   T Function(Map<String, dynamic> data, String documentId) decode, {

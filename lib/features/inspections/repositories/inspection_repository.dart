@@ -134,8 +134,18 @@ class InspectionRepository {
     }
     return InspectionCampaignReportEvidence(
       campaign: InspectionCampaign.fromMap(campaignData, campaignSnapshot.id),
-      observations: _decodeObservations(observationSnapshot),
-      findings: _decodeFindings(findingSnapshot),
+      // Strict on purpose. A browse list can show what decoded and say it is
+      // incomplete; report evidence claiming a complete campaign cannot. The
+      // completeness check validates only the findings that survived
+      // decoding, so a dropped finding would be absent from both reads, the
+      // revisions would match, and an incomplete population would pass as
+      // complete.
+      observations: observationSnapshot.docs
+          .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
+          .toList(growable: false),
+      findings: findingSnapshot.docs
+          .map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
+          .toList(growable: false),
     );
   }
 

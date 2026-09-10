@@ -484,7 +484,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetOperationalConditionRecord>> watchAssetConditions() {
     return _assetConditions.snapshots().map((snapshot) {
       final records =
-          decodeSnapshotDocuments(snapshot, AssetOperationalConditionRecord.fromMap, source: 'AssetOperationalConditionRecord')
+          snapshot.docs.map((doc) => AssetOperationalConditionRecord.fromMap(doc.data(), doc.id))
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(

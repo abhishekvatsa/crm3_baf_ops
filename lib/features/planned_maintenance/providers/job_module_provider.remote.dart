@@ -451,7 +451,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedJobModuleResult(
-      records: decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
+      records: snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -470,7 +470,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance'),
+        snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id)),
       );
     }
     return results;

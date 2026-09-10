@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/furnace_stuckup_record.dart';
-import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 final furnaceStuckupCasesProvider = StreamProvider<List<FurnaceStuckupRecord>>((
   ref,
@@ -12,7 +11,7 @@ final furnaceStuckupCasesProvider = StreamProvider<List<FurnaceStuckupRecord>>((
       .snapshots()
       .map((snapshot) {
         final records =
-            decodeSnapshotDocuments(snapshot, FurnaceStuckupRecord.fromMap, source: 'FurnaceStuckupRecord')
+            snapshot.docs.map((doc) => FurnaceStuckupRecord.fromMap(doc.data(), doc.id))
                 .toList()
               ..sort(
                 (left, right) => right.reportedAt.compareTo(left.reportedAt),
@@ -29,7 +28,7 @@ final assetConditionDeclarationsProvider =
           .snapshots()
           .map((snapshot) {
             final records =
-                decodeSnapshotDocuments(snapshot, AssetConditionDeclarationRecord.fromMap, source: 'AssetConditionDeclarationRecord')
+                snapshot.docs.map((doc) => AssetConditionDeclarationRecord.fromMap(doc.data(), doc.id))
                     .toList()
                   ..sort(
                     (left, right) =>

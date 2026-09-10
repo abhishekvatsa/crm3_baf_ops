@@ -574,7 +574,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplatePackageResult(
-      records: decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
+      records: snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -603,7 +603,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateVersionResult(
-      records: decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
+      records: snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -632,7 +632,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateAuditResult(
-      records: decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit')
+      records: snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -650,7 +650,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage'),
+        snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id)),
       );
     }
     return results;
