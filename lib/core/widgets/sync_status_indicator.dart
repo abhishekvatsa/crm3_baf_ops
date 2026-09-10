@@ -440,6 +440,11 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                             ),
                             if (conflictCount > 0)
                               _HealthRow('Conflicts', '$conflictCount'),
+                              if (runHealth.workflowAttentionReason != null)
+                                _HealthRow(
+                                  'Submitted work',
+                                  runHealth.workflowAttentionReason!,
+                                ),
                             if (runHealth.lastSkippedReason != null)
                               _HealthRow(
                                 'Last skipped',
@@ -826,6 +831,18 @@ _SyncVisual _visualFor(
       icon: Icons.error_outline_rounded,
       color: BafColors.danger,
       label: 'Sync issue',
+    );
+  }
+
+  // The data refresh can complete perfectly while a submitted command sits
+  // rejected or awaiting review. Reporting only the refresh would leave that
+  // work behind a green tick. It ranks below a real failure and below
+  // conflicts, and it does not turn a workflow rejection into a failed sync.
+  if (runHealth.needsWorkflowAttention) {
+    return const _SyncVisual(
+      icon: Icons.assignment_late_outlined,
+      color: BafColors.warning,
+      label: 'Action needed',
     );
   }
 

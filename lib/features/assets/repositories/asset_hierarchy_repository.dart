@@ -586,7 +586,7 @@ class AssetHierarchyRepository {
             .where('legacyAssetTypeKey', isEqualTo: legacyAssetTypeKey)
             .get();
     final matchingClasses =
-        decodeSnapshotDocuments(classSnapshot, AssetClassRecord.fromMap, source: 'AssetClassRecord')
+        classSnapshot.docs.map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
             .where((record) => record.isActive)
             .toList();
     if (matchingClasses.isEmpty) return null;
@@ -603,7 +603,7 @@ class AssetHierarchyRepository {
             .limit(2)
             .get();
     final matchingAssets =
-        decodeSnapshotDocuments(assetSnapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
+        assetSnapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
             .where((record) => record.isActive)
             .toList();
     if (matchingAssets.length != 1) {

@@ -76,7 +76,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       if (limit != null) query = query.limit(limit);
 
       final snap = await query.get();
-      return decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
+      return snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
           .toList();
     }
 

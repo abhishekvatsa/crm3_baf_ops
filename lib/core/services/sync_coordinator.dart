@@ -127,6 +127,14 @@ class SyncRunHealth {
   final String? pendingFollowUpReason;
   final bool pendingFollowUpForce;
 
+  /// Submitted workflow work that will not progress on its own.
+  ///
+  /// Deliberately separate from the data-plane result. A refresh can complete
+  /// perfectly while a submitted command sits rejected or awaiting review, and
+  /// collapsing the two would either hide that work or call the whole sync a
+  /// failure. Both facts belong in front of the operator.
+  final String? workflowAttentionReason;
+
   const SyncRunHealth({
     this.isRunning = false,
     this.lastStartedAt,
@@ -146,7 +154,10 @@ class SyncRunHealth {
     this.hasPendingFollowUp = false,
     this.pendingFollowUpReason,
     this.pendingFollowUpForce = false,
+    this.workflowAttentionReason,
   });
+
+  bool get needsWorkflowAttention => workflowAttentionReason != null;
 
   SyncRunHealth copyWith({
     bool? isRunning,
@@ -167,8 +178,13 @@ class SyncRunHealth {
     bool? hasPendingFollowUp,
     String? pendingFollowUpReason,
     bool? pendingFollowUpForce,
+    String? workflowAttentionReason,
     bool clearLastError = false,
     bool clearPendingFollowUp = false,
+    // Attention must be cleared explicitly. Passing null through copyWith
+    // preserves the existing value, so a later quiet run cannot silently drop
+    // an outstanding command from view.
+    bool clearWorkflowAttention = false,
   }) {
     return SyncRunHealth(
       isRunning: isRunning ?? this.isRunning,
@@ -188,6 +204,9 @@ class SyncRunHealth {
           failureDetailOverflowCount ?? this.failureDetailOverflowCount,
       lastFailureLikelyPermanent:
           lastFailureLikelyPermanent ?? this.lastFailureLikelyPermanent,
+      workflowAttentionReason: clearWorkflowAttention
+          ? null
+          : (workflowAttentionReason ?? this.workflowAttentionReason),
       hasPendingFollowUp: clearPendingFollowUp
           ? false
           : (hasPendingFollowUp ?? this.hasPendingFollowUp),
@@ -417,6 +436,11 @@ class SyncCoordinator {
         lastCompletedAt: completedAt,
         lastReason: reason,
         lastSucceeded: !hasFailures,
+        // The data plane succeeding and submitted work needing attention are
+        // different facts, and the operator is entitled to both. This does not
+        // turn a workflow rejection into a failed sync.
+        workflowAttentionReason: _workflowAttentionReason,
+        clearWorkflowAttention: _workflowAttentionReason == null,
         successCount: _sync.lastSuccessCount,
         failureCount: _sync.lastFailureCount,
         conflictCount: conflictCount,
@@ -589,6 +613,11 @@ class SyncCoordinator {
     }
   }
 
+  /// Carried out of the supplemental phase so the final health write can
+  /// report it. Setting it inside this method would be overwritten by the
+  /// parent, which writes run health afterwards.
+  String? _workflowAttentionReason;
+
   Future<void> _runWorkflowSupplementalSync({required String reason}) async {
     try {
       final summary = await _ref
@@ -614,12 +643,26 @@ class SyncCoordinator {
           },
         );
       }
-      if (summary.needsAttention) {
-        // Work that will not progress on its own must not sit behind a green
-        // indicator.
-        _markSkipped(
-          reason: 'Workflow commands need attention: ${summary.summaryLine}',
-        );
+      // Attention is taken from the journal, not from this run. A rejected or
+      // manual-review command is excluded from the next run's claim, so a
+      // run-scoped flag would let it vanish from view while it is still
+      // outstanding.
+      final outstanding = await _ref
+          .read(workflowRepositoryProvider)
+          .getPendingCommands();
+      final unresolved = outstanding
+          .where((row) => row.stateKey != 'ready')
+          .length;
+      final rejected = summary.rejected.length;
+      if (unresolved > 0 || rejected > 0) {
+        final parts = <String>[
+          if (unresolved > 0) '$unresolved awaiting resolution',
+          if (rejected > 0) '$rejected rejected',
+        ];
+        _workflowAttentionReason =
+            'Submitted workflow work needs attention: ${parts.join(', ')}';
+      } else {
+        _workflowAttentionReason = null;
       }
     } catch (error, stackTrace) {
       AppLogger.warning(

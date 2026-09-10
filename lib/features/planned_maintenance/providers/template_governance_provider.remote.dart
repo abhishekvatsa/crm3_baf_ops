@@ -353,7 +353,7 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<List<TemplatePackage>> getAllPackages() async {
     final snap = await _packages.where('isDeleted', isEqualTo: false).get();
-    final records = decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
+    final records = snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
         .toList();
     records.sort((a, b) => a.title.compareTo(b.title));
     return records;
@@ -393,7 +393,7 @@ class FirestoreTemplateGovernanceRepository
         .where('packageFirestoreId', isEqualTo: packageFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    final records = decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
+    final records = snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
         .toList();
     records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
     return records;
@@ -436,7 +436,7 @@ class FirestoreTemplateGovernanceRepository
     final snap = await _audits
         .where('versionFirestoreId', isEqualTo: versionFirestoreId)
         .get();
-    final records = decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit')
+    final records = snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
         .where((record) => !record.isDeleted)
         .toList();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
@@ -684,7 +684,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion'),
+        snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id)),
       );
     }
     return results;
@@ -828,7 +828,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit'),
+        snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id)),
       );
     }
     return results;

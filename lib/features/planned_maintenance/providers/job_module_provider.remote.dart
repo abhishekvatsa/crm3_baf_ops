@@ -112,7 +112,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     final snap = await query.get();
-    return decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
+    return snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
         .toList();
   }
 

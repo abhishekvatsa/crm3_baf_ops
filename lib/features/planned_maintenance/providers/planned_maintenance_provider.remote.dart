@@ -223,7 +223,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('templateFirestoreId', isEqualTo: templateFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
+    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -243,7 +243,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   @override
   Future<List<JobTemplate>> getAllTemplates() async {
     final snap = await _templates.where('isDeleted', isEqualTo: false).get();
-    return decodeSnapshotDocuments(snap, JobTemplate.fromMap, source: 'JobTemplate')
+    return snap.docs.map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -344,7 +344,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   @override
   Future<List<JobExecution>> getAllExecutions() async {
     final snap = await _executions.where('isDeleted', isEqualTo: false).get();
-    return decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
+    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -354,7 +354,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isCompleted', isEqualTo: false)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
+    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .where((execution) => !execution.isCancelled)
         .toList();
   }
@@ -369,7 +369,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('assetNumber', isEqualTo: number)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
+    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -621,7 +621,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution'),
+        snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id)),
       );
     }
     return results;

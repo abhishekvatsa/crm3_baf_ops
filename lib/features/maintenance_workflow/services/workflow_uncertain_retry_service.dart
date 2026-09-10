@@ -160,9 +160,15 @@ class WorkflowUncertainRetryService {
           case 'manualReview':
             manualReview.add(row.commandId);
           case null:
-            // No row survives: the executor found the command already
-            // accepted and settled it.
-            applied.add(row.commandId);
+            // The row is gone, which is consistent with the executor having
+            // settled an accepted command - but absence is not a receipt.
+            // Only a stored receipt establishes acceptance; without one this
+            // stays unverified rather than being counted as applied.
+            if (await repository.getReceipt(row.commandId) != null) {
+              applied.add(row.commandId);
+            } else {
+              failedVerification.add(row.commandId);
+            }
           default:
             deferred.add(row.commandId);
         }

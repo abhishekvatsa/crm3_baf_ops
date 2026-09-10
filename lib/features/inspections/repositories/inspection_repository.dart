@@ -153,7 +153,7 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        decodeSnapshotDocuments(snapshot, InspectionObservation.fromMap, source: 'InspectionObservation')
+        snapshot.docs.map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final observed = right.observedAt.compareTo(left.observedAt);
@@ -166,7 +166,7 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        decodeSnapshotDocuments(snapshot, InspectionFinding.fromMap, source: 'InspectionFinding')
+        snapshot.docs.map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final blocking = right.blocksCampaignClosure ? 1 : 0;

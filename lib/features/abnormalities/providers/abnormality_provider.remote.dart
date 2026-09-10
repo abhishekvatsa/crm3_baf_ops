@@ -57,7 +57,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .get();
 
-    final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
+    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -68,7 +68,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<List<AbnormalityType>> getAllTypes() async {
     final snapshot = await _types.where('isDeleted', isEqualTo: false).get();
 
-    final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
+    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -279,7 +279,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality')
+    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -292,7 +292,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality')
+    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -559,7 +559,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
           .get();
 
       results.addAll(
-        decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType'),
+        snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id)),
       );
     }
 
@@ -583,7 +583,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
           .get();
 
       results.addAll(
-        decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality'),
+        snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id)),
       );
     }
 

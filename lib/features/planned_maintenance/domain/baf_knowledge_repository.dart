@@ -251,7 +251,7 @@ class BafKnowledgeRepository {
   }) async {
     if (kIsWeb || _isar == null) {
       final snap = await _firestore.collection(collectionPath).get();
-      return decodeSnapshotDocuments(snap, BafKnowledgeRow.fromCloudMap, source: 'BafKnowledgeRow')
+      return snap.docs.map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
           .where((row) => includeDeleted || !row.isDeleted)
           .toList()
         ..sort((a, b) => a.rowCode.compareTo(b.rowCode));

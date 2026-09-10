@@ -2,68 +2,95 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Tolerant decoding was rolled out to every live Firestore read at once,
-/// including the paginated delta readers that feed the global pull. That was a
-/// mistake with real consequences.
+/// Tolerant decoding was rolled out to every live Firestore read at once. Two
+/// separate consequences followed, and both were decisions taken on a list
+/// that could not say it was short.
 ///
-/// Those readers page on the decoded record count:
+/// The paginated pull readers page on the decoded count, so dropping one
+/// document from a full page ended the loop early, later valid pages were
+/// never fetched, and the domain still completed - advancing its cursor past
+/// records never read.
 ///
-/// ```dart
-/// if (records.length < GlobalPullService._pageSize) break;
-/// ```
+/// Worse, an identity read used during synchronization returned nothing for a
+/// document that existed but could not be decoded. The caller reads that as
+/// absence: a pending local deletion was counted converged and marked
+/// synchronized without the server ever being asked to delete anything.
 ///
-/// So dropping one malformed document from a full 500-document page yields
-/// 499, the loop stops, valid later pages are never fetched, and the domain
-/// still completes - advancing its cursor past records that were never read.
-/// Silent coverage loss, which is precisely what the synchronization work
-/// exists to prevent.
+/// The dividing line is what a read is for. A one-shot `Future` read is asked
+/// a question whose answer drives a decision - create, update, delete,
+/// converge, resolve an identity, assemble evidence - and there "could not be
+/// decoded" must never collapse into "is not there". A `Stream` watch feeds a
+/// list on screen, where showing the readable rows beats showing nothing.
 ///
-/// A browse list can show what decoded and say it is incomplete. An
-/// authoritative read cannot, until its page contract can carry the raw
-/// document count and the rejected identities. Until then it stays strict.
+/// So: tolerance lives only in stream watches until a batch can carry its own
+/// raw count, rejected identities and completeness.
 void main() {
-  Iterable<File> dartSources() sync* {
+  final offenders = <String>[];
+
+  setUpAll(() {
     for (final entity in Directory('lib').listSync(recursive: true)) {
-      if (entity is File &&
-          entity.path.endsWith('.dart') &&
-          !entity.path.endsWith('.g.dart')) {
-        yield entity;
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final path = entity.path.replaceAll(r'\', '/');
+      if (path.endsWith('.g.dart') ||
+          path.contains('core/serialization/tolerant_snapshot_decode')) {
+        continue;
       }
-    }
-  }
-
-  test('no authoritative pull read decodes tolerantly', () {
-    final offenders = <String>[];
-
-    for (final file in dartSources()) {
-      final lines = file.readAsStringSync().split('\n');
+      final lines = entity.readAsStringSync().split('\n');
       for (var i = 0; i < lines.length; i++) {
         if (!lines[i].contains('decodeSnapshotDocuments')) continue;
-        final start = i - 25 < 0 ? 0 : i - 25;
-        final window = lines.sublist(start, i + 1).join('\n');
-        if (window.contains('authoritativeGlobalPullReadOptions')) {
-          offenders.add('${file.path.replaceAll(r'\', '/')}:${i + 1}');
+        String? kind;
+        for (var j = i; j >= 0 && j > i - 60; j--) {
+          final match = RegExp(r'^  (Future|Stream)<').firstMatch(lines[j]);
+          if (match != null) {
+            kind = match.group(1);
+            break;
+          }
         }
+        if (kind == 'Future') offenders.add('$path:${i + 1}');
       }
     }
+  });
 
+  test('no one-shot read decodes tolerantly', () {
     expect(
       offenders,
       isEmpty,
       reason:
-          'a dropped document shortens the page, ends pagination early and '
-          'lets the cursor advance past records that were never fetched',
+          'a Future read answers a question that drives a decision; an '
+          'undecodable record must not be reported as an absent one',
+    );
+  });
+
+  test('an unreadable remote record cannot look like an absent one', () {
+    // The consumer that made this concrete: absence on a deleted local record
+    // is treated as convergence, so the deletion is marked synchronized
+    // without a remote delete ever being requested.
+    final consumer =
+        File(
+          'lib/core/services/sync_service.directives_abnormalities.dart',
+        ).readAsStringSync();
+    expect(consumer, contains('convergedRecords.add(record)'));
+
+    final reader =
+        File(
+          'lib/features/abnormalities/providers/abnormality_provider.remote.dart',
+        ).readAsStringSync();
+    final identityRead = reader.substring(
+      reader.indexOf('getAbnormalitiesByFirestoreIds'),
+    );
+    final body = identityRead.substring(0, identityRead.indexOf('\n  }'));
+    expect(
+      body,
+      contains('ChargeAbnormality.fromMap(doc.data(), doc.id)'),
+      reason: 'the read feeding that convergence decision must be strict',
     );
   });
 
   test('the pull still paginates on a count it can trust', () {
-    // If this ever pages on a decoded count while any reader is tolerant, the
-    // two halves of the contract have drifted apart again.
     final source =
         File(
           'lib/core/services/global_pull_service.abnormalities.dart',
         ).readAsStringSync();
-
     expect(source, contains('records.length < GlobalPullService._pageSize'));
   });
 }
