@@ -223,3 +223,29 @@ The frozen source-implemented closure receipt of 484 operations and 1,548 sites
 stands unaltered. This entry records classified growth inside already-closed
 boundaries; it is not a new closure and carries no deployment or release
 authority.
+
+## Atomic Retry Transition Re-arm, 2026-09-10
+
+The current governed successor contains 563 operations across 1,966
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`4CEF70398C0559DF2913B29D945A130349BCA5F707355C75F922A47140BDDE8D`.
+
+Two operations were added to the Isar workflow repository. Acceptance and its
+retry state now settle in one transaction, so a command is never both accepted
+and outstanding. A retry transition now reads the receipt, reads the current
+row and writes inside that same transaction, because reading the receipt first
+and writing afterwards left the interleaving it was meant to prevent: the read
+finds nothing, another caller commits acceptance and clears the row, and the
+late write recreates uncertainty for work already applied.
+
+No re-arm trigger fired. Both are classified inside the existing `repository`
+surface, which already declares `isar` with read and mutating modes. No direct
+Firestore or Isar access entered presentation code and the presentation
+persistence count remains zero. No registered diagnostic exception became
+mutating or lost authority-first admission. The surface count is unchanged at
+61.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure and carries no deployment or release
+authority.

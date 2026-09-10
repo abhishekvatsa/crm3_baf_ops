@@ -147,6 +147,29 @@ class _WorkflowRepository implements WorkflowRepository {
   }
 
   @override
+  Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt) async {
+    // Storing the receipt and clearing the retry row are now one step, so a
+    // failure to record acceptance also leaves the local retry evidence
+    // standing - which is what this fixture has always asserted.
+    if (saveReceiptError != null) throw saveReceiptError!;
+    deleteCalls += 1;
+  }
+
+  @override
+  Future<WorkflowRetryTransition> applyRetryTransitionUnlessAccepted({
+    required String commandId,
+    required WorkflowCommandRecord? Function(WorkflowCommandRecord? current)
+    build,
+  }) async {
+    if (retryReadError != null) throw retryReadError!;
+    final next = build(null);
+    if (next != null) savedRetry = next;
+    return const WorkflowRetryTransition(
+      WorkflowRetryTransitionOutcome.recorded,
+    );
+  }
+
+  @override
   Future<WorkflowCommandRecord?> getRetryCommand(String commandId) async {
     if (retryReadError != null) throw retryReadError!;
     return null;

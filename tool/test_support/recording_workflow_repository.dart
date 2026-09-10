@@ -52,6 +52,48 @@ class RecordingWorkflowRepository implements WorkflowRepository {
   }
 
   @override
+  Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt) async {
+    receipts.add(receipt);
+    _receipt = receipt;
+    if (_existing?.commandId == receipt.commandId) {
+      deleted.add(receipt.commandId);
+      _existing = null;
+    }
+  }
+
+  /// Runs immediately before the guarded transition reads its evidence.
+  ///
+  /// The race being covered is another caller committing acceptance between
+  /// the receipt check and the retry write. A real transaction closes that
+  /// window; this hook lets a test open it deliberately and prove the
+  /// transition still refuses to write.
+  Future<void> Function()? beforeTransition;
+
+  @override
+  Future<WorkflowRetryTransition> applyRetryTransitionUnlessAccepted({
+    required String commandId,
+    required WorkflowCommandRecord? Function(WorkflowCommandRecord? current)
+    build,
+  }) async {
+    await beforeTransition?.call();
+    if (_receipt?.commandId == commandId) {
+      return WorkflowRetryTransition(
+        WorkflowRetryTransitionOutcome.alreadyAccepted,
+        receipt: _receipt,
+      );
+    }
+    final current = _existing?.commandId == commandId ? _existing : null;
+    final next = build(current);
+    if (next != null) {
+      saved.add(next);
+      _existing = next;
+    }
+    return const WorkflowRetryTransition(
+      WorkflowRetryTransitionOutcome.recorded,
+    );
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());
 }

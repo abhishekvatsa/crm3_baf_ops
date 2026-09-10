@@ -187,6 +187,59 @@ class IsarWorkflowRepository implements WorkflowRepository {
       .findFirst();
 
   @override
+  Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt) {
+    return isar.writeTxn(() async {
+      await isar.workflowCommandReceiptRecords.put(receipt);
+      final row =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(receipt.commandId)
+              .findFirst();
+      if (row != null) {
+        await isar.workflowCommandRecords.delete(row.id);
+      }
+    });
+  }
+
+  @override
+  Future<WorkflowRetryTransition> applyRetryTransitionUnlessAccepted({
+    required String commandId,
+    required WorkflowCommandRecord? Function(WorkflowCommandRecord? current)
+    build,
+  }) {
+    return isar.writeTxn(() async {
+      // Read inside the transaction that will write. A receipt committed by
+      // another caller is either visible here, in which case nothing is
+      // written, or lands after this transaction, in which case its own
+      // settlement clears whatever this wrote. Either ordering leaves one
+      // coherent state; reading beforehand did not.
+      final receipt =
+          await isar.workflowCommandReceiptRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      if (receipt != null) {
+        return WorkflowRetryTransition(
+          WorkflowRetryTransitionOutcome.alreadyAccepted,
+          receipt: receipt,
+        );
+      }
+      final current =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      final next = build(current);
+      if (next != null) {
+        await isar.workflowCommandRecords.put(next);
+      }
+      return const WorkflowRetryTransition(
+        WorkflowRetryTransitionOutcome.recorded,
+      );
+    });
+  }
+
+  @override
   Future<void> saveRetryCommand(WorkflowCommandRecord record) =>
       isar.writeTxn(() async => isar.workflowCommandRecords.put(record));
 

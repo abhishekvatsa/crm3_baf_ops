@@ -199,20 +199,20 @@ void main() {
           ..aggregateVersion = 1
           ..appliedAt = now;
 
-    test('no retry row is recreated after the command was accepted', () async {
+    test('the accepted outcome is returned, not the stale failure', () async {
       // B already settled and removed the row; A arrives late with a
-      // transport error.
+      // transport error. The command did land, so reporting a failure would
+      // tell the operator their work was lost when it was not.
       final repository = RecordingWorkflowRepository(
         existing: null,
         acceptedReceipt: receiptFor(command.commandId),
       );
       final executor = executorWith(repository: repository, blocked: false);
 
-      await expectLater(
-        () => executor.execute(command),
-        throwsA(isA<WorkflowException>()),
-      );
+      final receipt = await executor.execute(command);
 
+      expect(receipt.commandId, command.commandId);
+      expect(receipt.resultKey, 'applied');
       expect(
         repository.saved,
         isEmpty,
@@ -229,10 +229,49 @@ void main() {
       );
       final executor = executorWith(repository: repository, blocked: false);
 
-      await expectLater(
-        () => executor.execute(command),
-        throwsA(isA<WorkflowException>()),
+      final receipt = await executor.execute(command);
+
+      expect(receipt.commandId, command.commandId);
+      expect(repository.saved, isEmpty);
+    });
+
+    test('acceptance landing mid-decision still wins', () async {
+      // The interleaving the earlier pre-read could not stop: the check finds
+      // no receipt, another caller then commits acceptance and clears the
+      // row, and the late write recreates uncertainty. The guarded transition
+      // reads its evidence in the same step that writes, so the acceptance is
+      // either already visible or lands after - never in between.
+      final repository = RecordingWorkflowRepository(existing: null);
+      repository.beforeTransition = () async {
+        await repository.settleAccepted(receiptFor(command.commandId));
+      };
+      final executor = executorWith(repository: repository, blocked: false);
+
+      final receipt = await executor.execute(command);
+
+      expect(receipt.commandId, command.commandId);
+      expect(
+        repository.saved,
+        isEmpty,
+        reason: 'no uncertain row may be written once acceptance is committed',
       );
+    });
+
+    test('a hold cannot return accepted work to waiting', () async {
+      final repository = RecordingWorkflowRepository(
+        existing: retained(attemptCount: 2),
+        acceptedReceipt: receiptFor(command.commandId),
+      );
+      final executor = executorWith(repository: repository, blocked: true);
+
+      try {
+        await executor.execute(command);
+      } on WorkflowException catch (error) {
+        // The block short-circuits before dispatch, so no receipt is returned
+        // here; what matters is that the hold wrote nothing and did not
+        // describe accepted work as waiting.
+        expect(error.message, isNot(contains('will be sent')));
+      }
 
       expect(repository.saved, isEmpty);
     });

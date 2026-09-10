@@ -81,32 +81,30 @@ class WorkflowOnlineExecutor {
 
     try {
       final receipt = await gateway.execute(command);
-      var receiptSaved = false;
       try {
-        await _saveReceipt(command, receipt);
-        receiptSaved = true;
+        // Storing the receipt and clearing the retry row together means the
+        // command is never both accepted and outstanding, which is the state
+        // a concurrent failure handler would otherwise act on.
+        await repository.settleAccepted(_receiptRecord(command, receipt));
       } catch (error, stackTrace) {
         debugPrint(
           'Workflow command ${command.commandId} was accepted, but its local '
-          'receipt could not be saved: $error',
+          'receipt and retry state could not be settled: $error',
         );
         debugPrintStack(stackTrace: stackTrace);
-      }
-      if (receiptSaved) {
-        try {
-          await repository.deleteRetryCommand(command.commandId);
-        } catch (error, stackTrace) {
-          debugPrint(
-            'Workflow command ${command.commandId} was accepted, but its stale '
-            'local retry row could not be removed: $error',
-          );
-          debugPrintStack(stackTrace: stackTrace);
-        }
       }
       return receipt;
     } on WorkflowException catch (error) {
       try {
-        await _recordFailure(command, error);
+        final transition = await _recordFailure(command, error);
+        final accepted = transition.receipt;
+        if (transition.wasAlreadyAccepted && accepted != null) {
+          // Another attempt of this same command was accepted. Reporting the
+          // transport failure would tell the operator their work did not land
+          // when it did. Acceptance is authoritative; an outstanding
+          // projection refresh is a different matter.
+          return _receiptFrom(accepted);
+        }
       } catch (recordError, stackTrace) {
         debugPrint(
           'Workflow command ${command.commandId} failed and its local retry '
@@ -115,17 +113,6 @@ class WorkflowOnlineExecutor {
         debugPrintStack(stackTrace: stackTrace);
       }
       rethrow;
-    }
-  }
-
-  Future<bool> _hasAcceptedReceipt(String commandId) async {
-    try {
-      return await repository.getReceipt(commandId) != null;
-    } catch (_) {
-      // An unreadable receipt store is not evidence of acceptance. Fall
-      // through to the ordinary failure path rather than silently discarding
-      // a real failure.
-      return false;
     }
   }
 
@@ -149,81 +136,110 @@ class WorkflowOnlineExecutor {
     if (record.stateKey == 'rejected' || record.stateKey == 'manualReview') {
       return false;
     }
-    record
-      ..stateKey = 'uncertainOutcome'
-      ..nextRetryAt = now().toUtc().add(platformBlockHold)
-      ..lastErrorCode = 'networkBlockedByPlatform'
-      ..lastErrorMessage =
-          'Android was withholding network access for this app, so no attempt '
-          'was made.';
-    await repository.saveRetryCommand(record);
-    return true;
+    // The same guarded transition, so a hold cannot return accepted work to
+    // "waiting" when acceptance lands first.
+    final transition = await repository.applyRetryTransitionUnlessAccepted(
+      commandId: record.commandId,
+      build: (current) {
+        final target = current ?? record;
+        if (target.stateKey == 'rejected' ||
+            target.stateKey == 'manualReview') {
+          return null;
+        }
+        return target
+          ..stateKey = 'uncertainOutcome'
+          ..nextRetryAt = now().toUtc().add(platformBlockHold)
+          ..lastErrorCode = 'networkBlockedByPlatform'
+          ..lastErrorMessage =
+              'Android was withholding network access for this app, so no '
+              'attempt was made.';
+      },
+    );
+    return !transition.wasAlreadyAccepted;
   }
 
-  Future<void> _recordFailure(
+  /// Records the outcome of a failed attempt, unless the command was already
+  /// accepted.
+  ///
+  /// The receipt read, the current-row read and the write share one
+  /// transaction. Reading the receipt first and writing afterwards left the
+  /// interleaving this exists to prevent: the read finds nothing, another
+  /// caller records acceptance and clears the row, and this write then
+  /// recreates uncertainty for work that was already applied.
+  Future<WorkflowRetryTransition> _recordFailure(
     WorkflowCommand command,
     WorkflowException error,
-  ) async {
-    // A stored receipt means the server already accepted this command. A
-    // transport failure arriving afterwards belongs to an attempt that lost
-    // the race, and must not downgrade established acceptance: without this,
-    // a caller whose claim expired could return late and recreate an
-    // `uncertainOutcome` row for work another caller had already settled,
-    // leaving an accepted command showing as unresolved and inviting replay.
-    if (await _hasAcceptedReceipt(command.commandId)) return;
-
-    final existing = await repository.getRetryCommand(command.commandId);
+  ) {
     final disposition = retryPolicy.classify(error);
-    if (existing == null &&
-        disposition != WorkflowRetryDisposition.retryUncertain) {
-      return;
-    }
+    return repository.applyRetryTransitionUnlessAccepted(
+      commandId: command.commandId,
+      build: (existing) {
+        if (existing == null &&
+            disposition != WorkflowRetryDisposition.retryUncertain) {
+          return null;
+        }
 
-    final attemptedAt = now().toUtc();
-    final attempts = (existing?.attemptCount ?? 0) + 1;
-    final terminal =
-        disposition == WorkflowRetryDisposition.reject ||
-        disposition == WorkflowRetryDisposition.manualReview ||
-        attempts >= WorkflowRetryPolicy.maxAutomaticAttempts;
-    final state =
-        terminal
-            ? (disposition == WorkflowRetryDisposition.reject
-                ? 'rejected'
-                : 'manualReview')
-            : 'uncertainOutcome';
-
-    await repository.saveRetryCommand(
-      WorkflowCommandRecord()
-        ..commandId = command.commandId
-        ..aggregateId = command.aggregateId
-        ..commandTypeKey = command.type.name
-        ..expectedVersion = command.expectedVersion
-        ..payloadJson = jsonEncode(command.payload)
-        ..stateKey = state
-        ..attemptCount = attempts
-        ..createdLocallyAt = existing?.createdLocallyAt ?? attemptedAt
-        ..lastAttemptAt = attemptedAt
-        ..nextRetryAt =
+        final attemptedAt = now().toUtc();
+        final attempts = (existing?.attemptCount ?? 0) + 1;
+        final terminal =
+            disposition == WorkflowRetryDisposition.reject ||
+            disposition == WorkflowRetryDisposition.manualReview ||
+            attempts >= WorkflowRetryPolicy.maxAutomaticAttempts;
+        final state =
             terminal
-                ? null
-                : attemptedAt.add(retryPolicy.delayForAttempt(attempts))
-        ..lastErrorCode = error.code.name
-        ..lastErrorMessage = error.message,
+                ? (disposition == WorkflowRetryDisposition.reject
+                    ? 'rejected'
+                    : 'manualReview')
+                : 'uncertainOutcome';
+
+        return WorkflowCommandRecord()
+          ..commandId = command.commandId
+          ..aggregateId = command.aggregateId
+          ..commandTypeKey = command.type.name
+          ..expectedVersion = command.expectedVersion
+          ..payloadJson = jsonEncode(command.payload)
+          ..stateKey = state
+          ..attemptCount = attempts
+          ..createdLocallyAt = existing?.createdLocallyAt ?? attemptedAt
+          ..lastAttemptAt = attemptedAt
+          ..nextRetryAt =
+              terminal
+                  ? null
+                  : attemptedAt.add(retryPolicy.delayForAttempt(attempts))
+          ..lastErrorCode = error.code.name
+          ..lastErrorMessage = error.message;
+      },
     );
   }
 
-  Future<void> _saveReceipt(
+  WorkflowCommandReceiptRecord _receiptRecord(
     WorkflowCommand command,
     WorkflowCommandReceipt receipt,
-  ) async {
-    await repository.saveReceipt(
-      WorkflowCommandReceiptRecord()
-        ..commandId = receipt.commandId
-        ..aggregateId = command.aggregateId
-        ..resultKey = receipt.resultKey
-        ..aggregateVersion = receipt.aggregateVersion
-        ..resultJson = jsonEncode(receipt.result)
-        ..appliedAt = receipt.appliedAt,
+  ) {
+    return WorkflowCommandReceiptRecord()
+      ..commandId = receipt.commandId
+      ..aggregateId = command.aggregateId
+      ..resultKey = receipt.resultKey
+      ..aggregateVersion = receipt.aggregateVersion
+      ..resultJson = jsonEncode(receipt.result)
+      ..appliedAt = receipt.appliedAt;
+  }
+
+  /// Rebuilds the accepted outcome from its stored receipt.
+  ///
+  /// The stored payload is deliberately not re-decoded. Nothing reads
+  /// `result` on this path, and decoding persisted bytes here would add an
+  /// unclassified decoder surface with no consumer and no considered
+  /// malformed disposition. The fields that establish the outcome - which
+  /// command, what result, which version, when applied - are stored as typed
+  /// columns and need no decoding.
+  WorkflowCommandReceipt _receiptFrom(WorkflowCommandReceiptRecord record) {
+    return WorkflowCommandReceipt(
+      commandId: record.commandId,
+      resultKey: record.resultKey,
+      aggregateVersion: record.aggregateVersion,
+      result: const <String, Object?>{},
+      appliedAt: record.appliedAt,
     );
   }
 }

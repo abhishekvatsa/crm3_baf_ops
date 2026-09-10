@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_receipt_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/isar_workflow_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +27,7 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('workflow_claim_test_');
     isar = await Isar.open(
-      [WorkflowCommandRecordSchema],
+      [WorkflowCommandRecordSchema, WorkflowCommandReceiptRecordSchema],
       directory: directory.path,
       name: 'workflow_claim_test',
       inspector: false,
@@ -325,6 +326,100 @@ void main() {
       await repository.releaseClaim('cmd-never-existed', claimedAt: now);
 
       expect(await repository.getRetryCommand('cmd-never-existed'), isNull);
+    });
+  });
+
+  group('acceptance and retry state settle together', () {
+    WorkflowCommandReceiptRecord receiptFor(String commandId) =>
+        WorkflowCommandReceiptRecord()
+          ..commandId = commandId
+          ..aggregateId = 'furnace-6-burner-5'
+          ..resultKey = 'applied'
+          ..aggregateVersion = 3
+          ..appliedAt = now;
+
+    test('settling stores the receipt and clears the row in one step', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      // Never accepted-and-outstanding, which is the half state a concurrent
+      // failure handler would act on.
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+      expect((await repository.getReceipt('cmd-1'))!.resultKey, 'applied');
+    });
+
+    test('a transition refuses to write once acceptance is stored', () async {
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-1',
+            build: (_) => WorkflowCommandRecord()
+              ..commandId = 'cmd-1'
+              ..aggregateId = 'furnace-6-burner-5'
+              ..commandTypeKey = 'raiseCriticalAlarm'
+              ..stateKey = 'uncertainOutcome'
+              ..createdLocallyAt = now,
+          );
+
+      expect(transition.wasAlreadyAccepted, isTrue);
+      expect(transition.receipt!.commandId, 'cmd-1');
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+    });
+
+    test('a transition writes when nothing has been accepted', () async {
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-1',
+            build: (current) {
+              expect(current, isNull, reason: 'the row is read inside the txn');
+              return WorkflowCommandRecord()
+                ..commandId = 'cmd-1'
+                ..aggregateId = 'furnace-6-burner-5'
+                ..commandTypeKey = 'raiseCriticalAlarm'
+                ..stateKey = 'uncertainOutcome'
+                ..createdLocallyAt = now;
+            },
+          );
+
+      expect(transition.wasAlreadyAccepted, isFalse);
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+    });
+
+    test('failure first, then acceptance, still ends settled', () async {
+      // The other ordering: the uncertain row commits before acceptance
+      // arrives. Settlement must clear it rather than leave both.
+      await repository.applyRetryTransitionUnlessAccepted(
+        commandId: 'cmd-1',
+        build: (_) => WorkflowCommandRecord()
+          ..commandId = 'cmd-1'
+          ..aggregateId = 'furnace-6-burner-5'
+          ..commandTypeKey = 'raiseCriticalAlarm'
+          ..stateKey = 'uncertainOutcome'
+          ..createdLocallyAt = now,
+      );
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+      expect(await repository.getReceipt('cmd-1'), isNotNull);
+    });
+
+    test('a build returning null writes nothing', () async {
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-absent',
+            build: (_) => null,
+          );
+
+      expect(transition.wasAlreadyAccepted, isFalse);
+      expect(await repository.getRetryCommand('cmd-absent'), isNull);
     });
   });
 }

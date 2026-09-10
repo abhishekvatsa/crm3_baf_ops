@@ -8,6 +8,26 @@ import '../data/workflow_command_receipt_record.dart';
 import '../data/workflow_command_record.dart';
 import '../data/workflow_event_record.dart';
 
+/// Why a retry transition did or did not happen.
+enum WorkflowRetryTransitionOutcome {
+  /// The transition was applied.
+  recorded,
+
+  /// The server had already accepted the command, so no retry state was
+  /// written. The accepted result stands.
+  alreadyAccepted,
+}
+
+class WorkflowRetryTransition {
+  const WorkflowRetryTransition(this.outcome, {this.receipt});
+
+  final WorkflowRetryTransitionOutcome outcome;
+  final WorkflowCommandReceiptRecord? receipt;
+
+  bool get wasAlreadyAccepted =>
+      outcome == WorkflowRetryTransitionOutcome.alreadyAccepted;
+}
+
 abstract interface class WorkflowRepository {
   Stream<WorkflowAggregateRecord?> watchWorkflow(String workflowId);
   Stream<List<JobLaneRecord>> watchLanes(String workflowId);
@@ -46,6 +66,29 @@ abstract interface class WorkflowRepository {
   /// A receipt is authoritative evidence that the command was applied. It
   /// outranks a transport failure arriving later from an older attempt.
   Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId);
+
+  /// Stores an accepted receipt and clears its retry state together.
+  ///
+  /// Saving the receipt and removing the retry row separately leaves a window
+  /// in which acceptance is recorded while the command still looks unresolved,
+  /// and a concurrent failure handler can act on that half state.
+  Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt);
+
+  /// Applies a retry transition unless the command has already been accepted.
+  ///
+  /// The receipt read, the current-row read and the write share one
+  /// transaction. Checking for a receipt and writing afterwards leaves the
+  /// interleaving this exists to prevent: the check finds nothing, another
+  /// caller then records acceptance and clears the row, and the late write
+  /// recreates uncertainty for work that was already applied.
+  ///
+  /// [build] receives the row as it exists inside the transaction and returns
+  /// the row to store, or null to write nothing. It must not perform I/O.
+  Future<WorkflowRetryTransition> applyRetryTransitionUnlessAccepted({
+    required String commandId,
+    required WorkflowCommandRecord? Function(WorkflowCommandRecord? current)
+    build,
+  });
 
   Future<void> saveRetryCommand(WorkflowCommandRecord record);
   Future<WorkflowCommandRecord?> getRetryCommand(String commandId);
