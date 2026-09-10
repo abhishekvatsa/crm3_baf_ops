@@ -137,6 +137,41 @@ void main() {
       expect(repository.saved, isEmpty);
     });
 
+    test('a first submission is not described as saved', () async {
+      // Nothing was queued, so saying it was is the same class of fault as
+      // telling someone a paused sync had failed: the operator cannot tell
+      // whether the app is holding their work.
+      final repository = RecordingWorkflowRepository(existing: null);
+      final executor = executorWith(repository: repository, blocked: true);
+
+      try {
+        await executor.execute(command);
+        fail('expected a WorkflowException');
+      } on WorkflowException catch (error) {
+        expect(error.message, contains('not sent'));
+        expect(error.message, contains('not been queued'));
+        expect(error.message, contains('try again'));
+        expect(error.message.toLowerCase(), isNot(contains('is saved')));
+      }
+    });
+
+    test('a settled command is not described as waiting to be sent', () async {
+      for (final state in <String>['rejected', 'manualReview']) {
+        final repository = RecordingWorkflowRepository(
+          existing: retained(attemptCount: 8, stateKey: state),
+        );
+        final executor = executorWith(repository: repository, blocked: true);
+
+        try {
+          await executor.execute(command);
+          fail('expected a WorkflowException');
+        } on WorkflowException catch (error) {
+          expect(error.message, contains('needs review'));
+          expect(error.message.toLowerCase(), isNot(contains('will be sent')));
+        }
+      }
+    });
+
     test('a settled command is not resurrected by a hold', () async {
       for (final state in <String>['rejected', 'manualReview']) {
         final repository = RecordingWorkflowRepository(

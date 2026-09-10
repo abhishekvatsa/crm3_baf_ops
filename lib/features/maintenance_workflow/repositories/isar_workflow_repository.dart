@@ -205,6 +205,7 @@ class IsarWorkflowRepository implements WorkflowRepository {
   Future<List<WorkflowCommandRecord>> claimRetryableCommands({
     required DateTime now,
     required Duration lease,
+    int limit = 1,
   }) {
     final leaseFloor = now.toUtc().subtract(lease);
     return isar.writeTxn(() async {
@@ -235,7 +236,10 @@ class IsarWorkflowRepository implements WorkflowRepository {
               .sortByCreatedLocallyAt()
               .findAll();
 
-      final claimed = <WorkflowCommandRecord>[...due, ...abandoned];
+      final claimed = <WorkflowCommandRecord>[
+        ...due,
+        ...abandoned,
+      ].take(limit).toList();
       for (final record in claimed) {
         record.stateKey = 'sending';
         // The claim timestamp is the lease clock. It is not an attempt: the
@@ -248,7 +252,11 @@ class IsarWorkflowRepository implements WorkflowRepository {
   }
 
   @override
-  Future<void> releaseClaim(String commandId, {DateTime? nextRetryAt}) {
+  Future<void> releaseClaim(
+    String commandId, {
+    required DateTime claimedAt,
+    DateTime? nextRetryAt,
+  }) {
     return isar.writeTxn(() async {
       final record =
           await isar.workflowCommandRecords
@@ -258,6 +266,9 @@ class IsarWorkflowRepository implements WorkflowRepository {
       // Only a live claim is released. If the command already reached an
       // outcome, that outcome is authoritative and must not be reopened.
       if (record == null || record.stateKey != 'sending') return;
+      // And only by the caller that still holds it. A different claim stamp
+      // means this lease expired and someone else took the work.
+      if (record.lastAttemptAt?.toUtc() != claimedAt.toUtc()) return;
       record.stateKey = 'uncertainOutcome';
       record.nextRetryAt = nextRetryAt?.toUtc() ?? record.nextRetryAt;
       await isar.workflowCommandRecords.put(record);

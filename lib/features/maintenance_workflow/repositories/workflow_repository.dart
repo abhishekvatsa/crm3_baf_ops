@@ -57,9 +57,14 @@ abstract interface class WorkflowRepository {
   /// than a duplicate set. A row already claimed is only re-offered once its
   /// lease has expired, so a caller that died mid-send cannot strand the
   /// command forever.
+  /// [limit] bounds how many are taken at once. A large batch executed
+  /// sequentially would let the last commands sit claimed until their lease
+  /// expired before anything tried to send them, and another caller would then
+  /// take work still nominally owned.
   Future<List<WorkflowCommandRecord>> claimRetryableCommands({
     required DateTime now,
     required Duration lease,
+    int limit,
   });
 
   /// Returns a claimed command to the retry queue without counting an attempt.
@@ -67,7 +72,17 @@ abstract interface class WorkflowRepository {
   /// Used when the caller stops before deciding an outcome - the process is
   /// shutting down, or the network was withdrawn again. Abandoning the claim
   /// is not a failed attempt and must not consume the retry budget.
-  Future<void> releaseClaim(String commandId, {DateTime? nextRetryAt});
+  /// [claimedAt] is the claim being released, and acts as a fencing token.
+  ///
+  /// Without it a caller whose lease expired could return from a slow send and
+  /// release a claim another caller has since taken, handing the command to a
+  /// third caller while the second is still working it. Only the holder of the
+  /// current claim may release it.
+  Future<void> releaseClaim(
+    String commandId, {
+    required DateTime claimedAt,
+    DateTime? nextRetryAt,
+  });
   Future<List<WorkflowCommandRecord>> getPendingCommands();
   Future<void> deleteRetryCommand(String commandId);
 }

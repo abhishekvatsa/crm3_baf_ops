@@ -60,13 +60,22 @@ class WorkflowOnlineExecutor {
     // lifecycle commands it cannot send.
     if (await _platformIsWithholdingNetwork()) {
       final existing = await repository.getRetryCommand(command.commandId);
-      if (existing != null) {
-        await _holdWithoutAttempt(existing);
-      }
-      throw const WorkflowException(
+      final held = existing != null && await _holdWithoutAttempt(existing);
+      // The message must describe what actually happened to the work. Telling
+      // someone their action is saved when nothing was queued is the same
+      // class of fault as telling them a paused sync had failed.
+      throw WorkflowException(
         WorkflowErrorCode.unavailable,
-        'Android has paused network access for this app. The action is saved '
-        'and will be sent when the app is opened.',
+        held
+            ? 'Android has paused network access for this app. This action is '
+                'saved and will be sent when the app is opened.'
+            : existing == null
+            ? 'Android has paused network access for this app. This action was '
+                'not sent and has not been queued. Open the app while '
+                'connected and try again.'
+            : 'Android has paused network access for this app. The earlier '
+                'request is preserved but needs review before it is sent '
+                'again.',
       );
     }
 
@@ -122,9 +131,12 @@ class WorkflowOnlineExecutor {
   }
 
   /// Reschedules a retained command without spending an attempt.
-  Future<void> _holdWithoutAttempt(WorkflowCommandRecord record) async {
+  ///
+  /// Returns whether the command is now waiting to be retried, so the caller
+  /// can say so truthfully rather than assuming it.
+  Future<bool> _holdWithoutAttempt(WorkflowCommandRecord record) async {
     if (record.stateKey == 'rejected' || record.stateKey == 'manualReview') {
-      return;
+      return false;
     }
     record
       ..stateKey = 'uncertainOutcome'
@@ -134,6 +146,7 @@ class WorkflowOnlineExecutor {
           'Android was withholding network access for this app, so no attempt '
           'was made.';
     await repository.saveRetryCommand(record);
+    return true;
   }
 
   Future<void> _recordFailure(

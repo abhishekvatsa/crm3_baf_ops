@@ -14,6 +14,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.system.Os
 import android.system.OsConstants
 import io.flutter.embedding.android.FlutterActivity
@@ -26,6 +28,14 @@ class MainActivity : FlutterActivity() {
     private var criticalAlarmMethodChannel: MethodChannel? = null
     private var networkAccessSink: EventChannel.EventSink? = null
     private var networkAccessCallback: ConnectivityManager.NetworkCallback? = null
+
+    /// Blocked state of every network currently satisfying the request.
+    ///
+    /// A device can hold several matching networks at once. Reporting the loss
+    /// of one of them as "no network" would tell an operator they were offline
+    /// while mobile data was still carrying their work.
+    private val networkBlockedStates = LinkedHashMap<Network, Boolean>()
+    private val mainThread = Handler(Looper.getMainLooper())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -351,33 +361,67 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    /// Emits on the platform main thread.
+    ///
+    /// ConnectivityManager delivers callbacks on its own internal thread
+    /// unless a handler is supplied, and a Flutter EventSink must be invoked
+    /// on the main thread. Registration below passes a main-looper handler,
+    /// and this posts as well so no future caller can reintroduce the fault.
+    private fun emitNetworkAccess(status: String) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            networkAccessSink?.success(status)
+        } else {
+            mainThread.post { networkAccessSink?.success(status) }
+        }
+    }
+
+    /// The app is blocked only when every usable network refuses it.
+    private fun publishAggregateNetworkAccess() {
+        val status =
+            when {
+                networkBlockedStates.isEmpty() -> STATUS_NO_NETWORK
+                networkBlockedStates.values.all { it } -> STATUS_BLOCKED
+                else -> STATUS_ALLOWED
+            }
+        emitNetworkAccess(status)
+    }
+
     private fun startNetworkAccessWatch() {
         // onBlockedStatusChanged arrived in API 29. Below that the platform
         // exposes no per-UID blocked signal, so the app must not claim to know
         // one: it reports unknown and the caller keeps its existing wording.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            networkAccessSink?.success(STATUS_UNKNOWN)
+            emitNetworkAccess(STATUS_UNKNOWN)
             return
         }
         val manager =
             getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         if (manager == null) {
-            networkAccessSink?.success(STATUS_UNKNOWN)
+            emitNetworkAccess(STATUS_UNKNOWN)
             return
         }
         stopNetworkAccessWatch()
+        networkBlockedStates.clear()
         val callback =
             object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    // Unblocked until the platform says otherwise; a network
+                    // that is immediately blocked reports it straight away.
+                    networkBlockedStates[network] = false
+                    publishAggregateNetworkAccess()
+                }
+
                 override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-                    networkAccessSink?.success(
-                        if (blocked) STATUS_BLOCKED else STATUS_ALLOWED,
-                    )
+                    networkBlockedStates[network] = blocked
+                    publishAggregateNetworkAccess()
                 }
 
                 override fun onLost(network: Network) {
-                    // Losing the network is a different condition from being
-                    // blocked on it, and must not be reported as the same thing.
-                    networkAccessSink?.success(STATUS_NO_NETWORK)
+                    // Losing one network is not losing connectivity, and being
+                    // blocked on a network is a different condition again.
+                    // Neither may be reported as the other.
+                    networkBlockedStates.remove(network)
+                    publishAggregateNetworkAccess()
                 }
             }
         val request =
@@ -385,17 +429,18 @@ class MainActivity : FlutterActivity() {
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build()
         try {
-            manager.registerNetworkCallback(request, callback)
+            manager.registerNetworkCallback(request, callback, mainThread)
             networkAccessCallback = callback
         } catch (error: SecurityException) {
             networkAccessCallback = null
-            networkAccessSink?.success(STATUS_UNKNOWN)
+            emitNetworkAccess(STATUS_UNKNOWN)
         }
     }
 
     private fun stopNetworkAccessWatch() {
         val callback = networkAccessCallback ?: return
         networkAccessCallback = null
+        networkBlockedStates.clear()
         val manager =
             getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         try {

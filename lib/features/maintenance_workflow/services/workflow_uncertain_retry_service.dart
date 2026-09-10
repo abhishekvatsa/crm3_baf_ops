@@ -27,14 +27,31 @@ class WorkflowUncertainRetryService {
   });
 
   Future<int> retryDueCommands() async {
-    // Claim rather than read. Reading would hand the same rows to a second
-    // execution context, and one physical action would be submitted twice.
-    final rows = await repository.claimRetryableCommands(
-      now: now().toUtc(),
-      lease: claimLease,
-    );
     var applied = 0;
-    for (final row in rows) {
+    // Claim one command at a time, immediately before dispatching it. A whole
+    // batch claimed up front and executed in sequence would leave the last
+    // commands holding a lease that expires before anything tries to send
+    // them, and another caller would then take work still nominally owned.
+    final seen = <String>{};
+    while (true) {
+      final rows = await repository.claimRetryableCommands(
+        now: now().toUtc(),
+        lease: claimLease,
+        limit: 1,
+      );
+      if (rows.isEmpty) break;
+      final row = rows.single;
+      // A released command keeps its due time, so it becomes claimable again
+      // at once. Stopping at the first repeat leaves it for the next run
+      // instead of spinning on it here.
+      if (!seen.add(row.commandId)) {
+        await repository.releaseClaim(
+          row.commandId,
+          claimedAt: row.lastAttemptAt!,
+        );
+        break;
+      }
+      final claimedAt = row.lastAttemptAt!;
       try {
         final command = _command(row);
         await executor.execute(command);
@@ -42,7 +59,9 @@ class WorkflowUncertainRetryService {
       } catch (error) {
         // WorkflowOnlineExecutor records typed server failures. Decode failures
         // are terminal because replaying malformed local intent is unsafe.
-        if (error is FormatException || error is StateError || error is TypeError) {
+        if (error is FormatException ||
+            error is StateError ||
+            error is TypeError) {
           row
             ..stateKey = 'manualReview'
             ..nextRetryAt = null
@@ -53,9 +72,10 @@ class WorkflowUncertainRetryService {
         }
         // Anything else left no verdict. Hand the claim back now rather than
         // making the operator wait out the lease; the release is ignored if
-        // the executor already settled the row, so a recorded outcome is
-        // never reopened.
-        await repository.releaseClaim(row.commandId);
+        // the executor already settled the row or another caller has since
+        // taken it, so neither a recorded outcome nor a newer claim is
+        // disturbed.
+        await repository.releaseClaim(row.commandId, claimedAt: claimedAt);
       }
     }
     return applied;

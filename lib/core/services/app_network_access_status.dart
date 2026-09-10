@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,10 +86,17 @@ class AppNetworkAccessStatus {
     return _stream ??= _channel
         .receiveBroadcastStream()
         .map(AppNetworkAccess.fromWireName)
-        // A channel failure must not be reported as a block; an unproven
-        // claim about the platform is worse than no claim.
-        .handleError((Object _) {})
-        .cast<AppNetworkAccess>()
+        // A channel failure must not be reported as a block, and must not
+        // leave the last value standing either: swallowing the error would
+        // keep showing "blocked" long after the platform stopped saying so.
+        // Fall back to unknown, which claims nothing.
+        .transform(
+          StreamTransformer<AppNetworkAccess, AppNetworkAccess>.fromHandlers(
+            handleError: (Object _, StackTrace __, EventSink<AppNetworkAccess> sink) {
+              sink.add(AppNetworkAccess.unknown);
+            },
+          ),
+        )
         .asBroadcastStream();
   }
 }

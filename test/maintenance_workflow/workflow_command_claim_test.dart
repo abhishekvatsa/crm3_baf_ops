@@ -113,9 +113,9 @@ void main() {
       }
 
       final results = await Future.wait(<Future<List<WorkflowCommandRecord>>>[
-        repository.claimRetryableCommands(now: now, lease: lease),
-        repository.claimRetryableCommands(now: now, lease: lease),
-        repository.claimRetryableCommands(now: now, lease: lease),
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
       ]);
 
       final ids = <String>[
@@ -124,6 +124,32 @@ void main() {
 
       expect(ids, hasLength(5));
       expect(ids.toSet(), hasLength(5));
+    });
+
+    test('claiming is bounded so a lease cannot expire before dispatch', () async {
+      for (var index = 0; index < 4; index++) {
+        await seed(
+          commandId: 'cmd-$index',
+          stateKey: 'uncertainOutcome',
+          nextRetryAt: now.subtract(const Duration(minutes: 1)),
+          createdAt: now.subtract(Duration(hours: 2, minutes: index)),
+        );
+      }
+
+      // The default takes one, so the claim starts immediately before the
+      // send rather than while three others are still queued behind it.
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        hasLength(1),
+      );
+      expect(
+        await repository.claimRetryableCommands(
+          now: now,
+          lease: lease,
+          limit: 2,
+        ),
+        hasLength(2),
+      );
     });
 
     test('a command not yet due is left alone', () async {
@@ -216,9 +242,15 @@ void main() {
         stateKey: 'uncertainOutcome',
         nextRetryAt: now.subtract(const Duration(minutes: 1)),
       );
-      await repository.claimRetryableCommands(now: now, lease: lease);
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
 
-      await repository.releaseClaim('cmd-1');
+      await repository.releaseClaim(
+        'cmd-1',
+        claimedAt: claimed.single.lastAttemptAt!,
+      );
 
       expect(await stateOf('cmd-1'), 'uncertainOutcome');
       expect(
@@ -232,13 +264,65 @@ void main() {
       // retry loop must not undo a rejection or a manual-review decision.
       await seed(commandId: 'cmd-rejected', stateKey: 'rejected');
 
-      await repository.releaseClaim('cmd-rejected');
+      await repository.releaseClaim('cmd-rejected', claimedAt: now);
 
       expect(await stateOf('cmd-rejected'), 'rejected');
     });
 
+    test('a caller whose lease expired cannot release a newer claim', () async {
+      // The sequence that breaks an unfenced release: A claims, A's lease
+      // expires, B reclaims, then A returns from a slow send and hands B's
+      // work to a third caller while B is still working it.
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final callerA = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+      final aClaimedAt = callerA.single.lastAttemptAt!;
+
+      final later = now.add(const Duration(minutes: 30));
+      final callerB = await repository.claimRetryableCommands(
+        now: later,
+        lease: lease,
+      );
+      expect(callerB, hasLength(1), reason: 'B reclaims the expired lease');
+
+      await repository.releaseClaim('cmd-1', claimedAt: aClaimedAt);
+
+      // B still holds it.
+      expect(await stateOf('cmd-1'), 'sending');
+      // Isar returns local time; compare the instant, as the fence does.
+      expect(
+        (await repository.getRetryCommand('cmd-1'))!.lastAttemptAt!.toUtc(),
+        later,
+      );
+    });
+
+    test('the current holder can still release', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      await repository.releaseClaim(
+        'cmd-1',
+        claimedAt: claimed.single.lastAttemptAt!,
+      );
+
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+    });
+
     test('releasing an unknown command is harmless', () async {
-      await repository.releaseClaim('cmd-never-existed');
+      await repository.releaseClaim('cmd-never-existed', claimedAt: now);
 
       expect(await repository.getRetryCommand('cmd-never-existed'), isNull);
     });
