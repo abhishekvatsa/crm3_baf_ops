@@ -168,3 +168,33 @@ instead of the prior batch paths, preserving server-owned timestamps. The
 inventory remains exact; no presentation persistence exception was added.
 Earlier counts and CI receipts above describe their historical source, not
 deployment or release authority for this successor.
+
+## Post-Incident Remediation Re-arm, 2026-09-10
+
+The current governed successor contains 560 operations across 1,946
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`308E195FA19CB26ECE40187B18533A3202F2E311FE9C264E06DF8853A73EC75B`.
+
+Four operations were added by the 2026-09-09 sync-incident remediation. Two
+belong to the local diagnostics read adapter, which now counts the workflow
+command journal: that journal carries no `isSynced` flag, so unfinished
+lifecycle commands previously sat behind a reassuring zero dirty-row total and
+were invisible to support during the incident. Two belong to the Isar workflow
+repository, which now claims a retained command inside the same write
+transaction that selects it, so a second execution context cannot replay a
+command that is already being sent.
+
+No re-arm trigger fired. No direct Firestore or Isar access was introduced into
+presentation code; the recovery package moved to a service for that reason, and
+the presentation persistence count remains zero. Both new provider paths are
+classified in the governed inventory, inside surfaces that already declare
+their stores and modes: the diagnostics adapter remains `isar` read-only under
+the registered `diagnostic-read-adapter` profile, and the workflow repository
+remains `isar` read and mutating under the `repository` profile. No registered
+diagnostic exception became mutating or lost authority-first admission. The
+surface count is unchanged because no new surface was introduced.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure, and it carries no deployment or release
+authority.
