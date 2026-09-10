@@ -81,6 +81,7 @@ final localDiagnosticsReportProvider =
         likelyPermanentRejections: persistence.likelyPermanentRejections,
         totalRejections: persistence.totalRejections,
         knowledgeMetaRows: persistence.knowledgeMetaRows,
+        commandJournal: persistence.commandJournal,
         collectionCount: rows.length + 2,
         governanceSummary: governanceSummary,
         supportSnapshot: supportSnapshot,
@@ -96,6 +97,7 @@ class LocalDiagnosticsReport {
   final int likelyPermanentRejections;
   final int totalRejections;
   final int knowledgeMetaRows;
+  final LocalDiagnosticsCommandJournalSnapshot commandJournal;
   final int collectionCount;
   final LocalGovernanceDiagnosticsSummary? governanceSummary;
   final LocalDiagnosticsSupportSnapshot supportSnapshot;
@@ -110,6 +112,7 @@ class LocalDiagnosticsReport {
     required this.likelyPermanentRejections,
     required this.totalRejections,
     required this.knowledgeMetaRows,
+    required this.commandJournal,
     required this.collectionCount,
     required this.supportSnapshot,
     required this.releaseSnapshot,
@@ -130,6 +133,7 @@ class LocalDiagnosticsReport {
       likelyPermanentRejections: 0,
       totalRejections: 0,
       knowledgeMetaRows: 0,
+      commandJournal: const LocalDiagnosticsCommandJournalSnapshot.empty(),
       collectionCount: 0,
       supportSnapshot: supportSnapshot,
       releaseSnapshot: releaseSnapshot,
@@ -151,6 +155,15 @@ class LocalDiagnosticsReport {
           ..writeln('likelyPermanentSyncRejections: $likelyPermanentRejections')
           ..writeln('totalSyncRejectionRows: $totalRejections')
           ..writeln('knowledgeMetaRows: $knowledgeMetaRows')
+          ..writeln('workflowCommandsUnfinished: ${commandJournal.unfinished}')
+          ..writeln(
+            'workflowCommandsUncertainOutcome: '
+            '${commandJournal.uncertainOutcome}',
+          )
+          ..writeln(
+            'workflowCommandsManualReview: ${commandJournal.manualReview}',
+          )
+          ..writeln('workflowCommandRows: ${commandJournal.total}')
           ..writeln('collectionsReported: $collectionCount')
           ..writeln('syncStatus: ${supportSnapshot.syncStatusLabel}')
           ..writeln('syncRunning: ${supportSnapshot.syncIsRunning}')
@@ -235,6 +248,16 @@ class LocalDiagnosticsReport {
       'likelyPermanentSyncRejections': likelyPermanentRejections,
       'totalSyncRejectionRows': totalRejections,
       'knowledgeMetaRows': knowledgeMetaRows,
+      'workflowCommandJournal': <String, dynamic>{
+        'ready': commandJournal.ready,
+        'sending': commandJournal.sending,
+        'uncertainOutcome': commandJournal.uncertainOutcome,
+        'manualReview': commandJournal.manualReview,
+        'applied': commandJournal.applied,
+        'rejected': commandJournal.rejected,
+        'total': commandJournal.total,
+        'unfinished': commandJournal.unfinished,
+      },
       'collectionsReported': collectionCount,
       'support': supportSnapshot.toMap(),
       'releaseIdentity': releaseSnapshot.toMap(),
@@ -851,6 +874,18 @@ class _DiagnosticsSummary extends StatelessWidget {
                 report.likelyPermanentRejections > 0
                     ? BafColors.danger
                     : BafColors.textSecondary,
+          ),
+          _SummaryChip(
+            label:
+                '${report.commandJournal.unfinished} unfinished commands'
+                '${report.commandJournal.unresolvedOutcome > 0 ? ' (${report.commandJournal.unresolvedOutcome} outcome unknown)' : ''}',
+            icon: Icons.pending_actions_rounded,
+            color:
+                report.commandJournal.unresolvedOutcome > 0
+                    ? BafColors.danger
+                    : report.commandJournal.unfinished > 0
+                    ? BafColors.warning
+                    : BafColors.success,
           ),
           _SummaryChip(
             label: '${report.knowledgeMetaRows} knowledge meta rows',
