@@ -266,3 +266,22 @@ surface, which already declares `isar` with read and mutating modes.
 Presentation persistence remains zero and the surface count is unchanged at 61.
 The frozen source-implemented closure receipt of 484 operations and 1,548 sites
 stands unaltered.
+
+## Outcome Inventory Re-arm, 2026-09-10
+
+The current governed successor contains 564 operations across 1,970
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`618CE2AC84FA29BB2B4644AFFF115EE7F0302610979667B09550687B4E1E25E7`.
+
+One classified read was added: the workflow repository can now report the
+command journal by outcome. The existing pending-command query excludes
+rejected rows because they are not retryable, which is correct for claiming
+and wrong for deciding what a person must still deal with; reusing it let an
+operator-facing rejection warning clear on the next quiet run while the
+rejected row was still stored.
+
+No re-arm trigger fired. It is an `isar` read inside the existing `repository`
+surface, which already declares read and mutating modes. Presentation
+persistence remains zero and the surface count is unchanged at 61. The frozen
+source-implemented closure receipt of 484 operations and 1,548 sites stands
+unaltered.

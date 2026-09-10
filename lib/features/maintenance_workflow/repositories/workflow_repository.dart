@@ -8,6 +8,33 @@ import '../data/workflow_command_receipt_record.dart';
 import '../data/workflow_command_record.dart';
 import '../data/workflow_event_record.dart';
 
+/// A count of the command journal by outcome, for deciding what to show.
+class WorkflowOutcomeInventory {
+  const WorkflowOutcomeInventory({
+    this.retrying = 0,
+    this.sending = 0,
+    this.rejected = 0,
+    this.manualReview = 0,
+  });
+
+  /// Eligible for automatic retry: it will progress on its own.
+  final int retrying;
+
+  /// Claimed and in flight.
+  final int sending;
+
+  /// Terminal. The server refused it and a person must decide what happens.
+  final int rejected;
+
+  /// Terminal for automatic purposes: it needs a person.
+  final int manualReview;
+
+  /// Work that will not move without someone acting.
+  int get needingAction => rejected + manualReview;
+
+  bool get isQuiet => retrying == 0 && sending == 0 && needingAction == 0;
+}
+
 /// Why a retry transition did or did not happen.
 enum WorkflowRetryTransitionOutcome {
   /// The transition was applied.
@@ -145,5 +172,38 @@ abstract interface class WorkflowRepository {
     DateTime? nextRetryAt,
   });
   Future<List<WorkflowCommandRecord>> getPendingCommands();
+
+  /// What the command journal currently holds, by outcome.
+  ///
+  /// Deliberately separate from [getPendingCommands], which excludes rejected
+  /// rows because they are not retryable. That exclusion is right for
+  /// claiming and wrong for attention: a rejection is precisely the thing a
+  /// person still has to deal with, and reusing that query let the warning
+  /// clear on the next quiet run while the rejected row was still there.
+  Future<WorkflowOutcomeInventory> readOutcomeInventory();
   Future<void> deleteRetryCommand(String commandId);
+}
+
+/// The operator-facing description of outstanding submitted work, or null when
+/// there is nothing to say.
+///
+/// Pure so the two-run behaviour can be exercised directly: the defect this
+/// replaces was that attention cleared on a quiet second run, and a test that
+/// only checked a value survives `copyWith` could never have shown it.
+///
+/// [inventory] is null when the journal could not be read. That is reported as
+/// unverified rather than as nothing outstanding: an unread journal establishes
+/// no absence.
+String? describeWorkflowAttention(WorkflowOutcomeInventory? inventory) {
+  if (inventory == null) {
+    return 'Submitted work could not be checked against local records.';
+  }
+  if (inventory.needingAction == 0) return null;
+  final parts = <String>[
+    if (inventory.rejected > 0) '${inventory.rejected} rejected',
+    if (inventory.manualReview > 0) '${inventory.manualReview} need review',
+  ];
+  // Retrying work is deliberately excluded: it progresses on its own and
+  // calling it "action needed" would train operators to ignore the warning.
+  return 'Submitted work needs attention: ${parts.join(', ')}';
 }

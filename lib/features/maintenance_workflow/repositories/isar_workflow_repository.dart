@@ -340,6 +340,20 @@ class IsarWorkflowRepository implements WorkflowRepository {
   }
 
   @override
+  Future<WorkflowOutcomeInventory> readOutcomeInventory() async {
+    Future<int> count(String stateKey) => isar.workflowCommandRecords
+        .filter()
+        .stateKeyEqualTo(stateKey)
+        .count();
+    return WorkflowOutcomeInventory(
+      retrying: await count('uncertainOutcome') + await count('ready'),
+      sending: await count('sending'),
+      rejected: await count('rejected'),
+      manualReview: await count('manualReview'),
+    );
+  }
+
+  @override
   Future<List<WorkflowCommandRecord>> getPendingCommands() => isar
       .workflowCommandRecords
       .where()

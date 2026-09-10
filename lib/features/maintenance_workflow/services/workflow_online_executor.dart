@@ -13,6 +13,22 @@ import 'workflow_outbox_policy.dart';
 
 /// Executes lifecycle commands online. A local row is retained only when the
 /// request may have reached the server but its receipt was lost.
+/// Local evidence about whether a submitted command was accepted.
+class _LocalAcceptanceEvidence {
+  const _LocalAcceptanceEvidence.accepted(this.receipt) : isUnavailable = false;
+  const _LocalAcceptanceEvidence.absent()
+    : receipt = null,
+      isUnavailable = false;
+
+  /// The store could not be read, so nothing was established either way.
+  const _LocalAcceptanceEvidence.unavailable()
+    : receipt = null,
+      isUnavailable = true;
+
+  final WorkflowCommandReceiptRecord? receipt;
+  final bool isUnavailable;
+}
+
 class WorkflowOnlineExecutor {
   final Connectivity connectivity;
   final WorkflowCommandGateway gateway;
@@ -49,11 +65,17 @@ class WorkflowOnlineExecutor {
       // is only "may I send a new one?" that is not. Refusing to read a
       // result the device already holds would report an accepted action as
       // never sent.
-      final settled = await _acceptedOutcomeFor(command);
+      final evidence = await _acceptedOutcomeFor(command);
+      final settled = evidence.receipt;
       if (settled != null) return _receiptFrom(settled);
-      throw const WorkflowException(
+      throw WorkflowException(
         WorkflowErrorCode.unavailable,
-        'Workflow lifecycle actions require an online connection.',
+        evidence.isUnavailable
+            // Saying it was not sent would assert something this device could
+            // not check.
+            ? 'Workflow lifecycle actions require an online connection, and '
+                  'this action could not be checked against local records.'
+            : 'Workflow lifecycle actions require an online connection.',
       );
     }
 
@@ -70,7 +92,8 @@ class WorkflowOnlineExecutor {
       // on a surviving row meant the ordinary successful state - accepted,
       // nothing outstanding - was reported as "not sent and has not been
       // queued".
-      final settled = await _acceptedOutcomeFor(command);
+      final evidence = await _acceptedOutcomeFor(command);
+      final settled = evidence.receipt;
       if (settled != null) return _receiptFrom(settled);
 
       final existing = await repository.getRetryCommand(command.commandId);
@@ -142,19 +165,28 @@ class WorkflowOnlineExecutor {
     }
   }
 
+  /// What local evidence says about a submitted command.
+  ///
+  /// `null` is the answer to a question, not the absence of one: it means the
+  /// store was read and held no receipt. A read that failed is a different
+  /// state, and collapsing the two let an unreadable store produce the same
+  /// "this action was not sent" message as verified absence.
+  ///
   /// The stored acceptance for this exact submitted command, if any.
   ///
   /// A receipt is only honoured when it belongs to the same aggregate as the
   /// command being resolved. A command id is replayed deliberately during
   /// recovery, so matching on it alone would let a changed request inherit an
   /// unrelated outcome.
-  Future<WorkflowCommandReceiptRecord?> _acceptedOutcomeFor(
+  Future<_LocalAcceptanceEvidence> _acceptedOutcomeFor(
     WorkflowCommand command,
   ) async {
     try {
       final receipt = await repository.getReceipt(command.commandId);
-      if (receipt == null) return null;
-      return receipt.aggregateId == command.aggregateId ? receipt : null;
+      if (receipt == null) return const _LocalAcceptanceEvidence.absent();
+      return receipt.aggregateId == command.aggregateId
+          ? _LocalAcceptanceEvidence.accepted(receipt)
+          : const _LocalAcceptanceEvidence.absent();
     } catch (error, stackTrace) {
       // An unreadable receipt store is not evidence of acceptance, and not
       // evidence of its absence either. The ordinary path still runs, because
@@ -165,7 +197,7 @@ class WorkflowOnlineExecutor {
         'read: $error. Any outcome reported below is unverified against it.',
       );
       debugPrintStack(stackTrace: stackTrace);
-      return null;
+      return const _LocalAcceptanceEvidence.unavailable();
     }
   }
 

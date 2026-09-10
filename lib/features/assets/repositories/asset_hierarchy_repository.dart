@@ -414,7 +414,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetClassRecord>> watchAssetClasses() {
     return _classes.snapshots().map((snapshot) {
       final records =
-          decodeSnapshotDocuments(snapshot, AssetClassRecord.fromMap, source: 'AssetClassRecord')
+          snapshot.docs.map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
               .toList();
       records.sort((left, right) {
         final status = left.status.index.compareTo(right.status.index);
@@ -454,7 +454,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              decodeSnapshotDocuments(snapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
+              snapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
                   .toList()
                 ..sort(
                   (left, right) =>
@@ -467,7 +467,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetInstanceRecord>> watchAllAssetInstances() {
     return _assetInstances.snapshots().map((snapshot) {
       final records =
-          decodeSnapshotDocuments(snapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
+          snapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(

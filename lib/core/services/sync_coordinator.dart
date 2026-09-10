@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/maintenance_workflow/providers/workflow_providers.dart';
+import '../../features/maintenance_workflow/repositories/workflow_repository.dart';
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
@@ -643,27 +644,38 @@ class SyncCoordinator {
           },
         );
       }
-      // Attention is taken from the journal, not from this run. A rejected or
-      // manual-review command is excluded from the next run's claim, so a
-      // run-scoped flag would let it vanish from view while it is still
-      // outstanding.
-      final outstanding = await _ref
-          .read(workflowRepositoryProvider)
-          .getPendingCommands();
-      final unresolved = outstanding
-          .where((row) => row.stateKey != 'ready')
-          .length;
-      final rejected = summary.rejected.length;
-      if (unresolved > 0 || rejected > 0) {
-        final parts = <String>[
-          if (unresolved > 0) '$unresolved awaiting resolution',
-          if (rejected > 0) '$rejected rejected',
-        ];
-        _workflowAttentionReason =
-            'Submitted workflow work needs attention: ${parts.join(', ')}';
-      } else {
-        _workflowAttentionReason = null;
+      // Attention comes from the journal, not from this run, and not from
+      // getPendingCommands: that query excludes rejected rows because they are
+      // not retryable, which is right for claiming and wrong here. Reusing it
+      // let the warning clear on the next quiet run while the rejection was
+      // still sitting there.
+      WorkflowOutcomeInventory? inventory;
+      try {
+        inventory = await _ref
+            .read(workflowRepositoryProvider)
+            .readOutcomeInventory();
+      } catch (error, stackTrace) {
+        // A journal that could not be read establishes no absence, so this
+        // reports unverified rather than quietly clearing the warning.
+        AppLogger.warning(
+          'Workflow outcome inventory could not be read',
+          context: {
+            'app_area': 'maintenance_workflow',
+            'sync_reason': reason,
+            'workflow_stage': 'outcome_inventory',
+            'workflow_error': '$error',
+          },
+        );
+        unawaited(
+          AppLogger.recordNonFatalError(
+            error,
+            stackTrace,
+            reason: 'workflow_outcome_inventory_failed',
+            context: {'sync_reason': reason},
+          ),
+        );
       }
+      _workflowAttentionReason = describeWorkflowAttention(inventory);
     } catch (error, stackTrace) {
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',

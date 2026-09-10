@@ -12810,10 +12810,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 563
-    and a03_inventory_report.get("siteCount") == 1967
+    and a03_inventory_report.get("operationCount") == 564
+    and a03_inventory_report.get("siteCount") == 1970
     and a03_inventory_report.get("inventoryDigest")
-        == "FF3CFDE311F9F1F66F35154AAF878D94DA5A71FE1562542DCEB1EE8A1CED1EC5"
+        == "618CE2AC84FA29BB2B4644AFFF115EE7F0302610979667B09550687B4E1E25E7"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")

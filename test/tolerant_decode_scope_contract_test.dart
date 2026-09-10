@@ -16,14 +16,17 @@ import 'package:flutter_test/flutter_test.dart';
 /// absence: a pending local deletion was counted converged and marked
 /// synchronized without the server ever being asked to delete anything.
 ///
-/// The dividing line is what a read is for. A one-shot `Future` read is asked
-/// a question whose answer drives a decision - create, update, delete,
-/// converge, resolve an identity, assemble evidence - and there "could not be
-/// decoded" must never collapse into "is not there". A `Stream` watch feeds a
-/// list on screen, where showing the readable rows beats showing nothing.
+/// The real rule is what the consumer infers from absence, and no syntactic
+/// check can establish that. `Future` versus `Stream` is a containment
+/// heuristic that happens to catch the one-shot reads which drive decisions -
+/// create, update, delete, converge, resolve an identity, assemble evidence -
+/// and it is not a semantic boundary. Streams feed decisions too: the plant
+/// summary computes its totals from a watched asset population, so those reads
+/// are strict as well despite being streams.
 ///
-/// So: tolerance lives only in stream watches until a batch can carry its own
-/// raw count, rejected identities and completeness.
+/// This guard therefore prevents one specific coding pattern from returning.
+/// It is not a consumer inventory and cannot show that every surviving
+/// tolerant stream is safe.
 void main() {
   final offenders = <String>[];
 

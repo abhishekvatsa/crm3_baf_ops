@@ -7,6 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// submitted command sat rejected or awaiting review. The retry summary was
 /// logged, but it never reached the decision the operator actually sees.
 ///
+/// These cover the carrier only - that the field survives a copyWith and that
+/// the indicator ranks it correctly. Whether attention is still *calculated*
+/// on a later run is a different question, and asserting copyWith could never
+/// have answered it: see workflow_attention_persistence_test.dart, which runs
+/// the real journal twice.
+///
 /// The two facts are deliberately separate: a data refresh completing is not
 /// the same as submitted work having landed, and collapsing them would either
 /// hide the work or call the whole sync a failure.
@@ -44,12 +50,14 @@ void main() {
 
   group('the coordinator and indicator honour it', () {
     test('attention is taken from the journal, not just this run', () {
-      // A rejected or manual-review command is excluded from the next run's
-      // claim, so a run-scoped flag would let it vanish while outstanding.
+      // getPendingCommands excludes rejected rows, so it cannot be the source
+      // of attention - that exclusion is what made a rejection vanish.
       final source =
           File('lib/core/services/sync_coordinator.dart').readAsStringSync();
 
-      expect(source, contains('getPendingCommands()'));
+      expect(source, contains('readOutcomeInventory()'));
+      expect(source, isNot(contains('getPendingCommands()')));
+      expect(source, contains('describeWorkflowAttention'));
       expect(source, contains('workflowAttentionReason: _workflowAttentionReason'));
       expect(source, contains('clearWorkflowAttention:'));
     });

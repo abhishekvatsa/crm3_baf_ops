@@ -63,6 +63,44 @@ void main() {
     expect(body, isNot(contains('decodeSnapshotDocuments')));
   });
 
+  final closeBrace = '${String.fromCharCode(10)}  }';
+
+  test('the plant population itself decodes strictly', () {
+    // Separate from the Down-to-Available case. That one dropped a
+    // restriction while keeping the asset; this one would drop the asset from
+    // the population, so a published total silently understates the plant.
+    final repo =
+        read('lib/features/assets/repositories/asset_hierarchy_repository.dart');
+
+    for (final method in const <String>[
+      'watchAllAssetInstances',
+      'watchAssetInstances',
+      'watchAssetClasses',
+    ]) {
+      final start = repo.indexOf('$method(');
+      expect(start, greaterThan(-1), reason: '$method should still exist');
+      final body = repo.substring(start, repo.indexOf(closeBrace, start));
+      expect(
+        body,
+        isNot(contains('decodeSnapshotDocuments')),
+        reason:
+            '$method feeds counts and selection; a dropped asset would be '
+            'indistinguishable from one that is not registered',
+      );
+    }
+  });
+
+  test('the overview cannot see incompleteness it was never told about', () {
+    // The provider surfaces AsyncError, but a tolerant decode returns
+    // AsyncData holding a short list - so nothing signals it. That is why the
+    // population reads stay strict rather than the provider gaining a check.
+    final provider =
+        read('lib/features/assets/providers/plant_asset_overview_provider.dart');
+
+    expect(provider, contains('asError'));
+    expect(provider, isNot(contains('quarantined')));
+  });
+
   test('the selection fallback reads a value that cannot throw', () {
     // Riverpod 2.6.1 AsyncValue.value throws when there is no previous value,
     // so `.value` on an errored provider would throw before the retained
