@@ -138,6 +138,36 @@ void main() {
       expect(repository.saved, isEmpty);
     });
 
+    test('an unreadable local record is not reported as never sent', () async {
+      // Wi-Fi present, Android blocking this app, the receipt store unreadable
+      // and no retry row. Saying the action was never sent asserts something
+      // this device could not check.
+      final repository = RecordingWorkflowRepository(existing: null)
+        ..receiptReadError = StateError('receipt store unavailable');
+      final gateway = _AlwaysUnavailableGateway();
+      final executor = WorkflowOnlineExecutor(
+        connectivity: Connectivity(),
+        gateway: gateway,
+        repository: repository,
+        now: () => now,
+        checkConnectivity: () async => <ConnectivityResult>[
+          ConnectivityResult.wifi,
+        ],
+        isNetworkBlocked: () async => true,
+      );
+
+      try {
+        await executor.execute(command);
+        fail('expected a WorkflowException');
+      } on WorkflowException catch (error) {
+        expect(error.message, contains('could not be checked'));
+        expect(error.message, isNot(contains('not been queued')));
+      }
+
+      expect(gateway.callCount, 0, reason: 'no new attempt is made');
+      expect(repository.saved, isEmpty);
+    });
+
     test('a first submission is not described as saved', () async {
       // Nothing was queued, so saying it was is the same class of fault as
       // telling someone a paused sync had failed: the operator cannot tell

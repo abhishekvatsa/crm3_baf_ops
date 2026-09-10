@@ -101,6 +101,30 @@ void main() {
     expect(describeWorkflowAttention(inventory), isNull);
   });
 
+  test('a retry phase that throws cannot skip the inventory', () {
+    // The coordinator reads the journal through claimRetryableCommands first,
+    // so a failure there used to jump past the inventory block entirely -
+    // leaving the reason null and the final write clearing the warning on a
+    // check that never ran. The inventory now sits outside that try, and a
+    // failed retry phase reports unverified even when the journal reads
+    // cleanly afterwards.
+    final source =
+        File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+
+    final method = source.substring(
+      source.indexOf('Future<void> _runWorkflowSupplementalSync'),
+    );
+    final body = method.substring(0, method.indexOf('workflowPullServiceProvider'));
+
+    expect(body, contains('retryPhaseFailed = true'));
+    expect(body, contains('could not be fully verified on this run'));
+    // The inventory must come after the retry catch closes, not inside it.
+    expect(
+      body.indexOf('retryPhaseFailed = true'),
+      lessThan(body.indexOf('readOutcomeInventory()')),
+    );
+  });
+
   test('an unreadable journal is unverified, not quiet', () {
     // The inventory read can fail. Clearing the warning then would assert an
     // absence nothing established.

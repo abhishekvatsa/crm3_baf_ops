@@ -45,8 +45,14 @@ class RecordingWorkflowRepository implements WorkflowRepository {
     _receipt = record;
   }
 
+  /// Makes the receipt store unreadable, which is a different answer from
+  /// "there is no receipt" and must not be reported as one.
+  Object? receiptReadError;
+
   @override
   Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId) async {
+    final failure = receiptReadError;
+    if (failure != null) throw failure;
     if (_receipt?.commandId == commandId) return _receipt;
     return null;
   }

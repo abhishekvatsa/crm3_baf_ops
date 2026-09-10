@@ -107,19 +107,26 @@ class WorkflowOnlineExecutor {
       final held = hold?.wasRecorded ?? false;
       // The message must describe what actually happened to the work. Telling
       // someone their action is saved when nothing was queued is the same
-      // class of fault as telling them a paused sync had failed.
+      // class of fault as telling them a paused sync had failed - and so is
+      // saying it was never sent when the local record could not be read to
+      // check. Unavailable evidence gets its own wording rather than
+      // borrowing the absence one.
       throw WorkflowException(
         WorkflowErrorCode.unavailable,
         held
             ? 'Android has paused network access for this app. This action is '
                 'saved and will be sent when the app is opened.'
-            : existing == null
-            ? 'Android has paused network access for this app. This action was '
-                'not sent and has not been queued. Open the app while '
-                'connected and try again.'
-            : 'Android has paused network access for this app. The earlier '
+            : existing != null
+            ? 'Android has paused network access for this app. The earlier '
                 'request is preserved but needs review before it is sent '
-                'again.',
+                'again.'
+            : evidence.isUnavailable
+            ? 'Android has paused network access for this app. No new attempt '
+                'was made, and the previous outcome could not be checked '
+                'against local records.'
+            : 'Android has paused network access for this app. This action was '
+                'not sent and has not been queued. Open the app while '
+                'connected and try again.',
       );
     }
 

@@ -620,6 +620,7 @@ class SyncCoordinator {
   String? _workflowAttentionReason;
 
   Future<void> _runWorkflowSupplementalSync({required String reason}) async {
+    var retryPhaseFailed = false;
     try {
       final summary = await _ref
           .read(workflowUncertainRetryServiceProvider)
@@ -644,11 +645,36 @@ class SyncCoordinator {
           },
         );
       }
-      // Attention comes from the journal, not from this run, and not from
-      // getPendingCommands: that query excludes rejected rows because they are
-      // not retryable, which is right for claiming and wrong here. Reusing it
-      // let the warning clear on the next quiet run while the rejection was
-      // still sitting there.
+    } catch (error, stackTrace) {
+      retryPhaseFailed = true;
+      AppLogger.warning(
+        'Workflow uncertain-command retry failed independently',
+        context: {
+          'app_area': 'maintenance_workflow',
+          'sync_reason': reason,
+          'workflow_stage': 'uncertain_retry',
+          'workflow_error': '$error',
+        },
+      );
+      unawaited(
+        AppLogger.recordNonFatalError(
+          error,
+          stackTrace,
+          reason: 'workflow_uncertain_retry_failed',
+          context: {'sync_reason': reason},
+        ),
+      );
+    }
+
+    // Attention comes from the journal, not from this run, and not from
+    // getPendingCommands: that query excludes rejected rows because they are
+    // not retryable, which is right for claiming and wrong here.
+    //
+    // Deliberately outside the retry try/catch. The retry service touches the
+    // journal first, through claimRetryableCommands, so a failure there used
+    // to jump straight past this block - leaving the reason null and the final
+    // write clearing the warning, on a check that never ran.
+    {
       WorkflowOutcomeInventory? inventory;
       try {
         inventory = await _ref
@@ -675,25 +701,13 @@ class SyncCoordinator {
           ),
         );
       }
-      _workflowAttentionReason = describeWorkflowAttention(inventory);
-    } catch (error, stackTrace) {
-      AppLogger.warning(
-        'Workflow uncertain-command retry failed independently',
-        context: {
-          'app_area': 'maintenance_workflow',
-          'sync_reason': reason,
-          'workflow_stage': 'uncertain_retry',
-          'workflow_error': '$error',
-        },
-      );
-      unawaited(
-        AppLogger.recordNonFatalError(
-          error,
-          stackTrace,
-          reason: 'workflow_uncertain_retry_failed',
-          context: {'sync_reason': reason},
-        ),
-      );
+      final described = describeWorkflowAttention(inventory);
+      // A retry phase that threw leaves its own outcome unestablished, even if
+      // the journal reads cleanly afterwards.
+      _workflowAttentionReason = described ??
+          (retryPhaseFailed
+              ? 'Submitted work could not be fully verified on this run.'
+              : null);
     }
 
     try {
