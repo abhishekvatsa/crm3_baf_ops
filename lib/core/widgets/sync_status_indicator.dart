@@ -8,6 +8,7 @@ import '../providers/sync_status_provider.dart';
 import '../services/auto_sync_service.dart';
 import '../services/live_remote_sync_service.dart';
 import '../services/local_sync_recovery_service.dart';
+import '../services/app_network_access_status.dart';
 import '../services/sync_coordinator.dart';
 import '../services/sync_rejection_service.dart';
 import '../services/sync_service.dart';
@@ -44,12 +45,16 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
     final pendingAsync = ref.watch(syncPendingCountsProvider);
 
     final pendingCount = pendingAsync.asData?.value.total;
+    final networkAccess =
+        ref.watch(appNetworkAccessProvider).asData?.value ??
+        AppNetworkAccess.unknown;
     final visual = _visualFor(
       status,
       conflictCount,
       runHealth,
       liveHealth,
       pendingCount,
+      networkAccess,
     );
     final isSyncing = status == SyncStatus.syncing || runHealth.isRunning;
 
@@ -210,6 +215,10 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
               final actorAsync = ref.watch(currentAppUserProvider);
               final actor = actorAsync.asData?.value;
               final recoveryActive = ref.watch(syncLocalRecoveryActiveProvider);
+              final networkAccessExplanation =
+                  (ref.watch(appNetworkAccessProvider).asData?.value ??
+                          AppNetworkAccess.unknown)
+                      .operatorExplanation;
               final permanentRejectionCount =
                   ref
                       .watch(unresolvedPermanentSyncRejectionCountProvider)
@@ -300,6 +309,49 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                           ],
                         ),
                         const SizedBox(height: BafSpacing.lg),
+                        // Stated before any health counter, because it changes
+                        // what those counters mean: a refused request is not a
+                        // fault, and the work behind it is waiting rather than
+                        // lost.
+                        if (networkAccessExplanation != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(BafSpacing.md),
+                            decoration: BoxDecoration(
+                              color: BafColors.warning.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(
+                                BafRadius.medium,
+                              ),
+                              border: Border.all(
+                                color: BafColors.warning.withValues(
+                                  alpha: 0.35,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.pause_circle_outline_rounded,
+                                  color: BafColors.warning,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: BafSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    networkAccessExplanation,
+                                    style: const TextStyle(
+                                      color: BafColors.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: BafSpacing.lg),
+                        ],
                         _HealthCard(
                           title: 'Manual override',
                           icon: Icons.sync_rounded,
@@ -735,6 +787,7 @@ _SyncVisual _visualFor(
   SyncRunHealth runHealth,
   LiveRemoteSyncHealth liveHealth,
   int? pendingCount,
+  AppNetworkAccess networkAccess,
 ) {
   if (status == SyncStatus.syncing || runHealth.isRunning) {
     return _SyncVisual(
@@ -752,6 +805,19 @@ _SyncVisual _visualFor(
       icon: Icons.warning_amber_rounded,
       color: BafColors.warning,
       label: conflictCount == 1 ? '1 conflict' : '$conflictCount conflicts',
+    );
+  }
+
+  // A refused request is not a fault. While Android is withholding this app's
+  // network access, "Sync issue" in red tells an operator their work is in
+  // trouble when it is intact and waiting. Conflicts still outrank this,
+  // because they are real data disagreements that a resumed network will not
+  // resolve on its own.
+  if (networkAccess.willRefuseRequests) {
+    return const _SyncVisual(
+      icon: Icons.pause_circle_outline_rounded,
+      color: BafColors.warning,
+      label: 'Paused by Android',
     );
   }
 
