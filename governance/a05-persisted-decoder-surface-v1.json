@@ -1991,6 +1991,19 @@
       "malformedDisposition": "throw a blocking command error and require authoritative readback before reporting success",
       "regression": "test/morning_review_command_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed Morning Review command evidence is accepted or reported as successful"
+    },
+    {
+      "id": "tolerant-live-snapshot-decode",
+      "file": "lib/core/serialization/tolerant_snapshot_decode.dart",
+      "siteFingerprint": "b0ae0677dff3dda6acdf87952cc487636133042ede77cdb23ab79ae304bfe635",
+      "classification": "LOCAL_READ_PROJECTION",
+      "purpose": "quarantine a single malformed live-query document so the remaining documents in the collection are still delivered",
+      "authorityBoundary": "read-only projection of a Firestore query snapshot; the server remains authoritative and no local write occurs",
+      "mutability": "read-only",
+      "dataScope": "one document of a live governed collection snapshot",
+      "malformedDisposition": "skip and count the offending document, report it with its id, never repair, guess or substitute a placeholder record",
+      "regression": "test/tolerant_snapshot_decode_test.dart",
+      "reArmCondition": "a quarantined document is silently dropped without report or count, or a substitute record is synthesised in its place"
     }
   ]
 }

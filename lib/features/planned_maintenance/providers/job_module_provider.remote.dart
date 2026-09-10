@@ -112,8 +112,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     final snap = await query.get();
-    return snap.docs
-        .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+    return decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
         .toList();
   }
 
@@ -146,8 +145,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) => snap.docs
-          .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+      (snap) => decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
           .toList(),
     );
   }
@@ -453,8 +451,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedJobModuleResult(
-      records: snap.docs
-          .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+      records: decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -473,7 +470,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id)),
+        decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance'),
       );
     }
     return results;

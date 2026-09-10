@@ -353,8 +353,7 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<List<TemplatePackage>> getAllPackages() async {
     final snap = await _packages.where('isDeleted', isEqualTo: false).get();
-    final records = snap.docs
-        .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+    final records = decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
         .toList();
     records.sort((a, b) => a.title.compareTo(b.title));
     return records;
@@ -367,8 +366,7 @@ class FirestoreTemplateGovernanceRepository
         .orderBy('title');
     if (limit != null) query = query.limit(limit);
     return query.snapshots().map(
-      (snap) => snap.docs
-          .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+      (snap) => decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
           .toList(),
     );
   }
@@ -395,8 +393,7 @@ class FirestoreTemplateGovernanceRepository
         .where('packageFirestoreId', isEqualTo: packageFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    final records = snap.docs
-        .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+    final records = decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
         .toList();
     records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
     return records;
@@ -411,8 +408,7 @@ class FirestoreTemplateGovernanceRepository
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snap) {
-          final records = snap.docs
-              .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+          final records = decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
               .toList();
           records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
           return records;
@@ -440,8 +436,7 @@ class FirestoreTemplateGovernanceRepository
     final snap = await _audits
         .where('versionFirestoreId', isEqualTo: versionFirestoreId)
         .get();
-    final records = snap.docs
-        .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+    final records = decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit')
         .where((record) => !record.isDeleted)
         .toList();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
@@ -579,8 +574,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplatePackageResult(
-      records: snap.docs
-          .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+      records: decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -609,8 +603,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateVersionResult(
-      records: snap.docs
-          .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+      records: decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -639,8 +632,7 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateAuditResult(
-      records: snap.docs
-          .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+      records: decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit')
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -658,7 +650,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id)),
+        decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage'),
       );
     }
     return results;
@@ -692,7 +684,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id)),
+        decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion'),
       );
     }
     return results;
@@ -836,9 +828,7 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map(
-          (doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id),
-        ),
+        decodeSnapshotDocuments(snap, TemplatePublishAudit.fromMap, source: 'TemplatePublishAudit'),
       );
     }
     return results;

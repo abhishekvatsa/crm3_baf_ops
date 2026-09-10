@@ -11,6 +11,7 @@ import '../data/asset_hierarchy_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 const assetHierarchyCallableName = 'mutateAssetHierarchy';
 const assetHierarchyCallableRegion = 'asia-south1';
@@ -413,8 +414,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetClassRecord>> watchAssetClasses() {
     return _classes.snapshots().map((snapshot) {
       final records =
-          snapshot.docs
-              .map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
+          decodeSnapshotDocuments(snapshot, AssetClassRecord.fromMap, source: 'AssetClassRecord')
               .toList();
       records.sort((left, right) {
         final status = left.status.index.compareTo(right.status.index);
@@ -436,8 +436,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs
-                  .map((doc) => AssetHierarchyNode.fromMap(doc.data(), doc.id))
+              decodeSnapshotDocuments(snapshot, AssetHierarchyNode.fromMap, source: 'AssetHierarchyNode')
                   .toList();
           records.sort((left, right) {
             final order = left.sortOrder.compareTo(right.sortOrder);
@@ -455,8 +454,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs
-                  .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+              decodeSnapshotDocuments(snapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
                   .toList()
                 ..sort(
                   (left, right) =>
@@ -469,8 +467,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetInstanceRecord>> watchAllAssetInstances() {
     return _assetInstances.snapshots().map((snapshot) {
       final records =
-          snapshot.docs
-              .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+          decodeSnapshotDocuments(snapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(
@@ -487,11 +484,7 @@ class AssetHierarchyRepository {
   Stream<List<AssetOperationalConditionRecord>> watchAssetConditions() {
     return _assetConditions.snapshots().map((snapshot) {
       final records =
-          snapshot.docs
-              .map(
-                (doc) =>
-                    AssetOperationalConditionRecord.fromMap(doc.data(), doc.id),
-              )
+          decodeSnapshotDocuments(snapshot, AssetOperationalConditionRecord.fromMap, source: 'AssetOperationalConditionRecord')
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(
@@ -508,8 +501,7 @@ class AssetHierarchyRepository {
   Stream<List<InnerCoverProfile>> watchInnerCoverProfiles() {
     return _innerCoverProfiles.snapshots().map((snapshot) {
       final records =
-          snapshot.docs
-              .map((doc) => InnerCoverProfile.fromMap(doc.data(), doc.id))
+          decodeSnapshotDocuments(snapshot, InnerCoverProfile.fromMap, source: 'InnerCoverProfile')
               .toList()
             ..sort(
               (left, right) => left.normalizedSerialNumber.compareTo(
@@ -523,10 +515,7 @@ class AssetHierarchyRepository {
   Stream<List<BaseInnerCoverAssignment>> watchInnerCoverAssignments() {
     return _innerCoverAssignments.snapshots().map((snapshot) {
       final records =
-          snapshot.docs
-              .map(
-                (doc) => BaseInnerCoverAssignment.fromMap(doc.data(), doc.id),
-              )
+          decodeSnapshotDocuments(snapshot, BaseInnerCoverAssignment.fromMap, source: 'BaseInnerCoverAssignment')
               .toList()
             ..sort(
               (left, right) =>
@@ -542,8 +531,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs
-                  .map((doc) => InnerCoverLinkage.fromMap(doc.data(), doc.id))
+              decodeSnapshotDocuments(snapshot, InnerCoverLinkage.fromMap, source: 'InnerCoverLinkage')
                   .toList()
                 ..sort(
                   (left, right) =>
@@ -561,8 +549,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs
-                  .map((doc) => InnerCoverLinkage.fromMap(doc.data(), doc.id))
+              decodeSnapshotDocuments(snapshot, InnerCoverLinkage.fromMap, source: 'InnerCoverLinkage')
                   .toList()
                 ..sort(
                   (left, right) =>
@@ -599,8 +586,7 @@ class AssetHierarchyRepository {
             .where('legacyAssetTypeKey', isEqualTo: legacyAssetTypeKey)
             .get();
     final matchingClasses =
-        classSnapshot.docs
-            .map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
+        decodeSnapshotDocuments(classSnapshot, AssetClassRecord.fromMap, source: 'AssetClassRecord')
             .where((record) => record.isActive)
             .toList();
     if (matchingClasses.isEmpty) return null;
@@ -617,8 +603,7 @@ class AssetHierarchyRepository {
             .limit(2)
             .get();
     final matchingAssets =
-        assetSnapshot.docs
-            .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+        decodeSnapshotDocuments(assetSnapshot, AssetInstanceRecord.fromMap, source: 'AssetInstanceRecord')
             .where((record) => record.isActive)
             .toList();
     if (matchingAssets.length != 1) {
@@ -692,11 +677,7 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs
-                  .map(
-                    (doc) =>
-                        InstalledComponentRecord.fromMap(doc.data(), doc.id),
-                  )
+              decodeSnapshotDocuments(snapshot, InstalledComponentRecord.fromMap, source: 'InstalledComponentRecord')
                   .toList()
                 ..sort(
                   (left, right) => left.definitionName.toLowerCase().compareTo(

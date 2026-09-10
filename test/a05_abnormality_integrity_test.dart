@@ -521,11 +521,13 @@ void main() {
       expect(model, isNot(contains('_enumByNameOr')));
       expect(reader, contains('must match the document ID'));
       expect(reader, contains('must not contain duplicate asset'));
-      expect(provider, contains('AbnormalityType.fromMap(doc.data(), doc.id)'));
-      expect(
-        provider,
-        contains('ChargeAbnormality.fromMap(doc.data(), doc.id)'),
-      );
+      // Live pages decode through the strict reader before returning. The
+      // reader is now handed to decodeSnapshotDocuments as a tear-off, which
+      // isolates a malformed document instead of letting it end the stream
+      // and blank the screen. The decoder itself is unchanged.
+      expect(provider, contains('decodeSnapshotDocuments('));
+      expect(provider, contains('AbnormalityType.fromMap'));
+      expect(provider, contains('ChargeAbnormality.fromMap'));
       expect(provider, contains('_validateTypeForSave(type)'));
       expect(provider, contains('_validateAbnormalityForSave(abnormality)'));
       expect(provider, isNot(contains('_ensureTypeDefaults')));

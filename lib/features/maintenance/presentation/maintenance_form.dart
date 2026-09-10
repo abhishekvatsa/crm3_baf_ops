@@ -89,6 +89,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   AssetType _assetType = AssetType.base;
   String? _issueAssetClassId;
   String? _assetInstanceId;
+
+  /// The exact records the pickers resolved.
+  ///
+  /// Kept because the submit used to re-derive them from live Firestore
+  /// streams whose value is null while re-subscribing, which rejected a
+  /// selection still visible on screen. See resolveSelectedPhysicalAsset.
+  GovernedIssueAssetRoute? _selectedRouteRecord;
+  AssetInstanceRecord? _selectedAssetRecord;
   MaintenanceType _maintenanceType = MaintenanceType.breakdown;
   RoutedTo _routedTo = RoutedTo.mechanical;
   final Set<RoutedTo> _routedLanes = <RoutedTo>{RoutedTo.mechanical};
@@ -368,13 +376,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   GovernedIssueAssetRoute? _selectedAssetRoute() {
     final classId = _issueAssetClassId;
-    final classes = ref.read(assetClassesProvider).value;
-    if (classId == null || classes == null) return null;
-    final issueClass = classes.where((item) => item.id == classId).firstOrNull;
-    if (issueClass == null) return null;
-    return resolveGovernedIssueAssetRoute(
-      issueClass: issueClass,
-      allClasses: classes,
+    if (classId == null) return null;
+    return resolveSelectedIssueAssetRoute(
+      classId: classId,
+      liveClasses: ref.read(assetClassesProvider).value,
+      retained: _selectedRouteRecord,
     );
   }
 
@@ -385,22 +391,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     if (route == null || assetId == null || physicalClassId == null) {
       return null;
     }
-    final assets = ref.read(assetInstancesProvider(physicalClassId)).value;
-    return assets
-        ?.where(
-          (item) =>
-              item.id == assetId &&
-              item.isActive &&
-              item.assetClassId == physicalClassId,
-        )
-        .firstOrNull;
+    return resolveSelectedPhysicalAsset(
+      assetId: assetId,
+      physicalClassId: physicalClassId,
+      liveAssets: ref.read(assetInstancesProvider(physicalClassId)).value,
+      retained: _selectedAssetRecord,
+    );
   }
 
   void _selectIssueAssetRoute(GovernedIssueAssetRoute? route) {
     if (_issueAssetClassId == route?.issueClass.id) return;
     setState(() {
       _issueAssetClassId = route?.issueClass.id;
+      _selectedRouteRecord = route;
       _assetInstanceId = null;
+      _selectedAssetRecord = null;
       _assetType = route?.assetType ?? AssetType.base;
       if (_assetType != AssetType.furnace) _resetBurnerLockout();
       _resetAssetEvidence();
@@ -411,6 +416,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     if (_assetInstanceId == asset?.id) return;
     setState(() {
       _assetInstanceId = asset?.id;
+      _selectedAssetRecord = asset;
       _resetAssetEvidence();
       _assetHierarchyReference = asset?.toReference();
     });
@@ -543,8 +549,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _intakeMode = mode;
         _resetBurnerLockout();
         _issueAssetClassId = route.issueClass.id;
+        _selectedRouteRecord = route;
         _assetType = AssetType.furnace;
         _assetInstanceId = null;
+        _selectedAssetRecord = null;
         _stuckupBaseAssetId = null;
         _stuckupConfirmedLinkageId = null;
         _stuckupPhysicalMismatch = false;
@@ -566,7 +574,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _stuckupConfirmedLinkageId = null;
       _stuckupPhysicalMismatch = false;
       _issueAssetClassId = null;
+      _selectedRouteRecord = null;
       _assetInstanceId = null;
+      _selectedAssetRecord = null;
       _assetType = AssetType.base;
       _resetAssetEvidence();
       _isCritical = false;

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/asset_availability_record.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 final assetAvailabilityProvider = StreamProvider<List<AssetAvailabilityRecord>>(
   (ref) {
@@ -10,9 +11,7 @@ final assetAvailabilityProvider = StreamProvider<List<AssetAvailabilityRecord>>(
         .snapshots()
         .map(
           (snapshot) => List<AssetAvailabilityRecord>.unmodifiable(
-            snapshot.docs.map(
-              (doc) => AssetAvailabilityRecord.fromMap(doc.data(), doc.id),
-            ),
+            decodeSnapshotDocuments(snapshot, AssetAvailabilityRecord.fromMap, source: 'AssetAvailabilityRecord'),
           ),
         );
   },

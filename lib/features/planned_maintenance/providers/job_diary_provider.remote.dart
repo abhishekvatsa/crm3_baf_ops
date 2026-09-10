@@ -76,8 +76,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       if (limit != null) query = query.limit(limit);
 
       final snap = await query.get();
-      return snap.docs
-          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+      return decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
           .toList();
     }
 
@@ -113,8 +112,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) => snap.docs
-          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+      (snap) => decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
           .toList(),
     );
   }
@@ -241,8 +239,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedDiaryResult(
-      records: snap.docs
-          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+      records: decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -259,7 +256,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id)),
+        decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry'),
       );
     }
     return results;
