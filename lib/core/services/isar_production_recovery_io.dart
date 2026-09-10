@@ -185,6 +185,23 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
   );
 }
 
+/// Writes an extra evidence file beside an existing recovery package.
+///
+/// The package captures the database. Preference-backed state — pull cursors,
+/// schema provenance, the command idempotency keys that stop a retry becoming
+/// a duplicate submission, and unsent drafts — lives outside it and would
+/// otherwise be lost from the record. Returns the written path, or null when
+/// the platform has no filesystem.
+Future<String?> writeRecoveryAncillaryStateFile({
+  required String directoryPath,
+  required String fileName,
+  required String contents,
+}) async {
+  final file = File('$directoryPath/$fileName');
+  await file.writeAsString(contents, flush: true);
+  return file.path;
+}
+
 Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
   required Isar database,
   required String diagnosticsText,

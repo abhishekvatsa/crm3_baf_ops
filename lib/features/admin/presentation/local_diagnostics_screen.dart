@@ -11,13 +11,13 @@ import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
-import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_service.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../services/local_diagnostics_read_adapter.dart';
+import '../services/local_recovery_package_service.dart';
 import 'local_diagnostics_exporter.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
@@ -718,17 +718,24 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
     LocalDiagnosticsReport report,
   ) async {
     try {
-      final result = await createIsarRecoveryPackage(
+      final outcome = await LocalRecoveryPackageService().create(
         diagnosticsText: report.toClipboardText(),
         manifestJsonText: report.toRecoveryManifestJsonText(),
         reason: 'admin_local_diagnostics_open_db',
       );
-      await Clipboard.setData(ClipboardData(text: result.directoryPath));
+      await Clipboard.setData(ClipboardData(text: outcome.directoryPath));
       if (!context.mounted) return;
+      // The summary states the basis of the copy and what it excludes. A bare
+      // "created" reads as a verified backup, and support acted on that
+      // reading during the 2026-09-09 incident.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 8),
+          backgroundColor:
+              outcome.coversDatabase ? null : BafColors.danger,
           content: Text(
-            'Recovery package created. ${result.copiedFileCount} DB file(s) copied. Folder path copied.',
+            '${outcome.operatorSummary} Folder path copied.'
+            '${outcome.warnings.isEmpty ? '' : ' ${outcome.warnings.join(' ')}'}',
           ),
         ),
       );
