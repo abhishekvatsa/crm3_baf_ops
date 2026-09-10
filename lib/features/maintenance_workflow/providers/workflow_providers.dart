@@ -22,6 +22,7 @@ import '../services/workflow_command_gateway.dart';
 import '../services/workflow_online_executor.dart';
 import '../services/workflow_pull_service.dart';
 import '../services/workflow_uncertain_retry_service.dart';
+import '../../../core/services/app_network_access_status.dart';
 
 final workflowRepositoryProvider = Provider<WorkflowRepository>((ref) {
   return IsarWorkflowRepository(isar);
@@ -42,6 +43,14 @@ final workflowOnlineExecutorProvider = Provider<WorkflowOnlineExecutor>((ref) {
     gateway: ref.read(workflowCommandGatewayProvider),
     repository: ref.read(workflowRepositoryProvider),
     now: DateTime.now,
+    // Connectivity reports whether a network exists; it cannot see that this
+    // application's own requests are being refused. Without this the retry
+    // budget is spent on calls the platform was never going to let out.
+    isNetworkBlocked: () async {
+      final access = ref.read(appNetworkAccessProvider).asData?.value;
+      if (access == null || access == AppNetworkAccess.unknown) return null;
+      return access.willRefuseRequests;
+    },
   );
 });
 
