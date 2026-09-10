@@ -52,24 +52,34 @@ class WorkflowUncertainRetryService {
         break;
       }
       final claimedAt = row.lastAttemptAt!;
+      // Decoding is separated from execution. Catching both together treated a
+      // StateError raised anywhere inside the send as evidence that the stored
+      // payload was malformed, which it is not.
+      final WorkflowCommand command;
       try {
-        final command = _command(row);
+        command = _command(row);
+      } catch (error) {
+        // Replaying intent that cannot be read is unsafe, so this is terminal.
+        // It still goes through the receipt-aware transition: if the command
+        // was accepted in the meantime, it must not be resurrected as
+        // outstanding work needing review.
+        await repository.applyRetryTransitionUnlessAccepted(
+          commandId: row.commandId,
+          build: (current) {
+            final target = current ?? row;
+            return target
+              ..stateKey = 'manualReview'
+              ..nextRetryAt = null
+              ..lastErrorCode = 'malformedLocalCommand'
+              ..lastErrorMessage = error.toString();
+          },
+        );
+        continue;
+      }
+      try {
         await executor.execute(command);
         applied += 1;
       } catch (error) {
-        // WorkflowOnlineExecutor records typed server failures. Decode failures
-        // are terminal because replaying malformed local intent is unsafe.
-        if (error is FormatException ||
-            error is StateError ||
-            error is TypeError) {
-          row
-            ..stateKey = 'manualReview'
-            ..nextRetryAt = null
-            ..lastErrorCode = 'malformedLocalCommand'
-            ..lastErrorMessage = error.toString();
-          await repository.saveRetryCommand(row);
-          continue;
-        }
         // Anything else left no verdict. Hand the claim back now rather than
         // making the operator wait out the lease; the release is ignored if
         // the executor already settled the row or another caller has since

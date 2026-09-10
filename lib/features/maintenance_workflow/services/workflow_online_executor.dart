@@ -60,7 +60,16 @@ class WorkflowOnlineExecutor {
     // lifecycle commands it cannot send.
     if (await _platformIsWithholdingNetwork()) {
       final existing = await repository.getRetryCommand(command.commandId);
-      final held = existing != null && await _holdWithoutAttempt(existing);
+      final hold =
+          existing == null ? null : await _holdWithoutAttempt(existing);
+      // Acceptance found while the platform was withholding the network is
+      // still acceptance. Reporting "needs review before it is sent again"
+      // for a command whose receipt was just read would be wrong.
+      final acceptedDuringHold = hold?.receipt;
+      if (hold != null && hold.wasAlreadyAccepted && acceptedDuringHold != null) {
+        return _receiptFrom(acceptedDuringHold);
+      }
+      final held = hold?.wasRecorded ?? false;
       // The message must describe what actually happened to the work. Telling
       // someone their action is saved when nothing was queued is the same
       // class of fault as telling them a paused sync had failed.
@@ -95,22 +104,27 @@ class WorkflowOnlineExecutor {
       }
       return receipt;
     } on WorkflowException catch (error) {
+      WorkflowRetryTransition? transition;
       try {
-        final transition = await _recordFailure(command, error);
-        final accepted = transition.receipt;
-        if (transition.wasAlreadyAccepted && accepted != null) {
-          // Another attempt of this same command was accepted. Reporting the
-          // transport failure would tell the operator their work did not land
-          // when it did. Acceptance is authoritative; an outstanding
-          // projection refresh is a different matter.
-          return _receiptFrom(accepted);
-        }
+        transition = await _recordFailure(command, error);
       } catch (recordError, stackTrace) {
         debugPrint(
           'Workflow command ${command.commandId} failed and its local retry '
           'diagnostic could not be saved: $recordError',
         );
         debugPrintStack(stackTrace: stackTrace);
+      }
+      final accepted = transition?.receipt;
+      if (accepted != null && transition!.wasAlreadyAccepted) {
+        // Another attempt of this same command was accepted. Reporting the
+        // transport failure would tell the operator their work did not land
+        // when it did. Acceptance is authoritative; an outstanding projection
+        // refresh is a different matter.
+        //
+        // Reconstruction sits outside the diagnostic catch on purpose. A
+        // damaged stored receipt is an integrity problem about accepted work,
+        // not a transport failure, and must not be reported as one.
+        return _receiptFrom(accepted);
       }
       rethrow;
     }
@@ -132,9 +146,13 @@ class WorkflowOnlineExecutor {
   ///
   /// Returns whether the command is now waiting to be retried, so the caller
   /// can say so truthfully rather than assuming it.
-  Future<bool> _holdWithoutAttempt(WorkflowCommandRecord record) async {
+  Future<WorkflowRetryTransition> _holdWithoutAttempt(
+    WorkflowCommandRecord record,
+  ) async {
     if (record.stateKey == 'rejected' || record.stateKey == 'manualReview') {
-      return false;
+      return const WorkflowRetryTransition(
+        WorkflowRetryTransitionOutcome.noChange,
+      );
     }
     // The same guarded transition, so a hold cannot return accepted work to
     // "waiting" when acceptance lands first.
@@ -155,7 +173,7 @@ class WorkflowOnlineExecutor {
               'attempt was made.';
       },
     );
-    return !transition.wasAlreadyAccepted;
+    return transition;
   }
 
   /// Records the outcome of a failed attempt, unless the command was already
@@ -227,19 +245,25 @@ class WorkflowOnlineExecutor {
 
   /// Rebuilds the accepted outcome from its stored receipt.
   ///
-  /// The stored payload is deliberately not re-decoded. Nothing reads
-  /// `result` on this path, and decoding persisted bytes here would add an
-  /// unclassified decoder surface with no consumer and no considered
-  /// malformed disposition. The fields that establish the outcome - which
-  /// command, what result, which version, when applied - are stored as typed
-  /// columns and need no decoding.
+  /// The stored payload is decoded, not substituted. Callers validate this
+  /// receipt against the command they issued: the maintenance issue and lane
+  /// reconcilers read `ticketId`, `auditId`, `lane` and corrected-field
+  /// evidence out of `result`, and the critical alarm, inspection and
+  /// administrative closure callers read their own keys. Returning an empty
+  /// map would make those validators reject an outcome the server had
+  /// genuinely accepted, so the operator would be told an accepted action had
+  /// failed - the exact fault this recovery path exists to prevent.
+  ///
+  /// Decoding goes through the same bounded reader the wire path uses, so a
+  /// malformed stored payload raises a persisted-data error instead of
+  /// silently becoming an empty result.
   WorkflowCommandReceipt _receiptFrom(WorkflowCommandReceiptRecord record) {
-    return WorkflowCommandReceipt(
-      commandId: record.commandId,
-      resultKey: record.resultKey,
-      aggregateVersion: record.aggregateVersion,
-      result: const <String, Object?>{},
-      appliedAt: record.appliedAt,
-    );
+    return WorkflowCommandReceipt.fromMap(<String, dynamic>{
+      'commandId': record.commandId,
+      'resultKey': record.resultKey,
+      'aggregateVersion': record.aggregateVersion,
+      'result': record.resultJson,
+      'appliedAt': record.appliedAt.toUtc().toIso8601String(),
+    });
   }
 }

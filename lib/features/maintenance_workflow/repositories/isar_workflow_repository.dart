@@ -230,9 +230,12 @@ class IsarWorkflowRepository implements WorkflowRepository {
               .commandIdEqualTo(commandId)
               .findFirst();
       final next = build(current);
-      if (next != null) {
-        await isar.workflowCommandRecords.put(next);
+      if (next == null) {
+        return const WorkflowRetryTransition(
+          WorkflowRetryTransitionOutcome.noChange,
+        );
       }
+      await isar.workflowCommandRecords.put(next);
       return const WorkflowRetryTransition(
         WorkflowRetryTransitionOutcome.recorded,
       );

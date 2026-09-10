@@ -13,6 +13,11 @@ enum WorkflowRetryTransitionOutcome {
   /// The transition was applied.
   recorded,
 
+  /// Nothing was written, because the row's current state made the
+  /// transition inapplicable. Distinct from [recorded] so a caller cannot
+  /// describe work as held when no hold was made.
+  noChange,
+
   /// The server had already accepted the command, so no retry state was
   /// written. The accepted result stands.
   alreadyAccepted,
@@ -26,6 +31,8 @@ class WorkflowRetryTransition {
 
   bool get wasAlreadyAccepted =>
       outcome == WorkflowRetryTransitionOutcome.alreadyAccepted;
+
+  bool get wasRecorded => outcome == WorkflowRetryTransitionOutcome.recorded;
 }
 
 abstract interface class WorkflowRepository {

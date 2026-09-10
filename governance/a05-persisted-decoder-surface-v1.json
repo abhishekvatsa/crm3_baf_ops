@@ -273,7 +273,7 @@
       "compatibility": "none",
       "regression": "test/workflow_uncertain_retry_service_test.dart",
       "reArmCondition": "malformed retry payload is discarded or executed",
-      "riskFingerprint": "a6c3cda68c54c5883f26af00eb861d3c475f7d07346cdeac9cb42aa975061019"
+      "riskFingerprint": "99acfe16cd09c01f298d0f71d8f8c2beede053b0c8d09c32d8a0ec8578e647b1"
     },
     {
       "id": "maintenance-resolution-history",
