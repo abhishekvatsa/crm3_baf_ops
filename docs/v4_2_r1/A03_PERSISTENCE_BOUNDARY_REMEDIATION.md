@@ -249,3 +249,20 @@ The frozen source-implemented closure receipt of 484 operations and 1,548 sites
 stands unaltered. This entry records classified growth inside already-closed
 boundaries; it is not a new closure and carries no deployment or release
 authority.
+
+## Recovery Boundary Re-arm, 2026-09-10
+
+The current governed successor contains 563 operations across 1,967
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`FF3CFDE311F9F1F66F35154AAF878D94DA5A71FE1562542DCEB1EE8A1CED1EC5`.
+
+No operation was added. One site was: the retry claim now excludes commands a
+run has already handled, because a released command keeps its due time and the
+oldest one was otherwise handed back immediately, leaving every command behind
+it unattempted.
+
+No re-arm trigger fired. The change is inside the existing `repository`
+surface, which already declares `isar` with read and mutating modes.
+Presentation persistence remains zero and the surface count is unchanged at 61.
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered.

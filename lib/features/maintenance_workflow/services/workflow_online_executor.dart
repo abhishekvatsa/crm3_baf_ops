@@ -45,6 +45,12 @@ class WorkflowOnlineExecutor {
     final connectivityResult =
         await (checkConnectivity?.call() ?? connectivity.checkConnectivity());
     if (connectivityResult.every((value) => value == ConnectivityResult.none)) {
+      // "What happened to this submitted command?" is answerable offline; it
+      // is only "may I send a new one?" that is not. Refusing to read a
+      // result the device already holds would report an accepted action as
+      // never sent.
+      final settled = await _acceptedOutcomeFor(command);
+      if (settled != null) return _receiptFrom(settled);
       throw const WorkflowException(
         WorkflowErrorCode.unavailable,
         'Workflow lifecycle actions require an online connection.',
@@ -59,12 +65,18 @@ class WorkflowOnlineExecutor {
     // fails in front of the person making it, because this app does not accept
     // lifecycle commands it cannot send.
     if (await _platformIsWithholdingNetwork()) {
+      // Asked before anything else, because a settled command has no retry row
+      // by design: settlement removes it. Making the receipt check conditional
+      // on a surviving row meant the ordinary successful state - accepted,
+      // nothing outstanding - was reported as "not sent and has not been
+      // queued".
+      final settled = await _acceptedOutcomeFor(command);
+      if (settled != null) return _receiptFrom(settled);
+
       final existing = await repository.getRetryCommand(command.commandId);
       final hold =
           existing == null ? null : await _holdWithoutAttempt(existing);
-      // Acceptance found while the platform was withholding the network is
-      // still acceptance. Reporting "needs review before it is sent again"
-      // for a command whose receipt was just read would be wrong.
+      // Acceptance landing during the hold is still acceptance.
       final acceptedDuringHold = hold?.receipt;
       if (hold != null && hold.wasAlreadyAccepted && acceptedDuringHold != null) {
         return _receiptFrom(acceptedDuringHold);
@@ -127,6 +139,26 @@ class WorkflowOnlineExecutor {
         return _receiptFrom(accepted);
       }
       rethrow;
+    }
+  }
+
+  /// The stored acceptance for this exact submitted command, if any.
+  ///
+  /// A receipt is only honoured when it belongs to the same aggregate as the
+  /// command being resolved. A command id is replayed deliberately during
+  /// recovery, so matching on it alone would let a changed request inherit an
+  /// unrelated outcome.
+  Future<WorkflowCommandReceiptRecord?> _acceptedOutcomeFor(
+    WorkflowCommand command,
+  ) async {
+    try {
+      final receipt = await repository.getReceipt(command.commandId);
+      if (receipt == null) return null;
+      return receipt.aggregateId == command.aggregateId ? receipt : null;
+    } catch (_) {
+      // An unreadable receipt store is not evidence of acceptance, and not
+      // evidence of its absence either. Fall through to the ordinary path.
+      return null;
     }
   }
 

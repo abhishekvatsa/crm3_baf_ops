@@ -12811,9 +12811,9 @@ check(
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
     and a03_inventory_report.get("operationCount") == 563
-    and a03_inventory_report.get("siteCount") == 1966
+    and a03_inventory_report.get("siteCount") == 1967
     and a03_inventory_report.get("inventoryDigest")
-        == "4CEF70398C0559DF2913B29D945A130349BCA5F707355C75F922A47140BDDE8D"
+        == "FF3CFDE311F9F1F66F35154AAF878D94DA5A71FE1562542DCEB1EE8A1CED1EC5"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12866,7 +12866,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 83
     and a04_inventory_report.get("inventoryDigest")
-        == "7024398D057900C0F903D9C64728B274F82AF59692C5AA654C075301E95B3719"
+        == "308B43A07E0BA3DF82896924C094FF89AB0DACBF20AC2C9ECBE29C779617D8D9"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"

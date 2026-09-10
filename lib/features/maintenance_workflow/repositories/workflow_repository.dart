@@ -117,10 +117,15 @@ abstract interface class WorkflowRepository {
   /// sequentially would let the last commands sit claimed until their lease
   /// expired before anything tried to send them, and another caller would then
   /// take work still nominally owned.
+  /// [exclude] holds commands a caller has already handled in this run. A
+  /// released command keeps its due time, so without this the oldest one is
+  /// handed back immediately and the run makes no further progress - a single
+  /// unresolvable command would stop every other command behind it.
   Future<List<WorkflowCommandRecord>> claimRetryableCommands({
     required DateTime now,
     required Duration lease,
     int limit,
+    Set<String> exclude,
   });
 
   /// Returns a claimed command to the retry queue without counting an attempt.

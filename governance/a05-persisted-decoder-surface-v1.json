@@ -273,7 +273,7 @@
       "compatibility": "none",
       "regression": "test/workflow_uncertain_retry_service_test.dart",
       "reArmCondition": "malformed retry payload is discarded or executed",
-      "riskFingerprint": "99acfe16cd09c01f298d0f71d8f8c2beede053b0c8d09c32d8a0ec8578e647b1"
+      "riskFingerprint": "4366eecec69ae5b5a02a63ec83133e1165f2060291a608e0db612ea11f69a9f8"
     },
     {
       "id": "maintenance-resolution-history",
@@ -2005,5 +2005,16 @@
       "regression": "test/tolerant_snapshot_decode_test.dart",
       "reArmCondition": "a quarantined document is silently dropped without report or count, or a substitute record is synthesised in its place"
     }
-  ]
+  ],
+  "staleRegressionReferences": [
+    "test/isar_schema_migration_test.dart",
+    "test/user_model_test.dart",
+    "test/baf_knowledge_layer_test.dart",
+    "test/knowledge_governance_export_test.dart",
+    "test/module_composer_json_builder_test.dart",
+    "test/module_registry_provider_test.dart",
+    "test/publish_metadata_builder_test.dart",
+    "test/runtime_job_module_population_service_test.dart"
+  ],
+  "staleRegressionReferenceNote": "These declared regression paths name files that do not exist. The inventory never resolved regression references, so the gate stayed satisfied while workflow-uncertain-retry carried a declared regression with no file behind it. Each source file does have tests that exercise it, so this is stale naming rather than absent coverage - but pointing a governed reference at a plausible-looking test without confirming it proves that surface's malformed disposition would be worse than leaving it broken. They are enumerated here so any new broken reference fails immediately. Re-map each to the test that actually demonstrates its disposition, then delete it from this list."
 }

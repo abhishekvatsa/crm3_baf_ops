@@ -84,10 +84,16 @@ class RecordingWorkflowRepository implements WorkflowRepository {
     }
     final current = _existing?.commandId == commandId ? _existing : null;
     final next = build(current);
-    if (next != null) {
-      saved.add(next);
-      _existing = next;
+    if (next == null) {
+      // Mirrors the production repository: writing nothing is not a recorded
+      // transition, or a caller can describe work as held when no hold was
+      // made.
+      return const WorkflowRetryTransition(
+        WorkflowRetryTransitionOutcome.noChange,
+      );
     }
+    saved.add(next);
+    _existing = next;
     return const WorkflowRetryTransition(
       WorkflowRetryTransitionOutcome.recorded,
     );

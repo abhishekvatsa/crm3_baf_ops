@@ -269,6 +269,7 @@ class IsarWorkflowRepository implements WorkflowRepository {
     required DateTime now,
     required Duration lease,
     int limit = 1,
+    Set<String> exclude = const <String>{},
   }) {
     final leaseFloor = now.toUtc().subtract(lease);
     return isar.writeTxn(() async {
@@ -299,10 +300,10 @@ class IsarWorkflowRepository implements WorkflowRepository {
               .sortByCreatedLocallyAt()
               .findAll();
 
-      final claimed = <WorkflowCommandRecord>[
-        ...due,
-        ...abandoned,
-      ].take(limit).toList();
+      final claimed = <WorkflowCommandRecord>[...due, ...abandoned]
+          .where((record) => !exclude.contains(record.commandId))
+          .take(limit)
+          .toList();
       for (final record in claimed) {
         record.stateKey = 'sending';
         // The claim timestamp is the lease clock. It is not an attempt: the

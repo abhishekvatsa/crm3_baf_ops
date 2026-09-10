@@ -1,10 +1,51 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../data/workflow_command_record.dart';
 import '../domain/workflow_command_contract.dart';
+import '../domain/workflow_error.dart';
 import '../domain/workflow_types.dart';
 import '../repositories/workflow_repository.dart';
 import 'workflow_online_executor.dart';
+
+/// What one retry run actually did.
+///
+/// The run used to return only a count of applied commands and swallow every
+/// error, so a damaged receipt or a fault inside the send was indistinguishable
+/// from an empty queue. A background caller relying on that result would have
+/// had no way to tell the difference either.
+class WorkflowRetryRunSummary {
+  const WorkflowRetryRunSummary({
+    this.applied = const <String>[],
+    this.deferred = const <String>[],
+    this.manualReview = const <String>[],
+    this.failedVerification = const <String>[],
+  });
+
+  /// Accepted by the server on this run.
+  final List<String> applied;
+
+  /// Attempted, left without a verdict, and still eligible to retry.
+  final List<String> deferred;
+
+  /// Terminal: the stored intent could not be read, so it was preserved for a
+  /// person rather than replayed.
+  final List<String> manualReview;
+
+  /// Neither applied nor an ordinary transport outcome - evidence about the
+  /// command could not be verified. These need looking at, not retrying.
+  final List<String> failedVerification;
+
+  int get attempted =>
+      applied.length +
+      deferred.length +
+      manualReview.length +
+      failedVerification.length;
+
+  bool get needsAttention =>
+      manualReview.isNotEmpty || failedVerification.isNotEmpty;
+}
 
 class WorkflowUncertainRetryService {
   /// How long a claimed command may stay claimed before another caller may
@@ -26,32 +67,32 @@ class WorkflowUncertainRetryService {
     required this.now,
   });
 
-  Future<int> retryDueCommands() async {
-    var applied = 0;
+  Future<WorkflowRetryRunSummary> retryDueCommands() async {
+    final applied = <String>[];
+    final deferred = <String>[];
+    final manualReview = <String>[];
+    final failedVerification = <String>[];
+
     // Claim one command at a time, immediately before dispatching it. A whole
     // batch claimed up front and executed in sequence would leave the last
     // commands holding a lease that expires before anything tries to send
     // them, and another caller would then take work still nominally owned.
-    final seen = <String>{};
+    final handled = <String>{};
     while (true) {
       final rows = await repository.claimRetryableCommands(
         now: now().toUtc(),
         lease: claimLease,
         limit: 1,
+        // A released command keeps its due time. Excluding what this run has
+        // already handled is what stops one unresolvable command being handed
+        // back forever while every command behind it goes unattempted.
+        exclude: handled,
       );
       if (rows.isEmpty) break;
       final row = rows.single;
-      // A released command keeps its due time, so it becomes claimable again
-      // at once. Stopping at the first repeat leaves it for the next run
-      // instead of spinning on it here.
-      if (!seen.add(row.commandId)) {
-        await repository.releaseClaim(
-          row.commandId,
-          claimedAt: row.lastAttemptAt!,
-        );
-        break;
-      }
+      handled.add(row.commandId);
       final claimedAt = row.lastAttemptAt!;
+
       // Decoding is separated from execution. Catching both together treated a
       // StateError raised anywhere inside the send as evidence that the stored
       // payload was malformed, which it is not.
@@ -63,32 +104,50 @@ class WorkflowUncertainRetryService {
         // It still goes through the receipt-aware transition: if the command
         // was accepted in the meantime, it must not be resurrected as
         // outstanding work needing review.
-        await repository.applyRetryTransitionUnlessAccepted(
-          commandId: row.commandId,
-          build: (current) {
-            final target = current ?? row;
-            return target
-              ..stateKey = 'manualReview'
-              ..nextRetryAt = null
-              ..lastErrorCode = 'malformedLocalCommand'
-              ..lastErrorMessage = error.toString();
-          },
-        );
+        final transition = await repository
+            .applyRetryTransitionUnlessAccepted(
+              commandId: row.commandId,
+              build: (current) {
+                final target = current ?? row;
+                return target
+                  ..stateKey = 'manualReview'
+                  ..nextRetryAt = null
+                  ..lastErrorCode = 'malformedLocalCommand'
+                  ..lastErrorMessage = error.toString();
+              },
+            );
+        if (!transition.wasAlreadyAccepted) manualReview.add(row.commandId);
         continue;
       }
+
       try {
         await executor.execute(command);
-        applied += 1;
-      } catch (error) {
-        // Anything else left no verdict. Hand the claim back now rather than
-        // making the operator wait out the lease; the release is ignored if
-        // the executor already settled the row or another caller has since
-        // taken it, so neither a recorded outcome nor a newer claim is
-        // disturbed.
+        applied.add(row.commandId);
+      } on WorkflowException {
+        // The executor has already recorded this outcome against the command.
+        // Hand the claim back so the next run can pick it up; the release is
+        // ignored if the row was settled or another caller has since taken it.
+        deferred.add(row.commandId);
+        await repository.releaseClaim(row.commandId, claimedAt: claimedAt);
+      } catch (error, stackTrace) {
+        // Anything else is not an ordinary transport outcome: a damaged stored
+        // receipt, or a fault in the send itself. Reducing it to "nothing was
+        // applied" hid it from the operator and from diagnostics entirely.
+        failedVerification.add(row.commandId);
+        debugPrint(
+          'Workflow retry could not verify command ${row.commandId}: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
         await repository.releaseClaim(row.commandId, claimedAt: claimedAt);
       }
     }
-    return applied;
+
+    return WorkflowRetryRunSummary(
+      applied: List<String>.unmodifiable(applied),
+      deferred: List<String>.unmodifiable(deferred),
+      manualReview: List<String>.unmodifiable(manualReview),
+      failedVerification: List<String>.unmodifiable(failedVerification),
+    );
   }
 
   WorkflowCommand _command(WorkflowCommandRecord row) {
