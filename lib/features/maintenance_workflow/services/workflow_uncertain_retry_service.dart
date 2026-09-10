@@ -19,6 +19,7 @@ class WorkflowRetryRunSummary {
   const WorkflowRetryRunSummary({
     this.applied = const <String>[],
     this.deferred = const <String>[],
+    this.rejected = const <String>[],
     this.manualReview = const <String>[],
     this.failedVerification = const <String>[],
   });
@@ -28,6 +29,10 @@ class WorkflowRetryRunSummary {
 
   /// Attempted, left without a verdict, and still eligible to retry.
   final List<String> deferred;
+
+  /// Terminal: the server refused the command. It will not be retried, and the
+  /// reason belongs in front of a person.
+  final List<String> rejected;
 
   /// Terminal: the stored intent could not be read, so it was preserved for a
   /// person rather than replayed.
@@ -40,11 +45,29 @@ class WorkflowRetryRunSummary {
   int get attempted =>
       applied.length +
       deferred.length +
+      rejected.length +
       manualReview.length +
       failedVerification.length;
 
+  /// Work that will not progress on its own.
   bool get needsAttention =>
-      manualReview.isNotEmpty || failedVerification.isNotEmpty;
+      rejected.isNotEmpty ||
+      manualReview.isNotEmpty ||
+      failedVerification.isNotEmpty;
+
+  /// A one-line description for diagnostics, or null when the run was quiet.
+  String? get summaryLine {
+    if (attempted == 0) return null;
+    final parts = <String>[
+      if (applied.isNotEmpty) '${applied.length} applied',
+      if (deferred.isNotEmpty) '${deferred.length} still retrying',
+      if (rejected.isNotEmpty) '${rejected.length} rejected',
+      if (manualReview.isNotEmpty) '${manualReview.length} need review',
+      if (failedVerification.isNotEmpty)
+        '${failedVerification.length} unverifiable',
+    ];
+    return parts.join(', ');
+  }
 }
 
 class WorkflowUncertainRetryService {
@@ -70,6 +93,7 @@ class WorkflowUncertainRetryService {
   Future<WorkflowRetryRunSummary> retryDueCommands() async {
     final applied = <String>[];
     final deferred = <String>[];
+    final rejected = <String>[];
     final manualReview = <String>[];
     final failedVerification = <String>[];
 
@@ -124,10 +148,26 @@ class WorkflowUncertainRetryService {
         await executor.execute(command);
         applied.add(row.commandId);
       } on WorkflowException {
-        // The executor has already recorded this outcome against the command.
+        // The executor has already classified this failure and written the
+        // resulting state. Read that state rather than assuming every
+        // WorkflowException is retryable: the policy retires permissionDenied
+        // as rejected and internal to manual review, and reporting those as
+        // deferred would tell a caller work is still coming that never is.
+        final settled = await repository.getRetryCommand(row.commandId);
+        switch (settled?.stateKey) {
+          case 'rejected':
+            rejected.add(row.commandId);
+          case 'manualReview':
+            manualReview.add(row.commandId);
+          case null:
+            // No row survives: the executor found the command already
+            // accepted and settled it.
+            applied.add(row.commandId);
+          default:
+            deferred.add(row.commandId);
+        }
         // Hand the claim back so the next run can pick it up; the release is
         // ignored if the row was settled or another caller has since taken it.
-        deferred.add(row.commandId);
         await repository.releaseClaim(row.commandId, claimedAt: claimedAt);
       } catch (error, stackTrace) {
         // Anything else is not an ordinary transport outcome: a damaged stored
@@ -145,6 +185,7 @@ class WorkflowUncertainRetryService {
     return WorkflowRetryRunSummary(
       applied: List<String>.unmodifiable(applied),
       deferred: List<String>.unmodifiable(deferred),
+      rejected: List<String>.unmodifiable(rejected),
       manualReview: List<String>.unmodifiable(manualReview),
       failedVerification: List<String>.unmodifiable(failedVerification),
     );

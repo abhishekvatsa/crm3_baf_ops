@@ -214,6 +214,30 @@ void main() {
       );
     });
 
+    test('a terminal rejection is not reported as still retrying', () async {
+      // permissionDenied is classified as a rejection, so the command will
+      // never progress. Calling it deferred tells a caller work is still
+      // coming that never is.
+      await seedDue(
+        commandId: 'cmd-refused',
+        payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
+      );
+      final gateway = _Gateway.failing(
+        const WorkflowException(
+          WorkflowErrorCode.permissionDenied,
+          'not permitted',
+        ),
+      );
+
+      final summary = await serviceWith(gateway).retryDueCommands();
+
+      expect(summary.rejected, <String>['cmd-refused']);
+      expect(summary.deferred, isEmpty);
+      expect(summary.needsAttention, isTrue);
+      expect((await repository.getRetryCommand('cmd-refused'))!.stateKey,
+          'rejected');
+    });
+
     test('a transport failure is deferred, not mistaken for a bad payload', () async {
       // The decode and the send are caught separately. Catching both together
       // let an error raised inside the send retire a perfectly readable

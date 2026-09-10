@@ -155,9 +155,16 @@ class WorkflowOnlineExecutor {
       final receipt = await repository.getReceipt(command.commandId);
       if (receipt == null) return null;
       return receipt.aggregateId == command.aggregateId ? receipt : null;
-    } catch (_) {
+    } catch (error, stackTrace) {
       // An unreadable receipt store is not evidence of acceptance, and not
-      // evidence of its absence either. Fall through to the ordinary path.
+      // evidence of its absence either. The ordinary path still runs, because
+      // refusing to act would be worse, but the caller must not be told the
+      // command was never sent on the strength of a read that failed.
+      debugPrint(
+        'Local acceptance evidence for ${command.commandId} could not be '
+        'read: $error. Any outcome reported below is unverified against it.',
+      );
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }

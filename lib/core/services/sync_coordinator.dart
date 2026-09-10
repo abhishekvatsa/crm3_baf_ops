@@ -591,7 +591,36 @@ class SyncCoordinator {
 
   Future<void> _runWorkflowSupplementalSync({required String reason}) async {
     try {
-      await _ref.read(workflowUncertainRetryServiceProvider).retryDueCommands();
+      final summary = await _ref
+          .read(workflowUncertainRetryServiceProvider)
+          .retryDueCommands();
+      // The run's own account of what it did. Awaiting it and discarding it
+      // left a rejection, a command needing review and an empty queue looking
+      // identical from the outside.
+      final line = summary.summaryLine;
+      if (line != null) {
+        AppLogger.info(
+          'Workflow uncertain-command retry: $line',
+          context: {
+            'app_area': 'maintenance_workflow',
+            'sync_reason': reason,
+            'workflow_stage': 'uncertain_retry',
+            'workflow_retry_applied': '${summary.applied.length}',
+            'workflow_retry_deferred': '${summary.deferred.length}',
+            'workflow_retry_rejected': '${summary.rejected.length}',
+            'workflow_retry_manual_review': '${summary.manualReview.length}',
+            'workflow_retry_unverifiable':
+                '${summary.failedVerification.length}',
+          },
+        );
+      }
+      if (summary.needsAttention) {
+        // Work that will not progress on its own must not sit behind a green
+        // indicator.
+        _markSkipped(
+          reason: 'Workflow commands need attention: ${summary.summaryLine}',
+        );
+      }
     } catch (error, stackTrace) {
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',

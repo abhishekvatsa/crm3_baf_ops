@@ -1998,12 +1998,12 @@
       "siteFingerprint": "b0ae0677dff3dda6acdf87952cc487636133042ede77cdb23ab79ae304bfe635",
       "classification": "LOCAL_READ_PROJECTION",
       "purpose": "quarantine a single malformed live-query document so the remaining documents in the collection are still delivered",
-      "authorityBoundary": "read-only projection of a Firestore query snapshot; the server remains authoritative and no local write occurs",
+      "authorityBoundary": "read-only projection of a live browse query; explicitly not authoritative pull reads, condition or availability reads, or evidence for a document claiming completeness, because the result carries no raw document count, rejected identities or completeness flag and a caller cannot distinguish a short list from a complete one",
       "mutability": "read-only",
       "dataScope": "one document of a live governed collection snapshot",
       "malformedDisposition": "skip and count the offending document, report it with its id, never repair, guess or substitute a placeholder record",
-      "regression": "test/tolerant_snapshot_decode_test.dart",
-      "reArmCondition": "a quarantined document is silently dropped without report or count, or a substitute record is synthesised in its place"
+      "regression": "test/tolerant_snapshot_decode_test.dart; test/tolerant_decode_scope_contract_test.dart; test/plant_condition_unreadable_evidence_test.dart",
+      "reArmCondition": "a quarantined document is dropped without report or count, a substitute record is synthesised in its place, or the helper is used in a read where absence changes a decision rather than a display - an authoritative paginated pull, a restriction or availability read, or completeness evidence"
     }
   ],
   "staleRegressionReferences": [
