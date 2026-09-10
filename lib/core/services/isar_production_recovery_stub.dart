@@ -98,6 +98,12 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
   );
 }
 
+Future<String?> writeRecoveryAncillaryStateFile({
+  required String directoryPath,
+  required String fileName,
+  required String contents,
+}) async => null;
+
 Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
   required Isar database,
   required String diagnosticsText,

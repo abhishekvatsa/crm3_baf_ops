@@ -202,6 +202,69 @@ class IsarWorkflowRepository implements WorkflowRepository {
       .findAll();
 
   @override
+  Future<List<WorkflowCommandRecord>> claimRetryableCommands({
+    required DateTime now,
+    required Duration lease,
+  }) {
+    final leaseFloor = now.toUtc().subtract(lease);
+    return isar.writeTxn(() async {
+      // Selection and claim share one write transaction. Isar serialises
+      // write transactions, so a concurrent caller either sees these rows
+      // already in `sending` or does not see them at all. Reading first and
+      // writing after would leave exactly the window that produces two
+      // submissions for one action.
+      final due =
+          await isar.workflowCommandRecords
+              .where()
+              .stateKeyEqualTo('uncertainOutcome')
+              .filter()
+              .nextRetryAtIsNotNull()
+              .nextRetryAtLessThan(now, include: true)
+              .sortByCreatedLocallyAt()
+              .findAll();
+
+      // A caller that died mid-send leaves a row in `sending` with nobody
+      // working it. Reclaiming only after the lease has expired keeps that
+      // from stranding the command, without racing a caller still in flight.
+      final abandoned =
+          await isar.workflowCommandRecords
+              .where()
+              .stateKeyEqualTo('sending')
+              .filter()
+              .lastAttemptAtLessThan(leaseFloor)
+              .sortByCreatedLocallyAt()
+              .findAll();
+
+      final claimed = <WorkflowCommandRecord>[...due, ...abandoned];
+      for (final record in claimed) {
+        record.stateKey = 'sending';
+        // The claim timestamp is the lease clock. It is not an attempt: the
+        // attempt count only moves when an outcome is recorded.
+        record.lastAttemptAt = now.toUtc();
+        await isar.workflowCommandRecords.put(record);
+      }
+      return claimed;
+    });
+  }
+
+  @override
+  Future<void> releaseClaim(String commandId, {DateTime? nextRetryAt}) {
+    return isar.writeTxn(() async {
+      final record =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      // Only a live claim is released. If the command already reached an
+      // outcome, that outcome is authoritative and must not be reopened.
+      if (record == null || record.stateKey != 'sending') return;
+      record.stateKey = 'uncertainOutcome';
+      record.nextRetryAt = nextRetryAt?.toUtc() ?? record.nextRetryAt;
+      await isar.workflowCommandRecords.put(record);
+    });
+  }
+
+  @override
   Future<List<WorkflowCommandRecord>> getPendingCommands() => isar
       .workflowCommandRecords
       .where()

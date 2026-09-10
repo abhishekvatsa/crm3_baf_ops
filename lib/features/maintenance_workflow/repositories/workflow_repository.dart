@@ -44,6 +44,30 @@ abstract interface class WorkflowRepository {
   Future<void> saveRetryCommand(WorkflowCommandRecord record);
   Future<WorkflowCommandRecord?> getRetryCommand(String commandId);
   Future<List<WorkflowCommandRecord>> getRetryableCommands(DateTime now);
+
+  /// Takes exclusive ownership of the commands due for replay.
+  ///
+  /// [getRetryableCommands] answers "what is due" and hands the same rows to
+  /// every caller. That is safe while one engine runs in one process, and
+  /// stops being safe the moment a second execution context exists: both would
+  /// read the same row and replay it.
+  ///
+  /// The claim moves each row to `sending` inside the same write transaction
+  /// that selected it, so a concurrent caller sees no eligible rows rather
+  /// than a duplicate set. A row already claimed is only re-offered once its
+  /// lease has expired, so a caller that died mid-send cannot strand the
+  /// command forever.
+  Future<List<WorkflowCommandRecord>> claimRetryableCommands({
+    required DateTime now,
+    required Duration lease,
+  });
+
+  /// Returns a claimed command to the retry queue without counting an attempt.
+  ///
+  /// Used when the caller stops before deciding an outcome - the process is
+  /// shutting down, or the network was withdrawn again. Abandoning the claim
+  /// is not a failed attempt and must not consume the retry budget.
+  Future<void> releaseClaim(String commandId, {DateTime? nextRetryAt});
   Future<List<WorkflowCommandRecord>> getPendingCommands();
   Future<void> deleteRetryCommand(String commandId);
 }

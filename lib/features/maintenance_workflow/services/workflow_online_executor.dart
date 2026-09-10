@@ -21,6 +21,11 @@ class WorkflowOnlineExecutor {
   final DateTime Function() now;
   final Future<List<ConnectivityResult>> Function()? checkConnectivity;
 
+  /// Whether the platform is currently refusing this application's network
+  /// access. Null, or a null answer, means the platform has said nothing and
+  /// the ordinary failure path applies.
+  final Future<bool?> Function()? isNetworkBlocked;
+
   const WorkflowOnlineExecutor({
     required this.connectivity,
     required this.gateway,
@@ -28,7 +33,13 @@ class WorkflowOnlineExecutor {
     this.retryPolicy = const WorkflowRetryPolicy(),
     required this.now,
     this.checkConnectivity,
+    this.isNetworkBlocked,
   });
+
+  /// How long a command waits while the platform is withholding the network.
+  ///
+  /// Short, because the block usually lifts the moment the app is opened.
+  static const Duration platformBlockHold = Duration(minutes: 1);
 
   Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
     final connectivityResult =
@@ -37,6 +48,25 @@ class WorkflowOnlineExecutor {
       throw const WorkflowException(
         WorkflowErrorCode.unavailable,
         'Workflow lifecycle actions require an online connection.',
+      );
+    }
+
+    // A refused request is not evidence about the command. Attempting it would
+    // spend one of eight attempts on a call the platform was never going to
+    // let out, and eight of those retire the command to manual review inside
+    // about half an hour - while the operator believes it is still trying.
+    // Only a command already in the journal is held: a first submission still
+    // fails in front of the person making it, because this app does not accept
+    // lifecycle commands it cannot send.
+    if (await _platformIsWithholdingNetwork()) {
+      final existing = await repository.getRetryCommand(command.commandId);
+      if (existing != null) {
+        await _holdWithoutAttempt(existing);
+      }
+      throw const WorkflowException(
+        WorkflowErrorCode.unavailable,
+        'Android has paused network access for this app. The action is saved '
+        'and will be sent when the app is opened.',
       );
     }
 
@@ -77,6 +107,33 @@ class WorkflowOnlineExecutor {
       }
       rethrow;
     }
+  }
+
+  Future<bool> _platformIsWithholdingNetwork() async {
+    final reader = isNetworkBlocked;
+    if (reader == null) return false;
+    try {
+      return await reader() ?? false;
+    } catch (_) {
+      // An unreadable signal is not a block. Guessing would hold a command
+      // that could have been sent.
+      return false;
+    }
+  }
+
+  /// Reschedules a retained command without spending an attempt.
+  Future<void> _holdWithoutAttempt(WorkflowCommandRecord record) async {
+    if (record.stateKey == 'rejected' || record.stateKey == 'manualReview') {
+      return;
+    }
+    record
+      ..stateKey = 'uncertainOutcome'
+      ..nextRetryAt = now().toUtc().add(platformBlockHold)
+      ..lastErrorCode = 'networkBlockedByPlatform'
+      ..lastErrorMessage =
+          'Android was withholding network access for this app, so no attempt '
+          'was made.';
+    await repository.saveRetryCommand(record);
   }
 
   Future<void> _recordFailure(

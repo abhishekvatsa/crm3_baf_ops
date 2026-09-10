@@ -7,6 +7,15 @@ import '../repositories/workflow_repository.dart';
 import 'workflow_online_executor.dart';
 
 class WorkflowUncertainRetryService {
+  /// How long a claimed command may stay claimed before another caller may
+  /// take it over.
+  ///
+  /// Long enough that a slow callable is not stolen from a caller still
+  /// waiting on it; short enough that a process killed mid-send does not
+  /// strand the command for an operator who is waiting to hear whether their
+  /// work was accepted.
+  static const Duration claimLease = Duration(minutes: 5);
+
   final WorkflowRepository repository;
   final WorkflowOnlineExecutor executor;
   final DateTime Function() now;
@@ -18,7 +27,12 @@ class WorkflowUncertainRetryService {
   });
 
   Future<int> retryDueCommands() async {
-    final rows = await repository.getRetryableCommands(now().toUtc());
+    // Claim rather than read. Reading would hand the same rows to a second
+    // execution context, and one physical action would be submitted twice.
+    final rows = await repository.claimRetryableCommands(
+      now: now().toUtc(),
+      lease: claimLease,
+    );
     var applied = 0;
     for (final row in rows) {
       try {
@@ -35,7 +49,13 @@ class WorkflowUncertainRetryService {
             ..lastErrorCode = 'malformedLocalCommand'
             ..lastErrorMessage = error.toString();
           await repository.saveRetryCommand(row);
+          continue;
         }
+        // Anything else left no verdict. Hand the claim back now rather than
+        // making the operator wait out the lease; the release is ignored if
+        // the executor already settled the row, so a recorded outcome is
+        // never reopened.
+        await repository.releaseClaim(row.commandId);
       }
     }
     return applied;

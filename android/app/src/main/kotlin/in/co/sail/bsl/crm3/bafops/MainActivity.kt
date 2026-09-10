@@ -8,22 +8,30 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.system.Os
 import android.system.OsConstants
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var criticalAlarmMethodChannel: MethodChannel? = null
+    private var networkAccessSink: EventChannel.EventSink? = null
+    private var networkAccessCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         ensureCriticalAlarmChannel()
         configureCriticalAlarmChannel(flutterEngine)
+        configureNetworkAccessChannel(flutterEngine)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             RECOVERY_STORAGE_CHANNEL,
@@ -316,7 +324,100 @@ class MainActivity : FlutterActivity() {
     private fun notificationTag(alarmId: String): String =
         "$CRITICAL_NOTIFICATION_TAG_PREFIX$alarmId"
 
+    /// Reports whether Android is currently blocking this application's own
+    /// network access.
+    ///
+    /// A connectivity check answers "is there a network"; it answered yes
+    /// throughout the 2026-09-09 incident while every request from this UID was
+    /// refused with BLOCKED_REASON_APP_BACKGROUND. Only the per-UID blocked
+    /// status distinguishes "the network is down" from "this app may not use
+    /// it", and the operator message depends on that difference.
+    private fun configureNetworkAccessChannel(flutterEngine: FlutterEngine) {
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            NETWORK_ACCESS_CHANNEL,
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    networkAccessSink = events
+                    startNetworkAccessWatch()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    stopNetworkAccessWatch()
+                    networkAccessSink = null
+                }
+            },
+        )
+    }
+
+    private fun startNetworkAccessWatch() {
+        // onBlockedStatusChanged arrived in API 29. Below that the platform
+        // exposes no per-UID blocked signal, so the app must not claim to know
+        // one: it reports unknown and the caller keeps its existing wording.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            networkAccessSink?.success(STATUS_UNKNOWN)
+            return
+        }
+        val manager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (manager == null) {
+            networkAccessSink?.success(STATUS_UNKNOWN)
+            return
+        }
+        stopNetworkAccessWatch()
+        val callback =
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                    networkAccessSink?.success(
+                        if (blocked) STATUS_BLOCKED else STATUS_ALLOWED,
+                    )
+                }
+
+                override fun onLost(network: Network) {
+                    // Losing the network is a different condition from being
+                    // blocked on it, and must not be reported as the same thing.
+                    networkAccessSink?.success(STATUS_NO_NETWORK)
+                }
+            }
+        val request =
+            NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+        try {
+            manager.registerNetworkCallback(request, callback)
+            networkAccessCallback = callback
+        } catch (error: SecurityException) {
+            networkAccessCallback = null
+            networkAccessSink?.success(STATUS_UNKNOWN)
+        }
+    }
+
+    private fun stopNetworkAccessWatch() {
+        val callback = networkAccessCallback ?: return
+        networkAccessCallback = null
+        val manager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        try {
+            manager?.unregisterNetworkCallback(callback)
+        } catch (error: IllegalArgumentException) {
+            // Already unregistered; nothing further to release.
+        }
+    }
+
+    override fun onDestroy() {
+        stopNetworkAccessWatch()
+        networkAccessSink = null
+        super.onDestroy()
+    }
+
     private companion object {
+        const val NETWORK_ACCESS_CHANNEL =
+            "in.co.sail.bsl.crm3.bafops/network_access"
+        const val STATUS_ALLOWED = "allowed"
+        const val STATUS_BLOCKED = "blocked"
+        const val STATUS_NO_NETWORK = "noNetwork"
+        const val STATUS_UNKNOWN = "unknown"
         const val RECOVERY_STORAGE_CHANNEL =
             "in.co.sail.bsl.crm3.bafops/recovery_storage"
         const val CRITICAL_ALARM_CHANNEL =

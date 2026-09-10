@@ -7,6 +7,7 @@ import '../../audit/models/audit_event_model.dart';
 import '../../charges/data/charge_model.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance_workflow/data/workflow_command_record.dart';
 import '../../planned_maintenance/data/baf_knowledge_model.dart';
 import '../../planned_maintenance/data/job_diary_model.dart';
 import '../../planned_maintenance/data/job_module_model.dart';
@@ -49,6 +50,52 @@ class LocalDiagnosticsGovernanceSnapshot {
   final int publishAuditRows;
 }
 
+/// Counts of the online-only workflow command journal by lifecycle state.
+///
+/// The dirty-row inventory counts business collections carrying `isSynced`.
+/// Workflow lifecycle commands are not business rows and carry no such flag, so
+/// a queue of unfinished commands was previously invisible behind a zero
+/// unsynced-row total. `uncertainOutcome` matters most: the request may have
+/// reached the server while the response was lost, so the work is neither
+/// known-applied nor safe to treat as absent.
+class LocalDiagnosticsCommandJournalSnapshot {
+  const LocalDiagnosticsCommandJournalSnapshot({
+    required this.ready,
+    required this.sending,
+    required this.uncertainOutcome,
+    required this.manualReview,
+    required this.applied,
+    required this.rejected,
+    required this.total,
+  });
+
+  const LocalDiagnosticsCommandJournalSnapshot.empty()
+    : ready = 0,
+      sending = 0,
+      uncertainOutcome = 0,
+      manualReview = 0,
+      applied = 0,
+      rejected = 0,
+      total = 0;
+
+  final int ready;
+  final int sending;
+  final int uncertainOutcome;
+  final int manualReview;
+  final int applied;
+  final int rejected;
+  final int total;
+
+  /// Commands that have not reached a terminal outcome.
+  ///
+  /// `applied` and `rejected` are terminal; every other state is work the
+  /// operator is still owed an answer about.
+  int get unfinished => ready + sending + uncertainOutcome + manualReview;
+
+  /// Commands whose server outcome is not established.
+  int get unresolvedOutcome => uncertainOutcome + manualReview;
+}
+
 class LocalDiagnosticsPersistenceSnapshot {
   const LocalDiagnosticsPersistenceSnapshot({
     required this.rows,
@@ -56,6 +103,7 @@ class LocalDiagnosticsPersistenceSnapshot {
     required this.likelyPermanentRejections,
     required this.totalRejections,
     required this.knowledgeMetaRows,
+    required this.commandJournal,
     required this.governance,
     required this.provenanceInventory,
   });
@@ -65,6 +113,7 @@ class LocalDiagnosticsPersistenceSnapshot {
   final int likelyPermanentRejections;
   final int totalRejections;
   final int knowledgeMetaRows;
+  final LocalDiagnosticsCommandJournalSnapshot commandJournal;
   final LocalDiagnosticsGovernanceSnapshot governance;
   final IsarInstalledStoreProvenanceInventory provenanceInventory;
 }
@@ -187,8 +236,29 @@ class LocalDiagnosticsReadAdapter {
       totalRejections: await database.syncRejections.where().count(),
       knowledgeMetaRows:
           await database.bafKnowledgeMatrixMetaStores.where().count(),
+      commandJournal: await _readCommandJournal(database),
       governance: await _readGovernance(database),
       provenanceInventory: provenance,
+    );
+  }
+
+  Future<int> _commandsInState(Isar database, String stateKey) =>
+      database.workflowCommandRecords
+          .filter()
+          .stateKeyEqualTo(stateKey)
+          .count();
+
+  Future<LocalDiagnosticsCommandJournalSnapshot> _readCommandJournal(
+    Isar database,
+  ) async {
+    return LocalDiagnosticsCommandJournalSnapshot(
+      ready: await _commandsInState(database, 'ready'),
+      sending: await _commandsInState(database, 'sending'),
+      uncertainOutcome: await _commandsInState(database, 'uncertainOutcome'),
+      manualReview: await _commandsInState(database, 'manualReview'),
+      applied: await _commandsInState(database, 'applied'),
+      rejected: await _commandsInState(database, 'rejected'),
+      total: await database.workflowCommandRecords.where().count(),
     );
   }
 
