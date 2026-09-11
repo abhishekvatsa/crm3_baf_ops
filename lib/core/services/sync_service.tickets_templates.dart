@@ -311,7 +311,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local,
   ) async {
     final currentUid = _cleanMaintenanceText(
-      FirebaseAuth.instance.currentUser?.uid,
+      _authentication.currentUser?.uid,
     );
     if (currentUid == null ||
         !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
@@ -416,7 +416,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local,
   ) async {
     final currentUid = _cleanMaintenanceText(
-      FirebaseAuth.instance.currentUser?.uid,
+      _authentication.currentUser?.uid,
     );
     if (currentUid == null ||
         !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
@@ -614,7 +614,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     if (local.isDeleted || (remote?.isDeleted ?? false)) return const [];
 
     final currentUid = _cleanMaintenanceText(
-      FirebaseAuth.instance.currentUser?.uid,
+      _authentication.currentUser?.uid,
     );
     if (currentUid == null) return const [];
 
@@ -765,7 +765,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local, [
     DateTime? serverMutationFloor,
   ]) {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebaseUser = _authentication.currentUser;
     final currentUid = _cleanMaintenanceText(firebaseUser?.uid);
     if (currentUid == null) {
       throw StateError(

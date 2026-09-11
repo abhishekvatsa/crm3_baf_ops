@@ -325,7 +325,14 @@ void main() {
           'List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan',
         );
 
-        expect(create, contains('FirebaseAuth.instance.currentUser?.uid'));
+        // The guard is that creation replay authorises against the account
+        // signed in at the time of the attempt. It reads through the service's
+        // injected session rather than the static singleton, so that the real
+        // path can be driven in a test; `global_pull_service_decomposition`
+        // pins the same shape for GlobalPullService. What must not change is
+        // that the uid is read per attempt and never captured at construction.
+        expect(create, contains('_authentication.currentUser?.uid'));
+        expect(create, isNot(contains('FirebaseAuth.instance')));
         expect(create, contains('_canReplayMaintenanceCreateForCurrentUser'));
         expect(create, contains('maintenanceReopenReplayHasCurrentActor'));
         expect(plan, contains('_canReplayMaintenanceCloseForCurrentUser'));

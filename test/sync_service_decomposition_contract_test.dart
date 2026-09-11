@@ -222,7 +222,11 @@ void main() {
         'await _auditRepo.syncPendingAuditEvents();',
         '_isSyncing = false;',
         '_recheckPermanentRejections = false;',
-        'lastSyncTime = DateTime.now();',
+        // Reads through the service's injected clock so deadline behaviour can
+        // be exercised without sleeping. The fragment's role here is ordering —
+        // that the sync time is recorded at this point in the sequence — and
+        // that is unchanged.
+        'lastSyncTime = _now();',
       ]);
 
       expect(syncAllBlock, contains('final auditResult = await'));
