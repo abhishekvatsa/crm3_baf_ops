@@ -226,6 +226,46 @@ void main() {
     expect(stored!.isSynced, isFalse);
   });
 
+  test('an already-accepted creation is recovered under its original identity',
+      () async {
+    // The submission was accepted before the response was lost, so the ticket
+    // exists remotely while the local row is still pending. This is the
+    // recovery branch, and it is reached only because the first lookup finds
+    // the counterpart — every other case here enters missing-ticket creation.
+    await local.saveTicket(pending());
+    remote.existing = <MaintenanceRecord>[serverState()];
+    gateway.receipt = acceptedReceipt();
+    remote.serverState = serverState();
+
+    await service().syncTicketsForTest();
+
+    // Replayed under the identity the ticket already determines, not a new one.
+    expect(gateway.commands, hasLength(1));
+    expect(gateway.commands.single.commandId, commandId);
+    expect(gateway.commands.single.aggregateId, ticketId);
+
+    // The exact readback was consulted rather than trusting the receipt alone.
+    expect(remote.calls, contains('readMaintenanceIssueCommandServerState'));
+
+    final stored = await storedTicket();
+    expect(stored!.isSynced, isTrue,
+        reason: 'the real repository adopted the recovered server state');
+    expect(stored.version, 1);
+  });
+
+  test('recovery is refused when the readback contradicts the receipt', () async {
+    await local.saveTicket(pending());
+    remote.existing = <MaintenanceRecord>[serverState()];
+    gateway.receipt = acceptedReceipt();
+    remote.serverState = serverState(loggedBy: 'operator-2');
+
+    await service().syncTicketsForTest();
+
+    final stored = await storedTicket();
+    expect(stored!.isSynced, isFalse,
+        reason: 'a contradictory readback cannot complete a recovery either');
+  });
+
   test('a newer local edit during submission is not overwritten', () async {
     // The snapshot is taken before the gateway call. If the operator edits the
     // ticket while the request is in flight, adopting the old snapshot would
@@ -287,16 +327,31 @@ class _Gateway implements WorkflowCommandGateway {
 class _Remote extends MaintenanceRepository {
   MaintenanceRecord? serverState;
 
+  /// What the first lookup finds. Empty means the ticket never reached the
+  /// server, which is the missing-ticket creation branch; returning a
+  /// counterpart is what sends the service down the recovery branch instead.
+  List<MaintenanceRecord> existing = const <MaintenanceRecord>[];
+
+  final List<String> calls = <String>[];
+
   @override
   Future<List<MaintenanceRecord>> getTicketsByFirestoreIds(
     List<String> ids,
-  ) async => const <MaintenanceRecord>[];
+  ) async {
+    calls.add('getTicketsByFirestoreIds');
+    return existing;
+  }
 
   @override
   Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
     String firestoreId,
-  ) async => serverState;
+  ) async {
+    calls.add('readMaintenanceIssueCommandServerState');
+    return serverState;
+  }
 
+  // Anything else names itself, so a silent fall-through to generic update or
+  // batch-push logic cannot be mistaken for recovery succeeding.
   @override
   dynamic noSuchMethod(Invocation i) =>
       throw UnimplementedError(i.memberName.toString());
