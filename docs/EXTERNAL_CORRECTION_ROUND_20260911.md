@@ -396,30 +396,49 @@ which could resubmit immediately. The policy comment asserting that "the
 executor has already retained the request with the server's retry window" was
 false for this caller.
 
-The window is now recorded and consulted on that path, keyed by the command
-identity the ticket already determines (`createMaintenanceTicket_<ticketId>`),
-so a later invocation finds the same deadline. Three constraints shaped it, and
-each rejected an easier version:
+**Two attempts to close it were made and both were withdrawn.** They are
+recorded because the reason they failed is the useful part.
 
-- `maintenance_lifecycle_replay_contract_test` pins both
-  `_pushMissingMaintenanceTicket` and `_tryRecoverAcceptedMaintenanceCreation`
-  to call `_maintenanceCommands.execute(command)` directly. A shared submit
-  wrapper broke that, so the literal call stays and the recording happens in
-  the loop's existing failure path.
-- A new `try`/`catch` failed **A-05**, which inventories catch sites exactly.
-  Rather than register a new site in a governed artifact, the recording reuses
-  the catch the sync loop already has.
-- The row is written as `ready`, which `claimRetryableCommands` does not select,
-  so the uncertain-retry service does not also start driving the command. A row
-  in any other state belongs to the executor and is left untouched.
+The approach was to store the server's window on a `ready`
+`WorkflowCommandRecord` keyed by the identity the ticket already determines
+(`createMaintenanceTicket_<ticketId>`), read before submitting and written on
+refusal. Follow-up review found four defects in it:
 
-Recovery of an interrupted creation is deliberately **not** deferred: it
-resolves an uncertain outcome rather than submitting new work.
+- **The row had no completion path.** Nothing settled or removed it after a
+  successful push, `getUnsyncedTickets` no longer returns a synced ticket, and
+  `claimRetryableCommands` deliberately skips `ready`. The row would persist,
+  counted as `retrying`, with nothing able to finish it.
+- **The write was not atomic and ignored receipts.** It read with
+  `getRetryCommand` and wrote with `saveRetryCommand` in separate transactions,
+  so a concurrent acceptance could be overwritten.
+  `applyRetryTransitionUnlessAccepted` exists precisely to prevent that.
+- **The escalation rule was documented but not applied there.**
+  `quotaDeferralExhausted` is only called by `WorkflowOnlineExecutor`, which
+  this path bypasses, so the new owner would defer indefinitely.
+- **The eligibility read considered only `nextRetryAt`**, so it expressed
+  waiting but not ownership, terminal disposition or acceptance.
 
-`test/audit_corrections/sync_quota_window_test.dart` covers the second
-invocation, the identity the deadline is keyed by, that a deferred row reads as
-`retrying` rather than as operator attention, that an executor-owned row is left
-alone, and that a deferred row is not claimed.
+**The test did not test the production path.** It used real Isar storage but
+defined its own copies of the two helpers and never constructed `SyncService`.
+Disabling the production check outright (`if (false && …)`) left it passing
+5/5 — verified, not assumed. It proved the storage behaved, not that anything
+used it.
+
+Both attempts are reverted. The honest reading is that this path deliberately
+has no command lifecycle owner, and bolting one on incrementally produced a
+leak and a race in exchange for closing a rate-limit inefficiency that loses no
+data. A correct version needs the full owner contract — exact stored outcome
+and current state, waiting without claiming acceptance, terminal and
+other-owner dispositions, an atomic receipt-aware write retaining identity,
+payload and first-local timestamp, the escalation policy applied in this owner
+too, settlement of an accepted creation with removal of its cooldown row, and
+explicit handling of local cancellation and missing source intent. That is
+durable-dispatch work, not a patch to this branch.
+
+What is kept from the attempt: the policy comment no longer claims a guarantee
+this caller does not have, `mayRetryInCallerLoop` names the short-loop decision,
+and the six-hour rule is stated precisely. **The gap itself remains open** — a
+later sync invocation can still resubmit inside a server quota window.
 
 **The six-hour value is not a visibility deadline.** `quotaDeferralExhausted`
 is evaluated while handling a refusal, so the rule is *escalate on the first

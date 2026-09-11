@@ -117,22 +117,6 @@ extension _SyncServiceTicketsTemplates on SyncService {
         }
 
         if (remote == null) {
-          final creationCommandId =
-              maintenanceIssueCreateCommandId(record);
-          if (creationCommandId != null &&
-              await _workflowQuotaWindowOpen(
-                creationCommandId,
-                DateTime.now().toUtc(),
-              )) {
-            // Not a failure. The server asked for a delay and that delay is
-            // stored, so this run leaves the ticket alone instead of asking
-            // a rate-limited endpoint again.
-            debugPrint(
-              'Governed ticket ${record.id} is inside a server quota window '
-              'and was not resubmitted.',
-            );
-            continue;
-          }
           try {
             final expectedLocal = _syncPushSnapshot(record);
             final creation = await _pushMissingMaintenanceTicket(record);
@@ -156,17 +140,6 @@ extension _SyncServiceTicketsTemplates on SyncService {
             lastSuccessCount++;
           } catch (error, stackTrace) {
             lastFailureCount++;
-            // Declining to retry inside the short loop only stops a second
-            // attempt in this call. The window the server asked for has to
-            // outlive the call, or the next invocation submits again at once.
-            if (error is WorkflowException && creationCommandId != null) {
-              await _recordWorkflowQuotaWindow(
-                record,
-                creationCommandId,
-                error,
-                DateTime.now().toUtc(),
-              );
-            }
             _recordPushFailureDetail(
               entityType: 'maintenance_ticket',
               entityId: record.firestoreId!,
@@ -456,11 +429,6 @@ extension _SyncServiceTicketsTemplates on SyncService {
       createVersion: createVersion,
     );
     try {
-      // Deliberately the direct call. This is the interrupted-creation
-      // recovery path, and `maintenance_lifecycle_replay_contract_test` pins
-      // it to stay explicit and separate from lifecycle replay. It resolves an
-      // uncertain outcome rather than submitting new work, so it is not
-      // deferred by a quota window.
       final receipt = await _maintenanceCommands.execute(command);
       validateMaintenanceIssueCreateReceipt(
         command: command,

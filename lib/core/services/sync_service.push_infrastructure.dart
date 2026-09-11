@@ -88,67 +88,6 @@ extension _SyncServicePushInfrastructure on SyncService {
     );
   }
 
-  /// Whether a server-requested quota window for [commandId] is still open.
-  ///
-  /// Read before submitting, so a deferral survives the end of this call. The
-  /// command identity is derived from the ticket, so it is the same string on
-  /// every invocation and the stored deadline is found again.
-  Future<bool> _workflowQuotaWindowOpen(String commandId, DateTime now) async {
-    final store = _workflowDeadlines;
-    if (store == null) return false;
-    final existing = await store.getRetryCommand(commandId);
-    final deadline = existing?.nextRetryAt?.toUtc();
-    return deadline != null && deadline.isAfter(now.toUtc());
-  }
-
-  /// Persist the retry window a rate-limited server asked for.
-  ///
-  /// The command is rebuilt rather than passed in: it was already built
-  /// successfully to reach the gateway, so building it again cannot fail here,
-  /// and this keeps the stored row a faithful copy of the request rather than
-  /// a placeholder with an empty payload.
-  ///
-  /// Written as `ready`. The request was refused before execution, so it is
-  /// not an uncertain dispatch and must not be claimed by the uncertain-retry
-  /// service; `claimRetryableCommands` does not select this state. It still
-  /// counts as `retrying` in the outcome inventory, which is accurate: pending,
-  /// and due to progress on its own once the window closes.
-  ///
-  /// A row in any other state belongs to the executor and is left untouched.
-  Future<void> _recordWorkflowQuotaWindow(
-    MaintenanceRecord record,
-    String commandId,
-    WorkflowException error,
-    DateTime now,
-  ) async {
-    final store = _workflowDeadlines;
-    if (store == null) return;
-    if (error.code != WorkflowErrorCode.resourceExhausted) return;
-    final existing = await store.getRetryCommand(commandId);
-    if (existing != null && existing.stateKey != 'ready') return;
-    final command = buildMaintenanceIssueCreateCommand(
-      record,
-      createVersion: maintenanceCreateReplayVersion(record),
-    );
-    const policy = WorkflowRetryPolicy();
-    await store.saveRetryCommand(
-      (existing ?? WorkflowCommandRecord())
-        ..commandId = command.commandId
-        ..aggregateId = command.aggregateId
-        ..commandTypeKey = command.type.name
-        ..expectedVersion = command.expectedVersion
-        ..payloadJson = jsonEncode(command.payload)
-        ..stateKey = 'ready'
-        ..createdLocallyAt = existing?.createdLocallyAt ?? now
-        ..lastAttemptAt = now
-        ..nextRetryAt = now.add(
-          policy.delayForFailure(error, existing?.attemptCount ?? 0),
-        )
-        ..lastErrorCode = error.code.name
-        ..lastErrorMessage = error.message,
-    );
-  }
-
   bool _shouldRetryWorkflowCommand(Object error) {
     if (error is! WorkflowException) return true;
     return const WorkflowRetryPolicy().mayRetryInCallerLoop(error);
