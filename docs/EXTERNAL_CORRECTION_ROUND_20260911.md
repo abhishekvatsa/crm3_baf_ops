@@ -440,6 +440,36 @@ this caller does not have, `mayRetryInCallerLoop` names the short-loop decision,
 and the six-hour rule is stated precisely. **The gap itself remains open** — a
 later sync invocation can still resubmit inside a server quota window.
 
+### Why the requested consumer test cannot be written yet
+
+Follow-up review asked, correctly, for a test that drives `SyncService` across
+two invocations and fails if the production wiring is removed. That test cannot
+be written against this path as it stands:
+
+- `_pushMissingMaintenanceTicket` reads
+  `FirebaseAuth.instance.currentUser?.uid` directly. It is a static singleton,
+  and the actor is not injectable on this path. `rejectionOwnerUidLookup` is
+  injectable but governs rejection ownership, not this check.
+- **No test in the repository executes `_syncTickets`.** Four test files
+  reference it and every one inspects it as source text through
+  `_blockStartingAt` and `contains`.
+
+That is the reason this area is covered by literal-expression contracts rather
+than behaviour tests. The review is right that a spelling is not a proof of
+separation, but the contracts are a consequence of the path not being drivable,
+not a preference for weak tests.
+
+So completing the lifecycle divides into two decisions rather than one. The
+mechanics — settle through `settleAccepted` on validated acceptance, write
+through `applyRetryTransitionUnlessAccepted` so the receipt wins, evaluate
+`quotaDeferralExhausted` in that same callback, and replace the boolean
+eligibility read with a disposition covering eligible, waiting, accepted,
+needs-review, owned-elsewhere and unavailable — are all reachable with contracts
+that already exist. Making the result **provable** additionally requires
+injecting the actor into this path, which is a production change whose purpose
+is testability. Shipping the mechanics without the proof is what produced the
+two withdrawn attempts, so the second change is a precondition, not a nicety.
+
 **The six-hour value is not a visibility deadline.** `quotaDeferralExhausted`
 is evaluated while handling a refusal, so the rule is *escalate on the first
 quota refusal occurring after six hours have elapsed*. The next attempt is
