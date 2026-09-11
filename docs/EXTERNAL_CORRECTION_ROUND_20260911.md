@@ -224,20 +224,28 @@ Lockfile identities (SHA-256, first 16): `pubspec.lock` `a90b03b4f9332a0b`,
 
 | Command | Result |
 | --- | --- |
-| `flutter analyze` | clean, exit 0 |
-| `flutter test` | 2253 passed, 1 skipped, **1 failed** — the failure is the governance gate in §8, not a product defect |
-| `python tools/v4/v4_2_r1_canonical_audit.py` | `pass=150 fail=0 total=150` |
+| `flutter analyze` | clean, exit 0 — **local only; skipped in CI, see §8** |
+| `flutter test` | 2258 passed, 1 skipped, **1 failed** — the failure is the governance gate in §9, not a product defect. One further test (`operational_event_creation_store_persistence_test`) failed once under the parallel runner and passes 14/14 in isolation; recorded as an observed flake, not dismissed |
+| `python tools/v4/v4_2_r1_canonical_audit.py` | `pass=148 fail=2 total=150` — both failures are the backend-drift assertions in §9. **Local only; skipped in CI, see §8** |
 | `functions: tsc --noEmit --pretty false` | clean, exit 0 |
 | `functions: npm test` | 1036 passed, 102 emulator-skipped, 0 failed |
 | `functions: node --test test/audit-corrections.node.cjs` | 44 / 44 |
-| same, against untouched baseline | **13 passed / 31 failed** |
+| same, against untouched baseline | **14 passed / 30 failed** (revised suite) |
 | `cr01_adjudication_compatibility_matrix.cjs` | §4 |
 
 The baseline comparison was rebuilt independently: a separate detached worktree
 at `03c3e8fa` with its **own** `npm ci` and its own `tsc` output, not a shared
 or stale directory. Only the new test file was copied across; source stayed
-untouched. The supplier's qualification holds — the 31 failures are not 31
-independent defects, since the ten `envelope` cases are one defect parameterised.
+untouched. Two different numbers exist and must not be conflated. The suite **as
+delivered** produced 13 passed / 31 failed against baseline. After CR-02 was
+narrowed, the test asserting the over-broad rule was replaced by one asserting
+the corrected boundary, and that case also passes on baseline — so the
+**revised** suite produces 14 passed / 30 failed. The earlier figure belongs
+only to the delivered suite and is not carried forward. Independently
+reproduced by the reviewer and re-verified here on a freshly built baseline.
+The supplier's qualification still holds — the failures are not that many
+independent defects, since the ten `envelope` cases are one defect
+parameterised.
 
 **Skipped Flutter test.** `test/tools/a05_persisted_reconciliation_bridge_test.dart`,
 "reconciles an in-memory production envelope through app readers", skips when
@@ -257,7 +265,35 @@ evidence.
 | CI run 34614296997 (`6525cd82`) | **cancelled** | Superseded by a push while it was in flight; the workflow uses `cancel-in-progress`. Its Cloud Functions job had already reported success. Not counted as an exact-head result. |
 | CR-01 probe, first two versions | **invalidated** | Seeded the wrong receipt path, then an incomplete receipt. Both measured a fresh execution rather than a replay. Replaced by executing on one backend and replaying what it actually wrote. |
 
-## 8. Two governance gates are legitimately red
+## 8. What CI actually executed, and what it did not
+
+The Flutter host job **failed at step 4 of 20** — "Production policy and
+package-verifier runtime gate". Every later step was skipped, including Flutter
+setup, the canonical source and authority audit, `dart format`, `flutter
+analyze`, the Isar bindings regeneration and the whole test stage.
+
+So for this candidate, in CI:
+
+| Evidence | Status |
+| --- | --- |
+| Firestore rules + governed callable emulator | ran, passed |
+| Cloud Functions build + non-emulator tests | ran, passed |
+| Android release package + cold-start | ran, passed |
+| Android emulator app-shell integration | ran, passed |
+| `flutter analyze` | **never ran** |
+| `flutter test` | **never ran** |
+| canonical audit (150/150) | **never ran in CI** |
+
+The correct description is: **four jobs passed; the Flutter host job was blocked
+before its analysis and test stages.** The 2253 / 1 skipped / 1 failed figure and
+the 150/150 audit are local evidence only, and should not be read as CI results
+for this head. An earlier draft of this record invited that reading.
+
+Obtaining those checks on the exact candidate without first satisfying a
+promotion gate is a real gap in the pipeline's shape, not just a reporting
+nuance — the workflow places the policy step ahead of the toolchain.
+
+## 9. Two governance gates are legitimately red
 
 Build 28's 47 commits never touched `functions/src`, which is why PR #360 is
 green. This is the first branch to change backend source, and two gates detect
@@ -276,7 +312,23 @@ fingerprint, receipt or index has been regenerated to obtain a pass.**
 Consequence: this branch cannot show a fully green release-gate while it changes
 backend source and no deployment exists for it.
 
-## 9. Scope
+**One earlier claim here was too strong.** Saying only a deployment can clear
+these is not supported by what the policy code does. It already computes a
+`SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT` state, and derives candidate
+construction, distribution and runtime authority separately. A truthful update
+of a *derived current-state declaration* to say the candidate is pending
+deployment is a different act from forging a deployment receipt or weakening a
+check, and it would still go through the existing governance review. What must
+not change is the historical receipt, the recorded deployed identity, or the
+candidate's production authority, which stays false.
+
+That distinction has not been demonstrated here — no PowerShell was run and no
+metadata edit was shown to clear the gate. The narrower, supportable statement
+is that **engineering verification should not require production deployment**,
+and the two should be separable so source checks can run while promotion stays
+blocked.
+
+## 10. Scope
 
 The sibling sweep was a **targeted examination using the seven correction
 patterns**, not a whole-codebase audit. Areas and callers examined:
@@ -298,7 +350,88 @@ touched. Recorded because a withdrawn finding is part of the sweep's result.
 A clean result inside that sweep is not a claim that other business functions
 have been audited.
 
-## 10. Open
+## 11. The snapshot's completeness claim was wrong
+
+The archive delivered for this round carried a manifest saying it was "the
+commit's tracked tree minus one file, with one file redacted". That is false.
+It was an archive of a **selected list of paths**, and 23 tracked top-level
+entries were omitted:
+
+`.firebaserc`, `.gitattributes`, `.github`, `.gitignore`, `.metadata`,
+`.npmrc`, `README.md`, `SECURITY.md`, `V4_HANDOFF`, `V4_1_HANDOFF`,
+`V4_2_HANDOFF`, `V4_2_R1_HANDOFF`, `assets`, `firebase.json`, `ios`,
+`jest.config.js`, `linux`, `macos`, `release`, `release_gate.ps1`, `tooling`,
+`web`, `windows`.
+
+This is not only missing documentation. `.github` holds the very workflows under
+discussion; `release` holds the authority records and current-state index that
+§9 is about; and **both dependency manifests declare
+`brace-expansion: file:tooling/brace-expansion-compat`**, so `npm ci` cannot run
+from the archive at all. A reviewer could not reproduce the dependency install,
+let alone the gates.
+
+The checksum proved the archive arrived intact. It could not prove the archive
+contained what its manifest claimed, because the manifest described a tree that
+was never assembled. A supplemental archive from the same commit, with an exact
+inclusion and exclusion list, corrects this.
+
+## 12. A second stale measurement, and the CR-07 caller boundary
+
+Two further corrections came from independent review, both worth recording
+because they are the same mistake in different places.
+
+**The audit figure was stale.** `150/150` was measured at `f56673b6` and carried
+forward into this record and the pull request after CR-02 was narrowed. At the
+head those documents describe it is **148/150**, failing the two backend-drift
+assertions in §9. Together with the 13/31 figure in §7, that is twice that a
+number measured on one artifact was reported for a later one. Measurements are
+now taken at the head being described.
+
+**The short-loop fix did not reach its own caller.** `SyncService` holds a
+`WorkflowCommandGateway`, not `WorkflowOnlineExecutor`, so
+`_pushMissingMaintenanceTicket` submits straight to the gateway and nothing
+wrote `nextRetryAt` for it. Declining to retry inside one `_retry` loop stopped
+a second attempt in that call and said nothing about the next sync invocation,
+which could resubmit immediately. The policy comment asserting that "the
+executor has already retained the request with the server's retry window" was
+false for this caller.
+
+The window is now recorded and consulted on that path, keyed by the command
+identity the ticket already determines (`createMaintenanceTicket_<ticketId>`),
+so a later invocation finds the same deadline. Three constraints shaped it, and
+each rejected an easier version:
+
+- `maintenance_lifecycle_replay_contract_test` pins both
+  `_pushMissingMaintenanceTicket` and `_tryRecoverAcceptedMaintenanceCreation`
+  to call `_maintenanceCommands.execute(command)` directly. A shared submit
+  wrapper broke that, so the literal call stays and the recording happens in
+  the loop's existing failure path.
+- A new `try`/`catch` failed **A-05**, which inventories catch sites exactly.
+  Rather than register a new site in a governed artifact, the recording reuses
+  the catch the sync loop already has.
+- The row is written as `ready`, which `claimRetryableCommands` does not select,
+  so the uncertain-retry service does not also start driving the command. A row
+  in any other state belongs to the executor and is left untouched.
+
+Recovery of an interrupted creation is deliberately **not** deferred: it
+resolves an uncertain outcome rather than submitting new work.
+
+`test/audit_corrections/sync_quota_window_test.dart` covers the second
+invocation, the identity the deadline is keyed by, that a deferred row reads as
+`retrying` rather than as operator attention, that an executor-owned row is left
+alone, and that a deferred row is not claimed.
+
+**The six-hour value is not a visibility deadline.** `quotaDeferralExhausted`
+is evaluated while handling a refusal, so the rule is *escalate on the first
+quota refusal occurring after six hours have elapsed*. The next attempt is
+scheduled by the server's own window, which may be as long as a day, so
+escalation can be later than six hours. Scheduling an earlier attempt purely to
+trigger escalation would mean ignoring the delay a rate-limited server asked
+for. A true wall-clock guarantee would need something that promotes the row
+without a network attempt, and that does not exist here. Stated in the policy
+rather than left to be inferred.
+
+## 13. Open
 
 Durable intent before first dispatch, claim-generation isolation, WorkManager
 continuation, historical cursor-omission reconciliation and external recovery

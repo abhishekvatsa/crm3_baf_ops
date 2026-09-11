@@ -5,13 +5,27 @@ enum WorkflowRetryDisposition { retryUncertain, reject, applied, manualReview }
 class WorkflowRetryPolicy {
   static const int maxAutomaticAttempts = 8;
 
-  /// How long a request may keep deferring on temporary quota refusals.
+  /// How long a request may keep deferring on temporary quota refusals before
+  /// the next refusal escalates it.
   ///
   /// A quota refusal is a definite non-execution, so it does not spend an
-  /// uncertain-dispatch attempt. That exemption has to be bounded by something
-  /// or a server that keeps refusing would defer the same request forever, so
-  /// it is bounded by elapsed time since the request was first accepted
-  /// locally. Past this, the work stops waiting and asks for a human.
+  /// uncertain-dispatch attempt. That exemption has to be bounded or a server
+  /// that keeps refusing would defer the same request forever, so it is
+  /// bounded by elapsed time since the request was first recorded locally.
+  ///
+  /// Read this precisely. It is **not** "the request becomes visible for
+  /// manual review six hours after it was recorded". The check runs when an
+  /// attempt returns another quota refusal, so the rule is:
+  ///
+  ///   escalate on the first quota refusal that happens after this has elapsed
+  ///
+  /// The next attempt is scheduled by the server's own window, which may be as
+  /// long as a day, so escalation can be later than six hours. Scheduling an
+  /// earlier attempt purely to trigger escalation would mean ignoring the delay
+  /// a rate-limited server asked for, which is the behaviour this policy exists
+  /// to prevent. A guarantee of visibility at a fixed wall-clock time would
+  /// need something that promotes the row without a network attempt, and that
+  /// does not exist here.
   static const Duration maxQuotaDeferral = Duration(hours: 6);
 
   /// Backoff used when a quota refusal carries no usable retry window.
@@ -76,20 +90,27 @@ class WorkflowRetryPolicy {
   }
 
   /// Whether a failure may be reattempted inside a caller's own short retry
-  /// loop, as distinct from being retried later by the durable path.
+  /// loop, as distinct from being retried later against a stored deadline.
   ///
-  /// A quota refusal is retryable but not here: the executor has already
-  /// retained the request with the server's retry window, and repeating it
-  /// within seconds asks a rate-limited endpoint again while ignoring the
-  /// delay it asked for.
+  /// A quota refusal is retryable but not here: repeating it within seconds
+  /// asks a rate-limited endpoint again while ignoring the delay it asked for.
+  ///
+  /// Standing aside is only half of the contract. It stops a second attempt
+  /// inside one loop; it says nothing about the next invocation. A caller that
+  /// relies on this must also record the server's window somewhere that
+  /// outlives the call and consult it before attempting again — otherwise the
+  /// next run resubmits immediately and the delay was never honoured.
   bool mayRetryInCallerLoop(WorkflowException error) =>
       error.code != WorkflowErrorCode.resourceExhausted &&
       classify(error) == WorkflowRetryDisposition.retryUncertain;
 
-  /// Whether temporary quota refusals have deferred this request long enough.
+  /// Whether temporary quota refusals have deferred this request long enough
+  /// that the refusal being handled now should escalate it.
   ///
-  /// Measured from when the request was first accepted locally, so a run of
-  /// refusals cannot extend the window by resetting it.
+  /// Measured from when the request was first recorded locally, so a run of
+  /// refusals cannot extend the window by resetting it. Evaluated while
+  /// handling a refusal — it is a test applied to an attempt, not a timer that
+  /// fires on its own. See [maxQuotaDeferral].
   bool quotaDeferralExhausted({
     required DateTime firstAcceptedLocallyAt,
     required DateTime now,

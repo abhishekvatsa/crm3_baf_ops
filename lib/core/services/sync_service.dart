@@ -20,8 +20,11 @@ import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/data/remote_maintenance_reader.dart';
 import '../../features/maintenance/providers/maintenance_provider.dart';
 import '../../features/maintenance/services/maintenance_issue_create_command.dart';
+import '../../features/maintenance_workflow/data/workflow_command_record.dart';
 import '../../features/maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../features/maintenance_workflow/domain/workflow_error.dart';
+import '../../features/maintenance_workflow/providers/workflow_providers.dart';
+import '../../features/maintenance_workflow/repositories/workflow_repository.dart';
 import '../../features/maintenance_workflow/services/workflow_command_gateway.dart';
 import '../../features/maintenance_workflow/services/workflow_outbox_policy.dart';
 import '../../features/planned_maintenance/data/job_template_model.dart';
@@ -142,6 +145,14 @@ class SyncService {
   final MaintenanceRepository _firestoreMaintenance;
   final WorkflowCommandGateway _maintenanceCommands;
 
+  /// Where a server-requested quota window is stored so it outlives the call.
+  ///
+  /// This path submits through the gateway directly rather than through
+  /// [WorkflowOnlineExecutor], so nothing else writes a retry deadline for it.
+  /// Without this, standing aside inside one `_retry` loop would be undone by
+  /// the next sync invocation resubmitting immediately.
+  final WorkflowRepository? _workflowDeadlines;
+
   final PlannedMaintenanceRepository _plannedRepo;
   final PlannedMaintenanceRepository _firestorePlanned;
   final PlannedJobServerCompletionService _serverCompletion;
@@ -184,6 +195,7 @@ class SyncService {
     required MaintenanceRepository maintenanceRepo,
     required MaintenanceRepository firestoreMaintenance,
     WorkflowCommandGateway? maintenanceCommandGateway,
+    WorkflowRepository? workflowDeadlines,
     required PlannedMaintenanceRepository plannedRepo,
     required PlannedMaintenanceRepository firestorePlanned,
     required PlannedJobServerCompletionService serverCompletion,
@@ -205,6 +217,7 @@ class SyncService {
        _firestoreMaintenance = firestoreMaintenance,
        _maintenanceCommands =
            maintenanceCommandGateway ?? const FirebaseWorkflowCommandGateway(),
+       _workflowDeadlines = workflowDeadlines,
        _plannedRepo = plannedRepo,
        _firestorePlanned = firestorePlanned,
        _serverCompletion = serverCompletion,
@@ -415,6 +428,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     ),
     knowledgeRepo: ref.read(bafKnowledgeRepositoryProvider),
     auditRepository: ref.read(auditRepositoryProvider),
+    workflowDeadlines: ref.read(workflowRepositoryProvider),
   );
 });
 
