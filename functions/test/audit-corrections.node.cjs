@@ -309,11 +309,20 @@ test('burner: own changed response for a different burner remains rejected', asy
   await assert.rejects(prepare(seedStore(), action(), {actionSources:[source('module-1', [action()], true, 4)]}),
     (error) => error.details?.reasonCode === 'burner-block-lifecycle-action-required');
 });
-test('burner: execution-level action cannot satisfy a missing module action', async () => {
-  await assert.rejects(prepare(seedStore(), action(), {actionSources: [
+// Execution-level evidence is deliberately still admissible. The operator can
+// record component work inside the module or on the job completion screen, and
+// executionLevelMechanicalEvidence exists so the latter supports a module
+// declaration; test/burnerBlockLifecycle.test.js specifies both the accepting
+// and the contradicting case. Scoping it out would force the same repair to be
+// entered twice and would stop an execution-level replacement from
+// contradicting an "unchanged" answer. The source-scope rule is therefore
+// about other MODULES, not about execution level.
+test('burner: an execution-level action still supports a module declaration', async () => {
+  const plan = await prepare(seedStore(), action(), {actionSources: [
     source('module-1', [], true),
     {sourceModuleId:null, discipline:'mechanical', actionsJson:JSON.stringify([action()])},
-  ]}), (error) => error.details?.reasonCode === 'burner-block-lifecycle-action-required');
+  ]});
+  assert.ok(plan.events.length > 0);
 });
 test('burner: duplicate source labels cannot share another source occurrence evidence', async () => {
   await assert.rejects(prepare(seedStore(), action(), {actionSources: [

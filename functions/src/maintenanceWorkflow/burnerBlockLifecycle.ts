@@ -499,11 +499,20 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     });
   }
   for (const decision of changeDecisions) {
-    // A declaration belongs to its module/source. An unrelated module's
-    // action must neither satisfy a missing replacement nor veto an honest
-    // "unchanged" answer, even when both refer to the same burner position.
+    // A declaration belongs to its module. Another MODULE's action must
+    // neither satisfy a missing replacement nor veto an honest "unchanged"
+    // answer, even when both refer to the same burner position.
+    //
+    // Execution-level actions are deliberately still in scope. The operator
+    // can record component work either inside the module or on the job
+    // completion screen, and `executionLevelMechanicalEvidence` exists so the
+    // latter can support a module declaration. Excluding it would both force
+    // the same repair to be entered twice and stop an execution-level
+    // replacement from contradicting an "unchanged" answer, which is the
+    // check that catches a misdeclaration.
     const matchingCandidates = candidates.filter((candidate) =>
-      candidate.sourceIndex === decision.sourceIndex &&
+      (candidate.sourceIndex === decision.sourceIndex ||
+        candidate.sourceModuleId == null) &&
       (decision.burnerPosition == null ||
         burnerPositionFromResponse(candidate.row.burnerPosition) ===
           decision.burnerPosition));
