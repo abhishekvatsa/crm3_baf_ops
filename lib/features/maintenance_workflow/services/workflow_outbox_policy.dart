@@ -75,6 +75,17 @@ class WorkflowRetryPolicy {
     return requested > backoff ? requested : backoff;
   }
 
+  /// Whether a failure may be reattempted inside a caller's own short retry
+  /// loop, as distinct from being retried later by the durable path.
+  ///
+  /// A quota refusal is retryable but not here: the executor has already
+  /// retained the request with the server's retry window, and repeating it
+  /// within seconds asks a rate-limited endpoint again while ignoring the
+  /// delay it asked for.
+  bool mayRetryInCallerLoop(WorkflowException error) =>
+      error.code != WorkflowErrorCode.resourceExhausted &&
+      classify(error) == WorkflowRetryDisposition.retryUncertain;
+
   /// Whether temporary quota refusals have deferred this request long enough.
   ///
   /// Measured from when the request was first accepted locally, so a run of

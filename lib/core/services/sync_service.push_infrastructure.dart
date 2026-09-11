@@ -90,14 +90,7 @@ extension _SyncServicePushInfrastructure on SyncService {
 
   bool _shouldRetryWorkflowCommand(Object error) {
     if (error is! WorkflowException) return true;
-    // A quota refusal is retryable, but not here. The executor has already
-    // retained the request with the server's own retry window; repeating it
-    // inside this short loop would ask a rate-limited endpoint again within
-    // seconds and ignore the delay it asked for. The durable retry path
-    // resumes it at the right time.
-    if (error.code == WorkflowErrorCode.resourceExhausted) return false;
-    return const WorkflowRetryPolicy().classify(error) ==
-        WorkflowRetryDisposition.retryUncertain;
+    return const WorkflowRetryPolicy().mayRetryInCallerLoop(error);
   }
 
   void _appendPushFailureDetail(SyncFailureDetail detail) {
