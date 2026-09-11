@@ -142,7 +142,6 @@ class SyncService {
   final MaintenanceRepository _firestoreMaintenance;
   final WorkflowCommandGateway _maintenanceCommands;
 
-
   final PlannedMaintenanceRepository _plannedRepo;
   final PlannedMaintenanceRepository _firestorePlanned;
   final PlannedJobServerCompletionService _serverCompletion;
