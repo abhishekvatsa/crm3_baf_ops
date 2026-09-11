@@ -255,11 +255,17 @@ class IsarJobModuleRepository implements JobModuleRepository {
         remoteSubscription = remoteStream.listen((value) {
           remoteLatest = value;
           emitIfReady();
-        }, onError: controller.addError);
+        }, onError: (Object error, StackTrace stackTrace) {
+          remoteLatest = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        });
         localSubscription = localStream.listen((value) {
           localLatest = value;
           emitIfReady();
-        }, onError: controller.addError);
+        }, onError: (Object error, StackTrace stackTrace) {
+          localLatest = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        });
       },
       onCancel: () async {
         await remoteSubscription?.cancel();

@@ -453,12 +453,17 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     readonly row: ActionRow;
     readonly sourceModuleId: string | null;
     readonly sourceActionIndex: number;
+    readonly sourceIndex: number;
     readonly mechanicalWorkContext: boolean;
   }> = [];
-  const changeDecisions: BurnerBlockChangeDecision[] = [];
-  for (const source of args.actionSources) {
+  const changeDecisions: Array<BurnerBlockChangeDecision & {
+    readonly sourceIndex: number;
+  }> = [];
+  for (const [sourceIndex, source] of args.actionSources.entries()) {
     const changeDecision = moduleBurnerBlockChangeDecision(source);
-    if (changeDecision != null) changeDecisions.push(changeDecision);
+    if (changeDecision != null) {
+      changeDecisions.push({...changeDecision, sourceIndex});
+    }
     let payload;
     try {
       payload = readComponentActionPayload(source.actionsJson, {
@@ -485,6 +490,7 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
           row,
           sourceModuleId: source.sourceModuleId,
           sourceActionIndex: index,
+          sourceIndex,
           mechanicalWorkContext: source.discipline == null ?
             args.executionLevelMechanicalEvidence === true :
             normalizedKey(source.discipline) === "mechanical",
@@ -493,10 +499,14 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     });
   }
   for (const decision of changeDecisions) {
-    const matchingCandidates = decision.burnerPosition == null ?
-      candidates : candidates.filter((candidate) =>
+    // A declaration belongs to its module/source. An unrelated module's
+    // action must neither satisfy a missing replacement nor veto an honest
+    // "unchanged" answer, even when both refer to the same burner position.
+    const matchingCandidates = candidates.filter((candidate) =>
+      candidate.sourceIndex === decision.sourceIndex &&
+      (decision.burnerPosition == null ||
         burnerPositionFromResponse(candidate.row.burnerPosition) ===
-          decision.burnerPosition);
+          decision.burnerPosition));
     if (decision.state === "changed" && matchingCandidates.length === 0) {
       throw new WorkflowError(
         "failed-precondition",

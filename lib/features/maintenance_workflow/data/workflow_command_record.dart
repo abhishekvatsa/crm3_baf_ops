@@ -6,7 +6,8 @@ part 'workflow_command_record.g.dart';
 ///
 /// The app does not intentionally accept new lifecycle commands while offline.
 /// A row is retained only when the request may have reached the server but the
-/// response was lost, allowing safe replay with the same commandId.
+/// response was lost, or after a temporary server quota refusal. Replay retains
+/// the same commandId; no new action is intentionally accepted while offline.
 @collection
 class WorkflowCommandRecord {
   Id id = Isar.autoIncrement;

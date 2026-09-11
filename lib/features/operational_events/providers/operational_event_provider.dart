@@ -213,11 +213,17 @@ Stream<List<OperationalEvent>> _combineOperationalEventWindows(
       openSubscription = open.listen((value) {
         latestOpen = value;
         emitWhenReady();
-      }, onError: controller.addError);
+      }, onError: (Object error, StackTrace stackTrace) {
+        latestOpen = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      });
       recentSubscription = recent.listen((value) {
         latestRecent = value;
         emitWhenReady();
-      }, onError: controller.addError);
+      }, onError: (Object error, StackTrace stackTrace) {
+        latestRecent = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      });
     },
     onCancel: () async {
       await openSubscription?.cancel();

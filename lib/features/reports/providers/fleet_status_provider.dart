@@ -209,7 +209,11 @@ Stream<R> _combineLatest3<A, B, C, R>(
         latestA = value;
         hasA = true;
         emitIfReady();
-      }, onError: controller.addError, onDone: () {
+      }, onError: (Object error, StackTrace stackTrace) {
+        hasA = false;
+        latestA = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      }, onDone: () {
         doneA = true;
         closeIfDone();
       });
@@ -217,7 +221,11 @@ Stream<R> _combineLatest3<A, B, C, R>(
         latestB = value;
         hasB = true;
         emitIfReady();
-      }, onError: controller.addError, onDone: () {
+      }, onError: (Object error, StackTrace stackTrace) {
+        hasB = false;
+        latestB = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      }, onDone: () {
         doneB = true;
         closeIfDone();
       });
@@ -225,7 +233,11 @@ Stream<R> _combineLatest3<A, B, C, R>(
         latestC = value;
         hasC = true;
         emitIfReady();
-      }, onError: controller.addError, onDone: () {
+      }, onError: (Object error, StackTrace stackTrace) {
+        hasC = false;
+        latestC = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      }, onDone: () {
         doneC = true;
         closeIfDone();
       });

@@ -2177,7 +2177,14 @@ Future<void> _adjudicateFinding(
       type: WorkflowCommandType.adjudicateInspectionFinding,
       aggregateId: campaign.id,
       expectedVersion: campaign.version,
-      payload: {'findingId': finding.id, 'status': status, 'reason': reason},
+      // The dialog reviewed this finding revision, not whichever revision
+      // happens to exist by the time the request reaches the server.
+      payload: {
+        'findingId': finding.id,
+        'expectedFindingVersion': finding.version,
+        'status': status,
+        'reason': reason,
+      },
     ),
     'Finding adjudication recorded.',
   );

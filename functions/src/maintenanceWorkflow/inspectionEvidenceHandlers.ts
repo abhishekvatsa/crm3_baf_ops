@@ -501,9 +501,16 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
   command,
   context,
 }) => {
-  exactKeys(command.payload, ["findingId", "status", "reason"], "payload");
+  exactKeys(command.payload, [
+    "findingId", "expectedFindingVersion", "status", "reason",
+  ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const findingId = documentId(command.payload.findingId, "findingId");
+  const expectedFindingVersion = intValue(
+    command.payload.expectedFindingVersion,
+    "expectedFindingVersion",
+    1,
+  );
   const status = cleanText(command.payload.status, "status");
   if (!["acceptedCondition", "invalidated", "open"].includes(status)) {
     throw new WorkflowError("invalid-argument", "Finding adjudication status is unsupported.");
@@ -522,14 +529,27 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
       event.exists || finding.data.status === status) {
     throw new WorkflowError("failed-precondition", "Finding adjudication is not valid.");
   }
+  // Campaign revision protects campaign edits, not a new observation or
+  // verification of this finding. Never adjudicate evidence the actor did
+  // not review merely because the parent campaign is unchanged.
+  const currentFindingVersion = intValue(finding.data.version, "finding.version", 1);
+  if (currentFindingVersion !== expectedFindingVersion) {
+    throw new WorkflowError(
+      "aborted",
+      "Inspection finding changed. Reload its evidence before adjudicating.",
+      {reasonCode: "inspection-finding-version-conflict", findingId},
+    );
+  }
   const now = iso(context.serverNow);
-  const version = Number(finding.data.version ?? 0) + 1;
+  const version = currentFindingVersion + 1;
   tx.create(`inspection_finding_events/${command.commandId}`, {
     schemaVersion: 1,
     eventId: command.commandId,
     findingId,
     campaignId,
     operation: "adjudicate",
+    previousFindingVersion: currentFindingVersion,
+    resultingFindingVersion: version,
     previousStatus: finding.data.status,
     resultingStatus: status,
     reason,
@@ -551,6 +571,6 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
   return {
     resultKey: `inspection-finding-${status}`,
     aggregateVersion: command.expectedVersion,
-    result: {campaignId, findingId, status},
+    result: {campaignId, findingId, status, findingVersion: version},
   };
 };
