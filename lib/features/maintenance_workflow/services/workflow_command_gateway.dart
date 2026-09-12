@@ -104,6 +104,8 @@ class FirebaseWorkflowCommandGateway implements WorkflowCommandGateway {
         return WorkflowErrorCode.unavailable;
       case 'deadline-exceeded':
         return WorkflowErrorCode.deadlineExceeded;
+      case 'resource-exhausted':
+        return WorkflowErrorCode.resourceExhausted;
       default:
         return WorkflowErrorCode.internal;
     }

@@ -414,11 +414,13 @@ void main() {
     expect(reader, contains('the five closure-review projection fields'));
     expect(reader, contains('top-level closure review must match'));
     expect(reader, contains('must match the document ID'));
-    expect(provider, contains('TemplatePackage.fromMap(doc.data(), doc.id)'));
-    expect(provider, contains('TemplateVersion.fromMap(doc.data(), doc.id)'));
+    // Same strict readers, now passed as tear-offs to the tolerant decoder.
+    expect(provider, contains('decodeSnapshotDocuments('));
+    expect(provider, contains('TemplatePackage.fromMap'));
+    expect(provider, contains('TemplateVersion.fromMap'));
     expect(
       provider,
-      contains('TemplatePublishAudit.fromMap(doc.data(), doc.id)'),
+      contains('TemplatePublishAudit.fromMap'),
     );
     expect(provider, contains('void _validatePackageForPersistence('));
     expect(provider, contains('readRemoteTemplatePackage(record.toMap()'));

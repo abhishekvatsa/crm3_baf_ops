@@ -810,3 +810,126 @@ describe('classified maintenance completion and planning', () => {
     });
   });
 });
+
+describe('BF04 explicit ready-plan subject revalidation', () => {
+  const planId = 'plan-inner-cover-gr26';
+  const planPath = `maintenance_plans/${planId}`;
+  const profilePath = 'inner_cover_profiles/inner-cover-gr26';
+  async function fixture() {
+    const store = new MemoryWorkflowStore();
+    seedInnerCoverClassAndProfile(store);
+    const admin = seedActor(store, 'admin-review', ['admin']);
+    const actor = seedActor(store, 'supervisor-review', ['shiftSupervisor']);
+    const other = seedActor(store, 'operator-review', ['operator']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(innerCoverClassCommand(), {actor: admin, serverNow: now});
+    await service.execute(innerCoverPlanCommand(), {actor, serverNow: now});
+    await service.execute(planStatus(1, 'scheduled', 'bf04-scheduled'), {actor, serverNow: now});
+    await service.execute(planStatus(2, 'ready', 'bf04-ready'), {actor, serverNow: now});
+    store.seed(profilePath, {...store.read(profilePath), version: 5, lifecycleState: 'underRepair'});
+    return {store, actor, other, service};
+  }
+  function review(overrides = {}) {
+    return {
+      ...planStatus(3, 'ready', 'bf04-review'),
+      payload: {
+        status: 'ready', executionId: null,
+        reason: 'Reviewed this same cover after its removal for maintenance.',
+        revalidation: {
+          assetClassId: 'class-inner-cover', assetInstanceId: 'inner-cover-gr26',
+          assetInstanceVersion: 5, serialNumber: 'GR26', lifecycleState: 'underRepair',
+          currentBaseAssetInstanceId: null, currentBaseAssetNumber: null,
+          ...overrides,
+        },
+      },
+    };
+  }
+  function complete(expectedVersion) {
+    return {commandId: 'bf04-complete', commandType: 'completeMaintenancePlan',
+      aggregateId: planId, expectedVersion,
+      payload: {completedAt: '2026-08-21T07:45:00.000Z',
+        completionEvidence: 'Cleaning completed with serial and inspection evidence.',
+        reason: 'Record completed maintenance.'}};
+  }
+  test('stale ready plan is reviewed explicitly before exact-version completion', async () => {
+    const {store, actor, service} = await fixture();
+    const before = store.read(planPath);
+    const subject = store.read(profilePath);
+    await expect(service.execute(complete(3), {actor, serverNow: now}))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    const result = await service.execute(review(), {actor, serverNow: now});
+    expect(result).toMatchObject({resultKey: 'maintenance-plan-subject-revalidated', aggregateVersion: 4});
+    expect(store.read(planPath)).toMatchObject({status: 'ready', assetInstanceVersion: 5,
+      originalAssetInstanceVersion: 4, maintenanceClass: before.maintenanceClass,
+      planningNotes: before.planningNotes, createdAt: before.createdAt,
+      subjectReview: {reviewedByUid: actor.uid, previousAssetInstanceVersion: 4,
+        assetInstanceVersion: 5, lifecycleState: 'underRepair', auditId: 'bf04-review'}});
+    expect(store.read(profilePath)).toEqual(subject);
+    expect(store.entries().filter(([path]) => path.startsWith('maintenance_completion_events/') ||
+      path.startsWith('maintenance_due_states/'))).toHaveLength(0);
+    const audit = store.read('maintenance_plan_audits/bf04-review');
+    expect(audit).toMatchObject({operation: 'revalidate-subject', performedByUid: actor.uid});
+    expect(JSON.parse(audit.beforeJson).assetInstanceVersion).toBe(4);
+    expect(JSON.parse(audit.afterJson).assetInstanceVersion).toBe(5);
+    await expect(service.execute(complete(4), {actor, serverNow: now}))
+      .resolves.toMatchObject({resultKey: 'maintenance-plan-completed', aggregateVersion: 5});
+    expect(store.entries().filter(([path]) => path.startsWith('maintenance_completion_events/')))
+      .toHaveLength(1);
+    expect(store.read(profilePath)).toEqual(subject);
+  });
+  test('a later review retains the first baseline and every immutable review audit', async () => {
+    const {store, actor, service} = await fixture();
+    const command = review();
+    const first = await service.execute(command, {actor, serverNow: now});
+    const audit = store.read('maintenance_plan_audits/bf04-review');
+    store.seed(profilePath, {...store.read(profilePath), version: 6, lifecycleState: 'available'});
+    const next = review({assetInstanceVersion: 6, lifecycleState: 'available'});
+    next.commandId = 'bf04-review-again'; next.expectedVersion = 4;
+    await service.execute(next, {actor, serverNow: now});
+    expect(store.read(planPath)).toMatchObject({originalAssetInstanceVersion: 4, assetInstanceVersion: 6, version: 5});
+    expect(store.read('maintenance_plan_audits/bf04-review')).toEqual(audit);
+    expect(store.read('maintenance_plan_audits/bf04-review-again').operation).toBe('revalidate-subject');
+    await expect(service.execute(command, {actor, serverNow: now})).resolves.toEqual(first);
+    expect(store.read(planPath).version).toBe(5);
+    command.payload.revalidation.assetInstanceVersion = 6;
+    await expect(service.execute(command, {actor, serverNow: now}))
+      .rejects.toMatchObject({code: 'command-idempotency-conflict'});
+  });
+  test.each([
+    ['stale profile version', {assetInstanceVersion: 4}],
+    ['future profile version', {assetInstanceVersion: 6}],
+    ['different subject', {assetInstanceId: 'inner-cover-other'}],
+    ['different class', {assetClassId: 'class-other'}],
+    ['different serial', {serialNumber: 'OTHER'}],
+    ['unreviewed state', {lifecycleState: 'available'}],
+    ['retired subject', {lifecycleState: 'retiredForSalvage'}],
+    ['unreviewed location', {currentBaseAssetInstanceId: 'base-9', currentBaseAssetNumber: 9}],
+    ['extra ungoverned field', {automatic: true}],
+  ])('%s cannot revalidate or mutate completion history', async (_, overrides) => {
+    const {store, actor, service} = await fixture();
+    const before = store.entries();
+    await expect(service.execute(review(overrides), {actor, serverNow: now})).rejects.toBeDefined();
+    expect(store.entries()).toEqual(before);
+  });
+  test('profile changes between review and request fail closed', async () => {
+    const {store, actor, service} = await fixture();
+    const command = review();
+    store.seed(profilePath, {...store.read(profilePath), version: 6});
+    const before = store.entries();
+    await expect(service.execute(command, {actor, serverNow: now}))
+      .rejects.toMatchObject({code: 'aborted', details: {reasonCode: 'maintenance-plan-reviewed-subject-changed'}});
+    expect(store.entries()).toEqual(before);
+  });
+  test.each(['stale plan', 'wrong actor', 'blank reason', 'not ready', 'ready without review'])('%s is refused', async (kind) => {
+    const {store, actor, other, service} = await fixture();
+    const command = review();
+    if (kind === 'stale plan') command.expectedVersion = 2;
+    if (kind === 'blank reason') command.payload.reason = ' ';
+    if (kind === 'not ready') store.seed(planPath, {...store.read(planPath), status: 'cancelled'});
+    if (kind === 'ready without review') delete command.payload.revalidation;
+    const before = store.entries();
+    await expect(service.execute(command, {actor: kind === 'wrong actor' ? other : actor, serverNow: now}))
+      .rejects.toBeDefined();
+    expect(store.entries()).toEqual(before);
+  });
+});

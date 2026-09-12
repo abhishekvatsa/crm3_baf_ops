@@ -8,22 +8,42 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.system.Os
 import android.system.OsConstants
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var criticalAlarmMethodChannel: MethodChannel? = null
+    private var networkAccessSink: EventChannel.EventSink? = null
+    private var networkAccessCallback: ConnectivityManager.NetworkCallback? = null
+
+    /// Whether a default network exists, and whether this app may use it.
+    ///
+    /// The question that matters is not "does some network exist" but "may
+    /// this app use the route its requests actually take". Watching every
+    /// matching network answered a broader question and could report `allowed`
+    /// on a network Firestore was not using. `hasDefaultNetwork` false means no
+    /// route; a null `defaultNetworkBlocked` means the platform has not yet
+    /// said whether this app may use the route it has.
+    private var hasDefaultNetwork = false
+    private var defaultNetworkBlocked: Boolean? = null
+    private val mainThread = Handler(Looper.getMainLooper())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         ensureCriticalAlarmChannel()
         configureCriticalAlarmChannel(flutterEngine)
+        configureNetworkAccessChannel(flutterEngine)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             RECOVERY_STORAGE_CHANNEL,
@@ -316,7 +336,142 @@ class MainActivity : FlutterActivity() {
     private fun notificationTag(alarmId: String): String =
         "$CRITICAL_NOTIFICATION_TAG_PREFIX$alarmId"
 
+    /// Reports whether Android is currently blocking this application's own
+    /// network access.
+    ///
+    /// A connectivity check answers "is there a network"; it answered yes
+    /// throughout the 2026-09-09 incident while every request from this UID was
+    /// refused with BLOCKED_REASON_APP_BACKGROUND. Only the per-UID blocked
+    /// status distinguishes "the network is down" from "this app may not use
+    /// it", and the operator message depends on that difference.
+    private fun configureNetworkAccessChannel(flutterEngine: FlutterEngine) {
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            NETWORK_ACCESS_CHANNEL,
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    networkAccessSink = events
+                    startNetworkAccessWatch()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    stopNetworkAccessWatch()
+                    networkAccessSink = null
+                }
+            },
+        )
+    }
+
+    /// Emits on the platform main thread.
+    ///
+    /// ConnectivityManager delivers callbacks on its own internal thread
+    /// unless a handler is supplied, and a Flutter EventSink must be invoked
+    /// on the main thread. Registration below passes a main-looper handler,
+    /// and this posts as well so no future caller can reintroduce the fault.
+    private fun emitNetworkAccess(status: String) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            networkAccessSink?.success(status)
+        } else {
+            mainThread.post { networkAccessSink?.success(status) }
+        }
+    }
+
+    private fun publishDefaultNetworkAccess() {
+        val status =
+            when {
+                !hasDefaultNetwork -> STATUS_NO_NETWORK
+                // Discovering a route is not permission to use it. Reporting
+                // `allowed` here would be an affirmative answer the platform
+                // has not given, and the caller would act on it.
+                defaultNetworkBlocked == null -> STATUS_UNKNOWN
+                defaultNetworkBlocked == true -> STATUS_BLOCKED
+                else -> STATUS_ALLOWED
+            }
+        emitNetworkAccess(status)
+    }
+
+    private fun startNetworkAccessWatch() {
+        // onBlockedStatusChanged arrived in API 29. Below that the platform
+        // exposes no per-UID blocked signal, so the app must not claim to know
+        // one: it reports unknown and the caller keeps its existing wording.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            emitNetworkAccess(STATUS_UNKNOWN)
+            return
+        }
+        val manager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (manager == null) {
+            emitNetworkAccess(STATUS_UNKNOWN)
+            return
+        }
+        stopNetworkAccessWatch()
+        hasDefaultNetwork = false
+        defaultNetworkBlocked = null
+        val callback =
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    // A route now exists. Whether this app may use it is a
+                    // separate observation that arrives on its own callback.
+                    hasDefaultNetwork = true
+                    defaultNetworkBlocked = null
+                    publishDefaultNetworkAccess()
+                }
+
+                override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                    hasDefaultNetwork = true
+                    defaultNetworkBlocked = blocked
+                    publishDefaultNetworkAccess()
+                }
+
+                override fun onLost(network: Network) {
+                    // Losing the route is a different condition from being
+                    // refused on it, and must not be reported as the same.
+                    // A handover brings onAvailable for the replacement.
+                    hasDefaultNetwork = false
+                    defaultNetworkBlocked = null
+                    publishDefaultNetworkAccess()
+                }
+            }
+        try {
+            // Follows the route this app's requests actually take, including
+            // an applicable VPN, rather than every network that happens to
+            // match a capability filter.
+            manager.registerDefaultNetworkCallback(callback, mainThread)
+            networkAccessCallback = callback
+        } catch (error: SecurityException) {
+            networkAccessCallback = null
+            emitNetworkAccess(STATUS_UNKNOWN)
+        }
+    }
+
+    private fun stopNetworkAccessWatch() {
+        val callback = networkAccessCallback ?: return
+        networkAccessCallback = null
+        hasDefaultNetwork = false
+        defaultNetworkBlocked = null
+        val manager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        try {
+            manager?.unregisterNetworkCallback(callback)
+        } catch (error: IllegalArgumentException) {
+            // Already unregistered; nothing further to release.
+        }
+    }
+
+    override fun onDestroy() {
+        stopNetworkAccessWatch()
+        networkAccessSink = null
+        super.onDestroy()
+    }
+
     private companion object {
+        const val NETWORK_ACCESS_CHANNEL =
+            "in.co.sail.bsl.crm3.bafops/network_access"
+        const val STATUS_ALLOWED = "allowed"
+        const val STATUS_BLOCKED = "blocked"
+        const val STATUS_NO_NETWORK = "noNetwork"
+        const val STATUS_UNKNOWN = "unknown"
         const val RECOVERY_STORAGE_CHANNEL =
             "in.co.sail.bsl.crm3.bafops/recovery_storage"
         const val CRITICAL_ALARM_CHANNEL =

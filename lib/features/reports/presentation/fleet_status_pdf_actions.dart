@@ -56,10 +56,9 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
   void _open(Widget screen) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        settings:
-            screen is CriticalAlarmScreen
-                ? const RouteSettings(name: CriticalAlarmScreen.routeName)
-                : null,
+        settings: screen is CriticalAlarmScreen
+            ? const RouteSettings(name: CriticalAlarmScreen.routeName)
+            : null,
         builder: (_) => screen,
       ),
     );
@@ -73,6 +72,7 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
     required OperationsReportDocumentPreset initialPreset,
     required List<AssetClassRecord> classes,
     required List<AssetInstanceRecord> assets,
+    required List<InnerCoverProfile> innerCovers,
     required OperationsReportSelection selection,
   }) async {
     final furnaceAssets = furnaceAssetsForOperationsReport(
@@ -154,18 +154,21 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder:
-            (_) => OperationsReportPdfPreviewScreen(
-              report: report,
-              request: request,
-              assetClassLabel: _assetClassScopeLabel(
-                classes,
-                selection.assetClassId,
-              ),
-              assetLabel: _assetScopeLabel(assets, selection.assetInstanceId),
-              furnaceAssets: furnaceAssets,
-              currentBurnerRounds: currentBurnerRounds,
-            ),
+        builder: (_) => OperationsReportPdfPreviewScreen(
+          report: report,
+          request: request,
+          assetClassLabel: _assetClassScopeLabel(
+            classes,
+            selection.assetClassId,
+          ),
+          assetLabel: operationsReportAssetScopeLabel(
+            assets,
+            innerCovers,
+            selection,
+          ),
+          furnaceAssets: furnaceAssets,
+          currentBurnerRounds: currentBurnerRounds,
+        ),
       ),
     );
   }
@@ -199,11 +202,21 @@ String _assetClassScopeLabel(
   return 'Selected asset class';
 }
 
-String _assetScopeLabel(
+String operationsReportAssetScopeLabel(
   List<AssetInstanceRecord> assets,
-  String? assetInstanceId,
+  List<InnerCoverProfile> innerCovers,
+  OperationsReportSelection selection,
 ) {
+  final assetInstanceId = selection.nativeAssetId;
   if (assetInstanceId == null) return 'All assets in scope';
+  if (selection.subjectKind == OperationsReportSubjectKind.innerCover) {
+    for (final cover in innerCovers) {
+      if (cover.id == assetInstanceId) {
+        return 'Inner Cover ${cover.serialNumber}';
+      }
+    }
+    return 'Selected serial cover';
+  }
   for (final asset in assets) {
     if (asset.id == assetInstanceId) return asset.name;
   }

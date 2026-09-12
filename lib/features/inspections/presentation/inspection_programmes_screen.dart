@@ -25,6 +25,7 @@ part 'inspection_programmes_editors.dart';
 part 'inspection_programmes_audit_board.dart';
 part 'inspection_programmes_dialogs.dart';
 part 'inspection_programmes_target_picker.dart';
+part 'inspection_programmes_status_actions.dart';
 
 class InspectionProgrammesScreen extends ConsumerWidget {
   const InspectionProgrammesScreen({super.key});
@@ -794,6 +795,18 @@ class _CampaignDetail extends ConsumerWidget {
                   ? () => _openAuditPdf(context, ref)
                   : null,
               icon: const Icon(Icons.picture_as_pdf_outlined),
+            ),
+          if (actor.canManageInspectionCampaigns &&
+              campaign.status == InspectionCampaignStatus.closed)
+            IconButton(
+              key: const ValueKey('reopen-inspection-campaign-action'),
+              tooltip: campaignServerVerified
+                  ? 'Reopen for verification'
+                  : 'Reconnect to verify the campaign before reopening',
+              onPressed: campaignServerVerified
+                  ? () => _transitionCampaign(context, ref, campaign, 'open')
+                  : null,
+              icon: const Icon(Icons.history_rounded),
             ),
           if (actor.canManageInspectionCampaigns &&
               campaign.status != InspectionCampaignStatus.closed)
@@ -1928,63 +1941,6 @@ Future<void> _createCampaign(
   );
 }
 
-Future<void> _transitionCampaign(
-  BuildContext context,
-  WidgetRef ref,
-  InspectionCampaign campaign,
-  String status,
-) async {
-  if (status == 'closed' && !campaign.canClose) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${campaign.remainingPopulation} target${campaign.remainingPopulation == 1 ? '' : 's'} still need evidence or an explicit disposition.',
-        ),
-        backgroundColor: BafColors.warning,
-      ),
-    );
-    return;
-  }
-  final confirmed =
-      status != 'closed' ||
-      await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Close this programme?'),
-              content: const Text(
-                'All targets are accounted. The campaign will become read-only, while findings and verification evidence remain available.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Keep open'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          ) ==
-          true;
-  if (!confirmed || !context.mounted) return;
-  await _runInspectionCommand(
-    context,
-    ref,
-    WorkflowCommand(
-      commandId: 'setInspectionCampaignStatus_${const Uuid().v4()}',
-      type: WorkflowCommandType.setInspectionCampaignStatus,
-      aggregateId: campaign.id,
-      expectedVersion: campaign.version,
-      payload: {
-        'status': status,
-        'reason': 'Move the inspection programme to $status.',
-      },
-    ),
-    'Inspection campaign moved to $status.',
-  );
-}
-
 Future<void> _deleteUnusedCampaign(
   BuildContext context,
   WidgetRef ref,
@@ -2177,7 +2133,14 @@ Future<void> _adjudicateFinding(
       type: WorkflowCommandType.adjudicateInspectionFinding,
       aggregateId: campaign.id,
       expectedVersion: campaign.version,
-      payload: {'findingId': finding.id, 'status': status, 'reason': reason},
+      // The dialog reviewed this finding revision, not whichever revision
+      // happens to exist by the time the request reaches the server.
+      payload: {
+        'findingId': finding.id,
+        'expectedFindingVersion': finding.version,
+        'status': status,
+        'reason': reason,
+      },
     ),
     'Finding adjudication recorded.',
   );

@@ -168,3 +168,144 @@ instead of the prior batch paths, preserving server-owned timestamps. The
 inventory remains exact; no presentation persistence exception was added.
 Earlier counts and CI receipts above describe their historical source, not
 deployment or release authority for this successor.
+
+## Post-Incident Remediation Re-arm, 2026-09-10
+
+The current governed successor contains 560 operations across 1,946
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`308E195FA19CB26ECE40187B18533A3202F2E311FE9C264E06DF8853A73EC75B`.
+
+Four operations were added by the 2026-09-09 sync-incident remediation. Two
+belong to the local diagnostics read adapter, which now counts the workflow
+command journal: that journal carries no `isSynced` flag, so unfinished
+lifecycle commands previously sat behind a reassuring zero dirty-row total and
+were invisible to support during the incident. Two belong to the Isar workflow
+repository, which now claims a retained command inside the same write
+transaction that selects it, so a second execution context cannot replay a
+command that is already being sent.
+
+No re-arm trigger fired. No direct Firestore or Isar access was introduced into
+presentation code; the recovery package moved to a service for that reason, and
+the presentation persistence count remains zero. Both new provider paths are
+classified in the governed inventory, inside surfaces that already declare
+their stores and modes: the diagnostics adapter remains `isar` read-only under
+the registered `diagnostic-read-adapter` profile, and the workflow repository
+remains `isar` read and mutating under the `repository` profile. No registered
+diagnostic exception became mutating or lost authority-first admission. The
+surface count is unchanged because no new surface was introduced.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure, and it carries no deployment or release
+authority.
+
+## Successor Review Correction Re-arm, 2026-09-10
+
+The current governed successor contains 561 operations across 1,949
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`44B79AC49CA95EEB4A65771AFE9CFDFDF041E925BC4F197404DBADF352A99B7E`.
+
+One operation was added: the Isar workflow repository can now read a stored
+command receipt. A receipt is authoritative evidence that the server accepted a
+command, and the executor consults it before recording a failure. Without that
+check, an attempt whose claim had expired could return late with a transport
+error and recreate an uncertain-outcome row for work another caller had already
+settled, so an accepted command would reappear as unresolved and invite replay.
+
+No re-arm trigger fired. The operation is a classified read inside the existing
+`repository` surface, which already declares `isar` with read and mutating
+modes. No direct Firestore or Isar access entered presentation code and the
+presentation persistence count remains zero. No registered diagnostic exception
+became mutating or lost authority-first admission. The surface count is
+unchanged at 61.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure and carries no deployment or release
+authority.
+
+## Atomic Retry Transition Re-arm, 2026-09-10
+
+The current governed successor contains 563 operations across 1,966
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`4CEF70398C0559DF2913B29D945A130349BCA5F707355C75F922A47140BDDE8D`.
+
+Two operations were added to the Isar workflow repository. Acceptance and its
+retry state now settle in one transaction, so a command is never both accepted
+and outstanding. A retry transition now reads the receipt, reads the current
+row and writes inside that same transaction, because reading the receipt first
+and writing afterwards left the interleaving it was meant to prevent: the read
+finds nothing, another caller commits acceptance and clears the row, and the
+late write recreates uncertainty for work already applied.
+
+No re-arm trigger fired. Both are classified inside the existing `repository`
+surface, which already declares `isar` with read and mutating modes. No direct
+Firestore or Isar access entered presentation code and the presentation
+persistence count remains zero. No registered diagnostic exception became
+mutating or lost authority-first admission. The surface count is unchanged at
+61.
+
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered. This entry records classified growth inside already-closed
+boundaries; it is not a new closure and carries no deployment or release
+authority.
+
+## Recovery Boundary Re-arm, 2026-09-10
+
+The current governed successor contains 563 operations across 1,967
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`FF3CFDE311F9F1F66F35154AAF878D94DA5A71FE1562542DCEB1EE8A1CED1EC5`.
+
+No operation was added. One site was: the retry claim now excludes commands a
+run has already handled, because a released command keeps its due time and the
+oldest one was otherwise handed back immediately, leaving every command behind
+it unattempted.
+
+No re-arm trigger fired. The change is inside the existing `repository`
+surface, which already declares `isar` with read and mutating modes.
+Presentation persistence remains zero and the surface count is unchanged at 61.
+The frozen source-implemented closure receipt of 484 operations and 1,548 sites
+stands unaltered.
+
+## Outcome Inventory Re-arm, 2026-09-10
+
+The current governed successor contains 564 operations across 1,970
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`618CE2AC84FA29BB2B4644AFFF115EE7F0302610979667B09550687B4E1E25E7`.
+
+One classified read was added: the workflow repository can now report the
+command journal by outcome. The existing pending-command query excludes
+rejected rows because they are not retryable, which is correct for claiming
+and wrong for deciding what a person must still deal with; reusing it let an
+operator-facing rejection warning clear on the next quiet run while the
+rejected row was still stored.
+
+No re-arm trigger fired. It is an `isar` read inside the existing `repository`
+surface, which already declares read and mutating modes. Presentation
+persistence remains zero and the surface count is unchanged at 61. The frozen
+source-implemented closure receipt of 484 operations and 1,548 sites stands
+unaltered.
+
+## Exact subject-read inventory review, 2026-09-12
+
+The current reviewed working tree contains 566 operations across 1,973
+persistence sites and the same 61 classified surfaces. Its measured digest is
+`D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1`.
+
+The two additional operations are repository reads. The asset hierarchy
+repository reads one exact Inner Cover from the server, rejecting missing,
+cached, pending-write, wrong-identity or insufficient-version observations.
+The maintenance-intelligence repository reads one exact plan from the server
+after explicit subject revalidation and strictly decodes it before the caller
+checks the confirmed identity and revision. These add one `get()` site and
+one `collection()` plus `get()` pair respectively. Both remain inside existing
+Firestore/read repository declarations. Rules still require an approved user
+for reads and deny direct client writes to both collections.
+
+No database access moved into presentation and no new transaction owner was
+admitted. The existing sync service now blocks eligibility when its local hold
+collection cannot be read; that changes an existing operation's failure outcome,
+not the number of database sites. Its regression proves a persisted contradiction
+hold survives reopening and a missing hold collection does not authorize a send.
+The historical closure evidence and CI receipts remain unaltered; this review
+does not claim a new admitted CI run, deployment or device result.

@@ -103,6 +103,181 @@ function fixture(t) {
     deployed, state, persist, verify: () => verifyStagedPromotionSourceAuthority({repoRoot: root, releasePolicy: policy})};
 }
 
+// Synthetic later readback, not a production deployment claim. The approval
+// and both source Git objects come from their real immutable custody. The
+// historical Build27 receipt and children remain unchanged in this fixture.
+function delegatedCurrentFixture(t) {
+  const f = fixture(t);
+  const approvalPath = 'release/approvals/build28-backend-deployment-approval.json';
+  const approval = readMeasured(approvalPath);
+  const receipt = structuredClone(f.receipt);
+  const source = approval.sourceAuthority;
+  Object.assign(receipt.sourceAuthority, {commit: source.commit, tree: source.tree,
+    functionsGitObjectId: source.functionTree, pullRequestNumber: source.pullRequestNumber,
+    postMergeReleaseGateRunId: source.requiredPostMergeReleaseGateRunId});
+  receipt.authorityChronology = {
+    delegatedDecisionAtUtc: approval.approvalEvidence.delegatedDecisionAtUtc,
+    earliestFunctionUpdateTime: '2026-09-08T21:01:00.123456788Z',
+    latestFunctionUpdateTime: '2026-09-08T21:02:00.123456789Z',
+    allObservedFunctionUpdatesPostdateDelegatedDecision: true,
+    deploymentWasRetroactivelyAuthorized: false,
+  };
+  receipt.recordedAtUtc = '2026-09-08T21:03:00Z';
+  receipt.deployment.sourceRuntimeHash = '1'.repeat(40);
+  receipt.approvalAuthority.file = approvalPath;
+  const children = structuredClone(f.children);
+  for (const [key, child] of Object.entries(children)) {
+    for (const point of ['before', 'after']) Object.assign(child.source[point], {
+      commit: source.commit, tree: source.tree, originMain: source.commit});
+    if (key !== 'firestoreRulesAndIndexes') {
+      child.outputs.functions.forEach((record, index) => {
+        record.updateTime = index === 0 ? receipt.authorityChronology.earliestFunctionUpdateTime
+          : receipt.authorityChronology.latestFunctionUpdateTime;
+        record.firebaseFunctionsHash = receipt.deployment.sourceRuntimeHash;
+      });
+    }
+  }
+  f.deployed.functionFleetSourceCommit = source.commit;
+  f.deployed.deploymentApprovalFile = approvalPath;
+  f.deployed.functionFleetEvidenceFile = 'release/current-backend28.json';
+  const persist = () => {
+    f.deployed.deploymentApprovalSha256 = f.write(approvalPath, approval);
+    receipt.approvalAuthority.sha256 = f.deployed.deploymentApprovalSha256;
+    for (const [key, child] of Object.entries(children)) {
+      const sealed = sealReceipt(child);
+      const file = `release/current28-${key}.json`;
+      receipt.cleanMainLiveReadbacks[key] = {file, physicalSha256: f.write(file, sealed),
+        canonicalReceiptSha256: sealed.receiptSha256};
+    }
+    f.deployed.functionFleetEvidenceSha256 = f.write(f.deployed.functionFleetEvidenceFile, receipt);
+    f.write('release/current-successor-state.json', f.state);
+  };
+  persist();
+  return {...f, currentApproval: approval, currentReceipt: receipt, currentChildren: children,
+    persistCurrent: persist};
+}
+
+function rolloverFixture(t) {
+  const f = delegatedCurrentFixture(t);
+  const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
+  const promotion = readMeasured(promotionFile);
+  const history = promotion.admittedEvidence.productionBackend;
+  const historical = readMeasured(history.receipt);
+  for (const file of [promotionFile, promotion.ownerApproval.receipt,
+    promotion.admittedEvidence.deviceAcceptance.receipt, history.receipt,
+    historical.approvalAuthority.file,
+    ...Object.values(historical.cleanMainLiveReadbacks).map((value) => value.file)]) {
+    fs.mkdirSync(path.dirname(path.join(f.root, file)), {recursive: true});
+    fs.copyFileSync(path.join(repositoryRoot, file), path.join(f.root, file));
+  }
+  f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
+    promotionReceiptFile: promotionFile, promotionReceiptSha256: sha(fs.readFileSync(path.join(f.root, promotionFile)))};
+  f.policy.versionPolicy.buildNumber = 28;
+  f.version.sourceBaseline.commit = f.currentReceipt.sourceAuthority.commit;
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentSourceCommit: f.currentReceipt.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.currentReceipt.sourceAuthority.pullRequestNumber,
+    exactFunctionFleetDeploymentReceiptFile: f.deployed.functionFleetEvidenceFile,
+  });
+  const persistCandidate = () => {
+    const required = f.version.requiredSource;
+    required.exactFunctionFleetDeploymentReceiptSha256 = sha(fs.readFileSync(path.join(f.root,
+      required.exactFunctionFleetDeploymentReceiptFile)));
+    Object.assign(f.policy.finalization, {
+      exactFunctionFleetDeploymentReceiptFile: required.exactFunctionFleetDeploymentReceiptFile,
+      exactFunctionFleetDeploymentReceiptSha256: required.exactFunctionFleetDeploymentReceiptSha256,
+    });
+    f.policy.versionPolicy.sourceDocumentSha256 = f.write('release/version.json', f.version);
+  };
+  persistCandidate();
+  return {...f, history, historical, persistCandidate};
+}
+
+test('Build28 rollover retains fixed Build27 history and separately verifies candidate and current backend', (t) => {
+  const f = rolloverFixture(t);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptFile, f.history.receipt);
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptFile, f.deployed.functionFleetEvidenceFile);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+
+  // A later readback remains separate from the already selected candidate.
+  f.deployed.functionFleetEvidenceFile = 'release/later-current28.json';
+  f.currentReceipt.recordedAtUtc = '2026-09-08T21:04:00Z';
+  f.persistCurrent();
+  const later = f.verify();
+  assert.equal(later.ok, true, later.reasons.join('; '));
+  assert.notEqual(later.candidateBackendReceiptSha256, later.currentBackendReceiptSha256);
+  assert.equal(later.historicalBackendReceiptSha256, f.history.sha256);
+});
+
+test('Build28 rollover rejects coherent candidate, historical and mutable promotion substitutions', (t) => {
+  const f = rolloverFixture(t);
+  const required = structuredClone(f.version.requiredSource);
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentReceiptFile: f.history.receipt,
+    exactFunctionFleetDeploymentSourceCommit: f.historical.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.historical.sourceAuthority.pullRequestNumber,
+  });
+  f.persistCandidate();
+  assert.equal(f.verify().ok, false, 'Build28 candidate cannot substitute historical27 deployment');
+  Object.assign(f.version.requiredSource, required);
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+  const promotion = readMeasured(f.policy.postBuildPromotion.promotionReceiptFile);
+  promotion.admittedEvidence.productionBackend = {receipt: f.deployed.functionFleetEvidenceFile,
+    sha256: f.deployed.functionFleetEvidenceSha256, decision: PASS};
+  f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(f.policy.postBuildPromotion.promotionReceiptFile, promotion);
+  assert.equal(f.verify().ok, false, 'rehashing promotion cannot substitute current28 as historical27');
+  delete f.policy.postBuildPromotion;
+  assert.equal(f.verify().ok, false, 'rollover cannot omit its preserved promotion authority');
+});
+
+test('Build28 rollover adjudicates a distinct candidate child even when current backend passes', (t) => {
+  const f = rolloverFixture(t);
+  const candidate = structuredClone(f.currentReceipt);
+  f.write('release/candidate28.json', candidate);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = 'release/candidate28.json';
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+  const child = structuredClone(f.currentChildren.functionFleet);
+  child.outputs.functions[0].firebaseFunctionsHash = '0'.repeat(40);
+  const sealed = sealReceipt(child);
+  candidate.cleanMainLiveReadbacks.functionFleet = {file: 'release/candidate-bad-fleet.json',
+    physicalSha256: f.write('release/candidate-bad-fleet.json', sealed), canonicalReceiptSha256: sealed.receiptSha256};
+  f.write('release/candidate28.json', candidate);
+  f.persistCandidate();
+  const result = f.verify();
+  assert.equal(result.ok, false, 'candidate children cannot borrow a valid current receipt verdict');
+  assert.match(result.reasons[0], /functionFleet: measured function source hashes/);
+});
+
+test('Build28 rollover keeps candidate version, approval and scope bindings independent from current', (t) => {
+  const f = rolloverFixture(t);
+  const original = structuredClone(f.currentReceipt);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = 'release/candidate28.json';
+  for (const [mutate, reason] of [
+    [(value) => { value.sourceAuthority.pullRequestNumber = 1; }, /version authority/],
+    [(value) => { value.deployment.schedulerCount = 2; }, /deployment scope/],
+    [(value) => { value.authorityChronology.delegatedDecisionAtUtc = '2026-09-08T20:59:00Z'; }, /authorization/],
+    [(value) => {
+      const approval = structuredClone(f.currentApproval);
+      approval.approvalEvidence.instructionVerbatim = 'Deployment is prohibited.';
+      value.approvalAuthority = {file: 'release/substituted-approval.json',
+        sha256: f.write('release/substituted-approval.json', approval)};
+    }, /immutable owner-instruction custody/],
+  ]) {
+    const candidate = structuredClone(original);
+    mutate(candidate);
+    f.write('release/candidate28.json', candidate);
+    f.persistCandidate();
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons[0], reason);
+  }
+});
+
 test("verifies and returns exact historical/current receipt identities", (t) => {
   const f = fixture(t);
   assert.deepEqual(f.verify(), {ok: true, reasons: [],
@@ -224,6 +399,120 @@ test("allows distinct current and historical receipts for the same admitted appr
   assert.equal(result.historicalBackendReceiptFile, "release/backend.json");
   assert.equal(result.currentBackendReceiptFile, currentPath);
   assert.notEqual(result.historicalBackendReceiptSha256, result.currentBackendReceiptSha256);
+});
+
+test('admits the fixed delegated c00 backend alongside unchanged historical Build27', (t) => {
+  const f = delegatedCurrentFixture(t);
+  const historicalHash = f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256;
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptFile, 'release/backend.json');
+  assert.equal(result.historicalBackendReceiptSha256, historicalHash);
+  assert.equal(result.currentBackendReceiptFile, 'release/current-backend28.json');
+  assert.equal(result.currentBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.notEqual(result.currentBackendReceiptSha256, result.historicalBackendReceiptSha256);
+  assert.equal(Object.hasOwn(f.currentReceipt.authorityChronology, 'ownerInstructionReceivedAtUtc'), false);
+  assert.equal(Object.hasOwn(f.currentApproval.approvalEvidence, 'messageReceivedAtUtc'), false);
+  assert.equal(f.receipt.authorityChronology.ownerInstructionReceivedAtUtc, '2026-09-08T00:48:30.433Z');
+});
+
+test('delegated backend approval custody rejects coherent changes to the entire decision', (t) => {
+  const f = delegatedCurrentFixture(t);
+  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  const original = structuredClone(f.currentApproval);
+  for (const [field, value] of [
+    ['approverName', 'A different decision maker'],
+    ['approvalEvidence.codexTaskId', 'unrelated-task'],
+    ['approvalEvidence.instructionExcerpts', ['Do not deploy any backend.']],
+    ['approvalEvidence.overnightMandateSummary', 'No agent action is authorized.'],
+    ['approvalEvidence.agentDecision', 'Deploy a different source and change IAM.'],
+    ['approvalEvidence.scopeInterpretation', 'This grants unrestricted publication.'],
+    ['executionPrerequisites', []],
+    ['notAuthorizedByThisDecision', []],
+    ['deploymentExecutionAuthority.stopIfRemoteMainMoves', false],
+  ]) {
+    Object.assign(f.currentApproval, structuredClone(original));
+    const parts = field.split('.');
+    const target = parts.slice(0, -1).reduce((value, part) => value[part], f.currentApproval);
+    target[parts.at(-1)] = value;
+    f.persistCurrent();
+    const result = f.verify();
+    assert.equal(result.ok, false, field);
+    assert.match(result.reasons[0], /approval.*custody/i);
+  }
+});
+
+test('delegated backend binds source, execution, CI, scope and decision-time semantics', (t) => {
+  const f = delegatedCurrentFixture(t);
+  const original = structuredClone(f.currentApproval);
+  for (const field of [
+    'sourceAuthority.tree', 'sourceAuthority.functionTree', 'sourceAuthority.pullRequestNumber',
+    'sourceAuthority.requiredPostMergeReleaseGateRunId', 'approvedAtUtc',
+    'approvalEvidence.authorityType', 'approvalEvidence.delegatedDecisionAtUtc', 'approvalEvidence.recordedAtUtc',
+    'deploymentExecutionAuthority.mode', 'deploymentExecutionAuthority.commit',
+    'deploymentExecutionAuthority.tree', 'deploymentExecutionAuthority.functionTree',
+    'approvedDeployment.callableCount', 'approvedDeployment.eventAndProtocolTriggerCount',
+    'approvedDeployment.functionCount', 'approvedDeployment.preserveExistingIamRequired',
+    'approvedDeployment.scheduledFunctionManualInvocationAuthorized', 'approvedDeployment.appCheckEnforcement',
+  ]) {
+    const parts = field.split('.');
+    for (const missing of [false, true]) {
+      Object.assign(f.currentApproval, structuredClone(original));
+      const target = parts.slice(0, -1).reduce((value, part) => value[part], f.currentApproval);
+      const key = parts.at(-1);
+      if (missing) delete target[key]; else target[key] = [target[key]];
+      f.persistCurrent();
+      assert.equal(f.verify().ok, false, `${field}, missing=${missing}`);
+    }
+  }
+});
+
+test('delegated chronology rejects invented message times, mixed authority, invalid dates and nanosecond reversal', (t) => {
+  const f = delegatedCurrentFixture(t);
+  const original = structuredClone(f.currentReceipt.authorityChronology);
+  for (const mutate of [
+    (value) => { delete value.delegatedDecisionAtUtc; },
+    (value) => { value.delegatedDecisionAtUtc = [value.delegatedDecisionAtUtc]; },
+    (value) => { value.delegatedDecisionAtUtc = '2026-09-08T21:00:09Z'; },
+    (value) => { value.ownerInstructionReceivedAtUtc = value.delegatedDecisionAtUtc; },
+    (value) => { value.allObservedFunctionUpdatesPostdateOwnerInstruction = true; },
+    (value) => { value.allObservedFunctionUpdatesPostdateDelegatedDecision = false; },
+    (value) => { value.deploymentWasRetroactivelyAuthorized = true; },
+    (value) => { value.earliestFunctionUpdateTime = '2026-09-08T20:59:59Z'; },
+    (value) => { value.earliestFunctionUpdateTime = '2026-02-30T21:01:00Z'; },
+    (value) => { value.earliestFunctionUpdateTime = '2026-09-08T21:01:00.123456789Z';
+      value.latestFunctionUpdateTime = '2026-09-08T21:01:00.123456788Z'; },
+  ]) {
+    f.currentReceipt.authorityChronology = structuredClone(original);
+    mutate(f.currentReceipt.authorityChronology);
+    f.persistCurrent();
+    assert.equal(f.verify().ok, false);
+  }
+  f.currentReceipt.authorityChronology = structuredClone(original);
+  f.currentApproval.approvalEvidence.messageReceivedAtUtc = f.currentApproval.approvedAtUtc;
+  f.persistCurrent();
+  assert.equal(f.verify().ok, false);
+});
+
+test('delegated current authority cannot replace historical Build27 or approve another source', (t) => {
+  const f = delegatedCurrentFixture(t);
+  f.currentApproval.sourceAuthority.commit = f.git('rev-parse', 'HEAD');
+  f.currentApproval.sourceAuthority.tree = f.git('rev-parse', 'HEAD^{tree}');
+  f.currentApproval.sourceAuthority.functionTree = f.git('rev-parse', 'HEAD:functions');
+  Object.assign(f.currentReceipt.sourceAuthority, {
+    commit: f.currentApproval.sourceAuthority.commit, tree: f.currentApproval.sourceAuthority.tree,
+    functionsGitObjectId: f.currentApproval.sourceAuthority.functionTree});
+  f.deployed.functionFleetSourceCommit = f.currentApproval.sourceAuthority.commit;
+  f.persistCurrent();
+  assert.equal(f.verify().ok, false, 'a mutable approval must not authorize an unadmitted source');
+
+  const g = delegatedCurrentFixture(t);
+  g.receipt.approvalAuthority = structuredClone(g.currentReceipt.approvalAuthority);
+  const historicalHash = g.write('release/backend.json', g.receipt);
+  g.version.requiredSource.exactFunctionFleetDeploymentReceiptSha256 = historicalHash;
+  g.policy.finalization.exactFunctionFleetDeploymentReceiptSha256 = historicalHash;
+  g.policy.versionPolicy.sourceDocumentSha256 = g.write('release/version.json', g.version);
+  assert.equal(g.verify().ok, false, 'historical27 must retain its original owner/source approval');
 });
 
 test('a different current source requires its own admitted immutable approval custody', (t) => {

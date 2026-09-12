@@ -45,13 +45,11 @@ class _PairingDialogState extends State<_PairingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        widget.current == null
+    final title = widget.current == null
             ? 'Link to Base ${widget.base.assetNumber}'
             : 'Change cover on Base ${widget.base.assetNumber}';
     final query = _search.text.trim().toLowerCase();
-    final filtered =
-        _candidates.where((cover) {
+    final filtered = _candidates.where((cover) {
           if (query.isEmpty) return true;
           return cover.serialNumber.toLowerCase().contains(query) ||
               '${cover.currentBaseAssetNumber ?? ''}'.contains(query) ||
@@ -76,8 +74,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                 decoration: InputDecoration(
                   labelText: 'Find Inner Cover',
                   prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon:
-                      _search.text.isEmpty
+                  suffixIcon: _search.text.isEmpty
                           ? null
                           : IconButton(
                             tooltip: 'Clear search',
@@ -91,8 +88,7 @@ class _PairingDialogState extends State<_PairingDialog> {
               ),
               const SizedBox(height: BafSpacing.sm),
               Flexible(
-                child:
-                    filtered.isEmpty
+                child: filtered.isEmpty
                         ? const Center(
                           child: Text(
                             'No Inner Cover matches this search.',
@@ -211,8 +207,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
   @override
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
-    final vacantCount =
-        widget.bases
+    final vacantCount = widget.bases
             .where((base) => !widget.assignments.containsKey(base.id))
             .length;
     final filtered =
@@ -226,12 +221,12 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                       query,
                     ) ??
                     false);
-          }).toList()
-          ..sort(
+        }).toList()..sort(
             (left, right) => left.assetNumber.compareTo(right.assetNumber),
           );
-    final selectedAssignment =
-        _selected == null ? null : widget.assignments[_selected!.id];
+    final selectedAssignment = _selected == null
+        ? null
+        : widget.assignments[_selected!.id];
     final canSubmit = _selected != null && _reason.text.trim().isNotEmpty;
 
     return AlertDialog(
@@ -253,8 +248,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                 decoration: InputDecoration(
                   labelText: 'Find Base number',
                   prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon:
-                      _search.text.isEmpty
+                  suffixIcon: _search.text.isEmpty
                           ? null
                           : IconButton(
                             tooltip: 'Clear search',
@@ -273,8 +267,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                   ChoiceChip(
                     label: Text('Vacant $vacantCount'),
                     selected: !_showOccupied,
-                    onSelected:
-                        (_) => setState(() {
+                    onSelected: (_) => setState(() {
                           _showOccupied = false;
                           if (_selected != null &&
                               widget.assignments.containsKey(_selected!.id)) {
@@ -291,8 +284,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
               ),
               const SizedBox(height: BafSpacing.sm),
               Flexible(
-                child:
-                    filtered.isEmpty
+                child: filtered.isEmpty
                         ? const Center(
                           child: Text(
                             'No Base matches this search and filter.',
@@ -358,8 +350,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed:
-              canSubmit
+          onPressed: canSubmit
                   ? () => Navigator.pop(
                     context,
                     _BaseAssignmentSelection(
@@ -441,17 +432,13 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
             initialValue: _state,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Resulting state'),
-            items:
-                widget.states
+            items: widget.states
                     .map(
-                      (state) => DropdownMenuItem(
-                        value: state,
-                        child: Text(state.label),
-                      ),
+                  (state) =>
+                      DropdownMenuItem(value: state, child: Text(state.label)),
                     )
                     .toList(),
-            onChanged:
-                (value) => setState(() {
+            onChanged: (value) => setState(() {
                   _state = value ?? _state;
                   if (!_needsRetirementCondition) {
                     _retirementCondition = null;
@@ -473,8 +460,8 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
                     child: Text(condition.label),
                   ),
               ],
-              onChanged:
-                  (value) => setState(() => _retirementCondition = value),
+              onChanged: (value) =>
+                  setState(() => _retirementCondition = value),
             ),
           ],
           const SizedBox(height: BafSpacing.md),
@@ -511,119 +498,6 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
           );
         },
         child: const Text('Confirm'),
-      ),
-    ],
-  );
-}
-
-class _AcceptanceResult {
-  final DateTime inspectedOn;
-  final String acceptanceReference;
-  final String? leakTestReference;
-  final String? ndtReference;
-  final String? notes;
-  final String reason;
-
-  const _AcceptanceResult({
-    required this.inspectedOn,
-    required this.acceptanceReference,
-    this.leakTestReference,
-    this.ndtReference,
-    this.notes,
-    required this.reason,
-  });
-}
-
-class _AcceptanceDialog extends StatefulWidget {
-  const _AcceptanceDialog();
-
-  @override
-  State<_AcceptanceDialog> createState() => _AcceptanceDialogState();
-}
-
-class _AcceptanceDialogState extends State<_AcceptanceDialog> {
-  final _acceptance = TextEditingController();
-  final _leak = TextEditingController();
-  final _ndt = TextEditingController();
-  final _notes = TextEditingController();
-  final _reason = TextEditingController();
-
-  @override
-  void dispose() {
-    _acceptance.dispose();
-    _leak.dispose();
-    _ndt.dispose();
-    _notes.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Accept Inner Cover'),
-    content: SizedBox(
-      width: 460,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _acceptance,
-              decoration: const InputDecoration(
-                labelText: 'Acceptance reference',
-              ),
-            ),
-            TextField(
-              controller: _leak,
-              decoration: const InputDecoration(
-                labelText: 'Leak-test reference',
-              ),
-            ),
-            TextField(
-              controller: _ndt,
-              decoration: const InputDecoration(labelText: 'NDT reference'),
-            ),
-            TextField(
-              controller: _notes,
-              decoration: const InputDecoration(labelText: 'Inspection notes'),
-            ),
-            TextField(
-              controller: _reason,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Acceptance reason'),
-            ),
-          ],
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (_acceptance.text.trim().isEmpty || _reason.text.trim().isEmpty) {
-            return;
-          }
-          String? optional(TextEditingController controller) {
-            final value = controller.text.trim();
-            return value.isEmpty ? null : value;
-          }
-
-          Navigator.pop(
-            context,
-            _AcceptanceResult(
-              inspectedOn: DateTime.now(),
-              acceptanceReference: _acceptance.text.trim(),
-              leakTestReference: optional(_leak),
-              ndtReference: optional(_ndt),
-              notes: optional(_notes),
-              reason: _reason.text.trim(),
-            ),
-          );
-        },
-        child: const Text('Accept'),
       ),
     ],
   );
@@ -714,8 +588,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final donors =
-        widget.profiles
+    final donors = widget.profiles
             .where(
               (cover) => const {
                 InnerCoverLifecycleState.retiredForSalvage,
@@ -727,8 +600,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     final form = SingleChildScrollView(
       controller: _scrollController,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding:
-          compact
+      padding: compact
               ? const EdgeInsets.fromLTRB(
                 BafSpacing.lg,
                 BafSpacing.lg,
@@ -795,8 +667,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               decoration: const InputDecoration(
                 labelText: 'Registration route',
               ),
-              items:
-                  InnerCoverOriginClassification.values
+              items: InnerCoverOriginClassification.values
                       .map(
                         (origin) => DropdownMenuItem(
                           value: origin,
@@ -814,8 +685,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               controller: _serial,
               textCapitalization: TextCapitalization.characters,
               textInputAction: TextInputAction.next,
-              onChanged:
-                  (_) => setState(() {
+              onChanged: (_) => setState(() {
                     _serialError = null;
                   }),
               decoration: InputDecoration(
@@ -843,8 +713,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 value: _receivedOrCompletedOn,
                 clearTooltip: 'Clear historical date',
                 chooseTooltip: 'Choose historical date',
-                onClear:
-                    () => setState(() {
+                onClear: () => setState(() {
                       _receivedOrCompletedOn = null;
                       _dateError = null;
                     }),
@@ -857,8 +726,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 errorText: _dateError,
                 clearTooltip: 'Clear incorporation date',
                 chooseTooltip: 'Choose incorporation date',
-                onClear:
-                    () => setState(() {
+                onClear: () => setState(() {
                       _incorporatedOn = null;
                       _dateError = null;
                     }),
@@ -917,8 +785,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 (state) => _FabricationSectionEditor(
                   state: state,
                   donors: donors,
-                  onChanged:
-                      () => setState(() {
+                  onChanged: () => setState(() {
                         _sectionsError = null;
                       }),
                 ),
@@ -952,8 +819,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               minLines: 2,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              onChanged:
-                  (_) => setState(() {
+              onChanged: (_) => setState(() {
                     _reasonError = null;
                   }),
               decoration: InputDecoration(
@@ -998,15 +864,13 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
       return value.isEmpty ? null : value;
     }
 
-    final sections =
-        _isFabricatedOrigin
+    final sections = _isFabricatedOrigin
             ? _sections.values.map((state) => state.toDraft()).toList()
             : const <InnerCoverFabricationSectionDraft>[];
     final sectionErrors = sections
         .expand((section) => section.validate())
         .toList(growable: false);
-    final serialError =
-        normalizeInnerCoverSerial(serial).length < 2
+    final serialError = normalizeInnerCoverSerial(serial).length < 2
             ? 'Enter an Inner Cover serial number.'
             : null;
     final reasonError = reason.isEmpty ? 'Explain the registration.' : null;
@@ -1018,8 +882,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         reasonError != null ||
         sectionErrors.isNotEmpty ||
         dateError != null) {
-      final errorSection =
-          serialError != null
+      final errorSection = serialError != null
               ? _identityKey
               : dateError != null
               ? _timelineKey
@@ -1030,8 +893,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         _serialError = serialError;
         _reasonError = reasonError;
         _dateError = dateError;
-        _sectionsError =
-            sectionErrors.isEmpty
+        _sectionsError = sectionErrors.isEmpty
                 ? null
                 : 'Complete the fabrication evidence: ${sectionErrors.first}';
       });
@@ -1115,11 +977,11 @@ InnerCoverSourceType _sourceTypeForOrigin(
   InnerCoverOriginClassification.documentedPurchase =>
     InnerCoverSourceType.purchased,
   InnerCoverOriginClassification.documentedFabrication ||
-  InnerCoverOriginClassification
-      .ownerDeclaredFabricated => InnerCoverSourceType.fabricated,
+  InnerCoverOriginClassification.ownerDeclaredFabricated =>
+    InnerCoverSourceType.fabricated,
   InnerCoverOriginClassification.ownerDeclaredNew ||
-  InnerCoverOriginClassification
-      .legacyUndocumented => InnerCoverSourceType.legacyExisting,
+  InnerCoverOriginClassification.legacyUndocumented =>
+    InnerCoverSourceType.legacyExisting,
 };
 
 String _originDescription(
@@ -1164,10 +1026,10 @@ String _sourceRecordDescription(InnerCoverOriginClassification origin) =>
         'Optional provenance may be added without overstating certainty.',
     };
 
-String _supplierLabel(
-  InnerCoverOriginClassification origin,
-) => switch (origin) {
-  InnerCoverOriginClassification.documentedPurchase => 'Supplier (optional)',
+String _supplierLabel(InnerCoverOriginClassification origin) =>
+    switch (origin) {
+      InnerCoverOriginClassification.documentedPurchase =>
+        'Supplier (optional)',
   InnerCoverOriginClassification.documentedFabrication =>
     'Fabricator / shop (optional)',
   InnerCoverOriginClassification.ownerDeclaredNew =>
@@ -1182,8 +1044,8 @@ IconData _originIcon(InnerCoverOriginClassification origin) => switch (origin) {
   InnerCoverOriginClassification.documentedPurchase =>
     Icons.local_shipping_outlined,
   InnerCoverOriginClassification.documentedFabrication ||
-  InnerCoverOriginClassification
-      .ownerDeclaredFabricated => Icons.precision_manufacturing_outlined,
+  InnerCoverOriginClassification.ownerDeclaredFabricated =>
+    Icons.precision_manufacturing_outlined,
   InnerCoverOriginClassification.ownerDeclaredNew =>
     Icons.new_releases_outlined,
   InnerCoverOriginClassification.legacyUndocumented => Icons.history_rounded,

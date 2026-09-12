@@ -31,6 +31,8 @@ class StructuredReportPdfPreviewScreen extends StatelessWidget {
       body: ZoomablePdfPreview(
         pageFormat: pageFormat,
         fileName: report.fileName,
+        documentKind: 'Structured report',
+        documentSubject: report.title,
         documentBuilder: (_) => StructuredReportPdfService.build(report),
       ),
     );

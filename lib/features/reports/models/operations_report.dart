@@ -12,18 +12,24 @@ import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../quality/data/quality_warning.dart';
 
+enum OperationsReportSubjectKind { numberedAsset, innerCover }
+
 class OperationsReportFilter {
   const OperationsReportFilter({
     required this.startDate,
     required this.endDate,
     this.assetClassId,
     this.assetInstanceId,
+    this.subjectKind = OperationsReportSubjectKind.numberedAsset,
   });
 
   final DateTime startDate;
   final DateTime endDate;
   final String? assetClassId;
   final String? assetInstanceId;
+  // The native collection is part of subject identity. A serial cover is not
+  // represented by a synthetic numbered asset merely to support reporting.
+  final OperationsReportSubjectKind subjectKind;
 
   DateTime get startInclusive =>
       DateTime(startDate.year, startDate.month, startDate.day);
@@ -40,11 +46,17 @@ class OperationsReportFilter {
       other.startDate == startDate &&
       other.endDate == endDate &&
       other.assetClassId == assetClassId &&
-      other.assetInstanceId == assetInstanceId;
+      other.assetInstanceId == assetInstanceId &&
+      other.subjectKind == subjectKind;
 
   @override
-  int get hashCode =>
-      Object.hash(startDate, endDate, assetClassId, assetInstanceId);
+  int get hashCode => Object.hash(
+    startDate,
+    endDate,
+    assetClassId,
+    assetInstanceId,
+    subjectKind,
+  );
 }
 
 class CountedReportLabel {

@@ -70,6 +70,60 @@ def utc_instant(value: object) -> datetime | None:
         return None
 
 
+def current_backend_authority_proof_exact(
+    deployment_relative: str,
+    deployment: dict,
+    deployed_authority: dict,
+) -> bool:
+    # Reuse the release gate's immutable approval and nanosecond verifier for
+    # both admitted sources, so changing source cannot bypass approval custody,
+    # and bind its result to the same receipt this audit has actually loaded.
+    source_commit = "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
+    if (
+        deployment.get("sourceAuthority", {}).get("commit")
+            != deployed_authority.get("functionFleetSourceCommit")
+        or (deployment.get("sourceAuthority", {}).get("commit") == source_commit
+            and deployment.get("approvalAuthority") != {
+            "commit": "c60342395da59d7cc908edb013b16e6e3685b4a9",
+            "file": "release/approvals/build28-backend-deployment-approval.json",
+            "sha256": "A3F577D48100E9DAC6CA8F3D6CA1F44DFFDA9DA88DF96B22ADCC51DC32A0C24C",
+        })
+    ):
+        return False
+    try:
+        measured = (ROOT / deployment_relative).read_bytes()
+        if json.loads(measured) != deployment:
+            return False
+        measured_hash = hashlib.sha256(measured).hexdigest().upper()
+        process = subprocess.run(
+            [
+                "node",
+                str(ROOT / "tools/release/stagedPromotionSourceAuthority.js"),
+                str(ROOT),
+                str(ROOT / "release/production-release-policy.json"),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        proof = json.loads(process.stdout) if process.returncode == 0 else {}
+        return (
+            isinstance(proof, dict)
+            and proof.get("ok") is True
+            and proof.get("currentBackendReceiptFile")
+                == deployment_relative
+                == deployed_authority.get("functionFleetEvidenceFile")
+            and proof.get("currentBackendReceiptSha256")
+                == measured_hash
+                == deployed_authority.get("functionFleetEvidenceSha256")
+            and (ROOT / deployment_relative).read_bytes() == measured
+        )
+    except (OSError, TypeError, ValueError):
+        return False
+
+
 def git_tree_object_id(commit: str, path: str) -> str | None:
     result = subprocess.run(
         ["git", "rev-parse", "--verify", f"{commit}:{path}"],
@@ -2992,6 +3046,7 @@ fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
 hono_runtime = firebase_cli_packages.get("node_modules/hono", {})
 ip_address = firebase_cli_packages.get("node_modules/ip-address", {})
 js_yaml = firebase_cli_packages.get("node_modules/js-yaml", {})
+morgan = firebase_cli_packages.get("node_modules/morgan", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
@@ -3010,9 +3065,10 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.5.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-dobB7zipGW8o11PvdRljQSWuyMxifADLvoHeA4elwNWOTbZo6+BlNa+P6aCq7Y9jRiWTy2Ucu2xSv0Y2/T+/kQ=="
-    and firebase_cli_package.get("overrides", {}).get("hono") == "4.12.34"
+    and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.7"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
-    and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.1"
+    and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
+    and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.0"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
@@ -3024,15 +3080,18 @@ check(
     and fast_uri.get("version") == "3.1.6"
     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz"
     and fast_uri.get("integrity") == "sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q=="
-    and hono_runtime.get("version") == "4.12.34"
-    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.12.34.tgz"
-    and hono_runtime.get("integrity") == "sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA=="
+    and hono_runtime.get("version") == "4.13.7"
+    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.7.tgz"
+    and hono_runtime.get("integrity") == "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="
     and ip_address.get("version") == "10.4.0"
     and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.4.0.tgz"
     and ip_address.get("integrity") == "sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ=="
-    and js_yaml.get("version") == "4.3.1"
-    and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.1.tgz"
-    and js_yaml.get("integrity") == "sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ=="
+    and js_yaml.get("version") == "4.3.2"
+    and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz"
+    and js_yaml.get("integrity") == "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
+    and morgan.get("version") == "1.12.0"
+    and morgan.get("resolved") == "https://registry.npmjs.org/morgan/-/morgan-1.12.0.tgz"
+    and morgan.get("integrity") == "sha512-OHpTRQwn2ezasILW8iKe+Yww1XsfWsZIpUOLF7RDb2g5GwO3trPaRwi7+8BDiJ7HFx2Kg2mfUdCBcVhwYlOz2g=="
     and brace_expansion.get("version") == "5.0.9"
     and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
     and brace_expansion_upstream.get("name") == "brace-expansion"
@@ -4634,25 +4693,71 @@ current_backend_approval_evidence = current_backend_approval.get(
 current_backend_authority_chronology = current_backend_deployment.get(
     "authorityChronology", {}
 )
-current_function_update_time_values = sorted(
-    function.get("updateTime", "")
-    for function in current_function_readback.get("outputs", {}).get(
-        "functions", []
-    )
+current_backend_immutable_authority_exact = current_backend_authority_proof_exact(
+    current_backend_deployment_relative,
+    current_backend_deployment,
+    current_deployed_backend,
 )
-try:
-    current_backend_approved_at = datetime.fromisoformat(
-        current_backend_approval.get("approvedAtUtc", "").replace(
-            "Z", "+00:00"
+if current_backend_deployment.get("sourceAuthority", {}).get("commit") == (
+    "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
+):
+    current_backend_approval_scope_exact = current_backend_immutable_authority_exact
+else:
+    # Retain the historical owner-instruction checks without reinterpreting
+    # their recorded timestamps or distribution restrictions.
+    current_function_update_time_values = sorted(
+        function.get("updateTime", "")
+        for function in current_function_readback.get("outputs", {}).get(
+            "functions", []
         )
     )
-    current_function_update_times = [
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-        for value in current_function_update_time_values
-    ]
-except (TypeError, ValueError):
-    current_backend_approved_at = None
-    current_function_update_times = []
+    try:
+        current_backend_approved_at = datetime.fromisoformat(
+            current_backend_approval.get("approvedAtUtc", "").replace(
+                "Z", "+00:00"
+            )
+        )
+        current_function_update_times = [
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+            for value in current_function_update_time_values
+        ]
+    except (TypeError, ValueError):
+        current_backend_approved_at = None
+        current_function_update_times = []
+    current_backend_approval_scope_exact = (
+        current_backend_immutable_authority_exact
+        and current_backend_approval.get("approvedAtUtc")
+            == current_backend_approval_evidence.get("messageReceivedAtUtc")
+            == current_backend_authority_chronology.get(
+                "ownerInstructionReceivedAtUtc"
+            )
+        and current_backend_approval_evidence.get("codexTurnId")
+            == current_backend_authority_chronology.get("codexTurnId")
+        and current_backend_approval_evidence.get("codexMessageId")
+            == current_backend_authority_chronology.get("codexMessageId")
+        and current_backend_approved_at is not None
+        and len(current_function_update_times) == 15
+        and all(
+            update_time > current_backend_approved_at
+            for update_time in current_function_update_times
+        )
+        and current_backend_authority_chronology.get(
+            "earliestFunctionUpdateTime"
+        ) == current_function_update_time_values[0]
+        and current_backend_authority_chronology.get(
+            "latestFunctionUpdateTime"
+        ) == current_function_update_time_values[-1]
+        and current_backend_authority_chronology.get(
+            "allObservedFunctionUpdatesPostdateOwnerInstruction"
+        ) is True
+        and current_backend_authority_chronology.get(
+            "deploymentWasRetroactivelyAuthorized"
+        ) is False
+        and any(
+            boundary in current_backend_approval.get("notAuthorized", [])
+            for boundary in ("distribution", "wider distribution")
+        )
+    )
 build12_custody_reconciliation_path = (
     ROOT
     / "release/evidence/build-12-closure-custody-reconciliation.json"
@@ -5204,6 +5309,44 @@ candidate_controlled_pilot_approved = (
     and combined_policy.get("distribution", {}).get("approvedBuildNumber")
         == candidate_build_number
 )
+latest_finalized_runtime_accepted = candidate_runtime_accepted
+latest_finalized_controlled_pilot_approved = candidate_controlled_pilot_approved
+if candidate_pending:
+    # A pending Build 28 cannot erase, or inherit, the fixed Build 27 device
+    # acceptance and pilot decision retained with its completed predecessor.
+    latest_finalized_runtime_accepted = (
+        candidate_build_number == 28
+        and latest_finalized_build_number == 27
+        and latest_completed_finalization.get("runtimeValidationPassed") is True
+        and latest_completed_finalization.get("deviceAcceptanceReceiptFile")
+            == "release/evidence/build-27-device-acceptance.json"
+        and latest_completed_finalization.get("deviceAcceptanceReceiptSha256")
+            == sha(build27_device_acceptance_path)
+            == "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028"
+        and build27_device_acceptance.get("release", {}).get("buildNumber") == 27
+        and build27_device_acceptance.get("release", {}).get("apkSha256")
+            == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
+        and build27_device_acceptance.get("adjudication", {}).get(
+            "runtimeValidationPassed"
+        ) is True
+    )
+    latest_finalized_controlled_pilot_approved = (
+        latest_finalized_runtime_accepted
+        and latest_completed_finalization.get("controlledPilotApproved") is True
+        and combined_policy.get("postBuildPromotion", {}).get("buildNumber") == 27
+        and combined_policy.get("postBuildPromotion", {}).get(
+            "controlledPilotApproved"
+        ) is True
+        and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 27
+        and combined_policy.get("distribution", {}).get("approved") is True
+        and sha(build27_pilot_promotion_path)
+            == "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B"
+        and build27_pilot_promotion.get("admittedEvidence", {}).get(
+            "governedBuild", {}
+        ).get("buildNumber") == 27
+        and build27_pilot_promotion.get("decision")
+            == "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+    )
 expected_current_source_runtime_authority = current_source_runtime_authority(
     candidate_controlled_pilot_approved,
     backend_matches_deployed,
@@ -7605,7 +7748,7 @@ check(
         == (
             f"PASSED_EXACT_BUILD{latest_finalized_build_number}_PHYSICAL_"
             "IN_PLACE_AUTHENTICATED_READ_ONLY_SURFACES"
-            if candidate_runtime_accepted
+            if latest_finalized_runtime_accepted
             else f"NOT_ADJUDICATED_FOR_EXACT_BUILD{latest_finalized_build_number}"
         )
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
@@ -7613,7 +7756,7 @@ check(
     )
         == (
             f"AUTHORIZED_STAGED_EXACT_BUILD{latest_finalized_build_number}_UP_TO_25"
-            if candidate_controlled_pilot_approved
+            if latest_finalized_controlled_pilot_approved
             else "NOT_AUTHORIZED"
         )
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
@@ -7805,40 +7948,10 @@ check(
         == current_backend_deployment.get("approvalAuthority", {}).get("sha256")
     and current_backend_approval.get("sourceAuthority", {}).get("commit")
         == current_backend_deployment.get("sourceAuthority", {}).get("commit")
-    and current_backend_approval.get("approvedAtUtc")
-        == current_backend_approval_evidence.get("messageReceivedAtUtc")
-        == current_backend_authority_chronology.get(
-            "ownerInstructionReceivedAtUtc"
-        )
-    and current_backend_approval_evidence.get("codexTurnId")
-        == current_backend_authority_chronology.get("codexTurnId")
-    and current_backend_approval_evidence.get("codexMessageId")
-        == current_backend_authority_chronology.get("codexMessageId")
-    and current_backend_approved_at is not None
-    and len(current_function_update_times) == 15
-    and all(
-        update_time > current_backend_approved_at
-        for update_time in current_function_update_times
-    )
-    and current_backend_authority_chronology.get(
-        "earliestFunctionUpdateTime"
-    ) == current_function_update_time_values[0]
-    and current_backend_authority_chronology.get(
-        "latestFunctionUpdateTime"
-    ) == current_function_update_time_values[-1]
-    and current_backend_authority_chronology.get(
-        "allObservedFunctionUpdatesPostdateOwnerInstruction"
-    ) is True
-    and current_backend_authority_chronology.get(
-        "deploymentWasRetroactivelyAuthorized"
-    ) is False
+    and current_backend_approval_scope_exact
     and current_backend_approval.get("approvedDeployment", {}).get(
         "appCheckEnforcement"
     ) is False
-    and any(
-        boundary in current_backend_approval.get("notAuthorized", [])
-        for boundary in ("distribution", "wider distribution")
-    )
     and sha(current_backend_deployment_path)
         == current_deployed_backend.get("functionFleetEvidenceSha256")
     and current_backend_deployment.get("decision")
@@ -12697,10 +12810,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 556
-    and a03_inventory_report.get("siteCount") == 1923
+    and a03_inventory_report.get("operationCount") == 566
+    and a03_inventory_report.get("siteCount") == 1973
     and a03_inventory_report.get("inventoryDigest")
-        == "7E0E44484E55893F50DC62D1C61A36C6F444729FD847D7B0EDFD71A77773007B"
+        == "D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12753,7 +12866,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 83
     and a04_inventory_report.get("inventoryDigest")
-        == "6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387"
+        == "8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13036,10 +13149,10 @@ check(
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 9
+    ) == 10
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13051,7 +13164,7 @@ check(
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 9
+    ) == 10
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13073,16 +13186,16 @@ check(
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
     and a05_decoder_inventory_report.get("surfaceCount") == 83
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 51
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 52
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 43
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 437
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 441
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
     and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 83
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 51
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 52
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13399,7 +13512,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13419,13 +13532,14 @@ check(
         "TYPED_LOCAL_STORAGE_INITIALIZER",
         "SORT_ONLY_NULL_ORDERING_SENTINEL",
         "DISPLAY_ONLY_BEST_EFFORT",
+        "TYPED_COMMAND_WIRE_SERIALIZATION",
     }
     and sum(
         len(entry.get("sites", []))
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 31
+    ) == 32
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

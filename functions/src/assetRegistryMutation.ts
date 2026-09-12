@@ -84,6 +84,8 @@ interface RegistryRequest {
   assetDraft: AssetDraft | null;
   componentDraft: ComponentDraft | null;
   fingerprint: string;
+  legacyFingerprint: string | null;
+  timestampInstants: {[field: string]: string | null};
 }
 
 export interface AssetRegistryMutationResult {
@@ -159,14 +161,26 @@ function optionalVersion(value: unknown, field: string): number | null {
   return value as number;
 }
 
+// Preserve the installed Dart client's exact wire precision separately from
+// Date's millisecond projection. New receipts bind both representations.
+const wireInstants = new WeakMap<Date, string>();
+
 function optionalDate(value: unknown, field: string): Date | null {
   if (value == null) return null;
   const text = requiredString(value, field, 40);
-  const date = new Date(text);
-  if (Number.isNaN(date.getTime()) || date.toISOString() !== text) {
+  const match = /^((?:\d{4}|[+-]\d{6})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d{3})(\d{3})?Z$/.exec(text);
+  if (match == null) invalid(field, "must be a canonical UTC ISO timestamp");
+  const milliseconds = `${match![1]}.${match![2]}Z`;
+  const date = new Date(milliseconds);
+  if (Number.isNaN(date.getTime()) || date.toISOString() !== milliseconds) {
     invalid(field, "must be a canonical UTC ISO timestamp");
   }
+  wireInstants.set(date, text);
   return date;
+}
+
+function wireInstant(value: Date | null): string | null {
+  return value == null ? null : wireInstants.get(value) ?? value.toISOString();
 }
 
 function parseOwnership(map: JsonMap, prefix: string) {
@@ -334,7 +348,7 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
   if (!OPERATIONS.has(operation)) invalid("operation", "is unsupported");
   const componentOperation = operation.includes("COMPONENT_INSTANCE");
   const create = operation.startsWith("CREATE_");
-  const request: Omit<RegistryRequest, "fingerprint"> = {
+  const request: Omit<RegistryRequest, "fingerprint" | "legacyFingerprint" | "timestampInstants"> = {
     requestId: uuid(raw.requestId, "requestId"),
     operation,
     assetClassId: documentId(raw.assetClassId, "assetClassId"),
@@ -426,9 +440,21 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     (evidenceReference == null ? replacementLegacyRequest : request) : legacyRequest;
   const fingerprintVersion = replacementOperation ?
     (evidenceReference == null ? "assetreg2" : "assetreg3") : "assetreg1";
-  const fingerprint = `${fingerprintVersion}-sha256:${createHash("sha256")
+  const timestampInstants: {[field: string]: string | null} = request.assetDraft != null ? {
+    commissionedOn: wireInstant(request.assetDraft.commissionedOn),
+  } : request.componentDraft != null ? {
+    installedOn: wireInstant(request.componentDraft.installedOn),
+  } : {};
+  // Historical v1-v3 stableJson encoded Dates as {}. Calculate those hashes
+  // solely to verify existing receipts, whose immutable audit binds the date.
+  // Six-digit requests could not have been accepted by that historical parser.
+  const legacyFingerprint = Object.values(timestampInstants).some(
+    (value) => value != null && /\.\d{6}Z$/.test(value),
+  ) ? null : `${fingerprintVersion}-sha256:${createHash("sha256")
     .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
-  return {...request, fingerprint};
+  const fingerprint = `assetreg4-sha256:${createHash("sha256")
+    .update(stableJson({...request, timestampInstants}), "utf8").digest("hex")}`;
+  return {...request, fingerprint, legacyFingerprint, timestampInstants};
 }
 
 function asSnapshot(value: SnapshotLike | QuerySnapshotLike, label: string): SnapshotLike {
@@ -815,6 +841,31 @@ function acceptedEvidenceSnapshotJson(
   return encoded as string;
 }
 
+function registryTimeMatches(value: unknown, canonicalIso: unknown): boolean {
+  try {
+    if (typeof canonicalIso !== "string" ||
+        timestampIso(value, "registry acceptance time") !== canonicalIso) return false;
+    if (typeof value === "string") {
+      const fraction = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(value)?.[1] ?? "";
+      // Server acceptance is recorded at millisecond precision. A stored
+      // microsecond must not be silently rounded into apparent agreement.
+      return fraction.length <= 3 || /^0+$/.test(fraction.slice(3));
+    }
+    if (value != null && typeof value === "object" && !(value instanceof Date)) {
+      const timestamp = value as JsonMap;
+      const nanos = timestamp.nanoseconds ?? timestamp._nanoseconds;
+      if (nanos != null) {
+        return Number.isSafeInteger(nanos) && (nanos as number) >= 0 &&
+          (nanos as number) < 1e9 && (nanos as number) % 1e6 === 0;
+      }
+    }
+    return true;
+  } catch {
+    // Malformed acceptance evidence is not an editable business refusal.
+    return false;
+  }
+}
+
 function replayResult(
   request: RegistryRequest,
   actorUid: string,
@@ -824,10 +875,15 @@ function replayResult(
   const sourceEntityId = request.operation === "REPLACE_COMPONENT_INSTANCE" ?
     request.componentInstanceId : null;
   acceptedEvidenceSnapshotJson(data, request);
-  if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+  if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid ||
+      (data.fingerprint !== request.fingerprint &&
+       (request.legacyFingerprint == null || data.fingerprint !== request.legacyFingerprint)) ||
       data.operation !== request.operation || data.entityId !== entityId ||
-      !Number.isSafeInteger(data.version) || typeof data.auditId !== "string" ||
-      typeof data.committedAtIso !== "string" ||
+      !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
+      data.auditId !== `asset_registry_${request.requestId}` ||
+      !registryTimeMatches(data.committedAtIso, data.committedAtIso) ||
+      !registryTimeMatches(data.committedAt, data.committedAtIso) ||
       (sourceEntityId != null &&
        (data.sourceEntityId !== sourceEntityId || !Number.isSafeInteger(data.sourceVersion)))) {
     throw new AssetHierarchyMutationError(
@@ -846,6 +902,98 @@ function replayResult(
     committedAt: data.committedAtIso as string,
     idempotentReplay: true,
   };
+}
+
+function registryAuditEvidenceHash(audit: JsonMap): string {
+  // performedAt is independently compared with the canonical receipt time;
+  // exclude its Date/Timestamp representation from the cross-runtime digest.
+  const {performedAt: _performedAt, ...evidence} = audit;
+  return createHash("sha256").update(stableJson(evidence), "utf8").digest("hex");
+}
+
+function validateRegistryTimestampEvidence(
+  request: RegistryRequest,
+  receipt: JsonMap,
+  audit: JsonMap,
+  source = false,
+): void {
+  const modern = receipt.fingerprint === request.fingerprint;
+  const digest = source ? receipt.sourceAuditEvidenceSha256 : receipt.auditEvidenceSha256;
+  const valid = modern ?
+    audit.fingerprint === request.fingerprint &&
+      stableJson(receipt.timestampInstants) === stableJson(request.timestampInstants) &&
+      stableJson(audit.timestampInstants) === stableJson(request.timestampInstants) &&
+      digest === registryAuditEvidenceHash(audit) :
+    receipt.timestampInstants == null && receipt.auditEvidenceSha256 == null &&
+      receipt.sourceAuditEvidenceSha256 == null && audit.fingerprint == null &&
+      audit.timestampInstants == null;
+  if (!valid || !registryTimeMatches(audit.performedAt, receipt.committedAtIso)) {
+    throw new AssetHierarchyMutationError(
+      "data-loss", "The registry timestamp evidence is malformed or mismatched.",
+      {reasonCode: "asset-registry-replay-evidence-drift"},
+    );
+  }
+}
+
+function recordedRegistryAfter(args: {
+  audit: JsonMap;
+  request: RegistryRequest;
+  actorUid: string;
+  version: unknown;
+  source?: boolean;
+}): JsonMap {
+  const {audit, request, actorUid, version, source = false} = args;
+  let after: JsonMap | null = null;
+  try {
+    const parsed: unknown = typeof audit.afterJson === "string" ?
+      JSON.parse(audit.afterJson) : null;
+    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      after = parsed as JsonMap;
+    }
+  } catch { /* Malformed immutable evidence is rejected below. */ }
+  const entityId = source ? request.componentInstanceId : resultEntityId(request);
+  const component = request.componentInstanceId != null;
+  const action = source ? "replaced" :
+    request.operation === "REPLACE_COMPONENT_INSTANCE" ? "replacement_installed" :
+    request.operation.startsWith("CREATE_") ? "create" :
+    request.operation.startsWith("UPDATE_") ? "update" :
+    request.status;
+  const sameRecordedDate = (value: unknown, expected: Date | null): boolean => {
+    if (expected == null) return value == null;
+    if (typeof value === "string") return value === expected.toISOString();
+    // Firestore Timestamp.toJSON is the historical audit representation.
+    if (value != null && typeof value === "object" && !Array.isArray(value)) {
+      const date = value as JsonMap;
+      const seconds = date.seconds ?? date._seconds;
+      const nanos = date.nanoseconds ?? date._nanoseconds;
+      return Number.isSafeInteger(seconds) && Number.isSafeInteger(nanos) &&
+        (nanos as number) >= 0 && (nanos as number) < 1e9 &&
+        (nanos as number) % 1e6 === 0 &&
+        (seconds as number) * 1000 + (nanos as number) / 1e6 === expected.getTime();
+    }
+    return false;
+  };
+  const datesMatch = after != null && (source ||
+    ((request.assetDraft == null ||
+      sameRecordedDate(after.commissionedOn, request.assetDraft.commissionedOn)) &&
+     (request.componentDraft == null ||
+      sameRecordedDate(after.installedOn, request.componentDraft.installedOn))));
+  if (audit.schemaVersion !== 1 ||
+      audit.auditId !== `asset_registry_${request.requestId}${source ? "_replacement_source" : ""}` ||
+      audit.requestId !== request.requestId || audit.performedByUid !== actorUid ||
+      audit.assetClassId !== request.assetClassId || audit.assetInstanceId !== request.assetInstanceId ||
+      audit.entityId !== entityId || audit.action !== action || audit.reason !== request.reason ||
+      after == null || !datesMatch || after.version !== version || after.lastMutationId !== request.requestId ||
+      after.assetClassId !== request.assetClassId || after.assetInstanceId !== request.assetInstanceId ||
+      (component && after.componentInstanceId !== entityId) ||
+      (source && (after.status !== "retired" ||
+        after.replacedByComponentInstanceId !== request.replacementComponentInstanceId))) {
+    throw new AssetHierarchyMutationError(
+      "data-loss", "The registry receipt no longer matches its recorded outcome.",
+      {reasonCode: "asset-registry-replay-evidence-drift"},
+    );
+  }
+  return after;
 }
 
 export async function mutateAssetRegistryWithDb(args: {
@@ -881,7 +1029,6 @@ export async function mutateAssetRegistryWithDb(args: {
     components.doc(request.componentInstanceId);
   const replacementComponentRef = request.replacementComponentInstanceId == null ? null :
     components.doc(request.replacementComponentInstanceId);
-  const entityRef = replacementComponentRef ?? componentRef ?? assetRef;
   const receiptRef = receipts.doc(request.requestId);
   const auditId = `asset_registry_${request.requestId}`;
   const auditRef = audits.doc(auditId);
@@ -919,28 +1066,21 @@ export async function mutateAssetRegistryWithDb(args: {
       const recordedEvidenceSnapshot = acceptedEvidenceSnapshotJson(
         receiptData, request,
       );
-      const currentEntity = record(
-        asSnapshot(await transaction.get(entityRef), "Registry replay entity lookup"),
-        "Recorded registry entity",
-      );
       const audit = record(
         asSnapshot(await transaction.get(auditRef), "Registry replay audit lookup"),
         "Recorded registry audit",
       );
-      if (currentEntity.version !== replay.version ||
-          currentEntity.lastMutationId !== request.requestId ||
-          audit.requestId !== request.requestId || audit.performedByUid !== actorUid ||
-          acceptedEvidenceSnapshotJson(audit, request) !== recordedEvidenceSnapshot) {
+      // A later legitimate edit does not invalidate the immutable accepted
+      // result. Validate the original audit snapshot, never the live revision.
+      recordedRegistryAfter({audit, request, actorUid, version: replay.version});
+      validateRegistryTimestampEvidence(request, receiptData, audit);
+      if (acceptedEvidenceSnapshotJson(audit, request) !== recordedEvidenceSnapshot) {
         throw new AssetHierarchyMutationError(
           "data-loss", "The registry receipt no longer matches its evidence.",
           {reasonCode: "asset-registry-replay-evidence-drift"},
         );
       }
       if (request.operation === "REPLACE_COMPONENT_INSTANCE") {
-        const source = record(
-          asSnapshot(await transaction.get(componentRef!), "Registry replacement source lookup"),
-          "Recorded replacement source",
-        );
         const sourceAudit = record(
           asSnapshot(
             await transaction.get(replacementSourceAuditRef),
@@ -948,13 +1088,10 @@ export async function mutateAssetRegistryWithDb(args: {
           ),
           "Recorded replacement-source audit",
         );
-        if (source.version !== receiptData.sourceVersion ||
-            source.lastMutationId !== request.requestId || source.status !== "retired" ||
-            source.replacedByComponentInstanceId !== request.replacementComponentInstanceId ||
-            sourceAudit.requestId !== request.requestId ||
-            sourceAudit.entityId !== request.componentInstanceId ||
-            sourceAudit.performedByUid !== actorUid ||
-            acceptedEvidenceSnapshotJson(sourceAudit, request) !== recordedEvidenceSnapshot) {
+        recordedRegistryAfter({audit: sourceAudit, request, actorUid,
+          version: receiptData.sourceVersion, source: true});
+        validateRegistryTimestampEvidence(request, receiptData, sourceAudit, true);
+        if (acceptedEvidenceSnapshotJson(sourceAudit, request) !== recordedEvidenceSnapshot) {
           throw new AssetHierarchyMutationError(
             "data-loss", "The replacement receipt no longer matches its source evidence.",
             {reasonCode: "asset-registry-replay-evidence-drift"},
@@ -1195,6 +1332,7 @@ export async function mutateAssetRegistryWithDb(args: {
     let after: JsonMap | null = null;
     let nextVersion: number;
     let sourceVersion: number | null = null;
+    let sourceAuditEvidenceSha256: string | null = null;
     let action: string;
     let entityType: string;
     let wasActive = false;
@@ -1209,6 +1347,14 @@ export async function mutateAssetRegistryWithDb(args: {
       }
       entityType = "asset_instance";
       if (request.operation === "CREATE_ASSET_INSTANCE") {
+        if (classData.legacyAssetTypeKey === "innerCover" ||
+            classData.code === "INNER_COVER") {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "Register Inner Covers through Inner Covers intake, then record inspection and acceptance.",
+            {reasonCode: "inner-cover-lifecycle-registration-required"},
+          );
+        }
         const createDraft = request.assetDraft!;
         if (assetData != null) throw new AssetHierarchyMutationError("already-exists", "Asset instance already exists.");
         version(classData, request.expectedAssetClassVersion, "Asset class");
@@ -1448,7 +1594,7 @@ export async function mutateAssetRegistryWithDb(args: {
           updatedByName: actorName,
           lastMutationId: request.requestId,
         });
-        transaction.set(replacementSourceAuditRef, {
+        const sourceAudit = {
           schemaVersion: 1,
           auditId: `${auditId}_replacement_source`,
           entityType: "installed_component",
@@ -1465,8 +1611,12 @@ export async function mutateAssetRegistryWithDb(args: {
           performedByName: actorName,
           performedAt: committedAt,
           requestId: request.requestId,
+          fingerprint: request.fingerprint,
+          timestampInstants: request.timestampInstants,
           ...acceptedEvidenceFields,
-        });
+        };
+        sourceAuditEvidenceSha256 = registryAuditEvidenceHash(sourceAudit);
+        transaction.set(replacementSourceAuditRef, sourceAudit);
       } else if (request.operation === "CREATE_COMPONENT_INSTANCE") {
         if (componentData != null) throw new AssetHierarchyMutationError("already-exists", "Installed component already exists.");
         version(assetData, request.expectedAssetInstanceVersion, "Asset instance");
@@ -1627,7 +1777,7 @@ export async function mutateAssetRegistryWithDb(args: {
         "internal", "The asset-registry mutation did not produce an after-state.",
       );
     }
-    transaction.set(auditRef, {
+    const acceptedAudit = {
       schemaVersion: 1,
       auditId,
       entityType,
@@ -1647,13 +1797,19 @@ export async function mutateAssetRegistryWithDb(args: {
       performedAt: committedAt,
       requestId: request.requestId,
       tagTransferApproved: request.allowTagTransfer,
+      fingerprint: request.fingerprint,
+      timestampInstants: request.timestampInstants,
       ...acceptedEvidenceFields,
-    });
+    };
+    transaction.set(auditRef, acceptedAudit);
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
       actorUid,
       fingerprint: request.fingerprint,
+      timestampInstants: request.timestampInstants,
+      auditEvidenceSha256: registryAuditEvidenceHash(acceptedAudit),
+      sourceAuditEvidenceSha256,
       operation: request.operation,
       entityId: resultEntityId(request),
       version: nextVersion,

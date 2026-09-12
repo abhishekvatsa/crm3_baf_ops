@@ -4,26 +4,28 @@
   "version": "1.0.0",
   "dependencies": {
     "brace-expansion": "file:../brace-expansion-compat",
+    "crm3_baf_ops": "file:../..",
     "firebase-tools": "15.22.4",
     "stream-json": "file:../stream-json-compat"
   },
   "overrides": {
-    "gaxios": "7.1.5",
     "@google-cloud/pubsub@5.3.1": {
       "@opentelemetry/core": "2.8.0"
     },
     "@hono/node-server": "2.0.10",
     "body-parser": "1.20.6",
     "brace-expansion": "$brace-expansion",
-    "protobufjs": "7.6.5",
-    "re2": "1.26.1",
-    "tar": "7.5.21",
+    "csv-parse": "7.0.2",
     "fast-uri": "3.1.6",
-    "qs": "6.16.0",
-    "stream-json": "$stream-json",
-    "hono": "4.12.34",
+    "gaxios": "7.1.5",
+    "hono": "4.13.7",
     "ip-address": "10.4.0",
-    "js-yaml": "4.3.1",
-    "csv-parse": "7.0.2"
+    "js-yaml": "4.3.2",
+    "morgan": "1.12.0",
+    "protobufjs": "7.6.5",
+    "qs": "6.16.0",
+    "re2": "1.26.1",
+    "stream-json": "$stream-json",
+    "tar": "7.5.21"
   }
 }

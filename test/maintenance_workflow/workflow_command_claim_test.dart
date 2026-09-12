@@ -1,0 +1,425 @@
+import 'dart:io';
+
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_receipt_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/isar_workflow_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:isar_community/isar.dart';
+
+import '../../tool/test_support/test_isar_core.dart';
+
+/// A retained command may already have reached the server, so replaying it is
+/// how the app finds out. Replaying it *twice* is how one physical action
+/// becomes two records: two tickets for one fault, two people assigned, two
+/// replacements counted against a component that was fitted once.
+///
+/// `getRetryableCommands` answers "what is due" and hands the same rows to
+/// every caller. That was safe while one engine ran in one process. These
+/// tests cover the claim that keeps it safe once a second execution context
+/// exists.
+void main() {
+  late Isar isar;
+  late IsarWorkflowRepository repository;
+  late Directory directory;
+
+  setUpAll(initializeTestIsarCore);
+
+  setUp(() async {
+    directory = await Directory.systemTemp.createTemp('workflow_claim_test_');
+    isar = await Isar.open(
+      [WorkflowCommandRecordSchema, WorkflowCommandReceiptRecordSchema],
+      directory: directory.path,
+      name: 'workflow_claim_test',
+      inspector: false,
+    );
+    repository = IsarWorkflowRepository(isar);
+  });
+
+  tearDown(() async {
+    await isar.close(deleteFromDisk: true);
+    if (directory.existsSync()) directory.deleteSync(recursive: true);
+  });
+
+  final now = DateTime.utc(2026, 9, 10, 7, 12);
+  const lease = Duration(minutes: 5);
+
+  Future<void> seed({
+    required String commandId,
+    required String stateKey,
+    DateTime? nextRetryAt,
+    DateTime? lastAttemptAt,
+    DateTime? createdAt,
+  }) async {
+    await repository.saveRetryCommand(
+      WorkflowCommandRecord()
+        ..commandId = commandId
+        ..aggregateId = 'furnace-6-burner-5'
+        ..commandTypeKey = 'raiseCriticalAlarm'
+        ..stateKey = stateKey
+        ..nextRetryAt = nextRetryAt
+        ..lastAttemptAt = lastAttemptAt
+        ..createdLocallyAt = createdAt ?? now.subtract(const Duration(hours: 1)),
+    );
+  }
+
+  Future<String?> stateOf(String commandId) async =>
+      (await repository.getRetryCommand(commandId))?.stateKey;
+
+  group('claiming a due command', () {
+    test('a due command is claimed and marked as being sent', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      expect(claimed.map((r) => r.commandId), <String>['cmd-1']);
+      expect(await stateOf('cmd-1'), 'sending');
+    });
+
+    test('a second caller gets nothing for the same command', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      final first = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+      final second = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      // This is the whole point: one physical action, one submission.
+      expect(first, hasLength(1));
+      expect(second, isEmpty);
+    });
+
+    test('concurrent callers between them claim each command once', () async {
+      for (var index = 0; index < 5; index++) {
+        await seed(
+          commandId: 'cmd-$index',
+          stateKey: 'uncertainOutcome',
+          nextRetryAt: now.subtract(const Duration(minutes: 1)),
+          createdAt: now.subtract(Duration(hours: 2, minutes: index)),
+        );
+      }
+
+      final results = await Future.wait(<Future<List<WorkflowCommandRecord>>>[
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
+        repository.claimRetryableCommands(now: now, lease: lease, limit: 5),
+      ]);
+
+      final ids = <String>[
+        for (final batch in results) ...batch.map((r) => r.commandId),
+      ];
+
+      expect(ids, hasLength(5));
+      expect(ids.toSet(), hasLength(5));
+    });
+
+    test('claiming is bounded so a lease cannot expire before dispatch', () async {
+      for (var index = 0; index < 4; index++) {
+        await seed(
+          commandId: 'cmd-$index',
+          stateKey: 'uncertainOutcome',
+          nextRetryAt: now.subtract(const Duration(minutes: 1)),
+          createdAt: now.subtract(Duration(hours: 2, minutes: index)),
+        );
+      }
+
+      // The default takes one, so the claim starts immediately before the
+      // send rather than while three others are still queued behind it.
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        hasLength(1),
+      );
+      expect(
+        await repository.claimRetryableCommands(
+          now: now,
+          lease: lease,
+          limit: 2,
+        ),
+        hasLength(2),
+      );
+    });
+
+    test('a command not yet due is left alone', () async {
+      await seed(
+        commandId: 'cmd-later',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.add(const Duration(minutes: 4)),
+      );
+
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        isEmpty,
+      );
+      expect(await stateOf('cmd-later'), 'uncertainOutcome');
+    });
+
+    test('terminal commands are never re-claimed', () async {
+      // A rejected or manually-flagged command has an answer. Replaying it
+      // would either duplicate accepted work or re-run a decision a person
+      // was asked to make.
+      for (final state in <String>['rejected', 'manualReview', 'applied']) {
+        await seed(
+          commandId: 'cmd-$state',
+          stateKey: state,
+          nextRetryAt: now.subtract(const Duration(minutes: 1)),
+        );
+      }
+
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        isEmpty,
+      );
+    });
+  });
+
+  group('a caller that dies mid-send', () {
+    test('an expired claim is offered again', () async {
+      await seed(
+        commandId: 'cmd-stranded',
+        stateKey: 'sending',
+        lastAttemptAt: now.subtract(const Duration(minutes: 30)),
+      );
+
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      expect(claimed.map((r) => r.commandId), <String>['cmd-stranded']);
+    });
+
+    test('a claim still within its lease is not stolen', () async {
+      // The other caller may still be waiting on the callable. Taking it now
+      // is exactly how the duplicate happens.
+      await seed(
+        commandId: 'cmd-inflight',
+        stateKey: 'sending',
+        lastAttemptAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        isEmpty,
+      );
+    });
+
+    test('claiming does not consume the retry budget', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      // Only a recorded outcome is an attempt. If taking the row counted as
+      // one, a few interrupted pickups would exhaust the eight-attempt budget
+      // and push the command to manual review without it ever being sent.
+      expect(claimed.single.attemptCount, 0);
+    });
+  });
+
+  group('releasing a claim', () {
+    test('a released command becomes claimable again', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      await repository.releaseClaim(
+        'cmd-1',
+        claimedAt: claimed.single.lastAttemptAt!,
+      );
+
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+      expect(
+        await repository.claimRetryableCommands(now: now, lease: lease),
+        hasLength(1),
+      );
+    });
+
+    test('releasing never reopens a settled command', () async {
+      // The executor records the outcome itself. A late release from the
+      // retry loop must not undo a rejection or a manual-review decision.
+      await seed(commandId: 'cmd-rejected', stateKey: 'rejected');
+
+      await repository.releaseClaim('cmd-rejected', claimedAt: now);
+
+      expect(await stateOf('cmd-rejected'), 'rejected');
+    });
+
+    test('a caller whose lease expired cannot release a newer claim', () async {
+      // The sequence that breaks an unfenced release: A claims, A's lease
+      // expires, B reclaims, then A returns from a slow send and hands B's
+      // work to a third caller while B is still working it.
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final callerA = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+      final aClaimedAt = callerA.single.lastAttemptAt!;
+
+      final later = now.add(const Duration(minutes: 30));
+      final callerB = await repository.claimRetryableCommands(
+        now: later,
+        lease: lease,
+      );
+      expect(callerB, hasLength(1), reason: 'B reclaims the expired lease');
+
+      await repository.releaseClaim('cmd-1', claimedAt: aClaimedAt);
+
+      // B still holds it.
+      expect(await stateOf('cmd-1'), 'sending');
+      // Isar returns local time; compare the instant, as the fence does.
+      expect(
+        (await repository.getRetryCommand('cmd-1'))!.lastAttemptAt!.toUtc(),
+        later,
+      );
+    });
+
+    test('the current holder can still release', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final claimed = await repository.claimRetryableCommands(
+        now: now,
+        lease: lease,
+      );
+
+      await repository.releaseClaim(
+        'cmd-1',
+        claimedAt: claimed.single.lastAttemptAt!,
+      );
+
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+    });
+
+    test('releasing an unknown command is harmless', () async {
+      await repository.releaseClaim('cmd-never-existed', claimedAt: now);
+
+      expect(await repository.getRetryCommand('cmd-never-existed'), isNull);
+    });
+  });
+
+  group('acceptance and retry state settle together', () {
+    WorkflowCommandReceiptRecord receiptFor(String commandId) =>
+        WorkflowCommandReceiptRecord()
+          ..commandId = commandId
+          ..aggregateId = 'furnace-6-burner-5'
+          ..resultKey = 'applied'
+          ..aggregateVersion = 3
+          ..appliedAt = now;
+
+    test('settling stores the receipt and clears the row in one step', () async {
+      await seed(
+        commandId: 'cmd-1',
+        stateKey: 'uncertainOutcome',
+        nextRetryAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      // Never accepted-and-outstanding, which is the half state a concurrent
+      // failure handler would act on.
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+      expect((await repository.getReceipt('cmd-1'))!.resultKey, 'applied');
+    });
+
+    test('a transition refuses to write once acceptance is stored', () async {
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-1',
+            build: (_) => WorkflowCommandRecord()
+              ..commandId = 'cmd-1'
+              ..aggregateId = 'furnace-6-burner-5'
+              ..commandTypeKey = 'raiseCriticalAlarm'
+              ..stateKey = 'uncertainOutcome'
+              ..createdLocallyAt = now,
+          );
+
+      expect(transition.wasAlreadyAccepted, isTrue);
+      expect(transition.receipt!.commandId, 'cmd-1');
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+    });
+
+    test('a transition writes when nothing has been accepted', () async {
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-1',
+            build: (current) {
+              expect(current, isNull, reason: 'the row is read inside the txn');
+              return WorkflowCommandRecord()
+                ..commandId = 'cmd-1'
+                ..aggregateId = 'furnace-6-burner-5'
+                ..commandTypeKey = 'raiseCriticalAlarm'
+                ..stateKey = 'uncertainOutcome'
+                ..createdLocallyAt = now;
+            },
+          );
+
+      expect(transition.wasAlreadyAccepted, isFalse);
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+    });
+
+    test('failure first, then acceptance, still ends settled', () async {
+      // The other ordering: the uncertain row commits before acceptance
+      // arrives. Settlement must clear it rather than leave both.
+      await repository.applyRetryTransitionUnlessAccepted(
+        commandId: 'cmd-1',
+        build: (_) => WorkflowCommandRecord()
+          ..commandId = 'cmd-1'
+          ..aggregateId = 'furnace-6-burner-5'
+          ..commandTypeKey = 'raiseCriticalAlarm'
+          ..stateKey = 'uncertainOutcome'
+          ..createdLocallyAt = now,
+      );
+      expect(await stateOf('cmd-1'), 'uncertainOutcome');
+
+      await repository.settleAccepted(receiptFor('cmd-1'));
+
+      expect(await repository.getRetryCommand('cmd-1'), isNull);
+      expect(await repository.getReceipt('cmd-1'), isNotNull);
+    });
+
+    test('a build returning null writes nothing', () async {
+      final transition = await repository
+          .applyRetryTransitionUnlessAccepted(
+            commandId: 'cmd-absent',
+            build: (_) => null,
+          );
+
+      expect(transition.wasAlreadyAccepted, isFalse);
+      expect(await repository.getRetryCommand('cmd-absent'), isNull);
+    });
+  });
+}

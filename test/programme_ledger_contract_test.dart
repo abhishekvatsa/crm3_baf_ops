@@ -756,9 +756,11 @@ void main() {
     expect(_object(a04Closure['postMergeCi'])['conclusion'], 'success');
     final a04Manifest = _readJson('governance/a04-persisted-schema-v1.json');
     expect(a04Manifest['findingId'], 'A-04');
+    // Current source inherits the reviewed A-05 decoder policy. The sealed
+    // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      '6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387',
+      '8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(83));

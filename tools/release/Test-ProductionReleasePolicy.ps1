@@ -76,6 +76,18 @@ $ExpectedBuild27ReadOnlySurfaces = @(
   'issue-report-pdf-zoom-page-print-and-share-controls'
   'home-form-and-child-screen-back-navigation'
 )
+# Retain the measured read-side baseline for the successor. This contract does
+# not stand in for the separate mutating-flow, retained Build 21 or two-device
+# acceptance plan, and cannot grant a pilot from a single owner's phone.
+$ExpectedBuild28ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issues-horizontal-actions-and-resolved-record-evidence'
+  'planned-maintenance-jobs-and-personal-workflow-filters'
+  'inner-cover-filtering-inventory-and-registration-form'
+  'inspection-programmes-unused-audit-deletion-guard'
+  'issue-report-pdf-zoom-page-print-and-share-controls'
+  'home-form-and-child-screen-back-navigation'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -150,6 +162,330 @@ function Test-CompletedAutomaticSynchronization {
     -Name 'syncStateAtInventory'
   return (($passes -is [int64] -or $passes -is [int]) -and
     $passes -gt 0 -and $state -is [string] -and $state -ceq 'idle')
+}
+
+function Test-Build28OwnerInstallationAuthority {
+  param([object]$VersionSource, [object]$EnvironmentApproval)
+  foreach ($binding in @(
+    @{ Source = $VersionSource; Path = 'controls.attachedPhoneInPlaceInstallationAuthorized' }
+    @{ Source = $EnvironmentApproval; Path = 'controls.installationApproved' }
+  )) {
+    $value = $binding.Source
+    foreach ($part in $binding.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($value -isnot [bool] -or $value -ne $true) { return $false }
+  }
+  return $true
+}
+
+function Test-Build28ReadOnlyDeviceAcceptance {
+  param(
+    [object]$Receipt,
+    [object]$CompletionReceipt,
+    [string]$CompletionReceiptPath,
+    [string]$CompletionReceiptSha256
+  )
+  # Every field below is an existing measured receipt field. Require scalar
+  # evidence: a string "false", absent count or nonempty array is not a pass.
+  $facts = @(
+    @{ Path = 'schemaVersion'; Expected = 1 }
+    @{ Path = 'evidenceType'; Expected = 'production-build-device-acceptance' }
+    @{ Path = 'status'; Expected = 'passed-exact-build28-physical-in-place-authenticated-read-only-surfaces' }
+    @{ Path = 'release.buildNumber'; Expected = 28 }
+    @{ Path = 'release.releaseId'; Expected = $CompletionReceipt.release.releaseId }
+    @{ Path = 'release.versionName'; Expected = $CompletionReceipt.release.versionName }
+    @{ Path = 'release.applicationId'; Expected = $CompletionReceipt.release.applicationId }
+    @{ Path = 'release.sourceCommit'; Expected = $CompletionReceipt.sourceAuthority.commit }
+    @{ Path = 'release.sourceTree'; Expected = $CompletionReceipt.sourceAuthority.tree }
+    @{ Path = 'release.finalizationReceiptFile'; Expected = $CompletionReceiptPath }
+    @{ Path = 'release.finalizationReceiptSha256'; Expected = $CompletionReceiptSha256 }
+    @{ Path = 'release.governedPackageSha256'; Expected = $CompletionReceipt.governedPackage.sha256 }
+    @{ Path = 'release.apkSha256'; Expected = $CompletionReceipt.governedPackage.apkSha256 }
+    @{ Path = 'release.apkSizeBytes'; Expected = [int64]$CompletionReceipt.governedPackage.apkSizeBytes }
+    @{ Path = 'release.certificateSha256'; Expected = $CompletionReceipt.governedPackage.certificateSha256 }
+    @{ Path = 'physicalDevice.targetCount'; Expected = 1 }
+    @{ Path = 'physicalDevice.installedVersionCode'; Expected = 28 }
+    @{ Path = 'physicalDevice.installedVersionName'; Expected = $CompletionReceipt.release.versionName }
+    @{ Path = 'physicalDevice.deviceSerialRecorded'; Expected = $false }
+    @{ Path = 'physicalDevice.accountIdentifierRecorded'; Expected = $false }
+    @{ Path = 'physicalDevice.installationMode'; Expected = 'adb-install-r-in-place' }
+    @{ Path = 'physicalDevice.installationResult'; Expected = 'success' }
+    @{ Path = 'physicalDevice.exactGovernedApkMatch'; Expected = $true }
+    @{ Path = 'physicalDevice.signerContinuityVerifiedByInPlaceUpdate'; Expected = $true }
+    @{ Path = 'physicalDevice.firstInstallTimePreserved'; Expected = $true }
+    @{ Path = 'physicalDevice.applicationDataPreserved'; Expected = $true }
+    @{ Path = 'physicalDevice.applicationDataCleared'; Expected = $false }
+    @{ Path = 'physicalDevice.applicationUninstalled'; Expected = $false }
+    @{ Path = 'runtime.coldLaunchResult'; Expected = 'passed' }
+    @{ Path = 'runtime.processRemainedAlive'; Expected = $true }
+    @{ Path = 'runtime.androidCrashObserved'; Expected = $false }
+    @{ Path = 'runtime.androidAnrObserved'; Expected = $false }
+    @{ Path = 'runtime.flutterFatalErrorObserved'; Expected = $false }
+    @{ Path = 'runtime.firebaseCallableFailureObserved'; Expected = $false }
+    @{ Path = 'runtime.permissionDenialObserved'; Expected = $false }
+    @{ Path = 'runtime.approvedAuthenticatedSessionPreserved'; Expected = $true }
+    @{ Path = 'runtime.authenticatedHomeRendered'; Expected = $true }
+    @{ Path = 'localStoreMigration.targetSchemaVersion'; Expected = 10 }
+    @{ Path = 'localStoreMigration.governedOpenCompleted'; Expected = $true }
+    @{ Path = 'localStoreMigration.applicationDataPreserved'; Expected = $true }
+    @{ Path = 'localStoreMigration.isarOpenFailureObserved'; Expected = $false }
+    @{ Path = 'synchronization.unsyncedRows'; Expected = 0 }
+    @{ Path = 'synchronization.unresolvedRejections'; Expected = 0 }
+    @{ Path = 'synchronization.pushFailed'; Expected = 0 }
+    @{ Path = 'synchronization.fullSyncConflicts'; Expected = 0 }
+    @{ Path = 'synchronization.processingErrors'; Expected = 0 }
+    @{ Path = 'synchronization.likelyPermanentRejections'; Expected = 0 }
+    @{ Path = 'synchronization.globalPullConflict'; Expected = 0 }
+    @{ Path = 'synchronization.syncStateAtInventory'; Expected = 'idle' }
+    @{ Path = 'synchronization.lastSyncResult'; Expected = 'success' }
+    @{ Path = 'adjudication.physicalInPlaceMigrationPassed'; Expected = $true }
+    @{ Path = 'adjudication.authenticatedReadOnlySurfaceValidationCompleted'; Expected = $true }
+    @{ Path = 'adjudication.runtimeValidationPassed'; Expected = $true }
+    @{ Path = 'adjudication.mutatingBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'adjudication.fullBusinessFlowValidationCompleted'; Expected = $false }
+    @{ Path = 'releaseBoundary.build27FinalizationReceiptChanged'; Expected = $false }
+    @{ Path = 'releaseBoundary.controlledPilotApprovedByThisReceipt'; Expected = $false }
+    @{ Path = 'releaseBoundary.pilotHandoutPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.unrestrictedDistributionApproved'; Expected = $false }
+    @{ Path = 'releaseBoundary.productionBusinessMutationAuthorizedByThisReceipt'; Expected = $false }
+    @{ Path = 'releaseBoundary.firebaseBusinessDataChanged'; Expected = $false }
+    @{ Path = 'releaseBoundary.appCheckActivationPerformed'; Expected = $false }
+    @{ Path = 'releaseBoundary.deviceDataClearPerformed'; Expected = $false }
+  )
+  foreach ($name in @(
+    'ticketSubmitted', 'ticketAcknowledgedOrClosed',
+    'plannedMaintenanceCommandSubmitted', 'workflowCommandSubmitted',
+    'qualityCommandSubmitted', 'criticalSafetyAlarmRaised',
+    'burnerOrUvRoundSubmitted', 'assetOrInnerCoverRecordChanged',
+    'productionBusinessDataCreatedUpdatedOrDeleted'
+  )) {
+    $facts += @{ Path = "businessMutationBoundary.$name"; Expected = $false }
+  }
+  foreach ($fact in $facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      # Read directly to preserve one-element arrays as arrays. A function
+      # returning the value through PowerShell's pipeline can unwrap them.
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int] -or $fact.Expected -is [int64]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or
+          $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -isnot [string] -or
+        $value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
+  $priorProperty = $Receipt.physicalDevice.PSObject.Properties['priorVersionCode']
+  if ($null -eq $priorProperty) { return $false }
+  $priorVersion = $priorProperty.Value
+  if (($priorVersion -isnot [int] -and $priorVersion -isnot [int64]) -or
+      $priorVersion -lt 1 -or $priorVersion -ge 28) { return $false }
+  $passesProperty = $Receipt.synchronization.PSObject.Properties['automaticStartupSyncPassesObserved']
+  if ($null -eq $passesProperty) { return $false }
+  $passes = $passesProperty.Value
+  if (($passes -isnot [int] -and $passes -isnot [int64]) -or $passes -lt 1) { return $false }
+  $surfacesProperty = $Receipt.PSObject.Properties['validatedReadOnlySurfaces']
+  if ($null -eq $surfacesProperty) { return $false }
+  $surfaces = $surfacesProperty.Value
+  if ($surfaces -isnot [array] -or
+      $surfaces.Count -ne $ExpectedBuild28ReadOnlySurfaces.Count) { return $false }
+  for ($index = 0; $index -lt $surfaces.Count; $index++) {
+    if ($surfaces[$index] -isnot [string] -or
+        $surfaces[$index] -cne $ExpectedBuild28ReadOnlySurfaces[$index]) { return $false }
+  }
+  $recordedProperty = $Receipt.PSObject.Properties['recordedAtUtc']
+  $inventoryProperty = $Receipt.synchronization.PSObject.Properties['inventoryCapturedAtUtc']
+  if ($null -eq $recordedProperty -or $null -eq $inventoryProperty) { return $false }
+  foreach ($property in @($recordedProperty, $inventoryProperty)) {
+    # Preserve the scalar type before the historical parser's string cast.
+    # ConvertFrom-Json may already have parsed an ISO value into DateTime.
+    $value = $property.Value
+    if ($value -isnot [string] -and $value -isnot [DateTime] -and
+        $value -isnot [DateTimeOffset]) { return $false }
+  }
+  try {
+    $recordedAt = Get-UtcEvidenceInstant -Value $recordedProperty.Value `
+      -FieldName 'Build 28 acceptance recordedAtUtc'
+    $inventoryAt = Get-UtcEvidenceInstant -Value $inventoryProperty.Value `
+      -FieldName 'Build 28 acceptance synchronization.inventoryCapturedAtUtc'
+  } catch { return $false }
+  if ($recordedAt -lt $inventoryAt) { return $false }
+  return ((Test-ZeroSynchronizationFailureCounters $Receipt.synchronization) -and
+    (Test-CompletedAutomaticSynchronization $Receipt.synchronization))
+}
+
+function Test-PrivateCustodyFacts {
+  param([object]$Receipt, [array]$Facts)
+  foreach ($fact in $Facts) {
+    $value = $Receipt
+    foreach ($part in $fact.Path.Split('.')) {
+      if ($null -eq $value -or $value -is [array]) { return $false }
+      $property = $value.PSObject.Properties[$part]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+    }
+    if ($fact.Expected -is [bool]) {
+      if ($value -isnot [bool] -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -is [int] -or $fact.Expected -is [int64]) {
+      if (($value -isnot [int] -and $value -isnot [int64]) -or $value -ne $fact.Expected) { return $false }
+    } elseif ($fact.Expected -isnot [string] -or $value -isnot [string] -or $value -cne $fact.Expected) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Get-PrivateCustodyUtcInstant {
+  param([object]$Value)
+  if ($Value -isnot [string] -and $Value -isnot [DateTime] -and $Value -isnot [DateTimeOffset]) {
+    throw 'Private custody requires a scalar explicit UTC instant.'
+  }
+  Get-UtcEvidenceInstant -Value $Value -FieldName 'Private custody observation'
+}
+
+function Test-CompletedReleaseCustody {
+  param([object]$Receipt, [string]$RepositoryRoot)
+  $modeProperty = $Receipt.dualCustody.PSObject.Properties['mode']
+  if ($null -eq $modeProperty) {
+    # Only historical builds have the mode-less filesystem contract. Build28's
+    # decision selects private cloud custody; removing its discriminator cannot
+    # turn an absent or invalid cloud proof into a claimed second local volume.
+    $legacyBuild = $Receipt.release.buildNumber
+    return (($legacyBuild -is [int] -or $legacyBuild -is [int64]) -and
+      $legacyBuild -ge 1 -and $legacyBuild -le 27 -and
+      $Receipt.dualCustody.distinctVolumes -eq $true)
+  }
+  try {
+    if ($modeProperty.Value -isnot [string] -or
+        $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
+        -not (Test-PrivateCustodyFacts $Receipt @(
+          @{ Path = 'release.buildNumber'; Expected = 28 }
+          @{ Path = 'dualCustody.distinctVolumes'; Expected = $false }
+          @{ Path = 'dualCustody.independentlyStored'; Expected = $true }
+          @{ Path = 'dualCustody.status'; Expected = 'passed' }
+          @{ Path = 'dualCustody.allFileHashesMatched'; Expected = $true }
+          @{ Path = 'dualCustody.backupVerification.file'; Expected = 'release/evidence/build28-private-gcs-custody-readback.json' }
+        ))) { return $false }
+    $binding = $Receipt.dualCustody.backupVerification
+    if ($binding.sha256 -isnot [string] -or $binding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
+    $verificationPath = Join-Path $RepositoryRoot $binding.file
+    if ((Get-Sha256 $verificationPath) -cne $binding.sha256) { return $false }
+    $verification = Get-Content -LiteralPath $verificationPath -Raw | ConvertFrom-Json
+    if ($Receipt.sourceAuthority.commit -isnot [string] -or
+        $Receipt.sourceAuthority.commit -cnotmatch '^[0-9a-f]{40}$' -or
+        ($Receipt.workflow.runId -isnot [int] -and $Receipt.workflow.runId -isnot [int64]) -or
+        $Receipt.workflow.runId -le 0 -or
+        -not (Test-PrivateCustodyFacts $verification @(
+          @{ Path = 'schemaVersion'; Expected = 1 }
+          @{ Path = 'evidenceType'; Expected = 'private-gcs-release-custody' }
+          @{ Path = 'mode'; Expected = 'local-primary-private-gcs-backup' }
+          @{ Path = 'buildNumber'; Expected = 28 }
+          @{ Path = 'sourceCommit'; Expected = $Receipt.sourceAuthority.commit }
+          @{ Path = 'githubRunId'; Expected = [string]$Receipt.workflow.runId }
+          @{ Path = 'independentlyStored'; Expected = $true }
+          @{ Path = 'status'; Expected = 'passed' }
+        ))) { return $false }
+    $bucket = 'crm3-baf-ops-b8638-firestore-restore'
+    $prefix = $verification.backupPrefix
+    if ($prefix -isnot [string] -or
+        $prefix -cnotmatch '^gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+        $verification.primaryDirectory -isnot [string] -or
+        $verification.primaryDirectory -cnotmatch '^[A-Za-z]:[\\/]' -or
+        $verification.primaryDirectory -match '(^|[\\/])\.{1,2}([\\/]|$)' -or
+        $verification.objects -isnot [array] -or $verification.objects.Count -ne 6) { return $false }
+    $primary = $verification.primaryDirectory.Replace('\', '/').TrimEnd('/')
+    $repository = [IO.Path]::GetFullPath($RepositoryRoot).Replace('\', '/').TrimEnd('/')
+    if ($primary.Equals($repository, [StringComparison]::OrdinalIgnoreCase) -or
+        $primary.StartsWith("$repository/", [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    $completedAt = Get-PrivateCustodyUtcInstant $verification.completedAtUtc
+    $approvalFacts = @(
+      @{ Path = 'commit'; Expected = 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4' }
+      @{ Path = 'file'; Expected = 'release/approvals/build28-private-cloud-custody-approval.json' }
+      @{ Path = 'sha256'; Expected = '3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88' }
+    )
+    if (-not (Test-PrivateCustodyFacts $verification.approval $approvalFacts)) { return $false }
+    $approvedAt = Get-PrivateCustodyUtcInstant '2026-09-08T21:21:49Z'
+    $purposes = @('productionPackage', 'productionPackageSidecar', 'closurePackage', 'closurePackageSidecar', 'custodyRecord', 'custodyRecordSidecar')
+    $proofs = @{}
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($proof in $verification.objects) {
+      if ($proof.purpose -isnot [string] -or $proof.purpose -cnotin $purposes -or
+          $proofs.ContainsKey($proof.purpose) -or
+          -not (Test-PrivateCustodyFacts $proof @(
+            @{ Path = 'schemaVersion'; Expected = 1 }
+            @{ Path = 'provider'; Expected = 'gcs' }
+            @{ Path = 'buildNumber'; Expected = 28 }
+            @{ Path = 'bucket'; Expected = $bucket }
+            @{ Path = 'prefix'; Expected = $prefix }
+            @{ Path = 'createOnly'; Expected = $true }
+            @{ Path = 'generationPinnedReadback'; Expected = $true }
+            @{ Path = 'verified'; Expected = $true }
+          )) -or -not (Test-PrivateCustodyFacts $proof.approval $approvalFacts)) { return $false }
+      if ($proof.objectName -isnot [string] -or $proof.objectUri -isnot [string] -or
+          $proof.generation -isnot [string] -or $proof.generation -cnotmatch '^[1-9][0-9]*$' -or
+          $proof.generationUri -isnot [string] -or
+          ($proof.bytes -isnot [int] -and $proof.bytes -isnot [int64]) -or $proof.bytes -le 0 -or
+          ($proof.downloadedBytes -isnot [int] -and $proof.downloadedBytes -isnot [int64]) -or
+          $proof.downloadedBytes -ne $proof.bytes -or
+          $proof.sha256 -isnot [string] -or $proof.sha256 -cnotmatch '^[0-9A-F]{64}$' -or
+          $proof.downloadedSha256 -isnot [string] -or $proof.downloadedSha256 -cne $proof.sha256) { return $false }
+      $name = ($proof.objectName -split '/')[-1]
+      $expectedUri = "$prefix/$name"
+      if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,239}$' -or
+          $proof.objectUri -cne $expectedUri -or
+          $proof.objectName -cne $expectedUri.Substring("gs://$bucket/".Length) -or
+          $proof.generationUri -cne "$expectedUri#$($proof.generation)" -or
+          -not $names.Add($proof.objectName)) { return $false }
+      if (-not (Test-PrivateCustodyFacts $proof.bucketControls @(
+        @{ Path = 'bucket'; Expected = $bucket }
+        @{ Path = 'location'; Expected = 'ASIA-SOUTH1' }
+        @{ Path = 'publicAccessPrevention'; Expected = 'enforced' }
+        @{ Path = 'uniformBucketLevelAccess'; Expected = $true }
+        @{ Path = 'versioningEnabled'; Expected = $true }
+        @{ Path = 'publicIamPrincipalsAbsent'; Expected = $true }
+        @{ Path = 'retentionSeconds'; Expected = 7776000 }
+        @{ Path = 'softDeleteSeconds'; Expected = 604800 }
+      ))) { return $false }
+      $checkedAt = Get-PrivateCustodyUtcInstant $proof.bucketControls.checkedAtUtc
+      $verifiedAt = Get-PrivateCustodyUtcInstant $proof.verifiedAtUtc
+      if ($checkedAt -lt $approvedAt -or $verifiedAt -lt $checkedAt -or $completedAt -lt $verifiedAt) { return $false }
+      $proofs[$proof.purpose] = $proof
+    }
+    $expectedHashes = @{
+      productionPackage = $Receipt.governedPackage.sha256
+      closurePackage = $Receipt.closure.closurePackageSha256
+      custodyRecord = $Receipt.closure.custodyRecordSha256
+    }
+    if (($proofs.productionPackage.objectName -split '/')[-1] -cne
+        "$($Receipt.release.releaseId)-GOVERNED-PACKAGE.zip") { return $false }
+    foreach ($purpose in @('productionPackage', 'closurePackage', 'custodyRecord')) {
+      $parent = $proofs[$purpose]
+      $sidecar = $proofs["${purpose}Sidecar"]
+      if ($expectedHashes[$purpose] -isnot [string] -or $parent.sha256 -cne $expectedHashes[$purpose] -or
+          $sidecar.objectName -cne "$($parent.objectName).sha256.txt") { return $false }
+      $parentName = ($parent.objectName -split '/')[-1]
+      $sidecarBytes = [Text.Encoding]::UTF8.GetBytes("$($parent.sha256)  $parentName`n")
+      $sidecarHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($sidecarBytes))
+      if ($sidecar.sha256 -cne $sidecarHash -or $sidecar.bytes -ne $sidecarBytes.Length) { return $false }
+    }
+    if ($proofs.productionPackageSidecar.sha256 -cne $Receipt.governedPackage.sidecarSha256 -or
+        $proofs.closurePackageSidecar.sha256 -cne $Receipt.closure.closurePackageSidecarSha256) { return $false }
+    # This function only reads the fixed approval's file/Git object. It does not
+    # call the helper's upload or bucket APIs, so CI needs no cloud credentials.
+    . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
+    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix 28
+    return (Test-PrivateCustodyFacts $authority $approvalFacts)
+  } catch { return $false }
 }
 
 function Test-PromotedFinalizationDecisions {
@@ -2534,7 +2870,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$policy.finalization.closurePackageSha256 -or
       [string]$completionReceipt.closure.custodyRecordSha256 -ne
         [string]$policy.finalization.custodyRecordSha256 -or
-      $completionReceipt.dualCustody.distinctVolumes -ne $true -or
+      -not (Test-CompletedReleaseCustody -Receipt $completionReceipt -RepositoryRoot $RepositoryRoot) -or
       $completionReceipt.dualCustody.allFileHashesMatched -ne $true -or
       $policy.finalization.dualCustodyCompleted -ne $true -or
       -not $recoveryValid -or
@@ -2557,6 +2893,15 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $deviceAcceptance =
       Get-Content -LiteralPath $deviceAcceptancePath -Raw |
         ConvertFrom-Json
+    if ($currentBuildNumber -eq 28 -and (
+        -not (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval) -or
+        -not (Test-Build28ReadOnlyDeviceAcceptance `
+          -Receipt $deviceAcceptance `
+          -CompletionReceipt $completionReceipt `
+          -CompletionReceiptPath $completionReceiptPath `
+          -CompletionReceiptSha256 (Get-Sha256 $completionReceiptPath)))) {
+      throw 'Build 28 owner acceptance requires exact healthy read-only evidence and installation authority.'
+    }
     $mutationValues = @(
       $deviceAcceptance.businessMutationBoundary.PSObject.Properties |
         ForEach-Object { $_.Value }
@@ -2579,6 +2924,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $expectedReadOnlySurfaces = switch ($currentBuildNumber) {
       18 { $ExpectedBuild18ReadOnlySurfaces; break }
       27 { $ExpectedBuild27ReadOnlySurfaces; break }
+      28 { $ExpectedBuild28ReadOnlySurfaces; break }
       default {
         throw "No exact read-only surface contract exists for Build $currentBuildNumber."
       }
@@ -2625,7 +2971,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $unresolvedRejections -eq 0
     $synchronizationHealthy =
       $synchronizationInventoryHealthy -and
-      ($currentBuildNumber -ne 27 -or (
+      ($currentBuildNumber -notin @(27, 28) -or (
         [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
         [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
         [int64]$deviceAcceptance.synchronization.processingErrors -eq 0 -and
@@ -2744,7 +3090,10 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $physicalInstallation.releaseBoundary.firebaseBusinessDataChanged -ne
             $false -or
           $policy.finalization.runtimeValidationPassed -ne $true -or
-          -not $currentStagedPilotAuthorized) {
+          (-not $currentStagedPilotAuthorized -and -not (
+            $currentBuildNumber -eq 28 -and
+            $historicalStagedPilotAuthorityPreserved -and
+            (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval)))) {
         throw 'Device-acceptance receipt differs from its exact physical-installation boundary.'
       }
     } else {

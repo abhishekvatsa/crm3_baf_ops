@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "decision": "PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE",
+  "observedAtUtc": "2026-09-08T21:34:17.7449797Z",
+  "sourceCommit": "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56",
+  "functionCount": 15,
+  "uniqueArchiveCount": 3,
+  "expectedFileCount": 363,
+  "archives": [
+    {
+      "archiveSha256": "70E933ED68D9C4485A418EB80AABDA40C9512D3D407588C6A35B9E25B9547DEA",
+      "bytes": 1755064,
+      "functionNames": [
+        "maintenanceWorkflowEscalationSweep"
+      ],
+      "sourceGeneration": "1788902909784903",
+      "fileCount": 363,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "889DD8C15EEB2D74EBC3EBBD10504BC887250F68C3DE613595FB17F62B9CAB00",
+      "bytes": 1755064,
+      "functionNames": [
+        "assignPublishedTemplateVersion",
+        "beginGlobalPullRun",
+        "completePlannedJobExecution",
+        "executeMaintenanceWorkflowCommand",
+        "getBackendReleaseIdentity",
+        "mutateAssetHierarchy",
+        "mutateChargeAbnormality",
+        "mutateRuntimeJobModulePopulation",
+        "mutateUserAuthority"
+      ],
+      "sourceGeneration": "1788902575673150",
+      "fileCount": 363,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "BAE37A1F7DBEAA6E6FD433DCE852776822F865EF1B6BD71E3211ACAC57A9E2B7",
+      "bytes": 1755064,
+      "functionNames": [
+        "onJobAssigned",
+        "onMaintenanceWorkflowEventCreated",
+        "onTicketCreated",
+        "onTicketResolved",
+        "stampGlobalPullServerClock"
+      ],
+      "sourceGeneration": "1788902782805724",
+      "fileCount": 363,
+      "allFileBytesMatchExactBuiltSource": true
+    }
+  ],
+  "productionBusinessDataRead": false,
+  "productionMutationPerformed": false
+}

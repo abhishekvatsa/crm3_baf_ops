@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/inspection_campaign.dart';
 import '../data/inspection_evidence_snapshot.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 class InspectionRepository {
   InspectionRepository({FirebaseFirestore? firestore})
@@ -17,8 +18,7 @@ class InspectionRepository {
       .snapshots()
       .map((snapshot) {
         final rows =
-            snapshot.docs
-                .map((doc) => InspectionDefinition.fromMap(doc.data(), doc.id))
+            decodeSnapshotDocuments(snapshot, InspectionDefinition.fromMap, source: 'InspectionDefinition')
                 .toList(growable: false)
               ..sort((left, right) {
                 final status = left.status.index.compareTo(right.status.index);
@@ -35,10 +35,7 @@ class InspectionRepository {
           .snapshots(includeMetadataChanges: true)
           .map((snapshot) {
             final rows =
-                snapshot.docs
-                    .map(
-                      (doc) => InspectionCampaign.fromMap(doc.data(), doc.id),
-                    )
+                decodeSnapshotDocuments(snapshot, InspectionCampaign.fromMap, source: 'InspectionCampaign')
                     .toList(growable: false)
                   ..sort((left, right) {
                     final status = left.status.index.compareTo(
@@ -137,8 +134,18 @@ class InspectionRepository {
     }
     return InspectionCampaignReportEvidence(
       campaign: InspectionCampaign.fromMap(campaignData, campaignSnapshot.id),
-      observations: _decodeObservations(observationSnapshot),
-      findings: _decodeFindings(findingSnapshot),
+      // Strict on purpose. A browse list can show what decoded and say it is
+      // incomplete; report evidence claiming a complete campaign cannot. The
+      // completeness check validates only the findings that survived
+      // decoding, so a dropped finding would be absent from both reads, the
+      // revisions would match, and an incomplete population would pass as
+      // complete.
+      observations: observationSnapshot.docs
+          .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
+          .toList(growable: false),
+      findings: findingSnapshot.docs
+          .map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
+          .toList(growable: false),
     );
   }
 
@@ -146,8 +153,7 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        snapshot.docs
-            .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
+        snapshot.docs.map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final observed = right.observedAt.compareTo(left.observedAt);
@@ -160,8 +166,7 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        snapshot.docs
-            .map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
+        snapshot.docs.map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final blocking = right.blocksCampaignClosure ? 1 : 0;

@@ -1,5 +1,6 @@
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
+import '../models/operations_report.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 
@@ -88,20 +89,24 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
   required List<InnerCoverProfile> innerCoverProfiles,
   required String? selectedAssetClassId,
   required String? selectedAssetInstanceId,
+  OperationsReportSubjectKind selectedSubjectKind =
+      OperationsReportSubjectKind.numberedAsset,
 }) {
-  final innerCoverClassIds =
-      assetClasses
-          .where(
-            (assetClass) =>
-                assetClass.isActive &&
-                assetClass.legacyAssetTypeKey == 'innerCover',
-          )
-          .map((assetClass) => assetClass.id)
-          .toSet();
+  final innerCoverClassIds = assetClasses
+      .where(
+        (assetClass) =>
+            assetClass.isActive &&
+            assetClass.legacyAssetTypeKey == 'innerCover',
+      )
+      .map((assetClass) => assetClass.id)
+      .toSet();
   final innerCovers = innerCoverProfiles
       .where(
         (profile) =>
-            selectedAssetInstanceId == null &&
+            (selectedAssetInstanceId == null ||
+                (selectedSubjectKind ==
+                        OperationsReportSubjectKind.innerCover &&
+                    profile.id == selectedAssetInstanceId)) &&
             innerCoverClassIds.contains(profile.assetClassId) &&
             (selectedAssetClassId == null ||
                 profile.assetClassId == selectedAssetClassId),
@@ -113,6 +118,11 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
         left.normalizedSerialNumber.compareTo(right.normalizedSerialNumber),
   );
   final numberedAssetStates = assetStates
+      .where(
+        (state) =>
+            selectedAssetInstanceId == null ||
+            selectedSubjectKind == OperationsReportSubjectKind.numberedAsset,
+      )
       .where((state) => !innerCoverClassIds.contains(state.asset.assetClassId))
       .toList(growable: false);
   return OperationsReportAssetInventory(

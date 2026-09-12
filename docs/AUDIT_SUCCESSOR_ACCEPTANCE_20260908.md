@@ -8,7 +8,7 @@ Before execution, record the exact successor APK version, SHA-256, package/signi
 
 | Check / access | Practical steps | Required pass evidence |
 | --- | --- | --- |
-| **Retained-data upgrade** — installation + observation | Inventory installed **Build 21** records, unsynced work, attachments and pending confirmations; preserve the agreed recovery copy. Install the exact successor in place. **No uninstall, clear-data or Device recovery/reset.** Reopen records, restart and observe authorized sync. | Matching before/after inventory and artifact identity. No lost edits, attachments, duplicates or crash. Pending work is confirmed by real server evidence or remains visibly pending. |
+| **Retained-data upgrade** — installation + observation | Inventory the **actually installed baseline** records, unsynced work, attachments and pending confirmations. Record that baseline from the handset at campaign time rather than carrying a historical value forward - it was **Build 21** when this row was written and the 2026-09-09 incident device was measured at **Build 27** (`1.0.0-rc.17+27`, source `c933ca0a`); preserve the agreed recovery copy. Install the exact successor in place. **No uninstall, clear-data or Device recovery/reset.** Reopen records, restart and observe authorized sync. | Matching before/after inventory and artifact identity. No lost edits, attachments, duplicates or crash. Pending work is confirmed by real server evidence or remains visibly pending. |
 | **Lost event response** — mutation; Operations, Shift Supervisor, Contract Supervisor, SI or Admin | Prove the server committed a test event while its response was lost. Choose **Confirm your previous event → Confirm event**; repeat after restart, including a legitimate intervening event update. | Same event/submission identity and actual receipt; current state displayed, no duplicate or premature confirmation. Retain timing evidence: a timeout alone proves neither commit nor response loss. |
 | **Retained request identities** — controlled mutation fixtures | For monitoring, Morning Review and incidents, prepare separate pending submissions from independently cached runtimes; restart and confirm each. For burner rounds and assignments, lose the response to payload P, edit to Q, then return to exactly P. | Every unconfirmed identity survives. Confirming one leaves the other intact. Returning to P uses its original request/receipt and creates no second accepted record. Burner/assignment full-form restoration is not claimed. Use current binaries; record older-client limitations separately. |
 | **Correct permanent rejection** — mutation; event-recording role | Obtain a genuine persisted terminal rejection; correct its cause and resubmit. Include an authorized **ahead-of-server phone-clock CREATE** fixture: verify rejection, correct the clock/time cause through the test setup, then submit again. Also observe an uncertain timeout. | Corrected work uses a fresh identity; no event exists for the rejected attempt. Rejected future-dated creation does not trap the corrected draft in replay. Uncertain work retains pending confirmation rather than being discarded. |
@@ -21,3 +21,40 @@ Before execution, record the exact successor APK version, SHA-256, package/signi
 Record **pass / fail / not demonstrated**, artifact/backend identifiers, aliases, actual record/receipt IDs and versions, timestamps, before/after evidence and observer conclusion. Store business content in the approved evidence location.
 
 **Stop** for artifact/signature mismatch, missing authorization, data loss, duplicate work, silent overwrite, false success/completion, or unfinalizable accepted content. Preserve evidence and pending work; do not reset, delete, invent receipts or replace uncertain submission identities. Pilot promotion/distribution requires a separate decision after review of executed evidence.
+
+## Shared-contract caller matrix, 2026-09-10
+
+Four defects in this corrective round had the same shape: a result type was
+correct and one caller did not use its full meaning, or an earlier throw
+stopped the caller reaching it. Recovered receipts lost their payload because
+one consumer was never checked; the attention inventory reused a query that
+excludes rejections; the blocked-network branch read only the receipt from an
+evidence object with three states; and a returned verification failure was
+logged but never fed the decision.
+
+None of these was found by the test suite. They were found by asking, for each
+outcome a shared contract can produce, what every caller does with it. That
+question is cheap and belongs here rather than in another governance document.
+
+| Outcome | What a caller must do | Executing evidence |
+| --- | --- | --- |
+| Accepted | Return the full receipt and pass its real business validator, not the losing attempt's transport error | `test/maintenance_workflow/recovered_receipt_consumer_test.dart` drives the executor into `validateMaintenanceIssueLaneCommandReceipt` |
+| Verified absent | Do not invent acceptance, and do not imply a request was retained when it was not | `test/maintenance_workflow/workflow_platform_block_hold_test.dart`, first-submission cases |
+| Evidence unavailable | Say the previous outcome could not be checked; never report it as verified absence | Same file: Wi-Fi present, platform blocked, receipt store throwing, no retry row |
+| Earlier phase failed, **by throwing or by returning** | Still inspect the journal; carry unresolved verification into health without collapsing the data-plane result | Decision cases in `test/workflow_attention_persistence_test.dart`; the returned-failure path in `test/workflow_uncertain_retry_service_test.dart` |
+
+The last row is the one that keeps recurring. An exception is only one of the
+two ways a phase reports that it established nothing.
+
+### Evidence labels
+
+These are three different claims and this round has produced them unevenly:
+
+- **Source corrected** - the code no longer contains the defect.
+- **Behaviour tested at a boundary** - a real repository, executor or service
+  demonstrates it, with controlled dependencies.
+- **Device path demonstrated** - an exact artifact did it on a handset.
+
+Every row above reaches the second. None reaches the third. The coordinator's
+own wiring is guarded structurally, not executed, and is labelled as such in
+its test.

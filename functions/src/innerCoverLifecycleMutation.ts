@@ -130,6 +130,8 @@ interface ParsedRequest {
   acceptanceDraft: AcceptanceDraft | null;
   reason: string;
   fingerprint: string;
+  legacyFingerprint: string | null;
+  timestampInstants: {[field: string]: string | null};
 }
 
 export interface InnerCoverLifecycleMutationResult {
@@ -310,13 +312,34 @@ function optionalVersion(value: unknown, field: string): number | null {
   return value as number;
 }
 
+// Retain the exact accepted wire instant independently of Date's millisecond
+// storage. Dart's installed clients emit either three or six fractional digits.
+const wireInstants = new WeakMap<Date, string>();
+
 function requiredDate(value: unknown, field: string): Date {
   const text = requiredString(value, field, 40);
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== text) {
+  const match = /^((?:\d{4}|[+-]\d{6})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d{3})(\d{3})?Z$/.exec(text);
+  if (match == null) {
     invalid(field, "must be an exact UTC ISO-8601 instant");
   }
+  const milliseconds = `${match![1]}.${match![2]}Z`;
+  const parsed = new Date(milliseconds);
+  // Round-trip only the strictly shaped millisecond portion, rejecting calendar
+  // rollover, offsets, leap seconds and other permissive Date parsing forms.
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== milliseconds) {
+    invalid(field, "must be an exact UTC ISO-8601 instant");
+  }
+  wireInstants.set(parsed, text);
   return parsed;
+}
+
+function wireInstant(value: Date): string {
+  return wireInstants.get(value) ?? value.toISOString();
+}
+
+function instantMicros(value: Date): bigint {
+  const remainder = /\.(\d{3})(\d{3})Z$/.exec(wireInstant(value));
+  return BigInt(value.getTime()) * 1000n + BigInt(remainder?.[2] ?? 0);
 }
 
 function optionalDate(value: unknown, field: string): Date | null {
@@ -565,7 +588,8 @@ export function parseInnerCoverLifecycleMutationRequest(
       !RETIREMENT_CONDITIONS.has(retirementCondition)) {
     invalid("retirementCondition", "is unsupported");
   }
-  const request: Omit<ParsedRequest, "fingerprint"> = {
+  const request: Omit<ParsedRequest,
+    "fingerprint" | "legacyFingerprint" | "timestampInstants"> = {
     requestId: uuid(raw.requestId, "requestId"),
     operation,
     innerCoverId: documentId(raw.innerCoverId, "innerCoverId"),
@@ -692,9 +716,24 @@ export function parseInnerCoverLifecycleMutationRequest(
   const {retirementCondition: condition, ...legacyRequest} = request;
   const fingerprintVersion = condition == null ? "innercover1" : "innercover2";
   const fingerprintPayload = condition == null ? legacyRequest : request;
-  const fingerprint = `${fingerprintVersion}-sha256:${createHash("sha256")
+  const timestampInstants: {[field: string]: string | null} =
+    request.acceptanceDraft != null ? {
+    inspectedOn: wireInstant(request.acceptanceDraft.inspectedOn),
+  } : request.registrationDraft != null ? {
+    receivedOrCompletedOn: request.registrationDraft.receivedOrCompletedOn == null ?
+      null : wireInstant(request.registrationDraft.receivedOrCompletedOn),
+    incorporatedOn: request.registrationDraft.incorporatedOn == null ?
+      null : wireInstant(request.registrationDraft.incorporatedOn),
+  } : {};
+  // v1/v2 stableJson treated Date as {}. Preserve that calculation solely for
+  // existing receipts; every newly committed command uses date-bound v3.
+  const legacyFingerprint = Object.values(timestampInstants).some(
+    (value) => value != null && /\.\d{6}Z$/.test(value),
+  ) ? null : `${fingerprintVersion}-sha256:${createHash("sha256")
     .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
-  return {...request, fingerprint};
+  const fingerprint = `innercover3-sha256:${createHash("sha256")
+    .update(stableJson({...request, timestampInstants}), "utf8").digest("hex")}`;
+  return {...request, fingerprint, legacyFingerprint, timestampInstants};
 }
 
 function record(snapshot: SnapshotLike, label: string): JsonMap {
@@ -903,9 +942,17 @@ function timestampMillis(value: unknown): number | null {
   return null;
 }
 
-function requireBase(data: JsonMap, expectedId: string): JsonMap {
+function requireBase(
+  data: JsonMap,
+  expectedId: string,
+  removalOnly = false,
+): JsonMap {
   if (data.schemaVersion !== 1 || data.assetInstanceId !== expectedId ||
-      data.status !== "active" || data.serviceState === "outOfService" ||
+      (removalOnly ? !new Set(["active", "retired"]).has(data.status as string) :
+        data.status !== "active" || data.serviceState === "outOfService") ||
+      (data.serviceState != null && !new Set([
+        "inService", "standby", "outOfService",
+      ]).has(data.serviceState as string)) ||
       !Number.isSafeInteger(data.assetNumber) ||
       typeof data.assetClassId !== "string" || typeof data.name !== "string") {
     throw new AssetHierarchyMutationError(
@@ -917,8 +964,10 @@ function requireBase(data: JsonMap, expectedId: string): JsonMap {
   return data;
 }
 
-function requireBaseClass(data: JsonMap, expectedId: string) {
-  if (data.assetClassId !== expectedId || data.status !== "active" ||
+function requireBaseClass(data: JsonMap, expectedId: string, removalOnly = false) {
+  if (data.assetClassId !== expectedId ||
+      (removalOnly ? !new Set(["active", "retired"]).has(data.status as string) :
+        data.status !== "active") ||
       data.legacyAssetTypeKey !== "base") {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
@@ -1155,11 +1204,21 @@ function replayResult(
   actorUid: string,
   data: JsonMap,
 ): InnerCoverLifecycleMutationResult {
-  if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+  const legacy = request.legacyFingerprint != null &&
+    data.fingerprint === request.legacyFingerprint;
+  if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid ||
+      (data.fingerprint !== request.fingerprint && !legacy) ||
       data.operation !== request.operation ||
       data.innerCoverId !== request.innerCoverId ||
-      !Number.isSafeInteger(data.version) || typeof data.auditId !== "string" ||
-      typeof data.committedAtIso !== "string") {
+      !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
+      data.auditId !== `inner_cover_${request.requestId}` ||
+      (data.secondaryVersion != null &&
+        (!Number.isSafeInteger(data.secondaryVersion) ||
+          (data.secondaryVersion as number) < 1)) ||
+      typeof data.committedAtIso !== "string" ||
+      (!legacy && stableJson(data.timestampInstants) !==
+        stableJson(request.timestampInstants))) {
     throw new AssetHierarchyMutationError(
       "already-exists",
       "This request ID is already bound to a different Inner Cover command.",
@@ -1174,10 +1233,103 @@ function replayResult(
     version: data.version as number,
     secondaryVersion: Number.isSafeInteger(data.secondaryVersion) ?
       data.secondaryVersion as number : null,
-    auditId: data.auditId,
+    auditId: data.auditId as string,
     committedAt: data.committedAtIso,
     idempotentReplay: true,
   };
+}
+
+function replayEvidenceDrift(): never {
+  throw new AssetHierarchyMutationError(
+    "data-loss", "The Inner Cover receipt no longer matches its evidence.",
+    {reasonCode: "inner-cover-replay-evidence-drift"},
+  );
+}
+
+function auditSnapshot(value: unknown): JsonMap {
+  if (typeof value !== "string") return replayEvidenceDrift();
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return replayEvidenceDrift();
+    }
+    return parsed;
+  } catch {
+    return replayEvidenceDrift();
+  }
+}
+
+function auditEvidenceHash(audit: JsonMap): string {
+  const performedAt = timestampMillis(audit.performedAt);
+  if (performedAt == null) return replayEvidenceDrift();
+  return createHash("sha256").update(stableJson({
+    ...audit, performedAt: new Date(performedAt).toISOString(),
+  }), "utf8").digest("hex");
+}
+
+function validateReplayAudit(
+  request: ParsedRequest,
+  actorUid: string,
+  receipt: JsonMap,
+  audit: JsonMap,
+  replay: InnerCoverLifecycleMutationResult,
+): void {
+  const after = auditSnapshot(audit.afterJson);
+  const before = audit.beforeJson == null ? null : auditSnapshot(audit.beforeJson);
+  const secondary = audit.secondaryAfterJson == null ? null :
+    auditSnapshot(audit.secondaryAfterJson);
+  const performedAt = timestampMillis(audit.performedAt);
+  if (audit.schemaVersion !== 1 || audit.auditId !== replay.auditId ||
+      audit.requestId !== request.requestId || audit.performedByUid !== actorUid ||
+      audit.entityType !== "inner_cover" || audit.entityId !== request.innerCoverId ||
+      audit.secondaryEntityId !== request.displacedInnerCoverId ||
+      audit.operation !== request.operation || audit.reason !== request.reason ||
+      performedAt == null || new Date(performedAt).toISOString() !==
+        replay.committedAt || timestampMillis(receipt.committedAt) !== performedAt ||
+      after.innerCoverId !== request.innerCoverId ||
+      after.version !== replay.version || typeof after.serialNumber !== "string" ||
+      !STATES.has(after.lifecycleState as InnerCoverLifecycleState) ||
+      (request.operation === "REGISTER_INNER_COVER" ?
+        before != null || replay.version !== 1 :
+        before?.innerCoverId !== request.innerCoverId ||
+        before?.version !== request.expectedVersion ||
+        replay.version !== request.expectedVersion! + 1) ||
+      (request.displacedInnerCoverId == null ?
+        secondary != null || replay.secondaryVersion != null :
+        secondary?.innerCoverId !== request.displacedInnerCoverId ||
+        secondary?.version !== replay.secondaryVersion ||
+        replay.secondaryVersion !== request.expectedDisplacedVersion! + 1)) {
+    replayEvidenceDrift();
+  }
+  if (receipt.fingerprint === request.fingerprint) {
+    if (audit.fingerprint !== request.fingerprint ||
+        stableJson(audit.timestampInstants) !== stableJson(request.timestampInstants) ||
+        receipt.auditEvidenceSha256 !== auditEvidenceHash(audit)) {
+      replayEvidenceDrift();
+    }
+  } else if (receipt.timestampInstants != null ||
+      receipt.auditEvidenceSha256 != null || audit.fingerprint != null ||
+      audit.timestampInstants != null) {
+    // A new receipt must not be made to look legacy by replacing its hash.
+    replayEvidenceDrift();
+  }
+}
+
+function validateLegacyDates(request: ParsedRequest, current: JsonMap): void {
+  // Old receipts did not bind dates and their audit snapshots omitted acceptance
+  // and receipt dates. Only the still-current accepted revision can supply those
+  // missing values. Never manufacture proof after that mutable revision moves on.
+  const expected = request.acceptanceDraft != null ? {
+    acceptedAt: request.acceptanceDraft.inspectedOn,
+  } : request.registrationDraft != null ? {
+    receivedOrCompletedOn: request.registrationDraft.receivedOrCompletedOn,
+    incorporatedOn: request.registrationDraft.incorporatedOn,
+  } : {};
+  for (const [field, instant] of Object.entries(expected)) {
+    if ((instant == null ? null : instant.getTime()) !== timestampMillis(current[field])) {
+      replayEvidenceDrift();
+    }
+  }
 }
 
 export async function mutateInnerCoverLifecycleWithDb(args: {
@@ -1220,24 +1372,24 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       await transaction.get(actorRef), "Inner Cover actor",
     ));
     if (receipt.exists) {
-      const replay = replayResult(request, actorUid, receipt.data() ?? {});
-      const currentProfile = requireProfile(
-        record(await transaction.get(profileRef), "Recorded Inner Cover"),
-        request.innerCoverId,
-        "Recorded Inner Cover",
-      );
-      const audit = record(
-        await transaction.get(auditRef), "Recorded Inner Cover audit",
-      );
-      if (currentProfile.version !== replay.version ||
-          currentProfile.lastMutationId !== request.requestId ||
-          audit.requestId !== request.requestId ||
-          audit.performedByUid !== actorUid) {
-        throw new AssetHierarchyMutationError(
-          "data-loss",
-          "The Inner Cover receipt no longer matches its evidence.",
-          {reasonCode: "inner-cover-replay-evidence-drift"},
-        );
+      const receiptData = receipt.data() ?? {};
+      const replay = replayResult(request, actorUid, receiptData);
+      const audit = (await transaction.get(auditRef)).data() ?? {};
+      validateReplayAudit(request, actorUid, receiptData, audit, replay);
+      if (receiptData.fingerprint !== request.fingerprint &&
+          Object.keys(request.timestampInstants).length > 0) {
+        const current = (await transaction.get(profileRef)).data() ?? {};
+        if (current.version !== replay.version ||
+            current.lastMutationId !== request.requestId) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This legacy receipt lacks immutable timestamp evidence; reconcile it before retrying.",
+            {reasonCode: "inner-cover-legacy-replay-reconciliation-required"},
+          );
+        }
+        validateLegacyDates(request, requireProfile(
+          current, request.innerCoverId, "Recorded Inner Cover",
+        ));
       }
       return replay;
     }
@@ -1263,6 +1415,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
     const sourceBase = sourceBaseRef == null ? null : requireBase(
       record(await transaction.get(sourceBaseRef), "Source Base"),
       request.sourceBaseAssetInstanceId!,
+      request.operation === "DELINK_INNER_COVER",
     );
     const targetBase = targetBaseRef == null ? null : requireBase(
       record(await transaction.get(targetBaseRef), "Target Base"),
@@ -1276,6 +1429,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       requireBaseClass(
         record(await transaction.get(sourceClassRef), "Source Base class"),
         sourceBase!.assetClassId as string,
+        request.operation === "DELINK_INNER_COVER",
       );
     }
     if (targetClassRef != null &&
@@ -1315,14 +1469,14 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       }
       const draft = request.registrationDraft!;
       if (draft.receivedOrCompletedOn != null &&
-          draft.receivedOrCompletedOn.getTime() > nowDate.getTime()) {
+          instantMicros(draft.receivedOrCompletedOn) > instantMicros(nowDate)) {
         invalid(
           "registrationDraft.receivedOrCompletedOn",
           "cannot be in the future",
         );
       }
       if (draft.incorporatedOn != null &&
-          draft.incorporatedOn.getTime() > nowDate.getTime()) {
+          instantMicros(draft.incorporatedOn) > instantMicros(nowDate)) {
         invalid(
           "registrationDraft.incorporatedOn",
           "cannot be in the future",
@@ -1330,8 +1484,8 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       }
       if (draft.receivedOrCompletedOn != null &&
           draft.incorporatedOn != null &&
-          draft.receivedOrCompletedOn.getTime() >
-            draft.incorporatedOn.getTime()) {
+          instantMicros(draft.receivedOrCompletedOn) >
+            instantMicros(draft.incorporatedOn)) {
         invalid(
           "registrationDraft.incorporatedOn",
           "cannot predate receipt or fabrication completion",
@@ -1404,12 +1558,19 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           "utf8",
         ).digest("hex");
         const claimRef = donorClaims.doc(claimId);
-        if (!donorClaimIds.add(claimId)) {
+        // Set.add returns the Set, not whether the value was new, so
+        // `!donorClaimIds.add(claimId)` was false for a first allocation and
+        // for a repeat alike — the guard never fired. Two distinct section ids
+        // can name the same donor cover and part, and within one request both
+        // persistent-claim reads see absence before either write, so this is
+        // the only check that catches that case.
+        if (donorClaimIds.has(claimId)) {
           invalid(
             "registrationDraft.fabricationSections",
             "cannot allocate the same donor part more than once",
           );
         }
+        donorClaimIds.add(claimId);
         if ((await transaction.get(claimRef)).exists) {
           throw new AssetHierarchyMutationError(
             "already-exists",
@@ -1549,7 +1710,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           );
         }
         const acceptance = request.acceptanceDraft!;
-        if (acceptance.inspectedOn.getTime() > nowDate.getTime()) {
+        if (instantMicros(acceptance.inspectedOn) > instantMicros(nowDate)) {
           invalid("acceptanceDraft.inspectedOn", "cannot be in the future");
         }
         const receivedAt = timestampMillis(current.receivedOrCompletedOn);
@@ -1933,7 +2094,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       }
     }
 
-    transaction.set(auditRef, {
+    const auditData: JsonMap = {
       schemaVersion: 1,
       auditId,
       entityType: "inner_cover",
@@ -1951,7 +2112,10 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       performedByUid: actorUid,
       performedByName: actorName,
       requestId: request.requestId,
-    });
+      fingerprint: request.fingerprint,
+      timestampInstants: request.timestampInstants,
+    };
+    transaction.set(auditRef, auditData);
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -1964,6 +2128,8 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       auditId,
       committedAt,
       committedAtIso,
+      timestampInstants: request.timestampInstants,
+      auditEvidenceSha256: auditEvidenceHash(auditData),
     });
     return {
       ok: true,

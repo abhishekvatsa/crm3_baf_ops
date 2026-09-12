@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/maintenance_intelligence.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 class MaintenanceIntelligenceRepository {
   MaintenanceIntelligenceRepository({FirebaseFirestore? firestore})
@@ -8,12 +9,20 @@ class MaintenanceIntelligenceRepository {
 
   final FirebaseFirestore _firestore;
 
+  Future<MaintenancePlan> readPlanFromServer(String planId) async {
+    final snapshot = await _firestore.collection('maintenance_plans')
+        .doc(planId).get(const GetOptions(source: Source.server));
+    if (!snapshot.exists || snapshot.data() == null || snapshot.metadata.isFromCache) {
+      throw StateError('The current maintenance plan could not be verified with the server.');
+    }
+    return MaintenancePlan.fromMap(snapshot.data()!, snapshot.id);
+  }
+
   Stream<List<MaintenanceClassDefinition>> watchClasses() => _firestore
       .collection('maintenance_class_definitions')
       .snapshots()
       .map((snapshot) {
-        final rows = snapshot.docs
-          .map((doc) => MaintenanceClassDefinition.fromMap(doc.data(), doc.id))
+        final rows = decodeSnapshotDocuments(snapshot, MaintenanceClassDefinition.fromMap, source: 'MaintenanceClassDefinition')
           .toList(growable: false)..sort((a, b) {
           final status = a.status.index.compareTo(b.status.index);
           return status != 0 ? status : a.title.compareTo(b.title);
@@ -25,8 +34,7 @@ class MaintenanceIntelligenceRepository {
       .collection('maintenance_due_states')
       .snapshots()
       .map((snapshot) {
-        final rows = snapshot.docs
-          .map((doc) => MaintenanceDueState.fromMap(doc.data(), doc.id))
+        final rows = decodeSnapshotDocuments(snapshot, MaintenanceDueState.fromMap, source: 'MaintenanceDueState')
           .toList(growable: false)..sort((a, b) {
           if (a.isOverdue != b.isOverdue) return a.isOverdue ? -1 : 1;
           final aDue = a.nextDueAt ?? DateTime(9999);
@@ -40,8 +48,7 @@ class MaintenanceIntelligenceRepository {
       .collection('maintenance_completion_events')
       .snapshots()
       .map((snapshot) {
-        final rows = snapshot.docs
-          .map((doc) => MaintenanceCompletionEvent.fromMap(doc.data(), doc.id))
+        final rows = decodeSnapshotDocuments(snapshot, MaintenanceCompletionEvent.fromMap, source: 'MaintenanceCompletionEvent')
           .toList(
             growable: false,
           )..sort((a, b) => b.completedAt.compareTo(a.completedAt));
@@ -50,8 +57,7 @@ class MaintenanceIntelligenceRepository {
 
   Stream<List<MaintenancePlan>> watchPlans() =>
       _firestore.collection('maintenance_plans').snapshots().map((snapshot) {
-        final rows = snapshot.docs
-            .map((doc) => MaintenancePlan.fromMap(doc.data(), doc.id))
+        final rows = decodeSnapshotDocuments(snapshot, MaintenancePlan.fromMap, source: 'MaintenancePlan')
             .toList(growable: false)
           ..sort((a, b) => a.targetWindowStart.compareTo(b.targetWindowStart));
         return List.unmodifiable(rows);

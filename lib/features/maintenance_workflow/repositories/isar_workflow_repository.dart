@@ -180,6 +180,69 @@ class IsarWorkflowRepository implements WorkflowRepository {
       isar.writeTxn(() async => isar.workflowCommandReceiptRecords.put(record));
 
   @override
+  Future<WorkflowCommandReceiptRecord?> getReceipt(String commandId) => isar
+      .workflowCommandReceiptRecords
+      .where()
+      .commandIdEqualTo(commandId)
+      .findFirst();
+
+  @override
+  Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt) {
+    return isar.writeTxn(() async {
+      await isar.workflowCommandReceiptRecords.put(receipt);
+      final row =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(receipt.commandId)
+              .findFirst();
+      if (row != null) {
+        await isar.workflowCommandRecords.delete(row.id);
+      }
+    });
+  }
+
+  @override
+  Future<WorkflowRetryTransition> applyRetryTransitionUnlessAccepted({
+    required String commandId,
+    required WorkflowCommandRecord? Function(WorkflowCommandRecord? current)
+    build,
+  }) {
+    return isar.writeTxn(() async {
+      // Read inside the transaction that will write. A receipt committed by
+      // another caller is either visible here, in which case nothing is
+      // written, or lands after this transaction, in which case its own
+      // settlement clears whatever this wrote. Either ordering leaves one
+      // coherent state; reading beforehand did not.
+      final receipt =
+          await isar.workflowCommandReceiptRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      if (receipt != null) {
+        return WorkflowRetryTransition(
+          WorkflowRetryTransitionOutcome.alreadyAccepted,
+          receipt: receipt,
+        );
+      }
+      final current =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      final next = build(current);
+      if (next == null) {
+        return const WorkflowRetryTransition(
+          WorkflowRetryTransitionOutcome.noChange,
+        );
+      }
+      await isar.workflowCommandRecords.put(next);
+      return const WorkflowRetryTransition(
+        WorkflowRetryTransitionOutcome.recorded,
+      );
+    });
+  }
+
+  @override
   Future<void> saveRetryCommand(WorkflowCommandRecord record) =>
       isar.writeTxn(() async => isar.workflowCommandRecords.put(record));
 
@@ -200,6 +263,95 @@ class IsarWorkflowRepository implements WorkflowRepository {
       .nextRetryAtLessThan(now, include: true)
       .sortByCreatedLocallyAt()
       .findAll();
+
+  @override
+  Future<List<WorkflowCommandRecord>> claimRetryableCommands({
+    required DateTime now,
+    required Duration lease,
+    int limit = 1,
+    Set<String> exclude = const <String>{},
+  }) {
+    final leaseFloor = now.toUtc().subtract(lease);
+    return isar.writeTxn(() async {
+      // Selection and claim share one write transaction. Isar serialises
+      // write transactions, so a concurrent caller either sees these rows
+      // already in `sending` or does not see them at all. Reading first and
+      // writing after would leave exactly the window that produces two
+      // submissions for one action.
+      final due =
+          await isar.workflowCommandRecords
+              .where()
+              .stateKeyEqualTo('uncertainOutcome')
+              .filter()
+              .nextRetryAtIsNotNull()
+              .nextRetryAtLessThan(now, include: true)
+              .sortByCreatedLocallyAt()
+              .findAll();
+
+      // A caller that died mid-send leaves a row in `sending` with nobody
+      // working it. Reclaiming only after the lease has expired keeps that
+      // from stranding the command, without racing a caller still in flight.
+      final abandoned =
+          await isar.workflowCommandRecords
+              .where()
+              .stateKeyEqualTo('sending')
+              .filter()
+              .lastAttemptAtLessThan(leaseFloor)
+              .sortByCreatedLocallyAt()
+              .findAll();
+
+      final claimed = <WorkflowCommandRecord>[...due, ...abandoned]
+          .where((record) => !exclude.contains(record.commandId))
+          .take(limit)
+          .toList();
+      for (final record in claimed) {
+        record.stateKey = 'sending';
+        // The claim timestamp is the lease clock. It is not an attempt: the
+        // attempt count only moves when an outcome is recorded.
+        record.lastAttemptAt = now.toUtc();
+        await isar.workflowCommandRecords.put(record);
+      }
+      return claimed;
+    });
+  }
+
+  @override
+  Future<void> releaseClaim(
+    String commandId, {
+    required DateTime claimedAt,
+    DateTime? nextRetryAt,
+  }) {
+    return isar.writeTxn(() async {
+      final record =
+          await isar.workflowCommandRecords
+              .where()
+              .commandIdEqualTo(commandId)
+              .findFirst();
+      // Only a live claim is released. If the command already reached an
+      // outcome, that outcome is authoritative and must not be reopened.
+      if (record == null || record.stateKey != 'sending') return;
+      // And only by the caller that still holds it. A different claim stamp
+      // means this lease expired and someone else took the work.
+      if (record.lastAttemptAt?.toUtc() != claimedAt.toUtc()) return;
+      record.stateKey = 'uncertainOutcome';
+      record.nextRetryAt = nextRetryAt?.toUtc() ?? record.nextRetryAt;
+      await isar.workflowCommandRecords.put(record);
+    });
+  }
+
+  @override
+  Future<WorkflowOutcomeInventory> readOutcomeInventory() async {
+    Future<int> count(String stateKey) => isar.workflowCommandRecords
+        .filter()
+        .stateKeyEqualTo(stateKey)
+        .count();
+    return WorkflowOutcomeInventory(
+      retrying: await count('uncertainOutcome') + await count('ready'),
+      sending: await count('sending'),
+      rejected: await count('rejected'),
+      manualReview: await count('manualReview'),
+    );
+  }
 
   @override
   Future<List<WorkflowCommandRecord>> getPendingCommands() => isar

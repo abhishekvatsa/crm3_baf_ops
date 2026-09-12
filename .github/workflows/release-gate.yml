@@ -323,7 +323,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="2BB3049EC1BC16B1032E197E9BC890C46918A3D8F59505B8497CBADB24632F48"
+          expected_lock_sha="DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
@@ -332,9 +332,19 @@ jobs:
           npm ci
           npm --prefix functions ci
           npm --prefix tooling/firebase-cli ci --ignore-scripts
-          npm audit --audit-level=low
-          npm --prefix functions audit --audit-level=low
+          # Runtime population gates the build. The governed CLI is audited in
+          # full because firebase-tools performs production deployments, so its
+          # dependencies are production dependencies of that package.
+          npm audit --audit-level=low --omit=dev
+          npm --prefix functions audit --audit-level=low --omit=dev
           npm --prefix tooling/firebase-cli audit --audit-level=low
+          # The omitted build/test population is assessed against a recorded,
+          # dated, owned exception rather than ignored. This fails on a new
+          # advisory, on an expired exception, and on an audit that cannot be
+          # read, so the deferral stays narrow instead of becoming a blanket
+          # pass for every present and future development dependency.
+          npm run test:build-test-dependency-exception
+          node tools/dependencies/verify_build_test_dependency_audit.mjs "$PWD"
           npm run test:dependency-compat
           npm run test:firebase-client-key-custody
           npm run test:firestore-live-readback-custody

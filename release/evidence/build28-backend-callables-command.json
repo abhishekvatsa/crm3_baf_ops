@@ -1,0 +1,20 @@
+{
+  "phase": "callables",
+  "sourceCommit": "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56",
+  "approvalCommit": "c60342395da59d7cc908edb013b16e6e3685b4a9",
+  "approvalSha256": "A3F577D48100E9DAC6CA8F3D6CA1F44DFFDA9DA88DF96B22ADCC51DC32A0C24C",
+  "functions": [
+    "assignPublishedTemplateVersion",
+    "beginGlobalPullRun",
+    "completePlannedJobExecution",
+    "executeMaintenanceWorkflowCommand",
+    "getBackendReleaseIdentity",
+    "mutateChargeAbnormality",
+    "mutateAssetHierarchy",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority"
+  ],
+  "deploymentStartedAtUtc": "2026-09-08T21:21:47.0789621Z",
+  "deploymentCommandCompletedAtUtc": "2026-09-08T21:23:10.6331900Z",
+  "schedulerManuallyInvoked": false
+}

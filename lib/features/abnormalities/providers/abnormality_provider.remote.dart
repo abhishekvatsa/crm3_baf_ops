@@ -29,8 +29,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          final records = snapshot.docs
-              .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+          final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
               .toList();
 
           records.sort(_sortTypes);
@@ -43,8 +42,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     return _types.where('isDeleted', isEqualTo: false).snapshots().map((
       snapshot,
     ) {
-      final records = snapshot.docs
-          .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+      final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
           .toList();
 
       records.sort(_sortTypes);
@@ -59,8 +57,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .get();
 
-    final records = snapshot.docs
-        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -71,8 +68,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<List<AbnormalityType>> getAllTypes() async {
     final snapshot = await _types.where('isDeleted', isEqualTo: false).get();
 
-    final records = snapshot.docs
-        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -266,8 +262,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-          final records = snapshot.docs
-              .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+          final records = decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality')
               .toList();
 
           records.sort(_sortAbnormalities);
@@ -284,8 +279,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = snapshot.docs
-        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -298,8 +292,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = snapshot.docs
-        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -505,8 +498,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedAbnormalityTypesResult(
-      records: snapshot.docs
-          .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+      records: snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );
@@ -544,8 +536,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedChargeAbnormalitiesResult(
-      records: snapshot.docs
-          .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+      records: snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );
@@ -592,9 +583,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
           .get();
 
       results.addAll(
-        snapshot.docs.map(
-          (doc) => ChargeAbnormality.fromMap(doc.data(), doc.id),
-        ),
+        snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id)),
       );
     }
 

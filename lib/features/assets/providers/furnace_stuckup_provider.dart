@@ -11,8 +11,7 @@ final furnaceStuckupCasesProvider = StreamProvider<List<FurnaceStuckupRecord>>((
       .snapshots()
       .map((snapshot) {
         final records =
-            snapshot.docs
-                .map((doc) => FurnaceStuckupRecord.fromMap(doc.data(), doc.id))
+            snapshot.docs.map((doc) => FurnaceStuckupRecord.fromMap(doc.data(), doc.id))
                 .toList()
               ..sort(
                 (left, right) => right.reportedAt.compareTo(left.reportedAt),
@@ -29,13 +28,7 @@ final assetConditionDeclarationsProvider =
           .snapshots()
           .map((snapshot) {
             final records =
-                snapshot.docs
-                    .map(
-                      (doc) => AssetConditionDeclarationRecord.fromMap(
-                        doc.data(),
-                        doc.id,
-                      ),
-                    )
+                snapshot.docs.map((doc) => AssetConditionDeclarationRecord.fromMap(doc.data(), doc.id))
                     .toList()
                   ..sort(
                     (left, right) =>

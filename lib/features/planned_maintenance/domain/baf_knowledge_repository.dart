@@ -15,6 +15,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../data/baf_knowledge_model.dart';
 import 'baf_knowledge_layer.dart';
 import 'module_composer_models.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 /// Source used by the Module Composer knowledge layer.
 ///
@@ -230,8 +231,7 @@ class BafKnowledgeRepository {
     if (kIsWeb || _isar == null) {
       return _firestore.collection(collectionPath).snapshots().map((snap) {
         final rows =
-            snap.docs
-                .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
+            decodeSnapshotDocuments(snap, BafKnowledgeRow.fromCloudMap, source: 'BafKnowledgeRow')
                 .where((row) => includeDeleted || !row.isDeleted)
                 .toList()
               ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
@@ -251,8 +251,7 @@ class BafKnowledgeRepository {
   }) async {
     if (kIsWeb || _isar == null) {
       final snap = await _firestore.collection(collectionPath).get();
-      return snap.docs
-          .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
+      return snap.docs.map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
           .where((row) => includeDeleted || !row.isDeleted)
           .toList()
         ..sort((a, b) => a.rowCode.compareTo(b.rowCode));

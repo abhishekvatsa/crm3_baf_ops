@@ -81,3 +81,15 @@ This remains A-02 source-and-CI closure only. A-03 owns the admitted
 repository/service extraction and its separate CI closure evidence. No
 production deployment, production-data mutation, device proof, pilot
 authorization or distribution authority is claimed.
+
+## Current source review, 2026-09-12
+
+The reviewed source still passes the existing architecture policy with 48
+classified hotspots. No line ceiling, responsibility classification or exception
+was relaxed. Report filters, inspection transitions, plan subject review and
+the Inner Cover acceptance form now have focused presentation units. The
+previously oversized roots and companion dialog file are within their existing
+bounds, and no presentation unit owns a database read or transaction.
+
+This is a current source observation. The original closure inventory and
+admitted CI authority above are historical evidence and remain unchanged.

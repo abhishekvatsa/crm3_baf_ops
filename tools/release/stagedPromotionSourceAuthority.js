@@ -29,6 +29,14 @@ const BUILD27_GOVERNANCE = Object.freeze({
 // explicitly designated proposal snapshot. New approvals require new anchors.
 const BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT = "d95e399de07d43051d94debf36098e7998fe76d4";
 const BUILD27_PROMOTION_RECEIPT_PATH = "release/evidence/build-27-staged-controlled-pilot-authorization.json";
+// Separately reviewed owner-delegated decision retained before deployment on
+// the release feature branch. It admits only the exact tested c00 backend.
+const BUILD28_BACKEND_APPROVAL = Object.freeze({
+  commit: "c60342395da59d7cc908edb013b16e6e3685b4a9",
+  file: "release/approvals/build28-backend-deployment-approval.json",
+  sha256: "A3F577D48100E9DAC6CA8F3D6CA1F44DFFDA9DA88DF96B22ADCC51DC32A0C24C",
+  sourceCommit: "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56",
+});
 
 function promotionCiAuthorityExact(promotionReceipt, deviceReceipt) {
   const source = promotionReceipt?.sourceAuthority;
@@ -136,21 +144,42 @@ function verifyApproval(repoRoot, receipt, approval) {
   const admitted = approval.sourceAuthority;
   const scope = approval.approvedDeployment;
   const approvedAt = explicitUtcInstant(approval.approvedAtUtc);
-  const ownerAt = explicitUtcInstant(receipt.authorityChronology?.ownerInstructionReceivedAtUtc);
-  const earliest = explicitUtcInstant(receipt.authorityChronology?.earliestFunctionUpdateTime);
-  const latest = explicitUtcInstant(receipt.authorityChronology?.latestFunctionUpdateTime);
+  const evidence = approval.approvalEvidence;
+  const chronology = receipt.authorityChronology;
+  const delegated = evidence?.authorityType === "owner-delegated agent decision";
+  const decisionField = delegated ? "delegatedDecisionAtUtc" : "ownerInstructionReceivedAtUtc";
+  const decisionAt = explicitUtcInstant(chronology?.[decisionField]);
+  const earliest = explicitUtcInstant(chronology?.earliestFunctionUpdateTime);
+  const latest = explicitUtcInstant(chronology?.latestFunctionUpdateTime);
+  const execution = approval.deploymentExecutionAuthority;
+  const authorityExact = delegated
+    ? source.commit === BUILD28_BACKEND_APPROVAL.sourceCommit &&
+      explicitUtcInstant(evidence.delegatedDecisionAtUtc) === approvedAt &&
+      explicitUtcInstant(evidence.recordedAtUtc) === approvedAt &&
+      !Object.hasOwn(evidence, "messageReceivedAtUtc") &&
+      !Object.hasOwn(chronology ?? {}, "ownerInstructionReceivedAtUtc") &&
+      !Object.hasOwn(chronology ?? {}, "allObservedFunctionUpdatesPostdateOwnerInstruction") &&
+      chronology?.allObservedFunctionUpdatesPostdateDelegatedDecision === true &&
+      execution?.mode === "exact-baseline-clean-main-checkout" &&
+      execution.commit === source.commit && execution.tree === source.tree &&
+      execution.functionTree === source.functionsGitObjectId &&
+      scope?.callableCount === receipt.deployment.callableCount &&
+      scope?.eventAndProtocolTriggerCount === receipt.deployment.eventAndProtocolTriggerCount &&
+      scope?.schedulerCount === receipt.deployment.schedulerCount
+    : evidence?.authorityType === "project-owner instruction" &&
+      explicitUtcInstant(evidence.messageReceivedAtUtc) === approvedAt &&
+      !Object.hasOwn(chronology ?? {}, "delegatedDecisionAtUtc") &&
+      !Object.hasOwn(chronology ?? {}, "allObservedFunctionUpdatesPostdateDelegatedDecision") &&
+      chronology?.allObservedFunctionUpdatesPostdateOwnerInstruction === true;
   const functionTree = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${source.commit}:functions`],
     {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
   requireEvidence(approval.schemaVersion === 1 &&
     approval.documentType === "governed-current-source-backend-deployment-approval" &&
     approval.approved === true && approval.firebaseProjectId === PROJECT &&
     approval.region === "asia-south1" && receipt.region === approval.region &&
-    approval.approvalEvidence?.authorityType === "project-owner instruction" &&
-    approvedAt != null && ownerAt === approvedAt &&
-    explicitUtcInstant(approval.approvalEvidence.messageReceivedAtUtc) === approvedAt &&
-    earliest != null && latest != null && ownerAt <= earliest && earliest <= latest &&
-    receipt.authorityChronology.allObservedFunctionUpdatesPostdateOwnerInstruction === true &&
-    receipt.authorityChronology.deploymentWasRetroactivelyAuthorized === false &&
+    authorityExact && approvedAt != null && decisionAt === approvedAt &&
+    earliest != null && latest != null && decisionAt <= earliest && earliest <= latest &&
+    chronology.deploymentWasRetroactivelyAuthorized === false &&
     admitted?.commit === source.commit && admitted?.tree === source.tree &&
     COMMIT.test(functionTree) && admitted?.functionTree === functionTree &&
     source.functionsGitObjectId === functionTree &&
@@ -284,20 +313,37 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       finalization?.exactFunctionFleetDeploymentReceiptFile &&
       sameHash(required?.exactFunctionFleetDeploymentReceiptSha256,
         finalization?.exactFunctionFleetDeploymentReceiptSha256),
-    "Historical backend: finalization and version-source receipt authorities differ.");
-    const historicalRead = readChild(root, finalization.exactFunctionFleetDeploymentReceiptFile,
-      finalization.exactFunctionFleetDeploymentReceiptSha256, "Historical backend");
-    const historical = historicalRead.value;
+    "Candidate backend: finalization and version-source receipt authorities differ.");
+    const candidateRead = readChild(root, finalization.exactFunctionFleetDeploymentReceiptFile,
+      finalization.exactFunctionFleetDeploymentReceiptSha256, "Candidate backend");
+    const candidate = candidateRead.value;
     const expectedCommit = required.exactFunctionFleetDeploymentSourceCommit ?? version.sourceBaseline?.commit;
     const expectedPr = required.exactFunctionFleetDeploymentPullRequest ?? 265;
     requireEvidence(Number.isSafeInteger(expectedPr) && expectedPr > 0,
-      "Historical backend: deployment pull request is invalid.");
-    const expectedTree = commitTree(root, expectedCommit, "Historical backend");
-    verifyDeployment(historical, "Historical backend");
-    requireEvidence(historical.sourceAuthority?.commit === expectedCommit &&
-      historical.sourceAuthority?.tree === expectedTree &&
-      historical.sourceAuthority?.pullRequestNumber === expectedPr,
-    "Historical backend: deployed commit, Git tree or pull request differs from version authority.");
+      "Candidate backend: deployment pull request is invalid.");
+    const expectedTree = commitTree(root, expectedCommit, "Candidate backend");
+    verifyDeployment(candidate, "Candidate backend");
+    requireEvidence(candidate.sourceAuthority?.commit === expectedCommit &&
+      candidate.sourceAuthority?.tree === expectedTree &&
+      candidate.sourceAuthority?.pullRequestNumber === expectedPr,
+    "Candidate backend: deployed commit, Git tree or pull request differs from version authority.");
+    const build28 = versionPolicy.buildNumber === 28;
+    let historicalFile = finalization.exactFunctionFleetDeploymentReceiptFile;
+    let historicalRead = candidateRead;
+    if (build28) {
+      requireEvidence(expectedCommit === BUILD28_BACKEND_APPROVAL.sourceCommit &&
+        releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only",
+      "Build28 candidate: the admitted c00 backend and preserved Build27 promotion are required.");
+      // The successor's version/finalization selects its candidate backend. It
+      // cannot redirect the retained pilot's historical deployment authority.
+      const anchoredPromotion = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+        BUILD27_PROMOTION_RECEIPT_PATH));
+      const authority = anchoredPromotion.admittedEvidence.productionBackend;
+      historicalFile = authority.receipt;
+      historicalRead = readChild(root, historicalFile, authority.sha256, "Historical backend");
+      verifyDeployment(historicalRead.value, "Historical backend");
+    }
+    const historical = historicalRead.value;
 
     const state = readChild(root, "release/current-successor-state.json", undefined,
       "Current successor state").value;
@@ -331,12 +377,20 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       "release/current-successor-state.json")).authorityPlanes.deployedBackend;
     const backendApprovalCustody = readApprovalCustody(root, BUILD27_GOVERNANCE.commit,
       {file: anchoredBackend.deploymentApprovalFile, sha256: anchoredBackend.deploymentApprovalSha256}, "Backend");
-    requireEvidence(receipt.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit &&
-      historical.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit,
+    requireEvidence(historical.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit,
     "Backend approval custody: this source has no separately admitted immutable owner approval.");
-    requireApprovalCustody(receipt.approvalAuthority, approvalRead, backendApprovalCustody, "Current backend");
+    const approvalCustodyFor = (sourceCommit) => {
+      if (sourceCommit === anchoredBackend.functionFleetSourceCommit) return backendApprovalCustody;
+      requireEvidence(sourceCommit === BUILD28_BACKEND_APPROVAL.sourceCommit,
+        "Backend approval custody: this source has no separately admitted immutable owner approval.");
+      return readApprovalCustody(root, BUILD28_BACKEND_APPROVAL.commit,
+        BUILD28_BACKEND_APPROVAL, "Delegated backend");
+    };
+    const currentApprovalCustody = approvalCustodyFor(receipt.sourceAuthority.commit);
+    requireApprovalCustody(receipt.approvalAuthority, approvalRead, currentApprovalCustody, "Current backend");
 
-    const deployments = historicalRead.hash === current.hash ? [receipt] : [historical, receipt];
+    const deployments = [...new Map([historicalRead, candidateRead, current]
+      .map((read) => [read.hash, read.value])).values()];
     for (const measured of deployments) {
       if (measured !== receipt) {
         requireEvidence(sameHash(measured.approvalAuthority?.sha256, measured.approvalAuthority?.sha256),
@@ -344,7 +398,8 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
         const historicalApproval = readChild(root, measured.approvalAuthority?.file,
           measured.approvalAuthority?.sha256, "Historical backend approval");
         verifyApproval(root, measured, historicalApproval.value);
-        requireApprovalCustody(measured.approvalAuthority, historicalApproval, backendApprovalCustody, "Historical backend");
+        requireApprovalCustody(measured.approvalAuthority, historicalApproval,
+          approvalCustodyFor(measured.sourceAuthority.commit), "Selected backend");
       }
       for (const key of ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"]) {
         const authority = measured.cleanMainLiveReadbacks?.[key];
@@ -386,10 +441,12 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       "Promotion decision custody: the complete historical authorization differs from its admitted fixed snapshot.");
     }
     return {ok: true, reasons: [],
-      historicalBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
+      historicalBackendReceiptFile: historicalFile,
       historicalBackendReceiptSha256: historicalRead.hash,
       currentBackendReceiptFile: deployed.functionFleetEvidenceFile,
       currentBackendReceiptSha256: current.hash,
+      ...(build28 ? {candidateBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
+        candidateBackendReceiptSha256: candidateRead.hash} : {}),
       ...(pilotApprovalCustody ? {pilotOwnerApprovalFile: pilotApprovalCustody.file,
         pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {}),
       ...(promotionDecisionCustody ? {promotionReceiptFile: promotionDecisionCustody.file,

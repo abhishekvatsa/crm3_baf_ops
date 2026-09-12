@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -410,6 +411,14 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     }
 
     final action = ComponentAction(
+      // A physical repair or replacement needs an identity of its own. Without
+      // one, the same action referenced from a module and from a job closure
+      // cannot be recognised as one event, and its position in a list becomes
+      // the only thing distinguishing it — so reordering rewrites history.
+      // The burner path already derives a stable id from ticket and physical
+      // position; this path had none. A fresh id is assigned once, at the
+      // moment the action is first recorded, and travels with it thereafter.
+      id: const Uuid().v4(),
       component: component,
       asset: asset!,
       tag: tag.isEmpty ? null : tag,

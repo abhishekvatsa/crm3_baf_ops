@@ -10,9 +10,7 @@ final assetAvailabilityProvider = StreamProvider<List<AssetAvailabilityRecord>>(
         .snapshots()
         .map(
           (snapshot) => List<AssetAvailabilityRecord>.unmodifiable(
-            snapshot.docs.map(
-              (doc) => AssetAvailabilityRecord.fromMap(doc.data(), doc.id),
-            ),
+            snapshot.docs.map((doc) => AssetAvailabilityRecord.fromMap(doc.data(), doc.id)),
           ),
         );
   },

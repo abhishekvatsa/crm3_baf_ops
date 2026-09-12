@@ -11,13 +11,13 @@ import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
-import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_service.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../services/local_diagnostics_read_adapter.dart';
+import '../services/local_recovery_package_service.dart';
 import 'local_diagnostics_exporter.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
@@ -81,6 +81,7 @@ final localDiagnosticsReportProvider =
         likelyPermanentRejections: persistence.likelyPermanentRejections,
         totalRejections: persistence.totalRejections,
         knowledgeMetaRows: persistence.knowledgeMetaRows,
+        commandJournal: persistence.commandJournal,
         collectionCount: rows.length + 2,
         governanceSummary: governanceSummary,
         supportSnapshot: supportSnapshot,
@@ -96,6 +97,7 @@ class LocalDiagnosticsReport {
   final int likelyPermanentRejections;
   final int totalRejections;
   final int knowledgeMetaRows;
+  final LocalDiagnosticsCommandJournalSnapshot commandJournal;
   final int collectionCount;
   final LocalGovernanceDiagnosticsSummary? governanceSummary;
   final LocalDiagnosticsSupportSnapshot supportSnapshot;
@@ -110,6 +112,7 @@ class LocalDiagnosticsReport {
     required this.likelyPermanentRejections,
     required this.totalRejections,
     required this.knowledgeMetaRows,
+    required this.commandJournal,
     required this.collectionCount,
     required this.supportSnapshot,
     required this.releaseSnapshot,
@@ -130,6 +133,7 @@ class LocalDiagnosticsReport {
       likelyPermanentRejections: 0,
       totalRejections: 0,
       knowledgeMetaRows: 0,
+      commandJournal: const LocalDiagnosticsCommandJournalSnapshot.empty(),
       collectionCount: 0,
       supportSnapshot: supportSnapshot,
       releaseSnapshot: releaseSnapshot,
@@ -151,6 +155,15 @@ class LocalDiagnosticsReport {
           ..writeln('likelyPermanentSyncRejections: $likelyPermanentRejections')
           ..writeln('totalSyncRejectionRows: $totalRejections')
           ..writeln('knowledgeMetaRows: $knowledgeMetaRows')
+          ..writeln('workflowCommandsUnfinished: ${commandJournal.unfinished}')
+          ..writeln(
+            'workflowCommandsUncertainOutcome: '
+            '${commandJournal.uncertainOutcome}',
+          )
+          ..writeln(
+            'workflowCommandsManualReview: ${commandJournal.manualReview}',
+          )
+          ..writeln('workflowCommandRows: ${commandJournal.total}')
           ..writeln('collectionsReported: $collectionCount')
           ..writeln('syncStatus: ${supportSnapshot.syncStatusLabel}')
           ..writeln('syncRunning: ${supportSnapshot.syncIsRunning}')
@@ -235,6 +248,16 @@ class LocalDiagnosticsReport {
       'likelyPermanentSyncRejections': likelyPermanentRejections,
       'totalSyncRejectionRows': totalRejections,
       'knowledgeMetaRows': knowledgeMetaRows,
+      'workflowCommandJournal': <String, dynamic>{
+        'ready': commandJournal.ready,
+        'sending': commandJournal.sending,
+        'uncertainOutcome': commandJournal.uncertainOutcome,
+        'manualReview': commandJournal.manualReview,
+        'applied': commandJournal.applied,
+        'rejected': commandJournal.rejected,
+        'total': commandJournal.total,
+        'unfinished': commandJournal.unfinished,
+      },
       'collectionsReported': collectionCount,
       'support': supportSnapshot.toMap(),
       'releaseIdentity': releaseSnapshot.toMap(),
@@ -695,17 +718,24 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
     LocalDiagnosticsReport report,
   ) async {
     try {
-      final result = await createIsarRecoveryPackage(
+      final outcome = await LocalRecoveryPackageService().create(
         diagnosticsText: report.toClipboardText(),
         manifestJsonText: report.toRecoveryManifestJsonText(),
         reason: 'admin_local_diagnostics_open_db',
       );
-      await Clipboard.setData(ClipboardData(text: result.directoryPath));
+      await Clipboard.setData(ClipboardData(text: outcome.directoryPath));
       if (!context.mounted) return;
+      // The summary states the basis of the copy and what it excludes. A bare
+      // "created" reads as a verified backup, and support acted on that
+      // reading during the 2026-09-09 incident.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 8),
+          backgroundColor:
+              outcome.coversDatabase ? null : BafColors.danger,
           content: Text(
-            'Recovery package created. ${result.copiedFileCount} DB file(s) copied. Folder path copied.',
+            '${outcome.operatorSummary} Folder path copied.'
+            '${outcome.warnings.isEmpty ? '' : ' ${outcome.warnings.join(' ')}'}',
           ),
         ),
       );
@@ -851,6 +881,18 @@ class _DiagnosticsSummary extends StatelessWidget {
                 report.likelyPermanentRejections > 0
                     ? BafColors.danger
                     : BafColors.textSecondary,
+          ),
+          _SummaryChip(
+            label:
+                '${report.commandJournal.unfinished} unfinished commands'
+                '${report.commandJournal.unresolvedOutcome > 0 ? ' (${report.commandJournal.unresolvedOutcome} outcome unknown)' : ''}',
+            icon: Icons.pending_actions_rounded,
+            color:
+                report.commandJournal.unresolvedOutcome > 0
+                    ? BafColors.danger
+                    : report.commandJournal.unfinished > 0
+                    ? BafColors.warning
+                    : BafColors.success,
           ),
           _SummaryChip(
             label: '${report.knowledgeMetaRows} knowledge meta rows',

@@ -640,6 +640,9 @@ void main() {
             ref.onDispose(() => disposedActors.add(scope.actorUid));
             return const AsyncLoading();
           }),
+          innerCoverProfilesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
         ],
         child: MaterialApp(
           theme: BafAppTheme.light,

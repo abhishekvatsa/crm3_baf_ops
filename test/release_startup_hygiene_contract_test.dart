@@ -369,6 +369,7 @@ void main() {
                 'npm run test:callable-inventory && '
                 'npm run test:notification-inventory && '
                 'npm run test:asset-master:compiled && '
+                'npm run test:corrective-regressions && '
                 'jest --runInBand',
           ),
         );

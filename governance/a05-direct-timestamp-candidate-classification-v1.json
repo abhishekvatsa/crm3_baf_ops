@@ -4,6 +4,22 @@
   "scope": "all direct DateTime parser and epoch-sentinel calls in non-generated Dart source after strict-reader remediation",
   "classifications": [
     {
+      "id": "new-command-utc-millisecond-wire-precision",
+      "classification": "TYPED_COMMAND_WIRE_SERIALIZATION",
+      "owner": "asset-governance",
+      "purpose": "serialize an already typed DateTime into canonical UTC milliseconds for a newly constructed governed command",
+      "authorityBoundary": "outbound new-command construction only; this is neither a persisted-state decoder nor a repair of saved or frozen chronology",
+      "regression": "test/inner_cover_acceptance_repository_test.dart; functions/test/innerCoverLifecycleMutation.test.js",
+      "reArmCondition": "the constructor reads untyped persisted data, supplies a fallback, rewrites an already frozen request, or changes stored evidence rather than new command transport",
+      "sites": [
+        {
+          "file": "lib/core/serialization/command_timestamp.dart",
+          "expression": "DateTime.fromMillisecondsSinceEpoch(",
+          "occurrence": 1
+        }
+      ]
+    },
+    {
       "id": "strict-reader-implementation",
       "classification": "STRICT_READER_IMPLEMENTATION",
       "owner": "core-serialization",

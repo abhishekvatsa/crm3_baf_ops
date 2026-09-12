@@ -11,7 +11,7 @@ void main() {
       final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
 
       _expectOrder(syncBlock, const [
-        'final remote = remoteMap[record.firestoreId];',
+        'var remote = remoteMap[record.firestoreId];',
         'if (remote == null)',
         'await _pushMissingMaintenanceTicket(record);',
         'continue;',
@@ -42,10 +42,12 @@ void main() {
       expect(syncBlock, contains('lastSuccessCount++;'));
       expect(
         syncBlock,
-        isNot(contains('SyncRejection')),
+        isNot(contains('SyncRejection()')),
         reason:
-            '69D.2 is a clean-state forward fix and must not add a held-rejection repair lane.',
+            'Recovery reports a hold through the shared diagnostic writer; '
+            'it must not construct or repair held rejection rows directly.',
       );
+      expect(syncBlock, contains('await _upsertSyncRejection(detail);'));
     });
 
     test(
@@ -295,7 +297,7 @@ void main() {
       final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
       final recovery = _blockStartingAt(
         source,
-        'Future<MaintenanceRecord?> _tryRecoverAcceptedMaintenanceCreation',
+        'Future<_MaintenanceCreationRecoveryResult>',
       );
 
       _expectOrder(syncBlock, const <String>[
@@ -325,7 +327,14 @@ void main() {
           'List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan',
         );
 
-        expect(create, contains('FirebaseAuth.instance.currentUser?.uid'));
+        // The guard is that creation replay authorises against the account
+        // signed in at the time of the attempt. It reads through the service's
+        // injected session rather than the static singleton, so that the real
+        // path can be driven in a test; `global_pull_service_decomposition`
+        // pins the same shape for GlobalPullService. What must not change is
+        // that the uid is read per attempt and never captured at construction.
+        expect(create, contains('_authentication.currentUser?.uid'));
+        expect(create, isNot(contains('FirebaseAuth.instance')));
         expect(create, contains('_canReplayMaintenanceCreateForCurrentUser'));
         expect(create, contains('maintenanceReopenReplayHasCurrentActor'));
         expect(plan, contains('_canReplayMaintenanceCloseForCurrentUser'));

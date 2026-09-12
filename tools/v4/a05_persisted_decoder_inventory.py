@@ -236,6 +236,34 @@ def main() -> int:
         "reArmCondition",
         "riskFingerprint",
     )
+    known_stale = {
+        str(entry)
+        for entry in manifest.get("staleRegressionReferences", [])
+    }
+    checked_regressions: set[str] = set()
+
+    def _check_regression(owner_id: str, declared: object) -> None:
+        # The manifest names the test that proves a surface's malformed
+        # disposition. That reference was never resolved, so an entry could
+        # name a test that does not exist and the gate stayed satisfied - which
+        # is how workflow-uncertain-retry carried a declared regression with no
+        # file behind it. Known stale references are enumerated rather than
+        # hidden, so nothing new can break silently.
+        if not isinstance(declared, str):
+            return
+        for raw in re.split(r"[;,\s]+", declared):
+            reference = raw.strip()
+            if not reference:
+                continue
+            checked_regressions.add(reference)
+            if (ROOT / reference).is_file():
+                continue
+            if reference in known_stale:
+                continue
+            failures.append(
+                f"{owner_id}: declared regression {reference} does not exist"
+            )
+
     seen_ids: set[str] = set()
     seen_files: set[str] = set()
     inventory: list[dict[str, object]] = []
@@ -252,6 +280,7 @@ def main() -> int:
         if relative in seen_files:
             failures.append(f"duplicate surface file {relative}")
         seen_files.add(relative)
+        _check_regression(surface_id, surface.get("regression"))
         path = ROOT / relative
         if not path.is_file():
             failures.append(f"{surface_id}: missing file {relative}")
@@ -311,6 +340,7 @@ def main() -> int:
     catch_ids: set[str] = set()
     for policy in catch_policies:
         catch_id = policy.get("id", "<missing-id>")
+        _check_regression(catch_id, policy.get("regression"))
         for field in catch_required_metadata:
             if not isinstance(policy.get(field), str) or not policy[field].strip():
                 failures.append(f"{catch_id}: missing catch metadata {field}")

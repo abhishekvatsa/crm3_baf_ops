@@ -17,6 +17,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'job_diary_provider.local.dart';
 part 'job_diary_provider.remote.dart';

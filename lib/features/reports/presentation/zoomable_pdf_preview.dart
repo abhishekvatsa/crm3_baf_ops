@@ -1,25 +1,37 @@
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../services/report_export_audit_service.dart';
 
-class ZoomablePdfPreview extends StatelessWidget {
+class ZoomablePdfPreview extends ConsumerWidget {
   const ZoomablePdfPreview({
     super.key,
     required this.documentBuilder,
     required this.pageFormat,
     required this.fileName,
+    required this.documentKind,
+    required this.documentSubject,
   });
 
   final LayoutCallback documentBuilder;
   final PdfPageFormat pageFormat;
   final String fileName;
 
+  /// What the document is, recorded on export so a distributed copy can be
+  /// identified later without reopening it.
+  final String documentKind;
+
+  /// Which assets or scope the document covers.
+  final String documentSubject;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final actionBarHeight = pdfPreviewActionBarHeight(MediaQuery.of(context));
     return Theme(
       data: pdfPreviewControlTheme(Theme.of(context)),
@@ -31,6 +43,11 @@ class ZoomablePdfPreview extends StatelessWidget {
         canDebug: false,
         allowPrinting: true,
         allowSharing: true,
+        // Printing and sharing put plant condition and named accountability
+        // outside every reading control that governs the source records, so
+        // each act is attributed before the copy is gone.
+        onPrinted: (_) => _recordExport(ref, ReportExportChannel.printed),
+        onShared: (_) => _recordExport(ref, ReportExportChannel.shared),
         pdfFileName: fileName,
         dpi: 180,
         scrollViewDecoration: const BoxDecoration(
@@ -49,6 +66,21 @@ class ZoomablePdfPreview extends StatelessWidget {
               pages: List<PdfPreviewPageData>.unmodifiable(pages),
             ),
       ),
+    );
+  }
+}
+
+extension _ZoomablePdfPreviewExportAudit on ZoomablePdfPreview {
+  void _recordExport(WidgetRef ref, ReportExportChannel channel) {
+    unawaited(
+      ref
+          .read(reportExportAuditServiceProvider)
+          .recordExport(
+            channel: channel,
+            documentKind: documentKind,
+            documentSubject: documentSubject,
+            fileName: fileName,
+          ),
     );
   }
 }

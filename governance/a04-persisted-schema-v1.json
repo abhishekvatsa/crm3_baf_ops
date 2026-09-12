@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "6F26C3A4876DBE94D94908B52E0EB6A808FECCE69468177166E1A89696B15387",
+  "inventoryDigest": "8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "26EB10BE0DE3FE7B03B124C06101953ED45B4F6A13025E37F80B0B335DCD9DA7",
+  "a05ManifestSha256": "CFCF691D47823442FF630818E3CBFE7848E9749AE02AEEA1E13D1BC145B2E33B",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -794,7 +794,7 @@
       "authorityBoundary": "governed hierarchy, registry, Inner Cover, and asset-condition mutation result",
       "malformedDisposition": "translate invalid callable evidence to a blocking hierarchy error and never report command success",
       "compatibility": "none for request identity, operation, entity identity, versions, audit identity, canonical commit time, or replay status",
-      "regression": "test/asset_hierarchy_command_receipt_test.dart"
+      "regression": "test/asset_hierarchy_command_receipt_test.dart; test/inner_cover_acceptance_repository_test.dart; test/inner_cover_lifecycle_screen_test.dart"
     },
     {
       "id": "asset-hierarchy-records",
@@ -1178,10 +1178,10 @@
       "id": "maintenance-lifecycle-replay-receipt",
       "file": "lib/core/services/sync_service.tickets_templates.dart",
       "classification": "REMOTE_COMMAND_RECEIPT",
-      "authorityBoundary": "exact Firestore maintenance lifecycle replay readback",
-      "malformedDisposition": "fail closed and leave the local maintenance row pending",
-      "compatibility": "none; a synchronized replay requires an exact version and updatedAt receipt",
-      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart"
+      "authorityBoundary": "exact Firestore lifecycle replay readback and creation-recovery admission before generic ticket writes",
+      "malformedDisposition": "retain local work and block the affected ticket after contradictory or unavailable creation acceptance evidence; a contradiction uses the existing permanent sync hold",
+      "compatibility": "a synchronized replay requires an exact version and updatedAt receipt; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
     },
     {
       "id": "maintenance-record",

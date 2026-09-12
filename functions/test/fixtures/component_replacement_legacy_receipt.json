@@ -1,0 +1,93 @@
+{
+  "provenance": "Executed pre-timestamp-upgrade compiled registry handler on real Dart three-digit command; not a rewritten modern receipt.",
+  "compiledHandlerSha256": "590a2a86e6155d9609047b46f31d2167dce9917a4d4018f8cbbdc0ba5e6519ff",
+  "request": {
+    "requestId": "23232323-2323-4232-8232-232323232323",
+    "operation": "REPLACE_COMPONENT_INSTANCE",
+    "assetClassId": "11111111-1111-4111-8111-111111111111",
+    "assetInstanceId": "77777777-7777-4777-8777-777777777777",
+    "componentInstanceId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "replacementComponentInstanceId": "21212121-2121-4121-8121-212121212121",
+    "expectedVersion": 1,
+    "expectedAssetInstanceVersion": 2,
+    "reason": "Replace the pressure transmitter after calibration failure.",
+    "allowTagTransfer": false,
+    "expectedTagOwnerComponentId": null,
+    "componentDraft": {
+      "definitionNodeId": "33333333-3333-4333-8333-333333333333",
+      "componentTag": null,
+      "manufacturer": null,
+      "model": null,
+      "serialNumber": "PT-NEW-001",
+      "installedOn": "2026-09-12T08:30:00.123Z",
+      "serviceState": "inService",
+      "ownershipStatus": "confirmed",
+      "ownerDiscipline": "Instrumentation",
+      "accountableRoleKeys": [
+        "seniorInstrumentation"
+      ]
+    }
+  },
+  "accepted": {
+    "ok": true,
+    "requestId": "23232323-2323-4232-8232-232323232323",
+    "operation": "REPLACE_COMPONENT_INSTANCE",
+    "assetClassId": "11111111-1111-4111-8111-111111111111",
+    "nodeId": "21212121-2121-4121-8121-212121212121",
+    "version": 1,
+    "auditId": "asset_registry_23232323-2323-4232-8232-232323232323",
+    "committedAt": "2026-09-12T10:00:00.000Z",
+    "idempotentReplay": false
+  },
+  "receipt": {
+    "schemaVersion": 1,
+    "requestId": "23232323-2323-4232-8232-232323232323",
+    "actorUid": "admin-1",
+    "fingerprint": "assetreg2-sha256:a318a0a4096e7bf233eadc1ad1e38698a2528ae2ecaf2769a34c25f87dacdb99",
+    "operation": "REPLACE_COMPONENT_INSTANCE",
+    "entityId": "21212121-2121-4121-8121-212121212121",
+    "version": 1,
+    "sourceEntityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "sourceVersion": 2,
+    "auditId": "asset_registry_23232323-2323-4232-8232-232323232323",
+    "committedAt": "2026-09-12T10:00:00.000Z",
+    "committedAtIso": "2026-09-12T10:00:00.000Z"
+  },
+  "audit": {
+    "schemaVersion": 1,
+    "auditId": "asset_registry_23232323-2323-4232-8232-232323232323",
+    "entityType": "installed_component",
+    "entityId": "21212121-2121-4121-8121-212121212121",
+    "componentLineageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "relatedEntityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "assetClassId": "11111111-1111-4111-8111-111111111111",
+    "assetInstanceId": "77777777-7777-4777-8777-777777777777",
+    "action": "replacement_installed",
+    "reason": "Replace the pressure transmitter after calibration failure.",
+    "beforeJson": null,
+    "afterJson": "{\"schemaVersion\":1,\"componentInstanceId\":\"21212121-2121-4121-8121-212121212121\",\"componentLineageId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"replacesComponentInstanceId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"assetInstanceId\":\"77777777-7777-4777-8777-777777777777\",\"assetInstanceVersionAtMutation\":2,\"assetNumber\":1,\"assetInstanceName\":\"Furnace 1\",\"assetClassId\":\"11111111-1111-4111-8111-111111111111\",\"assetClassCode\":\"FURNACE\",\"assetClassName\":\"Furnace\",\"definitionNodeId\":\"33333333-3333-4333-8333-333333333333\",\"componentTag\":null,\"normalizedComponentTag\":null,\"manufacturer\":null,\"model\":null,\"serialNumber\":\"PT-NEW-001\",\"installedOn\":\"2026-09-12T08:30:00.123Z\",\"serviceState\":\"inService\",\"ownershipStatus\":\"confirmed\",\"ownerDiscipline\":\"Instrumentation\",\"accountableRoleKeys\":[\"seniorInstrumentation\"],\"definitionNodeVersion\":1,\"definitionName\":\"Pressure transmitter\",\"hierarchyPath\":[\"Pressure transmitter\"],\"status\":\"active\",\"version\":1,\"createdByUid\":\"admin-1\",\"createdByName\":\"Admin One\",\"updatedByUid\":\"admin-1\",\"updatedByName\":\"Admin One\",\"lastMutationId\":\"23232323-2323-4232-8232-232323232323\"}",
+    "performedByUid": "admin-1",
+    "performedByName": "Admin One",
+    "performedAt": "2026-09-12T10:00:00.000Z",
+    "requestId": "23232323-2323-4232-8232-232323232323",
+    "tagTransferApproved": false
+  },
+  "sourceAudit": {
+    "schemaVersion": 1,
+    "auditId": "asset_registry_23232323-2323-4232-8232-232323232323_replacement_source",
+    "entityType": "installed_component",
+    "entityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "componentLineageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "relatedEntityId": "21212121-2121-4121-8121-212121212121",
+    "assetClassId": "11111111-1111-4111-8111-111111111111",
+    "assetInstanceId": "77777777-7777-4777-8777-777777777777",
+    "action": "replaced",
+    "reason": "Replace the pressure transmitter after calibration failure.",
+    "beforeJson": "{\"schemaVersion\":1,\"componentInstanceId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"componentLineageId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"assetInstanceId\":\"77777777-7777-4777-8777-777777777777\",\"assetInstanceVersionAtMutation\":1,\"assetNumber\":1,\"assetInstanceName\":\"Furnace 1\",\"assetClassId\":\"11111111-1111-4111-8111-111111111111\",\"assetClassCode\":\"FURNACE\",\"assetClassName\":\"Furnace\",\"definitionNodeId\":\"33333333-3333-4333-8333-333333333333\",\"componentTag\":null,\"normalizedComponentTag\":null,\"manufacturer\":null,\"model\":null,\"serialNumber\":\"PT-OLD-001\",\"installedOn\":\"2026-08-01T08:30:00.000Z\",\"serviceState\":\"inService\",\"ownershipStatus\":\"confirmed\",\"ownerDiscipline\":\"Instrumentation\",\"accountableRoleKeys\":[\"seniorInstrumentation\"],\"definitionNodeVersion\":1,\"definitionName\":\"Pressure transmitter\",\"hierarchyPath\":[\"Pressure transmitter\"],\"status\":\"active\",\"version\":1,\"createdByUid\":\"admin-1\",\"createdByName\":\"Admin One\",\"updatedByUid\":\"admin-1\",\"updatedByName\":\"Admin One\",\"lastMutationId\":\"cccccccc-cccc-4ccc-8ccc-cccccccccccc\"}",
+    "afterJson": "{\"schemaVersion\":1,\"componentInstanceId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"componentLineageId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"assetInstanceId\":\"77777777-7777-4777-8777-777777777777\",\"assetInstanceVersionAtMutation\":1,\"assetNumber\":1,\"assetInstanceName\":\"Furnace 1\",\"assetClassId\":\"11111111-1111-4111-8111-111111111111\",\"assetClassCode\":\"FURNACE\",\"assetClassName\":\"Furnace\",\"definitionNodeId\":\"33333333-3333-4333-8333-333333333333\",\"componentTag\":null,\"normalizedComponentTag\":null,\"manufacturer\":null,\"model\":null,\"serialNumber\":\"PT-OLD-001\",\"installedOn\":\"2026-08-01T08:30:00.000Z\",\"serviceState\":\"inService\",\"ownershipStatus\":\"confirmed\",\"ownerDiscipline\":\"Instrumentation\",\"accountableRoleKeys\":[\"seniorInstrumentation\"],\"definitionNodeVersion\":1,\"definitionName\":\"Pressure transmitter\",\"hierarchyPath\":[\"Pressure transmitter\"],\"status\":\"retired\",\"version\":2,\"createdByUid\":\"admin-1\",\"createdByName\":\"Admin One\",\"updatedByUid\":\"admin-1\",\"updatedByName\":\"Admin One\",\"lastMutationId\":\"23232323-2323-4232-8232-232323232323\",\"replacedByComponentInstanceId\":\"21212121-2121-4121-8121-212121212121\"}",
+    "performedByUid": "admin-1",
+    "performedByName": "Admin One",
+    "performedAt": "2026-09-12T10:00:00.000Z",
+    "requestId": "23232323-2323-4232-8232-232323232323"
+  }
+}

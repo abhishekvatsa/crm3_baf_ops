@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-09-08T21:32:41.459Z",
+  "decision": "PASS_BACKEND_PRE_POST_CONTROL_COMPARISON",
+  "functionCount": 15,
+  "sourceRuntimeHash": "77e2e12502d23c4b683a9f9a1267507c0ddd1a44",
+  "projectIamBindingsSemanticallyUnchanged": true,
+  "allFunctionEnvironmentVariablesUnchanged": true,
+  "allAppCheckEnforcementFalse": true,
+  "runtimeAndTriggerServiceAccountsUnchanged": true,
+  "ingressSettingsUnchanged": true,
+  "controlPlaneMutationPerformedByThisReadback": false,
+  "businessPayloadsRead": false
+}

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/maintenance_workflow/providers/workflow_providers.dart';
+import '../../features/maintenance_workflow/repositories/workflow_repository.dart';
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
@@ -127,6 +128,14 @@ class SyncRunHealth {
   final String? pendingFollowUpReason;
   final bool pendingFollowUpForce;
 
+  /// Submitted workflow work that will not progress on its own.
+  ///
+  /// Deliberately separate from the data-plane result. A refresh can complete
+  /// perfectly while a submitted command sits rejected or awaiting review, and
+  /// collapsing the two would either hide that work or call the whole sync a
+  /// failure. Both facts belong in front of the operator.
+  final String? workflowAttentionReason;
+
   const SyncRunHealth({
     this.isRunning = false,
     this.lastStartedAt,
@@ -146,7 +155,10 @@ class SyncRunHealth {
     this.hasPendingFollowUp = false,
     this.pendingFollowUpReason,
     this.pendingFollowUpForce = false,
+    this.workflowAttentionReason,
   });
+
+  bool get needsWorkflowAttention => workflowAttentionReason != null;
 
   SyncRunHealth copyWith({
     bool? isRunning,
@@ -167,8 +179,13 @@ class SyncRunHealth {
     bool? hasPendingFollowUp,
     String? pendingFollowUpReason,
     bool? pendingFollowUpForce,
+    String? workflowAttentionReason,
     bool clearLastError = false,
     bool clearPendingFollowUp = false,
+    // Attention must be cleared explicitly. Passing null through copyWith
+    // preserves the existing value, so a later quiet run cannot silently drop
+    // an outstanding command from view.
+    bool clearWorkflowAttention = false,
   }) {
     return SyncRunHealth(
       isRunning: isRunning ?? this.isRunning,
@@ -188,6 +205,9 @@ class SyncRunHealth {
           failureDetailOverflowCount ?? this.failureDetailOverflowCount,
       lastFailureLikelyPermanent:
           lastFailureLikelyPermanent ?? this.lastFailureLikelyPermanent,
+      workflowAttentionReason: clearWorkflowAttention
+          ? null
+          : (workflowAttentionReason ?? this.workflowAttentionReason),
       hasPendingFollowUp: clearPendingFollowUp
           ? false
           : (hasPendingFollowUp ?? this.hasPendingFollowUp),
@@ -417,6 +437,11 @@ class SyncCoordinator {
         lastCompletedAt: completedAt,
         lastReason: reason,
         lastSucceeded: !hasFailures,
+        // The data plane succeeding and submitted work needing attention are
+        // different facts, and the operator is entitled to both. This does not
+        // turn a workflow rejection into a failed sync.
+        workflowAttentionReason: _workflowAttentionReason,
+        clearWorkflowAttention: _workflowAttentionReason == null,
         successCount: _sync.lastSuccessCount,
         failureCount: _sync.lastFailureCount,
         conflictCount: conflictCount,
@@ -589,10 +614,45 @@ class SyncCoordinator {
     }
   }
 
+  /// Carried out of the supplemental phase so the final health write can
+  /// report it. Setting it inside this method would be overwritten by the
+  /// parent, which writes run health afterwards.
+  String? _workflowAttentionReason;
+
   Future<void> _runWorkflowSupplementalSync({required String reason}) async {
+    // Two different ways this phase reports that an outcome was not
+    // established: it throws, or it returns carrying commands it could not
+    // verify. Only counting the first left a logged verification failure
+    // invisible to the operator.
+    var retryVerificationIncomplete = false;
     try {
-      await _ref.read(workflowUncertainRetryServiceProvider).retryDueCommands();
+      final summary = await _ref
+          .read(workflowUncertainRetryServiceProvider)
+          .retryDueCommands();
+      // The run's own account of what it did. Awaiting it and discarding it
+      // left a rejection, a command needing review and an empty queue looking
+      // identical from the outside.
+      // A returned summary is not proof that every outcome was established.
+      retryVerificationIncomplete = summary.failedVerification.isNotEmpty;
+      final line = summary.summaryLine;
+      if (line != null) {
+        AppLogger.info(
+          'Workflow uncertain-command retry: $line',
+          context: {
+            'app_area': 'maintenance_workflow',
+            'sync_reason': reason,
+            'workflow_stage': 'uncertain_retry',
+            'workflow_retry_applied': '${summary.applied.length}',
+            'workflow_retry_deferred': '${summary.deferred.length}',
+            'workflow_retry_rejected': '${summary.rejected.length}',
+            'workflow_retry_manual_review': '${summary.manualReview.length}',
+            'workflow_retry_unverifiable':
+                '${summary.failedVerification.length}',
+          },
+        );
+      }
     } catch (error, stackTrace) {
+      retryVerificationIncomplete = true;
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',
         context: {
@@ -609,6 +669,47 @@ class SyncCoordinator {
           reason: 'workflow_uncertain_retry_failed',
           context: {'sync_reason': reason},
         ),
+      );
+    }
+
+    // Attention comes from the journal, not from this run, and not from
+    // getPendingCommands: that query excludes rejected rows because they are
+    // not retryable, which is right for claiming and wrong here.
+    //
+    // Deliberately outside the retry try/catch. The retry service touches the
+    // journal first, through claimRetryableCommands, so a failure there used
+    // to jump straight past this block - leaving the reason null and the final
+    // write clearing the warning, on a check that never ran.
+    {
+      WorkflowOutcomeInventory? inventory;
+      try {
+        inventory = await _ref
+            .read(workflowRepositoryProvider)
+            .readOutcomeInventory();
+      } catch (error, stackTrace) {
+        // A journal that could not be read establishes no absence, so this
+        // reports unverified rather than quietly clearing the warning.
+        AppLogger.warning(
+          'Workflow outcome inventory could not be read',
+          context: {
+            'app_area': 'maintenance_workflow',
+            'sync_reason': reason,
+            'workflow_stage': 'outcome_inventory',
+            'workflow_error': '$error',
+          },
+        );
+        unawaited(
+          AppLogger.recordNonFatalError(
+            error,
+            stackTrace,
+            reason: 'workflow_outcome_inventory_failed',
+            context: {'sync_reason': reason},
+          ),
+        );
+      }
+      _workflowAttentionReason = describeWorkflowAttention(
+        inventory,
+        verificationIncomplete: retryVerificationIncomplete,
       );
     }
 
