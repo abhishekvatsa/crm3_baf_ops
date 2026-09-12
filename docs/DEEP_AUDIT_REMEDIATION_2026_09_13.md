@@ -107,6 +107,16 @@ its existing 2,149-line architecture cap. This nine-line runtime delta followed
 the full Flutter run above; it has its own targeted tests and requires the
 final-source CI gate.
 
+The first PR CI run on `64661ce1` passed Android packaging/cold start, Android
+emulator integration and Functions host checks. Its Flutter run exposed an
+obsolete source-text assertion that rejected a synchronous actor recheck after
+the mounted guard. The contract now requires the guard for every module
+adoption while allowing that recheck, and normalizes Windows/Linux newlines;
+all **13** related checks pass in `build/build28-async-context-contract-final.txt`.
+The Rules job stopped before emulators because npm returned an unavailable
+audit response. Neither failure was waived; the final source still requires
+all five CI jobs to pass.
+
 The retained release records describe the older 15-function deployment. The
 new source declares 19 endpoints, including four new V2 callable endpoints.
 Current deployment evidence must measure their creation and any associated
