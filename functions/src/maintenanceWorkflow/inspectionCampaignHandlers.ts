@@ -602,6 +602,15 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
       {reasonCode: "inspection-baseline-invalid"},
     );
   }
+  const baselineRecordedThrough = baseline?.data == null ? null :
+    persistedInstantText(baseline.data.closedAt);
+  if (baseline != null && (baselineRecordedThrough == null ||
+      Date.parse(baselineRecordedThrough) > context.serverNow.getTime())) {
+    throw new WorkflowError(
+      "failed-precondition", "The closed baseline needs valid closure evidence before re-audit.",
+      {reasonCode: "inspection-baseline-closure-evidence-invalid"},
+    );
+  }
   const populationAssets = await resolveInspectionPopulationAssets({
     tx,
     populationMode,
@@ -656,6 +665,7 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     targetDispositionCounts: inspectionPopulationCounts(targetPopulation),
     expectedPopulation: targetPopulation.length,
     baselineCampaignId,
+    baselineRecordedThrough,
     observerRoleKeys,
     observationCount: 0,
     distinctTargetKeys: [],
@@ -711,7 +721,7 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
   const transitions: Readonly<Record<string, readonly string[]>> = {
     open: ["paused", "closed"],
     paused: ["open", "closed"],
-    closed: [],
+    closed: ["open"],
   };
   if (!(transitions[String(current.data.status)] ?? []).includes(target) || audit.exists) {
     throw new WorkflowError("failed-precondition", "The inspection campaign transition is invalid.");
@@ -746,11 +756,27 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
   }
   const now = iso(context.serverNow);
   const nextVersion = command.expectedVersion + 1;
+  const reopening = current.data.status === "closed";
+  const previousClosedAt = reopening ? persistedInstantText(current.data.closedAt) : null;
+  if (reopening && (previousClosedAt == null ||
+      Date.parse(previousClosedAt) > context.serverNow.getTime())) {
+    throw new WorkflowError(
+      "failed-precondition", "The original campaign closure time needs reconciliation.",
+      {reasonCode: "inspection-campaign-closure-evidence-missing"},
+    );
+  }
   const update: JsonMap = {
     status: target,
     version: nextVersion,
     pausedAt: target === "paused" ? now : current.data.pausedAt ?? null,
-    closedAt: target === "closed" ? now : current.data.closedAt ?? null,
+    closedAt: target === "closed" ? now : null,
+    ...(reopening ? {
+      lastClosedAt: previousClosedAt,
+      reopenedAt: now,
+      reopenedByUid: context.actor.uid,
+      reopenedByName: context.actor.name,
+      reopeningReason: reason,
+    } : {}),
     updatedAt: now,
     updatedByUid: context.actor.uid,
     updatedByName: context.actor.name,
@@ -760,7 +786,7 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
     tx,
     path: campaignAuditPath(command.commandId),
     entityId: campaignId,
-    operation: `set-${target}`,
+    operation: reopening ? "reopen" : `set-${target}`,
     actorUid: context.actor.uid,
     actorName: context.actor.name,
     at: now,
@@ -1315,10 +1341,41 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       {field: "targetKey", op: "==", value: targetKey},
     ]),
   ]);
-  const baselineSupersededIds = new Set(baselineRows
+  // A later reopening must not move the baseline of an already created audit.
+  // Old campaigns did not store an explicit cutoff; their immutable creation
+  // instant still precedes any later reopening. Use server recording time so a
+  // backdated observation/correction cannot alter that historical comparison.
+  const campaignCreatedAt = persistedInstantText(campaign.data.createdAt);
+  const hasBaselineCutoff = Object.prototype.hasOwnProperty.call(
+    campaign.data, "baselineRecordedThrough",
+  );
+  const baselineCutoff = baselineCampaignId == null ? null :
+    persistedInstantText(hasBaselineCutoff ? campaign.data.baselineRecordedThrough :
+      campaign.data.createdAt);
+  if (baselineCampaignId != null && (baselineCutoff == null ||
+      campaignCreatedAt == null ||
+      Date.parse(baselineCutoff) > Date.parse(campaignCreatedAt) ||
+      Date.parse(campaignCreatedAt) > context.serverNow.getTime())) {
+    throw new WorkflowError(
+      "failed-precondition", "The re-audit baseline cutoff needs reconciliation.",
+      {reasonCode: "inspection-baseline-cutoff-missing"},
+    );
+  }
+  const eligibleBaselineRows = baselineRows.filter((row) => {
+    if (row.data == null) return false;
+    const recordedAt = persistedInstantText(row.data.recordedAt);
+    if (recordedAt == null || Date.parse(recordedAt) > context.serverNow.getTime()) {
+      throw new WorkflowError(
+        "failed-precondition", "The baseline observation recording time is malformed.",
+        {reasonCode: "inspection-baseline-observation-chronology-malformed"},
+      );
+    }
+    return Date.parse(recordedAt) <= Date.parse(baselineCutoff!);
+  });
+  const baselineSupersededIds = new Set(eligibleBaselineRows
     .map((row) => row.data?.supersedesObservationId)
     .filter((item): item is string => typeof item === "string"));
-  const baselineCandidates = baselineRows
+  const baselineCandidates = eligibleBaselineRows
     .filter((row) => row.data != null && !baselineSupersededIds.has(
       String(row.data.observationId ?? ""),
     ))

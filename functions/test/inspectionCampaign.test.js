@@ -978,6 +978,210 @@ describe('cross-asset inspection campaigns', () => {
     });
   });
 
+  test('closed corrective campaign reopens with history and reaches same-finding verification', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const supervisor = seedActor(store, 'supervisor-1', ['contractSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    const id = 'campaign-furnace-pt-august';
+    const path = `inspection_campaigns/${id}`;
+    const run = (command, actor, time) => service.execute(command, {actor, serverNow: at(time)});
+    await run(upsertDefinition(), admin, '2026-08-21T04:00:00Z');
+    await run(createCampaign({targetAssetNumbers: [1]}), supervisor, '2026-08-21T04:10:00Z');
+    await run(observation(), observer, '2026-08-21T05:10:00Z');
+    const originalReading = structuredClone(store.read('inspection_observations/observation-1'));
+    store.seed('maintenance_records/repair-1', {
+      firestoreId: 'repair-1', assetType: 'furnace', assetNumber: 1,
+      isDeleted: false, isResolved: false,
+    });
+    await run({
+      commandId: 'link-repair', commandType: 'linkInspectionObservationIssue',
+      aggregateId: id, expectedVersion: 2,
+      payload: {observationId: 'observation-1', ticketId: 'repair-1', reason: 'Complete corrective maintenance before verification.'},
+    }, supervisor, '2026-08-21T05:15:00Z');
+    const close = {
+      commandId: 'close-before-repair', commandType: 'setInspectionCampaignStatus',
+      aggregateId: id, expectedVersion: 2,
+      payload: {status: 'closed', reason: 'Population accounted, corrective work remains linked.'},
+    };
+    await run(close, supervisor, '2026-08-21T05:20:00Z');
+    const closureAudit = structuredClone(store.read('inspection_campaign_audits/close-before-repair'));
+    const definitionBefore = structuredClone(store.read(path).definition);
+    const populationBefore = structuredClone(store.read(path).targetPopulation);
+    await expect(run(observation({
+      commandId: 'blocked-closed-reading', observationId: 'blocked-closed-reading',
+      expectedVersion: 3, observedAt: '2026-08-22T05:00:00.000Z', numericValue: 2.8,
+    }), observer, '2026-08-22T05:10:00Z')).rejects.toMatchObject({code: 'failed-precondition'});
+    const reopen = {
+      commandId: 'reopen-for-verification', commandType: 'setInspectionCampaignStatus',
+      aggregateId: id, expectedVersion: 3,
+      payload: {status: 'open', reason: 'Inspect the corrective repair for effectiveness.'},
+    };
+    await expect(run(reopen, observer, '2026-08-22T05:20:00Z')).rejects.toMatchObject({code: 'permission-denied'});
+    await expect(run({...reopen, commandId: 'stale-reopen', expectedVersion: 2}, supervisor, '2026-08-22T05:20:00Z'))
+      .rejects.toMatchObject({code: 'aborted'});
+    await expect(run({...reopen, commandId: 'blank-reopen', payload: {status: 'open', reason: ''}}, supervisor, '2026-08-22T05:20:00Z'))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    const reopened = await run(reopen, supervisor, '2026-08-22T05:20:00Z');
+    expect(reopened.aggregateVersion).toBe(4);
+    expect(store.read(path)).toMatchObject({
+      status: 'open', closedAt: null, lastClosedAt: '2026-08-21T05:20:00.000Z',
+      reopenedAt: '2026-08-22T05:20:00.000Z', reopenedByUid: supervisor.uid,
+      reopeningReason: reopen.payload.reason,
+    });
+    expect(store.read(path).definition).toEqual(definitionBefore);
+    expect(store.read(path).targetPopulation).toEqual(populationBefore);
+    expect(store.read('inspection_campaign_audits/reopen-for-verification')).toMatchObject({operation: 'reopen'});
+    const replay = await run(reopen, supervisor, '2026-08-22T05:21:00Z');
+    expect(replay.aggregateVersion).toBe(4);
+    expect(store.read(path).version).toBe(4);
+    await run(observation({
+      commandId: 'post-repair-reading', observationId: 'post-repair-reading',
+      expectedVersion: 4, numericValue: 2.8, observedAt: '2026-08-22T05:30:00.000Z',
+    }), observer, '2026-08-22T05:40:00Z');
+    const verify = {
+      commandId: 'verify-repaired-finding', commandType: 'verifyInspectionFinding',
+      aggregateId: id, expectedVersion: 5,
+      payload: {
+        findingId: 'inspection-finding-observation-1', observationId: 'post-repair-reading',
+        expectedFindingVersion: store.read('inspection_findings/inspection-finding-observation-1').version,
+        outcome: 'resolved', reason: 'The same test point is now within the governed range.',
+      },
+    };
+    await expect(run({...verify, commandId: 'verify-before-repair-complete'}, observer, '2026-08-22T05:45:00Z'))
+      .rejects.toThrow('must be resolved');
+    // Represents the independent corrective-maintenance completion boundary.
+    store.seed('maintenance_records/repair-1', {...store.read('maintenance_records/repair-1'), isResolved: true});
+    await expect(run(verify, observer, '2026-08-22T05:50:00Z'))
+      .resolves.toMatchObject({resultKey: 'inspection-finding-verifiedResolved'});
+    expect(store.read('inspection_findings/inspection-finding-observation-1'))
+      .toMatchObject({status: 'verifiedResolved', lastVerifiedObservationId: 'post-repair-reading', linkedTicketId: 'repair-1'});
+    await run({...close, commandId: 'close-after-verification', expectedVersion: 5}, supervisor, '2026-08-22T06:00:00Z');
+    expect(store.read(path)).toMatchObject({status: 'closed', closedAt: '2026-08-22T06:00:00.000Z', version: 6});
+    expect(store.read('inspection_campaign_audits/close-before-repair')).toEqual(closureAudit);
+    expect(store.read('inspection_observations/observation-1')).toEqual(originalReading);
+  });
+
+  test.each([false, true])('reopening cannot move an existing re-audit baseline (legacy=%s)', async (legacy) => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    const run = (command, actor, time) => service.execute(command, {actor, serverNow: at(time)});
+    await run(upsertDefinition(), admin, '2026-08-21T04:00:00Z');
+    await run(createCampaign({campaignId: 'baseline', targetAssetNumbers: [1]}), admin, '2026-08-21T04:10:00Z');
+    await run(observation({campaignId: 'baseline', numericValue: 2.8}), observer, '2026-08-21T05:10:00Z');
+    await run({
+      commandId: 'baseline-close-freeze', commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'baseline', expectedVersion: 2,
+      payload: {status: 'closed', reason: 'Preserve the completed baseline.'},
+    }, admin, '2026-08-21T05:20:00Z');
+    await run(createCampaign({commandId: 'reaudit-freeze', campaignId: 'reaudit', targetAssetNumbers: [1], baselineCampaignId: 'baseline'}), admin, '2026-08-22T04:10:00Z');
+    if (legacy) {
+      const legacyCampaign = {...store.read('inspection_campaigns/reaudit')};
+      delete legacyCampaign.baselineRecordedThrough;
+      store.seed('inspection_campaigns/reaudit', legacyCampaign);
+    }
+    await run({
+      commandId: 'reopen-baseline', commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'baseline', expectedVersion: 3,
+      payload: {status: 'open', reason: 'Append a corrected reading without rewriting history.'},
+    }, admin, '2026-08-22T04:20:00Z');
+    await run(observation({
+      commandId: 'late-correction', observationId: 'late-correction', campaignId: 'baseline',
+      expectedVersion: 4, numericValue: 1.0, observedAt: '2026-08-21T05:15:00.000Z',
+      supersedesObservationId: 'observation-1',
+    }), observer, '2026-08-22T04:30:00Z');
+    await run(observation({
+      commandId: 'reaudit-current', observationId: 'reaudit-current', campaignId: 'reaudit',
+      numericValue: 1.8, observedAt: '2026-08-22T05:00:00.000Z',
+    }), observer, '2026-08-22T05:10:00Z');
+    expect(store.read('inspection_observations/reaudit-current')).toMatchObject({
+      baselineObservationId: 'observation-1', comparisonOutcome: 'recurred',
+    });
+  });
+
+  test('reopening refuses contradictory future closure evidence without changing the closed campaign', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    const run = (command) => service.execute(command, {actor: admin, serverNow: at('2026-08-22T04:10:00Z')});
+    await run(upsertDefinition());
+    await run(createCampaign({campaignId: 'closed-future', targetAssetNumbers: [1]}));
+    store.seed('inspection_campaigns/closed-future', {
+      ...store.read('inspection_campaigns/closed-future'), status: 'closed',
+      closedAt: '2026-08-23T04:10:00.000Z',
+    });
+    const before = store.entries();
+    await expect(run({
+      commandId: 'reopen-future-closure', commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'closed-future', expectedVersion: 1,
+      payload: {status: 'open', reason: 'Reopen for a subsequent verification.'},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition', details: {reasonCode: 'inspection-campaign-closure-evidence-missing'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test.each([undefined, null, 'not-an-instant', '2026-08-23T04:10:00.000Z'])(
+    'new re-audits reject absent, malformed or future baseline closure (%s)', async (closedAt) => {
+      const store = new MemoryWorkflowStore();
+      seedFurnaceHierarchy(store);
+      const admin = seedActor(store, 'admin-1', ['admin']);
+      const service = new MaintenanceWorkflowCommandService(store);
+      const run = (command, time) => service.execute(command, {actor: admin, serverNow: at(time)});
+      await run(upsertDefinition(), '2026-08-21T04:00:00Z');
+      await run(createCampaign({campaignId: 'baseline', targetAssetNumbers: [1]}), '2026-08-21T04:10:00Z');
+      const baseline = {...store.read('inspection_campaigns/baseline'), status: 'closed'};
+      if (closedAt !== undefined) baseline.closedAt = closedAt;
+      store.seed('inspection_campaigns/baseline', baseline);
+      await expect(run(createCampaign({
+        commandId: 'invalid-baseline-create', campaignId: 'reaudit',
+        targetAssetNumbers: [1], baselineCampaignId: 'baseline',
+      }), '2026-08-22T04:10:00Z')).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inspection-baseline-closure-evidence-invalid'},
+      });
+      expect(store.read('inspection_campaigns/reaudit')).toBeNull();
+      expect(store.read('inspection_campaign_audits/invalid-baseline-create')).toBeNull();
+    },
+  );
+
+  test.each([
+    {baselineRecordedThrough: null},
+    {baselineRecordedThrough: 'not-an-instant'},
+    {baselineRecordedThrough: '2026-08-22T04:11:00.000Z'},
+    {createdAt: '2026-08-23T04:10:00.000Z'},
+  ])('re-audit does not silently replace invalid persisted cutoff evidence (%j)', async (patch) => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    const run = (command, actor, time) => service.execute(command, {actor, serverNow: at(time)});
+    await run(upsertDefinition(), admin, '2026-08-21T04:00:00Z');
+    await run(createCampaign({campaignId: 'baseline', targetAssetNumbers: [1]}), admin, '2026-08-21T04:10:00Z');
+    store.seed('inspection_campaigns/baseline', {
+      ...store.read('inspection_campaigns/baseline'), status: 'closed', closedAt: '2026-08-21T05:20:00.000Z',
+    });
+    await run(createCampaign({
+      commandId: 'reaudit-create-cutoff', campaignId: 'reaudit',
+      targetAssetNumbers: [1], baselineCampaignId: 'baseline',
+    }), admin, '2026-08-22T04:10:00Z');
+    store.seed('inspection_campaigns/reaudit', {...store.read('inspection_campaigns/reaudit'), ...patch});
+    await expect(run(observation({
+      commandId: 'reaudit-invalid-cutoff', observationId: 'reaudit-invalid-cutoff', campaignId: 'reaudit',
+      numericValue: 2.8, observedAt: '2026-08-22T05:00:00.000Z',
+    }), observer, '2026-08-22T05:10:00Z')).rejects.toMatchObject({
+      code: 'failed-precondition', details: {reasonCode: 'inspection-baseline-cutoff-missing'},
+    });
+    expect(store.read('inspection_observations/reaudit-invalid-cutoff')).toBeNull();
+  });
+
   test('requires a later same-target observation to verify a finding', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);

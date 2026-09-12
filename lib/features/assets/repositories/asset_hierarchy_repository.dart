@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/serialization/command_timestamp.dart';
 import '../../auth/data/user_model.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/inner_cover_lifecycle.dart';
@@ -93,6 +94,13 @@ class AssetTagCollisionException extends AssetHierarchyException {
     this.existingAccountableRoleKeys = const <String>[],
     this.transferSupported = true,
   }) : super('Tag $normalizedTag already belongs to $existingNodeName.');
+}
+
+/// The service explicitly refused this command before applying it. Transport
+/// uncertainty and malformed acceptance evidence deliberately use other errors.
+class AssetHierarchyCommandRefused extends AssetHierarchyException {
+  final String code;
+  const AssetHierarchyCommandRefused(super.message, {required this.code});
 }
 
 class AssetHierarchyMutationReceipt {
@@ -261,8 +269,7 @@ class AssetHierarchyMutationReceipt {
         source,
       );
       entityId = _requiredRequestIdentity(request, 'assetInstanceId', source);
-      final expectedCondition =
-          expectedOperation == 'RESTORE_ASSET_CONDITION'
+      final expectedCondition = expectedOperation == 'RESTORE_ASSET_CONDITION'
               ? 'available'
               : request['condition'];
       if (map['assetClassId'] != expectedClassId ||
@@ -413,8 +420,8 @@ class AssetHierarchyRepository {
 
   Stream<List<AssetClassRecord>> watchAssetClasses() {
     return _classes.snapshots().map((snapshot) {
-      final records =
-          snapshot.docs.map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
+      final records = snapshot.docs
+          .map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
               .toList();
       records.sort((left, right) {
         final status = left.status.index.compareTo(right.status.index);
@@ -435,9 +442,11 @@ class AssetHierarchyRepository {
         .where('assetClassId', isEqualTo: assetClassId)
         .snapshots()
         .map((snapshot) {
-          final records =
-              decodeSnapshotDocuments(snapshot, AssetHierarchyNode.fromMap, source: 'AssetHierarchyNode')
-                  .toList();
+          final records = decodeSnapshotDocuments(
+            snapshot,
+            AssetHierarchyNode.fromMap,
+            source: 'AssetHierarchyNode',
+          ).toList();
           records.sort((left, right) {
             final order = left.sortOrder.compareTo(right.sortOrder);
             return order != 0
@@ -454,7 +463,8 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              snapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+              snapshot.docs
+                  .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
                   .toList()
                 ..sort(
                   (left, right) =>
@@ -467,7 +477,8 @@ class AssetHierarchyRepository {
   Stream<List<AssetInstanceRecord>> watchAllAssetInstances() {
     return _assetInstances.snapshots().map((snapshot) {
       final records =
-          snapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+          snapshot.docs
+              .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(
@@ -484,7 +495,11 @@ class AssetHierarchyRepository {
   Stream<List<AssetOperationalConditionRecord>> watchAssetConditions() {
     return _assetConditions.snapshots().map((snapshot) {
       final records =
-          snapshot.docs.map((doc) => AssetOperationalConditionRecord.fromMap(doc.data(), doc.id))
+          snapshot.docs
+              .map(
+                (doc) =>
+                    AssetOperationalConditionRecord.fromMap(doc.data(), doc.id),
+              )
               .toList()
             ..sort((left, right) {
               final classOrder = left.assetClassName.toLowerCase().compareTo(
@@ -501,9 +516,11 @@ class AssetHierarchyRepository {
   Stream<List<InnerCoverProfile>> watchInnerCoverProfiles() {
     return _innerCoverProfiles.snapshots().map((snapshot) {
       final records =
-          decodeSnapshotDocuments(snapshot, InnerCoverProfile.fromMap, source: 'InnerCoverProfile')
-              .toList()
-            ..sort(
+          decodeSnapshotDocuments(
+            snapshot,
+            InnerCoverProfile.fromMap,
+            source: 'InnerCoverProfile',
+          ).toList()..sort(
               (left, right) => left.normalizedSerialNumber.compareTo(
                 right.normalizedSerialNumber,
               ),
@@ -512,12 +529,40 @@ class AssetHierarchyRepository {
     });
   }
 
+  Future<InnerCoverProfile> readInnerCoverFromServer(
+    String innerCoverId, {
+    int? minimumVersion,
+  }) async {
+    final snapshot = await _innerCoverProfiles
+        .doc(innerCoverId)
+        .get(const GetOptions(source: Source.server));
+    final data = snapshot.data();
+    if (!snapshot.exists ||
+        data == null ||
+        snapshot.metadata.isFromCache ||
+        snapshot.metadata.hasPendingWrites) {
+      throw const AssetHierarchyException(
+        'The current Inner Cover record could not be confirmed from the server.',
+      );
+    }
+    final profile = InnerCoverProfile.fromMap(data, snapshot.id);
+    if (profile.id != innerCoverId ||
+        (minimumVersion != null && profile.version < minimumVersion)) {
+      throw const AssetHierarchyException(
+        'The Inner Cover record has not reached the confirmed revision. Check again.',
+      );
+    }
+    return profile;
+  }
+
   Stream<List<BaseInnerCoverAssignment>> watchInnerCoverAssignments() {
     return _innerCoverAssignments.snapshots().map((snapshot) {
       final records =
-          decodeSnapshotDocuments(snapshot, BaseInnerCoverAssignment.fromMap, source: 'BaseInnerCoverAssignment')
-              .toList()
-            ..sort(
+          decodeSnapshotDocuments(
+            snapshot,
+            BaseInnerCoverAssignment.fromMap,
+            source: 'BaseInnerCoverAssignment',
+          ).toList()..sort(
               (left, right) =>
                   left.baseAssetNumber.compareTo(right.baseAssetNumber),
             );
@@ -531,11 +576,12 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              decodeSnapshotDocuments(snapshot, InnerCoverLinkage.fromMap, source: 'InnerCoverLinkage')
-                  .toList()
-                ..sort(
-                  (left, right) =>
-                      right.installedAt.compareTo(left.installedAt),
+              decodeSnapshotDocuments(
+                snapshot,
+                InnerCoverLinkage.fromMap,
+                source: 'InnerCoverLinkage',
+              ).toList()..sort(
+                (left, right) => right.installedAt.compareTo(left.installedAt),
                 );
           return List<InnerCoverLinkage>.unmodifiable(records);
         });
@@ -549,11 +595,12 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              decodeSnapshotDocuments(snapshot, InnerCoverLinkage.fromMap, source: 'InnerCoverLinkage')
-                  .toList()
-                ..sort(
-                  (left, right) =>
-                      right.installedAt.compareTo(left.installedAt),
+              decodeSnapshotDocuments(
+                snapshot,
+                InnerCoverLinkage.fromMap,
+                source: 'InnerCoverLinkage',
+              ).toList()..sort(
+                (left, right) => right.installedAt.compareTo(left.installedAt),
                 );
           return List<InnerCoverLinkage>.unmodifiable(records);
         });
@@ -571,8 +618,9 @@ class AssetHierarchyRepository {
   Future<BaseInnerCoverAssignment?> getInnerCoverAssignmentForBase(
     String baseAssetInstanceId,
   ) async {
-    final snapshot =
-        await _innerCoverAssignments.doc(baseAssetInstanceId).get();
+    final snapshot = await _innerCoverAssignments
+        .doc(baseAssetInstanceId)
+        .get();
     if (!snapshot.exists || snapshot.data() == null) return null;
     return BaseInnerCoverAssignment.fromMap(snapshot.data()!, snapshot.id);
   }
@@ -581,12 +629,11 @@ class AssetHierarchyRepository {
     required String legacyAssetTypeKey,
     required int assetNumber,
   }) async {
-    final classSnapshot =
-        await _classes
+    final classSnapshot = await _classes
             .where('legacyAssetTypeKey', isEqualTo: legacyAssetTypeKey)
             .get();
-    final matchingClasses =
-        classSnapshot.docs.map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
+    final matchingClasses = classSnapshot.docs
+        .map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
             .where((record) => record.isActive)
             .toList();
     if (matchingClasses.isEmpty) return null;
@@ -596,14 +643,13 @@ class AssetHierarchyRepository {
       );
     }
     final assetClass = matchingClasses.single;
-    final assetSnapshot =
-        await _assetInstances
+    final assetSnapshot = await _assetInstances
             .where('assetClassId', isEqualTo: assetClass.id)
             .where('assetNumber', isEqualTo: assetNumber)
             .limit(2)
             .get();
-    final matchingAssets =
-        assetSnapshot.docs.map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+    final matchingAssets = assetSnapshot.docs
+        .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
             .where((record) => record.isActive)
             .toList();
     if (matchingAssets.length != 1) {
@@ -630,8 +676,7 @@ class AssetHierarchyRepository {
   ) async {
     final assignmentSnapshot = await _innerCoverAssignments.doc(base.id).get();
     if (!assignmentSnapshot.exists || assignmentSnapshot.data() == null) {
-      final reverse =
-          await _innerCoverProfiles
+      final reverse = await _innerCoverProfiles
               .where('currentBaseAssetInstanceId', isEqualTo: base.id)
               .limit(1)
               .get();
@@ -646,8 +691,9 @@ class AssetHierarchyRepository {
       assignmentSnapshot.data()!,
       assignmentSnapshot.id,
     );
-    final profileSnapshot =
-        await _innerCoverProfiles.doc(assignment.innerCoverId).get();
+    final profileSnapshot = await _innerCoverProfiles
+        .doc(assignment.innerCoverId)
+        .get();
     if (!profileSnapshot.exists || profileSnapshot.data() == null) {
       throw AssetHierarchyException(
         'Base ${base.assetNumber} points to a missing Inner Cover profile.',
@@ -677,9 +723,11 @@ class AssetHierarchyRepository {
         .snapshots()
         .map((snapshot) {
           final records =
-              decodeSnapshotDocuments(snapshot, InstalledComponentRecord.fromMap, source: 'InstalledComponentRecord')
-                  .toList()
-                ..sort(
+              decodeSnapshotDocuments(
+                snapshot,
+                InstalledComponentRecord.fromMap,
+                source: 'InstalledComponentRecord',
+              ).toList()..sort(
                   (left, right) => left.definitionName.toLowerCase().compareTo(
                     right.definitionName.toLowerCase(),
                   ),
@@ -721,8 +769,10 @@ class AssetHierarchyRepository {
     final normalized = normalizeAssetComponentTag(rawTag);
     if (normalized.isEmpty) return null;
     final claimId = sha256.convert(utf8.encode(normalized)).toString();
-    final claim =
-        await _firestore.collection('asset_tag_claims').doc(claimId).get();
+    final claim = await _firestore
+        .collection('asset_tag_claims')
+        .doc(claimId)
+        .get();
     if (!claim.exists || claim.data() == null) return null;
     final AssetTagClaimRecord claimRecord;
     try {
@@ -737,8 +787,9 @@ class AssetHierarchyRepository {
         'Tag $normalized disagrees with its ownership claim. Reconcile the tag register before use.',
       );
     }
-    final component =
-        await _componentInstances.doc(claimRecord.componentInstanceId).get();
+    final component = await _componentInstances
+        .doc(claimRecord.componentInstanceId)
+        .get();
     if (!component.exists || component.data() == null) {
       throw AssetHierarchyException(
         'Tag $normalized points to a missing component. Reconcile the tag register before use.',
@@ -875,8 +926,9 @@ class AssetHierarchyRepository {
         'Enter an Inner Cover serial containing at least two letters or numbers.',
       );
     }
-    final errors =
-        fabricationSections.expand((section) => section.validate()).toList();
+    final errors = fabricationSections
+        .expand((section) => section.validate())
+        .toList();
     final originMatchesSource = switch (originClassification) {
       InnerCoverOriginClassification.documentedPurchase =>
         sourceType == InnerCoverSourceType.purchased,
@@ -925,9 +977,12 @@ class AssetHierarchyRepository {
         'sourceType': sourceType.name,
         'originClassification': originClassification.name,
         'supplierOrFabricator': cleanHierarchyText(supplierOrFabricator),
-        'receivedOrCompletedOn':
-            receivedOrCompletedOn?.toUtc().toIso8601String(),
-        'incorporatedOn': incorporatedOn?.toUtc().toIso8601String(),
+        'receivedOrCompletedOn': receivedOrCompletedOn == null
+            ? null
+            : commandUtcMillis(receivedOrCompletedOn),
+        'incorporatedOn': incorporatedOn == null
+            ? null
+            : commandUtcMillis(incorporatedOn),
         'drawingReference': cleanHierarchyText(drawingReference),
         'materialGrade': cleanHierarchyText(materialGrade),
         'notes': cleanHierarchyText(notes),
@@ -951,7 +1006,7 @@ class AssetHierarchyRepository {
     return innerCoverId;
   }
 
-  Future<void> acceptInnerCover({
+  Future<AssetHierarchyMutationReceipt> acceptInnerCover({
     required InnerCoverProfile cover,
     required DateTime inspectedOn,
     required String acceptanceReference,
@@ -960,6 +1015,7 @@ class AssetHierarchyRepository {
     String? leakTestReference,
     String? ndtReference,
     String? notes,
+    String? requestId,
   }) async {
     _requireAdmin(actor);
     final reference = acceptanceReference.trim();
@@ -968,14 +1024,14 @@ class AssetHierarchyRepository {
         'Enter the inspection or acceptance reference.',
       );
     }
-    await _invoke(<String, dynamic>{
-      'requestId': _uuid.v4(),
+    return _invoke(<String, dynamic>{
+      'requestId': requestId ?? _uuid.v4(),
       'operation': 'ACCEPT_INNER_COVER',
       'innerCoverId': cover.id,
       'expectedVersion': cover.version,
       'reason': _validateConditionReason(reason),
       'acceptanceDraft': <String, dynamic>{
-        'inspectedOn': inspectedOn.toUtc().toIso8601String(),
+        'inspectedOn': commandUtcMillis(inspectedOn),
         'acceptanceReference': reference,
         'leakTestReference': cleanHierarchyText(leakTestReference),
         'ndtReference': cleanHierarchyText(ndtReference),
@@ -1450,8 +1506,7 @@ class AssetHierarchyRepository {
       );
     } on FirebaseFunctionsException catch (error) {
       final details = error.details;
-      final map =
-          details is Map
+      final map = details is Map
               ? Map<String, dynamic>.from(details)
               : const <String, dynamic>{};
       if (map['reasonCode'] == 'asset-tag-collision') {
@@ -1470,16 +1525,14 @@ class AssetHierarchyRepository {
                   .toList() ??
               const <String>[],
           existingAssetInstanceId: map['existingAssetInstanceId']?.toString(),
-          existingAssetInstanceName:
-              map['existingAssetInstanceName']?.toString(),
-          existingComponentInstanceId:
-              map['existingComponentInstanceId']?.toString(),
-          existingOwnershipStatus:
-              AssetOwnershipStatus.values
+          existingAssetInstanceName: map['existingAssetInstanceName']
+              ?.toString(),
+          existingComponentInstanceId: map['existingComponentInstanceId']
+              ?.toString(),
+          existingOwnershipStatus: AssetOwnershipStatus.values
                   .where(
                     (status) =>
-                        status.name ==
-                        map['existingOwnershipStatus']?.toString(),
+                    status.name == map['existingOwnershipStatus']?.toString(),
                   )
                   .firstOrNull,
           existingOwnerDiscipline: map['existingOwnerDiscipline']?.toString(),
@@ -1491,6 +1544,24 @@ class AssetHierarchyRepository {
                   )
                   : const <String>[],
           transferSupported: map['transferSupported'] != false,
+        );
+      }
+      // Only explicit pre-acceptance refusals unlock the retained inspection
+      // draft. Unknown failures and historical receipt/reconciliation problems
+      // keep the frozen request even when their transport code is precondition.
+      final editableAcceptanceRefusal =
+          request['operation'] == 'ACCEPT_INNER_COVER' &&
+          ((error.code == 'invalid-argument' &&
+                  map['reasonCode'] == 'invalid-inner-cover-lifecycle-request') ||
+              (error.code == 'aborted' &&
+                  map['reasonCode'] == 'inner-cover-version-mismatch') ||
+              (error.code == 'failed-precondition' &&
+                  map['reasonCode'] == 'inner-cover-not-awaiting-acceptance'));
+      if (editableAcceptanceRefusal) {
+        throw AssetHierarchyCommandRefused(
+          error.message ??
+              'The change was refused. Review the current record and entered evidence.',
+          code: error.code,
         );
       }
       throw AssetHierarchyException(
@@ -1545,7 +1616,9 @@ class AssetHierarchyRepository {
         'manufacturer': draft.manufacturer,
         'model': draft.model,
         'serialNumber': draft.serialNumber,
-        'commissionedOn': draft.commissionedOn?.toUtc().toIso8601String(),
+        'commissionedOn': draft.commissionedOn == null
+            ? null
+            : commandUtcMillis(draft.commissionedOn!),
         'serviceState': draft.serviceState.name,
         'ownershipStatus': draft.ownershipStatus.name,
         'ownerDiscipline': draft.ownerDiscipline,
@@ -1559,7 +1632,9 @@ class AssetHierarchyRepository {
         'manufacturer': draft.manufacturer,
         'model': draft.model,
         'serialNumber': draft.serialNumber,
-        'installedOn': draft.installedOn?.toUtc().toIso8601String(),
+        'installedOn': draft.installedOn == null
+            ? null
+            : commandUtcMillis(draft.installedOn!),
         'serviceState': draft.serviceState.name,
         'ownershipStatus': draft.ownershipStatus.name,
         'ownerDiscipline': draft.ownerDiscipline,

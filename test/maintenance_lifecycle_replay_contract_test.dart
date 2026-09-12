@@ -11,7 +11,7 @@ void main() {
       final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
 
       _expectOrder(syncBlock, const [
-        'final remote = remoteMap[record.firestoreId];',
+        'var remote = remoteMap[record.firestoreId];',
         'if (remote == null)',
         'await _pushMissingMaintenanceTicket(record);',
         'continue;',
@@ -42,10 +42,12 @@ void main() {
       expect(syncBlock, contains('lastSuccessCount++;'));
       expect(
         syncBlock,
-        isNot(contains('SyncRejection')),
+        isNot(contains('SyncRejection()')),
         reason:
-            '69D.2 is a clean-state forward fix and must not add a held-rejection repair lane.',
+            'Recovery reports a hold through the shared diagnostic writer; '
+            'it must not construct or repair held rejection rows directly.',
       );
+      expect(syncBlock, contains('await _upsertSyncRejection(detail);'));
     });
 
     test(
@@ -295,7 +297,7 @@ void main() {
       final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
       final recovery = _blockStartingAt(
         source,
-        'Future<MaintenanceRecord?> _tryRecoverAcceptedMaintenanceCreation',
+        'Future<_MaintenanceCreationRecoveryResult>',
       );
 
       _expectOrder(syncBlock, const <String>[

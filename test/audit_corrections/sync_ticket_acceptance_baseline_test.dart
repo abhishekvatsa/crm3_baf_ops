@@ -6,6 +6,7 @@ import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
+import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/directives/providers/operational_directive_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
@@ -54,9 +55,8 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('sync_b0_');
     database = await Isar.open(
-      <CollectionSchema<dynamic>>[MaintenanceRecordSchema],
+      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema],
       directory: directory.path,
-      name: 'sync_b0',
       inspector: false,
     );
     app.isar = database;
@@ -136,7 +136,7 @@ void main() {
     return seed;
   }
 
-  SyncService service() => SyncService(
+  SyncService service({String? actor = reporter}) => SyncService(
     maintenanceRepo: local,
     firestoreMaintenance: remote,
     plannedRepo: _u.planned,
@@ -155,30 +155,38 @@ void main() {
     knowledgeRepo: _u.knowledge,
     auditRepository: _SilentAudit(),
     maintenanceCommandGateway: gateway,
-    auth: _Auth(reporter),
+    auth: _Auth(actor),
     rejectionOwnerUidLookup: () => reporter,
     now: () => appliedAt,
   );
 
-  Future<MaintenanceRecord?> storedTicket() async =>
-      database.maintenanceRecords.filter().firestoreIdEqualTo(ticketId).findFirst();
+  Future<MaintenanceRecord?> storedTicket() async => database.maintenanceRecords
+      .filter()
+      .firestoreIdEqualTo(ticketId)
+      .findFirst();
 
-  test('an accepted creation is validated and adopted into local storage', () async {
-    await local.saveTicket(pending());
-    gateway.receipt = acceptedReceipt();
-    remote.serverState = serverState();
+  test(
+    'an accepted creation is validated and adopted into local storage',
+    () async {
+      await local.saveTicket(pending());
+      gateway.receipt = acceptedReceipt();
+      remote.serverState = serverState();
 
-    await service().syncTicketsForTest();
+      await service().syncTicketsForTest();
 
-    expect(gateway.commands, hasLength(1));
-    expect(gateway.commands.single.commandId, commandId);
+      expect(gateway.commands, hasLength(1));
+      expect(gateway.commands.single.commandId, commandId);
 
-    final stored = await storedTicket();
-    expect(stored, isNotNull);
-    expect(stored!.isSynced, isTrue,
-        reason: 'the real repository adopted the validated server state');
-    expect(stored.version, 1);
-  });
+      final stored = await storedTicket();
+      expect(stored, isNotNull);
+      expect(
+        stored!.isSynced,
+        isTrue,
+        reason: 'the real repository adopted the validated server state',
+      );
+      expect(stored.version, 1);
+    },
+  );
 
   test('a receipt that does not match the command is refused', () async {
     await local.saveTicket(pending());
@@ -198,8 +206,11 @@ void main() {
     await service().syncTicketsForTest();
 
     final stored = await storedTicket();
-    expect(stored!.isSynced, isFalse,
-        reason: 'a mismatched receipt must not produce local adoption');
+    expect(
+      stored!.isSynced,
+      isFalse,
+      reason: 'a mismatched receipt must not produce local adoption',
+    );
   });
 
   test('server state that contradicts the receipt is refused', () async {
@@ -211,8 +222,11 @@ void main() {
     await service().syncTicketsForTest();
 
     final stored = await storedTicket();
-    expect(stored!.isSynced, isFalse,
-        reason: 'exact server state must agree with the receipt');
+    expect(
+      stored!.isSynced,
+      isFalse,
+      reason: 'exact server state must agree with the receipt',
+    );
   });
 
   test('a missing server record does not complete the creation', () async {
@@ -226,71 +240,319 @@ void main() {
     expect(stored!.isSynced, isFalse);
   });
 
-  test('an already-accepted creation is recovered under its original identity',
-      () async {
-    // The submission was accepted before the response was lost, so the ticket
-    // exists remotely while the local row is still pending. This is the
-    // recovery branch, and it is reached only because the first lookup finds
-    // the counterpart — every other case here enters missing-ticket creation.
-    await local.saveTicket(pending());
-    remote.existing = <MaintenanceRecord>[serverState()];
-    gateway.receipt = acceptedReceipt();
-    remote.serverState = serverState();
+  test(
+    'an already-accepted creation is recovered under its original identity',
+    () async {
+      // The submission was accepted before the response was lost, so the ticket
+      // exists remotely while the local row is still pending. This is the
+      // recovery branch, and it is reached only because the first lookup finds
+      // the counterpart — every other case here enters missing-ticket creation.
+      await local.saveTicket(pending());
+      remote.existing = <MaintenanceRecord>[serverState()];
+      gateway.receipt = acceptedReceipt();
+      remote.serverState = serverState();
 
-    await service().syncTicketsForTest();
+      await service().syncTicketsForTest();
 
-    // Replayed under the identity the ticket already determines, not a new one.
-    expect(gateway.commands, hasLength(1));
-    expect(gateway.commands.single.commandId, commandId);
-    expect(gateway.commands.single.aggregateId, ticketId);
+      // Replayed under the identity the ticket already determines, not a new one.
+      expect(gateway.commands, hasLength(1));
+      expect(gateway.commands.single.commandId, commandId);
+      expect(gateway.commands.single.aggregateId, ticketId);
 
-    // The exact readback was consulted rather than trusting the receipt alone.
-    expect(remote.calls, contains('readMaintenanceIssueCommandServerState'));
-    expect(remote.unexpected, isEmpty,
-        reason: 'recovery completed without any fall-through path');
+      // The exact readback was consulted rather than trusting the receipt alone.
+      expect(remote.calls, contains('readMaintenanceIssueCommandServerState'));
+      expect(
+        remote.unexpected,
+        isEmpty,
+        reason: 'recovery completed without any fall-through path',
+      );
 
-    final stored = await storedTicket();
-    expect(stored!.isSynced, isTrue,
-        reason: 'the real repository adopted the recovered server state');
-    expect(stored.version, 1);
-  });
+      final stored = await storedTicket();
+      expect(
+        stored!.isSynced,
+        isTrue,
+        reason: 'the real repository adopted the recovered server state',
+      );
+      expect(stored.version, 1);
+    },
+  );
 
-  test('recovery is refused when the readback contradicts the receipt', () async {
+  test(
+    'contradictory recovery cannot escape through a succeeding batch',
+    () async {
+      await local.saveTicket(pending());
+      remote.existing = <MaintenanceRecord>[serverState()];
+      gateway.receipt = acceptedReceipt();
+      remote.serverState = serverState(loggedBy: 'operator-2');
+
+      final sync = service();
+      await sync.syncTicketsForTest();
+
+      // The refusal must come from recovery having run and rejected this
+      // evidence — not from some later path failing for its own reasons and
+      // leaving the record untouched. Assert the sequence, then the outcome.
+      expect(
+        gateway.commands,
+        hasLength(1),
+        reason: 'recovery replayed the original creation command',
+      );
+      expect(gateway.commands.single.commandId, commandId);
+      expect(
+        remote.calls,
+        contains('readMaintenanceIssueCommandServerState'),
+        reason: 'the exact readback was consulted before any decision',
+      );
+      // This batch implementation can succeed. No failed double may conceal a
+      // fallback write or be the reason the ticket remains pending.
+      expect(remote.batches, isEmpty);
+      expect(remote.unexpected, isEmpty);
+      expect(sync.lastFailureCount, 1);
+      expect(sync.lastFailureDetails.single.isLikelyPermanent, isTrue);
+      expect(
+        sync.lastFailureDetails.single.message,
+        contains('reconciliation'),
+      );
+
+      final stored = await storedTicket();
+      expect(
+        stored!.isSynced,
+        isFalse,
+        reason: 'a contradictory readback cannot complete a recovery either',
+      );
+      expect(stored.description, 'Baseline fixture');
+      expect(stored.loggedByUid, reporter);
+    },
+  );
+
+  test('a contradictory recovery hold survives reopening the local store', () async {
     await local.saveTicket(pending());
     remote.existing = <MaintenanceRecord>[serverState()];
     gateway.receipt = acceptedReceipt();
     remote.serverState = serverState(loggedBy: 'operator-2');
+    await service().syncTicketsForTest();
+    expect(await database.syncRejections.count(), 1);
+    expect(remote.batches, isEmpty);
+    await database.close();
+    database = await Isar.open(
+      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema],
+      directory: directory.path, inspector: false,
+    );
+    app.isar = database;
+    remote.serverState = serverState();
+    gateway.commands.clear();
+    remote.calls.clear();
+    final nextPass = service();
+    await nextPass.syncTicketsForTest();
+    expect(gateway.commands, isEmpty);
+    expect(remote.calls, isEmpty);
+    expect(remote.batches, isEmpty);
+    expect((await storedTicket())!.isSynced, isFalse);
+    expect((await storedTicket())!.description, 'Baseline fixture');
+    expect(nextPass.lastFailureDetails.single.message, contains('retry held'));
+    expect((await database.syncRejections.where().findFirst())!.isResolved, isFalse);
+  });
+
+  test('an unreadable hold collection cannot authorize automatic sending', () async {
+    await local.saveTicket(pending());
+    await database.close();
+    // This fixture opens the business collection without its hold collection,
+    // producing a real storage lookup error rather than an empty hold result.
+    database = await Isar.open(
+      <CollectionSchema<dynamic>>[MaintenanceRecordSchema],
+      directory: directory.path, inspector: false,
+    );
+    app.isar = database;
+    gateway.receipt = acceptedReceipt();
+    remote.serverState = serverState();
+    final sync = service();
+    await sync.syncTicketsForTest();
+    expect(gateway.commands, isEmpty);
+    expect(remote.calls, isEmpty);
+    expect(remote.batches, isEmpty);
+    expect((await storedTicket())!.isSynced, isFalse);
+    expect((await storedTicket())!.description, 'Baseline fixture');
+    expect(sync.lastFailureCount, 1);
+    expect(sync.lastFailureDetails.single.isLikelyPermanent, isFalse);
+    expect(sync.lastFailureDetails.single.message, contains('holds could not be verified'));
+  });
+
+  test('an ordinary changed payload keeps its existing update route', () async {
+    final edit = serverState()
+      ..version = 2
+      ..updatedAt = appliedAt.add(const Duration(minutes: 1))
+      ..description = 'A later legitimate local edit'
+      ..isSynced = false;
+    await local.saveTicket(edit);
+    remote.existing = <MaintenanceRecord>[serverState()];
+    remote.serverState = serverState();
 
     await service().syncTicketsForTest();
 
-    // The refusal must come from recovery having run and rejected this
-    // evidence — not from some later path failing for its own reasons and
-    // leaving the record untouched. Assert the sequence, then the outcome.
-    expect(gateway.commands, hasLength(1),
-        reason: 'recovery replayed the original creation command');
-    expect(gateway.commands.single.commandId, commandId);
-    expect(remote.calls, contains('readMaintenanceIssueCommandServerState'),
-        reason: 'the exact readback was consulted before any decision');
-    // What actually happens next, recorded rather than assumed. Recovery
-    // catches its own failure and returns null, and the loop then continues
-    // into generic batch synchronisation — three attempts, from the retry
-    // loop. That fall-through is why the first version of this test passed
-    // without asserting anything about recovery: the generic path failed
-    // against this double too, leaving the record unsynchronised either way.
-    //
-    // Whether contradictory creation evidence should permit a generic push at
-    // all is a live question for the durable-dispatch design. It is pinned
-    // here so a change in that behaviour is visible instead of silent.
     expect(
-      remote.unexpected.toSet(),
-      <String>{'Symbol("batchUpsertTickets")'},
-      reason: 'the only fall-through is the generic batch push',
+      gateway.commands,
+      isEmpty,
+      reason: 'do not replay creation from an already adopted, edited payload',
     );
-
+    expect(remote.calls, <String>[
+      'getTicketsByFirestoreIds',
+      'readMaintenanceIssueCommandServerState',
+      'batchUpsertTickets',
+    ]);
+    expect(remote.batches.single.single.firestoreId, ticketId);
+    expect(remote.batches.single.single.description, edit.description);
     final stored = await storedTicket();
-    expect(stored!.isSynced, isFalse,
-        reason: 'a contradictory readback cannot complete a recovery either');
+    expect(stored!.isSynced, isTrue);
+    expect(stored.description, edit.description);
   });
+
+  test(
+    'cached identity cannot permit an edit when exact verification is unavailable',
+    () async {
+      await local.saveTicket(serverState()..isSynced = false);
+      remote.existing = <MaintenanceRecord>[serverState()];
+      remote.readError = StateError('server read failed');
+
+      final sync = service();
+      await sync.syncTicketsForTest();
+
+      expect(gateway.commands, isEmpty);
+      expect(remote.batches, isEmpty);
+      expect((await storedTicket())!.isSynced, isFalse);
+      expect(sync.lastFailureDetails.single.isLikelyPermanent, isFalse);
+    },
+  );
+
+  test(
+    'unavailable exact readback after recovery does not write by another route',
+    () async {
+      await local.saveTicket(pending());
+      remote.existing = <MaintenanceRecord>[serverState()];
+      gateway.receipt = acceptedReceipt();
+      remote.readError = Exception('server unavailable');
+
+      final sync = service();
+      await sync.syncTicketsForTest();
+
+      expect(gateway.commands.single.commandId, commandId);
+      expect(remote.calls, <String>[
+        'getTicketsByFirestoreIds',
+        'readMaintenanceIssueCommandServerState',
+      ]);
+      expect(remote.batches, isEmpty);
+      expect((await storedTicket())!.isSynced, isFalse);
+      expect(sync.lastFailureDetails.single.isLikelyPermanent, isFalse);
+      expect(
+        sync.lastFailureDetails.single.message,
+        contains('could not be verified'),
+      );
+    },
+  );
+
+  test(
+    'uncertain recovery invocation cannot fall back to a generic write',
+    () async {
+      await local.saveTicket(pending());
+      remote.existing = <MaintenanceRecord>[serverState()];
+      gateway.error = const WorkflowException(
+        WorkflowErrorCode.unavailable,
+        'response lost',
+      );
+
+      final sync = service();
+      await sync.syncTicketsForTest();
+
+      expect(gateway.commands.single.commandId, commandId);
+      expect(remote.calls, <String>['getTicketsByFirestoreIds']);
+      expect(remote.batches, isEmpty);
+      expect((await storedTicket())!.isSynced, isFalse);
+      expect(sync.lastFailureDetails.single.isLikelyPermanent, isFalse);
+    },
+  );
+
+  for (final actor in <String?>[null, 'operator-2']) {
+    test(
+      'unadopted creation defers under actor $actor without another write',
+      () async {
+        await local.saveTicket(pending());
+        remote.existing = <MaintenanceRecord>[serverState()];
+
+        final sync = service(actor: actor);
+        await sync.syncTicketsForTest();
+
+        expect(gateway.commands, isEmpty);
+        expect(remote.batches, isEmpty);
+        expect((await storedTicket())!.isSynced, isFalse);
+        expect(
+          sync.lastFailureDetails.single.message,
+          contains('original reporter'),
+        );
+      },
+    );
+  }
+
+  test(
+    'one contradictory ticket does not block an independent ordinary edit',
+    () async {
+      await local.saveTicket(pending());
+      final otherServer = serverState()..firestoreId = 'ticket-independent';
+      final otherEdit = serverState()
+        ..firestoreId = 'ticket-independent'
+        ..version = 2
+        ..updatedAt = appliedAt.add(const Duration(minutes: 1))
+        ..description = 'Independent edit'
+        ..isSynced = false;
+      await local.saveTicket(otherEdit);
+      remote.existing = <MaintenanceRecord>[serverState(), otherServer];
+      remote.serverState = serverState(loggedBy: 'operator-2');
+      remote.serverStates['ticket-independent'] = otherServer;
+      gateway.receipt = acceptedReceipt();
+
+      final sync = service();
+      await sync.syncTicketsForTest();
+
+      expect(gateway.commands.single.commandId, commandId);
+      expect(remote.batches.single.map((row) => row.firestoreId), <String>[
+        'ticket-independent',
+      ]);
+      expect((await storedTicket())!.isSynced, isFalse);
+      final storedOther = await database.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo('ticket-independent')
+          .findFirst();
+      expect(storedOther!.isSynced, isTrue);
+      expect(storedOther.description, 'Independent edit');
+      expect(sync.lastSuccessCount, 1);
+      expect(sync.lastFailureCount, 1);
+    },
+  );
+
+  test(
+    'an edit while accepted creation is recovered survives without fallback',
+    () async {
+      await local.saveTicket(pending());
+      remote.existing = <MaintenanceRecord>[serverState()];
+      remote.serverState = serverState();
+      gateway.receipt = acceptedReceipt();
+      final released = Completer<void>();
+      gateway.hold = released.future;
+
+      final run = service().syncTicketsForTest();
+      await gateway.entered.future;
+      final edit = (await storedTicket())!
+        ..version = 2
+        ..updatedAt = appliedAt.add(const Duration(minutes: 1))
+        ..description = 'Edited during recovery';
+      await local.saveTicket(edit);
+      released.complete();
+      await run;
+
+      expect(gateway.commands.single.commandId, commandId);
+      expect(remote.batches, isEmpty);
+      final stored = await storedTicket();
+      expect(stored!.description, 'Edited during recovery');
+      expect(stored.isSynced, isFalse);
+    },
+  );
 
   test('a newer local edit during submission is not overwritten', () async {
     // The snapshot is taken before the gateway call. If the operator edits the
@@ -319,10 +581,16 @@ void main() {
     await run;
 
     final stored = await storedTicket();
-    expect(stored!.description, 'Operator added detail while sending',
-        reason: 'the newer local edit survives');
-    expect(stored.isSynced, isFalse,
-        reason: 'stale-snapshot adoption is refused, so it stays pending');
+    expect(
+      stored!.description,
+      'Operator added detail while sending',
+      reason: 'the newer local edit survives',
+    );
+    expect(
+      stored.isSynced,
+      isFalse,
+      reason: 'stale-snapshot adoption is refused, so it stays pending',
+    );
   });
 }
 
@@ -332,6 +600,7 @@ class _Gateway implements WorkflowCommandGateway {
   final List<WorkflowCommand> commands = <WorkflowCommand>[];
   final entered = Completer<void>();
   WorkflowCommandReceipt? receipt;
+  WorkflowException? error;
   Future<void>? hold;
 
   @override
@@ -339,6 +608,7 @@ class _Gateway implements WorkflowCommandGateway {
     commands.add(command);
     if (!entered.isCompleted) entered.complete();
     if (hold != null) await hold;
+    if (error != null) throw error!;
     final value = receipt;
     if (value == null) {
       throw const WorkflowException(
@@ -352,6 +622,9 @@ class _Gateway implements WorkflowCommandGateway {
 
 class _Remote extends MaintenanceRepository {
   MaintenanceRecord? serverState;
+  final Map<String, MaintenanceRecord> serverStates = {};
+  Object? readError;
+  final List<List<MaintenanceRecord>> batches = [];
 
   /// What the first lookup finds. Empty means the ticket never reached the
   /// server, which is the missing-ticket creation branch; returning a
@@ -373,7 +646,14 @@ class _Remote extends MaintenanceRepository {
     String firestoreId,
   ) async {
     calls.add('readMaintenanceIssueCommandServerState');
-    return serverState;
+    if (readError != null) throw readError!;
+    return serverStates[firestoreId] ?? serverState;
+  }
+
+  @override
+  Future<void> batchUpsertTickets(List<MaintenanceRecord> records) async {
+    calls.add('batchUpsertTickets');
+    batches.add(List<MaintenanceRecord>.of(records));
   }
 
   /// Calls this double was not expected to receive.
@@ -399,9 +679,9 @@ class _SilentAudit implements AuditRepository {
 
 class _Auth extends Fake implements FirebaseAuth {
   _Auth(this._uid);
-  final String _uid;
+  final String? _uid;
   @override
-  User? get currentUser => _User(_uid);
+  User? get currentUser => _uid == null ? null : _User(_uid);
 }
 
 class _User extends Fake implements User {

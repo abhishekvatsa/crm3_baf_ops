@@ -1,5 +1,11 @@
 # External correction round — 2026-09-11
 
+Historical verification record. The September 12 successor-source changes and
+current evidence boundaries are recorded in
+[the audit remediation status](BUILD27_AUDIT_REMEDIATION_STATUS_2026_09_12.md).
+In particular, the testability and recovery limitations below describe this
+earlier round; they are not the current implementation specification.
+
 An external review round delivered seven corrections against the `03c3e8fa`
 review snapshot. This records what arrived, what was verified here, what was
 changed before it landed, and what is still open. It is a verification record,

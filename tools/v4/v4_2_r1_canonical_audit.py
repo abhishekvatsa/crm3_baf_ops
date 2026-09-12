@@ -12810,10 +12810,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 564
-    and a03_inventory_report.get("siteCount") == 1970
+    and a03_inventory_report.get("operationCount") == 566
+    and a03_inventory_report.get("siteCount") == 1973
     and a03_inventory_report.get("inventoryDigest")
-        == "618CE2AC84FA29BB2B4644AFFF115EE7F0302610979667B09550687B4E1E25E7"
+        == "D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12866,7 +12866,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 83
     and a04_inventory_report.get("inventoryDigest")
-        == "9D6C36BF949AD4D20A29107AA59BC2C4E318C1674FC808F19D738005004F8157"
+        == "8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13149,10 +13149,10 @@ check(
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 9
+    ) == 10
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13164,7 +13164,7 @@ check(
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 9
+    ) == 10
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13189,7 +13189,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 52
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 43
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 438
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 441
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
@@ -13512,7 +13512,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 31
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13532,13 +13532,14 @@ check(
         "TYPED_LOCAL_STORAGE_INITIALIZER",
         "SORT_ONLY_NULL_ORDERING_SENTINEL",
         "DISPLAY_ONLY_BEST_EFFORT",
+        "TYPED_COMMAND_WIRE_SERIALIZATION",
     }
     and sum(
         len(entry.get("sites", []))
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 31
+    ) == 32
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

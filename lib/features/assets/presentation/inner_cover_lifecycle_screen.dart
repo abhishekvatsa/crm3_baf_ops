@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
@@ -19,6 +20,7 @@ import '../providers/furnace_stuckup_provider.dart';
 import '../repositories/asset_hierarchy_repository.dart';
 
 part 'inner_cover_lifecycle_screen.details.dart';
+part 'inner_cover_lifecycle_screen.acceptance.dart';
 part 'inner_cover_lifecycle_screen.dialogs.dart';
 part 'inner_cover_lifecycle_screen.registration_widgets.dart';
 
@@ -98,8 +100,7 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
               ),
           ],
         ),
-        body:
-            loading
+        body: loading
                 ? const Center(child: CircularProgressIndicator())
                 : error != null
                 ? _LoadError(error: error)
@@ -148,6 +149,112 @@ class _LifecycleBody extends ConsumerStatefulWidget {
   ConsumerState<_LifecycleBody> createState() => _LifecycleBodyState();
 }
 
+class _InnerCoverIntakePage extends ConsumerStatefulWidget {
+  final String innerCoverId;
+  const _InnerCoverIntakePage({required this.innerCoverId});
+
+  @override
+  ConsumerState<_InnerCoverIntakePage> createState() =>
+      _InnerCoverIntakePageState();
+}
+
+class _InnerCoverIntakePageState extends ConsumerState<_InnerCoverIntakePage> {
+  late Future<InnerCoverProfile> _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = _read();
+  }
+
+  Future<InnerCoverProfile> _read() => ref
+      .read(assetHierarchyRepositoryProvider)
+      .readInnerCoverFromServer(widget.innerCoverId);
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(currentAppUserProvider).value;
+    return BafScreenScaffold(
+      title: 'Registered Inner Cover',
+      subtitle: 'Confirm intake and continue to inspection',
+      icon: Icons.layers_outlined,
+      accent: BafColors.maintenance,
+      body: user == null || !user.isApproved
+          ? const SingleChildScrollView(
+              child: BafStatePanel(
+                icon: Icons.lock_outline_rounded,
+                color: BafColors.danger,
+                title: 'Inner Cover access required',
+                message: 'An approved account is required to view this cover.',
+              ),
+            )
+          : FutureBuilder<InnerCoverProfile>(
+              future: _profile,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return SingleChildScrollView(
+                    child: BafStatePanel.error(
+                      title: 'Registration recorded; current state unconfirmed',
+                      message: 'Do not register the cover again. Check its current state to continue to inspection.',
+                      primaryLabel: 'Check current cover',
+                      onPrimary: () => setState(() => _profile = _read()),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const BafLoadingPanel(
+                    label: 'Checking the registered cover',
+                    color: BafColors.maintenance,
+                  );
+                }
+                final cover = snapshot.data!;
+                return _CoverDetailsSheet(
+                  cover: cover,
+                  bulgeEvidence: null,
+                  canManage: user.canManageAssetHierarchy,
+                  onAccept: () => _acceptCover(context, ref, cover, user),
+                  onAssign: () => _assignAvailableCover(
+                    context,
+                    ref,
+                    user,
+                    cover,
+                    (ref.read(allAssetInstancesProvider).value ?? const [])
+                        .where(
+                          (asset) =>
+                              asset.isActive && asset.assetClassCode == 'BASE',
+                        )
+                        .toList(),
+                    {
+                      for (final assignment
+                          in ref.read(innerCoverAssignmentsProvider).value ??
+                              const <BaseInnerCoverAssignment>[])
+                        assignment.baseAssetInstanceId: assignment,
+                    },
+                    {
+                      for (final item
+                          in ref.read(innerCoverProfilesProvider).value ??
+                              const <InnerCoverProfile>[])
+                        item.id: item,
+                    },
+                  ),
+                  onDelink: () => _delinkCover(
+                    context,
+                    ref,
+                    cover,
+                    (ref.read(innerCoverAssignmentsProvider).value ??
+                            const <BaseInnerCoverAssignment>[])
+                        .where((item) => item.innerCoverId == cover.id)
+                        .firstOrNull,
+                    user,
+                  ),
+                  onState: () => _changeCoverState(context, ref, cover, user),
+                );
+              },
+            ),
+    );
+  }
+}
+
 class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
   _BaseListFilter _baseFilter = _BaseListFilter.all;
   _CoverListFilter _poolFilter = _CoverListFilter.all;
@@ -177,8 +284,7 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
     final assets = widget.assets;
     final stuckupCases = widget.stuckupCases;
     final conditionDeclarations = widget.conditionDeclarations;
-    final baseClassIds =
-        assetClasses
+    final baseClassIds = assetClasses
             .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
             .map((item) => item.id)
             .toSet();
@@ -202,8 +308,7 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
       cases: stuckupCases,
       declarations: conditionDeclarations,
     );
-    final pool =
-        profiles.where((profile) => !profile.isInstalled).toList()
+    final pool = profiles.where((profile) => !profile.isInstalled).toList()
           ..sort(_poolSort);
     final canManage = user?.canManageAssetHierarchy == true;
 
@@ -212,8 +317,7 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
         _SummaryBand(
           profiles: profiles,
           baseCount: bases.length,
-          occupiedBaseCount:
-              bases
+          occupiedBaseCount: bases
                   .where((base) => assignmentByBase.containsKey(base.id))
                   .length,
           bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
@@ -234,14 +338,12 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 assignmentByBase: assignmentByBase,
                 profileById: profileById,
                 filter: _baseFilter,
-                onFilterChanged:
-                    (filter) => setState(() {
+                onFilterChanged: (filter) => setState(() {
                       _baseFilter = filter;
                     }),
                 canManage: canManage,
                 onHistory: (base) => _showBaseHistory(context, base),
-                onDelink:
-                    (assignment, cover) => _delinkCover(
+                onDelink: (assignment, cover) => _delinkCover(
                       context,
                       ref,
                       cover,
@@ -249,8 +351,7 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                       user!,
                       closeSurfaceOnSuccess: false,
                     ),
-                onManage:
-                    (base, assignment) => _manageBaseCover(
+                onManage: (base, assignment) => _manageBaseCover(
                       context,
                       ref,
                       user!,
@@ -265,12 +366,10 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 emptyMessage: 'No Inner Covers are currently in the pool.',
                 bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
                 filter: _poolFilter,
-                onFilterChanged:
-                    (filter) => setState(() {
+                onFilterChanged: (filter) => setState(() {
                       _poolFilter = filter;
                     }),
-                onOpen:
-                    (cover) => _showCoverDetails(
+                onOpen: (cover) => _showCoverDetails(
                       context,
                       ref,
                       cover,
@@ -286,12 +385,10 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 emptyMessage: 'No Inner Covers have been registered.',
                 bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
                 filter: _allCoverFilter,
-                onFilterChanged:
-                    (filter) => setState(() {
+                onFilterChanged: (filter) => setState(() {
                       _allCoverFilter = filter;
                     }),
-                onOpen:
-                    (cover) => _showCoverDetails(
+                onOpen: (cover) => _showCoverDetails(
                       context,
                       ref,
                       cover,
@@ -445,17 +542,14 @@ class _SummaryBand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = profiles.where((item) => item.isAvailable).length;
-    final retired =
-        profiles
+    final retired = profiles
             .where((item) => _isRetirementState(item.lifecycleState))
             .length;
     final vacantBases = (baseCount - occupiedBaseCount).clamp(0, baseCount);
-    final bulgeRecords =
-        bulgeEvidenceByCoverId.values
+    final bulgeRecords = bulgeEvidenceByCoverId.values
             .where((evidence) => evidence.hasAnyRecord)
             .length;
-    final attention =
-        profiles
+    final attention = profiles
             .where((item) => _needsLifecycleAttention(item.lifecycleState))
             .length;
     return Container(
@@ -495,8 +589,7 @@ class _SummaryBand extends StatelessWidget {
               ),
               _SummaryFilterBadge(
                 label: '$attention need attention',
-                color:
-                    attention == 0
+                color: attention == 0
                         ? BafColors.textSecondary
                         : BafColors.warning,
                 tooltip: 'Show Inner Covers needing attention',
@@ -504,8 +597,7 @@ class _SummaryBand extends StatelessWidget {
               ),
               _SummaryFilterBadge(
                 label: '$vacantBases Bases with no Inner Covers',
-                color:
-                    vacantBases == 0
+                color: vacantBases == 0
                         ? BafColors.textSecondary
                         : BafColors.audit,
                 tooltip: 'Show Bases with no Inner Cover',
@@ -624,12 +716,10 @@ class _BaseListState extends State<_BaseList> {
       );
     }
     final query = _search.text.trim().toLowerCase();
-    final vacantCount =
-        widget.bases
+    final vacantCount = widget.bases
             .where((base) => !widget.assignmentByBase.containsKey(base.id))
             .length;
-    final filtered =
-        widget.bases.where((base) {
+    final filtered = widget.bases.where((base) {
           final assignment = widget.assignmentByBase[base.id];
           final matchesFilter = switch (widget.filter) {
             _BaseListFilter.all => true,
@@ -664,14 +754,13 @@ class _BaseListState extends State<_BaseList> {
             ChoiceChip(
               label: Text('Occupied ${widget.bases.length - vacantCount}'),
               selected: widget.filter == _BaseListFilter.occupied,
-              onSelected:
-                  (_) => widget.onFilterChanged(_BaseListFilter.occupied),
+              onSelected: (_) =>
+                  widget.onFilterChanged(_BaseListFilter.occupied),
             ),
           ],
         ),
         Expanded(
-          child:
-              filtered.isEmpty
+          child: filtered.isEmpty
                   ? const _EmptyState(
                     icon: Icons.search_off_rounded,
                     message: 'No Base matches this search and filter.',
@@ -684,13 +773,12 @@ class _BaseListState extends State<_BaseList> {
                       BafSpacing.lg,
                     ),
                     itemCount: filtered.length,
-                    separatorBuilder:
-                        (_, _) => const SizedBox(height: BafSpacing.sm),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: BafSpacing.sm),
                     itemBuilder: (context, index) {
                       final base = filtered[index];
                       final assignment = widget.assignmentByBase[base.id];
-                      final profile =
-                          assignment == null
+                    final profile = assignment == null
                               ? null
                               : widget.profileById[assignment.innerCoverId];
                       final drift =
@@ -720,9 +808,7 @@ class _BaseListState extends State<_BaseList> {
                             foregroundColor: BafColors.assets,
                             child: Text(
                               '${base.assetNumber}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
                           title: Text(
@@ -741,29 +827,23 @@ class _BaseListState extends State<_BaseList> {
                                   : 'Inner Cover ${assignment.innerCoverSerialNumber}\n'
                                       'Incorporated ${_formatInnerCoverDate(profile!.incorporatedOn!)}',
                               style: TextStyle(
-                                color:
-                                    drift
+                              color: drift
                                         ? BafColors.danger
                                         : assignment == null
                                         ? BafColors.textSecondary
                                         : BafColors.success,
-                                fontWeight:
-                                    assignment == null
+                              fontWeight: assignment == null
                                         ? FontWeight.w400
                                         : FontWeight.w700,
                               ),
                             ),
                           ),
-                          trailing:
-                              widget.canManage && !drift
+                        trailing: widget.canManage && !drift
                                   ? assignment == null
                                       ? IconButton(
                                         tooltip: 'Link Inner Cover',
-                                        onPressed:
-                                            () => widget.onManage(
-                                              base,
-                                              assignment,
-                                            ),
+                                      onPressed: () =>
+                                          widget.onManage(base, assignment),
                                         icon: const Icon(Icons.link_rounded),
                                       )
                                       : SizedBox(
@@ -775,8 +855,7 @@ class _BaseListState extends State<_BaseList> {
                                             IconButton(
                                               tooltip:
                                                   'Delink Inner Cover from Base',
-                                              onPressed:
-                                                  () => widget.onDelink(
+                                            onPressed: () => widget.onDelink(
                                                     assignment,
                                                     profile!,
                                                   ),
@@ -786,8 +865,7 @@ class _BaseListState extends State<_BaseList> {
                                             ),
                                             IconButton(
                                               tooltip: 'Change Inner Cover',
-                                              onPressed:
-                                                  () => widget.onManage(
+                                            onPressed: () => widget.onManage(
                                                     base,
                                                     assignment,
                                                   ),
@@ -867,8 +945,7 @@ class _CoverListState extends State<_CoverList> {
     }
     final query = _search.text.trim().toLowerCase();
     final sorted = [...widget.profiles]..sort(_compareInnerCoverSerial);
-    final filtered =
-        sorted.where((cover) {
+    final filtered = sorted.where((cover) {
           final bulge = widget.bulgeEvidenceByCoverId[cover.id];
           final matchesFilter = switch (widget.filter) {
             _CoverListFilter.all => true,
@@ -877,9 +954,7 @@ class _CoverListState extends State<_CoverList> {
             _CoverListFilter.attention => _needsLifecycleAttention(
               cover.lifecycleState,
             ),
-            _CoverListFilter.retired => _isRetirementState(
-              cover.lifecycleState,
-            ),
+        _CoverListFilter.retired => _isRetirementState(cover.lifecycleState),
             _CoverListFilter.bulge => bulge?.hasAnyRecord == true,
           };
           if (!matchesFilter) return false;
@@ -889,20 +964,19 @@ class _CoverListState extends State<_CoverList> {
               cover.lifecycleState.label.toLowerCase().contains(query) ||
               '${cover.currentBaseAssetNumber ?? ''}'.contains(query);
         }).toList();
-    final availableCount =
-        widget.profiles.where((item) => item.isAvailable).length;
-    final installedCount =
-        widget.profiles.where((item) => item.isInstalled).length;
-    final attentionCount =
-        widget.profiles
+    final availableCount = widget.profiles
+        .where((item) => item.isAvailable)
+        .length;
+    final installedCount = widget.profiles
+        .where((item) => item.isInstalled)
+        .length;
+    final attentionCount = widget.profiles
             .where((item) => _needsLifecycleAttention(item.lifecycleState))
             .length;
-    final retiredCount =
-        widget.profiles
+    final retiredCount = widget.profiles
             .where((item) => _isRetirementState(item.lifecycleState))
             .length;
-    final bulgeCount =
-        widget.profiles
+    final bulgeCount = widget.profiles
             .where(
               (item) =>
                   widget.bulgeEvidenceByCoverId[item.id]?.hasAnyRecord == true,
@@ -924,41 +998,40 @@ class _CoverListState extends State<_CoverList> {
             ChoiceChip(
               label: Text('Available $availableCount'),
               selected: widget.filter == _CoverListFilter.available,
-              onSelected:
-                  (_) => widget.onFilterChanged(_CoverListFilter.available),
+              onSelected: (_) =>
+                  widget.onFilterChanged(_CoverListFilter.available),
             ),
             if (installedCount > 0)
               ChoiceChip(
                 label: Text('Installed $installedCount'),
                 selected: widget.filter == _CoverListFilter.installed,
-                onSelected:
-                    (_) => widget.onFilterChanged(_CoverListFilter.installed),
+                onSelected: (_) =>
+                    widget.onFilterChanged(_CoverListFilter.installed),
               ),
             ChoiceChip(
               label: Text('Attention $attentionCount'),
               selected: widget.filter == _CoverListFilter.attention,
-              onSelected:
-                  (_) => widget.onFilterChanged(_CoverListFilter.attention),
+              onSelected: (_) =>
+                  widget.onFilterChanged(_CoverListFilter.attention),
             ),
             if (retiredCount > 0)
               ChoiceChip(
                 label: Text('Retired $retiredCount'),
                 selected: widget.filter == _CoverListFilter.retired,
-                onSelected:
-                    (_) => widget.onFilterChanged(_CoverListFilter.retired),
+                onSelected: (_) =>
+                    widget.onFilterChanged(_CoverListFilter.retired),
               ),
             if (bulgeCount > 0)
               ChoiceChip(
                 label: Text('Bulge history $bulgeCount'),
                 selected: widget.filter == _CoverListFilter.bulge,
-                onSelected:
-                    (_) => widget.onFilterChanged(_CoverListFilter.bulge),
+                onSelected: (_) =>
+                    widget.onFilterChanged(_CoverListFilter.bulge),
               ),
           ],
         ),
         Expanded(
-          child:
-              filtered.isEmpty
+          child: filtered.isEmpty
                   ? const _EmptyState(
                     icon: Icons.search_off_rounded,
                     message: 'No Inner Cover matches this search and filter.',
@@ -971,8 +1044,8 @@ class _CoverListState extends State<_CoverList> {
                       BafSpacing.lg,
                     ),
                     itemCount: filtered.length,
-                    separatorBuilder:
-                        (_, _) => const SizedBox(height: BafSpacing.sm),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: BafSpacing.sm),
                     itemBuilder: (context, index) {
                       final cover = filtered[index];
                       final bulge = widget.bulgeEvidenceByCoverId[cover.id];
@@ -1015,8 +1088,7 @@ class _CoverListState extends State<_CoverList> {
                                   'Bulge confirmation pending',
                               ].join('\n'),
                               style: TextStyle(
-                                color:
-                                    bulge?.hasConfirmedRecord == true
+                              color: bulge?.hasConfirmedRecord == true
                                         ? BafColors.danger
                                         : BafColors.textSecondary,
                               ),
@@ -1062,8 +1134,7 @@ class _ListFinder extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hintText,
             prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon:
-                controller.text.isEmpty
+            suffixIcon: controller.text.isEmpty
                     ? null
                     : IconButton(
                       tooltip: 'Clear search',
@@ -1173,11 +1244,8 @@ Future<void> _registerCover(
   AppUser user,
 ) async {
   final classes = ref.read(assetClassesProvider).value ?? const [];
-  final innerCoverClass =
-      classes
-          .where(
-            (item) => item.isActive && item.legacyAssetTypeKey == 'innerCover',
-          )
+  final innerCoverClass = classes
+      .where((item) => item.isActive && item.legacyAssetTypeKey == 'innerCover')
           .firstOrNull;
   if (innerCoverClass == null) {
     _showError(
@@ -1188,14 +1256,14 @@ Future<void> _registerCover(
   }
   final result = await showDialog<_RegistrationResult>(
     context: context,
-    builder:
-        (_) => _RegistrationDialog(
+    builder: (_) => _RegistrationDialog(
           profiles: ref.read(innerCoverProfilesProvider).value ?? const [],
         ),
   );
   if (result == null || !context.mounted) return;
-  await _runCommand(context, () async {
-    await ref
+  String? registeredId;
+  final succeeded = await _runCommand(context, () async {
+    registeredId = await ref
         .read(assetHierarchyRepositoryProvider)
         .registerInnerCover(
           innerCoverClass: innerCoverClass,
@@ -1213,6 +1281,14 @@ Future<void> _registerCover(
           fabricationSections: result.sections,
         );
   }, success: 'Inner Cover registered for inspection.');
+  if (succeeded && registeredId != null && context.mounted) {
+    ref.invalidate(innerCoverProfilesProvider);
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _InnerCoverIntakePage(innerCoverId: registeredId!),
+      ),
+    );
+  }
 }
 
 Future<void> _manageBaseCover(
@@ -1224,13 +1300,11 @@ Future<void> _manageBaseCover(
   List<InnerCoverProfile> profiles,
   Map<String, BaseInnerCoverAssignment> assignments,
 ) async {
-  final candidates =
-      profiles
+  final candidates = profiles
           .where(
             (cover) =>
                 cover.isAvailable ||
-                (cover.isInstalled &&
-                    cover.currentBaseAssetInstanceId != base.id),
+            (cover.isInstalled && cover.currentBaseAssetInstanceId != base.id),
           )
           .toList();
   if (candidates.isEmpty) {
@@ -1239,12 +1313,8 @@ Future<void> _manageBaseCover(
   }
   final selection = await showDialog<_PairingSelection>(
     context: context,
-    builder:
-        (_) => _PairingDialog(
-          base: base,
-          current: current,
-          candidates: candidates,
-        ),
+    builder: (_) =>
+        _PairingDialog(base: base, current: current, candidates: candidates),
   );
   if (selection == null || !context.mounted) return;
   final repository = ref.read(assetHierarchyRepositoryProvider);
@@ -1275,8 +1345,7 @@ Future<void> _manageBaseCover(
       }
       return;
     }
-    final displaced =
-        profiles
+    final displaced = profiles
             .where((profile) => profile.id == current.innerCoverId)
             .firstOrNull;
     if (displaced == null) {
@@ -1327,14 +1396,12 @@ Future<void> _showCoverDetails(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder:
-        (sheetContext) => _CoverDetailsSheet(
+    builder: (sheetContext) => _CoverDetailsSheet(
           cover: cover,
           bulgeEvidence: bulgeEvidence,
           canManage: user?.canManageAssetHierarchy == true,
           onAccept: () => _acceptCover(sheetContext, ref, cover, user!),
-          onAssign:
-              () => _assignAvailableCover(
+      onAssign: () => _assignAvailableCover(
                 sheetContext,
                 ref,
                 user!,
@@ -1343,8 +1410,7 @@ Future<void> _showCoverDetails(
                 assignments,
                 profiles,
               ),
-          onDelink:
-              () => _delinkCover(
+      onDelink: () => _delinkCover(
                 sheetContext,
                 ref,
                 cover,
@@ -1391,8 +1457,7 @@ Future<void> _assignAvailableCover(
   }
   final selection = await showDialog<_BaseAssignmentSelection>(
     context: context,
-    builder:
-        (_) => _BaseAssignmentDialog(
+    builder: (_) => _BaseAssignmentDialog(
           cover: cover,
           bases: bases,
           assignments: assignments,
@@ -1439,26 +1504,66 @@ Future<void> _acceptCover(
   InnerCoverProfile cover,
   AppUser user,
 ) async {
-  final result = await showDialog<_AcceptanceResult>(
+  final repository = ref.read(assetHierarchyRepositoryProvider);
+  AssetHierarchyMutationReceipt? receipt;
+  final result = await showDialog<InnerCoverProfile>(
     context: context,
-    builder: (_) => const _AcceptanceDialog(),
+    barrierDismissible: false,
+    builder: (_) => _AcceptanceDialog(
+      onSubmit: (draft, requestId) async {
+        if (ref.read(currentAppUserProvider).value?.uid != user.uid) {
+          throw const AssetHierarchyException(
+            'The account changed. Return to the original account to check this acceptance.',
+          );
+        }
+        receipt ??= await repository.acceptInnerCover(
+          cover: cover,
+          inspectedOn: draft.inspectedOn,
+          acceptanceReference: draft.acceptanceReference,
+          leakTestReference: draft.leakTestReference,
+          ndtReference: draft.ndtReference,
+          notes: draft.notes,
+          actor: user,
+          reason: draft.reason,
+          requestId: requestId,
+        );
+        try {
+          final current = await repository.readInnerCoverFromServer(
+            cover.id,
+            minimumVersion: receipt!.version,
+          );
+          if (current.normalizedSerialNumber != cover.normalizedSerialNumber ||
+              (current.version == receipt!.version &&
+                  (!current.isAvailable ||
+                      current.lastMutationId != receipt!.requestId ||
+                      current.acceptanceReference !=
+                          draft.acceptanceReference ||
+                      current.acceptedByUid != user.uid ||
+                      current.acceptedAt?.millisecondsSinceEpoch !=
+                          draft.inspectedOn.millisecondsSinceEpoch))) {
+            throw const AssetHierarchyException(
+              'The confirmed acceptance and current record need reconciliation.',
+            );
+          }
+          return current;
+        } catch (error) {
+          throw AssetHierarchyException(
+            'Acceptance was recorded. The current cover could not yet be confirmed: $error. Check again; acceptance will not be sent again.',
+          );
+        }
+      },
+    ),
   );
   if (result == null || !context.mounted) return;
-  final succeeded = await _runCommand(context, () async {
-    await ref
-        .read(assetHierarchyRepositoryProvider)
-        .acceptInnerCover(
-          cover: cover,
-          inspectedOn: result.inspectedOn,
-          acceptanceReference: result.acceptanceReference,
-          leakTestReference: result.leakTestReference,
-          ndtReference: result.ndtReference,
-          notes: result.notes,
-          actor: user,
-          reason: result.reason,
+  ref.invalidate(innerCoverProfilesProvider);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        '${result.serialNumber}: ${result.lifecycleState.label}, confirmed from server.',
+      ),
+    ),
         );
-  }, success: 'Inner Cover accepted into the available pool.');
-  if (succeeded && context.mounted) Navigator.pop(context);
+  Navigator.pop(context);
 }
 
 Future<void> _delinkCover(
@@ -1475,8 +1580,7 @@ Future<void> _delinkCover(
   }
   final result = await showDialog<_StateReasonResult>(
     context: context,
-    builder:
-        (_) => const _StateReasonDialog(
+    builder: (_) => const _StateReasonDialog(
           title: 'Remove from Base',
           states: [
             InnerCoverLifecycleState.available,
@@ -1517,10 +1621,8 @@ Future<void> _changeCoverState(
   }
   final result = await showDialog<_StateReasonResult>(
     context: context,
-    builder:
-        (_) => _StateReasonDialog(
-          title:
-              cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage
+    builder: (_) => _StateReasonDialog(
+      title: cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage
                   ? 'Return retired cover to inspection'
                   : 'Change lifecycle state',
           states: states,
@@ -1530,8 +1632,7 @@ Future<void> _changeCoverState(
                   ? 'The retirement record remains visible. Fresh inspection and acceptance are required before this cover can be linked again.'
                   : null,
           requireHistoricalRetirementCondition:
-              cover.lifecycleState ==
-                  InnerCoverLifecycleState.retiredForSalvage &&
+          cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage &&
               cover.retirementCondition == null,
         ),
   );

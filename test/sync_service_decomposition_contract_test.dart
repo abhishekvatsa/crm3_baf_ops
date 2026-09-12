@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,6 +66,7 @@ void main() {
         final extensionName = entry.value;
         final path = 'lib/core/services/$partFile';
         final source = _read(path);
+        final declarations = parseString(content: source).unit.declarations;
 
         expect(
           source.trimLeft(),
@@ -82,15 +86,41 @@ void main() {
               '$path should expose moved implementation through its expected private extension.',
         );
         expect(
-          RegExp(r'^class\s+', multiLine: true).hasMatch(source),
-          isFalse,
+          declarations.whereType<ClassDeclaration>().map(
+            (declaration) => declaration.namePart.typeName.lexeme,
+          ),
+          partFile == 'sync_service.tickets_templates.dart'
+              ? const [
+                  '_MaintenanceCreationRecoveryResult',
+                  '_MaintenanceCreationEvidenceError',
+                ]
+              : isEmpty,
           reason:
-              '$path must not introduce new classes in the move-only slice.',
+              '$path may contain only the reviewed private recovery carriers; new services or owners need a separate boundary review.',
         );
         expect(
-          RegExp(r'^mixin\s+', multiLine: true).hasMatch(source),
-          isFalse,
-          reason: '$path must not introduce mixins in the move-only slice.',
+          declarations.whereType<MixinDeclaration>(),
+          isEmpty,
+          reason:
+              '$path must not introduce mixins into the same-library split.',
+        );
+        expect(
+          declarations.whereType<EnumDeclaration>().map(
+            (declaration) => declaration.namePart.typeName.lexeme,
+          ),
+          const <String, List<String>>{
+                'sync_service.tickets_templates.dart': [
+                  '_MaintenanceCreationRecoveryDisposition',
+                  '_MaintenanceReplayStep',
+                ],
+                'sync_service.template_governance.dart': [
+                  '_TemplateVersionReplayStep',
+                ],
+                'sync_service.job_modules.dart': ['_JobModuleReplayStep'],
+              }[partFile] ??
+              const <String>[],
+          reason:
+              '$path may contain only its reviewed recovery and lifecycle replay enums.',
         );
       }
     });
@@ -106,10 +136,28 @@ void main() {
         isFalse,
         reason: '68F sync files must not introduce // FILE banner noise.',
       );
+      final documentedTopLevelTypes = <String>[];
+      for (final path in _syncServiceFiles) {
+        for (final declaration in parseString(
+          content: _read(path),
+        ).unit.declarations) {
+          if (declaration.documentationComment == null) continue;
+          expect(
+            declaration,
+            isA<ClassDeclaration>(),
+            reason: '$path has an unreviewed top-level documentation owner.',
+          );
+          final type = declaration as ClassDeclaration;
+          documentedTopLevelTypes.add('$path#${type.namePart.typeName.lexeme}');
+        }
+      }
       expect(
-        RegExp(r'^///', multiLine: true).hasMatch(allSyncSource),
-        isFalse,
-        reason: '68F sync files must not introduce one-off doc-comment noise.',
+        documentedTopLevelTypes,
+        const [
+          'lib/core/services/sync_service.tickets_templates.dart#_MaintenanceCreationRecoveryResult',
+        ],
+        reason:
+            'The recovery invariant is documented on its reviewed private carrier; unrelated top-level banners remain unadmitted.',
       );
       expect(
         RegExp(r'^\)\s*async\s*\{', multiLine: true).hasMatch(allSyncSource),
@@ -178,16 +226,39 @@ void main() {
       final shell = _read(_shellFile);
 
       expect(
-        RegExp(r'\bthis\.').hasMatch(partSource),
-        isFalse,
+        _explicitThisMemberAccesses(partSource),
+        isEmpty,
         reason:
             'The same-library part split must stay analyzer-clean; explicit this. qualifiers trigger unnecessary_this across extension slices.',
       );
       expect(
-        RegExp(r'\bthis\._').hasMatch(shell),
-        isFalse,
+        _explicitThisMemberAccesses(
+          shell,
+        ).where((member) => member.startsWith('_')),
+        isEmpty,
         reason:
             'The shell may use constructor initializing formals, but sync method calls should not use analyzer-noisy this._ qualifiers.',
+      );
+    });
+
+    test('qualifier guard distinguishes field-formals from member access', () {
+      expect(
+        _explicitThisMemberAccesses('''
+class Result {
+  const Result(this.value);
+  final int value;
+}
+'''),
+        isEmpty,
+      );
+      expect(
+        _explicitThisMemberAccesses('''
+class Service {}
+extension Implementation on Service {
+  void run() { this._retry(); }
+}
+'''),
+        const ['_retry'],
       );
     });
 
@@ -501,6 +572,32 @@ const _sharedPushInfrastructureHelpers = <String>[
 String _read(String path) => File(path).readAsStringSync();
 
 String _readAll(List<String> paths) => paths.map(_read).join('\n\n');
+
+List<String> _explicitThisMemberAccesses(String source) {
+  final visitor = _ExplicitThisMemberVisitor();
+  parseString(content: source, throwIfDiagnostics: false).unit.accept(visitor);
+  return visitor.members;
+}
+
+class _ExplicitThisMemberVisitor extends RecursiveAstVisitor<void> {
+  final members = <String>[];
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    if (node.target is ThisExpression) {
+      members.add(node.propertyName.name);
+    }
+    super.visitPropertyAccess(node);
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    if (node.target is ThisExpression) {
+      members.add(node.methodName.name);
+    }
+    super.visitMethodInvocation(node);
+  }
+}
 
 int _declarationCount(String source, String methodName) =>
     _declarationRegExp(methodName).allMatches(source).length;

@@ -16,6 +16,9 @@ class _PhysicalAssetRegistryState
   String? _selectedAssetId;
   bool _showRetired = false;
   bool _busy = false;
+  bool get _isInnerCover =>
+      widget.assetClass.legacyAssetTypeKey == 'innerCover' ||
+      widget.assetClass.code == 'INNER_COVER';
 
   AssetHierarchyRepository get _repository =>
       ref.read(assetHierarchyRepositoryProvider);
@@ -24,22 +27,17 @@ class _PhysicalAssetRegistryState
   Widget build(BuildContext context) {
     final assetsAsync = ref.watch(assetInstancesProvider(widget.assetClass.id));
     return assetsAsync.when(
-      loading:
-          () => const BafLoadingPanel(
+      loading: () => const BafLoadingPanel(
             label: 'Loading physical assets',
             color: BafColors.admin,
           ),
-      error:
-          (error, _) => _LoadFailure(
+      error: (error, _) => _LoadFailure(
             message: 'Physical assets could not be loaded: $error',
-            onRetry:
-                () => ref.invalidate(
-                  assetInstancesProvider(widget.assetClass.id),
-                ),
+        onRetry: () =>
+            ref.invalidate(assetInstancesProvider(widget.assetClass.id)),
           ),
       data: (assets) {
-        final visible =
-            _showRetired
+        final visible = _showRetired
                 ? assets
                 : assets.where((asset) => asset.isActive).toList();
         final selected = assets.cast<AssetInstanceRecord?>().firstWhere(
@@ -67,22 +65,23 @@ class _PhysicalAssetRegistryState
                   final controls = <Widget>[
                     FilterChip(
                       selected: _showRetired,
-                      onSelected:
-                          (value) => setState(() => _showRetired = value),
+                      onSelected: (value) =>
+                          setState(() => _showRetired = value),
                       label: Text(
                         'Retired ${assets.where((asset) => !asset.isActive).length}',
                       ),
                     ),
                     FilledButton.icon(
-                      onPressed:
-                          _busy || !widget.assetClass.isActive
+                      onPressed: _busy || !widget.assetClass.isActive
                               ? null
                               : _createAsset,
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Physical asset'),
+                      label: Text(
+                        _isInnerCover ? 'Inner Cover intake' : 'Physical asset',
+                      ),
                     ),
                   ];
-                  if (constraints.maxWidth < 560) {
+                  if (constraints.maxWidth < 780) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -124,8 +123,7 @@ class _PhysicalAssetRegistryState
                               border: OutlineInputBorder(),
                             ),
                             isExpanded: true,
-                            items:
-                                visible
+                            items: visible
                                     .map(
                                       (asset) => DropdownMenuItem(
                                         value: asset.id,
@@ -136,8 +134,7 @@ class _PhysicalAssetRegistryState
                                       ),
                                     )
                                     .toList(),
-                            onChanged:
-                                (value) =>
+                            onChanged: (value) =>
                                     setState(() => _selectedAssetId = value),
                           ),
                         ),
@@ -158,8 +155,7 @@ class _PhysicalAssetRegistryState
                               selected: asset.id == selected?.id,
                               leading: Icon(
                                 Icons.factory_outlined,
-                                color:
-                                    asset.isActive
+                                color: asset.isActive
                                         ? BafColors.assets
                                         : BafColors.textSecondary,
                               ),
@@ -171,10 +167,8 @@ class _PhysicalAssetRegistryState
                               subtitle: Text(
                                 '#${asset.assetNumber} · ${asset.serviceState.label}',
                               ),
-                              onTap:
-                                  () => setState(
-                                    () => _selectedAssetId = asset.id,
-                                  ),
+                              onTap: () =>
+                                  setState(() => _selectedAssetId = asset.id),
                             );
                           },
                         ),
@@ -197,7 +191,8 @@ class _PhysicalAssetRegistryState
       return const _EmptyHierarchy(
         icon: Icons.factory_outlined,
         title: 'No physical asset selected',
-        message: 'Add an installed furnace, base, inner cover or cooler.',
+        message:
+            'Add a numbered furnace, base or cooler. Register serial Inner Covers through Inner Cover intake.',
       );
     }
     return _InstalledComponentList(
@@ -208,8 +203,8 @@ class _PhysicalAssetRegistryState
       onAddComponent: () => _createComponent(asset),
       onEditComponent: _editComponent,
       onReplaceComponent: (component) => _replaceComponent(asset, component),
-      onHistoryComponent:
-          (component) => _showComponentHistory(asset, component),
+      onHistoryComponent: (component) =>
+          _showComponentHistory(asset, component),
       onToggleComponent: _toggleComponent,
     );
   }
@@ -262,6 +257,12 @@ class _PhysicalAssetRegistryState
   }
 
   Future<void> _createAsset() async {
+    if (_isInnerCover) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => const InnerCoverLifecycleScreen()),
+      );
+      return;
+    }
     final result = await showDialog<_AssetInstanceDialogResult>(
       context: context,
       builder: (_) => _AssetInstanceDialog(assetClass: widget.assetClass),
@@ -284,11 +285,8 @@ class _PhysicalAssetRegistryState
   Future<void> _editAsset(AssetInstanceRecord before) async {
     final result = await showDialog<_AssetInstanceDialogResult>(
       context: context,
-      builder:
-          (_) => _AssetInstanceDialog(
-            assetClass: widget.assetClass,
-            existing: before,
-          ),
+      builder: (_) =>
+          _AssetInstanceDialog(assetClass: widget.assetClass, existing: before),
     );
     if (result == null) return;
     await _run(
@@ -305,10 +303,10 @@ class _PhysicalAssetRegistryState
   Future<void> _toggleAsset(AssetInstanceRecord before) async {
     final reason = await _reasonDialog(
       context,
-      title:
-          before.isActive ? 'Retire physical asset' : 'Restore physical asset',
-      message:
-          before.isActive
+      title: before.isActive
+          ? 'Retire physical asset'
+          : 'Restore physical asset',
+      message: before.isActive
               ? 'Installed components must be retired first. Historical work remains linked.'
               : 'Restoring makes this physical asset available for new work.',
     );
@@ -316,8 +314,7 @@ class _PhysicalAssetRegistryState
     await _run(
       () => _repository.setAssetInstanceStatus(
         before: before,
-        status:
-            before.isActive
+        status: before.isActive
                 ? AssetHierarchyStatus.retired
                 : AssetHierarchyStatus.active,
         actor: widget.actor,
@@ -333,16 +330,13 @@ class _PhysicalAssetRegistryState
         const <AssetHierarchyNode>[];
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
-      builder:
-          (_) => _InstalledComponentDialog(
-            definitions:
-                nodes
+      builder: (_) => _InstalledComponentDialog(
+        definitions: nodes
                     .where(
                       (node) =>
                           node.isActive &&
                           (node.nodeType == AssetHierarchyNodeType.component ||
-                              node.nodeType ==
-                                  AssetHierarchyNodeType.subcomponent),
+                      node.nodeType == AssetHierarchyNodeType.subcomponent),
                     )
                     .toList(),
           ),
@@ -367,8 +361,7 @@ class _PhysicalAssetRegistryState
         const <AssetHierarchyNode>[];
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
-      builder:
-          (_) => _InstalledComponentDialog(
+      builder: (_) => _InstalledComponentDialog(
             existing: before,
             definitions: nodes.where((node) => node.isActive).toList(),
           ),
@@ -394,8 +387,9 @@ class _PhysicalAssetRegistryState
     final nodes =
         ref.read(assetHierarchyNodesProvider(before.assetClassId)).value ??
         const <AssetHierarchyNode>[];
-    final definitions =
-        nodes.where((node) => node.id == before.definitionNodeId).toList();
+    final definitions = nodes
+        .where((node) => node.id == before.definitionNodeId)
+        .toList();
     if (definitions.length != 1 || !definitions.single.isActive) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -411,8 +405,7 @@ class _PhysicalAssetRegistryState
     if (!mounted) return;
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
-      builder:
-          (_) => _InstalledComponentDialog(
+      builder: (_) => _InstalledComponentDialog(
             replacementFor: before,
             definitions: definitions,
             evidenceOptions: evidenceOptions,
@@ -554,22 +547,17 @@ class _PhysicalAssetRegistryState
     InstalledComponentRecord component,
   ) => showDialog<void>(
     context: context,
-    builder:
-        (_) => _InstalledComponentHistoryDialog(
-          asset: asset,
-          component: component,
-        ),
+    builder: (_) =>
+        _InstalledComponentHistoryDialog(asset: asset, component: component),
   );
 
   Future<void> _toggleComponent(InstalledComponentRecord before) async {
     final reason = await _reasonDialog(
       context,
-      title:
-          before.isActive
+      title: before.isActive
               ? 'Retire installed component'
               : 'Restore installed component',
-      message:
-          before.isActive
+      message: before.isActive
               ? 'The tag is released, while historical work retains its component snapshot.'
               : 'Restoring reclaims its tag; a collision will require explicit transfer.',
     );
@@ -577,8 +565,7 @@ class _PhysicalAssetRegistryState
     await _runTagAware(
       (reviewedOwnerComponentId) => _repository.setInstalledComponentStatus(
         before: before,
-        status:
-            before.isActive
+        status: before.isActive
                 ? AssetHierarchyStatus.retired
                 : AssetHierarchyStatus.active,
         actor: widget.actor,

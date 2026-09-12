@@ -264,7 +264,24 @@ extension _SyncServicePushInfrastructure on SyncService {
         '⚠️ Could not inspect sync rejection hold state for $entityType: $e',
       );
       debugPrint('$st');
-      return records;
+      // An unreadable hold store is not evidence that these records may be
+      // sent. Preserve its contents and report the failed check in this pass;
+      // writing another diagnostic into the same unavailable store cannot
+      // establish eligibility.
+      for (final record in records) {
+        lastFailureCount++;
+        _appendPushFailureDetail(_buildPushFailureDetail(
+          entityType: entityType,
+          entityId: _syncEntityId(record),
+          firestoreId: _syncFirestoreId(record),
+          error: const WorkflowException(
+            WorkflowErrorCode.unavailable,
+            'Saved sync holds could not be verified. Local work is retained; '
+            'automatic sending is paused until this check succeeds.',
+          ),
+        ));
+      }
+      return <T>[];
     }
 
     final rejectionsByEntityId = <String, SyncRejection>{};

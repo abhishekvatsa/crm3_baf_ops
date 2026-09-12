@@ -252,6 +252,7 @@ def main() -> int:
         "TYPED_LOCAL_STORAGE_INITIALIZER",
         "SORT_ONLY_NULL_ORDERING_SENTINEL",
         "DISPLAY_ONLY_BEST_EFFORT",
+        "TYPED_COMMAND_WIRE_SERIALIZATION",
     }
     candidate_classifications: dict[tuple[str, str, int], dict[str, object]] = {}
     classification_groups = candidate_manifest.get("classifications", [])

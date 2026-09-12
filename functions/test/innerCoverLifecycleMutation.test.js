@@ -213,6 +213,276 @@ async function invoke(memory, request) {
 }
 
 describe('Inner Cover lifecycle mutation', () => {
+  test.each([
+    ['inner_cover_acceptance_dart_request.json', '2026-09-12T08:30:00.123Z'],
+    ['inner_cover_acceptance_legacy_dart_request.json', '2026-09-12T08:30:00.123456Z'],
+  ])('real Dart request fixture %s completes acceptance and replays after link', async (file, instant) => {
+    const request = require(`./fixtures/${file}`);
+    expect(request.acceptanceDraft.inspectedOn).toBe(instant);
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const send = (data) => mutateInnerCoverLifecycleWithDb({
+      db: memory.db, authUid: 'admin-1', data,
+      now: () => new Date('2026-09-12T08:30:01.000Z'),
+      timestampFromDate: (date) => date,
+    });
+    const accepted = await send(request);
+    const cover = memory.store.get(`inner_cover_profiles/${request.innerCoverId}`);
+    expect(cover).toMatchObject({
+      serialNumber: 'GR26', version: 2, lifecycleState: 'available',
+      acceptedAt: new Date('2026-09-12T08:30:00.123Z'), acceptedByUid: 'admin-1',
+      acceptanceReference: request.acceptanceDraft.acceptanceReference,
+    });
+    expect(memory.store.get(`inner_cover_lifecycle_receipts/${request.requestId}`))
+      .toMatchObject({timestampInstants: {inspectedOn: instant}, version: 2});
+    await send(linkRequest());
+    const before = clone([...memory.store]);
+    const writes = memory.writes.length;
+    expect(await send(request)).toEqual({...accepted, idempotentReplay: true});
+    expect([...memory.store]).toEqual(before);
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test.each([
+    '2026-08-02T00:00:00.123Z',
+    '2026-08-02T00:00:00.123456Z',
+    '2026-08-02T00:00:00.123001Z',
+    '2026-08-02T00:00:00.000001Z',
+    '2026-08-02T00:00:00.000000Z',
+  ])('accepts exact Dart UTC instant %s and preserves its command identity', async (instant) => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const request = acceptRequest();
+    request.acceptanceDraft.inspectedOn = instant;
+    const result = await invoke(memory, request);
+    const cover = memory.store.get(`inner_cover_profiles/${IDS.cover}`);
+    const receipt = memory.store.get(`inner_cover_lifecycle_receipts/${IDS.accept}`);
+    const audit = memory.store.get(`inner_cover_lifecycle_audits/${result.auditId}`);
+    expect(cover).toMatchObject({
+      serialNumber: 'GR26', lifecycleState: 'available', version: 2,
+      acceptedByUid: 'admin-1', acceptanceReference: 'ACC-26',
+      acceptedAt: new Date(instant),
+    });
+    expect(receipt.fingerprint).toMatch(/^innercover3-sha256:/);
+    expect(receipt.timestampInstants).toEqual({inspectedOn: instant});
+    expect(audit.timestampInstants).toEqual(receipt.timestampInstants);
+    expect(audit.fingerprint).toBe(receipt.fingerprint);
+    const writes = memory.writes.length;
+    expect(await invoke(memory, request)).toEqual({...result, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test.each([
+    '2026-02-30T00:00:00.123456Z', '2026-02-29T00:00:00.123Z',
+    '2026-13-01T00:00:00.123456Z', '2026-08-02T24:00:00.123456Z',
+    '2026-08-02T00:00:60.123456Z', '2026-08-02T00:00:00.123+00:00',
+    '2026-08-02T00:00:00.123456+05:30', '2026-08-02T00:00:00Z',
+    '2026-08-02T00:00:00.1Z', '2026-08-02T00:00:00.1234Z',
+    '2026-08-02T00:00:00.1234567Z', '2026-08-02 00:00:00.123456Z',
+    '2026-08-02T00:00:00.123456z', 'not-a-date',
+  ])('rejects malformed or unsupported date %s before writing', async (instant) => {
+    const request = acceptRequest();
+    request.acceptanceDraft.inspectedOn = instant;
+    const memory = fakeDb(seed());
+    await expect(invoke(memory, request)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {field: 'acceptanceDraft.inspectedOn'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each([
+    ['2026-08-15T12:00:00.000001Z', 'cannot be in the future'],
+    ['2026-07-31T23:59:59.999999Z', 'cannot predate receipt'],
+  ])('microsecond compatibility preserves chronology for %s', async (instant, message) => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const writes = memory.writes.length;
+    const request = acceptRequest();
+    request.acceptanceDraft.inspectedOn = instant;
+    await expect(invoke(memory, request)).rejects.toThrow(message);
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`).lifecycleState)
+      .toBe('awaitingInspection');
+  });
+
+  test('registration cannot hide reversed chronology in the same millisecond', async () => {
+    const request = registerRequest();
+    request.registrationDraft.receivedOrCompletedOn = '2026-08-01T12:00:00.123456Z';
+    request.registrationDraft.incorporatedOn = '2026-08-01T12:00:00.123455Z';
+    const memory = fakeDb(seed());
+    await expect(invoke(memory, request)).rejects.toThrow('cannot predate receipt');
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('valid microsecond shape does not bypass actor, version or lifecycle authority', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const request = acceptRequest();
+    request.acceptanceDraft.inspectedOn = '2026-08-02T00:00:00.123456Z';
+    const writes = memory.writes.length;
+    await expect(invoke(memory, {...request, expectedVersion: 2}))
+      .rejects.toMatchObject({code: 'aborted'});
+    memory.store.set('users/admin-1', {isApproved: true, roles: ['viewer']});
+    await expect(invoke(memory, request)).rejects.toMatchObject({code: 'permission-denied'});
+    expect(memory.writes).toHaveLength(writes);
+    memory.store.set('users/admin-1', seed()['users/admin-1']);
+    await invoke(memory, request);
+    await expect(invoke(memory, {
+      ...request, requestId: IDS.replace, expectedVersion: 2,
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-not-awaiting-acceptance'},
+    });
+  });
+
+  test('new fingerprints bind millisecond dates and retain historic fingerprint calculation', () => {
+    const request = acceptRequest();
+    const parsed = parseInnerCoverLifecycleMutationRequest(request);
+    expect(parsed.legacyFingerprint).toBe(
+      'innercover1-sha256:700a0fea1503bca29c3686498a08f5d61132aa3978726d087aaa2c3fb07f9f8c',
+    );
+    request.acceptanceDraft.inspectedOn = '2026-08-03T00:00:00.000Z';
+    const altered = parseInnerCoverLifecycleMutationRequest(request);
+    expect(altered.legacyFingerprint).toBe(parsed.legacyFingerprint);
+    expect(altered.fingerprint).not.toBe(parsed.fingerprint);
+  });
+
+  test('accepted A replays after legitimate B without changing the current profile', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const first = await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    const beforeReplay = clone([...memory.store]);
+    const writes = memory.writes.length;
+    expect(await invoke(memory, acceptRequest())).toEqual({...first, idempotentReplay: true});
+    expect([...memory.store]).toEqual(beforeReplay);
+    expect(memory.writes).toHaveLength(writes);
+    const altered = acceptRequest();
+    altered.acceptanceDraft.inspectedOn = '2026-08-03T00:00:00.000Z';
+    await expect(invoke(memory, altered)).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-request-id-reused'},
+    });
+  });
+
+  test.each(['actor', 'operation', 'afterVersion', 'auditId', 'time', 'snapshot', 'missingAudit'])
+  ('replay refuses %s evidence tampering after a subsequent command', async (tamper) => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const result = await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    const path = `inner_cover_lifecycle_audits/${result.auditId}`;
+    const audit = memory.store.get(path);
+    if (tamper === 'actor') audit.performedByUid = 'another-admin';
+    if (tamper === 'operation') audit.operation = 'SET_INNER_COVER_STATE';
+    if (tamper === 'afterVersion') {
+      audit.afterJson = JSON.stringify({...JSON.parse(audit.afterJson), version: 99});
+    }
+    if (tamper === 'auditId') audit.auditId = 'unrelated';
+    if (tamper === 'time') audit.performedAt = new Date('2026-08-16T00:00:00.000Z');
+    if (tamper === 'snapshot') {
+      audit.afterJson = JSON.stringify({...JSON.parse(audit.afterJson), serialNumber: 'FORGED'});
+    }
+    if (tamper === 'missingAudit') memory.store.delete(path);
+    const writes = memory.writes.length;
+    await expect(invoke(memory, acceptRequest())).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-replay-evidence-drift'},
+    });
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  function makeLegacyEvidence(memory, request) {
+    const receipt = memory.store.get(`inner_cover_lifecycle_receipts/${request.requestId}`);
+    receipt.fingerprint = parseInnerCoverLifecycleMutationRequest(request).legacyFingerprint;
+    delete receipt.timestampInstants;
+    delete receipt.auditEvidenceSha256;
+    const audit = memory.store.get(`inner_cover_lifecycle_audits/${receipt.auditId}`);
+    delete audit.fingerprint;
+    delete audit.timestampInstants;
+  }
+
+  test('historic acceptance is replayable unchanged, but cannot invent date evidence after B', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const first = await invoke(memory, acceptRequest());
+    makeLegacyEvidence(memory, acceptRequest());
+    const legacyReceipt = clone(memory.store.get(`inner_cover_lifecycle_receipts/${IDS.accept}`));
+    expect(await invoke(memory, acceptRequest())).toEqual({...first, idempotentReplay: true});
+    const altered = acceptRequest();
+    altered.acceptanceDraft.inspectedOn = '2026-08-03T00:00:00.000Z';
+    await expect(invoke(memory, altered)).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-replay-evidence-drift'},
+    });
+    await invoke(memory, linkRequest());
+    const writes = memory.writes.length;
+    await expect(invoke(memory, acceptRequest())).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-legacy-replay-reconciliation-required'},
+    });
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.get(`inner_cover_lifecycle_receipts/${IDS.accept}`)).toEqual(legacyReceipt);
+  });
+
+  test('historic non-date link A replays from immutable evidence after delink B', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    const linked = await invoke(memory, linkRequest());
+    makeLegacyEvidence(memory, linkRequest());
+    await invoke(memory, {
+      requestId: IDS.delink, operation: 'DELINK_INNER_COVER', innerCoverId: IDS.cover,
+      expectedVersion: 3, sourceBaseAssetInstanceId: IDS.base,
+      expectedSourceAssignmentVersion: 1, targetState: 'awaitingInspection',
+      reason: 'Remove the cover for inspection.',
+    });
+    const writes = memory.writes.length;
+    expect(await invoke(memory, linkRequest())).toEqual({...linked, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`).version).toBe(4);
+  });
+
+  test('a new receipt cannot downgrade its date binding by replacing only its fingerprint', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    const receipt = memory.store.get(`inner_cover_lifecycle_receipts/${IDS.accept}`);
+    receipt.fingerprint = parseInnerCoverLifecycleMutationRequest(acceptRequest()).legacyFingerprint;
+    const writes = memory.writes.length;
+    await expect(invoke(memory, acceptRequest())).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-replay-evidence-drift'},
+    });
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test.each([
+    {status: 'active', serviceState: 'outOfService'},
+    {status: 'retired', serviceState: 'outOfService'},
+  ])('delink preserves removal access when source Base becomes %j', async (unavailable) => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    Object.assign(memory.store.get(`asset_instances/${IDS.base}`), unavailable);
+    const request = {
+      requestId: IDS.delink, operation: 'DELINK_INNER_COVER', innerCoverId: IDS.cover,
+      expectedVersion: 3, sourceBaseAssetInstanceId: IDS.base,
+      expectedSourceAssignmentVersion: 1, targetState: 'awaitingInspection',
+      reason: 'Remove from the unavailable Base for inspection.',
+    };
+    const writes = memory.writes.length;
+    await expect(invoke(memory, {...request, expectedSourceAssignmentVersion: 2}))
+      .rejects.toMatchObject({code: 'aborted'});
+    expect(memory.writes).toHaveLength(writes);
+    await invoke(memory, request);
+    expect(memory.store.has(`base_inner_cover_assignments/${IDS.base}`)).toBe(false);
+    expect(memory.store.get(`inner_cover_linkages/link_${IDS.link}`)).toMatchObject({active: false});
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`)).toMatchObject({
+      version: 4, lifecycleState: 'awaitingInspection', currentBaseAssetInstanceId: null,
+    });
+    await invoke(memory, {...acceptRequest(IDS.cover, 4), requestId: IDS.replace});
+    await expect(invoke(memory, {
+      ...linkRequest(IDS.cover, 5), requestId: IDS.donorSection,
+    })).rejects.toMatchObject({details: {reasonCode: 'inner-cover-base-unavailable'}});
+  });
+
   test('parser requires the complete operation-specific request shape', () => {
     expect(parseInnerCoverLifecycleMutationRequest(registerRequest()))
       .toMatchObject({innerCoverId: IDS.cover, operation: 'REGISTER_INNER_COVER'});

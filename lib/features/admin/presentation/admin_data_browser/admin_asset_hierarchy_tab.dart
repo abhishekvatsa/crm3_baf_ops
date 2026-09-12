@@ -9,6 +9,7 @@ import '../../../assets/data/asset_hierarchy_model.dart';
 import '../../../assets/data/asset_registry_model.dart';
 import '../../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../assets/repositories/asset_hierarchy_repository.dart';
+import '../../../assets/presentation/inner_cover_lifecycle_screen.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../../planned_maintenance/data/job_template_model.dart';
@@ -53,18 +54,16 @@ class _AssetHierarchyAdminTabState
   @override
   Widget build(BuildContext context) {
     final classesAsync = ref.watch(assetClassesProvider);
-    return ColoredBox(
+    return Material(
       color: BafColors.background,
       child: classesAsync.when(
-        loading:
-            () => _buildNonDataState(
+        loading: () => _buildNonDataState(
               const BafLoadingPanel(
                 label: 'Loading asset hierarchy',
                 color: BafColors.admin,
               ),
             ),
-        error:
-            (error, _) => _buildNonDataState(
+        error: (error, _) => _buildNonDataState(
               _LoadFailure(
                 message: 'Asset hierarchy could not be loaded: $error',
                 onRetry: () => ref.invalidate(assetClassesProvider),
@@ -78,12 +77,16 @@ class _AssetHierarchyAdminTabState
   Widget _buildNonDataState(Widget state) {
     final compactHeader = widget.compactHeader;
     if (compactHeader == null) return state;
-    return Column(children: [compactHeader, Expanded(child: state)]);
+    return Column(
+      children: [
+        compactHeader,
+        Expanded(child: state),
+      ],
+    );
   }
 
   Widget _buildLoaded(BuildContext context, List<AssetClassRecord> classes) {
-    final visible =
-        classes.where((assetClass) {
+    final visible = classes.where((assetClass) {
           if (!_showRetired && !assetClass.isActive) return false;
           final needle = _search.trim().toLowerCase();
           if (needle.isEmpty) return true;
@@ -126,8 +129,7 @@ class _AssetHierarchyAdminTabState
                 prefixIcon: Icon(Icons.precision_manufacturing_rounded),
               ),
               isExpanded: true,
-              items:
-                  visible
+              items: visible
                       .map(
                         (item) => DropdownMenuItem(
                           value: item.id,
@@ -172,8 +174,8 @@ class _AssetHierarchyAdminTabState
                     child: _AssetClassList(
                       classes: visible,
                       selectedId: selected?.id,
-                      onSelected:
-                          (item) => setState(() => _selectedClassId = item.id),
+                      onSelected: (item) =>
+                          setState(() => _selectedClassId = item.id),
                     ),
                   ),
                   const VerticalDivider(width: 1),
@@ -273,15 +275,13 @@ class _AssetHierarchyAdminTabState
     BuildContext context,
     AssetClassRecord before,
   ) async {
-    final next =
-        before.isActive
+    final next = before.isActive
             ? AssetHierarchyStatus.retired
             : AssetHierarchyStatus.active;
     final reason = await _reasonDialog(
       context,
       title: before.isActive ? 'Retire asset class' : 'Restore asset class',
-      message:
-          before.isActive
+      message: before.isActive
               ? 'Retiring hides this class from new operational selection. Historical records remain unchanged.'
               : 'Restoring makes this class available for hierarchy maintenance and future operational use.',
     );
@@ -307,11 +307,8 @@ class _AssetHierarchyAdminTabState
         const <AssetHierarchyNode>[];
     final input = await showDialog<_NodeDialogResult>(
       context: context,
-      builder:
-          (_) => _HierarchyNodeDialog(
-            availableParents: nodes,
-            initialParent: parent,
-          ),
+      builder: (_) =>
+          _HierarchyNodeDialog(availableParents: nodes, initialParent: parent),
     );
     if (input == null) return;
     await _runTagAware((allowTagTransfer) async {
@@ -334,11 +331,9 @@ class _AssetHierarchyAdminTabState
         const <AssetHierarchyNode>[];
     final input = await showDialog<_NodeDialogResult>(
       context: context,
-      builder:
-          (_) => _HierarchyNodeDialog(
+      builder: (_) => _HierarchyNodeDialog(
             existing: before,
-            availableParents:
-                nodes.where((node) => node.id != before.id).toList(),
+        availableParents: nodes.where((node) => node.id != before.id).toList(),
           ),
     );
     if (input == null) return;
@@ -360,10 +355,10 @@ class _AssetHierarchyAdminTabState
   ) async {
     final reason = await _reasonDialog(
       context,
-      title:
-          before.isActive ? 'Retire hierarchy item' : 'Restore hierarchy item',
-      message:
-          before.isActive
+      title: before.isActive
+          ? 'Retire hierarchy item'
+          : 'Restore hierarchy item',
+      message: before.isActive
               ? 'The item will remain in history and audit records but will not be available for new work.'
               : 'The item and its existing parent must both be active.',
     );
@@ -371,8 +366,7 @@ class _AssetHierarchyAdminTabState
     await _runTagAware(
       (allowTagTransfer) => _repository.setNodeStatus(
         before: before,
-        status:
-            before.isActive
+        status: before.isActive
                 ? AssetHierarchyStatus.retired
                 : AssetHierarchyStatus.active,
         actor: widget.actor,
@@ -471,8 +465,7 @@ class _AssetClassList extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing:
-              item.isActive
+          trailing: item.isActive
                   ? null
                   : const Icon(Icons.history_rounded, size: 18),
           onTap: () => onSelected(item),
@@ -524,8 +517,9 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
       busy: widget.busy,
       onEdit: widget.onEditClass,
       onToggleStatus: widget.onToggleClassStatus,
-      onAddRoot:
-          widget.assetClass.isActive ? () => widget.onAddNode(null) : null,
+      onAddRoot: widget.assetClass.isActive
+          ? () => widget.onAddNode(null)
+          : null,
     );
     final tabs = _hierarchyTabs(compact);
     final tabView = TabBarView(
@@ -539,12 +533,10 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
     );
     return DefaultTabController(
       length: 2,
-      child:
-          widget.compactHeaders.isNotEmpty
+      child: widget.compactHeaders.isNotEmpty
               ? NestedScrollView(
                 key: const ValueKey('asset-hierarchy-mobile-scroll'),
-                headerSliverBuilder:
-                    (context, innerBoxIsScrolled) => [
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
                       for (final header in widget.compactHeaders)
                         SliverToBoxAdapter(child: header),
                       SliverToBoxAdapter(child: summary),
@@ -557,7 +549,11 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
               )
               : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [summary, tabs, Expanded(child: tabView)],
+              children: [
+                summary,
+                tabs,
+                Expanded(child: tabView),
+              ],
               ),
     );
   }
@@ -583,19 +579,15 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
   Widget _definitionTab(AsyncValue<List<AssetHierarchyNode>> nodesAsync) {
     return nodesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, _) => _LoadFailure(
+      error: (error, _) => _LoadFailure(
             message: 'Hierarchy nodes could not be loaded: $error',
-            onRetry:
-                () => ref.invalidate(
-                  assetHierarchyNodesProvider(widget.assetClass.id),
-                ),
+        onRetry: () =>
+            ref.invalidate(assetHierarchyNodesProvider(widget.assetClass.id)),
           ),
       data: (nodes) {
         final tree = AssetHierarchyTree.build(nodes);
         final bottomClearance = 96.0 + MediaQuery.viewPaddingOf(context).bottom;
-        final visibleNodes =
-            _showRetiredNodes
+        final visibleNodes = _showRetiredNodes
                 ? nodes
                 : nodes.where((node) => node.isActive).toList();
         final visibleTree = AssetHierarchyTree.build(visibleNodes);
@@ -618,8 +610,8 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                   const Spacer(),
                   FilterChip(
                     selected: _showRetiredNodes,
-                    onSelected:
-                        (value) => setState(() => _showRetiredNodes = value),
+                    onSelected: (value) =>
+                        setState(() => _showRetiredNodes = value),
                     label: Text(
                       'Retired ${nodes.where((node) => !node.isActive).length}',
                     ),
@@ -630,8 +622,7 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
             if (tree.integrityErrors.isNotEmpty)
               _IntegrityBanner(errors: tree.integrityErrors),
             Expanded(
-              child:
-                  visibleNodes.isEmpty
+              child: visibleNodes.isEmpty
                       ? const _EmptyHierarchy(
                         icon: Icons.account_tree_outlined,
                         title: 'No hierarchy items',
@@ -640,12 +631,7 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                       )
                       : ListView(
                         key: const ValueKey('asset-hierarchy-definition-list'),
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          0,
-                          12,
-                          bottomClearance,
-                        ),
+                      padding: EdgeInsets.fromLTRB(12, 0, 12, bottomClearance),
                         children: [
                           for (final root in visibleTree.roots)
                             _HierarchyBranch(
@@ -709,13 +695,11 @@ class _ClassSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding:
-          MediaQuery.sizeOf(context).width < 560
+      padding: MediaQuery.sizeOf(context).width < 560
               ? const EdgeInsets.fromLTRB(12, 8, 8, 8)
               : const EdgeInsets.all(BafSpacing.md),
       child: LayoutBuilder(
-        builder:
-            (context, constraints) => Row(
+        builder: (context, constraints) => Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
@@ -748,9 +732,7 @@ class _ClassSummary extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           assetClass.shortDescription!,
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                          ),
+                      style: const TextStyle(color: BafColors.textSecondary),
                         ),
                       ],
                     ],
@@ -773,8 +755,7 @@ class _ClassSummary extends StatelessWidget {
                           break;
                       }
                     },
-                    itemBuilder:
-                        (_) => [
+                itemBuilder: (_) => [
                           const PopupMenuItem(
                             value: 'edit',
                             child: ListTile(
@@ -818,8 +799,7 @@ class _ClassSummary extends StatelessWidget {
                     icon: const Icon(Icons.edit_rounded),
                   ),
                   IconButton(
-                    tooltip:
-                        assetClass.isActive
+                tooltip: assetClass.isActive
                             ? 'Retire asset class'
                             : 'Restore asset class',
                     onPressed: busy ? null : onToggleStatus,
@@ -867,8 +847,7 @@ class _HierarchyBranch extends StatelessWidget {
     builder: (context, constraints) {
       final children = tree.childrenOf(node.id);
       final compact = constraints.maxWidth < 560;
-      final indentation =
-          level == 0
+      final indentation = level == 0
               ? 0.0
               : compact
               ? level <= 3
@@ -888,8 +867,7 @@ class _HierarchyBranch extends StatelessWidget {
                 borderRadius: BorderRadius.circular(BafRadius.small),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child:
-                  compact
+              child: compact
                       ? Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1007,8 +985,7 @@ class _HierarchyBranch extends StatelessWidget {
       IconButton(
         tooltip: node.isActive ? 'Retire item' : 'Restore item',
         visualDensity: compact ? VisualDensity.compact : null,
-        onPressed:
-            busy || (node.isActive && node.activeChildCount > 0)
+        onPressed: busy || (node.isActive && node.activeChildCount > 0)
                 ? null
                 : () => onToggleStatus(node),
         icon: Icon(

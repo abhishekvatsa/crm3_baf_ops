@@ -105,3 +105,25 @@ The closure is sealed in
 No production data mutation, Firebase deployment, device operation, pilot
 authorization, distribution action, or cutover authorization occurred. Its
 three ledger re-arm triggers remain binding.
+
+## Current inherited-decoder review, 2026-09-12
+
+The current source still declares 53 persisted schema fields: 47 JSON strings,
+six dynamic values and three bounded extension bags, with zero registered
+extension fields. Its inherited decoder inventory contains 83 A-05 surfaces.
+The field policies, strict-reader implementation, unknown-key disposition and
+extension authority restrictions are unchanged by this review.
+
+A-04 also binds the canonical text of the complete A-05 decoder manifest. Its
+current digest therefore changes when the reviewed recovery admission,
+callable-error translation or associated regression ownership changes in A-05,
+even though no persisted dynamic field is added. Regeneration updates the
+current manifest's inherited policy descriptions and A-05 hash; it does not
+make a new runtime-schema migration or modify accepted payloads or receipts.
+
+The current exact digest is recorded in
+`governance/a04-persisted-schema-v1.json` and the current A-04 canonical-audit
+check as `8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA`.
+The dated source snapshot above and the PR #235 closure, CI and
+production-reconciliation receipts remain historical evidence. This addition
+claims no new deployment, data migration, device result or release authority.

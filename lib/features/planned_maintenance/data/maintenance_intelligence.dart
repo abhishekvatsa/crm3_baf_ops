@@ -600,6 +600,7 @@ class MaintenancePlan {
     required this.targetWindowEnd,
     required this.planningNotes,
     required this.releasedExecutionId,
+    this.originalAssetInstanceVersion,
   });
 
   final String id;
@@ -617,6 +618,8 @@ class MaintenancePlan {
   final DateTime targetWindowEnd;
   final String? planningNotes;
   final String? releasedExecutionId;
+  /// Initial subject revision retained by the first explicit ready-plan review.
+  final int? originalAssetInstanceVersion;
 
   bool get isSerialInnerCover =>
       assetTypeKey == 'innerCover' && assetNumber == null;
@@ -725,6 +728,12 @@ class MaintenancePlan {
         field: 'releasedExecutionId',
         source: source,
       ),
+      originalAssetInstanceVersion: readOptionalPersistedInt(
+        map['originalAssetInstanceVersion'],
+        field: 'originalAssetInstanceVersion',
+        source: source,
+        minimum: 1,
+      ),
     );
     if (planId != documentId ||
         plan.assetIdentityKey !=
@@ -732,6 +741,8 @@ class MaintenancePlan {
         (!plan.maintenanceClass.assetTypeKeys.contains(plan.assetTypeKey) &&
             !plan.maintenanceClass.assetClassIds.contains(plan.assetClassId)) ||
         (plan.assetNumber == null && !plan.isSerialInnerCover) ||
+        (plan.originalAssetInstanceVersion != null &&
+            plan.originalAssetInstanceVersion! > plan.assetInstanceVersion) ||
         !plan.targetWindowEnd.isAfter(plan.targetWindowStart) ||
         ((plan.status == MaintenancePlanStatus.released) !=
             (plan.releasedExecutionId != null))) {

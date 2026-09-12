@@ -1,5 +1,30 @@
 part of 'sync_service.dart';
 
+enum _MaintenanceCreationRecoveryDisposition {
+  recovered,
+  existingIdentity,
+  deferred,
+  contradiction,
+}
+
+/// Creation recovery must not turn an unverified result into permission to
+/// write the same ticket through a different path.
+class _MaintenanceCreationRecoveryResult {
+  const _MaintenanceCreationRecoveryResult(
+    this.disposition, {
+    this.serverRecord,
+    this.error,
+  });
+
+  final _MaintenanceCreationRecoveryDisposition disposition;
+  final MaintenanceRecord? serverRecord;
+  final WorkflowException? error;
+}
+
+class _MaintenanceCreationEvidenceError extends StateError {
+  _MaintenanceCreationEvidenceError(super.message);
+}
+
 extension _SyncServiceTicketsTemplates on SyncService {
   Future<void> _syncTickets() async {
     final unsynced = await _maintenanceRepo.getUnsyncedTickets();
@@ -63,7 +88,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         _checkClockDrift(record.updatedAt, 'ticket ${record.id}');
 
-        final remote = remoteMap[record.firestoreId];
+        var remote = remoteMap[record.firestoreId];
 
         if (record.isDeleted) {
           if (remote == null) {
@@ -156,11 +181,25 @@ extension _SyncServiceTicketsTemplates on SyncService {
         final expectedLocal = _syncPushSnapshot(record);
         final recoveredCreation = await _tryRecoverAcceptedMaintenanceCreation(
           record,
+          remote,
         );
-        if (recoveredCreation != null) {
+        if (recoveredCreation.error case final error?) {
+          lastFailureCount++;
+          final detail = _buildPushFailureDetail(
+            entityType: 'maintenance_ticket',
+            entityId: record.firestoreId!,
+            firestoreId: record.firestoreId,
+            error: error,
+          );
+          await _upsertSyncRejection(detail);
+          _appendPushFailureDetail(detail);
+          continue;
+        }
+        if (recoveredCreation.disposition ==
+            _MaintenanceCreationRecoveryDisposition.recovered) {
           final adopted = await _maintenanceRepo
               .applyGovernedCreationServerStateForSync(
-                remote: recoveredCreation,
+                remote: recoveredCreation.serverRecord!,
                 expectedLocal: expectedLocal,
               );
           if (!adopted) {
@@ -178,6 +217,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
           lastSuccessCount++;
           continue;
         }
+
+        // Only the pre-recovery identity check permits ordinary edits to
+        // continue, using its exact server read rather than a cached lookup.
+        remote = recoveredCreation.serverRecord!;
 
         final replayReceipt = await _tryPushDecomposedMaintenanceTicket(
           record,
@@ -310,9 +353,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   Future<_MaintenanceCreationReplayResult> _pushMissingMaintenanceTicket(
     MaintenanceRecord local,
   ) async {
-    final currentUid = _cleanMaintenanceText(
-      _authentication.currentUser?.uid,
-    );
+    final currentUid = _cleanMaintenanceText(_authentication.currentUser?.uid);
     if (currentUid == null ||
         !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
       throw StateError(
@@ -412,33 +453,74 @@ extension _SyncServiceTicketsTemplates on SyncService {
     );
   }
 
-  Future<MaintenanceRecord?> _tryRecoverAcceptedMaintenanceCreation(
+  Future<_MaintenanceCreationRecoveryResult>
+  _tryRecoverAcceptedMaintenanceCreation(
     MaintenanceRecord local,
+    MaintenanceRecord remote,
   ) async {
-    final currentUid = _cleanMaintenanceText(
-      _authentication.currentUser?.uid,
-    );
-    if (currentUid == null ||
-        !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
-      return null;
+    // Existing edits are not creation recovery. Equality of the immutable
+    // identity permits the existing update/lifecycle rules; it does not prove
+    // an accepted creation receipt or infer legacy provenance. Confirm against
+    // the server because the batched lookup may have come from cache.
+    if (_sameMaintenanceCreationIdentity(local, remote)) {
+      try {
+        final exact = await _firestoreMaintenance
+            .readMaintenanceIssueCommandServerState(local.firestoreId!);
+        if (exact == null || !_sameMaintenanceCreationIdentity(local, exact)) {
+          return _blockedMaintenanceRecovery(
+            contradiction: true,
+            reason:
+                'The exact server record does not match this ticket\'s '
+                'saved creation identity.',
+          );
+        }
+        return _MaintenanceCreationRecoveryResult(
+          _MaintenanceCreationRecoveryDisposition.existingIdentity,
+          serverRecord: exact,
+        );
+      } catch (_) {
+        return _blockedMaintenanceRecovery(
+          reason: 'The existing ticket could not be verified with the server.',
+        );
+      }
     }
 
-    final createVersion = maintenanceCreateReplayVersion(local);
-    final command = buildMaintenanceIssueCreateCommand(
-      local,
-      createVersion: createVersion,
-    );
-    try {
-      final receipt = await _maintenanceCommands.execute(command);
-      validateMaintenanceIssueCreateReceipt(
-        command: command,
-        receipt: receipt,
-        createVersion: createVersion,
+    final currentUid = _cleanMaintenanceText(_authentication.currentUser?.uid);
+    if (currentUid == null ||
+        !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
+      return _blockedMaintenanceRecovery(
+        reason:
+            'The original reporter must be signed in to reconcile this '
+            'issue creation.',
       );
+    }
+
+    try {
+      late final int createVersion;
+      late final WorkflowCommand command;
+      try {
+        createVersion = maintenanceCreateReplayVersion(local);
+        command = buildMaintenanceIssueCreateCommand(
+          local,
+          createVersion: createVersion,
+        );
+      } on StateError catch (error) {
+        throw _MaintenanceCreationEvidenceError(error.message);
+      }
+      final receipt = await _maintenanceCommands.execute(command);
+      try {
+        validateMaintenanceIssueCreateReceipt(
+          command: command,
+          receipt: receipt,
+          createVersion: createVersion,
+        );
+      } on StateError catch (error) {
+        throw _MaintenanceCreationEvidenceError(error.message);
+      }
       final exactRemote = await _firestoreMaintenance
           .readMaintenanceIssueCommandServerState(local.firestoreId!);
       if (exactRemote == null) {
-        throw StateError(
+        throw _MaintenanceCreationEvidenceError(
           'The recovered issue-creation receipt has no server record.',
         );
       }
@@ -461,22 +543,74 @@ extension _SyncServiceTicketsTemplates on SyncService {
             'The recovered issue creation could not complete its pending lifecycle.',
           );
         }
-        return _validateGovernedCreationServerRecord(
-          lifecycle.serverRecord,
-          receipt,
-          currentUid,
+        return _MaintenanceCreationRecoveryResult(
+          _MaintenanceCreationRecoveryDisposition.recovered,
+          serverRecord: _validateGovernedCreationServerRecord(
+            lifecycle.serverRecord,
+            receipt,
+            currentUid,
+          ),
         );
       }
-      return validatedRemote;
+      return _MaintenanceCreationRecoveryResult(
+        _MaintenanceCreationRecoveryDisposition.recovered,
+        serverRecord: validatedRemote,
+      );
     } catch (error, stackTrace) {
       debugPrint(
-        'Governed creation recovery was not applicable to ticket '
+        'Governed creation recovery remains unresolved for ticket '
         '${local.id}: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
-      return null;
+      // A malformed local envelope, inconsistent receipt or inconsistent
+      // readback needs a person. A transport/read failure leaves the outcome
+      // uncertain. Neither permits a generic write, even if it could succeed.
+      final contradiction =
+          error is _MaintenanceCreationEvidenceError ||
+          (error is WorkflowException &&
+              (error.code == WorkflowErrorCode.idempotencyConflict ||
+                  error.code == WorkflowErrorCode.failedPrecondition));
+      return _blockedMaintenanceRecovery(
+        contradiction: contradiction,
+        reason: contradiction
+            ? 'Creation evidence is inconsistent and needs reconciliation.'
+            : 'The issue creation outcome could not be verified.',
+      );
     }
   }
+
+  bool _sameMaintenanceCreationIdentity(
+    MaintenanceRecord local,
+    MaintenanceRecord remote,
+  ) =>
+      !remote.isDeleted &&
+      local.version >= 1 &&
+      remote.version >= 1 &&
+      _cleanMaintenanceText(local.firestoreId) != null &&
+      local.firestoreId == remote.firestoreId &&
+      _cleanMaintenanceText(local.loggedByUid) != null &&
+      local.loggedByUid == remote.loggedByUid &&
+      local.createdAt.isAtSameMomentAs(remote.createdAt);
+
+  _MaintenanceCreationRecoveryResult _blockedMaintenanceRecovery({
+    required String reason,
+    bool contradiction = false,
+  }) => _MaintenanceCreationRecoveryResult(
+    contradiction
+        ? _MaintenanceCreationRecoveryDisposition.contradiction
+        : _MaintenanceCreationRecoveryDisposition.deferred,
+    error: WorkflowException(
+      contradiction
+          ? WorkflowErrorCode.failedPrecondition
+          : WorkflowErrorCode.unavailable,
+      '$reason Local changes are preserved. No fallback update was sent.',
+      details: <String, Object?>{
+        'reasonCode': contradiction
+            ? 'maintenance-creation-reconciliation-required'
+            : 'maintenance-creation-verification-unavailable',
+      },
+    ),
+  );
 
   MaintenanceRecord _validateGovernedCreationServerRecord(
     MaintenanceRecord remote,
@@ -488,7 +622,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         remote.version < 1 ||
         remote.loggedByUid != reporterUid ||
         remote.createdAt.toUtc() != receipt.appliedAt.toUtc()) {
-      throw StateError(
+      throw _MaintenanceCreationEvidenceError(
         'The governed issue-creation receipt does not match exact server state.',
       );
     }
@@ -613,9 +747,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     }
     if (local.isDeleted || (remote?.isDeleted ?? false)) return const [];
 
-    final currentUid = _cleanMaintenanceText(
-      _authentication.currentUser?.uid,
-    );
+    final currentUid = _cleanMaintenanceText(_authentication.currentUser?.uid);
     if (currentUid == null) return const [];
 
     final closeEvidence = _maintenanceCloseEvidence(local);
@@ -1308,11 +1440,16 @@ bool _syncReplayValueEquals(Object? remote, Object? expected) {
 
 enum _MaintenanceReplayStep { close, reopen }
 
-typedef _MaintenanceCreationReplayResult =
-    ({WorkflowCommandReceipt receipt, MaintenanceRecord serverRecord});
+typedef _MaintenanceCreationReplayResult = ({
+  WorkflowCommandReceipt receipt,
+  MaintenanceRecord serverRecord,
+});
 
-typedef _MaintenanceLifecycleReplayReceipt =
-    ({int version, DateTime updatedAt, MaintenanceRecord serverRecord});
+typedef _MaintenanceLifecycleReplayReceipt = ({
+  int version,
+  DateTime updatedAt,
+  MaintenanceRecord serverRecord,
+});
 
 typedef _MaintenanceCloseEvidence =
     ({

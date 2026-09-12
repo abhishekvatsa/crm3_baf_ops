@@ -19,6 +19,7 @@ import '../providers/maintenance_intelligence_provider.dart';
 import 'published_template_assignment_screen.dart';
 
 part 'maintenance_intelligence_history.dart';
+part 'maintenance_intelligence_subject_review.dart';
 
 class MaintenanceIntelligenceScreen extends ConsumerWidget {
   const MaintenanceIntelligenceScreen({super.key});
@@ -529,6 +530,10 @@ Future<void> _transitionPlan(
   MaintenancePlan plan,
   String status,
 ) async {
+  if (status == 'revalidate') {
+    await _reviewPlanSubject(context, ref, plan);
+    return;
+  }
   if (status == 'released') {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -736,6 +741,9 @@ class _PlanCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(plan.planningNotes!),
             ],
+            if (plan.originalAssetInstanceVersion != null)
+              Text('Original cover revision ${plan.originalAssetInstanceVersion}; '
+                  'reviewed revision ${plan.assetInstanceVersion}.'),
             if (canManage && next != null) ...[
               const Divider(height: BafSpacing.lg),
               Wrap(
@@ -743,6 +751,12 @@ class _PlanCard extends StatelessWidget {
                 spacing: BafSpacing.sm,
                 runSpacing: BafSpacing.sm,
                 children: [
+                  if (plan.isSerialInnerCover && plan.status == MaintenancePlanStatus.ready)
+                    OutlinedButton.icon(
+                      onPressed: () => onTransition('revalidate'),
+                      icon: const Icon(Icons.fact_check_outlined),
+                      label: const Text('Review current cover'),
+                    ),
                   TextButton.icon(
                     onPressed: () => onTransition('cancelled'),
                     icon: const Icon(Icons.close_rounded),

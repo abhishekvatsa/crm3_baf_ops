@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "618CE2AC84FA29BB2B4644AFFF115EE7F0302610979667B09550687B4E1E25E7",
+  "inventoryDigest": "D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -210,7 +210,8 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/business_sync_alignment_contract_test.dart",
-        "test/runtime_module_population_no_loss_test.dart"
+        "test/runtime_module_population_no_loss_test.dart",
+        "test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
       ]
     },
     {
@@ -356,7 +357,9 @@
         "read"
       ],
       "regressionTests": [
-        "test/a03_persistence_boundary_contract_test.dart"
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/inner_cover_acceptance_repository_test.dart",
+        "test/inner_cover_lifecycle_screen_test.dart"
       ]
     },
     {
@@ -864,7 +867,9 @@
         "read"
       ],
       "regressionTests": [
-        "test/a03_persistence_boundary_contract_test.dart"
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_plan_model_test.dart",
+        "functions/test/maintenanceIntelligence.test.js"
       ]
     },
     {
