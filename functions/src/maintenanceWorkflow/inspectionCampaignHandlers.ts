@@ -3,6 +3,7 @@ import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
 import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
 import {requireInspectionContextReview} from "./inspectionTargetContextHandlers";
+import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
 import {
   Actor,
   JsonMap,
@@ -1188,15 +1189,16 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (assetClassId !== campaign.data.assetClassId || payloadIdentityInvalid) {
     throw new WorkflowError("invalid-argument", "Observation registry identity is invalid.");
   }
-  const targetContextRevision = governedTarget.contextReview?.revision ?? 0;
+  const baselineTarget = governedTarget;
+  let targetContextRevision = governedTarget.contextReview?.revision ?? 0;
   const suppliedContextRevision = command.payload.targetContextRevision === undefined ? 0 :
     command.payload.targetContextRevision;
   if (!Number.isSafeInteger(suppliedContextRevision) || suppliedContextRevision !== targetContextRevision) {
     throw new WorkflowError("aborted", "The inspection target was reviewed again. Refresh its context before recording this observation.",
       {reasonCode: "inspection-context-review-stale"});
   }
-  const targetContextAuditId = governedTarget.contextReview?.auditId ?? null;
-  const targetContextOriginalLinkageId = targetContextRevision > 0 ? governedTarget.linkageId : null;
+  let targetContextAuditId = governedTarget.contextReview?.auditId ?? null;
+  let targetContextOriginalLinkageId = targetContextRevision > 0 ? governedTarget.linkageId : null;
   governedTarget = await requireInspectionContextReview(tx, campaignId, governedTarget);
   const value = parseObservationValue(command.payload.value, definition);
   const unit = optionalText(command.payload.unit, "unit", 40);
@@ -1210,6 +1212,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (definition.requiresChargeNo === true && chargeNo == null) {
     throw new WorkflowError("invalid-argument", "This inspection requires a charge number.");
   }
+  const observedAt = isoDate(command.payload.observedAt, "observedAt");
   if (superseded != null) {
     if (!superseded.exists || superseded.data == null ||
         superseded.data.campaignId !== campaignId) {
@@ -1221,10 +1224,15 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     if (!canCorrect) {
       throw new WorkflowError("permission-denied", "Actor cannot correct this observation.");
     }
+    governedTarget = await requireInspectionCorrectionContext(
+      tx, campaignId, baselineTarget, superseded.data, command.payload, observedAt);
+    targetContextRevision = governedTarget.contextReview?.revision ?? 0;
+    targetContextAuditId = governedTarget.contextReview?.auditId ?? null;
+    targetContextOriginalLinkageId = targetContextRevision > 0 ? baselineTarget.linkageId : null;
   }
-  const instance = populationMode === "assetInstances" ?
+  const instance = superseded == null && populationMode === "assetInstances" ?
     await tx.get(`asset_instances/${assetInstanceId}`) : null;
-  const node = componentNodeId == null ? null : await tx.get(`asset_hierarchy_nodes/${componentNodeId}`);
+  const node = superseded != null || componentNodeId == null ? null : await tx.get(`asset_hierarchy_nodes/${componentNodeId}`);
   if (instance != null && (!instance.exists || instance.data == null ||
       instance.data.status !== "active" || instance.data.assetNumber !== assetNumber ||
       instance.data.assetClassId !== assetClassId ||
@@ -1241,7 +1249,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       (assetClassId != null && node.data.assetClassId !== assetClassId))) {
     throw new WorkflowError("failed-precondition", "Observation component identity is stale.");
   }
-  if (populationMode === "installedInnerCoversByBase") {
+  if (superseded == null && populationMode === "installedInnerCoversByBase") {
     const hostAssetInstanceId = governedTarget.hostAssetInstanceId;
     const linkageId = governedTarget.linkageId;
     if (hostAssetInstanceId == null || linkageId == null ||
@@ -1301,7 +1309,6 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       );
     }
   }
-  const observedAt = isoDate(command.payload.observedAt, "observedAt");
   if (governedTarget.linkedAt != null && Date.parse(observedAt) < Date.parse(governedTarget.linkedAt)) {
     throw new WorkflowError("failed-precondition", "The observation predates this Inner Cover installation.",
       {reasonCode: "inspection-observation-before-linkage"});

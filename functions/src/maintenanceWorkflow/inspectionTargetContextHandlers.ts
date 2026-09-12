@@ -2,7 +2,7 @@ import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
 import {WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
-import {cleanText, intValue, iso, stableJson} from "./utils";
+import {cleanText, intValue, iso, persistedInstantText, stableJson} from "./utils";
 import {
   buildInspectionTargetPopulation, InspectionCampaignTarget,
   inspectionContextIdentity, inspectionTargetPopulationJson, parseInspectionTargetPopulation,
@@ -20,7 +20,7 @@ export async function requireInspectionContextReview(
       audit.data.targetKey !== target.targetKey || audit.data.operation !== "revalidate-context" ||
       audit.data.performedByUid !== review.reviewedByUid ||
       audit.data.performedByName !== review.reviewedByName ||
-      audit.data.performedAt !== review.reviewedAt || audit.data.reason !== review.reason ||
+      persistedInstantText(audit.data.performedAt) !== review.reviewedAt || audit.data.reason !== review.reason ||
       audit.data.afterJson !== stableJson(review as unknown as JsonMap)) {
     throw new WorkflowError("failed-precondition", "The reviewed inspection context lacks its original audit evidence.",
       {reasonCode: "inspection-context-review-evidence-missing"});

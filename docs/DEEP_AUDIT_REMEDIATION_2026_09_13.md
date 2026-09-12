@@ -117,6 +117,30 @@ The Rules job stopped before emulators because npm returned an unavailable
 audit response. Neither failure was waived; the final source still requires
 all five CI jobs to pass.
 
+The published follow-up `08d56d21` passed all five release-gate jobs and CodeQL
+(release run `34721362992`). The independent PR review also found a further P1:
+an inspection correction after a context review could inherit a later
+installation. The server now derives the original context from the superseded
+reading and its immutable baseline/review audit, retaining the current
+campaign/review version as a concurrency precondition. Historical component
+metadata and installation/removal bounds are preserved and checked. The
+correction form shows the original location and starts with its original time.
+
+Real Firestore tests additionally reproduced a context-audit Timestamp/string
+comparison failure that memory-only fixtures did not expose. Persisted
+`performedAt` and historical `linkedAt` are now normalized before comparison,
+with all physical identity and audit checks retained. Final focused results:
+**88 host, 18 Firestore emulator, 23 widget and 11 reader/context tests passed**;
+Functions build/inventories and scoped Flutter analysis are clean. The
+dedicated inspection repair note records the original failures, passing logs
+and actual handler-produced cross-runtime fixture. These final inspection
+changes follow the successful `08d56d21` run and require their own final CI.
+The final complete canonical source/authority audit passes **150/150** in
+`build/review-20260912/build28-final-inspection-canonical-verified.txt`.
+The first attempt exposed the inspection editor's line limit; the unchanged
+submission path and its draft now share a small companion part, preserving
+both existing limits. All 34 affected Flutter checks pass after extraction.
+
 The retained release records describe the older 15-function deployment. The
 new source declares 19 endpoints, including four new V2 callable endpoints.
 Current deployment evidence must measure their creation and any associated

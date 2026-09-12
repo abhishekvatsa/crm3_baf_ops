@@ -18,6 +18,50 @@ The original target/key, campaign definition/baseline and readings remain intact
 
 This is not a serial-change mechanism, automatic rebinding, acceptance of unresolved repair, or automatic migration of legacy evidence. Users of the campaign must upgrade before its first review: Build 27 cannot perform reviewed follow-up and cannot decode a relocated review-aware observation. Capability presence proves backend support, not fleet adoption.
 
+## Corrections retain the recorded historical context
+
+The final PR review identified a missing distinction: correcting the current
+certified reading after a later context review must retain that reading's
+recorded installation. Applying the campaign's latest context could reject its
+original observation time or attribute the correction to a different linkage.
+
+The command still supplies the current campaign/context revision as a
+concurrency precondition. The server derives the correction's physical context
+from the superseded immutable observation and the original campaign baseline
+or that observation's authenticated historical review audit. It retains the
+original linkage, context revision, audit and component metadata. A historical
+Inner Cover installation may now be inactive; its durable identity and
+installation/removal interval must still validate both the original and
+corrected event time. Missing or contradictory evidence remains refused.
+The current-certified-reading and correction-permission checks remain in force.
+The campaign's latest reviewed context and superseded observation remain intact.
+
+The editor starts with the original observation time, labels its original
+location and preserves the recorded component name/version/path even if the
+current component was renamed or retired. Production decoder/report tests use
+an actual workflow-handler-produced correction from review revision 1 while
+the campaign is at revision 2, including revision 0 history. The 23 screen tests
+and 11 decoder/context/explicit-selection tests pass; scoped analysis is clean.
+
+The real Firestore emulator also exposed the existing context-audit comparison
+of a native `performedAt` Timestamp with a parsed ISO string. The correction
+normalizes persisted instants before comparison, including the observation's
+`linkedAt`, while retaining the exact identity and audit checks. Memory-only
+fixtures did not expose that storage representation difference.
+
+Final focused backend evidence: **88 host tests and 18 real Firestore emulator
+tests passed**, including four new native-storage/history cases. Logs are
+`build/review-20260912/inspection-correction-host-final.txt` and
+`build/review-20260912/inspection-correction-emulator-final.txt`. The earlier
+native failure is retained in `inspection-correction-emulator-before.txt` in
+the same directory. The emitted-source/callable/notification inventories and
+Functions build pass. This is emulator evidence, not a production deployment.
+
+Observation draft serialization and its existing dialog/dispatch function now
+share a small companion part. The editor and parent screen remain below their
+unchanged architecture limits (1,477/1,550 and 2,456/2,500 lines). A02 passes;
+all 34 affected Flutter checks pass after extraction, with clean analysis.
+
 ## Verification scope
 
 `functions/test/inspectionPhysicalContext.test.js` executes the compiled workflow handlers and a real registry create/update using one transactional document store. It covers the adverse reading → canonical ticket → actual resolution → close → registry revision → reopen → refused stale reading → manager review → follow-up → same-finding verification journey. Installed-cover cases prove original serial continuity across Base relocation and refusal of a different serial, stale review/version, wrong host, incompatible definition, retired component, missing/tampered audit and pre-installation reading. Existing inspection campaign tests retain their historical receipt replay control.

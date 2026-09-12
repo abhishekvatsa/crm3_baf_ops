@@ -27,6 +27,7 @@ import '../domain/inspection_campaign_submission.dart';
 import 'saved_inspection_campaign_panel.dart';
 
 part 'inspection_programmes_editors.dart';
+part 'inspection_observation_submission.dart';
 part 'inspection_programmes_audit_board.dart';
 part 'inspection_programmes_dialogs.dart';
 part 'inspection_programmes_target_picker.dart';
@@ -2210,51 +2211,6 @@ Future<void> _adjudicateFinding(
     ),
     'Finding adjudication recorded.',
   );
-}
-
-Future<void> _recordObservation(
-  BuildContext context,
-  WidgetRef ref,
-  InspectionCampaign campaign,
-  List<AssetHierarchyNode> nodes, {
-  InspectionObservation? correction,
-  String? initialTargetKey,
-}) async {
-  final draft = await showDialog<_InspectionObservationDraft>(
-    context: context,
-    builder: (_) => _InspectionObservationEditor(
-      campaign: campaign,
-      nodes: nodes,
-      correction: correction,
-      initialTargetKey: initialTargetKey,
-    ),
-  );
-  if (draft == null || !context.mounted) return;
-  final receipt = await _runInspectionCommand(
-    context,
-    ref,
-    WorkflowCommand(
-      commandId: 'recordInspectionObservation_${const Uuid().v4()}',
-      type: WorkflowCommandType.recordInspectionObservation,
-      aggregateId: campaign.id,
-      expectedVersion: campaign.version,
-      payload: draft.toPayload(),
-    ),
-    correction == null
-        ? 'Inspection reading recorded.'
-        : 'Correction recorded.',
-  );
-  if (receipt?.result['issueRecommended'] == true && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'This result is outside the governed range. Raise a maintenance issue, then link its ID from this reading.',
-        ),
-        backgroundColor: BafColors.warning,
-        duration: Duration(seconds: 6),
-      ),
-    );
-  }
 }
 
 Future<void> _openAuditTarget(

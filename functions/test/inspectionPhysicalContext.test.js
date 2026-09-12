@@ -117,7 +117,8 @@ describe('Explicit same-subject context successor', () => {
     store.seed('inner_cover_linkages/link-n4-base-206', {...store.read('inner_cover_linkages/link-n4-base-205'),
       linkageId: 'link-n4-base-206', baseAssetInstanceId: 'base-206', baseAssetNumber: 206, baseAssetName: 'Base 206',
       installedAt: '2026-08-21T06:00:00.000Z'});
-    store.seed('inner_cover_linkages/link-n4-base-205', {...store.read('inner_cover_linkages/link-n4-base-205'), active: false, version: 2});
+    store.seed('inner_cover_linkages/link-n4-base-205', {...store.read('inner_cover_linkages/link-n4-base-205'), active: false, version: 2,
+      removedAt: '2026-08-21T05:50:00.000Z'});
     store.seed('base_inner_cover_assignments/base-205', {...store.read('base_inner_cover_assignments/base-205'),
       innerCoverId: null, innerCoverSerialNumber: null, linkageId: null, linkedAt: null, version: 5});
     return {...inspectionContextIdentity(target), assetNumber: 206, assetInstanceVersion: 8,
@@ -127,6 +128,139 @@ describe('Explicit same-subject context successor', () => {
   const reviewInstalled = (target, reviewedContext) => ({commandId: 'review-installed', commandType: 'revalidateInspectionTargetContext',
     aggregateId: 'installed', expectedVersion: 2, payload: {reviewerUid: 'admin', targetKey: target.targetKey, expectedContextRevision: 0,
       reviewedContext, reason: 'Reviewed original serial N4 following its recorded relocation.'}});
+
+  test('correction after relocation retains the superseded baseline installation and time', async () => {
+    const f = await installed(); const original = f.store.read('inspection_observations/first');
+    await f.run(reviewInstalled(f.target, relocate(f)));
+    const correction = f.reading('correction', 3, 2.8, original.observedAt);
+    correction.payload.targetContextRevision = 1;
+    correction.payload.supersedesObservationId = 'first';
+    await f.run(correction);
+    expect(f.store.read('inspection_observations/correction')).toMatchObject({
+      assetNumber: 205, hostAssetInstanceId: 'base-205', subjectSerialNumber: 'N4',
+      linkageId: 'link-n4-base-205', linkageVersion: 1, linkedAt: original.linkedAt,
+      targetContextRevision: 0, targetContextAuditId: null, targetContextOriginalLinkageId: null,
+      observedAt: original.observedAt, supersedesObservationId: 'first', numericValue: 2.8,
+    });
+    expect(f.store.read('inspection_observations/first')).toEqual(original);
+    expect(f.store.read('inspection_campaigns/installed').targetPopulation[0]).toMatchObject({
+      assetNumber: 205, lastObservationId: 'correction', contextReview: {revision: 1, context: {hostAssetNumber: 206}},
+    });
+    expect(f.store.read('inspection_findings/inspection-finding-first')).toMatchObject({
+      currentObservationId: 'correction', assetNumber: 205, linkageId: 'link-n4-base-205',
+    });
+    const later = f.reading('after-correction', 4, 3, '2026-08-21T06:30:00.000Z');
+    later.payload.targetContextRevision = 1; await f.run(later);
+    const accepted = f.store.entries(); await f.run(correction); expect(f.store.entries()).toEqual(accepted);
+  });
+
+  async function twiceReviewed() {
+    const f = await installed();
+    const current = relocate(f); await f.run(reviewInstalled(f.target, current));
+    const reading = f.reading('reviewed-reading', 3, 1.7, '2026-08-21T06:30:00.000Z');
+    reading.payload.targetContextRevision = 1; await f.run(reading);
+    f.store.seed('inner_cover_profiles/inner-cover-n4', {...f.store.read('inner_cover_profiles/inner-cover-n4'), version: 9});
+    await f.run({...reviewInstalled(f.target, {...current, assetInstanceVersion: 9}),
+      commandId: 'review-second', expectedVersion: 4,
+      payload: {...reviewInstalled(f.target, {...current, assetInstanceVersion: 9}).payload, expectedContextRevision: 1}});
+    const correction = f.reading('reviewed-correction', 5, 2.8, reading.payload.observedAt);
+    correction.payload.targetContextRevision = 2; correction.payload.supersedesObservationId = 'reviewed-reading';
+    return {...f, correction};
+  }
+
+  test('correction keeps the older authenticated review and retired component while latest review stays intact', async () => {
+    const f = await twiceReviewed(); const original = f.store.read('inspection_observations/reviewed-reading');
+    f.store.seed('asset_hierarchy_nodes/inner-cover-shell', {...f.store.read('asset_hierarchy_nodes/inner-cover-shell'),
+      version: 4, name: 'Renamed component', status: 'retired'});
+    await f.run(f.correction);
+    expect(f.store.read('inspection_observations/reviewed-correction')).toMatchObject({
+      assetNumber: 206, hostAssetInstanceId: 'base-206', subjectSerialNumber: 'N4',
+      linkageId: 'link-n4-base-206', targetContextRevision: 1, targetContextAuditId: 'review-installed',
+      targetContextOriginalLinkageId: 'link-n4-base-205', componentNodeVersion: 3,
+      componentName: 'Inner Cover shell', hierarchyPath: ['Inner Cover', 'Shell'], observedAt: original.observedAt,
+    });
+    expect(f.store.read('inspection_observations/reviewed-reading')).toEqual(original);
+    expect(f.store.read('inspection_campaigns/installed').targetPopulation[0]).toMatchObject({
+      lastObservationId: 'reviewed-correction', contextReview: {revision: 2, auditId: 'review-second'},
+    });
+    expect(f.store.read('inspection_findings/inspection-finding-first')).toMatchObject({
+      currentObservationId: 'reviewed-correction', assetNumber: 206, linkageId: 'link-n4-base-206',
+    });
+    if (process.env.INSPECTION_CORRECTION_FIXTURE) require('node:fs').writeFileSync(process.env.INSPECTION_CORRECTION_FIXTURE,
+      JSON.stringify({provenance: 'Actual MaintenanceWorkflowCommandService producer: inspectionPhysicalContext.test.js revision 1 correction after review 2.',
+        campaign: f.store.read('inspection_campaigns/installed'), original,
+        correction: f.store.read('inspection_observations/reviewed-correction'),
+        observations: f.store.entries().filter(([path]) => path.startsWith('inspection_observations/')).map(([, row]) => row),
+        findings: f.store.entries().filter(([path]) => path.startsWith('inspection_findings/')).map(([, row]) => row)}, null, 2) + '\n');
+  });
+
+  test.each(['missing-audit', 'malformed-json', 'wrong-actor', 'wrong-campaign', 'wrong-revision', 'changed-context'])(
+    'historical correction rejects %s audit without writes', async (mode) => {
+      const f = await twiceReviewed(); const path = 'inspection_target_audits/review-installed';
+      const audit = f.store.read(path);
+      if (mode === 'missing-audit') await f.store.runTransaction(async (tx) => tx.delete(path));
+      else {
+        if (mode === 'malformed-json') audit.afterJson = '{';
+        if (mode === 'wrong-actor') audit.performedByUid = 'another-manager';
+        if (mode === 'wrong-campaign') audit.campaignId = 'another-campaign';
+        if (mode === 'wrong-revision' || mode === 'changed-context') {
+          const review = JSON.parse(audit.afterJson);
+          if (mode === 'wrong-revision') review.revision = 2;
+          else review.context.hostAssetNumber = 207;
+          audit.afterJson = JSON.stringify(review);
+        }
+        f.store.seed(path, audit);
+      }
+      const before = f.store.entries(); await expect(f.run(f.correction)).rejects.toMatchObject({code: 'failed-precondition'});
+      expect(f.store.entries()).toEqual(before);
+    });
+
+  test.each(['stale-campaign', 'stale-current-review', 'not-current', 'wrong-target', 'wrong-serial', 'wrong-host',
+    'forged-component', 'forged-path', 'missing-removal-time', 'after-removal', 'before-installation',
+    'historical-link-serial', 'historical-link-host-class', 'historical-link-host-number', 'historical-link-host-name',
+    'historical-link-missing', 'historical-link-version', 'malformed-removal-time'])(
+    'baseline correction rejects %s without writes', async (mode) => {
+      const f = await installed(); await f.run(reviewInstalled(f.target, relocate(f)));
+      const command = f.reading('bad-correction', 3, 2.8);
+      command.payload.targetContextRevision = 1; command.payload.supersedesObservationId = 'first';
+      if (mode === 'stale-campaign') command.expectedVersion = 2;
+      if (mode === 'stale-current-review') command.payload.targetContextRevision = 0;
+      if (mode === 'not-current') {
+        const newer = f.reading('newer', 3, 2.7, '2026-08-21T06:30:00.000Z');
+        newer.payload.targetContextRevision = 1; await f.run(newer); command.expectedVersion = 4;
+      }
+      if (mode === 'wrong-target') command.payload.targetKey = 'other-target';
+      if (mode === 'wrong-serial' || mode === 'wrong-host') f.store.seed('inspection_observations/first', {
+        ...f.store.read('inspection_observations/first'), [mode === 'wrong-serial' ? 'subjectSerialNumber' : 'hostAssetInstanceId']: 'other'});
+      if (mode === 'forged-component') command.payload.componentName = 'A newer component';
+      if (mode === 'forged-path') command.payload.hierarchyPath = ['Other'];
+      if (mode === 'after-removal') command.payload.observedAt = '2026-08-21T06:30:00.000Z';
+      if (mode === 'before-installation') command.payload.observedAt = '2026-08-21T03:59:00.000Z';
+      const linkPath = 'inner_cover_linkages/link-n4-base-205';
+      const linkRow = f.store.read(linkPath);
+      if (mode === 'missing-removal-time') f.store.seed(linkPath, {...linkRow, removedAt: null});
+      if (mode === 'historical-link-serial') f.store.seed(linkPath, {...linkRow, innerCoverSerialNumber: 'N3'});
+      if (mode === 'historical-link-host-class') f.store.seed(linkPath, {...linkRow, baseAssetClassId: 'other'});
+      if (mode === 'historical-link-host-number') f.store.seed(linkPath, {...linkRow, baseAssetNumber: 999});
+      if (mode === 'historical-link-host-name') f.store.seed(linkPath, {...linkRow, baseAssetName: 'Other'});
+      if (mode === 'historical-link-version') f.store.seed(linkPath, {...linkRow, version: 0});
+      if (mode === 'historical-link-missing') await f.store.runTransaction(async (tx) => tx.delete(linkPath));
+      if (mode === 'malformed-removal-time') f.store.seed(linkPath, {...linkRow, removedAt: '2026-02-31T05:50:00.000Z'});
+      const before = f.store.entries(); await expect(f.run(command)).rejects.toMatchObject({
+        code: mode.startsWith('stale') ? 'aborted' : 'failed-precondition'});
+      expect(f.store.entries()).toEqual(before);
+    });
+
+  test('another ordinary observer cannot correct an old reading after its context review', async () => {
+    const f = await installed(); await f.run(reviewInstalled(f.target, relocate(f)));
+    const other = seedActor(f.store, 'other-observer', ['seniorInstrumentation']);
+    const command = f.reading('unauthorized-correction', 3, 2.8);
+    command.payload.targetContextRevision = 1; command.payload.supersedesObservationId = 'first';
+    const before = f.store.entries();
+    await expect(f.service.execute(command, {actor: other, serverNow: at('2026-08-21T07:00:00.000Z')}))
+      .rejects.toMatchObject({code: 'permission-denied'});
+    expect(f.store.entries()).toEqual(before);
+  });
 
   test('same serial on a new Base preserves the target and can use its original canonical repair', async () => {
     const f = await installed(); const {store, run, target, reading} = f;

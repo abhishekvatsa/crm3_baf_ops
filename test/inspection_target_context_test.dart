@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
+import 'package:crm3_baf_ops/features/inspections/data/inspection_evidence_snapshot.dart';
 import 'package:crm3_baf_ops/features/inspections/repositories/inspection_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'inspection_campaign_model_test.dart'
@@ -43,6 +47,77 @@ Map<String, dynamic> review(Map<String, dynamic> current) => {
 };
 
 void main() {
+  test(
+    'actual corrected historical context decodes and remains report-complete after a later review',
+    () {
+      final fixture =
+          jsonDecode(
+                File(
+                  'test/fixtures/inspection_correction_historical_context.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final campaignMap = fixture['campaign'] as Map<String, dynamic>;
+      final campaign = InspectionCampaign.fromMap(
+        campaignMap,
+        campaignMap['campaignId'] as String,
+      );
+      InspectionObservation decodeObservation(Map<String, dynamic> row) =>
+          InspectionObservation.fromMap(row, row['observationId'] as String);
+      final original = decodeObservation(
+        fixture['original'] as Map<String, dynamic>,
+      );
+      final correction = decodeObservation(
+        fixture['correction'] as Map<String, dynamic>,
+      );
+      final observations = (fixture['observations'] as List)
+          .map((row) => decodeObservation(row as Map<String, dynamic>))
+          .toList();
+      final findings = (fixture['findings'] as List).map((value) {
+        final row = value as Map<String, dynamic>;
+        return InspectionFinding.fromMap(row, row['findingId'] as String);
+      }).toList();
+      expect(campaign.targets.single.contextRevision, 2);
+      expect(correction.targetContextRevision, 1);
+      expect(correction.targetContextAuditId, original.targetContextAuditId);
+      expect(
+        correction.targetContextOriginalLinkageId,
+        original.targetContextOriginalLinkageId,
+      );
+      expect(correction.linkageId, original.linkageId);
+      expect(correction.hostAssetInstanceId, original.hostAssetInstanceId);
+      expect(correction.rowLabel, 'Base 206 (N4)');
+      expect(correction.observedAt, original.observedAt);
+      expect(correction.componentNodeVersion, original.componentNodeVersion);
+      expect(correction.componentName, original.componentName);
+      expect(correction.hierarchyPath, original.hierarchyPath);
+      expect(correction.supersedesObservationId, original.id);
+      expect(observations.any((row) => row.targetContextRevision == 0), isTrue);
+      expect(
+        InspectionCampaignReportEvidence(
+          campaign: campaign,
+          observations: observations,
+          findings: findings,
+        ).isInternallyComplete,
+        isTrue,
+      );
+      expect(
+        () => decodeObservation({
+          ...fixture['correction'] as Map<String, dynamic>,
+          'targetContextAuditId': null,
+        }),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => decodeObservation({
+          ...fixture['correction'] as Map<String, dynamic>,
+          'assetNumber': 999,
+        }),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    },
+  );
+
   test(
     'review parser retains original target and shows approved same-serial current host',
     () {

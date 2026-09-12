@@ -901,73 +901,6 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
       .toList(growable: false);
 }
 
-class _InspectionObservationDraft {
-  const _InspectionObservationDraft({
-    required this.observationId,
-    required this.campaign,
-    required this.target,
-    required this.component,
-    required this.physicalPosition,
-    required this.observedAt,
-    required this.numericValue,
-    required this.booleanValue,
-    required this.textValue,
-    required this.choiceValue,
-    required this.conditions,
-    required this.chargeNo,
-    required this.note,
-    required this.evidenceUrls,
-    required this.supersedesObservationId,
-  });
-
-  final String observationId;
-  final InspectionCampaign campaign;
-  final InspectionCampaignTarget target;
-  final AssetHierarchyNode? component;
-  final String? physicalPosition;
-  final DateTime observedAt;
-  final double? numericValue;
-  final bool? booleanValue;
-  final String? textValue;
-  final String? choiceValue;
-  final Map<String, String> conditions;
-  final int? chargeNo;
-  final String? note;
-  final List<String> evidenceUrls;
-  final String? supersedesObservationId;
-
-  Map<String, Object?> toPayload() => {
-    'observationId': observationId,
-    'targetKey': target.targetKey,
-    if (target.contextRevision > 0)
-      'targetContextRevision': target.contextRevision,
-    'definitionVersion': campaign.definition.version,
-    'assetTypeKey': campaign.assetTypeKey,
-    'assetNumber': target.assetNumber,
-    'assetClassId': target.assetClassId,
-    'assetInstanceId': target.assetInstanceId,
-    'componentNodeId': component?.id,
-    'componentNodeVersion': component?.version,
-    'componentName': component?.name,
-    'hierarchyPath': component?.hierarchyPath ?? const <String>[],
-    'physicalPosition': physicalPosition,
-    'observedAt': observedAt.toUtc().toIso8601String(),
-    'value': {
-      'valueType': campaign.definition.valueType.name,
-      'numericValue': numericValue,
-      'booleanValue': booleanValue,
-      'textValue': textValue,
-      'choiceValue': choiceValue,
-    },
-    'unit': campaign.definition.unit,
-    'operatingConditions': conditions,
-    'chargeNo': chargeNo,
-    'note': note,
-    'evidenceUrls': evidenceUrls,
-    'supersedesObservationId': supersedesObservationId,
-  };
-}
-
 class _InspectionObservationEditor extends StatefulWidget {
   const _InspectionObservationEditor({
     required this.campaign,
@@ -1010,7 +943,7 @@ class _InspectionObservationEditorState
         correction?.targetKey ??
         requestedTarget?.targetKey ??
         _selectableTargets.firstOrNull?.targetKey;
-    _observedAt = DateTime.now();
+    _observedAt = correction?.observedAt.toLocal() ?? DateTime.now();
     _booleanValue = correction?.booleanValue;
     _choiceValue = correction?.choiceValue;
     _value = TextEditingController(
@@ -1066,7 +999,7 @@ class _InspectionObservationEditorState
                       : Icons.add_chart_rounded,
                   title: definition.title,
                   text: locked
-                      ? 'The original remains intact. This creates a new current result for the same target.'
+                      ? 'The original remains intact. Correct its reading at the original location and time; this is not a new inspection at the current installation.'
                       : definition.description,
                 ),
                 const SizedBox(height: BafSpacing.lg),
@@ -1089,7 +1022,17 @@ class _InspectionObservationEditorState
                         .map(
                           (target) => DropdownMenuItem(
                             value: target.targetKey,
-                            child: Text(_targetLabel(target, nodes)),
+                            child: Text(
+                              correction == null
+                                  ? _targetLabel(target, nodes)
+                                  : [
+                                      correction.rowLabel,
+                                      if (correction.componentName != null)
+                                        correction.componentName!,
+                                      if (correction.physicalPosition != null)
+                                        correction.physicalPosition!,
+                                    ].join(' · '),
+                            ),
                           ),
                         )
                         .toList(),
@@ -1097,7 +1040,9 @@ class _InspectionObservationEditorState
                         ? null
                         : (value) => setState(() => _targetKey = value),
                   ),
-                if (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
+                if (!locked &&
+                    definition.componentNodeIds.isNotEmpty &&
+                    nodes.isEmpty)
                   const _InlineNotice(
                     icon: Icons.gpp_bad_outlined,
                     text:
@@ -1195,7 +1140,9 @@ class _InspectionObservationEditorState
         FilledButton.icon(
           onPressed:
               targets.isEmpty ||
-                  (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
+                  (!locked &&
+                      definition.componentNodeIds.isNotEmpty &&
+                      nodes.isEmpty)
               ? null
               : _submit,
           icon: const Icon(Icons.save_outlined),
@@ -1363,6 +1310,7 @@ class _InspectionObservationEditorState
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
         evidenceUrls: _lines(_evidence.text),
         supersedesObservationId: widget.correction?.id,
+        correction: widget.correction,
       ),
     );
   }

@@ -17,8 +17,100 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_pr
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
+
+import 'inspection_campaign_model_test.dart'
+    show innerCoverCampaignMap, observationMap;
 
 void main() {
+  for (final currentComponentAvailable in [true, false]) {
+    testWidgets(
+      'correction retains historical location, time and component with live component $currentComponentAvailable',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final (campaign, observation) = _relocatedCorrectionFixture();
+        final sent = <WorkflowCommand>[];
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: [observation],
+            nodes: currentComponentAvailable ? [_shellNode()] : [],
+            executeCommand: (command) async {
+              sent.add(command);
+              return WorkflowCommandReceipt(
+                commandId: command.commandId,
+                resultKey: 'inspection-observation-recorded',
+                aggregateVersion: campaign.version + 1,
+                result: const {},
+                appliedAt: DateTime.utc(2026, 9, 13),
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        final cell = find.byKey(
+          ValueKey(
+            'inspection-audit-cell-${campaign.targets.single.targetKey}',
+          ),
+        );
+        await tester.ensureVisible(cell);
+        await tester.tap(cell);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Correct current reading'));
+        await tester.pumpAndSettle();
+        final dialog = find.byType(AlertDialog);
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.text('Base 206 (N4) · Original shell label · Shell'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.textContaining('Base 207'),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.text(
+              DateFormat(
+                'dd MMM yyyy, HH:mm',
+              ).format(observation.observedAt.toLocal()),
+            ),
+          ),
+          findsOneWidget,
+        );
+        final submit = find.widgetWithText(FilledButton, 'Record correction');
+        expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+        await tester.tap(submit);
+        await tester.pumpAndSettle();
+        expect(sent, hasLength(1));
+        final command = sent.single;
+        expect(command.expectedVersion, campaign.version);
+        expect(command.payload['targetContextRevision'], 2);
+        expect(command.payload['supersedesObservationId'], observation.id);
+        expect(
+          command.payload['observedAt'],
+          observation.observedAt.toUtc().toIso8601String(),
+        );
+        expect(command.payload['componentNodeId'], observation.componentNodeId);
+        expect(command.payload['componentNodeVersion'], 2);
+        expect(command.payload['componentName'], 'Original shell label');
+        expect(command.payload['hierarchyPath'], observation.hierarchyPath);
+        expect(
+          command.payload['physicalPosition'],
+          observation.physicalPosition,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'context review hides retained evidence on account switch or error and restores it only for its origin',
     (tester) async {
@@ -962,6 +1054,7 @@ Widget _testApp(
   InspectionRepository? contextRepository,
   Stream<AppUser?>? accounts,
   Future<void> Function(String)? contextCapability,
+  List<AssetHierarchyNode>? nodes,
 }) => ProviderScope(
   overrides: [
     currentAppUserProvider.overrideWith(
@@ -1009,9 +1102,10 @@ Widget _testApp(
     }),
     assetHierarchyNodesProvider(campaign.assetClassId).overrideWith(
       (_) => Stream.value(
-        campaign.assetTypeKey == 'innerCover'
-            ? <AssetHierarchyNode>[_shellNode()]
-            : const <AssetHierarchyNode>[],
+        nodes ??
+            (campaign.assetTypeKey == 'innerCover'
+                ? <AssetHierarchyNode>[_shellNode()]
+                : const <AssetHierarchyNode>[]),
       ),
     ),
     allAssetInstancesProvider.overrideWith((_) => Stream.value(const [])),
@@ -1035,6 +1129,76 @@ Widget _testApp(
     home: InspectionCampaignDetailScreen(campaignId: campaign.id),
   ),
 );
+
+(InspectionCampaign, InspectionObservation) _relocatedCorrectionFixture() {
+  final map = innerCoverCampaignMap();
+  final original =
+      (map['targetPopulation'] as List).single as Map<String, dynamic>;
+  Map<String, dynamic> relocated(int base) => {
+    ...original,
+    'targetKey':
+        'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-$base',
+    'assetNumber': base,
+    'assetInstanceVersion': base - 198,
+    'hostAssetInstanceId': 'base-$base',
+    'hostAssetNumber': base,
+    'hostAssetInstanceName': 'Base $base',
+    'linkageId': 'link-n4-base-$base',
+    'linkedAt': '2026-08-${base - 184}T04:00:00.000Z',
+  };
+  const observedAt = '2026-08-22T05:17:36.123456Z';
+  final current = {
+    ...original,
+    'contextReview': {
+      'schemaVersion': 1,
+      'revision': 2,
+      'auditId': 'review-2',
+      'reviewedAt': '2026-08-23T04:00:00.000Z',
+      'reviewedByUid': 'admin-1',
+      'reviewedByName': 'Admin One',
+      'reason': 'Verified relocation of the same serial.',
+      'context': relocated(207),
+    },
+    'disposition': 'observed',
+    'lastObservationId': 'historical-reading',
+    'lastObservedAt': observedAt,
+  };
+  map.addAll({
+    'version': 6,
+    'targetPopulation': [current],
+    'targetDispositionCounts': {
+      'pending': 0,
+      'observed': 1,
+      'deferred': 0,
+      'unavailable': 0,
+      'excludedWithReason': 0,
+      'requiresReaudit': 0,
+    },
+    'observationCount': 1,
+    'distinctTargetKeys': [original['targetKey']],
+    'latestObservationAt': observedAt,
+  });
+  final observation = InspectionObservation.fromMap({
+    ...observationMap(),
+    ...relocated(206),
+    'observationId': 'historical-reading',
+    'campaignId': map['campaignId'],
+    'definition': map['definition'],
+    'targetKey': original['targetKey'],
+    'targetContextRevision': 1,
+    'targetContextAuditId': 'review-1',
+    'targetContextOriginalLinkageId': original['linkageId'],
+    'componentNodeVersion': 2,
+    'componentName': 'Original shell label',
+    'hierarchyPath': ['Inner Cover', 'Original shell label'],
+    'observedAt': observedAt,
+    'recordedAt': '2026-08-22T05:18:00.000Z',
+  }, 'historical-reading');
+  return (
+    InspectionCampaign.fromMap(map, map['campaignId'] as String),
+    observation,
+  );
+}
 
 AppUser _admin() => AppUser(
   uid: 'admin-1',
