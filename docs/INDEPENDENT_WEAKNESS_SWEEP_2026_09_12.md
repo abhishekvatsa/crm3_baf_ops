@@ -1,258 +1,253 @@
-# Independent weakness sweep — 12 September 2026
+# Independent weakness sweep — 12 September 2026, revision 2
 
-**Scope:** a self-directed pass over the merged `main`, looking for weaknesses
-not raised by the Build 27 business-flow audit or the correction rounds, with
-particular attention to the presentation layer, which none of the previous
-reviews examined.
+**Scope:** a self-directed pass over merged `main`, looking for weaknesses not
+raised by the Build 27 business-flow audit or the correction rounds, with
+attention to the presentation layer.
 
-**Source examined:** `46425b6a` (merged `main`), plus the installed
-`riverpod-2.6.1` and `flutter_lints-3.0.2` package sources.
+**Source examined:** `d2eac79e`, plus installed `riverpod-2.6.1` and
+`flutter_lints-3.0.2` package sources.
 
-**Nature of work:** read-only source analysis and package-source verification.
-No handset was operated, no production record read, no deployment performed,
-and the Firestore emulator suites were not run. Where a failure sequence is
-stated, it follows from the inspected control flow; it is not a claim that the
-sequence was executed.
+**Nature of work:** read-only source and package-source analysis. No handset, no
+production record, no deployment, and the Firestore emulator suites were not run
+during this sweep.
 
-## Evidence classification used
+## Revision 2 — what changed and why
 
-| Class | Meaning |
+Revision 1 was reviewed and several of its "confirmed" conclusions were wrong.
+The corrections were verified here against package source before being accepted,
+and they are material enough that revision 1 should not be used.
+
+| Revision 1 said | Correct position |
 | --- | --- |
-| **Confirmed** | Verified by reading the exact source, including package internals where behaviour depends on them |
-| **Derived** | The failure sequence follows from inspected control flow; not executed here |
-| **Observation** | A measured property of the codebase, offered for judgement rather than as a defect |
-| **Checked — sound** | Examined and found correct. Recorded so it is not re-examined |
+| `.value` throws on error; swap to `valueOrNull` | **Incomplete and partly wrong.** After one successful load, an error retains the previous value and *both* accessors return stale data. The swap would not fix the more dangerous case |
+| A raw Firestore error reaches the operator in `charge_abnormalities_screen.form.dart` | **Wrong.** Its catch supplies a plain-English fallback |
+| 12 submit handlers lack a busy guard | **~Half were false positives.** Guards are supplied by a shared `WorkflowActionGuard` and by parent `_runBusyAction` wrappers, which a local-flag search cannot see |
+| Version fencing means a double tap yields a conflict, not a duplicate | **Unsafe reassurance.** Creation commands mint fresh identities — see WS-03 |
+| `only_throw_errors` would catch `StateError` control flow | **Wrong.** `StateError` extends `Error`, so the rule permits it |
+| Accessibility is thin: 22 tap-target refs, 8 text-scaling refs | **Measured the wrong things.** Tap target size is set globally in the theme; text scaling is tested at 2× |
+| The 2026-09-09 network block put providers into error | **Unproven.** Firestore serves from cache on connectivity loss and does not necessarily error the listener |
+
+The emulator suites were not rerun here; prior passing evidence exists. The 107
+host skips are 106 emulator tests plus one fixture generator.
 
 ---
 
-## WS-01 — `AsyncValue.value` throws where the code expects null
+## WS-01 — Account state is read without distinguishing its four cases
 
-**Priority: high · Confirmed · 59 unguarded call sites**
+**Priority: high · Confirmed at one site · Review needed at others**
 
-### The mechanism
+### The actual mechanism
 
-`riverpod-2.6.1/lib/src/common.dart:493`:
+From `riverpod-2.6.1/lib/src/common.dart`:
 
 ```dart
-T? get value {
-  if (!hasValue) {
-    throwErrorWithCombinedStackTrace(error, stackTrace);
-  }
-  return _value;
+AsyncError<T> copyWithPrevious(AsyncValue<T> previous, {bool isRefresh = true}) {
+  return AsyncError._(error, stackTrace: stackTrace, isLoading: isLoading,
+    value: previous.valueOrNull, hasValue: previous.hasValue);
 }
 ```
 
-The getter is typed `T?`, which reads as "may be null". When the provider is in
-an **error** state it does not return null — it rethrows the provider's error.
-`valueOrNull` is the accessor that returns null.
+So the behaviour depends on whether a value was ever loaded:
 
-### Why this is not theoretical here
-
-`currentAppUserProvider` is a `StreamProvider` over
-`firestore.collection('users').doc(uid).snapshots()`, and its stream plumbing
-**explicitly forwards errors** via `controller.addError(error, stackTrace)` at
-two sites in `auth_provider.dart`. A Firestore permission error, an offline
-error, or a withdrawn network puts it into the error state.
-
-That is the condition of the 2026-09-09 incident.
-
-### The code is written for the wrong contract
-
-`inner_cover_lifecycle_screen.dart:1514`, inside `_acceptCover`:
-
-```dart
-if (ref.read(currentAppUserProvider).value?.uid != user.uid) {
-  throw const AssetHierarchyException(
-    'The account changed. Return to the original account to check this acceptance.',
-  );
-}
-```
-
-The null-aware `?.` shows the author expected null. What actually happens when
-the user document cannot be read:
-
-| | Intended | Actual |
+| Provider condition | `.value` | `valueOrNull` |
 | --- | --- | --- |
-| `.value` | returns null | throws the Firestore error |
-| Operator sees | "The account changed…" | a raw platform error |
+| Error, no prior value | **throws** | returns null |
+| Error, after a prior value | **returns the stale value** | **returns the stale value** |
+| Loading, no prior value | returns null | returns null |
 
-Both are wrong, in different ways. The intended message is itself inaccurate —
-the account did not change; the record could not be read — and the actual
-behaviour never reaches it.
+Revision 1 reported only the first row and recommended swapping accessors. That
+swap does not address the second row, which is the more dangerous one: an action
+proceeding on a previously loaded account while verification is currently
+failing.
 
-A second instance, `charge_abnormalities_screen.form.dart:779`, has the same
-shape: `if (actor == null) throw StateError('The reporting user could not be
-verified.')`. That message is never shown on a provider error.
+### Confirmed instance
 
-### Extent
-
-94 sites read `.value` from a provider. 73 of those read
-`currentAppUserProvider`. **59 have no `hasError` / `valueOrNull` / `hasValue`
-guard within the preceding 15 lines.** Those in submit, accept, close, correct
-and delete handlers include:
-
-`_acceptCover`, `_confirmDelete` (five screens), `_correctTicket`,
-`_reopenTicket`, `_endRetainedRelevance`, `_closeDirective`, `_submit`
-(create directive), `_showCorrectionDialog`.
-
-The correctly guarded pattern already exists in this codebase —
-`abnormalities_home_screen.dart:40-59` checks `isLoading`, then `hasError`,
-then reads `.value`. The fix is to make the rest match it.
-
-### Suggested correction
-
-Replace `.value` with `valueOrNull` at every site whose surrounding code treats
-the result as nullable, and keep `.value` only where a preceding `hasError`
-branch has already returned. Where the distinction matters to the operator,
-separate "not signed in" from "your account could not be verified right now",
-because they have different remedies.
-
----
-
-## WS-02 — Raw exception objects are shown to operators
-
-**Priority: medium · Confirmed · 60 occurrences across 36 files**
-
-Sixty user-facing strings interpolate an error object directly. Many are bare:
+`inner_cover_lifecycle_screen.dart:176`, in the Inner Cover intake screen added
+this month:
 
 ```dart
-ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+final user = ref.watch(currentAppUserProvider).value;
+...
+body: user == null || !user.isApproved ? <access-required panel> : <content>
 ```
 
-`WorkflowException.toString()` renders as
-`WorkflowException(versionConflict: The record changed. Refresh it before
-trying again.)`. The operator is shown the class name and enum before the one
-sentence that is useful to them. A Firestore failure renders as
-`[cloud_firestore/permission-denied] …`.
+There is no `isLoading` and no `hasError` branch, so three of the four cases are
+mishandled: it throws during build with no prior value, renders content from a
+stale account with one, and shows an "access required" lock while it is merely
+still checking — which tells an approved operator they lack permission.
 
-Affected files include `ticket_screen.dart` (6), `quality_home_screen.dart` (3),
-`planned_job_detail_screen.dart` (3), `critical_alarm_contacts_panel.dart` (3),
-`ticket_screen.governed_actions.dart` (3).
+A second site, `inner_cover_lifecycle_screen.dart:1514` in `_acceptCover`, uses
+`.value?.uid` — the null-aware access shows the author expected null — and its
+intended message ("The account changed…") would be inaccurate for a read
+failure even if it were reached.
 
-This is not cosmetic. The audience is a fitter on a shop floor deciding whether
-their work was recorded. A message they cannot act on is equivalent to no
-message, and it is the last thing they see before deciding whether to submit
-again — which is how duplicate work starts.
+### Extent, stated honestly
 
-**Suggested correction:** one operator-message mapper for `WorkflowException`
-and platform exceptions, returning the actionable sentence and a separate
-diagnostic code for support. The domain layer already produces good operator
-sentences; they are being buried by the presentation layer rather than missing.
+94 sites read `.value` from a provider; 73 read `currentAppUserProvider`; 59
+have no `hasError` / `valueOrNull` / `hasValue` within the preceding 15 lines.
 
----
+**These are 59 sites warranting review, not 59 established defects.** The
+proximity heuristic cannot see guards supplied by an enclosing branch, a wrapper
+widget or a parent. Revision 1 presented the count as though it were a defect
+count.
 
-## WS-03 — WS-01 and WS-02 compound into one operator-visible failure
+The correctly guarded pattern exists at `abnormalities_home_screen.dart:40-59`
+(`isLoading` → `hasError` → `.value`).
 
-**Priority: medium · Derived**
+### Correction
 
-Twelve files containing submit-style handlers have no busy flag under any of
-the usual names, so a second tap can dispatch a second command.
-
-For governed commands this is **not** a duplicate-record risk:
-`inspection_programmes_screen.dart` carries 10 `expectedVersion` references and
-`lane_classification_screen.dart` three, so the second submission is refused as
-a version conflict. `job_module_response_form.dart` has none but performs a
-local form save whose repeat writes identical values.
-
-So the real consequence of a double tap is a **version-conflict error**, which
-under WS-02 is rendered as `WorkflowException(versionConflict: …)`, and under
-WS-01 may be preceded by a raw provider error instead of the intended message.
-
-The sequence a fitter experiences is: tap, no visible progress, tap again,
-receive a technical error naming a Dart class. Nothing in that sequence tells
-them whether the first tap worked.
-
-**Suggested correction:** disable the control while in flight — the pattern is
-already used correctly in `maintenance_form.dart` (`_isSubmitting`, early
-return, `onPressed: null`) and `inner_cover_lifecycle_screen.acceptance.dart`
-(`_busy`) — and treat `versionConflict` as a reload prompt rather than an error
-string.
+Not an accessor swap. Introduce one account-state resolution that returns a
+distinct result for **verifying**, **verification failed**, **signed out or
+unapproved**, and **valid actor**, and have submit paths refuse on the first two
+rather than proceed on retained data. Then review the 59 sites against it.
 
 ---
 
-## WS-04 — The analyzer is running bare defaults
+## WS-02 — Technical exception text reaches operators
+
+**Priority: medium · Confirmed at specific sites · Count is a text pattern**
+
+`ticket_screen.dart:476` is a confirmed example: a raw exception reaches an
+operator acknowledging a ticket.
+
+The **60 occurrences across 36 files** figure is reproducible as a text-pattern
+count, but it is **not** 60 confirmed bad messages — some counted sites already
+prefix a friendly sentence, and some exception types render acceptably.
+`WorkflowException.toString()` produces
+`WorkflowException(versionConflict: …)`, which does put a class name and enum in
+front of the useful sentence.
+
+The audience is a fitter deciding whether their work was recorded. The
+distinction worth engineering is not prettier text but **"rejected" versus
+"recorded, confirmation pending"** — they have opposite next actions.
+
+**Correction:** one operator-message mapper returning an actionable sentence
+plus a separate support code. The domain layer already writes good sentences;
+presentation buries them.
+
+---
+
+## WS-03 — Retry after an uncertain outcome can create a second record
+
+**Priority: high · Confirmed · Replaces revision 1's double-submit item**
+
+Revision 1 claimed twelve unguarded submit handlers and reassured that version
+fencing turns a double tap into a conflict. Both parts were wrong, and the
+reassurance was the more serious error.
+
+`inspection_programmes_screen.dart:1934`:
+
+```dart
+commandId: 'createInspectionCampaign_${const Uuid().v4()}',
+aggregateId: 'inspection-campaign-${const Uuid().v4()}',
+expectedVersion: 0,
+```
+
+Both identities are minted at invocation, against a brand-new aggregate at
+version 0. **No version check can conflict**, because there is no prior version
+to conflict with. If the first submission is accepted but its response is lost,
+re-creating the campaign produces a second campaign.
+
+This is the same defect class as BF-09 (operational-event creation generating a
+fresh `eventId` per invocation), which the business-flow audit raised for
+operational events and which was remediated there. It had not been reported for
+inspection campaigns.
+
+It is a **retry** risk, not a double-tap risk: two taps on one dialog do not
+demonstrate it.
+
+**Correction:** creation commands need an identity that survives the retry —
+derived from the draft, or persisted before dispatch, as the Package B design
+proposes for maintenance creation. Until then, the uncertain-outcome path for
+campaign creation should not offer an unqualified "try again".
+
+Busy protection itself is in better shape than revision 1 claimed:
+`WorkflowActionGuard(busy: commandState.isLoading)` in lane classification, and
+`_runBusyAction` with `if (_isBusy) return` in the job-module detail screen,
+which also supplies busy state to its child form.
+
+---
+
+## WS-04 — Analyzer configuration is bare defaults
 
 **Priority: medium · Observation**
 
-`analysis_options.yaml` includes `package:flutter_lints/flutter.yaml` and adds
-**no project rules** — the `rules:` block contains only commented examples.
+`analysis_options.yaml` includes `package:flutter_lints/flutter.yaml` and adds no
+project rules. `use_build_context_synchronously` is enabled by that package and
+the tree is clean.
 
-`use_build_context_synchronously` **is** enabled by that package and the tree is
-clean, so the `BuildContext`-after-`await` hazard is already covered.
+Not enabled, and plausibly relevant:
 
-Not enabled, and relevant to this codebase specifically:
-
-| Rule | Why it matters here |
+| Rule | Relevance |
 | --- | --- |
-| `unawaited_futures` | Fire-and-forget async is how submitted work disappears silently; this codebase is almost entirely async |
-| `cancel_subscriptions` | The stream combiners repaired in CR-05 are exactly this shape |
-| `close_sinks` | Four files create `StreamController`s; see *Checked — sound* below |
-| `only_throw_errors` | `StateError` is thrown as control flow in several submit paths |
+| `unawaited_futures` | Fire-and-forget async is how submitted work disappears |
+| `cancel_subscriptions` | The stream combiners repaired in CR-05 are this shape |
+| `close_sinks` | Four files create `StreamController`s |
 | `avoid_dynamic_calls` | `noSuchMethod` fakes and JSON decoding are widespread |
 
-`flutter_lints` is pinned at **3.0.2** against Flutter 3.44. Later versions add
-rules that would have caught defects already found by hand in this project.
+Revision 1 also listed `only_throw_errors` with a `StateError` example. That was
+wrong: `StateError` extends `Error`, so the rule permits it.
 
-This is the cheapest finding in the report: each rule is a class of defect the
-toolchain can enforce for free, permanently, without a reviewer.
+Revision 1 further implied these rules would have caught defects already found by
+hand. **That was not demonstrated and is withdrawn.** The proposal stands on its
+own terms — enabling a rule is cheap and permanent — but the benefit should be
+established by enabling one and reading the output, not asserted.
+
+`flutter_lints` is pinned at 3.0.2 against Flutter 3.44.
 
 ---
 
-## WS-05 — Accessibility surface is thin for the operating environment
+## WS-05 — Withdrawn as a deficiency; retained as a testing request
 
-**Priority: low–medium · Observation**
+**Priority: low · Observation**
 
-| Measure | Count |
-| --- | --- |
-| `Semantics(` widgets | 13 |
-| `semanticLabel` / `tooltip:` | 175 |
-| `IconButton(` | 127 |
-| Explicit tap-target sizing | 22 |
-| `textScaler` / text-scaling handling | 8 |
+Revision 1 inferred weak accessibility from widget counts. That inference was
+invalid:
 
-Tooltip coverage against icon buttons is reasonable. The thin areas are
-**explicit tap-target sizing** and **text-scaling behaviour**, which matter more
-than usual for this deployment: gloved hands, and operators who may have the
-system font scale raised. Eight text-scaling references across an application
-of this size suggests layouts have largely been validated at default scale.
+- `baf_design_system.dart:150` sets `materialTapTargetSize:
+  MaterialTapTargetSize.padded` **globally**, so the "22 explicit sizing
+  references" figure measured something irrelevant.
+- Seven test files configure text scaling, and `baf_ui_system_v2_test.dart`
+  exercises `TextScaler.linear(2)`.
 
-The repository does test overflow in places — `zoomable_pdf_preview_test.dart`
-asserts "PDF controls fit without overflow on a narrow phone" — so the
-capability exists and is not applied widely.
+Counting `Semantics` widgets cannot establish accessibility quality.
 
-**Suggested correction:** decide a supported text-scale range and add overflow
-tests at its upper bound for the screens an operator uses under time pressure —
-ticket creation, acceptance, lane classification, completion.
+What remains reasonable, as a request rather than a finding: exercise the
+journeys an operator runs under time pressure — ticket creation, Inner Cover
+acceptance, lane classification, job completion — with enlarged text and
+TalkBack, on a device.
 
 ---
 
 ## Checked — sound
 
-Recorded so the auditor does not spend time re-deriving these.
-
 | Area | Finding |
 | --- | --- |
-| **Planned-job closure gate** | `complete_job_screen.workflow_gate.dart` uses `valueOrNull ?? []` but computes `hasLoadError` from all three providers and includes `!hasLoadError` in `canComplete`, with the message "Workflow readiness cannot be verified". A stream error **blocks** completion. This is the CR-05 lesson applied correctly. |
-| **Critical-alarm controller** | `critical_alarm_platform_service.dart` never closes its `StreamController`, but it is a `static final .broadcast()` process-lifetime bus. Correct as written. |
-| **Ticket-creation double submit** | Guarded: `_isSubmitting`, early return, `onPressed: _isSubmitting ? null : _submit`. |
-| **Inner Cover acceptance double submit** | Guarded: `_busy`, `if (_busy) return`, `onPressed: _busy ? null : _submit`. |
-| **`BuildContext` after `await`** | `use_build_context_synchronously` enabled via `flutter_lints`; `flutter analyze` clean. |
-| **Empty or swallowing catch blocks** | None found. |
-| **Leaked `StreamSubscription`s** | Every file creating one also cancels. |
+| **Planned-job closure gate** | `complete_job_screen.workflow_gate.dart` uses `valueOrNull ?? []` but computes `hasLoadError` across all three providers and includes `!hasLoadError` in `canComplete`, with "Workflow readiness cannot be verified". A stream error **blocks** completion |
+| **Charge-abnormality asset selection** | Its catch supplies a plain-English fallback for non-domain errors |
+| **Critical-alarm controller** | Never closed, but a `static final .broadcast()` process-lifetime bus. Correct |
+| **Ticket-creation double submit** | `_isSubmitting`, early return, `onPressed: null` |
+| **Inner Cover acceptance double submit** | `_busy`, early return, `onPressed: null` |
+| **Lane classification / job-module submit** | Guarded by shared `WorkflowActionGuard` and parent `_runBusyAction` |
+| **Global tap target size** | `MaterialTapTargetSize.padded` in the theme |
+| **`BuildContext` after `await`** | Lint enabled; analyzer clean |
+| **Empty or swallowing catch blocks** | None found |
+| **Leaked `StreamSubscription`s** | Every file creating one also cancels |
 
-## Gate state at the time of this sweep
+## Suggested priority
 
-`flutter analyze` clean · Flutter suite **2304 passed, 1 skipped, 0 failed** ·
-`functions npm test` **1155 passed, 107 emulator-skipped, 0 failed** ·
-canonical audit **150 / 150**.
+1. **Account-state handling** — one resolution distinguishing verifying,
+   verification failed, signed out, and valid actor; then review the 59 sites.
+2. **Inspection campaign creation identity** — survive a retry after an
+   uncertain outcome.
+3. **Operator messages** — "rejected" versus "recorded, confirmation pending".
 
-Twelve Firestore-emulator suites (107 tests) were **not** run. No handset was
-operated. Nothing in this sweep reaches *device path demonstrated*.
+Each needs a failure-path test, not only a happy-path one.
 
-## What this sweep did not cover
+## Limits
 
-Backend handler logic beyond what WS-01–WS-03 touch; the emulator suites;
-Android native code; report calculation correctness; role and permission
-matrices; migration and purge paths; and any journey end-to-end. This is a
-targeted presentation-and-contract sweep, not the outstanding whole-application
-audit, and should not be counted as part of it.
+No handset was operated. The emulator suites were not run during this sweep.
+The link between the 2026-09-09 network block and provider error states is
+**not established** — Firestore serves from cache on connectivity loss and does
+not necessarily error a listener. This is a targeted presentation-and-contract
+sweep and is not part of the outstanding whole-application audit.
