@@ -49,6 +49,110 @@ function fixture(phase) {
 }
 const capture = (phase, raw = fixture(phase), ctx = context) => guard.createCapture(ctx, raw, phase);
 
+function restrictedRegion(raw) {
+  const location = "me-central2";
+  changeBody(raw.runLocations[0], (body) => body.locations.push({locationId: location}));
+  const unavailable = response(`https://run.googleapis.com/v2/projects/${project}/locations/${location}/services?pageSize=100`, {
+    error: {code: 403, status: "PERMISSION_DENIED", message: "Region access is unavailable.", details: [
+      {"@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "LOCATION_POLICY_VIOLATED", domain: "googleapis.com",
+        metadata: {location, consumer: "projects/123456789", service: ""}},
+      {"@type": "type.googleapis.com/google.rpc.Help", links: [{description: "Contact sales for region access."}]},
+    ]},
+  }, "GET", 403);
+  raw.runInventories.push({location, unavailable});
+  return raw;
+}
+
+function transport(raw, visited = new Set()) {
+  const responses = new Map();
+  const walk = (value) => { if (value?.url) responses.set(value.url, value);
+    else if (value && typeof value === "object") Object.values(value).forEach(walk); };
+  walk(raw);
+  return async (url, method = "GET") => {
+    const measured = responses.get(url); assert.ok(measured, `unexpected read: ${url}`);
+    assert.equal(method, measured.method); visited.add(url); return measured;
+  };
+}
+
+test("collector preserves the specific unavailable region as unknown, with identical before/after scope", async () => {
+  const captures = [];
+  for (const phase of ["before", "after"]) {
+    const raw = restrictedRegion(fixture(phase)); const visited = new Set();
+    const collected = await collector.collect(context, phase, transport(raw, visited));
+    assert.deepEqual(collected.raw.runInventories.at(-1), raw.runInventories.at(-1));
+    assert.equal(Object.hasOwn(collected.raw.runInventories.at(-1), "pages"), false);
+    assert.equal(visited.has(raw.projectIam.url), true);
+    assert.equal(visited.has(raw.accountIam.at(-1).response.url), true);
+    assert.equal(visited.has(raw.runIam.at(-1).response.url), true);
+    assert.deepEqual(collected.measurement.unavailableRunRegions, [{location: "me-central2", reason: "LOCATION_POLICY_VIOLATED",
+      domain: "googleapis.com", consumer: "projects/123456789"}]);
+    collected.raw.startedAtUtc = raw.startedAtUtc; collected.raw.completedAtUtc = raw.completedAtUtc;
+    captures.push(capture(phase, collected.raw));
+  }
+  const proof = guard.createProof(context, ...captures);
+  assert.equal(guard.validateProof({...context, proof}).ok, true);
+  assert.match(proof.qualification, /coverage excludes me-central2/);
+  assert.match(proof.qualification, /no absence or unchanged IAM is claimed/);
+  assert.equal(proof.newServiceResources.length, 4);
+  assert.deepEqual(proof.before.raw.runInventories.at(-1), captures[0].raw.runInventories.at(-1));
+  assert.equal(Object.hasOwn(capture("before").measurement, "unavailableRunRegions"), false);
+});
+
+for (const [label, mutate] of [
+  ["generic permission denial", (row) => changeBody(row.unavailable, (v) => { v.error.details = []; })],
+  ["other reason", (row) => changeBody(row.unavailable, (v) => { v.error.details[0].reason = "IAM_PERMISSION_DENIED"; })],
+  ["other domain", (row) => changeBody(row.unavailable, (v) => { v.error.details[0].domain = "other.googleapis.com"; })],
+  ["other project", (row) => changeBody(row.unavailable, (v) => { v.error.details[0].metadata.consumer = "projects/999"; })],
+  ["other location metadata", (row) => changeBody(row.unavailable, (v) => { v.error.details[0].metadata.location = "us-central1"; })],
+  ["other service metadata", (row) => changeBody(row.unavailable, (v) => { v.error.details[0].metadata.service = "iam.googleapis.com"; })],
+  ["ambiguous error reasons", (row) => changeBody(row.unavailable, (v) => { v.error.details.push({...v.error.details[0], reason: "IAM_PERMISSION_DENIED"}); })],
+  ["404 is not restricted access", (row) => { row.unavailable.httpStatus = 404; }],
+  ["mismatched error status", (row) => changeBody(row.unavailable, (v) => { v.error.status = "NOT_FOUND"; })],
+  ["malformed body", (row) => { row.unavailable.bodyText = "{"; }],
+  ["second-page refusal", (row) => { row.unavailable.url += "&pageToken=next"; }],
+  ["different method", (row) => { row.unavailable.method = "POST"; }],
+  ["pages plus exclusion", (row) => { row.pages = []; }],
+  ["target region", (row, raw) => {
+    row.location = region; row.unavailable.url = row.unavailable.url.replace("me-central2", region);
+    changeBody(row.unavailable, (v) => { v.error.details[0].metadata.location = region; });
+    raw.runInventories.splice(0, 1);
+    changeBody(raw.runLocations[0], (v) => { v.locations = v.locations.filter((entry) => entry.locationId !== "me-central2"); });
+  }],
+  ["unreviewed non-target region", (row, raw) => {
+    row.location = "me-central1"; row.unavailable.url = row.unavailable.url.replace("me-central2", "me-central1");
+    changeBody(row.unavailable, (v) => { v.error.details[0].metadata.location = "me-central1"; });
+    changeBody(raw.runLocations[0], (v) => { v.locations.at(-1).locationId = "me-central1"; });
+  }],
+]) test(`unavailable-region evidence refuses ${label}`, () => {
+  const raw = restrictedRegion(fixture("before")); mutate(raw.runInventories.at(-1), raw);
+  assert.throws(() => capture("before", raw), /Scoped invoker IAM/);
+});
+
+test("collector refuses general403 and a restricted403 after a successful first page", async () => {
+  const denied = restrictedRegion(fixture("before"));
+  changeBody(denied.runInventories.at(-1).unavailable, (v) => { v.error.details[0].reason = "IAM_PERMISSION_DENIED"; });
+  await assert.rejects(collector.collect(context, "before", transport(denied)), /reason/);
+  const partial = restrictedRegion(fixture("before")); const row = partial.runInventories.at(-1);
+  const url = row.unavailable.url;
+  row.unavailable.url += "&pageToken=next";
+  row.pages = [response(url, {services: [], nextPageToken: "next"}), row.unavailable]; delete row.unavailable;
+  await assert.rejects(collector.collect(context, "before", transport(partial)), /Cannot enumerate services: HTTP 403/);
+});
+
+test("a region becoming inaccessible or accessible between captures cannot pass", () => {
+  const before = restrictedRegion(fixture("before")); const after = restrictedRegion(fixture("after"));
+  const accessible = (raw) => { const row = raw.runInventories.at(-1);
+    row.pages = [response(row.unavailable.url, {services: []})]; delete row.unavailable; return raw; };
+  assert.throws(() => guard.createProof(context, capture("before", before), capture("after", accessible(structuredClone(after)))), /scope changed/);
+  assert.throws(() => guard.createProof(context, capture("before", accessible(structuredClone(before))), capture("after", after)), /scope changed/);
+});
+
+test("an unavailable region never masks an accessible service IAM change", () => {
+  const after = restrictedRegion(fixture("after"));
+  changeBody(after.runIam.at(-1).response, (v) => { v.bindings[0].members = ["allAuthenticatedUsers"]; });
+  assert.throws(() => guard.createProof(context, capture("before", restrictedRegion(fixture("before"))), capture("after", after)), /pre-existing service/);
+});
+
 test("real read-only collector produces replay-verifiable full before/after evidence", async () => {
   const collected = [];
   for (const phase of ["before", "after"]) {
