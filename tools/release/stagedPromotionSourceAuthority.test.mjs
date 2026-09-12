@@ -10,6 +10,8 @@ import {fileURLToPath} from "node:url";
 
 const require = createRequire(import.meta.url);
 const {verifyStagedPromotionSourceAuthority} = require("./stagedPromotionSourceAuthority.js");
+const {readDeploymentFleetContract, deploymentCountsMatch, measuredFunctionNamesMatch} =
+  require("./deploymentFleetContract.js");
 const {sealReceipt: sealUnsealedReceipt} = require("./collectProductionGlobalPullBackend.js");
 const sealReceipt = ({receiptSha256, ...body}) => sealUnsealedReceipt(body);
 const PROJECT = "crm3-baf-ops-b8638";
@@ -17,6 +19,50 @@ const PASS = "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK";
 const sha = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readMeasured = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'));
+
+test("deployment fleet follows the exact historical or remediation source, not the checkout", () => {
+  const historical = readDeploymentFleetContract(repositoryRoot, "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56");
+  const remediation = readDeploymentFleetContract(repositoryRoot, "c6038fe7ff3200645ab6a55bbe033eb726f1dfc1");
+  assert.deepEqual([historical.functionCount, historical.callableCount,
+    historical.eventAndProtocolTriggerCount, historical.schedulerCount, historical.runtimePrincipalCount],
+  [15, 9, 5, 1, 15]);
+  assert.deepEqual([remediation.functionCount, remediation.callableCount,
+    remediation.eventAndProtocolTriggerCount, remediation.schedulerCount, remediation.runtimePrincipalCount],
+  [19, 13, 5, 1, 15]);
+  assert.deepEqual(remediation.functionNames.filter((name) => !historical.functionNames.includes(name)), [
+    "assignPublishedTemplateVersionV2", "executeMaintenanceWorkflowCommandV2",
+    "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2",
+  ]);
+  assert.equal(deploymentCountsMatch(historical, historical), true);
+  assert.equal(deploymentCountsMatch(remediation, remediation), true);
+  assert.equal(deploymentCountsMatch(remediation, historical), false);
+  assert.equal(deploymentCountsMatch(historical, remediation), false);
+  for (const value of ["19", [19], true, null]) {
+    assert.equal(deploymentCountsMatch(remediation, {...remediation, functionCount: value}), false);
+  }
+  assert.throws(() => readDeploymentFleetContract(repositoryRoot, "HEAD"), /exact source commit/);
+});
+
+test("measured fleet requires the exact endpoint set, including duplicate and substitution refusal", () => {
+  const contract = readDeploymentFleetContract(repositoryRoot, "c6038fe7ff3200645ab6a55bbe033eb726f1dfc1");
+  const records = contract.functionNames.map((name) => ({name}));
+  assert.equal(measuredFunctionNamesMatch(contract, [...records].reverse()), true);
+  assert.equal(measuredFunctionNamesMatch(contract, records.slice(1)), false);
+  assert.equal(measuredFunctionNamesMatch(contract, [records[1], ...records.slice(1)]), false);
+  assert.equal(measuredFunctionNamesMatch(contract, [{name: "unapprovedEndpoint"}, ...records.slice(1)]), false);
+  assert.equal(measuredFunctionNamesMatch(contract, [{name: [records[0].name]}, ...records.slice(1)]), false);
+});
+
+test("a re-sealed duplicate measured endpoint cannot replace a historical endpoint", (t) => {
+  const f = delegatedCurrentFixture(t);
+  assert.equal(f.verify().ok, true);
+  f.currentChildren.functionFleet.outputs.functions[0].name =
+    f.currentChildren.functionFleet.outputs.functions[1].name;
+  f.persistCurrent();
+  const result = f.verify();
+  assert.equal(result.ok, false);
+  assert.match(result.reasons.join(" "), /function source hashes or update times/);
+});
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-staged-source-test-"));
@@ -259,7 +305,7 @@ test('Build28 rollover keeps candidate version, approval and scope bindings inde
   f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = 'release/candidate28.json';
   for (const [mutate, reason] of [
     [(value) => { value.sourceAuthority.pullRequestNumber = 1; }, /version authority/],
-    [(value) => { value.deployment.schedulerCount = 2; }, /deployment scope/],
+    [(value) => { value.deployment.schedulerCount = 2; }, /Candidate backend: exact deployment evidence is incomplete/],
     [(value) => { value.authorityChronology.delegatedDecisionAtUtc = '2026-09-08T20:59:00Z'; }, /authorization/],
     [(value) => {
       const approval = structuredClone(f.currentApproval);
@@ -524,6 +570,13 @@ test('a different current source requires its own admitted immutable approval cu
   Object.assign(approval.sourceAuthority, {commit, tree, functionTree});
   const receipt = structuredClone(f.receipt);
   Object.assign(receipt.sourceAuthority, {commit, tree, functionsGitObjectId: functionTree});
+  // Forge internally consistent counts too, so this still reaches and tests
+  // immutable approval refusal rather than an earlier source-count mismatch.
+  const fleet = readDeploymentFleetContract(f.root, commit);
+  approval.approvedDeployment.functionCount = fleet.functionCount;
+  for (const field of ["functionCount", "callableCount", "eventAndProtocolTriggerCount", "schedulerCount"]) {
+    receipt.deployment[field] = fleet[field];
+  }
   f.deployed.functionFleetSourceCommit = commit;
   f.deployed.deploymentApprovalFile = 'release/approvals/unadmitted-current-source.json';
   f.deployed.deploymentApprovalSha256 = f.write(f.deployed.deploymentApprovalFile, approval);

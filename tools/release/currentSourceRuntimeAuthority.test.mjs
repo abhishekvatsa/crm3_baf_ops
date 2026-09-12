@@ -90,7 +90,7 @@ test("canonical backend authority consumes the real delegated proof and retains 
       backend.approvalAuthority.file, historical.approvalAuthority.file,
       ...Object.values(backend.cleanMainLiveReadbacks).map((value) => value.file),
       ...Object.values(historical.cleanMainLiveReadbacks).map((value) => value.file),
-      ...["stagedPromotionSourceAuthority", "collectProductionGlobalPullBackend",
+      ...["stagedPromotionSourceAuthority", "deploymentFleetContract", "collectProductionGlobalPullBackend",
         "collectFunctionFleetRuntimeIdentityReadback", "collectFunctionsIamDependenciesReadback",
         "collectFirestoreRulesIndexesReadback"].map((name) => `tools/release/${name}.js`)]) copy(file);
     const policy = {firebaseProjectId: "crm3-baf-ops-b8638", versionPolicy: {buildNumber: 27,
@@ -507,18 +507,98 @@ $rows | ConvertTo-Json -Compress -Depth 4
 
 // Synthetic successor receipts execute the actual acceptance branches. No
 // physical result is created or admitted by this test.
+test("PowerShell deployment count checks bind each selected source without granting new approval", (t) => {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-source-fleet-count-"));
+  const backend = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "release/evidence/build28-backend-deployment-closure.json"), "utf8"));
+  const approval = JSON.parse(fs.readFileSync(path.join(repositoryRoot, backend.approvalAuthority.file), "utf8"));
+  const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], {cwd: repositoryRoot, encoding: "utf8"}).trim();
+  const cases = [];
+  for (const [sourceCommit, expectedCount] of [[backend.sourceAuthority.commit, 15], [currentCommit, 19]]) {
+    for (const functionCount of [expectedCount, expectedCount === 15 ? 19 : 15, String(expectedCount), [expectedCount], null, true, 0]) {
+      cases.push({sourceCommit, functionCount, accepted: functionCount === expectedCount,
+        label: `${sourceCommit.slice(0, 8)} count ${JSON.stringify(functionCount)}`});
+    }
+  }
+  try {
+    fs.writeFileSync(path.join(fixtureRoot, "fixture.json"), JSON.stringify({backend, approval, cases}));
+    fs.writeFileSync(path.join(fixtureRoot, "check.ps1"), String.raw`
+param([string]$ProductionSource, [string]$RepositoryRoot)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $parseErrors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($ProductionSource, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count) { throw 'Production verifier does not parse' }
+foreach ($definition in $ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) {
+  Invoke-Expression $definition.Extent.Text
+}
+$blocks = foreach ($message in @('Exact Function fleet deployment receipt is incomplete.', 'Current Function fleet deployment authority is incomplete.')) {
+  $block = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw '$message'")}, $false))
+  if ($block.Count -ne 1) { throw "Expected one production count check for $message" }
+  $block[0].Extent.Text
+}
+$assignments = foreach ($name in @('$expectedFunctionFleetContract', '$currentFunctionFleetContract')) {
+  $assignment = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -ceq $name}, $false))
+  if ($assignment.Count -ne 1) { throw "Expected exact source-bound contract assignment for $name" }
+  $assignment[0].Extent.Text
+}
+$fixture = Get-Content fixture.json -Raw | ConvertFrom-Json
+$rows = foreach ($case in $fixture.cases) {
+  $functionFleetDeploymentReceipt = $fixture.backend | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+  $functionFleetDeploymentReceipt.sourceAuthority.commit = $case.sourceCommit
+  $functionFleetDeploymentReceipt.deployment.functionCount = $case.functionCount
+  $currentFunctionFleetDeploymentReceipt = $functionFleetDeploymentReceipt
+  $currentDeploymentApproval = $fixture.approval | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+  $currentDeploymentApproval.sourceAuthority.commit = $case.sourceCommit
+  $currentDeploymentApprovalPath = $functionFleetDeploymentReceipt.approvalAuthority.file
+  $currentDeploymentApprovalSha256 = $functionFleetDeploymentReceipt.approvalAuthority.sha256
+  $expectedFunctionFleetSourceCommit = $case.sourceCommit
+  $expectedFunctionFleetSourceTree = $functionFleetDeploymentReceipt.sourceAuthority.tree
+  $expectedFunctionFleetPullRequest = $functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber
+  $currentDeployedBackendAuthority = [pscustomobject]@{functionFleetSourceCommit = $case.sourceCommit}
+  $accepted = $true; $failure = $null
+  try {
+    foreach ($assignment in $assignments) { Invoke-Expression $assignment }
+    foreach ($block in $blocks) { Invoke-Expression $block }
+  } catch { $accepted = $false; $failure = $_.Exception.Message }
+  [ordered]@{label=$case.label; accepted=$accepted; expected=$case.accepted; failure=$failure}
+}
+$rows | ConvertTo-Json -Depth 4 -Compress
+`);
+    const rows = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", path.join(fixtureRoot, "check.ps1"),
+      path.join(repositoryRoot, "tools/release/Test-ProductionReleasePolicy.ps1"), repositoryRoot],
+    {cwd: fixtureRoot, encoding: "utf8", windowsHide: true, maxBuffer: 4 * 1024 * 1024}));
+    assert.equal(rows.length, cases.length);
+    assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+    t.diagnostic(`${rows.length} actual count-branch checks; other approval/custody gates are deliberately not bypassed by this isolated test`);
+  } finally {
+    assert.equal(path.dirname(path.resolve(fixtureRoot)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(fixtureRoot).startsWith("crm3-source-fleet-count-"));
+    fs.rmSync(fixtureRoot, {recursive: true, force: true});
+  }
+});
+
 test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy or broadened evidence", (t) => {
   const read = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, name), "utf8"));
   const originalDevice = read("release/evidence/build-27-device-acceptance.json");
   const originalCompletion = read("release/evidence/build-27-finalization-closure.json");
+  const git = (...args) => execFileSync("git", ["--no-replace-objects", "-C", repositoryRoot, ...args],
+    {encoding: "utf8", windowsHide: true}).trim();
+  const candidateCommit = git("rev-parse", "HEAD");
+  const candidateTree = git("rev-parse", `${candidateCommit}^{tree}`);
+  const candidateSchema = git("show", `${candidateCommit}:lib/core/services/isar_schema_migration.dart`);
+  assert.match(candidateSchema, /static const int currentSchemaVersion = 11;/);
+  const schemaFingerprint = [...candidateSchema.match(/static const String currentSchemaFingerprint =([\s\S]*?);/)[1]
+    .matchAll(/'([^']+)'/g)].map((part) => part[1]).join("");
+  const schemaFingerprintSha256 = createHash("sha256").update(schemaFingerprint, "utf8").digest("hex").toUpperCase();
+  const requiredSource = {localStoreSchemaVersion: 11, localStoreSchemaFingerprintSha256: schemaFingerprintSha256};
   const device = structuredClone(originalDevice);
   const completion = structuredClone(originalCompletion);
   Object.assign(completion.release, {
     buildNumber: 28, versionName: "1.0.0-rc.18",
     releaseId: "crm3-baf-ops-1.0.0-rc.18-b28",
   });
-  completion.sourceAuthority.commit = "8".repeat(40);
-  completion.sourceAuthority.tree = "9".repeat(40);
+  completion.sourceAuthority.commit = candidateCommit;
+  completion.sourceAuthority.tree = candidateTree;
   completion.governedPackage.version = "1.0.0-rc.18+28";
   Object.assign(device.release, {
     ...completion.release,
@@ -532,15 +612,28 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   });
   device.status = "passed-exact-build28-physical-in-place-authenticated-read-only-surfaces";
   device.releaseBoundary.build27FinalizationReceiptChanged = false;
+  device.localStoreMigration.targetSchemaVersion = 11;
+  device.localStoreMigration.targetSchemaFingerprintSha256 = schemaFingerprintSha256;
   const base = {
     label: "healthy owner evaluation", device, completion, accepted: true,
     pilot: false, installationAuthorized: true, environmentInstallationAuthorized: true,
+    requiredSource,
   };
   const historical = {
     ...structuredClone(base), label: "historical Build 27 unchanged",
     device: originalDevice, completion: originalCompletion, pilot: true,
   };
-  const cases = [historical, base];
+  const priorSchemaCandidate = structuredClone(base);
+  priorSchemaCandidate.label = "schema 10 artifact retains existing evidence shape";
+  priorSchemaCandidate.completion.sourceAuthority = structuredClone(originalCompletion.sourceAuthority);
+  priorSchemaCandidate.device.release.sourceCommit = originalCompletion.sourceAuthority.commit;
+  priorSchemaCandidate.device.release.sourceTree = originalCompletion.sourceAuthority.tree;
+  priorSchemaCandidate.device.localStoreMigration = structuredClone(originalDevice.localStoreMigration);
+  delete priorSchemaCandidate.requiredSource;
+  const withoutMeasuredFingerprint = structuredClone(base);
+  withoutMeasuredFingerprint.label = "schema 11 governed open does not require an unavailable device hash";
+  delete withoutMeasuredFingerprint.device.localStoreMigration.targetSchemaFingerprintSha256;
+  const cases = [historical, priorSchemaCandidate, base, withoutMeasuredFingerprint];
   const change = (label, edit) => {
     const value = structuredClone(base);
     value.label = label;
@@ -554,6 +647,60 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
     if (value === undefined) delete parent[parts.at(-1)];
     else parent[parts.at(-1)] = value;
   };
+  for (const value of [undefined, null, false, [], [requiredSource]]) {
+    change(`invalid schema requirement object: ${JSON.stringify(value)}`, (row) => set(row, "requiredSource", value));
+  }
+  for (const value of [undefined, null, "11", 10, 12, false, [11]]) {
+    change(`invalid approved schema version: ${JSON.stringify(value)}`, (row) =>
+      set(row.requiredSource, "localStoreSchemaVersion", value));
+  }
+  for (const value of [undefined, null, false, [], [schemaFingerprintSha256], "0".repeat(64), schemaFingerprintSha256.toLowerCase()]) {
+    change(`invalid approved schema fingerprint: ${JSON.stringify(value)}`, (row) =>
+      set(row.requiredSource, "localStoreSchemaFingerprintSha256", value));
+    if (value !== undefined) {
+      change(`invalid measured schema fingerprint: ${JSON.stringify(value)}`, (row) =>
+        set(row.device, "localStoreMigration.targetSchemaFingerprintSha256", value));
+    }
+  }
+  for (const [field, value] of [
+    ["device.localStoreMigration.governedOpenCompleted", false],
+    ["device.localStoreMigration.targetSchemaVersion", 10],
+    ["device.physicalDevice.exactGovernedApkMatch", false],
+    ["requiredSource.localStoreSchemaFingerprintSha256", undefined],
+  ]) {
+    const row = structuredClone(withoutMeasuredFingerprint);
+    row.label = `optional device hash still requires ${field}`;
+    row.accepted = false;
+    set(row, field, value);
+    cases.push(row);
+  }
+  change("coherent receipt and approval downgrade cannot override schema 11 source", (row) => {
+    row.requiredSource.localStoreSchemaVersion = 10;
+    row.device.localStoreMigration.targetSchemaVersion = 10;
+    delete row.device.localStoreMigration.targetSchemaFingerprintSha256;
+  });
+  change("coherent receipt and approval fingerprint replacement cannot override source", (row) => {
+    row.requiredSource.localStoreSchemaFingerprintSha256 = "0".repeat(64);
+    row.device.localStoreMigration.targetSchemaFingerprintSha256 = "0".repeat(64);
+  });
+  change("artifact source tree must actually resolve", (row) => {
+    row.completion.sourceAuthority.tree = "9".repeat(40);
+    row.device.release.sourceTree = "9".repeat(40);
+  });
+  change("unavailable source cannot derive expectations from receipt or approval", (row) => {
+    row.completion.sourceAuthority.commit = "8".repeat(40);
+    row.device.release.sourceCommit = "8".repeat(40);
+  });
+  change("old source cannot acquire schema 11 through new declarations", (row) => {
+    row.completion.sourceAuthority = structuredClone(originalCompletion.sourceAuthority);
+    row.device.release.sourceCommit = originalCompletion.sourceAuthority.commit;
+    row.device.release.sourceTree = originalCompletion.sourceAuthority.tree;
+  });
+  const contradictoryPriorSchema = structuredClone(priorSchemaCandidate);
+  contradictoryPriorSchema.label = "present schema 10 fingerprint cannot contradict source";
+  contradictoryPriorSchema.accepted = false;
+  contradictoryPriorSchema.device.localStoreMigration.targetSchemaFingerprintSha256 = "0".repeat(64);
+  cases.push(contradictoryPriorSchema);
   for (const field of [
     "unsyncedRows", "unresolvedRejections", "pushFailed", "fullSyncConflicts",
     "processingErrors", "likelyPermanentRejections", "globalPullConflict",
@@ -650,7 +797,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   try {
     fs.writeFileSync(path.join(fixtureRoot, "cases.json"), JSON.stringify(cases));
     fs.writeFileSync(path.join(fixtureRoot, "check.ps1"), String.raw`
-param([string]$ProductionSource)
+param([string]$ProductionSource, [string]$RepositoryRoot)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
@@ -679,6 +826,9 @@ $rows = foreach ($case in (Get-Content cases.json -Raw | ConvertFrom-Json)) {
   $currentStagedPilotAuthorized = $case.pilot
   $historicalStagedPilotAuthorityPreserved = -not $case.pilot
   $versionSource = [pscustomobject]@{ controls = [pscustomobject]@{ attachedPhoneInPlaceInstallationAuthorized = $case.installationAuthorized } }
+  if ($null -ne $case.PSObject.Properties['requiredSource']) {
+    $versionSource | Add-Member -NotePropertyName requiredSource -NotePropertyValue $case.requiredSource
+  }
   $environmentApproval = [pscustomobject]@{ controls = [pscustomobject]@{ installationApproved = $case.environmentInstallationAuthorized } }
   $policy = [pscustomobject]@{
     release = $completionReceipt.release
@@ -701,7 +851,7 @@ $rows = foreach ($case in (Get-Content cases.json -Raw | ConvertFrom-Json)) {
 }
 $rows | ConvertTo-Json -Compress -Depth 4
 `);
-    const rows = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", path.join(fixtureRoot, "check.ps1"), path.join(repositoryRoot, "tools/release/Test-ProductionReleasePolicy.ps1")], {
+    const rows = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", path.join(fixtureRoot, "check.ps1"), path.join(repositoryRoot, "tools/release/Test-ProductionReleasePolicy.ps1"), repositoryRoot], {
       cwd: fixtureRoot, encoding: "utf8", windowsHide: true, maxBuffer: 4 * 1024 * 1024,
     }));
     assert.equal(rows.length, cases.length);

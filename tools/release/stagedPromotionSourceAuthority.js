@@ -9,6 +9,8 @@ const {verifyReceiptSeal} = require("./collectProductionGlobalPullBackend.js");
 const fleetReadback = require("./collectFunctionFleetRuntimeIdentityReadback.js");
 const iamReadback = require("./collectFunctionsIamDependenciesReadback.js");
 const firestoreReadback = require("./collectFirestoreRulesIndexesReadback.js");
+const {readDeploymentFleetContract, deploymentCountsMatch, measuredFunctionNamesMatch} =
+  require("./deploymentFleetContract.js");
 
 const PROJECT = "crm3-baf-ops-b8638";
 const DEPLOYED = "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK";
@@ -110,9 +112,10 @@ function commitTree(repoRoot, commit, label) {
   return tree;
 }
 
-function verifyDeployment(receipt, label) {
+function verifyDeployment(repoRoot, receipt, label) {
+  const fleet = readDeploymentFleetContract(repoRoot, receipt.sourceAuthority?.commit);
   requireEvidence(receipt.firebaseProjectId === PROJECT && receipt.decision === DEPLOYED &&
-    receipt.deployment?.functionCount === 15 &&
+    deploymentCountsMatch(fleet, receipt.deployment) &&
     receipt.deployment?.allFunctionsExactSourceVerified === true &&
     receipt.deployment?.finalRuntimeIdentityReadbackPassed === true &&
     receipt.deployment?.finalIamDependencyReadbackPassed === true &&
@@ -141,6 +144,7 @@ function requireApprovalCustody(receiptAuthority, measuredApproval, custody, lab
 
 function verifyApproval(repoRoot, receipt, approval) {
   const source = receipt.sourceAuthority;
+  const fleet = readDeploymentFleetContract(repoRoot, source.commit);
   const admitted = approval.sourceAuthority;
   const scope = approval.approvedDeployment;
   const approvedAt = explicitUtcInstant(approval.approvedAtUtc);
@@ -189,7 +193,12 @@ function verifyApproval(repoRoot, receipt, approval) {
     admitted.requiredPostMergeReleaseGateRunId > 0 &&
     admitted.requiredPostMergeReleaseGateRunId === source.postMergeReleaseGateRunId &&
     source.postMergeReleaseGateConclusion === "success" &&
-    scope?.functionCount === 15 && scope.functionCount === receipt.deployment.functionCount &&
+    scope?.functionCount === fleet.functionCount &&
+    // The fixed historical owner approval records the fleet total only. Its
+    // immutable custody remains mandatory; the measured receipt still carries
+    // all detailed counts. Delegated decisions must declare all four counts.
+    (!delegated || deploymentCountsMatch(fleet, scope)) &&
+    deploymentCountsMatch(fleet, receipt.deployment) &&
     scope.existingDedicatedServiceAccountsRequired === true &&
     scope.preserveExistingIamRequired === true && scope.appCheckEnforcement === false &&
     scope.scheduledFunctionDeploymentAuthorized === true && receipt.deployment.schedulerCount === 1 &&
@@ -248,10 +257,11 @@ function verifyReadbackDecision(repoRoot, receipt, key, child) {
   const sourceExports = key === "functionFleet"
     ? Object.keys(policy.functionBindings).sort() : [...policy.sourceFunctionExports].sort();
   const updates = outputs.functions.map((record) => explicitUtcInstant(record.updateTime));
+  const fleet = readDeploymentFleetContract(repoRoot, source.commit);
   requireEvidence(typeof receipt.deployment.sourceRuntimeHash === "string" &&
     COMMIT.test(receipt.deployment.sourceRuntimeHash) &&
     outputs.functions.every((record) => record.firebaseFunctionsHash === receipt.deployment.sourceRuntimeHash) &&
-    updates.length === 15 && updates.every((value) => value != null) &&
+    measuredFunctionNamesMatch(fleet, outputs.functions) && updates.every((value) => value != null) &&
     updates.reduce((left, right) => left < right ? left : right) ===
       explicitUtcInstant(receipt.authorityChronology.earliestFunctionUpdateTime) &&
     updates.reduce((left, right) => left > right ? left : right) ===
@@ -322,11 +332,11 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
     requireEvidence(Number.isSafeInteger(expectedPr) && expectedPr > 0,
       "Candidate backend: deployment pull request is invalid.");
     const expectedTree = commitTree(root, expectedCommit, "Candidate backend");
-    verifyDeployment(candidate, "Candidate backend");
     requireEvidence(candidate.sourceAuthority?.commit === expectedCommit &&
       candidate.sourceAuthority?.tree === expectedTree &&
       candidate.sourceAuthority?.pullRequestNumber === expectedPr,
     "Candidate backend: deployed commit, Git tree or pull request differs from version authority.");
+    verifyDeployment(root, candidate, "Candidate backend");
     const build28 = versionPolicy.buildNumber === 28;
     let historicalFile = finalization.exactFunctionFleetDeploymentReceiptFile;
     let historicalRead = candidateRead;
@@ -341,7 +351,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       const authority = anchoredPromotion.admittedEvidence.productionBackend;
       historicalFile = authority.receipt;
       historicalRead = readChild(root, historicalFile, authority.sha256, "Historical backend");
-      verifyDeployment(historicalRead.value, "Historical backend");
+      verifyDeployment(root, historicalRead.value, "Historical backend");
     }
     const historical = historicalRead.value;
 
@@ -357,7 +367,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
     const approvalRead = readChild(root, deployed.deploymentApprovalFile,
       deployed.deploymentApprovalSha256, "Backend approval");
     const approval = approvalRead.value;
-    verifyDeployment(receipt, "Current backend");
+    verifyDeployment(root, receipt, "Current backend");
     const currentTree = commitTree(root, deployed.functionFleetSourceCommit, "Current backend");
     requireEvidence(receipt.sourceAuthority?.commit === deployed.functionFleetSourceCommit &&
       receipt.sourceAuthority?.tree === currentTree &&

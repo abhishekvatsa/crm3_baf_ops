@@ -182,15 +182,108 @@ function Test-Build28OwnerInstallationAuthority {
   return $true
 }
 
+function Get-ArtifactLocalStoreSchemaAuthority {
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][object]$CompletionReceipt,
+    [Parameter(Mandatory)][object]$VersionSource
+  )
+  $source = $CompletionReceipt.sourceAuthority
+  if ($source.commit -isnot [string] -or $source.commit -cnotmatch '^[0-9a-f]{40}$' -or
+      $source.tree -isnot [string] -or $source.tree -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Artifact local schema requires an exact source commit and tree.'
+  }
+  $tree = @(git --no-replace-objects -C $RepositoryRoot rev-parse --verify "$($source.commit)^{tree}" 2>$null)
+  if ($LASTEXITCODE -ne 0 -or $tree.Count -ne 1 -or $tree[0] -cne $source.tree) {
+    throw 'Artifact local schema source tree differs from finalization.'
+  }
+  $lines = @(git --no-replace-objects -C $RepositoryRoot show "$($source.commit):lib/core/services/isar_schema_migration.dart" 2>$null)
+  if ($LASTEXITCODE -ne 0) { throw 'Artifact local schema source is unavailable.' }
+  $text = $lines -join "`n"
+  # Read only the literal declarations used by the committed migration plan.
+  # Expressions, interpolation and duplicate declarations require a reviewed
+  # reader extension, rather than evaluating Dart or trusting receipt values.
+  $versions = [regex]::Matches($text, '(?m)^\s*static const int currentSchemaVersion = (?<version>[1-9][0-9]*);\s*$')
+  $fingerprints = [regex]::Matches($text, "(?m)^\s*static const String currentSchemaFingerprint =\s*(?<literals>(?:'[A-Za-z0-9:+,]+'\s*)+);\s*$")
+  if ($versions.Count -ne 1 -or $fingerprints.Count -ne 1 -or
+      [regex]::Matches($text, '\bstatic\s+const\s+int\s+currentSchemaVersion\s*=').Count -ne 1 -or
+      [regex]::Matches($text, '\bstatic\s+const\s+String\s+currentSchemaFingerprint\s*=').Count -ne 1 -or
+      [regex]::Matches($text, 'static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan\(\s*currentVersion: currentSchemaVersion,\s*schemaFingerprint: currentSchemaFingerprint,').Count -ne 1) {
+    throw 'Artifact local schema declarations are absent, ambiguous or unsupported.'
+  }
+  $version = [int]$versions[0].Groups['version'].Value
+  if ($version -notin @(10, 11)) { throw 'Artifact local schema version needs a reviewed evidence contract.' }
+  $fingerprint = ([regex]::Matches($fingerprints[0].Groups['literals'].Value, "'(?<value>[A-Za-z0-9:+,]+)'") |
+    ForEach-Object { $_.Groups['value'].Value }) -join ''
+  if (-not $fingerprint.StartsWith("v${version}:", [StringComparison]::Ordinal)) {
+    throw 'Artifact local schema fingerprint does not identify its version.'
+  }
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    $fingerprintSha256 = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($fingerprint)))
+  } finally { $sha.Dispose() }
+
+  $required = $VersionSource.PSObject.Properties['requiredSource']
+  $approvedVersion = $null
+  $approvedFingerprint = $null
+  if ($null -ne $required) {
+    if ($null -eq $required.Value -or $required.Value -isnot [pscustomobject]) {
+      throw 'Artifact local schema requirements must be an object.'
+    }
+    # Keep PropertyInfo values intact: arrays must not become scalar approvals.
+    $approvedVersion = $required.Value.PSObject.Properties['localStoreSchemaVersion']
+    $approvedFingerprint = $required.Value.PSObject.Properties['localStoreSchemaFingerprintSha256']
+  }
+  if ($version -eq 11 -or $null -ne $approvedVersion -or $null -ne $approvedFingerprint) {
+    if ($null -eq $approvedVersion -or $null -eq $approvedFingerprint -or
+        ($approvedVersion.Value -isnot [int] -and $approvedVersion.Value -isnot [int64]) -or
+        $approvedVersion.Value -ne $version -or
+        $approvedFingerprint.Value -isnot [string] -or
+        $approvedFingerprint.Value -cne $fingerprintSha256) {
+      throw 'Approved artifact local schema differs from its committed source.'
+    }
+  }
+  [pscustomobject]@{
+    sourceCommit = $source.commit
+    sourceTree = $source.tree
+    targetSchemaVersion = $version
+    targetSchemaFingerprintSha256 = $fingerprintSha256
+  }
+}
+
+function Get-DeploymentFleetContract {
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$SourceCommit
+  )
+  $helper = Join-Path $RepositoryRoot 'tools/release/deploymentFleetContract.js'
+  $output = @(node $helper $RepositoryRoot $SourceCommit)
+  if ($LASTEXITCODE -ne 0) { throw 'Exact-source deployment fleet contract could not be resolved.' }
+  $contract = ($output -join "`n") | ConvertFrom-Json
+  if ($contract.sourceCommit -cne $SourceCommit -or
+      ($contract.functionCount -isnot [int] -and $contract.functionCount -isnot [int64]) -or
+      $contract.functionCount -le 0) {
+    throw 'Exact-source deployment fleet contract is invalid.'
+  }
+  $contract
+}
+
 function Test-Build28ReadOnlyDeviceAcceptance {
   param(
     [object]$Receipt,
     [object]$CompletionReceipt,
     [string]$CompletionReceiptPath,
-    [string]$CompletionReceiptSha256
+    [string]$CompletionReceiptSha256,
+    [Parameter(Mandatory)][object]$ExpectedLocalStoreSchema
   )
-  # Every field below is an existing measured receipt field. Require scalar
-  # evidence: a string "false", absent count or nonempty array is not a pass.
+  if ($ExpectedLocalStoreSchema.sourceCommit -cne $CompletionReceipt.sourceAuthority.commit -or
+      $ExpectedLocalStoreSchema.sourceTree -cne $CompletionReceipt.sourceAuthority.tree) {
+    return $false
+  }
+  # Require scalar measured evidence: a string "false", absent count or
+  # nonempty array is not a pass. The approved source fingerprint is mandatory
+  # for schema 11. Healthy diagnostics do not export its hash, so a separate
+  # measured device hash is optional; any supplied value must agree exactly.
   $facts = @(
     @{ Path = 'schemaVersion'; Expected = 1 }
     @{ Path = 'evidenceType'; Expected = 'production-build-device-acceptance' }
@@ -229,7 +322,7 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     @{ Path = 'runtime.permissionDenialObserved'; Expected = $false }
     @{ Path = 'runtime.approvedAuthenticatedSessionPreserved'; Expected = $true }
     @{ Path = 'runtime.authenticatedHomeRendered'; Expected = $true }
-    @{ Path = 'localStoreMigration.targetSchemaVersion'; Expected = 10 }
+    @{ Path = 'localStoreMigration.targetSchemaVersion'; Expected = $ExpectedLocalStoreSchema.targetSchemaVersion }
     @{ Path = 'localStoreMigration.governedOpenCompleted'; Expected = $true }
     @{ Path = 'localStoreMigration.applicationDataPreserved'; Expected = $true }
     @{ Path = 'localStoreMigration.isarOpenFailureObserved'; Expected = $false }
@@ -256,6 +349,10 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     @{ Path = 'releaseBoundary.appCheckActivationPerformed'; Expected = $false }
     @{ Path = 'releaseBoundary.deviceDataClearPerformed'; Expected = $false }
   )
+  if ($null -ne $Receipt.localStoreMigration -and
+      $null -ne $Receipt.localStoreMigration.PSObject.Properties['targetSchemaFingerprintSha256']) {
+    $facts += @{ Path = 'localStoreMigration.targetSchemaFingerprintSha256'; Expected = $ExpectedLocalStoreSchema.targetSchemaFingerprintSha256 }
+  }
   foreach ($name in @(
     'ticketSubmitted', 'ticketAcknowledgedOrClosed',
     'plannedMaintenanceCommandSubmitted', 'workflowCommandSubmitted',
@@ -2048,6 +2145,8 @@ if ([string]::IsNullOrWhiteSpace($expectedFunctionFleetSourceCommit)) {
 }
 $expectedFunctionFleetSourceTree =
   Get-GitCommitTreeObjectId -Commit $expectedFunctionFleetSourceCommit
+$expectedFunctionFleetContract = Get-DeploymentFleetContract `
+  -RepositoryRoot $RepositoryRoot -SourceCommit $expectedFunctionFleetSourceCommit
 if ([string]$functionFleetDeploymentReceipt.decision -ne
       'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
     [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -ne
@@ -2056,7 +2155,9 @@ if ([string]$functionFleetDeploymentReceipt.decision -ne
       $expectedFunctionFleetSourceTree -or
     [int64]$functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
       $expectedFunctionFleetPullRequest -or
-    $functionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
+    ($functionFleetDeploymentReceipt.deployment.functionCount -isnot [int] -and
+     $functionFleetDeploymentReceipt.deployment.functionCount -isnot [int64]) -or
+    $functionFleetDeploymentReceipt.deployment.functionCount -ne $expectedFunctionFleetContract.functionCount -or
     $functionFleetDeploymentReceipt.deployment.allFunctionsExactSourceVerified -ne
       $true -or
     $functionFleetDeploymentReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
@@ -2097,6 +2198,9 @@ $currentFunctionFleetDeploymentReceipt = Get-Content `
     ConvertFrom-Json
 $currentDeploymentApproval = Get-Content `
   -LiteralPath $currentDeploymentApprovalPath -Raw | ConvertFrom-Json
+$currentFunctionFleetContract = Get-DeploymentFleetContract `
+  -RepositoryRoot $RepositoryRoot `
+  -SourceCommit ([string]$currentDeployedBackendAuthority.functionFleetSourceCommit)
 if ($currentDeploymentApproval.approved -ne $true -or
     [string]$currentDeploymentApproval.firebaseProjectId -ne
       'crm3-baf-ops-b8638' -or
@@ -2114,7 +2218,9 @@ if ($currentDeploymentApproval.approved -ne $true -or
       'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
     [string]$currentFunctionFleetDeploymentReceipt.sourceAuthority.commit -ne
       [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -or
-    $currentFunctionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
+    ($currentFunctionFleetDeploymentReceipt.deployment.functionCount -isnot [int] -and
+     $currentFunctionFleetDeploymentReceipt.deployment.functionCount -isnot [int64]) -or
+    $currentFunctionFleetDeploymentReceipt.deployment.functionCount -ne $currentFunctionFleetContract.functionCount -or
     $currentFunctionFleetDeploymentReceipt.deployment.
       allFunctionsExactSourceVerified -ne $true -or
     $currentFunctionFleetDeploymentReceipt.deployment.
@@ -2899,7 +3005,11 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           -Receipt $deviceAcceptance `
           -CompletionReceipt $completionReceipt `
           -CompletionReceiptPath $completionReceiptPath `
-          -CompletionReceiptSha256 (Get-Sha256 $completionReceiptPath)))) {
+          -CompletionReceiptSha256 (Get-Sha256 $completionReceiptPath) `
+          -ExpectedLocalStoreSchema (Get-ArtifactLocalStoreSchemaAuthority `
+            -RepositoryRoot $RepositoryRoot `
+            -CompletionReceipt $completionReceipt `
+            -VersionSource $versionSource)))) {
       throw 'Build 28 owner acceptance requires exact healthy read-only evidence and installation authority.'
     }
     $mutationValues = @(
