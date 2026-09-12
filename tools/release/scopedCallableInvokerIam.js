@@ -117,6 +117,28 @@ function pages(rows, url, field) {
   need(token === "", `truncated ${field} inventory.`);
   return result;
 }
+function unavailableRunRegion(response, location, projectNumber) {
+  // A location-policy refusal is evidence of unobservability, never an empty
+  // inventory. Admit only the measured first-page response outside our target.
+  need(location === "me-central2" && location !== REGION &&
+    /^\d+$/.test(String(projectNumber)), "target or invalid Run region cannot be excluded.");
+  need(response?.url === `https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location}/services?pageSize=100` &&
+    response.method === "GET" && response.httpStatus === 403 && typeof response.bodyText === "string",
+  "region exclusion requires its exact first-page HTTP403 response.");
+  let value;
+  try { value = JSON.parse(response.bodyText); } catch { throw new Error("Scoped invoker IAM: malformed unavailable-region response."); }
+  exactKeys(value, ["error"], "unavailable-region response");
+  const error = value.error;
+  need(object(error) && error.code === 403 && error.status === "PERMISSION_DENIED" && Array.isArray(error.details),
+    "region exclusion is not a measured PERMISSION_DENIED response.");
+  const infos = error.details.filter((detail) => detail?.["@type"] === "type.googleapis.com/google.rpc.ErrorInfo");
+  need(infos.length === 1, "region exclusion requires one unambiguous ErrorInfo.");
+  const info = infos[0];
+  need(info.reason === "LOCATION_POLICY_VIOLATED" && info.domain === "googleapis.com" && object(info.metadata) &&
+    info.metadata.location === location && info.metadata.consumer === `projects/${projectNumber}` && info.metadata.service === "",
+  "unavailable-region reason, domain or project/location identity differs.");
+  return {location, reason: info.reason, domain: info.domain, consumer: info.metadata.consumer};
+}
 function summarize(raw, context, phase) {
   const {fleet, pairs, policy} = sourceScope(context);
   need(raw?.schemaVersion === 1 && raw.projectId === PROJECT && raw.region === REGION &&
@@ -137,9 +159,14 @@ function summarize(raw, context, phase) {
   need(locationNames.has(REGION), "production region absent from complete location inventory.");
   const runInventories = unique(raw.runInventories, (row) => row?.location, "regional service inventories");
   need(same([...locationNames.keys()].sort(), [...runInventories.keys()].sort()), "not every Run region was read.");
-  const runRows = [];
+  const runRows = []; const unavailableRunRegions = [];
   for (const [location, row] of runInventories) {
     need(/^[a-z][a-z0-9-]+$/.test(location), "invalid Run region.");
+    if (Object.hasOwn(row, "unavailable")) {
+      exactKeys(row, ["location", "unavailable"], "unavailable-region inventory");
+      unavailableRunRegions.push(unavailableRunRegion(row.unavailable, location, project.projectNumber));
+      continue;
+    }
     for (const service of pages(row.pages, `https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location}/services`, "services")) {
       need(normalize(service.name).startsWith(`projects/${PROJECT}/locations/${location}/services/`), "service listed in wrong region.");
       runRows.push(service);
@@ -188,6 +215,7 @@ function summarize(raw, context, phase) {
     }
   } else need(Array.isArray(raw.absence) && raw.absence.length === 0, "after capture cannot claim preflight absence.");
   return {functions: mapping, runServices: runSummary, serviceAccounts: accountSummary,
+    ...(unavailableRunRegions.length ? {unavailableRunRegions: unavailableRunRegions.sort((a, b) => a.location.localeCompare(b.location))} : {}),
     projectIam: policyValue(body(raw.projectIam, `https://cloudresourcemanager.googleapis.com/v1/projects/${PROJECT}:getIamPolicy`, "POST"))};
 }
 function createCapture(context, raw, phase) {
@@ -213,6 +241,7 @@ function createProof(context, before, after) {
   need(instant(before.raw.completedAtUtc) < instant(after.raw.startedAtUtc), "before/after captures overlap or are reversed.");
   const {pairs} = sourceScope(context);
   const a = before.measurement; const b = after.measurement;
+  need(same(a.unavailableRunRegions ?? [], b.unavailableRunRegions ?? []), "unavailable Run region scope changed.");
   need(same(a.projectIam, b.projectIam), "project IAM changed.");
   need(same(a.serviceAccounts, b.serviceAccounts), "service-account inventory or IAM changed.");
   const added = Object.keys(b.runServices).filter((name) => !Object.hasOwn(a.runServices, name)).sort();
@@ -223,7 +252,8 @@ function createProof(context, before, after) {
   return sealReceipt({schemaVersion: 1, evidenceType: "scoped-callable-invoker-iam-comparison", decision: PASS,
     projectId: PROJECT, region: REGION, sourceCommit: context.sourceCommit, approvalSha256: context.approvalSha256.toUpperCase(),
     before, after, newServiceResources: added,
-    qualification: "Before/after IAM observations; not a continuous audit of transient writes. Raw response bodies retained; no credentials retained.",
+    qualification: "Before/after IAM observations; not a continuous audit of transient writes. Raw response bodies retained; no credentials retained." +
+      (a.unavailableRunRegions?.length ? ` Run service inventory and IAM coverage excludes ${a.unavailableRunRegions.map((row) => row.location).join(", ")}: matching LOCATION_POLICY_VIOLATED responses in both captures; no absence or unchanged IAM is claimed in these unseen regions. Approved changes remain confined to ${REGION}.` : ""),
     mutationBoundary: {iamMutated: false, cloudResourcesMutated: false}});
 }
 function validateProof({proof, ...context}) {
@@ -253,14 +283,16 @@ function validateDeploymentIamBoundary({repoRoot, approval, approvalSha256, rece
   need(receipt?.controlBoundary?.iamMutated === true && scope !== undefined && reference !== undefined &&
     hashEqual(receipt.approvalAuthority?.sha256, approvalSha256), "new IAM creation must be explicitly declared and approved.");
   const proof = readBoundFile(repoRoot, reference);
-  const result = validateProof({repoRoot, approval, approvalSha256, sourceCommit: receipt.sourceAuthority?.commit, proof});
+  const isPublic = proof.evidenceType === "scoped-callable-invoker-iam-public-comparison";
+  const context = {repoRoot, approval, approvalSha256, sourceCommit: receipt.sourceAuthority?.commit, proof};
+  const result = isPublic ? require("./scopedCallableInvokerIamPublic.js").validatePublicProof(context) : validateProof(context);
   const firstCommand = commandInstant(receipt.deployment.startedAtUtc);
   const lastCommand = commandInstant(receipt.deployment.lastDeploymentCommandCompletedAtUtc);
-  need(commandInstant(proof.before.raw.completedAtUtc) < firstCommand && firstCommand <= lastCommand &&
-    lastCommand < commandInstant(proof.after.raw.startedAtUtc), "IAM observations do not surround the actual deployment command interval.");
+  need(commandInstant((isPublic ? proof.before : proof.before.raw).completedAtUtc) < firstCommand && firstCommand <= lastCommand &&
+    lastCommand < commandInstant((isPublic ? proof.after : proof.after.raw).startedAtUtc), "IAM observations do not surround the actual deployment command interval.");
   return result;
 }
-module.exports = {NEW_FUNCTIONS, PROJECT, REGION, hash, sourceScope, body, pages, createCapture,
+module.exports = {NEW_FUNCTIONS, PROJECT, REGION, hash, sourceScope, body, pages, unavailableRunRegion, createCapture,
   createProof, validateBeforeCapture, validateProof, validateDeploymentIamBoundary, policyValue};
 
 if (require.main === module) {

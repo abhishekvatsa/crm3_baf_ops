@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {execFileSync} = require("node:child_process");
 const {resolveCommand} = require("./collectFunctionsIamDependenciesReadback.js");
-const {PROJECT, REGION, hash, sourceScope, createCapture} = require("./scopedCallableInvokerIam.js");
+const {PROJECT, REGION, hash, sourceScope, createCapture, unavailableRunRegion} = require("./scopedCallableInvokerIam.js");
 
 async function collect(context, phase, read) {
   const {pairs} = sourceScope(context);
@@ -14,11 +14,17 @@ async function collect(context, phase, read) {
   const raw = {schemaVersion: 1, projectId: PROJECT, region: REGION,
     sourceCommit: context.sourceCommit, approvalSha256: context.approvalSha256,
     startedAtUtc: new Date().toISOString()};
-  async function list(url, field) {
+  async function list(url, field, optionalRegion) {
     const rows = []; const entries = []; const seen = new Set(); let token = "";
     do {
       const response = await read(`${url}?pageSize=100${token ? `&pageToken=${encodeURIComponent(token)}` : ""}`);
-      if (response.httpStatus !== 200) throw new Error(`Cannot enumerate ${field}: HTTP ${response.httpStatus}.`);
+      if (response.httpStatus !== 200) {
+        if (optionalRegion != null && rows.length === 0 && response.httpStatus === 403) {
+          unavailableRunRegion(response, optionalRegion, project.projectNumber);
+          return {unavailable: response, entries: []};
+        }
+        throw new Error(`Cannot enumerate ${field}: HTTP ${response.httpStatus}.`);
+      }
       const value = JSON.parse(response.bodyText);
       if (value.error || (value.unreachable?.length ?? 0) > 0) throw new Error(`Incomplete ${field} response.`);
       rows.push(response); entries.push(...(value[field] ?? []));
@@ -43,8 +49,9 @@ async function collect(context, phase, read) {
   const locations = await list(`https://run.googleapis.com/v1/projects/${PROJECT}/locations`, "locations");
   raw.runLocations = locations.rows;
   const inventories = await map(locations.entries, async (location) => ({location: location.locationId,
-    ...await list(`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location.locationId}/services`, "services")}));
-  raw.runInventories = inventories.map((row) => ({location: row.location, pages: row.rows}));
+    ...await list(`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location.locationId}/services`, "services", location.locationId)}));
+  raw.runInventories = inventories.map((row) => row.unavailable ? {location: row.location, unavailable: row.unavailable} :
+    {location: row.location, pages: row.rows});
   raw.runIam = await map(inventories.flatMap((row) => row.entries), async (service) => {
     const resource = normalize(service.name);
     return {resource, response: await read(`https://run.googleapis.com/v2/${resource}:getIamPolicy?options.requestedPolicyVersion=3`)};
