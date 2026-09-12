@@ -20,7 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'context review rejects an account switch during lookup and retains draft across authority recovery',
+    'context review hides retained evidence on account switch or error and restores it only for its origin',
     (tester) async {
       final campaign = _assetCampaign(
         assetTypeKey: 'furnace',
@@ -94,8 +94,37 @@ void main() {
         find.byKey(const ValueKey('inspection-context-reason')),
         'Original manager reviewed the same Furnace.',
       );
-      accounts.addError(StateError('Account service unavailable'));
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
+      accounts.add(
+        AppUser(
+          uid: 'admin-2',
+          name: 'Other admin',
+          email: 'other@example.invalid',
+          roles: const [AppRole.admin],
+          isApproved: true,
+          createdAt: DateTime.utc(2026),
+        ),
+      );
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspection-context-target')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsNothing,
+      );
+      expect(find.textContaining('Original: Furnace 22'), findsNothing);
+      expect(find.textContaining('Current: Furnace 22'), findsNothing);
+      expect(find.textContaining('Same physical ID:'), findsNothing);
+      expect(
+        find.text('Original manager reviewed the same Furnace.'),
+        findsNothing,
+      );
+      expect(sent, isEmpty);
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
       expect(
         tester
             .widget<TextField>(
@@ -105,6 +134,19 @@ void main() {
             .text,
         'Original manager reviewed the same Furnace.',
       );
+      accounts.addError(StateError('Account service unavailable'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspection-context-target')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsNothing,
+      );
+      expect(find.textContaining('Original: Furnace 22'), findsNothing);
+      expect(find.textContaining('Current: Furnace 22'), findsNothing);
+      expect(find.textContaining('Same physical ID:'), findsNothing);
       expect(
         tester
             .widget<FilledButton>(
@@ -118,6 +160,24 @@ void main() {
       );
       accounts.add(_admin());
       await tester.pumpAndSettle();
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(
+              find.byKey(const ValueKey('inspection-context-target')),
+            )
+            .initialValue,
+        campaign.targets.first.targetKey,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('inspection-context-reason')),
+            )
+            .controller!
+            .text,
+        'Original manager reviewed the same Furnace.',
+      );
       await tester.ensureVisible(find.text('Approve same-target follow-up'));
       await tester.tap(find.text('Approve same-target follow-up'));
       await tester.pump();

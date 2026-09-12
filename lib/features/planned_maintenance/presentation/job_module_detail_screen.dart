@@ -12,6 +12,7 @@ import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -233,34 +234,38 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder:
-          (_) => ActionBottomSheet(
-            workStartedAt: widget.execution.createdAt,
-            workCompletedAt: widget.execution.completedAt,
-            target: GovernedActionContext(
-              assetTypeKey: widget.execution.assetType.name,
-              assetNumber: widget.execution.assetNumber,
-              assetClassId: identity?.assetClassId,
-              assetInstanceId: identity?.assetInstanceId,
-            ),
-            performedBy: actor.name,
-            workDiscipline: _module.discipline.name,
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (current) =>
+            current.canSaveJobModuleWorkFor(_module.discipline.name),
+        child: ActionBottomSheet(
+          workStartedAt: widget.execution.createdAt,
+          workCompletedAt: widget.execution.completedAt,
+          target: GovernedActionContext(
+            assetTypeKey: widget.execution.assetType.name,
+            assetNumber: widget.execution.assetNumber,
+            assetClassId: identity?.assetClassId,
+            assetInstanceId: identity?.assetInstanceId,
           ),
+          performedBy: actor.name,
+          workDiscipline: _module.discipline.name,
+        ),
+      ),
     );
     if (!mounted || action == null) return;
 
     final wasNotStarted = _module.status == JobModuleStatus.notStarted;
-    final updated =
-        _editableCopy()
-          ..actions = <ComponentAction>[...currentActions.entries, action]
-          ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
-          ..updatedByUid = actor.uid
-          ..updatedByName = actor.name
-          ..updatedAt = DateTime.now();
+    final updated = _editableCopy()
+      ..actions = <ComponentAction>[...currentActions.entries, action]
+      ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
+      ..updatedByUid = actor.uid
+      ..updatedByName = actor.name
+      ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage: 'Component work action saved',
       action: () async {
+        _verifyWorkActor(actor);
         await ref
             .read(jobModuleRepositoryProvider)
             .saveModule(
@@ -274,9 +279,20 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyWorkActor(actor);
         setState(() => _module = updated);
       },
     );
+  }
+
+  void _verifyWorkActor(AppUser expected) {
+    final message = currentActorActionMessage(
+      CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+      originUid: expected.uid,
+      permission: (current) =>
+          current.canSaveJobModuleWorkFor(_module.discipline.name),
+    );
+    if (message != null) throw StateError(message);
   }
 
   Future<void> _reviewSavedDrafts() async {

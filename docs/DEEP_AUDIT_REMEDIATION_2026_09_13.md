@@ -8,7 +8,7 @@ Source repair branch: `codex/deep-audit-repairs-20260913`, based on local docume
 | --- | --- | --- |
 | F01 — corrective work linked by host number | Linking and verification compare the original canonical physical identity. An Inner Cover is identified by its immutable cover ID and serial, using the ticket's contemporaneous association; the current occupant of a Base cannot stand in for it. | Incomplete historical identity remains a review case. Existing historical records are not silently rewritten. |
 | F02 — reopened campaign with stale physical context | An explicit, audited context review advances the context of the same physical target. Original target, campaign baseline, measurements and coverage remain intact. Campaign/context versions and the reviewed live context are checked again by the server. | This does not substitute a different cover or component. Upgrade participating clients before using new reviewed/relocated observation shapes. |
-| F03 — saved requests without a completing review route | An approved administrator can inspect retained work from **More → Saved work review**. The server records a review of an existing result or permanently fences further execution of the original request after explicit review. Local proof preserves the original envelope, legacy bytes and unknown original actor. | Receipt absence is not proof that work never happened: receipts can expire. Inspect business records first. Undecodable legacy identity and contradictory acceptance/review evidence remain held for specialist investigation. |
+| F03 — saved requests without a completing review route | An approved administrator can inspect retained work from **More → Saved work review**. Explicit completion records either an existing accepted result or cancellation, and both outcomes permanently prevent further business execution of the original request. Local proof preserves the original envelope, legacy bytes and unknown original actor. | An accepted-result hold never asserts cancellation or non-acceptance. Receipt absence is not proof that work never happened: receipts can expire. Inspect business records first. Undecodable legacy identity and contradictory acceptance/review evidence remain held for specialist investigation. |
 | F04 — Morning Review crosses India midnight | New opening/not-held requests freeze their intended India date. The server refuses fresh creation on another day. Previously attempted requests can recover their original acceptance through a read-only receipt lookup, then perform normal business readback. Older unpinned requests use that lookup even on the same day, closing the race across a network wait at midnight. | An absent receipt cannot silently become permission to create a meeting. Never-sent old-day or unpinned work remains cancellable without dispatch. |
 | F05 — entry time mistaken for physical work time | New planned-action entry requires selection of a local date and minute within the job bounds. Corrective-action entry exposes and preserves its supplied resolution time and allows correction within ticket bounds. The saved instant survives other form edits; burner/UV ordering uses it while preserving separate server recording time. | Corrective resolution still initially defaults its resolution time to now; operators must correct that time for late entry. A late entry for an older installation stays in history and does not replace a later physical installation. A separate governed correction workflow for already accepted history is not introduced here. |
 | F06 — stale whole-module local save | Native saves compare the reviewed revision and complete persisted preimage, and check current module/parent lifecycle in the same transaction. A conflict retains the complete losing draft atomically. **Saved drafts** compares it with current work and requires explicit restoration against a fresh baseline. | No overwrite of submitted/accepted/deleted modules or terminal parents. Conflict evidence uses checksummed, bounded audit chunks and remains tied to its actual actor. |
@@ -17,11 +17,11 @@ Source repair branch: `codex/deep-audit-repairs-20260913`, based on local docume
 
 The server's administrative review is distinct from business acceptance or local adoption. A known accepted local submission must still use its original business readback path. A valid acceptance arriving after review retains both outcomes and blocks the resource for investigation; replaying an older review cannot release that conflict.
 
-The review protocol is `savedSubmissionReview.v1` on the existing four V2 endpoints. Both V1 and V2 business calls consult the cancellation fence inside their original Firestore transaction. This is necessary because checking for an absent receipt in a separate read does not stop an in-flight original request from committing later. The fence reserves the original ID across every operation sharing its receipt namespace, so changing the operation cannot bypass cancellation.
+The review protocol is `savedSubmissionReview.v1` on the existing four V2 endpoints. Both V1 and V2 business calls consult the permanent execution hold inside their original Firestore transaction. Its explicit outcome distinguishes cancellation from an existing accepted result. This is necessary because an absent-receipt check alone cannot stop an in-flight original request, and an accepted receipt can later expire. The hold reserves the original ID across every operation sharing its receipt namespace. An installed client's delayed unpinned Morning Review request therefore cannot create a later day's meeting after its original acceptance has been reviewed and its receipt has expired.
 
-New cancellation finalization is **off by default**. The guarded V1/V2 fleet, drained older workers and a rollback that preserves the fences must be independently verified before setting the server activation record. Existing fences continue to apply if future cancellation is disabled. Decisions and fences have no TTL. Client writes to these server control collections are prohibited.
+Finalization of **both review outcomes is off by default**. The guarded V1/V2 fleet, drained older workers and a rollback that preserves both kinds of execution hold must be independently verified before setting the server activation record. Existing holds continue to apply if future finalization is disabled. Decisions and holds have no TTL. Client writes to these server control collections are prohibited. Inspection and supported read-only receipt lookup remain available; an expired receipt remains a read-only failure and never permits renewed execution.
 
-If the review commits but its reply is lost, inspection can return the original immutable completed proof. The client retains its original reason and resolves local custody without issuing another cancellation or requiring the administrator to remember the earlier note.
+If the review commits but its reply is lost, inspection can return the original immutable completed proof when its matching permanent hold remains valid, including after receipt expiry. The client retains the original reason and resolves local custody without another finalization or requiring the administrator to remember the earlier note. An earlier accepted-result proof lacking its matching hold is retained for specialist reconciliation; it is not silently rewritten, cancelled, or treated as safe completion.
 
 Local compatibility advances from schema 11 to **schema 12** because review outcomes have new meanings in existing native columns. The exact v11 fingerprint remains recognized. The transition preserves the database generation and does not rewrite business rows. Older binaries must refuse a v12 store; clearing application data or downgrading the marker is not a recovery procedure. Source-bound release approval must identify schema 12 and its exact source fingerprint.
 
@@ -29,7 +29,9 @@ Local compatibility advances from schema 11 to **schema 12** because review outc
 
 Focused verification includes native Isar restart/conflict tests, actual Flutter time-input tests, real handler asset/ticket/inspection journeys, Morning Review day-boundary tests, and administrative recovery receipt/fence tests. UI tests cover explicit confirmation and hiding retained evidence when account verification changes. These forms of evidence are distinct from emulator transactions, physical-device validation and production readback.
 
-Integrated gate results are recorded below. Local logs are retained under `build/`; they are not production deployment evidence.
+The integrated results below describe repair commit `f3d299d0`, before the
+independent pre-build pass recorded in the following section. Local logs are
+retained under `build/`; they are not production deployment evidence.
 
 - Final canonical source/authority audit: **150 passed, 0 failed**, `build/review-20260912/deep-audit-canonical-verified.txt`. This includes current persistence, schema, decoding, timestamp and architecture inventories; historical release evidence remains unchanged. Test-evidence taxonomy also passes: `build/review-20260912/deep-audit-test-taxonomy-final.txt`.
 - The separately required no-loss regression spine passed **110 tests**, `build/review-20260912/deep-audit-no-loss-spine-verified.txt`.
@@ -46,3 +48,64 @@ No release identity was reused: `pubspec.yaml` remains the existing Build 27 ver
 Before distribution, create an authorized successor artifact from the final reviewed source, verify the complete backend deployment and compatibility controls, perform the connected phone's in-place upgrade and representative business-flow checks, and retain exact artifact/readback evidence. The existing Build 27 download is not a download of these repairs.
 
 Performance profiling, a database migration, full off-device restoration proof, broader durability for other command families, and accepted-history correction workflows are separate work. This repair does not claim to have completed them.
+
+## Independent pre-build pass
+
+The owner then requested an independent audit and construction of a successor
+build, explicitly delegating the necessary authorization decisions. The audit
+checked actual production wiring and delayed original callers as well as the
+new recovery helpers. It found three additional defects:
+
+| Finding | Concrete failure | Repair and regression evidence |
+| --- | --- | --- |
+| P1 — accepted review lacked a permanent execution hold | After the original accepted receipt expired, a delayed installed V1 client's unpinned Morning Review request could create another day's session. The earlier TTL test only retrieved the review proof. | Both outcomes now create permanent holds, preserving acceptance as a distinct outcome. The actual NOT_HELD producer, TTL expiry, delayed replay, transaction overlap and read-only recovery are exercised. Focused host: 119 passed; focused emulator: 38 passed. |
+| P1 — production module provider omitted actor verification | Tests injected a verifier, but the production repository provider left it absent. Account changes or same-account permission revocation could therefore escape the transaction checks. | The actual provider now verifies live account readiness, UID and current roles. The action sheet hides on lost authority and checks authority around saving. Ten real native-provider cases and three actual widget cases pass, including rollback after a real native write. |
+| P2 — inspection review retained visible details under another account | Disabling the approval button left the previous operator's selected target, current context and review note visible or editable. | The unauthorized dialog body is unmounted; the original operator's retained state returns only with current authority. The 21-test inspection board suite passes. |
+
+The audit also corrected the deferred `js-yaml` build-tool advisory by raising
+the root and Functions overrides/lockfiles to 3.15.2 and synchronizing both
+installed trees. The complete dependency audit reports no advisory in either
+population; its 13 acceptance/negative tests pass. The historical exception
+record is retained with an explicit current-source update.
+
+Combined application verification after these repairs:
+
+- Full native-backed Flutter suite: **2,635 passed, 1 skipped, 0 failed**,
+  `build/review-20260912/build28-fresh-audit-full-flutter.txt`. The skipped
+  external reader-bridge entry point is the same separately exercised harness
+  described above; this run did not execute that external campaign again.
+- Whole-project analysis: **no issues**,
+  `build/review-20260912/build28-fresh-audit-analyze.txt`. The separately
+  required native no-loss regression spine passed **110 tests**,
+  `build/review-20260912/build28-fresh-audit-no-loss-spine.txt`.
+- Full Functions host pipeline: **1,494 Jest tests and 81 Node tests passed**,
+  `build/build28-fresh-audit-functions-host.txt`. Its 154 skipped cases belong
+  to separately invoked emulator/fixture suites.
+- Full governed emulator campaign: **267 Rules tests, 3 identity-reconciliation
+  tests and 150 Functions tests passed**,
+  `build/build28-fresh-audit-governed-emulator.txt`.
+- Final complete source/authority audit: **150 passed, 0 failed**,
+  `build/review-20260912/build28-fresh-audit-canonical-final.txt`.
+- Shared release-source and current-runtime authority suites: **52 passed**,
+  followed by three focused checks of the extracted predeployment decision
+  verifier and successor selection. Scoped permission evidence: **40 passed**
+  on the frozen source, `build/build28-scoped-iam-frozen-root-check.txt`.
+  The initial integrated custody run overlapped the final command-timestamp
+  fixture update and retained one failure from the older fixture; the frozen
+  focused run above includes that correction. Exact final-source CI remains
+  required before deployment.
+
+The retained release records describe the older 15-function deployment. The
+new source declares 19 endpoints, including four new V2 callable endpoints.
+Current deployment evidence must measure their creation and any associated
+invoker IAM provisioning explicitly; an old `iamMutated: false` receipt cannot
+stand in for a new deployment. Existing project, service-account and service
+permissions must remain unchanged. The production approval must retain the
+owner's delegation as delegation, with an actual agent decision time and exact
+reviewed source, rather than inventing an owner-spoken source approval.
+
+The connected phone's installed Build 27 APK and signing certificate were read
+and independently verified as the retained upgrade baseline. This does not
+establish its current private data inventory or a completed successor upgrade.
+Construction, backend readback, device validation and distribution will each
+need their own measured result.

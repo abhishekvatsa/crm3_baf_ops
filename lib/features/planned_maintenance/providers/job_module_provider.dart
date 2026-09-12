@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb, setEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart' hide Query;
 import 'package:uuid/uuid.dart';
@@ -15,6 +15,8 @@ import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
 import '../domain/planned_job_module_set_resolver.dart';
@@ -606,6 +608,20 @@ abstract class JobModuleRepository {
 final isarJobModuleRepoProvider = Provider<IsarJobModuleRepository>((ref) {
   return IsarJobModuleRepository(
     auditRepository: ref.read(auditRepositoryProvider),
+    verifyActor: (expected) {
+      final access = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      );
+      final current = access.actor;
+      if (!access.isReady ||
+          current == null ||
+          current.uid != expected.uid ||
+          !setEquals(current.roles.toSet(), expected.roles.toSet())) {
+        throw StateError(
+          'Verify the original account and its current permissions before saving module work.',
+        );
+      }
+    },
   );
 });
 

@@ -1,5 +1,17 @@
 # Build/Test Dependency Audit Exception, 2026-09-09
 
+Current source update, 13 September 2026: the root and Functions overrides and
+lockfiles now resolve `js-yaml` at **3.15.2**. Both installed dependency trees
+were synchronized. The complete audit checker reports `exception-closable`
+for both populations, with no remaining advisory. Its 13 negative/acceptance
+contract tests pass. Evidence is retained in
+`build/build28-fresh-dependency-audit.txt` and
+`build/build28-dependency-audit-contract.txt`.
+
+The decision below records the historical deferral. Its machine-readable
+scope remains available to the checker; it does not describe an advisory in
+the corrected source or prove that this source has already been deployed.
+
 ## Decision
 
 The release gate assesses runtime dependencies with `--omit=dev` for the root
@@ -7,7 +19,7 @@ package and Cloud Functions. That scoping is not an assertion that the omitted
 population is safe, so the omitted population is assessed here instead, and the
 gate additionally reports it on every run without failing on it.
 
-One advisory is currently open in that population.
+One advisory was open in that population when the deferral was recorded.
 
 | Field | Value |
 | --- | --- |

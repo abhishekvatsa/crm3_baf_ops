@@ -76,7 +76,8 @@ def current_backend_authority_proof_exact(
     deployed_authority: dict,
 ) -> bool:
     # Reuse the release gate's immutable approval and nanosecond verifier for
-    # both admitted sources, so changing source cannot bypass approval custody,
+    # historical and explicitly governed successor sources, so changing source
+    # cannot bypass approval custody,
     # and bind its result to the same receipt this audit has actually loaded.
     source_commit = "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
     if (
@@ -120,6 +121,28 @@ def current_backend_authority_proof_exact(
                 == deployed_authority.get("functionFleetEvidenceSha256")
             and (ROOT / deployment_relative).read_bytes() == measured
         )
+    except (OSError, TypeError, ValueError):
+        return False
+
+
+def scoped_backend_iam_boundary_exact(
+    deployment_path: Path, approval_path: Path, approval_sha256: str,
+) -> bool:
+    # One shared raw-evidence adjudicator also serves the production policy and
+    # staged-distribution gates. Historical false claims retain their old path.
+    try:
+        result = subprocess.run(
+            ["node", str(ROOT / "tools/release/scopedCallableInvokerIam.js"),
+             "verify-deployment", "--repository-root", str(ROOT),
+             "--approval", str(approval_path),
+             "--approval-sha256", approval_sha256,
+             "--receipt", str(deployment_path)],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+        proof = json.loads(result.stdout) if result.returncode == 0 else {}
+        return proof.get("ok") is True and proof.get("decision") in {
+            "PASS_NO_IAM_MUTATION", "PASS_NEW_CALLABLE_INVOKER_IAM_ONLY",
+        }
     except (OSError, TypeError, ValueError):
         return False
 
@@ -4725,9 +4748,11 @@ current_backend_immutable_authority_exact = current_backend_authority_proof_exac
     current_backend_deployment,
     current_deployed_backend,
 )
-if current_backend_deployment.get("sourceAuthority", {}).get("commit") == (
-    "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
+if current_backend_approval_evidence.get("authorityType") == (
+    "owner-delegated agent decision"
 ):
+    # The shared verifier retains fixed c00 custody and requires the successor's
+    # known delegation, immutable approval/CI bytes and postdecision chronology.
     current_backend_approval_scope_exact = current_backend_immutable_authority_exact
 else:
     # Retain the historical owner-instruction checks without reinterpreting
@@ -7993,8 +8018,8 @@ check(
     ) == current_backend_approval.get("sourceAuthority", {}).get(
         "pullRequestNumber"
     )
-    and current_backend_deployment.get("deployment", {}).get("functionCount")
-        == 15
+    # The immutable proof rederives exact fleet counts from this Git source.
+    and current_backend_immutable_authority_exact
     and current_backend_deployment.get("deployment", {}).get(
         "allFunctionsExactSourceVerified"
     ) is True
@@ -8004,8 +8029,10 @@ check(
     and current_backend_deployment.get("deployment", {}).get(
         "appCheckEnforcement"
     ) is False
-    and current_backend_deployment.get("controlBoundary", {}).get("iamMutated")
-        is False
+    and scoped_backend_iam_boundary_exact(
+        current_backend_deployment_path, current_backend_approval_path,
+        current_deployed_backend.get("deploymentApprovalSha256", ""),
+    )
     and current_backend_deployment.get("controlBoundary", {}).get(
         "productionBusinessDataMutated"
     ) is False

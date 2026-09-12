@@ -223,17 +223,15 @@ function parseRequest(raw: unknown, endpoint: string): ReviewRequest {
       (raw.phase === "finalize" && (!text(raw.reviewToken) || !SHA.test(raw.reviewToken)))) return invalid();
   return raw as unknown as ReviewRequest;
 }
-function validateFence(data: JsonMap, domain: Domain, requestId: string): void {
+function validateFence(data: JsonMap, domain: Domain, requestId: string): JsonMap {
   const proof = validatedProof(data, true);
   if (data.schemaVersion !== 1 || data.protocol !== SUBMISSION_RECOVERY_PROTOCOL ||
-      data.domain !== domain || data.requestId !== requestId || data.outcome !== "cancelled" ||
+      data.domain !== domain || data.requestId !== requestId ||
       !text(data.decisionId) || !SHA.test(data.decisionId) || !iso(data.decidedAt) ||
       !text(data.reviewerUid, 128) || !text(data.evidenceSha256) || !SHA.test(data.evidenceSha256)) {
-    fail("submission-recovery-fence-malformed", "The saved-request cancellation evidence needs investigation.");
+    fail("submission-recovery-fence-malformed", "The saved-request execution hold needs investigation.");
   }
-  if (proof.receiptSha256 !== null || proof.receiptSummary !== null) {
-    fail("submission-recovery-fence-malformed", "Cancellation evidence cannot also assert acceptance.");
-  }
+  return proof;
 }
 
 function validatedProof(data: JsonMap, fence = false): JsonMap {
@@ -269,7 +267,7 @@ function requireActivation(data: JsonMap | undefined, now: Date): void {
       !text(data.evidenceSha256) || !SHA.test(data.evidenceSha256) || !iso(data.verifiedAt) ||
       Date.parse(data.verifiedAt) > now.valueOf()) {
     fail("submission-recovery-finalization-not-activated",
-      "Cancellation is unavailable until the guarded backend fleet and compatible rollback have been independently verified.");
+      "Closing a saved request is unavailable until the guarded backend fleet and compatible rollback have been independently verified.");
   }
 }
 
@@ -293,12 +291,16 @@ export async function reviewSavedSubmissionWithDb(args: {
     const fenceRef = args.db.collection(SUBMISSION_RECOVERY_COLLECTIONS.fences).doc(submissionRecoveryFenceId(domain, requestId));
     const previous = await tx.get(decisionRef);
     const fence = await tx.get(fenceRef);
-    if (fence.exists) validateFence(fence.data() ?? {}, domain, requestId);
+    const fenceProof = fence.exists ? validateFence(fence.data() ?? {}, domain, requestId) : null;
     const receipt = await tx.get(args.db.collection(SUBMISSION_RECOVERY_DOMAINS[domain].receipts).doc(requestId));
     const summary = receipt.exists ? receiptSummary(domain, requestId, originalActorUid, receipt.data() ?? {}) : null;
     const receiptSha256 = receipt.exists ? submissionRecoveryEvidenceHash(receipt.data()) : null;
-    if (fence.exists && receipt.exists) {
+    if (fenceProof?.outcome === "cancelled" && receipt.exists) {
       fail("submission-recovery-receipt-fence-conflict", "Both cancellation and acceptance evidence exist. Keep the saved work for investigation.");
+    }
+    if (fenceProof?.outcome === "reviewedExisting" && receipt.exists &&
+        fenceProof.receiptSha256 !== receiptSha256) {
+      fail("submission-recovery-receipt-fence-conflict", "Acceptance evidence differs from the permanent reviewed-result hold. Keep both for investigation.");
     }
     if (previous.exists) {
       const proof = validatedProof(previous.data() ?? {});
@@ -309,13 +311,22 @@ export async function reviewSavedSubmissionWithDb(args: {
         (request.phase === "inspect" && name === "reason") || proof[name] === value);
       if (!same || proof.decisionId !== decisionId || !iso(proof.decidedAt) ||
           (proof.outcome !== "cancelled" && proof.outcome !== "reviewedExisting") ||
-          (proof.outcome === "cancelled" && (!fence.exists || proof.receiptSha256 !== null)) ||
+          (proof.outcome === "cancelled" && (fenceProof?.outcome !== "cancelled" || proof.receiptSha256 !== null)) ||
           (proof.outcome === "reviewedExisting" && (!text(proof.receiptSha256) ||
             !SHA.test(proof.receiptSha256) || !record(proof.receiptSummary) ||
             (receipt.exists && proof.receiptSha256 !== receiptSha256)))) {
         fail("submission-recovery-decision-conflict", "The existing review decision does not match this saved evidence or reviewer. Preserve it for investigation.");
       }
+      if (proof.outcome === "reviewedExisting" &&
+          (fenceProof?.outcome !== "reviewedExisting" ||
+            fenceProof.receiptSha256 !== proof.receiptSha256 ||
+            submissionRecoveryEvidenceHash(fenceProof.receiptSummary) !== submissionRecoveryEvidenceHash(proof.receiptSummary))) {
+        fail("submission-recovery-accepted-hold-missing", "The earlier accepted-result review has no matching permanent execution hold. Its original proof is retained for specialist reconciliation.");
+      }
       return proof;
+    }
+    if (fenceProof?.outcome === "reviewedExisting" && !receipt.exists) {
+      fail("submission-recovery-reviewed-receipt-expired", "This original request already has a permanent accepted-result hold, but its receipt has expired. Retrieve its original review proof or preserve this different evidence for specialist reconciliation.");
     }
     const reviewToken = key([binding, receiptSha256, fence.exists ? fence.data() : null]);
     if (request.phase === "inspect") return {
@@ -326,14 +337,15 @@ export async function reviewSavedSubmissionWithDb(args: {
     }
     const now = args.now?.() ?? new Date();
     if (!Number.isFinite(now.valueOf())) return invalid();
-    if (!receipt.exists) {
-      const activation = await tx.get(args.db.collection(SUBMISSION_RECOVERY_COLLECTIONS.controls).doc("activation"));
-      requireActivation(activation.exists ? activation.data() : undefined, now);
-    }
+    const activation = await tx.get(args.db.collection(SUBMISSION_RECOVERY_COLLECTIONS.controls).doc("activation"));
+    requireActivation(activation.exists ? activation.data() : undefined, now);
     const proof = {...binding, outcome: receipt.exists ? "reviewedExisting" : "cancelled",
       decisionId, decidedAt: now.toISOString(), receiptSha256, receiptSummary: summary};
     const storedProof = {...proof, proofSha256: submissionRecoveryEvidenceHash(proof)};
-    if (!receipt.exists && !fence.exists) tx.create(fenceRef, {...storedProof, protocol: SUBMISSION_RECOVERY_PROTOCOL});
+    // Both reviewed outcomes permanently reserve the original receipt namespace.
+    // An accepted receipt can expire: its review must never enable fresh business
+    // execution by a delayed installed-client copy of the same original ID.
+    if (!fence.exists) tx.create(fenceRef, {...storedProof, protocol: SUBMISSION_RECOVERY_PROTOCOL});
     tx.create(decisionRef, storedProof);
     return proof;
   });
@@ -343,7 +355,7 @@ function originalIdentity(endpoint: string, data: unknown): {domain: Domain; req
   if (!record(data)) return null;
   let domain: Domain | null = null;
   if (endpoint === "assignPublishedTemplateVersion") domain = "publishedTemplateAssignment";
-  // A cancellation reserves the ID throughout its existing receipt namespace.
+  // A completed review reserves the ID throughout its existing receipt namespace.
   // Changing operation must not create acceptance beside the permanent fence.
   // Review admission remains limited to the six supported recovery domains.
   else if (endpoint === "executeMaintenanceWorkflowCommand") domain = "inspectionCampaign";
@@ -362,7 +374,7 @@ function originalIdentity(endpoint: string, data: unknown): {domain: Domain; req
 }
 
 /**
- * Every original business transaction reads the global fence in that same
+ * Every original business transaction reads the global execution hold in that same
  * transaction. A finalizer creating it therefore conflicts with an in-flight
  * original; Firestore retries the loser against the committed winner.
  * This wrapper preserves the concrete Firestore object API and transaction
@@ -380,7 +392,10 @@ export function withSubmissionRecoveryFence<T extends object>(db: T, endpoint: s
           const fence = await tx.get(recoveryDb.collection(SUBMISSION_RECOVERY_COLLECTIONS.fences)
             .doc(submissionRecoveryFenceId(identity.domain, identity.requestId)));
           if (fence.exists) {
-            validateFence(fence.data() ?? {}, identity.domain, identity.requestId);
+            const proof = validateFence(fence.data() ?? {}, identity.domain, identity.requestId);
+            if (proof.outcome === "reviewedExisting") {
+              fail("saved-submission-reviewed-existing", "This original request was already accepted and reviewed. Its permanent hold prevents execution again; use read-only receipt recovery or retrieve the retained review proof.");
+            }
             fail("saved-submission-cancelled", "This original request was cancelled after administrative review. Review the saved work before proceeding.");
           }
           return body(tx);

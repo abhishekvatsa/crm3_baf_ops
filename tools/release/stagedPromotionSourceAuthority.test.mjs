@@ -9,7 +9,7 @@ import {createRequire} from "node:module";
 import {fileURLToPath} from "node:url";
 
 const require = createRequire(import.meta.url);
-const {verifyStagedPromotionSourceAuthority} = require("./stagedPromotionSourceAuthority.js");
+const {verifyStagedPromotionSourceAuthority, verifySuccessorDelegatedDecision} = require("./stagedPromotionSourceAuthority.js");
 const {readDeploymentFleetContract, deploymentCountsMatch, measuredFunctionNamesMatch} =
   require("./deploymentFleetContract.js");
 const {sealReceipt: sealUnsealedReceipt} = require("./collectProductionGlobalPullBackend.js");
@@ -203,8 +203,174 @@ function delegatedCurrentFixture(t) {
     persistCurrent: persist};
 }
 
-function rolloverFixture(t) {
+// Synthetic successor deployment, with the actual19-endpoint source graph and
+// real Git approval/CI custody. Every readback is produced by the real pure
+// collector adjudicator. No record here describes a production deployment.
+function successorDelegatedFixture(t) {
   const f = delegatedCurrentFixture(t);
+  const sourceCommit = 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b';
+  const sourceTree = f.git('rev-parse', `${sourceCommit}^{tree}`);
+  const functionTree = f.git('rev-parse', `${sourceCommit}:functions`);
+  const getSource = (file) => f.git('show', `${sourceCommit}:${file}`) + '\n';
+  const baseTime = Math.floor(Date.now() / 1000) * 1000 - 600000;
+  const at = (seconds) => new Date(baseTime + seconds * 1000).toISOString();
+  const approval = f.currentApproval, receipt = f.currentReceipt;
+  const approvalFile = 'release/approvals/build28-current-source-backend-deployment-approval.json';
+  const ciFile = 'release/evidence/build28-current-source-backend-ci.json';
+  const runId = 99990001, prNumber = 9999;
+  approval.approverName = 'Codex acting under project-owner delegation';
+  approval.approvedAtUtc = at(60);
+  approval.approvalEvidence = {authorityType: 'owner-delegated agent decision',
+    delegationPolicyId: 'BUILD28-OWNER-DELEGATION-20260913', delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
+    instructionExcerpts: ['you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward']};
+  Object.assign(approval.sourceAuthority, {commit: sourceCommit, tree: sourceTree, functionTree,
+    pullRequestNumber: prNumber, requiredPostMergeReleaseGateRunId: runId});
+  Object.assign(approval.deploymentExecutionAuthority, {commit: sourceCommit, tree: sourceTree, functionTree});
+  const fleet = readDeploymentFleetContract(f.root, sourceCommit);
+  for (const field of ['functionCount','callableCount','eventAndProtocolTriggerCount','schedulerCount']) {
+    approval.approvedDeployment[field] = receipt.deployment[field] = fleet[field];
+  }
+  Object.assign(receipt.sourceAuthority, {commit: sourceCommit, tree: sourceTree, functionsGitObjectId: functionTree,
+    pullRequestNumber: prNumber, postMergeReleaseGateRunId: runId});
+  Object.assign(receipt.authorityChronology, {delegatedDecisionAtUtc: at(60), earliestFunctionUpdateTime: at(120), latestFunctionUpdateTime: at(121)});
+  receipt.recordedAtUtc = at(125);
+  receipt.approvalAuthority.file = approvalFile;
+  f.deployed.deploymentApprovalFile = approvalFile;
+  f.deployed.functionFleetSourceCommit = sourceCommit;
+  const jobNames = ['Flutter host analysis + tests + no-loss contracts',
+    'Android release package + cold-start proof (non-production)',
+    'Android emulator app-shell integration (not physical-device evidence)',
+    'Firestore Rules + governed callable emulator','Cloud Functions host build + non-emulator tests'];
+  const ci = {schemaVersion:1,evidenceType:'github-exact-main-release-gate',repository:'abhishekvatsa/crm3_baf_ops',
+    sourceCommit,sourceTree,capturedAtUtc:at(50),
+    pullRequest:{number:prNumber,merged:true,merge_commit_sha:sourceCommit,merged_at:at(0),
+      base:{ref:'main',repo:{full_name:'abhishekvatsa/crm3_baf_ops'}}},
+    run:{id:runId,head_sha:sourceCommit,head_branch:'main',event:'push',path:'.github/workflows/release-gate.yml',
+      repository:{full_name:'abhishekvatsa/crm3_baf_ops'},status:'completed',conclusion:'success',created_at:at(1),updated_at:at(49)},
+    jobs:{total_count:5,jobs:jobNames.map((name,index)=>({name,id:runId+index+1,run_id:runId,head_sha:sourceCommit,
+      status:'completed',conclusion:'success',completed_at:at(45+index)}))}};
+  const fleetCollector = require('./collectFunctionFleetRuntimeIdentityReadback.js');
+  const iamCollector = require('./collectFunctionsIamDependenciesReadback.js');
+  const firestoreCollector = require('./collectFirestoreRulesIndexesReadback.js');
+  const fleetPolicy = JSON.parse(getSource(fleetCollector.POLICY_PATH));
+  const iamPolicy = JSON.parse(getSource(iamCollector.POLICY_PATH));
+  const aliases = fleetPolicy.runtimeIdentityAliases;
+  for (const [key, child] of Object.entries(f.currentChildren)) {
+    for (const point of ['before','after']) Object.assign(child.source[point],{commit:sourceCommit,tree:sourceTree,originMain:sourceCommit});
+    child.capturedAtUtc = at(123);
+    if (key === 'firestoreRulesAndIndexes') {
+      const result = firestoreCollector.adjudicateReadback({projectId:PROJECT,sourceBefore:child.source.before,sourceAfter:child.source.after,
+        rules:child.outputs.rules,indexes:child.outputs.indexes,observe:false});
+      assert.deepEqual(result.failedChecks,[]); Object.assign(child,result.evidence); continue;
+    }
+    for (const [name, v1] of Object.entries(aliases)) {
+      const original = child.outputs.functions.find((record)=>record.name === v1);
+      child.outputs.functions.push({...structuredClone(original),name,
+        ...(key === 'functionFleet' ? {runService:name.toLowerCase()} : {entryPoint:name,
+          resourceName:`projects/${PROJECT}/locations/asia-south1/functions/${name}`})});
+    }
+    child.outputs.functions.forEach((record,index)=>{record.updateTime=at(index===0?120:121);});
+    const common={projectId:PROJECT,region:'asia-south1',sourceBefore:child.source.before,sourceAfter:child.source.after,
+      discoveredSourceExports:fleet.functionNames};
+    let result;
+    if(key==='functionFleet') {
+      for(const [name,v1] of Object.entries(aliases)) child.outputs.callableProbes.push({
+        ...structuredClone(child.outputs.callableProbes.find((probe)=>probe.name===v1)),name});
+      result=fleetCollector.adjudicateReadback({...common,policy:fleetPolicy,phase:'final',probeCallables:true,
+        live:{...child.outputs,backlog:child.outputs.schedulerBacklog,
+          emailMap:fleetCollector.accountEmailMap(fleetPolicy,PROJECT),expectedRoles:fleetCollector.expectedProjectRoles(fleetPolicy,PROJECT)}});
+    } else {
+      const dependencies=iamCollector.summarizePackageState({packageJsonRaw:getSource('functions/package.json'),
+        packageLockRaw:getSource('functions/package-lock.json'),trackedPackages:iamPolicy.trackedRuntimePackages});
+      child.outputs.currentSourceDependencies=dependencies;
+      child.outputs.functions.forEach((record)=>{record.dependencies=structuredClone(dependencies);});
+      child.outputs.discoveredSourceFunctionExports=child.outputs.policySourceFunctionExports=fleet.functionNames;
+      result=iamCollector.adjudicateReadback({...common,policy:iamPolicy,observe:false,project:child.outputs.project,
+        iam:child.outputs.iam,functions:child.outputs.functions,currentDependencies:dependencies});
+    }
+    assert.deepEqual(result.failedChecks,[],`${key} synthetic collector positive control`);
+    Object.assign(child,result.evidence);
+  }
+  function commitCustody() {
+    approval.sourceAuthority.requiredPostMergeReleaseGateEvidence={file:ciFile,sha256:f.write(ciFile,ci)};
+    f.write(approvalFile,approval);
+    f.git('read-tree',sourceCommit);
+    for(const file of [ciFile,approvalFile]) {
+      const blob=f.git('hash-object','-w',file);
+      f.git('update-index','--add','--cacheinfo',`100644,${blob},${file}`);
+    }
+    const tree=f.git('write-tree');
+    const custodyCommit=execFileSync('git',['-C',f.root,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+      'commit-tree',tree,'-p',sourceCommit,'-m','Synthetic immutable delegated approval'],
+    {encoding:'utf8',windowsHide:true,env:{...process.env,GIT_AUTHOR_DATE:at(70),GIT_COMMITTER_DATE:at(70)}}).trim();
+    receipt.approvalAuthority.commit=custodyCommit;
+    f.persistCurrent();
+  }
+  // The original fixture writer selected the old path; use a new writer whose
+  // sole current approval target is this new fixed custody path.
+  f.persistCurrent=()=>{
+    f.deployed.deploymentApprovalSha256=f.write(approvalFile,approval);
+    receipt.approvalAuthority.sha256=f.deployed.deploymentApprovalSha256;
+    for(const [key,child] of Object.entries(f.currentChildren)) {
+      const sealed=sealReceipt(child),file=`release/successor-${key}.json`;
+      receipt.cleanMainLiveReadbacks[key]={file,physicalSha256:f.write(file,sealed),canonicalReceiptSha256:sealed.receiptSha256};
+    }
+    f.deployed.functionFleetEvidenceSha256=f.write(f.deployed.functionFleetEvidenceFile,receipt);
+    f.write('release/current-successor-state.json',f.state);
+  };
+  commitCustody();
+  return {...f,ci,commitCustody};
+}
+
+test('new source delegated custody verifies real Git, exact five-job CI and the actual19-endpoint readback adjudicators', (t)=>{
+  const f=successorDelegatedFixture(t);
+  const predeployment=verifySuccessorDelegatedDecision({repoRoot:f.root,approval:f.currentApproval,
+    approvalAuthority:f.currentReceipt.approvalAuthority,sourceAuthority:f.currentReceipt.sourceAuthority});
+  assert.equal(predeployment.ok,true);
+  assert.equal(predeployment.ciFile,'release/evidence/build28-current-source-backend-ci.json');
+  assert.equal(predeployment.ciSha256,sha(fs.readFileSync(path.join(f.root,predeployment.ciFile))));
+  assert.equal(predeployment.sourceCommit,f.currentReceipt.sourceAuthority.commit);
+  assert.equal(predeployment.approvalCommit,f.currentReceipt.approvalAuthority.commit);
+  for (const field of ['commit','tree','functionsGitObjectId','pullRequestNumber','postMergeReleaseGateRunId']) {
+    assert.throws(()=>verifySuccessorDelegatedDecision({repoRoot:f.root,approval:f.currentApproval,
+      approvalAuthority:f.currentReceipt.approvalAuthority,sourceAuthority:{...f.currentReceipt.sourceAuthority,
+        [field]:typeof f.currentReceipt.sourceAuthority[field]==='number'?1:'0'.repeat(40)}}),undefined,field);
+  }
+  const result=f.verify(); assert.equal(result.ok,true,result.reasons.join('; '));
+});
+
+test('new delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted', (t)=>{
+  const f=successorDelegatedFixture(t);
+  assert.equal(f.verify().ok,true,f.verify().reasons.join('; '));
+  const approval=structuredClone(f.currentApproval),ci=structuredClone(f.ci),receipt=structuredClone(f.currentReceipt);
+  const cases=[
+    ['changed owner basis',()=>{f.currentApproval.approvalEvidence.instructionExcerpts=['Deploy anything.'];}],
+    ['invented owner timestamp',()=>{f.currentApproval.approvalEvidence.messageReceivedAtUtc=f.currentApproval.approvedAtUtc;}],
+    ['invented owner identity',()=>{f.currentApproval.approvalEvidence.codexMessageId='invented';}],
+    ['different approver',()=>{f.currentApproval.approverName='Abhishek Vatsa';}],
+    ['another source',()=>{f.ci.sourceCommit='0'.repeat(40);}],
+    ['PR merge tree',()=>{f.ci.run.event='pull_request';}],
+    ['duplicate job identity',()=>{f.ci.jobs.jobs[1].id=f.ci.jobs.jobs[0].id;}],
+    ['wrong job set',()=>{f.ci.jobs.jobs[0].name='Unrelated check';}],
+    ['failed required job',()=>{f.ci.jobs.jobs[0].conclusion='failure';}],
+    ['fewer required jobs',()=>{f.ci.jobs.jobs.pop();f.ci.jobs.total_count=4;}],
+    ['CI after decision',()=>{f.ci.capturedAtUtc=f.currentReceipt.authorityChronology.latestFunctionUpdateTime;}],
+    ['post-hoc custody',()=>{f.currentReceipt.authorityChronology.earliestFunctionUpdateTime=f.currentApproval.approvedAtUtc;}],
+  ];
+  for(const [label,mutate] of cases) {
+    for(const key of Object.keys(f.currentApproval)) delete f.currentApproval[key]; Object.assign(f.currentApproval,structuredClone(approval));
+    for(const key of Object.keys(f.ci)) delete f.ci[key]; Object.assign(f.ci,structuredClone(ci));
+    Object.assign(f.currentReceipt,structuredClone(receipt)); mutate(); f.commitCustody();
+    assert.equal(f.verify().ok,false,label);
+  }
+  Object.assign(f.currentApproval,structuredClone(approval)); Object.assign(f.ci,structuredClone(ci));
+  Object.assign(f.currentReceipt,structuredClone(receipt)); f.commitCustody();
+  f.currentApproval.approvalEvidence.agentDecision='An uncommitted different decision'; f.persistCurrent();
+  assert.equal(f.verify().ok,false,'uncommitted coherent rehash cannot replace Git custody');
+});
+
+function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
+  const f = currentFixture(t);
   const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
   const promotion = readMeasured(promotionFile);
   const history = promotion.admittedEvidence.productionBackend;
@@ -238,6 +404,15 @@ function rolloverFixture(t) {
   persistCandidate();
   return {...f, history, historical, persistCandidate};
 }
+
+test('new source delegated custody supports a Build28 candidate while preserving immutable Build27 history', (t) => {
+  const f = rolloverFixture(t, successorDelegatedFixture);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.notEqual(result.candidateBackendReceiptSha256, result.historicalBackendReceiptSha256);
+});
 
 test('Build28 rollover retains fixed Build27 history and separately verifies candidate and current backend', (t) => {
   const f = rolloverFixture(t);
@@ -586,7 +761,7 @@ test('a different current source requires its own admitted immutable approval cu
   f.write('release/current-successor-state.json', f.state);
   const result = f.verify();
   assert.equal(result.ok, false);
-  assert.match(result.reasons[0], /source has no separately admitted immutable owner approval/);
+  assert.match(result.reasons[0], /Successor delegated custody: exact path, known delegation and actual agent decision are required/);
 });
 
 test('deployment approval binds its entire source, authorization and deployment scope', (t) => {

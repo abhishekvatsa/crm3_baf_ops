@@ -136,93 +136,93 @@ class _InspectionContextReviewDialogState
         title: const Text('Review the same physical target'),
         content: SizedBox(
           width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Use this after repair or relocation. The original campaign target, readings and baseline are retained. This cannot substitute another Inner Cover serial. Everyone using this campaign must update the app before you approve this review.',
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  key: const ValueKey('inspection-context-target'),
-                  initialValue: _target?.targetKey,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Original campaign target',
-                  ),
-                  items: widget.campaign.targets
-                      .map(
-                        (target) => DropdownMenuItem(
-                          value: target.targetKey,
-                          child: Text(
-                            '${target.rowLabel} · ${target.physicalPosition ?? target.componentNodeId ?? "Asset"}',
+          child: !ready
+              ? Text(
+                  !access.isReady
+                      ? access.message
+                      : 'Return to the approved original account to continue. Your entries are retained.',
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Use this after repair or relocation. The original campaign target, readings and baseline are retained. This cannot substitute another Inner Cover serial. Everyone using this campaign must update the app before you approve this review.',
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        key: const ValueKey('inspection-context-target'),
+                        initialValue: _target?.targetKey,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Original campaign target',
+                        ),
+                        items: widget.campaign.targets
+                            .map(
+                              (target) => DropdownMenuItem(
+                                value: target.targetKey,
+                                child: Text(
+                                  '${target.rowLabel} · ${target.physicalPosition ?? target.componentNodeId ?? "Asset"}',
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _busy || _submitted != null
+                            ? null
+                            : (key) => setState(() {
+                                _target = widget.campaign.targets.firstWhere(
+                                  (target) => target.targetKey == key,
+                                );
+                                _reviewed = null;
+                                _message = null;
+                              }),
+                      ),
+                      if (_target != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Original: ${_target!.assetInstanceName} · revision ${_target!.assetInstanceVersion}'
+                          '${_target!.hostAssetNumber == null ? "" : " · Base ${_target!.hostAssetNumber}"}',
+                        ),
+                        if (_target!.contextReview != null)
+                          Text(
+                            'Previous review ${_target!.contextRevision}: ${_target!.contextReview!.reviewedByName} · ${_target!.contextReview!.reason}',
+                          ),
+                        TextButton(
+                          onPressed: _busy || !ready || _submitted != null
+                              ? null
+                              : _load,
+                          child: const Text('Check current physical context'),
+                        ),
+                      ],
+                      if (_reviewed != null) ...[
+                        Text(
+                          'Current: ${_reviewed!["assetInstanceName"]} · revision ${_reviewed!["assetInstanceVersion"]}'
+                          '${_reviewed!["hostAssetNumber"] == null ? "" : " · Base ${_reviewed!["hostAssetNumber"]} · linkage ${_reviewed!["linkageId"]}"}',
+                        ),
+                        SelectableText(
+                          'Same physical ID: ${_reviewed!["assetInstanceId"]}',
+                        ),
+                        TextField(
+                          key: const ValueKey('inspection-context-reason'),
+                          controller: _reason,
+                          readOnly: _submitted != null,
+                          maxLength: 1000,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Review reason',
                           ),
                         ),
-                      )
-                      .toList(),
-                  onChanged: _busy || _submitted != null
-                      ? null
-                      : (key) => setState(() {
-                          _target = widget.campaign.targets.firstWhere(
-                            (target) => target.targetKey == key,
-                          );
-                          _reviewed = null;
-                          _message = null;
-                        }),
+                      ],
+                      if (_message != null)
+                        Text(
+                          _message!,
+                          style: const TextStyle(color: BafColors.danger),
+                        ),
+                    ],
+                  ),
                 ),
-                if (_target != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    'Original: ${_target!.assetInstanceName} · revision ${_target!.assetInstanceVersion}'
-                    '${_target!.hostAssetNumber == null ? "" : " · Base ${_target!.hostAssetNumber}"}',
-                  ),
-                  if (_target!.contextReview != null)
-                    Text(
-                      'Previous review ${_target!.contextRevision}: ${_target!.contextReview!.reviewedByName} · ${_target!.contextReview!.reason}',
-                    ),
-                  TextButton(
-                    onPressed: _busy || !ready || _submitted != null
-                        ? null
-                        : _load,
-                    child: const Text('Check current physical context'),
-                  ),
-                ],
-                if (_reviewed != null) ...[
-                  Text(
-                    'Current: ${_reviewed!["assetInstanceName"]} · revision ${_reviewed!["assetInstanceVersion"]}'
-                    '${_reviewed!["hostAssetNumber"] == null ? "" : " · Base ${_reviewed!["hostAssetNumber"]} · linkage ${_reviewed!["linkageId"]}"}',
-                  ),
-                  SelectableText(
-                    'Same physical ID: ${_reviewed!["assetInstanceId"]}',
-                  ),
-                  TextField(
-                    key: const ValueKey('inspection-context-reason'),
-                    controller: _reason,
-                    readOnly: _submitted != null,
-                    maxLength: 1000,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Review reason',
-                    ),
-                  ),
-                ],
-                if (!ready)
-                  Text(
-                    !access.isReady
-                        ? access.message
-                        : 'Return to the approved original account to continue.',
-                  ),
-                if (_message != null)
-                  Text(
-                    _message!,
-                    style: const TextStyle(color: BafColors.danger),
-                  ),
-              ],
-            ),
-          ),
         ),
         actions: [
           TextButton(

@@ -60,6 +60,9 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     const request = f.review(domain); const observation = await review(domain, request);
     expect(observation.observation).toBe('receiptPresent');
     const before = await evidence();
+    await expect(review(domain, {...request, phase: 'finalize', reviewToken: observation.reviewToken}))
+      .rejects.toMatchObject({details: {reasonCode: 'submission-recovery-finalization-not-activated'}});
+    expect(await evidence()).toEqual(before);
     await expect(review(domain, {...request, originalActorUid: 'wrong-origin'})).rejects.toMatchObject({details: {reasonCode: 'submission-recovery-original-actor-mismatch'}});
     expect(await evidence()).toEqual(before);
     await db.doc(receiptPath(domain)).update({extraReviewedEvidence: new admin.firestore.Timestamp(1789257600, 1000)});
@@ -67,9 +70,22 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     expect(drift.data().extraReviewedEvidence.nanoseconds).toBe(1000);
     await expect(review(domain, {...request, phase: 'finalize', reviewToken: observation.reviewToken})).rejects.toMatchObject({details: {reasonCode: 'submission-recovery-observation-changed'}});
     const current = await review(domain, request);
+    await db.doc('submission_recovery_controls/activation').set(f.activation());
     const proof = await review(domain, {...request, phase: 'finalize', reviewToken: current.reviewToken});
     expect(proof.outcome).toBe('reviewedExisting');
-    expect((await db.collection('submission_recovery_fences').get()).empty).toBe(true);
+    const hold = (await db.doc(`submission_recovery_fences/${submissionRecoveryFenceId(domain, f.requestId)}`).get()).data();
+    expect(hold).toMatchObject({...proof, protocol: 'savedSubmissionReview.v1'});
+    expect(hold.expiresAt).toBeUndefined();
+    await db.doc(receiptPath(domain)).delete(); // Simulates the receipt's declared TTL.
+    await db.doc('submission_recovery_controls/activation').delete();
+    const settled = await evidence();
+    expect(await review(domain, {...request, reason: 'Retrieve the earlier accepted review after its reply was lost.'})).toEqual(proof);
+    const endpoint = SUBMISSION_RECOVERY_DOMAINS[domain].endpoint;
+    const payload = f.original(domain); const key = domain === 'inspectionCampaign' ? 'command' : 'request';
+    for (const [name, data] of [[endpoint.replace(/V2$/, ''), payload], [endpoint, {protocolVersion: 2, originActorUid: 'admin', [key]: payload}]]) {
+      await expect(endpoints[name].run(callRequest(data))).rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
+      expect(await evidence()).toEqual(settled);
+    }
     await db.doc(receiptPath(domain)).set({schemaVersion: 999, actorUid: 'original'});
     await expect(review(domain, request)).rejects.toMatchObject({details: {reasonCode: 'submission-recovery-receipt-malformed'}});
   });
@@ -78,16 +94,18 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     ['innerCoverAcceptance', {operation: 'REGISTER_INNER_COVER'}],
     ['qualityMonitoring', {operation: 'CLOSE_QUALITY_MONITORING_REQUEST'}],
     ['inspectionCampaign', {commandType: 'upsertInspectionDefinition'}],
-  ])('%s cancelled receipt namespace rejects changed operations through actual V1 and V2', async (domain, changed) => {
+  ].flatMap((row) => ['cancelled', 'reviewedExisting'].map((outcome) => [...row, outcome])))('%s receipt namespace rejects changed operations through actual V1 and V2 (%j, %s)', async (domain, changed, outcome) => {
     await db.doc('submission_recovery_controls/activation').set(f.activation());
+    if (outcome === 'reviewedExisting') await db.doc(receiptPath(domain)).set(f.receipt(domain));
     const request = f.review(domain); const inspection = await review(domain, request);
     await review(domain, {...request, phase: 'finalize', reviewToken: inspection.reviewToken});
+    if (outcome === 'reviewedExisting') await db.doc(receiptPath(domain)).delete();
     const before = await evidence(); const endpoint = SUBMISSION_RECOVERY_DOMAINS[domain].endpoint;
     const payload = {...f.original(domain), ...changed};
     const key = domain === 'inspectionCampaign' ? 'command' : 'request';
     for (const [name, data] of [[endpoint.replace(/V2$/, ''), payload],
       [endpoint, {protocolVersion: 2, originActorUid: 'admin', [key]: payload}]]) {
-      await expect(endpoints[name].run(callRequest(data))).rejects.toMatchObject({details: {reasonCode: 'saved-submission-cancelled'}});
+      await expect(endpoints[name].run(callRequest(data))).rejects.toMatchObject({details: {reasonCode: outcome === 'cancelled' ? 'saved-submission-cancelled' : 'saved-submission-reviewed-existing'}});
       expect(await evidence()).toEqual(before);
     }
     expect((await db.doc(receiptPath(domain)).get()).exists).toBe(false);
@@ -115,7 +133,7 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     expect((await db.doc(receiptPath(domain)).get()).exists).toBe(false);
   });
 
-  test('overlapping original transaction and finalization have one durable winner, never receipt plus fence', async () => {
+  test('overlapping original transaction and cancellation finalization have one durable winner, never receipt plus cancellation fence', async () => {
     const domain = 'qualityMonitoring'; const request = f.review(domain);
     await db.doc('submission_recovery_controls/activation').set(f.activation());
     const observation = await directReview(request);
@@ -148,6 +166,33 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     }
   });
 
+  test('an overlapping accepted replay and administrative review retain one acceptance and its permanent hold', async () => {
+    const domain = 'qualityMonitoring'; const request = f.review(domain);
+    await db.doc(receiptPath(domain)).set(f.receipt(domain));
+    await db.doc('submission_recovery_controls/activation').set(f.activation());
+    const observation = await directReview(request);
+    const originalDb = withSubmissionRecoveryFence(db, 'mutateChargeAbnormality', f.original(domain));
+    let release; let entered;
+    const wait = new Promise((resolve) => {release = resolve;});
+    const arrival = new Promise((resolve) => {entered = resolve;});
+    const original = originalDb.runTransaction(async (tx) => {
+      entered(); await wait;
+      const receipt = await tx.get(db.doc(receiptPath(domain)));
+      if (!receipt.exists) tx.create(db.doc('business/duplicate'), {});
+      return receipt.exists ? 'original-acceptance' : 'duplicate';
+    }).then((value) => ({value}), (error) => ({error}));
+    await arrival;
+    const finalizing = directReview({...request, phase: 'finalize', reviewToken: observation.reviewToken});
+    await new Promise((resolve) => setTimeout(resolve, 50)); release();
+    const [replay, proof] = await Promise.all([original, finalizing]);
+    if (replay.error) expect(replay.error.details.reasonCode).toBe('saved-submission-reviewed-existing');
+    else expect(replay.value).toBe('original-acceptance');
+    expect(proof.outcome).toBe('reviewedExisting');
+    expect((await db.doc('business/duplicate').get()).exists).toBe(false);
+    expect((await db.doc(receiptPath(domain)).get()).data()).toEqual(f.receipt(domain));
+    expect((await db.doc(`submission_recovery_fences/${submissionRecoveryFenceId(domain, f.requestId)}`).get()).data().outcome).toBe('reviewedExisting');
+  });
+
   test('wrong outer origin and non-Admin recovery are denied without any writes', async () => {
     await db.doc('users/operator').set({isApproved: true, roles: ['operations']});
     const before = await evidence(); const data = {protocolVersion: 2, originActorUid: 'admin', recovery: f.review('morningReview')};
@@ -161,6 +206,10 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     const request = {requestId: f.requestId, operation: 'START_MORNING_REVIEW', expectedPlantDay: '2026-09-07'};
     const accepted = await mutateMorningReviewWithDb({db, authUid: 'admin', data: request,
       now: () => new Date('2026-09-07T03:00:00.000Z'), timestampFromDate: admin.firestore.Timestamp.fromDate});
+    await db.doc('submission_recovery_controls/activation').set(f.activation());
+    const reviewRequest = f.review('morningReview', {originalActorUid: 'admin'});
+    const observed = await review('morningReview', reviewRequest);
+    await review('morningReview', {...reviewRequest, phase: 'finalize', reviewToken: observed.reviewToken});
     const before = await evidence();
     const envelope = {protocolVersion: 2, originActorUid: 'admin', receiptLookup: request};
     expect(await endpoints.mutateAssetHierarchyV2.run(callRequest(envelope))).toEqual({...accepted, idempotentReplay: true});
@@ -173,6 +222,29 @@ describeEmulator('saved-submission finality on actual Firestore transactions and
     await expect(endpoints.mutateAssetHierarchyV2.run(callRequest({...envelope, receiptLookup: {
       ...request, requestId: '22222222-2222-4222-8222-222222222222'}})))
       .rejects.toMatchObject({code: 'not-found', details: {reasonCode: 'morning-review-receipt-not-found'}});
+    expect(await evidence()).toEqual(before);
+  });
+
+  test('actual unpinned NOT_HELD request cannot create a later day after accepted review and receipt expiry', async () => {
+    const {mutateMorningReviewWithDb} = require('../lib/morningReviewMutation');
+    const request = {requestId: f.requestId, operation: 'RECORD_MORNING_REVIEW_NOT_HELD', reason: 'Planned plant shutdown'};
+    const mutate = (now) => mutateMorningReviewWithDb({
+      db: withSubmissionRecoveryFence(db, 'mutateAssetHierarchy', request), authUid: 'admin', data: request,
+      now: () => new Date(now), timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+    expect((await mutate('2026-08-31T05:00:00.000Z')).sessionId).toBe('2026-08-31');
+    await db.doc('submission_recovery_controls/activation').set(f.activation());
+    const reviewRequest = f.review('morningReview', {originalActorUid: 'admin'});
+    const observed = await review('morningReview', reviewRequest);
+    const proof = await review('morningReview', {...reviewRequest, phase: 'finalize', reviewToken: observed.reviewToken});
+    await db.doc(receiptPath('morningReview')).delete(); // Emulates TTL expiry only in the isolated demo database.
+    const before = await evidence();
+    await expect(mutate('2026-09-15T05:00:00.000Z'))
+      .rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
+    expect(await review('morningReview', {...reviewRequest, reason: 'Retrieve the previously recorded review.'})).toEqual(proof);
+    await expect(endpoints.mutateAssetHierarchyV2.run(callRequest({protocolVersion: 2, originActorUid: 'admin', receiptLookup: request})))
+      .rejects.toMatchObject({details: {reasonCode: 'morning-review-receipt-not-found'}});
+    expect((await db.doc('morning_review_sessions/2026-09-15').get()).exists).toBe(false);
     expect(await evidence()).toEqual(before);
   });
 });

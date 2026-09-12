@@ -9,7 +9,7 @@ const invoke = (m, data, extra = {}) => reviewSavedSubmissionWithDb({db: m.db,
 const finalize = (m, request, observation) => invoke(m, {...request, phase: 'finalize', reviewToken: observation.reviewToken});
 
 describe.each(f.domains)('%s administrative recovery', (domain) => {
-  test('inspection is read-only; accepted evidence becomes review proof without adoption/fence', async () => {
+  test('inspection is read-only; accepted evidence needs activation and a permanent distinct execution hold', async () => {
     const m = f.memory(); const request = f.review(domain);
     const original = f.receipt(domain); m.store.set(receiptPath(domain), original);
     const observation = await invoke(m, request);
@@ -17,16 +17,26 @@ describe.each(f.domains)('%s administrative recovery', (domain) => {
     expect(observation).toMatchObject({observation: 'receiptPresent', originalActorUid: null,
       receiptSummary: {actorUid: 'original'}});
     expect(m.writes).toEqual([]);
+    await expect(finalize(m, request, observation)).rejects.toMatchObject({details: {reasonCode: 'submission-recovery-finalization-not-activated'}});
+    expect(m.writes).toEqual([]);
+    m.store.set('submission_recovery_controls/activation', f.activation());
     const proof = await finalize(m, request, observation);
     expect(proof).toMatchObject({outcome: 'reviewedExisting', reason: request.reason, originalActorUid: null});
-    expect(m.writes).toHaveLength(1);
-    expect(m.writes[0][0]).toMatch(/^submission_recovery_decisions\//);
+    expect(m.writes).toHaveLength(2);
+    const holdPath = `submission_recovery_fences/${submissionRecoveryFenceId(domain, f.requestId)}`;
+    expect(m.store.get(holdPath)).toMatchObject({...proof, protocol: 'savedSubmissionReview.v1'});
+    expect(m.store.get(holdPath).expiresAt).toBeUndefined();
     expect(m.store.get(receiptPath(domain))).toEqual(original);
+    // Lost final replies and disabled future reviews never erase either proof.
+    m.store.delete('submission_recovery_controls/activation');
     const before = f.clone(m.writes);
     expect(await finalize(m, request, observation)).toEqual(proof);
     // Historical receipts may expire; the separate immutable review remains.
     m.store.delete(receiptPath(domain));
     expect(await invoke(m, request)).toEqual(proof);
+    const guarded = withSubmissionRecoveryFence(m.db, SUBMISSION_RECOVERY_DOMAINS[domain].endpoint.replace(/V2$/, ''), f.original(domain));
+    await expect(guarded.runTransaction(async (tx) => tx.create(m.db.collection('business').doc('expired-replay'), {})))
+      .rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
     expect(m.writes).toEqual(before);
   });
   test('absent receipt is not final until activation; permanent fence blocks original V1 transaction', async () => {
@@ -164,13 +174,15 @@ test.each([
   ['qualityMonitoring', 'mutateChargeAbnormality', {operation: 'REQUEST_QUALITY_WARNING_CLOSURE'}],
   ['inspectionCampaign', 'executeMaintenanceWorkflowCommand', {commandType: 'upsertInspectionDefinition'}],
   ['inspectionCampaign', 'executeMaintenanceWorkflowCommand', {commandType: 'createMaintenanceTicket'}],
-])('the %s receipt namespace reserves its cancelled ID even when operation changes to %j', async (domain, endpoint, changed) => {
+].flatMap((row) => ['cancelled', 'reviewedExisting'].map((outcome) => [...row, outcome])))('the %s receipt namespace reserves its ID for %j %j (%s)', async (domain, endpoint, changed, outcome) => {
   const m = f.memory(); m.store.set('submission_recovery_controls/activation', f.activation());
+  if (outcome === 'reviewedExisting') m.store.set(receiptPath(domain), f.receipt(domain));
   const request = f.review(domain); await finalize(m, request, await invoke(m, request));
+  if (outcome === 'reviewedExisting') m.store.delete(receiptPath(domain));
   const guarded = withSubmissionRecoveryFence(m.db, endpoint, {...f.original(domain), ...changed});
   const writes = f.clone(m.writes);
   await expect(guarded.runTransaction(async (tx) => tx.create(m.db.collection('business').doc('other-operation'), {})))
-    .rejects.toMatchObject({details: {reasonCode: 'saved-submission-cancelled'}});
+    .rejects.toMatchObject({details: {reasonCode: outcome === 'cancelled' ? 'saved-submission-cancelled' : 'saved-submission-reviewed-existing'}});
   expect(m.writes).toEqual(writes);
 });
 test('recorded-time hashes retain native nanoseconds and nested date evidence', () => {
@@ -192,6 +204,7 @@ test('genuine frozen legacy quality creation receipt is reviewable without rewri
   const [path, raw] = fixture.documents.find(([path]) => path.startsWith('quality_mutation_receipts/'));
   const data = {...raw, committedAt: new Timestamp(raw.committedAt._seconds, raw.committedAt._nanoseconds)};
   const m = f.memory(); m.store.set(path, data);
+  m.store.set('submission_recovery_controls/activation', f.activation());
   const request = f.review('qualityMonitoring', {originalActorUid: fixture.actorUid});
   expect((await finalize(m, request, await invoke(m, request))).outcome).toBe('reviewedExisting');
   expect(m.store.get(path)).toEqual(data);
@@ -206,6 +219,80 @@ test('administrative review accepts the actual campaign creation receipt without
   const command = h.createCampaign();
   await service.execute(command, {actor, serverNow: h.at('2026-08-21T04:10:00Z')});
   await f.inspectProducedReceipt('inspectionCampaign', store.read(`maintenance_workflow_command_receipts/${command.commandId}`));
+});
+
+test.each(['missing', 'different-outcome', 'changed-receipt', 'malformed'])('an accepted review with %s permanent hold remains a retained investigation case', async (change) => {
+  const m = f.memory(); const request = f.review('morningReview');
+  m.store.set(receiptPath('morningReview'), f.receipt('morningReview'));
+  m.store.set('submission_recovery_controls/activation', f.activation());
+  const proof = await finalize(m, request, await invoke(m, request));
+  const holdPath = `submission_recovery_fences/${submissionRecoveryFenceId('morningReview', f.requestId)}`;
+  if (change === 'missing') m.store.delete(holdPath);
+  else {
+    const hold = {...m.store.get(holdPath)};
+    if (change === 'malformed') hold.proofSha256 = '0'.repeat(64);
+    else {
+      if (change === 'different-outcome') {
+        hold.outcome = 'cancelled'; hold.receiptSha256 = null; hold.receiptSummary = null;
+      } else hold.receiptSha256 = '0'.repeat(64);
+      const {proofSha256, protocol, ...changedProof} = hold;
+      hold.proofSha256 = submissionRecoveryEvidenceHash(changedProof);
+    }
+    m.store.set(holdPath, hold);
+  }
+  const before = f.clone([...m.store]);
+  await expect(invoke(m, request)).rejects.toMatchObject({code: 'failed-precondition'});
+  expect([...m.store]).toEqual(before);
+  expect(m.store.get(`submission_recovery_decisions/${proof.decisionId}`).outcome).toBe('reviewedExisting');
+});
+
+test('an expired accepted hold cannot be repurposed as cancellation for different local evidence', async () => {
+  const m = f.memory(); const request = f.review('morningReview');
+  m.store.set(receiptPath('morningReview'), f.receipt('morningReview'));
+  m.store.set('submission_recovery_controls/activation', f.activation());
+  const proof = await finalize(m, request, await invoke(m, request));
+  m.store.delete(receiptPath('morningReview'));
+  const before = f.clone([...m.store]);
+  await expect(invoke(m, {...request, evidenceSha256: 'b'.repeat(64)}))
+    .rejects.toMatchObject({details: {reasonCode: 'submission-recovery-reviewed-receipt-expired'}});
+  expect(await invoke(m, {...request, reason: 'Recover the original completed result.'})).toEqual(proof);
+  expect([...m.store]).toEqual(before);
+});
+
+test('actual unpinned Morning Review acceptance stays read-only after review and cannot recreate a later day after receipt TTL', async () => {
+  const {mutateMorningReviewWithDb, lookupMorningReviewReceiptWithDb} = require('../lib/morningReviewMutation');
+  const m = f.memory();
+  // The real NOT_HELD handler needs document point reads and transaction.set;
+  // every write in this creation fixture uses a previously absent document.
+  const collection = m.db.collection.bind(m.db);
+  m.db.collection = (name) => ({doc(id) {
+    const ref = collection(name).doc(id);
+    return {...ref, get: async () => ({exists: m.store.has(ref.path), data: () => f.clone(m.store.get(ref.path))})};
+  }});
+  const run = m.db.runTransaction.bind(m.db);
+  m.db.runTransaction = (body, ...options) => run((tx) => body({...tx, set: tx.create}), ...options);
+  const request = {requestId: f.requestId, operation: 'RECORD_MORNING_REVIEW_NOT_HELD', reason: 'Planned plant shutdown'};
+  const mutate = (now) => mutateMorningReviewWithDb({
+    db: withSubmissionRecoveryFence(m.db, 'mutateAssetHierarchy', request), authUid: 'admin', data: request,
+    now: () => new Date(now), timestampFromDate: Timestamp.fromDate,
+  });
+  const accepted = await mutate('2026-08-31T05:00:00.000Z');
+  expect(accepted.sessionId).toBe('2026-08-31');
+  expect(m.store.get(receiptPath('morningReview')).expiresAt.toDate().toISOString()).toBe('2026-09-14T05:00:00.000Z');
+  m.store.set('submission_recovery_controls/activation', f.activation());
+  const reviewed = f.review('morningReview', {originalActorUid: 'admin'});
+  const proof = await finalize(m, reviewed, await invoke(m, reviewed));
+  const beforeLookup = f.clone(m.writes);
+  expect(await lookupMorningReviewReceiptWithDb({db: m.db, authUid: 'admin', data: request}))
+    .toEqual({...accepted, idempotentReplay: true});
+  expect(m.writes).toEqual(beforeLookup);
+  m.store.delete(receiptPath('morningReview')); // Simulates the declared TTL, not a production deletion.
+  const before = f.clone([...m.store]);
+  await expect(mutate('2026-09-15T05:00:00.000Z'))
+    .rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
+  expect(await invoke(m, reviewed)).toEqual(proof);
+  expect([...m.store]).toEqual(before);
+  expect(m.store.has('morning_review_sessions/2026-09-15')).toBe(false);
 });
 
 test('actual recovery wire fixture remains compatible with the native saved-evidence consumer', async () => {

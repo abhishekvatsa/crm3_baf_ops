@@ -2201,6 +2201,16 @@ $currentDeploymentApproval = Get-Content `
 $currentFunctionFleetContract = Get-DeploymentFleetContract `
   -RepositoryRoot $RepositoryRoot `
   -SourceCommit ([string]$currentDeployedBackendAuthority.functionFleetSourceCommit)
+# The shared validator retains historical no-IAM-mutation receipts and admits
+# only the separately approved, fully measured four-new-service creation scope.
+& node tools/release/scopedCallableInvokerIam.js verify-deployment `
+  --repository-root $RepositoryRoot `
+  --approval $currentDeploymentApprovalPath `
+  --approval-sha256 $currentDeploymentApprovalSha256 `
+  --receipt $currentFunctionFleetDeploymentReceiptPath | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  throw 'Current backend IAM boundary is not supported by exact scoped evidence.'
+}
 if ($currentDeploymentApproval.approved -ne $true -or
     [string]$currentDeploymentApproval.firebaseProjectId -ne
       'crm3-baf-ops-b8638' -or
@@ -2226,8 +2236,6 @@ if ($currentDeploymentApproval.approved -ne $true -or
     $currentFunctionFleetDeploymentReceipt.deployment.
       existingIamPreservationEnforced -ne $true -or
     $currentFunctionFleetDeploymentReceipt.deployment.appCheckEnforcement -ne
-      $false -or
-    $currentFunctionFleetDeploymentReceipt.controlBoundary.iamMutated -ne
       $false -or
     $currentFunctionFleetDeploymentReceipt.controlBoundary.
       productionBusinessDataMutated -ne $false -or
