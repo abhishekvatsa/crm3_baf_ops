@@ -91,7 +91,7 @@ export type WorkflowCommandType =
   | "upsertInspectionDefinition" | "setInspectionDefinitionStatus"
   | "createInspectionCampaign" | "setInspectionCampaignStatus"
   | "deleteUnusedInspectionCampaign"
-  | "addInspectionCampaignTargets" | "setInspectionTargetDisposition"
+  | "addInspectionCampaignTargets" | "setInspectionTargetDisposition" | "revalidateInspectionTargetContext"
   | "recordInspectionObservation" | "linkInspectionObservationIssue"
   | "verifyInspectionFinding" | "adjudicateInspectionFinding"
   | "finalizeLaneSet" | "acknowledgeLane" | "addLane" | "removeLane"

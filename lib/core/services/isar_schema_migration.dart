@@ -474,8 +474,9 @@ class IsarSchemaMigrationException implements Exception {
   @override
   String toString() {
     final stored = storedVersion == null ? 'unknown' : '$storedVersion';
-    final store =
-        hasExistingLocalStore == null ? 'unknown' : '$hasExistingLocalStore';
+    final store = hasExistingLocalStore == null
+        ? 'unknown'
+        : '$hasExistingLocalStore';
     final marker = markerDisposition ?? 'unknown';
     return 'IsarSchemaMigrationException('
         'reason=$reasonCode; stored=$stored; target=$targetVersion; '
@@ -573,7 +574,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 11;
+  static const int currentSchemaVersion = 12;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -677,7 +678,7 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v11SchemaFingerprint =
       'v11:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
       'ReopenEvidence+PlantConditionEffect+PlantConditionContributionIndex,'
       'JobTemplate,JobExecution+WorkflowTerminalState,'
@@ -690,6 +691,23 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord,'
       'DurableSubmissionRecord';
+
+  // Review outcomes occupy existing native columns with distinct semantics.
+  // Older readers must refuse this store rather than misread review evidence
+  // as a business receipt or accidentally remove a resolved legacy hold.
+  static const String currentSchemaFingerprint =
+      'v12:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
+      'ReopenEvidence+PlantConditionEffect+PlantConditionContributionIndex,'
+      'JobTemplate,JobExecution+WorkflowTerminalState,'
+      'JobDiaryEntry+EMD+RED,JobModuleInstance+EMD+RED,TemplatePackage,'
+      'TemplateVersion,TemplatePublishAudit,BafKnowledgeRow,'
+      'BafKnowledgeMatrixMetaStore,OperationalDirective,AuditEvent,'
+      'SyncRejection+OriginatingUid,AbnormalityType,ChargeAbnormality,'
+      'WorkflowAggregateRecord+GovernedAssetIdentity,JobLaneRecord,'
+      'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
+      'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
+      'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord,'
+      'DurableSubmissionRecord+ReviewOutcomes';
 
   static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
     currentVersion: currentSchemaVersion,
@@ -706,7 +724,8 @@ class IsarSchemaMigrator {
       8: <String>{v8SchemaFingerprint},
       9: <String>{v9SchemaFingerprint},
       10: <String>{v10SchemaFingerprint},
-      11: <String>{currentSchemaFingerprint},
+      11: <String>{v11SchemaFingerprint},
+      12: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
@@ -719,6 +738,7 @@ class IsarSchemaMigrator {
       9: _addMaintenancePlantConditionEffect,
       10: _addMaintenancePlantConditionContributionIndex,
       11: _addDurableSubmissionCollection,
+      12: _addDurableSubmissionReviewOutcomes,
     },
   );
 
@@ -893,6 +913,22 @@ class IsarSchemaMigrator {
     // than opening the store without its retained pending submissions.
   }
 
+  static Future<void> _addDurableSubmissionReviewOutcomes(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 11 || context.toVersion != 12) {
+      throw IsarSchemaMigrationException(
+        'Unexpected saved review evidence transition.',
+        reasonCode: 'unexpected-v11-v12-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // No business row or original submission bytes are rewritten.
+  }
+
   static Future<IsarSchemaOpenPreparation> prepareBeforeOpen({
     required IsarSchemaProvenanceStore store,
     required String databaseDirectoryPath,
@@ -931,10 +967,9 @@ class IsarSchemaMigrator {
       return _prepareFreshStore(
         store: store,
         legacy: legacy,
-        origin:
-            canonicalJson == null && legacy.isAbsent
-                ? IsarSchemaMarkerOrigin.freshInstall
-                : IsarSchemaMarkerOrigin.storeReplacement,
+        origin: canonicalJson == null && legacy.isAbsent
+            ? IsarSchemaMarkerOrigin.freshInstall
+            : IsarSchemaMarkerOrigin.storeReplacement,
         databaseDirectoryPath: databaseDirectoryPath,
         plan: plan,
         databaseGenerationIdFactory: databaseGenerationIdFactory,
@@ -1050,10 +1085,9 @@ class IsarSchemaMigrator {
       clearLegacyMarkerAfterOpen: !legacy.isAbsent,
       marker: marker,
       result: IsarSchemaMigrationResult(
-        outcome:
-            origin == IsarSchemaMarkerOrigin.freshInstall
-                ? IsarSchemaMigrationOutcome.freshInstallInitialized
-                : IsarSchemaMigrationOutcome.storeReplacementInitialized,
+        outcome: origin == IsarSchemaMarkerOrigin.freshInstall
+            ? IsarSchemaMigrationOutcome.freshInstallInitialized
+            : IsarSchemaMigrationOutcome.storeReplacementInitialized,
         fromVersion: 0,
         toVersion: plan.currentVersion,
         hadExistingLocalStore: false,

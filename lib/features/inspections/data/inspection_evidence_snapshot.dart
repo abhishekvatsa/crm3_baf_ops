@@ -68,6 +68,21 @@ final class InspectionCampaignReportEvidence {
     }
 
     for (final observation in observations) {
+      final target = targetsByKey[observation.targetKey]!;
+      if (observation.targetContextRevision > target.contextRevision ||
+          (observation.targetContextRevision > 0 &&
+              (observation.assetClassId != target.assetClassId ||
+                  observation.assetInstanceId != target.assetInstanceId ||
+                  observation.subjectSerialNumber !=
+                      target.subjectSerialNumber ||
+                  observation.targetContextOriginalLinkageId !=
+                      target.linkageId ||
+                  (observation.targetContextRevision ==
+                          target.contextRevision &&
+                      observation.targetContextAuditId !=
+                          target.contextReview!.auditId)))) {
+        return false;
+      }
       final supersededId = observation.supersedesObservationId;
       final superseded = supersededId == null
           ? null

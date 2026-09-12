@@ -4,6 +4,7 @@ const {
   morningReviewPlantClock,
   collectMorningReviewSourceFacts,
   mutateMorningReviewWithDb,
+  lookupMorningReviewReceiptWithDb,
   parseMorningReviewMutationRequest,
   userCanMutateMorningReview,
 } = require('../lib/morningReviewMutation');
@@ -362,6 +363,56 @@ function lifecycleActionDraft() {
 }
 
 describe('Morning Review governed lifecycle', () => {
+  test.each(['START_MORNING_REVIEW', 'RECORD_MORNING_REVIEW_NOT_HELD'])(
+    '%s keeps intended day and reads a lost reply after India midnight without writes', async (operation) => {
+      const memory = fakeDb(baseSeed());
+      const request = {requestId: IDS.start, operation, expectedPlantDay: sessionId,
+        ...(operation === 'RECORD_MORNING_REVIEW_NOT_HELD' ? {reason: 'Plant emergency'} : {})};
+      const beforeMidnight = new Date('2026-08-31T18:29:59.000Z');
+      const afterMidnight = new Date('2026-08-31T18:30:01.000Z');
+      const original = await invoke(memory, 'admin-1', request, beforeMidnight);
+      const writeCount = memory.writes.length;
+      expect(await lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'admin-1', data: request}))
+        .toEqual({...original, idempotentReplay: true});
+      expect(await invoke(memory, 'admin-1', request, afterMidnight))
+        .toEqual({...original, idempotentReplay: true});
+      expect(memory.writes).toHaveLength(writeCount);
+      expect(memory.store.has('morning_review_sessions/2026-09-01')).toBe(false);
+      const empty = fakeDb(baseSeed());
+      await expect(lookupMorningReviewReceiptWithDb({db: empty.db, authUid: 'admin-1', data: request}))
+        .rejects.toMatchObject({code: 'not-found', details: {reasonCode: 'morning-review-receipt-not-found'}});
+      await expect(invoke(empty, 'admin-1', request, afterMidnight))
+        .rejects.toMatchObject({details: {reasonCode: 'morning-review-intended-day-changed'}});
+      expect(empty.writes).toHaveLength(0);
+      expect(empty.reads.some((read) => read.kind === 'query')).toBe(false);
+    });
+
+  test('old request fingerprints and accepted receipts remain readable; lookup cannot create work', async () => {
+    const memory = fakeDb(baseSeed());
+    const request = startRequest();
+    expect(parseMorningReviewMutationRequest(request).fingerprint).toMatch(/^morningreview1-sha256:/);
+    expect(parseMorningReviewMutationRequest({...request, expectedPlantDay: sessionId}).fingerprint)
+      .toMatch(/^morningreview2-sha256:/);
+    const original = await invoke(memory, 'admin-1', request);
+    const writes = memory.writes.length;
+    expect(await lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'admin-1', data: request}))
+      .toEqual({...original, idempotentReplay: true});
+    await expect(lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'si-1', data: request}))
+      .rejects.toMatchObject({code: 'data-loss'});
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test.each(['2026-08-30', '2026-09-01'])(
+    'a device day %s ahead of or behind the server cannot create another day', async (expectedPlantDay) => {
+      const memory = fakeDb(baseSeed());
+      await expect(invoke(memory, 'admin-1', {...startRequest(), expectedPlantDay}))
+        .rejects.toMatchObject({details: {reasonCode: 'morning-review-intended-day-changed'}});
+      expect(memory.writes).toHaveLength(0);
+    });
+
+  test.each(['2026-13-01', '2026-02-30', null, 42])('invalid intended date %p is rejected', (expectedPlantDay) => {
+    expect(() => parseMorningReviewMutationRequest({...startRequest(), expectedPlantDay})).toThrow();
+  });
   test('server request shapes match the shared mobile command contract', () => {
     expect(morningReviewCommandContractSnapshot()).toEqual({
       operations: morningReviewCommandContract.operations,
@@ -1838,4 +1889,13 @@ describe('Morning Review governed lifecycle', () => {
     );
     expect(recorded).toMatchObject({status: 'notHeld'});
   });
+});
+
+test.each([false, true])('administrative review accepts the actual Morning Review receipt, intended-day=%s', async (explicitDay) => {
+  const memory = fakeDb(baseSeed());
+  const request = {...startRequest(), ...(explicitDay ? {expectedPlantDay: sessionId} : {})};
+  await invoke(memory, 'admin-1', request);
+  const receipt = memory.store.get(`morning_review_mutation_receipts/${request.requestId}`);
+  expect(receipt.fingerprint).toMatch(explicitDay ? /^morningreview2-sha256:/ : /^morningreview1-sha256:/);
+  await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('morningReview', receipt);
 });

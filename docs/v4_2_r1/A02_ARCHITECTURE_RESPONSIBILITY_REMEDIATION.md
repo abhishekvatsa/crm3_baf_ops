@@ -93,3 +93,25 @@ bounds, and no presentation unit owns a database read or transaction.
 
 This is a current source observation. The original closure inventory and
 admitted CI authority above are historical evidence and remain unchanged.
+
+## Deep-audit source review, 2026-09-13
+
+The current source inventory passes with 49 classified hotspots and digest
+`F996E91EB6ED5665D5DDF9B33EDD5B869B73CCC10895EDA935C5D15BCA8C44C5`.
+The additional hotspot is the 688-line native module edit-conflict part. It
+owns the complete preimage comparison, parent lifecycle checks, atomic retention
+of refused drafts and explicitly reviewed reapplication. Its declaration admits
+only local persistence, serialization, editing-actor checks and local transaction
+ownership. Firestore transport, provider wiring and dialogs remain separate.
+
+The local adapter delegates its save body to that part, preserving its existing
+959-line ceiling and the same Isar transaction behavior. The module detail
+screen delegates its exact native edit copy to the repository helper, so it no
+longer has a serialization responsibility. Two redundant file-header lines were
+removed from each of the resolve form and complete-job screen; neither existing
+ceiling was raised. No presentation unit owns a database read or transaction.
+
+The native conflict and recovery UI regressions remain named boundary evidence;
+the extracted provider files pass scoped analysis. This records the current
+working-tree inventory, not a new CI closure, production deployment or device
+result. The historical source and CI receipts above remain unchanged.

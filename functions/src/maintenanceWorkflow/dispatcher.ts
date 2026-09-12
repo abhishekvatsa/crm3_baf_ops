@@ -76,6 +76,7 @@ import {
   verifyInspectionFinding,
 } from "./inspectionEvidenceHandlers";
 import {recordHistoricalMaintenance} from "./historicalMaintenanceHandlers";
+import {revalidateInspectionTargetContext} from "./inspectionTargetContextHandlers";
 import {
   purgePilotBusinessRecord,
   verifyPilotPurgeReplay,
@@ -114,6 +115,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   deleteUnusedInspectionCampaign,
   addInspectionCampaignTargets,
   setInspectionTargetDisposition,
+  revalidateInspectionTargetContext,
   recordInspectionObservation,
   linkInspectionObservationIssue,
   verifyInspectionFinding,

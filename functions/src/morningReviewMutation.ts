@@ -132,6 +132,7 @@ interface ParsedRequest {
   actionDraft: MorningReviewActionDraft | null;
   concernDraft: StandingConcernDraft | null;
   fingerprint: string;
+  expectedPlantDay: string | null;
 }
 
 export interface MorningReviewMutationResult {
@@ -509,7 +510,10 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
   const operation = requiredString(data.operation, "operation", 80) as
     MorningReviewOperation;
   if (!OPERATIONS.has(operation)) invalid("operation", "is unsupported");
-  exactKeys(data, ALLOWED_KEYS[operation], "request");
+  // The published V1 key snapshot remains stable. Only the two sessionless
+  // operations have the capability-gated intended-day extension.
+  exactKeys(data, ["START_MORNING_REVIEW", "RECORD_MORNING_REVIEW_NOT_HELD"].includes(operation) ?
+    new Set([...ALLOWED_KEYS[operation], "expectedPlantDay"]) : ALLOWED_KEYS[operation], "request");
   const requestId = requiredString(data.requestId, "requestId", 80);
   if (!UUID.test(requestId)) invalid("requestId", "must be a UUID");
 
@@ -521,6 +525,14 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     requiredString(data.sessionId, "sessionId", 10) : null;
   if (sessionId != null && !PLANT_DAY.test(sessionId)) {
     invalid("sessionId", "must be an ISO plant day");
+  }
+  const expectedPlantDay = Object.prototype.hasOwnProperty.call(data, "expectedPlantDay") ?
+    requiredString(data.expectedPlantDay, "expectedPlantDay", 10) : null;
+  const expectedDate = expectedPlantDay == null ? null : new Date(`${expectedPlantDay}T00:00:00.000Z`);
+  if (expectedPlantDay != null && (!PLANT_DAY.test(expectedPlantDay) ||
+      expectedDate == null || Number.isNaN(expectedDate.valueOf()) ||
+      expectedDate.toISOString().slice(0, 10) !== expectedPlantDay)) {
+    invalid("expectedPlantDay", "must be a real ISO plant day");
   }
   const needsVersion = [
     "ACCEPT_MORNING_REVIEW_ACTION",
@@ -592,10 +604,13 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     entryDraft,
     actionDraft,
     concernDraft,
+    // Preserve the original canonical bytes for requests stored by old clients.
+    ...(expectedPlantDay == null ? {} : {expectedPlantDay}),
   };
   return {
     ...canonical,
-    fingerprint: `morningreview1-sha256:${
+    expectedPlantDay,
+    fingerprint: `morningreview${expectedPlantDay == null ? 1 : 2}-sha256:${
       createHash("sha256").update(stableJson(canonical), "utf8").digest("hex")
     }`,
   };
@@ -1499,6 +1514,7 @@ function resultFromReceipt(
       actualResultKeys.some((key) => !expectedResultKeys.has(key)) ||
       typeof map.sessionId !== "string" || !PLANT_DAY.test(map.sessionId) ||
       (request.sessionId != null && map.sessionId !== request.sessionId) ||
+      (request.expectedPlantDay != null && map.sessionId !== request.expectedPlantDay) ||
       typeof map.entityId !== "string" || map.entityId.trim().length === 0 ||
       map.entityId.length > 256 ||
       typeof map.status !== "string" || map.status.trim().length === 0 ||
@@ -2118,6 +2134,48 @@ async function mutateMorningReviewActionLifecycle(args: {
   });
 }
 
+function assertExpectedPlantDay(request: ParsedRequest, actualPlantDay: string): void {
+  if (request.expectedPlantDay != null && request.expectedPlantDay !== actualPlantDay) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "This opening or not-held entry belongs to another India plant day. Nothing was created.",
+      {reasonCode: "morning-review-intended-day-changed",
+        expectedPlantDay: request.expectedPlantDay, actualPlantDay},
+    );
+  }
+}
+
+/** Read the original receipt only. Absence never authorizes a replacement. */
+export async function lookupMorningReviewReceiptWithDb(args: {
+  db: MorningReviewFirestoreLike;
+  authUid: string | null;
+  data: JsonMap;
+}): Promise<MorningReviewMutationResult> {
+  const actorUid = args.authUid;
+  if (actorUid == null || actorUid.trim().length === 0) {
+    throw new AssetHierarchyMutationError("unauthenticated", "Sign in before checking saved work.");
+  }
+  const request = parseMorningReviewMutationRequest(args.data);
+  return args.db.runTransaction(async (transaction) => {
+    const actor = asSnapshot(await transaction.get(args.db.collection("users").doc(actorUid)),
+      "Morning Review receipt owner lookup");
+    approvedAuthority(actor.data());
+    if (!userCanMutateMorningReview(actor.data(), request.operation)) {
+      throw new AssetHierarchyMutationError("permission-denied",
+        "Your current role cannot check this Morning Review operation.");
+    }
+    const receipt = asSnapshot(await transaction.get(
+      args.db.collection("morning_review_mutation_receipts").doc(request.requestId)),
+    "Morning Review receipt lookup");
+    if (!receipt.exists) {
+      throw new AssetHierarchyMutationError("not-found",
+        "No acceptance receipt was found. The saved request still needs review; nothing was resent.",
+        {reasonCode: "morning-review-receipt-not-found"});
+    }
+    return resultFromReceipt(request, actorUid, receipt.data() ?? {});
+  });
+}
+
 export async function mutateMorningReviewWithDb(args: {
   db: MorningReviewFirestoreLike;
   authUid: string | null;
@@ -2162,6 +2220,7 @@ export async function mutateMorningReviewWithDb(args: {
     );
   }
   const preflightReceipt = await receipts.doc(request.requestId).get();
+  if (!preflightReceipt.exists) assertExpectedPlantDay(request, clock.plantDay);
   if (request.operation === "START_MORNING_REVIEW" &&
       !preflightReceipt.exists) {
     if (!clock.canStart && !preflightAuthority.roles.has("admin")) {
@@ -2215,6 +2274,7 @@ export async function mutateMorningReviewWithDb(args: {
         receiptSnapshot.data() ?? {},
       );
     }
+    assertExpectedPlantDay(request, clock.plantDay);
 
     const sessionRef = sessions.doc(sessionId);
     const sessionSnapshot = asSnapshot(

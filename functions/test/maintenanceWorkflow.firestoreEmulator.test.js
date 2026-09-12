@@ -116,6 +116,90 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     await app.delete();
   });
 
+  test.each(['baseline', 'historical-review', 'shifted-audit-time', 'shifted-removal-time'])(
+    'inspection correction preserves historical installation through native Timestamp storage: %s', async (mode) => {
+      const {MemoryWorkflowStore, seedInstalledInnerCoverHierarchy, upsertDefinition, createCampaign, observation} = require('./helpers/inspectionFixture');
+      const {inspectionContextIdentity, parseInspectionTargetPopulation} = require('../lib/maintenanceWorkflow/inspectionPopulation');
+      const {workflowFirestoreDataForTest} = require('../lib/maintenanceWorkflow/firebaseStore');
+      const seed = new MemoryWorkflowStore(); seedInstalledInnerCoverHierarchy(seed);
+      seed.seed('asset_classes/class-base', {...seed.read('asset_classes/class-base'), version: 1, code: 'BASE', name: 'Base'});
+      for (const [path, data] of seed.entries()) await db.doc(path).set(workflowFirestoreDataForTest(data));
+      const run = (command) => service.execute(command, {actor, serverNow: new Date('2026-08-21T07:00:00.000Z')});
+      const read = async (path) => (await db.doc(path).get()).data();
+      await run(upsertDefinition({overrides: {assetTypeKeys: ['innerCover'], assetClassIds: ['class-inner-cover'],
+        componentNodeIds: ['inner-cover-shell']}}));
+      const create = createCampaign({campaignId: 'installed', targetAssetNumbers: [205]});
+      create.payload = {...create.payload, assetTypeKey: 'innerCover', assetClassId: 'class-inner-cover',
+        populationMode: 'installedInnerCoversByBase', hostAssetClassId: 'class-base', physicalPositionLabels: ['Shell']};
+      await run(create);
+      const target = parseInspectionTargetPopulation((await read('inspection_campaigns/installed')).targetPopulation)[0];
+      const reading = (id, version, revision = 0, date = '2026-08-21T05:00:00.000Z') => {
+        const command = observation({commandId: id, observationId: id, campaignId: 'installed', expectedVersion: version, observedAt: date});
+        command.payload = {...command.payload, targetKey: target.targetKey, targetContextRevision: revision,
+          assetTypeKey: 'innerCover', assetClassId: 'class-inner-cover', assetInstanceId: 'inner-cover-n4', assetNumber: 205,
+          componentNodeId: 'inner-cover-shell', componentNodeVersion: 3, componentName: 'Inner Cover shell',
+          hierarchyPath: ['Inner Cover', 'Shell'], physicalPosition: 'Shell'};
+        return command;
+      };
+      await run(reading('first', 1));
+      const base = await read('asset_instances/base-205'); const assignment = await read('base_inner_cover_assignments/base-205');
+      const linkage = await read('inner_cover_linkages/link-n4-base-205');
+      await db.doc('asset_instances/base-206').set({...base, assetInstanceId: 'base-206', assetNumber: 206, name: 'Base 206'});
+      await db.doc('inner_cover_profiles/inner-cover-n4').update({version: 8, currentBaseAssetInstanceId: 'base-206',
+        currentBaseAssetNumber: 206, currentLinkageId: 'link-n4-base-206'});
+      await db.doc('base_inner_cover_assignments/base-206').set({...assignment, baseAssetInstanceId: 'base-206',
+        baseAssetNumber: 206, baseAssetName: 'Base 206', linkageId: 'link-n4-base-206',
+        linkedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-21T06:00:00.000Z')), version: 1});
+      await db.doc('inner_cover_linkages/link-n4-base-206').set({...linkage, linkageId: 'link-n4-base-206',
+        baseAssetInstanceId: 'base-206', baseAssetNumber: 206, baseAssetName: 'Base 206',
+        installedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-21T06:00:00.000Z'))});
+      await db.doc('inner_cover_linkages/link-n4-base-205').update({active: false, version: 2,
+        removedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-21T05:50:00.000Z'))});
+      await db.doc('base_inner_cover_assignments/base-205').update({innerCoverId: null, innerCoverSerialNumber: null,
+        linkageId: null, linkedAt: null, version: 5});
+      const reviewed = {...inspectionContextIdentity(target), assetNumber: 206, assetInstanceVersion: 8,
+        hostAssetInstanceId: 'base-206', hostAssetNumber: 206, hostAssetInstanceName: 'Base 206',
+        linkageId: 'link-n4-base-206', linkedAt: '2026-08-21T06:00:00.000Z'};
+      const review = (id, version, revision, context) => ({commandId: id, commandType: 'revalidateInspectionTargetContext',
+        aggregateId: 'installed', expectedVersion: version, payload: {reviewerUid: actor.uid, targetKey: target.targetKey,
+          expectedContextRevision: revision, reviewedContext: context, reason: 'Verified the same serial after relocation.'}});
+      await run(review('review-one', 2, 0, reviewed));
+      let originalId = 'first'; let version = 3; let revision = 1;
+      if (mode === 'historical-review') {
+        originalId = 'reviewed-reading';
+        await run(reading(originalId, 3, 1, '2026-08-21T06:30:00.000Z'));
+        await db.doc('inner_cover_profiles/inner-cover-n4').update({version: 9});
+        await run(review('review-two', 4, 1, {...reviewed, assetInstanceVersion: 9}));
+        version = 5; revision = 2;
+      }
+      const original = await read(`inspection_observations/${originalId}`);
+      expect(original.observedAt).toBeInstanceOf(admin.firestore.Timestamp);
+      const correction = reading('correction', version, revision, original.observedAt.toDate().toISOString());
+      correction.payload.supersedesObservationId = originalId;
+      if (mode === 'shifted-audit-time') await db.doc('inspection_target_audits/review-one').update({
+        performedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-21T07:00:01.000Z'))});
+      if (mode === 'shifted-removal-time') await db.doc('inner_cover_linkages/link-n4-base-205').update({
+        removedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-21T04:59:00.000Z'))});
+      if (mode.startsWith('shifted')) {
+        await expect(run(correction)).rejects.toMatchObject({code: 'failed-precondition'});
+        expect((await db.doc('inspection_observations/correction').get()).exists).toBe(false);
+        expect((await read('inspection_campaigns/installed')).version).toBe(version);
+        return;
+      }
+      const accepted = await run(correction);
+      const corrected = await read('inspection_observations/correction');
+      for (const key of ['assetNumber', 'hostAssetInstanceId', 'subjectSerialNumber', 'linkageId', 'linkageVersion',
+        'linkedAt', 'targetContextRevision', 'targetContextAuditId', 'targetContextOriginalLinkageId', 'observedAt']) {
+        expect(corrected[key]).toEqual(original[key]);
+      }
+      expect(await read(`inspection_observations/${originalId}`)).toEqual(original);
+      const campaign = await read('inspection_campaigns/installed');
+      expect(campaign.targetPopulation[0].contextReview.revision).toBe(revision);
+      expect(campaign.targetPopulation[0].lastObservationId).toBe('correction');
+      expect(await run(correction)).toEqual(accepted);
+      expect(await read('inspection_campaigns/installed')).toEqual(campaign);
+    });
+
   test('admin deletes a never-used inspection campaign with durable replay evidence', async () => {
     await db.doc('asset_hierarchy_nodes/base-clamp').set({
       schemaVersion: 1,

@@ -462,3 +462,9 @@ describe('burner directive compliance mutation', () => {
     });
   });
 });
+
+test('administrative review accepts the actual burner compliance receipt', async () => {
+  const memory = fakeDb(seed());
+  await invoke(memory);
+  await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('burnerEvidence', memory.store.get(`burner_condition_round_receipts/${IDS.closure}`));
+});

@@ -21,6 +21,24 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
   Isar get isar => throw UnsupportedError('UI test store has no native Isar.');
 
   @override
+  Future<List<DurableSubmission>> listForAdministrativeReview({
+    required void Function() requireReviewer,
+  }) => throw UnsupportedError(
+    'Administrative review requires the real Isar fixture.',
+  );
+
+  @override
+  Future<DurableSubmission> settleReview({
+    required String submissionId,
+    required String evidenceSha256,
+    required String reviewerUid,
+    required String decisionJson,
+    required void Function() requireReviewer,
+  }) => throw UnsupportedError(
+    'Review proof custody requires the real Isar fixture.',
+  );
+
+  @override
   Future<DurableSubmission> prepare(DurableSubmissionDraft draft) async {
     final frozen = jsonEncode(draft.toImmutableMap());
     final existing = _values[draft.submissionId];

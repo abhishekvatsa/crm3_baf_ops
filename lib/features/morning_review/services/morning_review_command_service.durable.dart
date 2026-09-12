@@ -126,6 +126,10 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
       sessionId: sessionId,
       extra: extra,
     );
+    if (operation == MorningReviewCommand.start ||
+        operation == MorningReviewCommand.recordNotHeld) {
+      request['expectedPlantDay'] = currentIndiaPlantDay(_now());
+    }
     _commandActor(request);
     final saved = await _store.prepare(
       DurableSubmissionDraft(
@@ -175,6 +179,8 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     if (result.entityId != expectedEntity ||
         (request['sessionId'] == null &&
             session != currentIndiaPlantDay(result.committedAt)) ||
+        (request['expectedPlantDay'] != null &&
+            session != request['expectedPlantDay']) ||
         (request['expectedVersion'] != null &&
             result.version != (request['expectedVersion'] as int) + 1) ||
         (const {
@@ -204,10 +210,20 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     }
     _request(saved);
     if (saved.state.isAccepted) return _adoptDurable(saved);
-    if (_request(saved)['sessionId'] == null &&
-        currentIndiaPlantDay(saved.createdAt) != currentIndiaPlantDay(_now())) {
-      throw const MorningReviewCommandException(
-        'This saved opening or not-held change belongs to an earlier day. Its outcome needs review before any new meeting is created; nothing was resent.',
+    final request = _request(saved);
+    // Older envelopes do not bind an intended day. Even a same-day check can
+    // cross midnight while awaiting the server, so it may only read a receipt.
+    final unpinnedSessionless =
+        request['sessionId'] == null && request['expectedPlantDay'] is! String;
+    final receiptOnly =
+        unpinnedSessionless ||
+        (request['sessionId'] == null &&
+            request['expectedPlantDay'] != currentIndiaPlantDay(_now()));
+    if (receiptOnly && saved.attemptCount == 0) {
+      throw MorningReviewCommandException(
+        unpinnedSessionless
+            ? 'This older saved change has no verified intended meeting date. Review or cancel it before entering a new change; nothing was sent.'
+            : 'This saved opening or not-held change belongs to an earlier day. Its outcome needs review before any new meeting is created; nothing was resent.',
         code: 'sessionless-day-changed',
       );
     }
@@ -237,7 +253,17 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     final String receiptJson;
     try {
       _commandActor(_request(saved));
-      final raw = _stringMap(await _invoke(saved.envelope));
+      final raw = _stringMap(
+        await _invoke(
+          receiptOnly
+              ? {
+                  'protocolVersion': 2,
+                  'originActorUid': saved.actorUid,
+                  'receiptLookup': request,
+                }
+              : saved.envelope,
+        ),
+      );
       _receipt(saved, raw);
       // Replay is an observation of the same acceptance, not a changed result.
       // Preserve every authoritative field; normalize only this transport flag.

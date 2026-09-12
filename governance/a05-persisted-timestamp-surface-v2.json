@@ -1085,7 +1085,7 @@
     },
     {
       "id": "inspection-campaign-target-record",
-      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerFile": "lib/features/inspections/data/inspection_campaign_target.dart",
       "readerMarker": "factory InspectionCampaignTarget.fromMap",
       "requiredFields": [
         "dispositionAt"
@@ -1474,6 +1474,48 @@
       "authorityBoundary": "exact permitted server document read; parse failure rejects adoption",
       "regression": "test/morning_review_durable_submission_test.dart",
       "reArmCondition": "invalid subject time can produce a successful accepted-receipt adoption"
+    },
+    {
+      "id": "inspection-target-context-review",
+      "readerFile": "lib/features/inspections/data/inspection_target_context.dart",
+      "readerMarker": "factory InspectionTargetContextReview.fromMap",
+      "requiredFields": [
+        "reviewedAt"
+      ],
+      "optionalFields": [],
+      "owner": "inspections",
+      "purpose": "decode the explicit same-subject manager review without a time fallback",
+      "authorityBoundary": "server physical-subject context; malformed evidence refuses review or decoding",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart",
+      "reArmCondition": "new timestamp fallback, changed physical identity, or accepted malformed review chronology"
+    },
+    {
+      "id": "inspection-current-assignment-link-time",
+      "readerFile": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
+      "readerMarker": "DateTime _readInspectionAssignmentLinkedAt(",
+      "requiredFields": [
+        "linkedAt"
+      ],
+      "optionalFields": [],
+      "owner": "inspections",
+      "purpose": "verify exact server installation chronology before presenting a manager context review",
+      "authorityBoundary": "server physical-subject context; malformed evidence refuses review or decoding",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart",
+      "reArmCondition": "new timestamp fallback, changed physical identity, or accepted malformed review chronology"
+    },
+    {
+      "id": "inspection-current-installation-time",
+      "readerFile": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
+      "readerMarker": "DateTime _readInspectionInstallationTime(",
+      "requiredFields": [
+        "installedAt"
+      ],
+      "optionalFields": [],
+      "owner": "inspections",
+      "purpose": "verify exact server installation chronology before presenting a manager context review",
+      "authorityBoundary": "server physical-subject context; malformed evidence refuses review or decoding",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart",
+      "reArmCondition": "new timestamp fallback, changed physical identity, or accepted malformed review chronology"
     }
   ]
 }

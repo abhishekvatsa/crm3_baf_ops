@@ -212,7 +212,7 @@ function Get-ArtifactLocalStoreSchemaAuthority {
     throw 'Artifact local schema declarations are absent, ambiguous or unsupported.'
   }
   $version = [int]$versions[0].Groups['version'].Value
-  if ($version -notin @(10, 11)) { throw 'Artifact local schema version needs a reviewed evidence contract.' }
+  if ($version -notin @(10, 11, 12)) { throw 'Artifact local schema version needs a reviewed evidence contract.' }
   $fingerprint = ([regex]::Matches($fingerprints[0].Groups['literals'].Value, "'(?<value>[A-Za-z0-9:+,]+)'") |
     ForEach-Object { $_.Groups['value'].Value }) -join ''
   if (-not $fingerprint.StartsWith("v${version}:", [StringComparison]::Ordinal)) {
@@ -234,7 +234,7 @@ function Get-ArtifactLocalStoreSchemaAuthority {
     $approvedVersion = $required.Value.PSObject.Properties['localStoreSchemaVersion']
     $approvedFingerprint = $required.Value.PSObject.Properties['localStoreSchemaFingerprintSha256']
   }
-  if ($version -eq 11 -or $null -ne $approvedVersion -or $null -ne $approvedFingerprint) {
+  if ($version -ge 11 -or $null -ne $approvedVersion -or $null -ne $approvedFingerprint) {
     if ($null -eq $approvedVersion -or $null -eq $approvedFingerprint -or
         ($approvedVersion.Value -isnot [int] -and $approvedVersion.Value -isnot [int64]) -or
         $approvedVersion.Value -ne $version -or
@@ -282,7 +282,7 @@ function Test-Build28ReadOnlyDeviceAcceptance {
   }
   # Require scalar measured evidence: a string "false", absent count or
   # nonempty array is not a pass. The approved source fingerprint is mandatory
-  # for schema 11. Healthy diagnostics do not export its hash, so a separate
+  # for schemas 11 and 12. Healthy diagnostics do not export its hash, so a separate
   # measured device hash is optional; any supplied value must agree exactly.
   $facts = @(
     @{ Path = 'schemaVersion'; Expected = 1 }
@@ -2201,6 +2201,16 @@ $currentDeploymentApproval = Get-Content `
 $currentFunctionFleetContract = Get-DeploymentFleetContract `
   -RepositoryRoot $RepositoryRoot `
   -SourceCommit ([string]$currentDeployedBackendAuthority.functionFleetSourceCommit)
+# The shared validator retains historical no-IAM-mutation receipts and admits
+# only the separately approved, fully measured four-new-service creation scope.
+& node tools/release/scopedCallableInvokerIam.js verify-deployment `
+  --repository-root $RepositoryRoot `
+  --approval $currentDeploymentApprovalPath `
+  --approval-sha256 $currentDeploymentApprovalSha256 `
+  --receipt $currentFunctionFleetDeploymentReceiptPath | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  throw 'Current backend IAM boundary is not supported by exact scoped evidence.'
+}
 if ($currentDeploymentApproval.approved -ne $true -or
     [string]$currentDeploymentApproval.firebaseProjectId -ne
       'crm3-baf-ops-b8638' -or
@@ -2226,8 +2236,6 @@ if ($currentDeploymentApproval.approved -ne $true -or
     $currentFunctionFleetDeploymentReceipt.deployment.
       existingIamPreservationEnforced -ne $true -or
     $currentFunctionFleetDeploymentReceipt.deployment.appCheckEnforcement -ne
-      $false -or
-    $currentFunctionFleetDeploymentReceipt.controlBoundary.iamMutated -ne
       $false -or
     $currentFunctionFleetDeploymentReceipt.controlBoundary.
       productionBusinessDataMutated -ne $false -or

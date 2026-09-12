@@ -45,7 +45,11 @@ final _morningReviewCommandServiceByActorProvider =
           await const CommandCapabilityService().requireCapabilities(
             callableName: morningReviewV2CallableName,
             originActorUid: uid,
-            requiredCapabilities: const {'assetHierarchy.v2'},
+            requiredCapabilities: const {
+              'assetHierarchy.v2',
+              'morningReviewExpectedPlantDay.v1',
+              'morningReviewReceiptLookup.v1',
+            },
           );
         },
         readSubject: ref

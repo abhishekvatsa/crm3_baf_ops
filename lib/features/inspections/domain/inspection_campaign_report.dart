@@ -280,6 +280,7 @@ List<String> _targetRow(
       : '${latest.displayValue}\n${latest.outOfRange ? 'Exception recorded' : 'Within defined condition'}',
   '${_dateTime(target.dispositionAt)}\nby ${target.dispositionByName}',
   'Asset v${target.assetInstanceVersion}'
+      '${target.contextReview == null ? "" : "\nReviewed context ${target.contextRevision}: asset v${target.currentContext.assetInstanceVersion}, ${target.currentContext.rowLabel}\n${target.contextReview!.reviewedByName}: ${target.contextReview!.reason}\nAudit ${target.contextReview!.auditId}"}'
       '${target.addedLater ? '\nAdded after campaign start' : ''}'
       '${target.subjectSerialNumber == null ? '' : '\nInner Cover ${target.subjectSerialNumber}'}'
       '${target.linkageVersion == null ? '' : '\nLinkage v${target.linkageVersion} at ${_optionalDateTime(target.linkedAt)}'}',
@@ -295,6 +296,7 @@ List<String> _observationRow(
   _operatingContext(observation),
   '${observation.observerName}\n${observation.observerUid}',
   'Observation ${observation.id}'
+      '${observation.targetContextRevision == 0 ? "" : "\nContext review ${observation.targetContextRevision}: ${observation.targetContextAuditId}"}'
       '${observation.supersedesObservationId == null ? '' : '\nCorrects ${observation.supersedesObservationId}'}'
       '${observation.baselineObservationId == null ? '' : '\nBaseline ${observation.baselineObservationId}'}'
       '${observation.comparisonOutcome == null ? '' : '\n${_enumLabel(observation.comparisonOutcome!.name)}'}'

@@ -13,6 +13,7 @@ const {
   setDoc,
   updateDoc,
   setLogLevel,
+  writeBatch,
 } = require('firebase/firestore');
 
 const PROJECT_ID = 'crm3-baf-ops-b8638';
@@ -739,5 +740,79 @@ describe('server population audit identity reservation', () => {
         severity: 'medium',
       }),
     );
+  });
+
+  test('accepts native module conflict manifest, bounded evidence chunks and separate resolution audit', async () => {
+    const db = userDb('supervisor');
+    const evidence = JSON.stringify({
+      protocolVersion: 1,
+      actorUid: 'supervisor',
+      moduleLocalId: 7,
+      reviewed: { version: 4 },
+      current: { version: 5 },
+      attempted: { draftNote: 'Preserve the complete losing draft. '.repeat(1000) },
+      reason: 'reviewed-module-changed',
+    });
+    const digest = require('crypto').createHash('sha256').update(evidence).digest('hex');
+    const encoded = Buffer.from(evidence).toString('base64');
+    const chunks = encoded.match(/.{1,12000}/g);
+    const base = {
+      entityId: 'native-edit-conflict-7',
+      action: 'create',
+      performedByUid: 'supervisor',
+      performedByName: 'Shift Supervisor',
+      timestamp: new Date('2026-09-13T01:00:00.000Z'),
+      severity: 'medium',
+      beforeJson: null,
+    };
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'audit_logs/client_module_conflict_manifest'), {
+      ...base,
+      entityType: 'planned_job_module_edit_conflict',
+      afterJson: JSON.stringify({
+        protocolVersion: 1, moduleLocalId: 7,
+        reason: 'reviewed-module-changed', evidenceSha256: digest,
+        chunkCount: chunks.length,
+      }),
+    });
+    chunks.forEach((bytesBase64, chunkIndex) => {
+      const afterJson = JSON.stringify({
+        protocolVersion: 1, chunkIndex, evidenceSha256: digest, bytesBase64,
+      });
+      expect(afterJson.length).toBeLessThanOrEqual(20000);
+      batch.set(doc(db, `audit_logs/client_module_conflict_chunk_${chunkIndex}`), {
+        ...base, entityType: 'planned_job_module_edit_conflict_part', afterJson,
+      });
+    });
+    await assertSucceeds(batch.commit());
+    await assertSucceeds(setDoc(doc(db, 'audit_logs/client_module_conflict_resolution'), {
+      ...base,
+      entityType: 'planned_job_module_edit_conflict_resolved',
+      action: 'resolve',
+      afterJson: JSON.stringify({
+        protocolVersion: 1, moduleLocalId: 7, appliedVersion: 6,
+        appliedPreimageSha256: 'a'.repeat(64),
+      }),
+    }));
+    await assertFails(updateDoc(doc(db, 'audit_logs/client_module_conflict_manifest'), {
+      afterJson: '{}',
+    }));
+  });
+
+  test('module conflict audit still rejects a foreign origin or oversized evidence chunk', async () => {
+    const payload = {
+      entityType: 'planned_job_module_edit_conflict_part',
+      entityId: 'native-edit-conflict-7',
+      action: 'create',
+      performedByUid: 'supervisor',
+      timestamp: new Date('2026-09-13T01:00:00.000Z'),
+      severity: 'medium',
+      afterJson: JSON.stringify({ protocolVersion: 1, chunkIndex: 0, bytesBase64: 'YQ==' }),
+    };
+    await assertFails(setDoc(doc(userDb('operations'), 'audit_logs/client_spoofed_conflict'), payload));
+    await assertFails(setDoc(doc(userDb('supervisor'), 'audit_logs/client_oversized_conflict'), {
+      ...payload, afterJson: 'a'.repeat(20001),
+    }));
+    await assertFails(setDoc(doc(testEnv.unauthenticatedContext().firestore(), 'audit_logs/client_unauthenticated_conflict'), payload));
   });
 });

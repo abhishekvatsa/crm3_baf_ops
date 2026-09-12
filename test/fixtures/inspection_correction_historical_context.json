@@ -1,0 +1,645 @@
+{
+  "provenance": "Actual MaintenanceWorkflowCommandService producer: inspectionPhysicalContext.test.js revision 1 correction after review 2.",
+  "campaign": {
+    "schemaVersion": 2,
+    "campaignId": "installed",
+    "version": 6,
+    "status": "open",
+    "definition": {
+      "schemaVersion": 1,
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "code": "FURNACE_PT_SETTING",
+      "title": "Furnace pressure-transmitter setting",
+      "description": "Audit the governed pressure setting on selected Furnaces.",
+      "assetTypeKeys": [
+        "innerCover"
+      ],
+      "assetClassIds": [
+        "class-inner-cover"
+      ],
+      "componentNodeIds": [
+        "inner-cover-shell"
+      ],
+      "valueType": "number",
+      "unit": "bar",
+      "choiceValues": [],
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "preconditions": [
+        "Furnace isolated",
+        "Instrument impulse line available"
+      ],
+      "requiresChargeNo": false
+    },
+    "definitionId": "inspection-definition-furnace-pt",
+    "definitionVersion": 1,
+    "definitionCode": "FURNACE_PT_SETTING",
+    "definitionTitle": "Furnace pressure-transmitter setting",
+    "purpose": "Verify pressure-transmitter settings without stopping every Furnace together.",
+    "assetTypeKey": "innerCover",
+    "assetClassId": "class-inner-cover",
+    "populationMode": "installedInnerCoversByBase",
+    "hostAssetClassId": "class-base",
+    "targetAssetNumbers": [
+      205
+    ],
+    "physicalPositionLabels": [
+      "Shell"
+    ],
+    "targetPopulation": [
+      {
+        "schemaVersion": 1,
+        "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+        "assetTypeKey": "innerCover",
+        "assetClassId": "class-inner-cover",
+        "assetNumber": 205,
+        "assetInstanceId": "inner-cover-n4",
+        "assetInstanceVersion": 7,
+        "assetInstanceName": "Inner Cover N4",
+        "hostAssetClassId": "class-base",
+        "hostAssetInstanceId": "base-205",
+        "hostAssetInstanceVersion": 2,
+        "hostAssetNumber": 205,
+        "hostAssetInstanceName": "Base 205",
+        "subjectSerialNumber": "N4",
+        "linkageId": "link-n4-base-205",
+        "linkageVersion": 1,
+        "linkedAt": "2026-08-21T04:00:00.000Z",
+        "componentNodeId": "inner-cover-shell",
+        "physicalPosition": "Shell",
+        "disposition": "observed",
+        "dispositionReason": null,
+        "dispositionAt": "2026-08-21T06:30:00.000Z",
+        "dispositionByUid": "admin",
+        "dispositionByName": "admin",
+        "addedLater": false,
+        "lastObservationId": "reviewed-correction",
+        "lastObservedAt": "2026-08-21T06:30:00.000Z",
+        "contextReview": {
+          "schemaVersion": 1,
+          "revision": 2,
+          "auditId": "review-second",
+          "reviewedAt": "2026-08-21T07:00:00.000Z",
+          "reviewedByUid": "admin",
+          "reviewedByName": "admin",
+          "reason": "Reviewed original serial N4 following its recorded relocation.",
+          "context": {
+            "schemaVersion": 1,
+            "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-206",
+            "assetTypeKey": "innerCover",
+            "assetClassId": "class-inner-cover",
+            "assetNumber": 206,
+            "assetInstanceId": "inner-cover-n4",
+            "assetInstanceVersion": 9,
+            "assetInstanceName": "Inner Cover N4",
+            "hostAssetClassId": "class-base",
+            "hostAssetInstanceId": "base-206",
+            "hostAssetInstanceVersion": 2,
+            "hostAssetNumber": 206,
+            "hostAssetInstanceName": "Base 206",
+            "subjectSerialNumber": "N4",
+            "linkageId": "link-n4-base-206",
+            "linkageVersion": 1,
+            "linkedAt": "2026-08-21T06:00:00.000Z",
+            "componentNodeId": "inner-cover-shell",
+            "physicalPosition": "Shell",
+            "disposition": "pending",
+            "dispositionReason": null,
+            "dispositionAt": "2026-08-21T07:00:00.000Z",
+            "dispositionByUid": "admin",
+            "dispositionByName": "admin",
+            "addedLater": false,
+            "lastObservationId": null,
+            "lastObservedAt": null
+          }
+        }
+      }
+    ],
+    "targetDispositionCounts": {
+      "pending": 0,
+      "observed": 1,
+      "deferred": 0,
+      "unavailable": 0,
+      "excludedWithReason": 0,
+      "requiresReaudit": 0
+    },
+    "expectedPopulation": 1,
+    "baselineCampaignId": null,
+    "baselineRecordedThrough": null,
+    "observerRoleKeys": [
+      "seniorInstrumentation"
+    ],
+    "observationCount": 3,
+    "distinctTargetKeys": [
+      "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205"
+    ],
+    "latestObservationAt": "2026-08-21T06:30:00.000Z",
+    "createdAt": "2026-08-21T07:00:00.000Z",
+    "createdByUid": "admin",
+    "createdByName": "admin",
+    "updatedAt": "2026-08-21T07:00:00.000Z",
+    "updatedByUid": "admin",
+    "updatedByName": "admin"
+  },
+  "original": {
+    "schemaVersion": 1,
+    "observationId": "reviewed-reading",
+    "campaignId": "installed",
+    "campaignVersionAtObservation": 3,
+    "definition": {
+      "schemaVersion": 1,
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "code": "FURNACE_PT_SETTING",
+      "title": "Furnace pressure-transmitter setting",
+      "description": "Audit the governed pressure setting on selected Furnaces.",
+      "assetTypeKeys": [
+        "innerCover"
+      ],
+      "assetClassIds": [
+        "class-inner-cover"
+      ],
+      "componentNodeIds": [
+        "inner-cover-shell"
+      ],
+      "valueType": "number",
+      "unit": "bar",
+      "choiceValues": [],
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "preconditions": [
+        "Furnace isolated",
+        "Instrument impulse line available"
+      ],
+      "requiresChargeNo": false
+    },
+    "definitionId": "inspection-definition-furnace-pt",
+    "definitionVersion": 1,
+    "definitionCode": "FURNACE_PT_SETTING",
+    "assetTypeKey": "innerCover",
+    "assetNumber": 206,
+    "assetClassId": "class-inner-cover",
+    "assetInstanceId": "inner-cover-n4",
+    "hostAssetClassId": "class-base",
+    "hostAssetInstanceId": "base-206",
+    "hostAssetInstanceVersion": 2,
+    "hostAssetNumber": 206,
+    "hostAssetInstanceName": "Base 206",
+    "subjectSerialNumber": "N4",
+    "linkageId": "link-n4-base-206",
+    "linkageVersion": 1,
+    "linkedAt": "2026-08-21T06:00:00.000Z",
+    "componentNodeId": "inner-cover-shell",
+    "componentNodeVersion": 3,
+    "componentName": "Inner Cover shell",
+    "hierarchyPath": [
+      "Inner Cover",
+      "Shell"
+    ],
+    "physicalPosition": "Shell",
+    "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+    "targetContextRevision": 1,
+    "targetContextAuditId": "review-installed",
+    "targetContextOriginalLinkageId": "link-n4-base-205",
+    "observedAt": "2026-08-21T06:30:00.000Z",
+    "observerUid": "admin",
+    "observerName": "admin",
+    "value": {
+      "valueType": "number",
+      "numericValue": 1.7,
+      "booleanValue": null,
+      "textValue": null,
+      "choiceValue": null
+    },
+    "valueType": "number",
+    "numericValue": 1.7,
+    "booleanValue": null,
+    "textValue": null,
+    "choiceValue": null,
+    "unit": "bar",
+    "minimumValue": 2,
+    "maximumValue": 4,
+    "outOfRange": true,
+    "operatingConditions": {
+      "furnaceState": "isolated",
+      "source": "field gauge"
+    },
+    "chargeNo": null,
+    "note": "Reading witnessed at the governed test point.",
+    "evidenceUrls": [],
+    "supersedesObservationId": null,
+    "baselineCampaignId": null,
+    "baselineObservationId": null,
+    "comparisonOutcome": null,
+    "recordedAt": "2026-08-21T07:00:00.000Z"
+  },
+  "correction": {
+    "schemaVersion": 1,
+    "observationId": "reviewed-correction",
+    "campaignId": "installed",
+    "campaignVersionAtObservation": 5,
+    "definition": {
+      "schemaVersion": 1,
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "code": "FURNACE_PT_SETTING",
+      "title": "Furnace pressure-transmitter setting",
+      "description": "Audit the governed pressure setting on selected Furnaces.",
+      "assetTypeKeys": [
+        "innerCover"
+      ],
+      "assetClassIds": [
+        "class-inner-cover"
+      ],
+      "componentNodeIds": [
+        "inner-cover-shell"
+      ],
+      "valueType": "number",
+      "unit": "bar",
+      "choiceValues": [],
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "preconditions": [
+        "Furnace isolated",
+        "Instrument impulse line available"
+      ],
+      "requiresChargeNo": false
+    },
+    "definitionId": "inspection-definition-furnace-pt",
+    "definitionVersion": 1,
+    "definitionCode": "FURNACE_PT_SETTING",
+    "assetTypeKey": "innerCover",
+    "assetNumber": 206,
+    "assetClassId": "class-inner-cover",
+    "assetInstanceId": "inner-cover-n4",
+    "hostAssetClassId": "class-base",
+    "hostAssetInstanceId": "base-206",
+    "hostAssetInstanceVersion": 2,
+    "hostAssetNumber": 206,
+    "hostAssetInstanceName": "Base 206",
+    "subjectSerialNumber": "N4",
+    "linkageId": "link-n4-base-206",
+    "linkageVersion": 1,
+    "linkedAt": "2026-08-21T06:00:00.000Z",
+    "componentNodeId": "inner-cover-shell",
+    "componentNodeVersion": 3,
+    "componentName": "Inner Cover shell",
+    "hierarchyPath": [
+      "Inner Cover",
+      "Shell"
+    ],
+    "physicalPosition": "Shell",
+    "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+    "targetContextRevision": 1,
+    "targetContextAuditId": "review-installed",
+    "targetContextOriginalLinkageId": "link-n4-base-205",
+    "observedAt": "2026-08-21T06:30:00.000Z",
+    "observerUid": "admin",
+    "observerName": "admin",
+    "value": {
+      "valueType": "number",
+      "numericValue": 2.8,
+      "booleanValue": null,
+      "textValue": null,
+      "choiceValue": null
+    },
+    "valueType": "number",
+    "numericValue": 2.8,
+    "booleanValue": null,
+    "textValue": null,
+    "choiceValue": null,
+    "unit": "bar",
+    "minimumValue": 2,
+    "maximumValue": 4,
+    "outOfRange": false,
+    "operatingConditions": {
+      "furnaceState": "isolated",
+      "source": "field gauge"
+    },
+    "chargeNo": null,
+    "note": "Reading witnessed at the governed test point.",
+    "evidenceUrls": [],
+    "supersedesObservationId": "reviewed-reading",
+    "baselineCampaignId": null,
+    "baselineObservationId": null,
+    "comparisonOutcome": null,
+    "recordedAt": "2026-08-21T07:00:00.000Z"
+  },
+  "observations": [
+    {
+      "schemaVersion": 1,
+      "observationId": "first",
+      "campaignId": "installed",
+      "campaignVersionAtObservation": 1,
+      "definition": {
+        "schemaVersion": 1,
+        "definitionId": "inspection-definition-furnace-pt",
+        "definitionVersion": 1,
+        "code": "FURNACE_PT_SETTING",
+        "title": "Furnace pressure-transmitter setting",
+        "description": "Audit the governed pressure setting on selected Furnaces.",
+        "assetTypeKeys": [
+          "innerCover"
+        ],
+        "assetClassIds": [
+          "class-inner-cover"
+        ],
+        "componentNodeIds": [
+          "inner-cover-shell"
+        ],
+        "valueType": "number",
+        "unit": "bar",
+        "choiceValues": [],
+        "minimumValue": 2,
+        "maximumValue": 4,
+        "preconditions": [
+          "Furnace isolated",
+          "Instrument impulse line available"
+        ],
+        "requiresChargeNo": false
+      },
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "definitionCode": "FURNACE_PT_SETTING",
+      "assetTypeKey": "innerCover",
+      "assetNumber": 205,
+      "assetClassId": "class-inner-cover",
+      "assetInstanceId": "inner-cover-n4",
+      "hostAssetClassId": "class-base",
+      "hostAssetInstanceId": "base-205",
+      "hostAssetInstanceVersion": 2,
+      "hostAssetNumber": 205,
+      "hostAssetInstanceName": "Base 205",
+      "subjectSerialNumber": "N4",
+      "linkageId": "link-n4-base-205",
+      "linkageVersion": 1,
+      "linkedAt": "2026-08-21T04:00:00.000Z",
+      "componentNodeId": "inner-cover-shell",
+      "componentNodeVersion": 3,
+      "componentName": "Inner Cover shell",
+      "hierarchyPath": [
+        "Inner Cover",
+        "Shell"
+      ],
+      "physicalPosition": "Shell",
+      "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+      "targetContextRevision": 0,
+      "targetContextAuditId": null,
+      "targetContextOriginalLinkageId": null,
+      "observedAt": "2026-08-21T05:00:00.000Z",
+      "observerUid": "admin",
+      "observerName": "admin",
+      "value": {
+        "valueType": "number",
+        "numericValue": 1.8,
+        "booleanValue": null,
+        "textValue": null,
+        "choiceValue": null
+      },
+      "valueType": "number",
+      "numericValue": 1.8,
+      "booleanValue": null,
+      "textValue": null,
+      "choiceValue": null,
+      "unit": "bar",
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "outOfRange": true,
+      "operatingConditions": {
+        "furnaceState": "isolated",
+        "source": "field gauge"
+      },
+      "chargeNo": null,
+      "note": "Reading witnessed at the governed test point.",
+      "evidenceUrls": [],
+      "supersedesObservationId": null,
+      "baselineCampaignId": null,
+      "baselineObservationId": null,
+      "comparisonOutcome": null,
+      "recordedAt": "2026-08-21T07:00:00.000Z"
+    },
+    {
+      "schemaVersion": 1,
+      "observationId": "reviewed-reading",
+      "campaignId": "installed",
+      "campaignVersionAtObservation": 3,
+      "definition": {
+        "schemaVersion": 1,
+        "definitionId": "inspection-definition-furnace-pt",
+        "definitionVersion": 1,
+        "code": "FURNACE_PT_SETTING",
+        "title": "Furnace pressure-transmitter setting",
+        "description": "Audit the governed pressure setting on selected Furnaces.",
+        "assetTypeKeys": [
+          "innerCover"
+        ],
+        "assetClassIds": [
+          "class-inner-cover"
+        ],
+        "componentNodeIds": [
+          "inner-cover-shell"
+        ],
+        "valueType": "number",
+        "unit": "bar",
+        "choiceValues": [],
+        "minimumValue": 2,
+        "maximumValue": 4,
+        "preconditions": [
+          "Furnace isolated",
+          "Instrument impulse line available"
+        ],
+        "requiresChargeNo": false
+      },
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "definitionCode": "FURNACE_PT_SETTING",
+      "assetTypeKey": "innerCover",
+      "assetNumber": 206,
+      "assetClassId": "class-inner-cover",
+      "assetInstanceId": "inner-cover-n4",
+      "hostAssetClassId": "class-base",
+      "hostAssetInstanceId": "base-206",
+      "hostAssetInstanceVersion": 2,
+      "hostAssetNumber": 206,
+      "hostAssetInstanceName": "Base 206",
+      "subjectSerialNumber": "N4",
+      "linkageId": "link-n4-base-206",
+      "linkageVersion": 1,
+      "linkedAt": "2026-08-21T06:00:00.000Z",
+      "componentNodeId": "inner-cover-shell",
+      "componentNodeVersion": 3,
+      "componentName": "Inner Cover shell",
+      "hierarchyPath": [
+        "Inner Cover",
+        "Shell"
+      ],
+      "physicalPosition": "Shell",
+      "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+      "targetContextRevision": 1,
+      "targetContextAuditId": "review-installed",
+      "targetContextOriginalLinkageId": "link-n4-base-205",
+      "observedAt": "2026-08-21T06:30:00.000Z",
+      "observerUid": "admin",
+      "observerName": "admin",
+      "value": {
+        "valueType": "number",
+        "numericValue": 1.7,
+        "booleanValue": null,
+        "textValue": null,
+        "choiceValue": null
+      },
+      "valueType": "number",
+      "numericValue": 1.7,
+      "booleanValue": null,
+      "textValue": null,
+      "choiceValue": null,
+      "unit": "bar",
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "outOfRange": true,
+      "operatingConditions": {
+        "furnaceState": "isolated",
+        "source": "field gauge"
+      },
+      "chargeNo": null,
+      "note": "Reading witnessed at the governed test point.",
+      "evidenceUrls": [],
+      "supersedesObservationId": null,
+      "baselineCampaignId": null,
+      "baselineObservationId": null,
+      "comparisonOutcome": null,
+      "recordedAt": "2026-08-21T07:00:00.000Z"
+    },
+    {
+      "schemaVersion": 1,
+      "observationId": "reviewed-correction",
+      "campaignId": "installed",
+      "campaignVersionAtObservation": 5,
+      "definition": {
+        "schemaVersion": 1,
+        "definitionId": "inspection-definition-furnace-pt",
+        "definitionVersion": 1,
+        "code": "FURNACE_PT_SETTING",
+        "title": "Furnace pressure-transmitter setting",
+        "description": "Audit the governed pressure setting on selected Furnaces.",
+        "assetTypeKeys": [
+          "innerCover"
+        ],
+        "assetClassIds": [
+          "class-inner-cover"
+        ],
+        "componentNodeIds": [
+          "inner-cover-shell"
+        ],
+        "valueType": "number",
+        "unit": "bar",
+        "choiceValues": [],
+        "minimumValue": 2,
+        "maximumValue": 4,
+        "preconditions": [
+          "Furnace isolated",
+          "Instrument impulse line available"
+        ],
+        "requiresChargeNo": false
+      },
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "definitionCode": "FURNACE_PT_SETTING",
+      "assetTypeKey": "innerCover",
+      "assetNumber": 206,
+      "assetClassId": "class-inner-cover",
+      "assetInstanceId": "inner-cover-n4",
+      "hostAssetClassId": "class-base",
+      "hostAssetInstanceId": "base-206",
+      "hostAssetInstanceVersion": 2,
+      "hostAssetNumber": 206,
+      "hostAssetInstanceName": "Base 206",
+      "subjectSerialNumber": "N4",
+      "linkageId": "link-n4-base-206",
+      "linkageVersion": 1,
+      "linkedAt": "2026-08-21T06:00:00.000Z",
+      "componentNodeId": "inner-cover-shell",
+      "componentNodeVersion": 3,
+      "componentName": "Inner Cover shell",
+      "hierarchyPath": [
+        "Inner Cover",
+        "Shell"
+      ],
+      "physicalPosition": "Shell",
+      "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+      "targetContextRevision": 1,
+      "targetContextAuditId": "review-installed",
+      "targetContextOriginalLinkageId": "link-n4-base-205",
+      "observedAt": "2026-08-21T06:30:00.000Z",
+      "observerUid": "admin",
+      "observerName": "admin",
+      "value": {
+        "valueType": "number",
+        "numericValue": 2.8,
+        "booleanValue": null,
+        "textValue": null,
+        "choiceValue": null
+      },
+      "valueType": "number",
+      "numericValue": 2.8,
+      "booleanValue": null,
+      "textValue": null,
+      "choiceValue": null,
+      "unit": "bar",
+      "minimumValue": 2,
+      "maximumValue": 4,
+      "outOfRange": false,
+      "operatingConditions": {
+        "furnaceState": "isolated",
+        "source": "field gauge"
+      },
+      "chargeNo": null,
+      "note": "Reading witnessed at the governed test point.",
+      "evidenceUrls": [],
+      "supersedesObservationId": "reviewed-reading",
+      "baselineCampaignId": null,
+      "baselineObservationId": null,
+      "comparisonOutcome": null,
+      "recordedAt": "2026-08-21T07:00:00.000Z"
+    }
+  ],
+  "findings": [
+    {
+      "schemaVersion": 1,
+      "findingId": "inspection-finding-first",
+      "version": 3,
+      "campaignId": "installed",
+      "definitionId": "inspection-definition-furnace-pt",
+      "definitionVersion": 1,
+      "targetKey": "class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205",
+      "assetTypeKey": "innerCover",
+      "assetNumber": 206,
+      "assetClassId": "class-inner-cover",
+      "assetInstanceId": "inner-cover-n4",
+      "hostAssetClassId": "class-base",
+      "hostAssetInstanceId": "base-206",
+      "hostAssetNumber": 206,
+      "hostAssetInstanceName": "Base 206",
+      "subjectSerialNumber": "N4",
+      "linkageId": "link-n4-base-206",
+      "componentNodeId": "inner-cover-shell",
+      "componentName": "Inner Cover shell",
+      "physicalPosition": "Shell",
+      "status": "awaitingVerification",
+      "firstObservationId": "first",
+      "currentObservationId": "reviewed-correction",
+      "firstObservedAt": "2026-08-21T05:00:00.000Z",
+      "latestObservedAt": "2026-08-21T06:30:00.000Z",
+      "recurrenceCount": 2,
+      "linkedTicketId": null,
+      "verificationCount": 0,
+      "createdAt": "2026-08-21T07:00:00.000Z",
+      "createdByUid": "admin",
+      "createdByName": "admin",
+      "updatedAt": "2026-08-21T07:00:00.000Z",
+      "updatedByUid": "admin",
+      "updatedByName": "admin"
+    }
+  ]
+}

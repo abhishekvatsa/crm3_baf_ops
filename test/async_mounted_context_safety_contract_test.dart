@@ -26,11 +26,20 @@ void main() {
         expect(section, contains('setState('));
       }
 
+      final adoptions = RegExp(
+        r'setState\(\(\) => _module = updated\);',
+      ).allMatches(source).length;
+      final guardedAdoptions = RegExp(
+        r'if \(!mounted\) return;\s*'
+        r'(?:_verifyWorkActor\(actor\);\s*)?'
+        r'setState\(\(\) => _module = updated\);',
+      ).allMatches(source).length;
+      expect(adoptions, greaterThan(0));
       expect(
-        source,
-        isNot(contains(');\n        setState(() => _module = updated);')),
+        guardedAdoptions,
+        adoptions,
         reason:
-            'A mounted guard must stay between awaited saveModule calls and local setState.',
+            'Every local module adoption needs a mounted guard; a synchronous actor recheck may follow that guard.',
       );
     });
 
@@ -724,7 +733,8 @@ void _expectBefore(String source, String before, String after) {
   );
 }
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) =>
+    File(path).readAsStringSync().replaceAll('\r\n', '\n');
 
 String _templatePublisherSource() =>
     _templatePublisherLibraryFiles.map(_read).join('\n');

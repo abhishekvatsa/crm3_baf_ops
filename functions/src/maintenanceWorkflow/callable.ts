@@ -12,6 +12,10 @@ import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity
 import {canonicalApprovedUserAuthority} from "../userAuthority";
 import {executeOriginBoundCallable} from "../originBoundCallableProtocol";
 import {
+  reviewSavedSubmissionWithDb, withSubmissionRecoveryFence,
+  SubmissionRecoveryDb,
+} from "../submissionRecovery";
+import {
   CallableAbuseControlError,
   executeWithCallableAbuseControl,
 } from "../callableAbuseControl";
@@ -118,7 +122,7 @@ export const executeMaintenanceWorkflowCommand = onCall(
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<unknown>) => {
-    const db = admin.firestore();
+    const db = withSubmissionRecoveryFence(admin.firestore(), "executeMaintenanceWorkflowCommand", request.data);
     try {
       const actor = await actorFromRequest(request, db);
       return await executeWithCallableAbuseControl({
@@ -160,5 +164,9 @@ export const executeMaintenanceWorkflowCommandV2 = onCall(
     data: request.data,
     readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
     execute: async (payload) => executeMaintenanceWorkflowCommand.run({...request, data: payload}),
+    recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
+      db: admin.firestore() as unknown as SubmissionRecoveryDb,
+      endpoint: "executeMaintenanceWorkflowCommandV2", authUid: request.auth?.uid ?? null, data: payload,
+    }),
   }),
 );

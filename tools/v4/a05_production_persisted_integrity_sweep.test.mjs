@@ -862,6 +862,9 @@ test('successor business collections have exact app or server authority', () => 
     'pilot_record_purge_receipts',
     'device_recovery_requests',
     'device_recovery_receipts',
+    'submission_recovery_decisions',
+    'submission_recovery_fences',
+    'submission_recovery_controls',
   ];
   for (const collection of appDecoded) {
     assert.equal(

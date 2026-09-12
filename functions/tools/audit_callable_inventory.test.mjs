@@ -45,7 +45,8 @@ test("current exported callable inventory and policy are exact", () => {
   ]);
 });
 
-for (const alteration of ["none", "no-guard", "wrong-target", "changed-auth", "changed-data", "forged-approval", "local-fake-guard"]) {
+for (const alteration of ["none", "no-guard", "wrong-target", "changed-auth", "changed-data", "forged-approval", "local-fake-guard",
+  "review", "review-forged-auth", "review-wrong-endpoint", "review-changed-data", "review-local-fake", "lookup-bypass"]) {
   test(`origin-bound delegation inventory rejects unsafe variant: ${alteration}`, (context) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-callable-origin-"));
     context.after(() => fs.rmSync(root, {recursive: true, force: true}));
@@ -55,6 +56,7 @@ for (const alteration of ["none", "no-guard", "wrong-target", "changed-auth", "c
     }));
     fs.copyFileSync(new URL("../src/originBoundCallableProtocol.ts", import.meta.url),
       path.join(src, "originBoundCallableProtocol.ts"));
+    fs.copyFileSync(new URL("../src/submissionRecovery.ts", import.meta.url), path.join(src, "submissionRecovery.ts"));
     fs.writeFileSync(path.join(src, "callableInventory.ts"), `export const CALLABLE_SECURITY_CLASSIFICATION = {
       mutateAssetHierarchy: "mutating", mutateAssetHierarchyV2: "mutating",
     } as const;`);
@@ -68,10 +70,24 @@ for (const alteration of ["none", "no-guard", "wrong-target", "changed-auth", "c
     if (alteration === "changed-auth") wrapper = wrapper.replace("...request, data: payload", '...request, auth: {uid: "admin"}, data: payload');
     if (alteration === "changed-data") wrapper = wrapper.replace("data: payload", "data: request.data");
     if (alteration === "forged-approval") wrapper = wrapper.replace('(await admin.firestore().collection("users").doc(uid).get()).data() ?? null', '{isApproved: true, roles: ["admin"]}');
+    if (alteration.startsWith("review")) {
+      const review = `recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
+        db: admin.firestore() as unknown as SubmissionRecoveryDb,
+        endpoint: "mutateAssetHierarchyV2", authUid: request.auth?.uid ?? null, data: payload,
+      }),`;
+      wrapper = wrapper.replace('execute: async', `${review}\nexecute: async`);
+      if (alteration === "review-forged-auth") wrapper = wrapper.replace('endpoint: "mutateAssetHierarchyV2", authUid: request.auth?.uid ?? null', 'endpoint: "mutateAssetHierarchyV2", authUid: "admin"');
+      if (alteration === "review-wrong-endpoint") wrapper = wrapper.replace('endpoint: "mutateAssetHierarchyV2"', 'endpoint: "mutateChargeAbnormalityV2"');
+      if (alteration === "review-changed-data") wrapper = wrapper.replace('data: payload,', 'data: request.data,');
+    }
+    if (alteration === "lookup-bypass") wrapper = wrapper.replace('execute: async', 'lookupReceipt: async (payload) => mutateAssetHierarchy.run({...request, data: payload}), execute: async');
     const helperBinding = alteration === "local-fake-guard" ?
       "declare function executeOriginBoundCallable(args: object): Promise<unknown>;" :
       'import {executeOriginBoundCallable} from "./originBoundCallableProtocol";';
-    fs.writeFileSync(path.join(src, "index.ts"), `${helperBinding}
+    const reviewBinding = alteration === "review-local-fake" ?
+      'declare function reviewSavedSubmissionWithDb(args: object): Promise<unknown>;' :
+      'import {reviewSavedSubmissionWithDb, SubmissionRecoveryDb} from "./submissionRecovery";';
+    fs.writeFileSync(path.join(src, "index.ts"), `${helperBinding}\n${reviewBinding}
       declare function onCall(options: object, handler: Function): any;
       declare function executeAuthorizedMutation(args: object): Promise<unknown>;
       declare const admin: any; declare const anotherCallable: any;
@@ -88,7 +104,7 @@ for (const alteration of ["none", "no-guard", "wrong-target", "changed-auth", "c
     }}));
     const result = auditCallableInventory({tsconfigPath: path.join(root, "tsconfig.json"),
       entrypointPath: path.join(src, "index.ts"), classificationPath: path.join(src, "callableInventory.ts"), policyPath});
-    if (alteration === "none") assert.deepEqual(result.errors, []);
+    if (alteration === "none" || alteration === "review") assert.deepEqual(result.errors, []);
     else assert.ok(result.errors.includes("abuse-control-admission-missing callable=mutateAssetHierarchyV2"), result.errors.join("\n"));
   });
 }

@@ -7,14 +7,12 @@ import '../tools/testing/dart_library_source.dart';
 void main() {
   group('planned-job local identity architecture contract', () {
     test('Firestore serializers do not transport Isar relation ids', () {
-      final moduleModel =
-          File(
-            'lib/features/planned_maintenance/data/job_module_model.dart',
-          ).readAsStringSync();
-      final diaryModel =
-          File(
-            'lib/features/planned_maintenance/data/job_diary_model.dart',
-          ).readAsStringSync();
+      final moduleModel = File(
+        'lib/features/planned_maintenance/data/job_module_model.dart',
+      ).readAsStringSync();
+      final diaryModel = File(
+        'lib/features/planned_maintenance/data/job_diary_model.dart',
+      ).readAsStringSync();
       expect(
         RegExp(r"'jobExecutionLocalId'\s*:").hasMatch(moduleModel),
         isFalse,
@@ -50,10 +48,9 @@ void main() {
     test(
       'background completion preflight supplies both canonical and local parent ids',
       () {
-        final syncExecutions =
-            File(
-              'lib/core/services/sync_service.executions.dart',
-            ).readAsStringSync();
+        final syncExecutions = File(
+          'lib/core/services/sync_service.executions.dart',
+        ).readAsStringSync();
 
         expect(
           syncExecutions,
@@ -94,16 +91,31 @@ void main() {
       expect(mainSource, contains('repairPlannedJobLocalLinks(localIsar)'));
     });
 
-    test('local editable clone explicitly preserves the local-only relation', () {
-      final detailScreen =
-          File(
-            'lib/features/planned_maintenance/presentation/job_module_detail_screen.dart',
-          ).readAsStringSync();
+    test('local editor delegates to the exact native identity-preserving clone', () {
+      final detailScreen = File(
+        'lib/features/planned_maintenance/presentation/job_module_detail_screen.dart',
+      ).readAsStringSync();
 
       expect(
         detailScreen,
-        contains('..jobExecutionLocalId = _module.jobExecutionLocalId'),
+        contains('_editableCopy() => copyJobModuleForEditing(_module)'),
       );
+      final nativeClone = File(
+        'lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart',
+      ).readAsStringSync();
+      expect(nativeClone, contains('..id = source.id'));
+      expect(nativeClone, contains('..firestoreId = source.firestoreId'));
+      expect(
+        nativeClone,
+        contains('..jobExecutionLocalId = source.jobExecutionLocalId'),
+      );
+      expect(
+        nativeClone,
+        contains('..jobExecutionFirestoreId = source.jobExecutionFirestoreId'),
+      );
+      // The native save suite verifies all schema properties and separate list
+      // ownership on this helper; the UI must never clone via wire serialization.
+      expect(nativeClone, isNot(contains('JobModuleInstance.fromMap')));
     });
   });
 }

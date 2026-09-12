@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "A4F3494A6AB9D68503354F1B2975C8EBF27F34D276E2E2112910AF3146BF3E57",
+  "inventoryDigest": "12968CD72F7DED7C2E034C04C91925107DC2FD127DD1FE51924A055D5EA2557E",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B94D6ABBC81F8F7FC37CA4A93A3E88358CA59D036198E1124733971FAC7C9EB0",
+  "a05ManifestSha256": "C2AA591C15F182D080234FA6237A2A78FFAF7032218657A82FE33FC978B9B52B",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -30,7 +30,7 @@
       "kind": "JSON_STRING",
       "classification": "SCHEMA_BEARING_PAYLOAD",
       "policy": "durable-submission-receipt-v1",
-      "decoderContract": "A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized; malformed evidence cannot settle work.",
+      "decoderContract": "A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized. Distinct typed administrative review proof binds the original immutable evidence hash, reviewer, reason and server decision with acceptedAt null; original unknown actor and source bytes remain unchanged. A late acceptance retains both proofs as a blocking review conflict. Malformed or contradictory evidence cannot settle work.",
       "malformedPresentDisposition": "FAIL_CLOSED_PENDING_REPAIR",
       "compatibility": "Documented absent legacy shape only; present malformed or unsupported versions fail closed.",
       "regression": "test/durable_submission_repository_test.dart"
@@ -1041,6 +1041,24 @@
       "regression": "test/durable_submission_repository_test.dart; test/inner_cover_acceptance_controller_test.dart; test/morning_review_durable_submission_test.dart"
     },
     {
+      "id": "durable-submission-review-decision",
+      "file": "lib/core/persistence/durable_submission_review.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "retained exact legacy bytes identify a request for server review without reconstructing dispatchable intent or inventing original actor; canonical decision is bound to domain/request/evidence/reviewer",
+      "malformedDisposition": "unrecognized legacy envelope or missing request ID stays held; malformed decision shape/identity/time/outcome/receipt summary refuses local review settlement",
+      "compatibility": "legacy actor may remain null; reviewedExisting and cancelled are distinct from accepted/reconciled business receipt states",
+      "regression": "test/saved_submission_review_test.dart"
+    },
+    {
+      "id": "durable-submission-review-service",
+      "file": "lib/core/services/saved_submission_review_service.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "approved original reviewer checks capability and server two-phase exact evidence decision, then settles it durably with repeated live authority checks",
+      "malformedDisposition": "invalid observation/token/receipt/decision/reason or changed local evidence retains the hold; missing receipt alone never authorizes local retirement",
+      "compatibility": "ambiguous prior finalization can adopt its immutable same-reviewer decision and original reason; no replacement business command is generated",
+      "regression": "test/saved_submission_review_test.dart"
+    },
+    {
       "id": "frequent-issue-definition-record",
       "file": "lib/features/maintenance/data/frequent_issue_definition.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -1122,13 +1140,40 @@
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
     },
     {
+      "id": "inspection-context-review-record",
+      "file": "lib/features/inspections/data/inspection_target_context.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "manager review revision, immutable audit identity/reason/actor/time and nested current physical context",
+      "malformedDisposition": "missing metadata, unsupported or nested reviews and malformed times propagate a format error without fallback",
+      "compatibility": "new optional schema-one review only; caller verifies exact original physical identity after parsing",
+      "regression": "test/inspection_target_context_test.dart"
+    },
+    {
       "id": "inspection-programme-records",
       "file": "lib/features/inspections/data/inspection_campaign.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "authorityBoundary": "version-frozen inspection definition, campaign scope, coverage, typed observation, component identity, and correction evidence",
       "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
-      "compatibility": "schema version 1 only; no partial identity, typed value, counter set, or frozen-definition projection",
-      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js"
+      "compatibility": "Existing supported definition/observation/finding schemas and campaign schema 2 remain readable; an explicit optional target context review preserves the original key and baseline. Relocated follow-up observations require the new review-aware reader.",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js"
+    },
+    {
+      "id": "inspection-server-context-review-reader",
+      "file": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "server-only lookup of original asset or serial ID, current host and linkage used to present an explicit manager review",
+      "malformedDisposition": "missing, cached, pending, mismatched or malformed identity/time rejects the preview; the server rechecks the frozen reviewed map transactionally before acceptance",
+      "compatibility": "no fallback to an old Base occupant, cached projection or inferred version; original numbered identity stays exact",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart; functions/test/inspectionPhysicalContext.test.js"
+    },
+    {
+      "id": "inspection-target-record",
+      "file": "lib/features/inspections/data/inspection_campaign_target.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "original physical subject, content-bound target key, disposition and latest reading; optional explicit same-subject context successor",
+      "malformedDisposition": "strict parsing rejects inconsistent context, rebound serial/class/component/position or malformed disposition; never substitutes the new Base occupant",
+      "compatibility": "absent contextReview means the exact original target; supported schema-one target shape remains intact",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_campaign_model_test.dart"
     },
     {
       "id": "isar-schema-provenance",
@@ -1165,6 +1210,15 @@
       "malformedDisposition": "fail closed; response and field payloads may enter explicit repair state",
       "compatibility": "documented absent pre-feature module fields only",
       "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_response_payload_integrity_test.dart"
+    },
+    {
+      "id": "job-module-retained-edit-conflicts",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "full native preimage compared within save transaction; refused attempted work retained in actor-bound immutable audit chunks; extracted native save CAS remains the sole transaction owner for accepted module writes and refused-draft retention",
+      "malformedDisposition": "invalid JSON, incomplete or conflicting chunks, checksum mismatch, actor mismatch or changed/closed parent refuses recovery without deleting draft evidence or overwriting current business data",
+      "compatibility": "native local identity and server linkage remain distinct; explicit reapplication uses a fresh reviewed baseline and existing save guards",
+      "regression": "test/job_module_native_save_conflict_test.dart; test/job_module_retained_edit_test.dart"
     },
     {
       "id": "job-template-execution-records",
@@ -1570,6 +1624,7 @@
   "regressions": [
     "test/a04_persisted_schema_contract_test.dart",
     "test/durable_submission_repository_test.dart",
+    "test/saved_submission_review_test.dart",
     "test/a05_component_action_integrity_test.dart",
     "test/a05_response_payload_integrity_test.dart",
     "test/a05_template_composer_integrity_test.dart",

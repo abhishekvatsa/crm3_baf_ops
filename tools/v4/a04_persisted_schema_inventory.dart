@@ -89,6 +89,7 @@ void main(List<String> arguments) {
       'regressions': <String>[
         'test/a04_persisted_schema_contract_test.dart',
         'test/durable_submission_repository_test.dart',
+        'test/saved_submission_review_test.dart',
         'test/a05_component_action_integrity_test.dart',
         'test/a05_response_payload_integrity_test.dart',
         'test/a05_template_composer_integrity_test.dart',
@@ -285,7 +286,7 @@ String _decoderContract(String policy) {
     return 'DurableSubmissionRepository validates the closed immutable schema, exact bytes/hash, supported origin-bound protocol, request/aggregate identity and legacy review-only boundary; domain readers revalidate the frozen operation before use.';
   }
   if (policy == 'durable-submission-receipt-v1') {
-    return 'A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized; malformed evidence cannot settle work.';
+    return 'A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized. Distinct typed administrative review proof binds the original immutable evidence hash, reviewer, reason and server decision with acceptedAt null; original unknown actor and source bytes remain unchanged. A late acceptance retains both proofs as a blocking review conflict. Malformed or contradictory evidence cannot settle work.';
   }
   if (policy == 'registered-extension-bag-v1') {
     return 'readBoundedPersistedExtensionBag plus an explicit field/type registry; current registry is empty.';

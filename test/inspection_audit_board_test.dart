@@ -8,6 +8,8 @@ import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart'
 import 'package:crm3_baf_ops/features/inspections/data/inspection_evidence_snapshot.dart';
 import 'package:crm3_baf_ops/features/inspections/presentation/inspection_programmes_screen.dart';
 import 'package:crm3_baf_ops/features/inspections/providers/inspection_provider.dart';
+import 'package:crm3_baf_ops/features/inspections/providers/inspection_target_context_provider.dart';
+import 'package:crm3_baf_ops/features/inspections/repositories/inspection_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
@@ -15,8 +17,386 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_pr
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
+
+import 'inspection_campaign_model_test.dart'
+    show innerCoverCampaignMap, observationMap;
 
 void main() {
+  for (final currentComponentAvailable in [true, false]) {
+    testWidgets(
+      'correction retains historical location, time and component with live component $currentComponentAvailable',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final (campaign, observation) = _relocatedCorrectionFixture();
+        final sent = <WorkflowCommand>[];
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: [observation],
+            nodes: currentComponentAvailable ? [_shellNode()] : [],
+            executeCommand: (command) async {
+              sent.add(command);
+              return WorkflowCommandReceipt(
+                commandId: command.commandId,
+                resultKey: 'inspection-observation-recorded',
+                aggregateVersion: campaign.version + 1,
+                result: const {},
+                appliedAt: DateTime.utc(2026, 9, 13),
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        final cell = find.byKey(
+          ValueKey(
+            'inspection-audit-cell-${campaign.targets.single.targetKey}',
+          ),
+        );
+        await tester.ensureVisible(cell);
+        await tester.tap(cell);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Correct current reading'));
+        await tester.pumpAndSettle();
+        final dialog = find.byType(AlertDialog);
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.text('Base 206 (N4) · Original shell label · Shell'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.textContaining('Base 207'),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: dialog,
+            matching: find.text(
+              DateFormat(
+                'dd MMM yyyy, HH:mm',
+              ).format(observation.observedAt.toLocal()),
+            ),
+          ),
+          findsOneWidget,
+        );
+        final submit = find.widgetWithText(FilledButton, 'Record correction');
+        expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+        await tester.tap(submit);
+        await tester.pumpAndSettle();
+        expect(sent, hasLength(1));
+        final command = sent.single;
+        expect(command.expectedVersion, campaign.version);
+        expect(command.payload['targetContextRevision'], 2);
+        expect(command.payload['supersedesObservationId'], observation.id);
+        expect(
+          command.payload['observedAt'],
+          observation.observedAt.toUtc().toIso8601String(),
+        );
+        expect(command.payload['componentNodeId'], observation.componentNodeId);
+        expect(command.payload['componentNodeVersion'], 2);
+        expect(command.payload['componentName'], 'Original shell label');
+        expect(command.payload['hierarchyPath'], observation.hierarchyPath);
+        expect(
+          command.payload['physicalPosition'],
+          observation.physicalPosition,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'context review hides retained evidence on account switch or error and restores it only for its origin',
+    (tester) async {
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+      );
+      final accounts = StreamController<AppUser?>();
+      final capability = Completer<void>();
+      final repository = _ContextRepository(campaign.targets.first)
+        ..paused = Completer<Map<String, Object?>>();
+      final sent = <WorkflowCommand>[];
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          accounts: accounts.stream,
+          contextRepository: repository,
+          contextCapability: (_) => capability.future,
+          executeCommand: (command) async {
+            sent.add(command);
+            return WorkflowCommandReceipt(
+              commandId: command.commandId,
+              resultKey: 'inspection-target-context-revalidated',
+              aggregateVersion: campaign.version + 1,
+              result: const {},
+              appliedAt: DateTime.utc(2026, 9, 13),
+            );
+          },
+        ),
+      );
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Campaign actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review target after repair or relocation'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('inspection-context-target')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Furnace 22 ·').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Check current physical context'));
+      await tester.pump();
+      accounts.add(
+        AppUser(
+          uid: 'admin-2',
+          name: 'Other admin',
+          email: 'other@example.invalid',
+          roles: const [AppRole.admin],
+          isApproved: true,
+          createdAt: DateTime.utc(2026),
+        ),
+      );
+      await tester.pump();
+      repository.paused!.complete({
+        ...campaign.targets.first.contextIdentity,
+        'assetInstanceVersion': 2,
+      });
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsNothing,
+      );
+      expect(sent, isEmpty);
+      repository.paused = null;
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Check current physical context'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        'Original manager reviewed the same Furnace.',
+      );
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
+      accounts.add(
+        AppUser(
+          uid: 'admin-2',
+          name: 'Other admin',
+          email: 'other@example.invalid',
+          roles: const [AppRole.admin],
+          isApproved: true,
+          createdAt: DateTime.utc(2026),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspection-context-target')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsNothing,
+      );
+      expect(find.textContaining('Original: Furnace 22'), findsNothing);
+      expect(find.textContaining('Current: Furnace 22'), findsNothing);
+      expect(find.textContaining('Same physical ID:'), findsNothing);
+      expect(
+        find.text('Original manager reviewed the same Furnace.'),
+        findsNothing,
+      );
+      expect(sent, isEmpty);
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('inspection-context-reason')),
+            )
+            .controller!
+            .text,
+        'Original manager reviewed the same Furnace.',
+      );
+      accounts.addError(StateError('Account service unavailable'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspection-context-target')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsNothing,
+      );
+      expect(find.textContaining('Original: Furnace 22'), findsNothing);
+      expect(find.textContaining('Current: Furnace 22'), findsNothing);
+      expect(find.textContaining('Same physical ID:'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(
+                FilledButton,
+                'Approve same-target follow-up',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      expect(find.text('Current: Furnace 22 · revision 2'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(
+              find.byKey(const ValueKey('inspection-context-target')),
+            )
+            .initialValue,
+        campaign.targets.first.targetKey,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('inspection-context-reason')),
+            )
+            .controller!
+            .text,
+        'Original manager reviewed the same Furnace.',
+      );
+      await tester.ensureVisible(find.text('Approve same-target follow-up'));
+      await tester.tap(find.text('Approve same-target follow-up'));
+      await tester.pump();
+      accounts.add(
+        AppUser(
+          uid: 'admin-2',
+          name: 'Other admin',
+          email: 'other@example.invalid',
+          roles: const [AppRole.admin],
+          isApproved: true,
+          createdAt: DateTime.utc(2026),
+        ),
+      );
+      await tester.pump();
+      capability.complete();
+      await tester.pumpAndSettle();
+      expect(sent, isEmpty);
+      accounts.add(_admin());
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Retry same review'));
+      await tester.tap(find.text('Retry same review'));
+      await tester.pumpAndSettle();
+      expect(
+        sent.single.payload['reason'],
+        'Original manager reviewed the same Furnace.',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(accounts.close);
+    },
+  );
+
+  testWidgets(
+    'same-target review requires fresh capability and retains its original command after an ambiguous response',
+    (tester) async {
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+      );
+      final sent = <WorkflowCommand>[];
+      var capabilityChecks = 0;
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          contextRepository: _ContextRepository(campaign.targets.first),
+          contextCapability: (uid) async {
+            expect(uid, 'admin-1');
+            capabilityChecks += 1;
+            if (capabilityChecks == 1) {
+              throw StateError('Server does not support context reviews yet.');
+            }
+          },
+          executeCommand: (command) async {
+            sent.add(command);
+            if (sent.length == 1) throw TimeoutException('Response lost');
+            return WorkflowCommandReceipt(
+              commandId: command.commandId,
+              resultKey: 'inspection-target-context-revalidated',
+              aggregateVersion: campaign.version + 1,
+              result: const {},
+              appliedAt: DateTime.utc(2026, 9, 13),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Campaign actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review target after repair or relocation'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('inspection-context-target')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Furnace 22 ·').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Check current physical context'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Approve same-target follow-up'));
+      await tester.pumpAndSettle();
+      expect(sent, isEmpty);
+      expect(find.textContaining('Explain why'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        'Same Furnace inspected after repair.',
+      );
+      await tester.ensureVisible(find.text('Approve same-target follow-up'));
+      await tester.tap(find.text('Approve same-target follow-up'));
+      await tester.pumpAndSettle();
+      expect(sent, isEmpty);
+      await tester.ensureVisible(find.text('Retry same review'));
+      await tester.tap(find.text('Retry same review'));
+      await tester.pumpAndSettle();
+      expect(
+        sent.single.payload['targetKey'],
+        campaign.targets.first.targetKey,
+      );
+      expect(sent.single.payload['expectedContextRevision'], 0);
+      expect(
+        (sent.single.payload['reviewedContext'] as Map)['assetInstanceVersion'],
+        2,
+      );
+      expect(
+        find.byKey(const ValueKey('inspection-context-reason')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('inspection-context-reason')),
+            )
+            .readOnly,
+        isTrue,
+      );
+      await tester.ensureVisible(find.text('Retry same review'));
+      await tester.tap(find.text('Retry same review'));
+      await tester.pumpAndSettle();
+      expect(sent.length, 2);
+      expect(capabilityChecks, 3);
+      expect(sent.first.payload['reviewerUid'], 'admin-1');
+      expect(sent.last.toMap(), sent.first.toMap());
+      expect(find.text('Review the same physical target'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'closed campaign reopening requires a reason and preserves its identity',
     (tester) async {
@@ -671,11 +1051,21 @@ Widget _testApp(
   bool findingsServerVerified = true,
   Future<InspectionCampaignReportEvidence> Function()? reportEvidenceLoader,
   Future<WorkflowCommandReceipt> Function(WorkflowCommand)? executeCommand,
+  InspectionRepository? contextRepository,
+  Stream<AppUser?>? accounts,
+  Future<void> Function(String)? contextCapability,
+  List<AssetHierarchyNode>? nodes,
 }) => ProviderScope(
   overrides: [
     currentAppUserProvider.overrideWith(
-      (_) => Stream<AppUser?>.value(_admin()),
+      (_) => accounts ?? Stream<AppUser?>.value(_admin()),
     ),
+    if (contextRepository != null)
+      inspectionRepositoryProvider.overrideWith((_) => contextRepository),
+    if (contextRepository != null)
+      inspectionTargetContextCapabilityProvider.overrideWith(
+        (_) => contextCapability ?? (_) async {},
+      ),
     inspectionCampaignsProvider.overrideWith(
       (_) => Stream.value(
         InspectionEvidenceSnapshot<InspectionCampaign>(
@@ -712,9 +1102,10 @@ Widget _testApp(
     }),
     assetHierarchyNodesProvider(campaign.assetClassId).overrideWith(
       (_) => Stream.value(
-        campaign.assetTypeKey == 'innerCover'
-            ? <AssetHierarchyNode>[_shellNode()]
-            : const <AssetHierarchyNode>[],
+        nodes ??
+            (campaign.assetTypeKey == 'innerCover'
+                ? <AssetHierarchyNode>[_shellNode()]
+                : const <AssetHierarchyNode>[]),
       ),
     ),
     allAssetInstancesProvider.overrideWith((_) => Stream.value(const [])),
@@ -739,6 +1130,76 @@ Widget _testApp(
   ),
 );
 
+(InspectionCampaign, InspectionObservation) _relocatedCorrectionFixture() {
+  final map = innerCoverCampaignMap();
+  final original =
+      (map['targetPopulation'] as List).single as Map<String, dynamic>;
+  Map<String, dynamic> relocated(int base) => {
+    ...original,
+    'targetKey':
+        'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-$base',
+    'assetNumber': base,
+    'assetInstanceVersion': base - 198,
+    'hostAssetInstanceId': 'base-$base',
+    'hostAssetNumber': base,
+    'hostAssetInstanceName': 'Base $base',
+    'linkageId': 'link-n4-base-$base',
+    'linkedAt': '2026-08-${base - 184}T04:00:00.000Z',
+  };
+  const observedAt = '2026-08-22T05:17:36.123456Z';
+  final current = {
+    ...original,
+    'contextReview': {
+      'schemaVersion': 1,
+      'revision': 2,
+      'auditId': 'review-2',
+      'reviewedAt': '2026-08-23T04:00:00.000Z',
+      'reviewedByUid': 'admin-1',
+      'reviewedByName': 'Admin One',
+      'reason': 'Verified relocation of the same serial.',
+      'context': relocated(207),
+    },
+    'disposition': 'observed',
+    'lastObservationId': 'historical-reading',
+    'lastObservedAt': observedAt,
+  };
+  map.addAll({
+    'version': 6,
+    'targetPopulation': [current],
+    'targetDispositionCounts': {
+      'pending': 0,
+      'observed': 1,
+      'deferred': 0,
+      'unavailable': 0,
+      'excludedWithReason': 0,
+      'requiresReaudit': 0,
+    },
+    'observationCount': 1,
+    'distinctTargetKeys': [original['targetKey']],
+    'latestObservationAt': observedAt,
+  });
+  final observation = InspectionObservation.fromMap({
+    ...observationMap(),
+    ...relocated(206),
+    'observationId': 'historical-reading',
+    'campaignId': map['campaignId'],
+    'definition': map['definition'],
+    'targetKey': original['targetKey'],
+    'targetContextRevision': 1,
+    'targetContextAuditId': 'review-1',
+    'targetContextOriginalLinkageId': original['linkageId'],
+    'componentNodeVersion': 2,
+    'componentName': 'Original shell label',
+    'hierarchyPath': ['Inner Cover', 'Original shell label'],
+    'observedAt': observedAt,
+    'recordedAt': '2026-08-22T05:18:00.000Z',
+  }, 'historical-reading');
+  return (
+    InspectionCampaign.fromMap(map, map['campaignId'] as String),
+    observation,
+  );
+}
+
 AppUser _admin() => AppUser(
   uid: 'admin-1',
   name: 'Admin One',
@@ -747,6 +1208,18 @@ AppUser _admin() => AppUser(
   isApproved: true,
   createdAt: DateTime.utc(2026, 1, 1),
 );
+
+class _ContextRepository extends Fake implements InspectionRepository {
+  _ContextRepository(this.target);
+  final InspectionCampaignTarget target;
+  Completer<Map<String, Object?>>? paused;
+  @override
+  Future<Map<String, Object?>> readTargetContext(
+    InspectionCampaignTarget original,
+  ) async => paused == null
+      ? {...target.contextIdentity, 'assetInstanceVersion': 2}
+      : paused!.future;
+}
 
 AssetHierarchyNode _shellNode() => AssetHierarchyNode(
   id: 'inner-cover-shell',

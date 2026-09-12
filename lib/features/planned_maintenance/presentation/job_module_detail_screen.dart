@@ -11,6 +11,8 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -24,6 +26,7 @@ import '../widgets/action_bottom_sheet.dart';
 import '../widgets/action_mini_card.dart';
 import 'widgets/job_module_response_form.dart';
 import 'widgets/job_module_response_summary.dart';
+import 'widgets/job_module_draft_recovery.dart';
 
 /// Detail workspace for a single process module inside a planned job.
 ///
@@ -85,23 +88,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     return _module.id;
   }
 
-  JobModuleInstance _editableCopy() {
-    final copy =
-        JobModuleInstance.fromMap(
-            _module.toMap(),
-            _module.firestoreId ?? '__local_module__',
-          )
-          ..id = _module.id
-          ..firestoreId = _module.firestoreId
-          // fromMap() is intentionally remote-safe and ignores transported
-          // Isar ids. Preserve the genuine local relation when cloning an
-          // offline/local module for editing on this device.
-          ..jobExecutionLocalId = _module.jobExecutionLocalId
-          ..isSynced = _module.isSynced;
-    return copy;
-  }
+  JobModuleInstance _editableCopy() => copyJobModuleForEditing(_module);
 
   Future<void> _saveStructuredResponses(List<FieldResponse> responses) async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
 
@@ -137,6 +127,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -153,6 +144,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   }
 
   Future<void> _saveProgress() async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
 
@@ -175,7 +167,12 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           top: Radius.circular(BafRadius.large),
         ),
       ),
-      builder: (_) => _ModuleProgressSheet(module: _module),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (current) =>
+            current.canSaveJobModuleWorkFor(_module.discipline.name),
+        child: _ModuleProgressSheet(module: _module),
+      ),
     );
 
     if (!mounted || draft == null) return;
@@ -193,11 +190,13 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module progress saved',
       action: () async {
+        _verifyWorkActor(actor);
         await ref
             .read(jobModuleRepositoryProvider)
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -205,12 +204,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyWorkActor(actor);
         setState(() => _module = updated);
       },
     );
   }
 
   Future<void> _addComponentAction() async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
     if (actor == null ||
@@ -240,37 +241,44 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder:
-          (_) => ActionBottomSheet(
-            target: GovernedActionContext(
-              assetTypeKey: widget.execution.assetType.name,
-              assetNumber: widget.execution.assetNumber,
-              assetClassId: identity?.assetClassId,
-              assetInstanceId: identity?.assetInstanceId,
-            ),
-            performedBy: actor.name,
-            workDiscipline: _module.discipline.name,
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (current) =>
+            current.canSaveJobModuleWorkFor(_module.discipline.name),
+        child: ActionBottomSheet(
+          workStartedAt: widget.execution.createdAt,
+          workCompletedAt: widget.execution.completedAt,
+          target: GovernedActionContext(
+            assetTypeKey: widget.execution.assetType.name,
+            assetNumber: widget.execution.assetNumber,
+            assetClassId: identity?.assetClassId,
+            assetInstanceId: identity?.assetInstanceId,
           ),
+          performedBy: actor.name,
+          workDiscipline: _module.discipline.name,
+        ),
+      ),
     );
     if (!mounted || action == null) return;
 
     final wasNotStarted = _module.status == JobModuleStatus.notStarted;
-    final updated =
-        _editableCopy()
-          ..actions = <ComponentAction>[...currentActions.entries, action]
-          ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
-          ..updatedByUid = actor.uid
-          ..updatedByName = actor.name
-          ..updatedAt = DateTime.now();
+    final updated = _editableCopy()
+      ..actions = <ComponentAction>[...currentActions.entries, action]
+      ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
+      ..updatedByUid = actor.uid
+      ..updatedByName = actor.name
+      ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage: 'Component work action saved',
       action: () async {
+        _verifyWorkActor(actor);
         await ref
             .read(jobModuleRepositoryProvider)
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -278,9 +286,46 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyWorkActor(actor);
         setState(() => _module = updated);
       },
     );
+  }
+
+  void _verifyWorkActor(AppUser expected) {
+    final message = currentActorActionMessage(
+      CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+      originUid: expected.uid,
+      permission: (current) =>
+          current.canSaveJobModuleWorkFor(_module.discipline.name),
+    );
+    if (message != null) throw StateError(message);
+  }
+
+  Future<void> _reviewSavedDrafts() async {
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (actor == null || _isBusy) return;
+    final moduleId = _module.id;
+    final firestoreId = _module.firestoreId;
+    final recovered = await showJobModuleDraftRecovery(
+      context,
+      ref,
+      module: _module,
+    );
+    if (!mounted || recovered == null) return;
+    final liveActor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (liveActor?.uid != actor.uid ||
+        !(liveActor?.canSaveJobModuleWorkFor(recovered.discipline.name) ??
+            false) ||
+        _module.id != moduleId ||
+        _module.firestoreId != firestoreId) {
+      return;
+    }
+    setState(() => _module = recovered);
   }
 
   Future<void> _submitModule() async {
@@ -642,6 +687,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
+        actions: [
+          if (!kIsWeb)
+            TextButton.icon(
+              onPressed: _isBusy ? null : _reviewSavedDrafts,
+              icon: const Icon(Icons.restore_page_outlined),
+              label: const Text('Saved drafts'),
+            ),
+        ],
         title: const BafAppBarTitle(
           title: 'Module workspace',
           subtitle: 'Record field evidence, checks and acceptance',

@@ -6,10 +6,10 @@ const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
 const describeWithEmulator = emulatorHost ? describe : describe.skip;
 const projectId = process.env.GCLOUD_PROJECT || 'demo-crm3-system-assessment';
 jest.setTimeout(30000);
-const revisions = {mutateAssetHierarchyV2: 'assetHierarchy.v2.20260912',
-  executeMaintenanceWorkflowCommandV2: 'maintenanceWorkflow.v2.20260912',
-  mutateChargeAbnormalityV2: 'chargeAbnormality.v2.20260912',
-  assignPublishedTemplateVersionV2: 'publishedTemplateAssignment.v2.20260912'};
+const revisions = {mutateAssetHierarchyV2: 'assetHierarchy.v2.20260913',
+  executeMaintenanceWorkflowCommandV2: 'maintenanceWorkflow.v2.20260913',
+  mutateChargeAbnormalityV2: 'chargeAbnormality.v2.20260913',
+  assignPublishedTemplateVersionV2: 'publishedTemplateAssignment.v2.20260913'};
 
 describeWithEmulator('actual V2 callable handler boundary', () => {
   let db; let endpoints;

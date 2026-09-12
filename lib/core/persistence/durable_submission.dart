@@ -11,6 +11,8 @@ enum DurableSubmissionState {
   rejected,
   needsReview,
   cancelledBeforeSend,
+  reviewResolved,
+  reviewConflict,
 }
 
 extension DurableSubmissionStateMeaning on DurableSubmissionState {
@@ -20,6 +22,7 @@ extension DurableSubmissionStateMeaning on DurableSubmissionState {
   bool get isUnresolved =>
       this != DurableSubmissionState.reconciled &&
       this != DurableSubmissionState.rejected &&
+      this != DurableSubmissionState.reviewResolved &&
       this != DurableSubmissionState.cancelledBeforeSend;
 }
 
@@ -124,6 +127,23 @@ class DurableSubmission {
   final String? legacySourceBase64;
   bool get isLegacy => legacySourceKey != null;
   String get envelopeSha256 => durableSubmissionSha256(envelopeJson);
+
+  /// Binds review to all original evidence, including unknown legacy origin.
+  String get reviewEvidenceSha256 => durableSubmissionSha256(
+    jsonEncode({
+      'schemaVersion': 1,
+      'submissionId': submissionId,
+      'actorUid': actorUid,
+      'requestId': requestId,
+      'aggregateId': aggregateId,
+      'resourceKey': resourceKey,
+      'protocol': protocol,
+      'envelopeJson': envelopeJson,
+      'displayMetadataJson': displayMetadataJson,
+      'legacySourceKey': legacySourceKey,
+      'legacySourceBase64': legacySourceBase64,
+    }),
+  );
   Map<String, dynamic> get envelope =>
       durableSubmissionJsonObject(envelopeJson);
 }

@@ -1,5 +1,3 @@
-// FILE: lib/features/maintenance/presentation/resolve_form.dart
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -254,6 +252,8 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           (widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName),
         ),
         child: ActionBottomSheet(
+          workStartedAt: widget.ticket.currentWorkEpisodeStartedAt,
+          workCompletedAt: _endTime,
           performedAt: _endTime,
           performedBy: actor.name,
           target: GovernedActionContext(

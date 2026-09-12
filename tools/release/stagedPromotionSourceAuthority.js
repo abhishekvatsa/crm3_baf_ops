@@ -11,6 +11,7 @@ const iamReadback = require("./collectFunctionsIamDependenciesReadback.js");
 const firestoreReadback = require("./collectFirestoreRulesIndexesReadback.js");
 const {readDeploymentFleetContract, deploymentCountsMatch, measuredFunctionNamesMatch} =
   require("./deploymentFleetContract.js");
+const {validateDeploymentIamBoundary} = require("./scopedCallableInvokerIam.js");
 
 const PROJECT = "crm3-baf-ops-b8638";
 const DEPLOYED = "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK";
@@ -39,6 +40,20 @@ const BUILD28_BACKEND_APPROVAL = Object.freeze({
   sha256: "A3F577D48100E9DAC6CA8F3D6CA1F44DFFDA9DA88DF96B22ADCC51DC32A0C24C",
   sourceCommit: "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56",
 });
+const BUILD28_SUCCESSOR_DELEGATION = Object.freeze({
+  approvalFile: "release/approvals/build28-current-source-backend-deployment-approval.json",
+  ciFile: "release/evidence/build28-current-source-backend-ci.json",
+  policyId: "BUILD28-OWNER-DELEGATION-20260913",
+  ownerInstruction: "you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward",
+  minimumSource: "f3d299d03ac9d034272519e7ac52ac4b4a216a9b",
+});
+const EXACT_MAIN_JOBS = Object.freeze([
+  "Flutter host analysis + tests + no-loss contracts",
+  "Android release package + cold-start proof (non-production)",
+  "Android emulator app-shell integration (not physical-device evidence)",
+  "Firestore Rules + governed callable emulator",
+  "Cloud Functions host build + non-emulator tests",
+].sort());
 
 function promotionCiAuthorityExact(promotionReceipt, deviceReceipt) {
   const source = promotionReceipt?.sourceAuthority;
@@ -142,6 +157,99 @@ function requireApprovalCustody(receiptAuthority, measuredApproval, custody, lab
   `${label}: approval differs from immutable owner-instruction custody.`);
 }
 
+// A future source hash cannot be embedded before its approval exists. Admit a
+// single new, explicit delegated-custody protocol instead: exact committed bytes,
+// ancestor/source binding, full predecision main CI and measured postdecision
+// update times. This does not change either fixed historical approval anchor.
+function verifySuccessorDelegatedDecision({repoRoot, approval, approvalAuthority, sourceAuthority}) {
+  const contract = BUILD28_SUCCESSOR_DELEGATION;
+  const custody = approvalAuthority;
+  const source = sourceAuthority;
+  const evidence = approval.approvalEvidence;
+  requireEvidence(custody?.file === contract.approvalFile && COMMIT.test(custody.commit ?? "") &&
+    SHA256.test(custody.sha256 ?? "") && approval.approverName === "Codex acting under project-owner delegation" &&
+    evidence?.authorityType === "owner-delegated agent decision" && evidence.delegationPolicyId === contract.policyId &&
+    isDeepStrictEqual(evidence.instructionExcerpts, [contract.ownerInstruction]) &&
+    ["messageReceivedAtUtc", "codexMessageId", "codexTurnId", "codexClientMessageId", "codexTaskId", "instructionVerbatim"]
+      .every((key) => !Object.hasOwn(evidence, key)),
+  "Successor delegated custody: exact path, known delegation and actual agent decision are required.");
+  const decision = explicitUtcInstant(approval.approvedAtUtc);
+  const recorded = explicitUtcInstant(evidence.recordedAtUtc);
+  requireEvidence(decision != null && recorded != null && decision <= recorded && recorded <= BigInt(Date.now()) * 1000000n,
+    "Successor delegated custody: decision/recording chronology differs.");
+  const tree = commitTree(repoRoot, source?.commit, "Successor delegated source");
+  const functionTree = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${source.commit}:functions`],
+    {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
+  requireEvidence(approval.schemaVersion === 1 && approval.documentType === "governed-current-source-backend-deployment-approval" &&
+    approval.approved === true && approval.firebaseProjectId === PROJECT && approval.region === "asia-south1" &&
+    tree === source.tree && COMMIT.test(functionTree) && source.functionsGitObjectId === functionTree &&
+    approval.sourceAuthority?.commit === source.commit && approval.sourceAuthority?.tree === tree &&
+    approval.sourceAuthority?.functionTree === functionTree &&
+    approval.sourceAuthority?.pullRequestNumber === source.pullRequestNumber && Number.isSafeInteger(source.pullRequestNumber) && source.pullRequestNumber > 0 &&
+    approval.sourceAuthority?.requiredPostMergeReleaseGateRunId === source.postMergeReleaseGateRunId &&
+    Number.isSafeInteger(source.postMergeReleaseGateRunId) && source.postMergeReleaseGateRunId > 0 &&
+    explicitUtcInstant(evidence.delegatedDecisionAtUtc) === decision &&
+    approval.deploymentExecutionAuthority?.mode === "exact-baseline-clean-main-checkout" &&
+    approval.deploymentExecutionAuthority.commit === source.commit && approval.deploymentExecutionAuthority.tree === tree &&
+    approval.deploymentExecutionAuthority.functionTree === functionTree &&
+    deploymentCountsMatch(readDeploymentFleetContract(repoRoot, source.commit), approval.approvedDeployment),
+    "Successor delegated custody: planned source, execution or fleet differs from the exact approval.");
+  const committed = readApprovalCustody(repoRoot, custody.commit, custody, "Successor delegated");
+  const actual = readChild(repoRoot, custody.file, custody.sha256, "Successor delegated");
+  requireEvidence(isDeepStrictEqual(actual.value, approval), "Successor delegated custody: loaded approval differs from immutable bytes.");
+  for (const [before, after] of [[contract.minimumSource, source.commit], [source.commit, custody.commit]]) {
+    execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "merge-base", "--is-ancestor", before, after],
+      {windowsHide: true, stdio: ["ignore", "pipe", "pipe"]});
+  }
+  const committedSeconds = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "show", "-s", "--format=%ct", custody.commit],
+    {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
+  requireEvidence(/^[0-9]+$/.test(committedSeconds), "Successor delegated custody: commit time unavailable.");
+  const committedAt = BigInt(committedSeconds) * 1000000000n;
+  // Git commits have one-second precision; receipt chronology retains nanos.
+  requireEvidence(recorded < committedAt + 1000000000n && committedAt <= BigInt(Date.now()) * 1000000n,
+    "Successor delegated custody: approval commit predates its recording or is in the future.");
+  const ciAuthority = approval.sourceAuthority?.requiredPostMergeReleaseGateEvidence;
+  requireEvidence(ciAuthority?.file === contract.ciFile && SHA256.test(ciAuthority.sha256 ?? ""),
+    "Successor delegated custody: immutable exact-main CI evidence is required.");
+  readApprovalCustody(repoRoot, custody.commit, ciAuthority, "Successor exact-main CI");
+  const ci = readChild(repoRoot, ciAuthority.file, ciAuthority.sha256, "Successor exact-main CI").value;
+  const pr = ci.pullRequest, run = ci.run, jobs = ci.jobs;
+  const capture = explicitUtcInstant(ci.capturedAtUtc), completed = explicitUtcInstant(run?.updated_at);
+  const merged = explicitUtcInstant(pr?.merged_at), started = explicitUtcInstant(run?.created_at);
+  requireEvidence(ci.schemaVersion === 1 && ci.evidenceType === "github-exact-main-release-gate" &&
+    ci.repository === BUILD27_GOVERNANCE.repository && ci.sourceCommit === source.commit && ci.sourceTree === source.tree &&
+    pr?.number === source.pullRequestNumber && pr.merged === true && pr.merge_commit_sha === source.commit &&
+    pr.base?.ref === "main" && pr.base.repo?.full_name === ci.repository &&
+    run?.id === source.postMergeReleaseGateRunId && run.repository?.full_name === ci.repository && run.head_sha === source.commit &&
+    run.head_branch === "main" && run.event === "push" && run.path === ".github/workflows/release-gate.yml" &&
+    run.status === "completed" && run.conclusion === "success" && capture != null && completed != null && merged != null && started != null &&
+    merged <= started && started <= completed && completed <= capture && capture <= decision &&
+    jobs?.total_count === 5 && Array.isArray(jobs.jobs) && jobs.jobs.length === 5 &&
+    isDeepStrictEqual(jobs.jobs.map((job) => job.name).sort(), EXACT_MAIN_JOBS) &&
+    new Set(jobs.jobs.map((job) => job.id)).size === 5 && jobs.jobs.every((job) => {
+      const time = explicitUtcInstant(job.completed_at);
+      return Number.isSafeInteger(job.id) && job.id > 0 && job.run_id === run.id && job.head_sha === source.commit &&
+        job.status === "completed" && job.conclusion === "success" && time != null && started <= time && time <= capture;
+    }), "Successor delegated custody: exact source/PR/full main CI must precede the decision.");
+  return {ok: true, sourceCommit: source.commit, sourceTree: source.tree,
+    approvalFile: committed.file, approvalSha256: committed.sha256, approvalCommit: custody.commit,
+    ciFile: ciAuthority.file, ciSha256: ciAuthority.sha256,
+    decisionAtUtc: approval.approvedAtUtc, recordedAtUtc: evidence.recordedAtUtc,
+    custodyCommitTimeUtc: new Date(Number(committedAt / 1000000n)).toISOString()};
+}
+
+function successorDelegatedCustody(repoRoot, receipt, approval) {
+  const proof = verifySuccessorDelegatedDecision({repoRoot, approval,
+    approvalAuthority: receipt.approvalAuthority, sourceAuthority: receipt.sourceAuthority});
+  const earliest = explicitUtcInstant(receipt.authorityChronology?.earliestFunctionUpdateTime);
+  const latest = explicitUtcInstant(receipt.authorityChronology?.latestFunctionUpdateTime);
+  requireEvidence(earliest != null && latest != null &&
+    explicitUtcInstant(proof.recordedAtUtc) <= earliest && explicitUtcInstant(proof.custodyCommitTimeUtc) <= earliest &&
+    earliest <= latest && latest <= BigInt(Date.now()) * 1000000n,
+    "Successor delegated custody: approval was not retained before deployment.");
+  return {file: proof.approvalFile, sha256: proof.approvalSha256};
+}
+
 function verifyApproval(repoRoot, receipt, approval) {
   const source = receipt.sourceAuthority;
   const fleet = readDeploymentFleetContract(repoRoot, source.commit);
@@ -156,10 +264,12 @@ function verifyApproval(repoRoot, receipt, approval) {
   const earliest = explicitUtcInstant(chronology?.earliestFunctionUpdateTime);
   const latest = explicitUtcInstant(chronology?.latestFunctionUpdateTime);
   const execution = approval.deploymentExecutionAuthority;
+  const historicalDelegated = source.commit === BUILD28_BACKEND_APPROVAL.sourceCommit;
+  if (delegated && !historicalDelegated) successorDelegatedCustody(repoRoot, receipt, approval);
   const authorityExact = delegated
-    ? source.commit === BUILD28_BACKEND_APPROVAL.sourceCommit &&
+    ? (historicalDelegated || receipt.approvalAuthority?.file === BUILD28_SUCCESSOR_DELEGATION.approvalFile) &&
       explicitUtcInstant(evidence.delegatedDecisionAtUtc) === approvedAt &&
-      explicitUtcInstant(evidence.recordedAtUtc) === approvedAt &&
+      (!historicalDelegated || explicitUtcInstant(evidence.recordedAtUtc) === approvedAt) &&
       !Object.hasOwn(evidence, "messageReceivedAtUtc") &&
       !Object.hasOwn(chronology ?? {}, "ownerInstructionReceivedAtUtc") &&
       !Object.hasOwn(chronology ?? {}, "allObservedFunctionUpdatesPostdateOwnerInstruction") &&
@@ -213,11 +323,12 @@ function verifyApproval(repoRoot, receipt, approval) {
     sameHash(scope.firestoreIndexSetSha256, receipt.firestoreDeployment?.indexSetSha256) &&
     scope.strictLiveReadbackRequired === true && receipt.firestoreDeployment?.strictLiveReadbackPassed === true &&
     scope.postMergeReleaseGateMustPassBeforeDeployment === true &&
-    ["iamMutated", "serviceAccountsMutated", "appCheckActivated", "productionBusinessDataMutated",
+    ["serviceAccountsMutated", "appCheckActivated", "productionBusinessDataMutated",
       "firestoreDocumentsWritten", "schedulerManuallyInvoked", "deviceDataMutated", "artifactConstructed",
       "pilotPromotionPerformed", "distributionPerformed", "securityRulesMutated", "indexesMutated"]
       .every((field) => receipt.controlBoundary?.[field] === false),
   "Backend approval: source, owner authorization, schedule or deployment scope differs from measured authority.");
+  validateDeploymentIamBoundary({repoRoot, approval, approvalSha256: receipt.approvalAuthority.sha256, receipt});
 }
 
 function verifyReadbackDecision(repoRoot, receipt, key, child) {
@@ -341,9 +452,8 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
     let historicalFile = finalization.exactFunctionFleetDeploymentReceiptFile;
     let historicalRead = candidateRead;
     if (build28) {
-      requireEvidence(expectedCommit === BUILD28_BACKEND_APPROVAL.sourceCommit &&
-        releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only",
-      "Build28 candidate: the admitted c00 backend and preserved Build27 promotion are required.");
+      requireEvidence(releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only",
+      "Build28 candidate: preserved Build27 promotion is required; candidate approval is verified separately.");
       // The successor's version/finalization selects its candidate backend. It
       // cannot redirect the retained pilot's historical deployment authority.
       const anchoredPromotion = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
@@ -352,6 +462,8 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       historicalFile = authority.receipt;
       historicalRead = readChild(root, historicalFile, authority.sha256, "Historical backend");
       verifyDeployment(root, historicalRead.value, "Historical backend");
+      requireEvidence(expectedCommit !== historicalRead.value.sourceAuthority.commit,
+        "Build28 candidate: historical Build27 deployment cannot replace the separately governed successor backend.");
     }
     const historical = historicalRead.value;
 
@@ -379,7 +491,6 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       sameHash(receipt.approvalAuthority?.sha256, deployed.deploymentApprovalSha256) &&
       receipt.deployment.existingIamPreservationEnforced === true &&
       receipt.deployment.appCheckEnforcement === false &&
-      receipt.controlBoundary.iamMutated === false &&
       receipt.controlBoundary.artifactConstructed === false,
     "Current backend: source, approval or preserved control boundary differs from authority.");
     verifyApproval(root, receipt, approval);
@@ -389,14 +500,16 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       {file: anchoredBackend.deploymentApprovalFile, sha256: anchoredBackend.deploymentApprovalSha256}, "Backend");
     requireEvidence(historical.sourceAuthority.commit === anchoredBackend.functionFleetSourceCommit,
     "Backend approval custody: this source has no separately admitted immutable owner approval.");
-    const approvalCustodyFor = (sourceCommit) => {
+    const approvalCustodyFor = (measured, measuredApproval) => {
+      const sourceCommit = measured.sourceAuthority.commit;
       if (sourceCommit === anchoredBackend.functionFleetSourceCommit) return backendApprovalCustody;
-      requireEvidence(sourceCommit === BUILD28_BACKEND_APPROVAL.sourceCommit,
-        "Backend approval custody: this source has no separately admitted immutable owner approval.");
-      return readApprovalCustody(root, BUILD28_BACKEND_APPROVAL.commit,
-        BUILD28_BACKEND_APPROVAL, "Delegated backend");
+      if (sourceCommit === BUILD28_BACKEND_APPROVAL.sourceCommit) {
+        return readApprovalCustody(root, BUILD28_BACKEND_APPROVAL.commit,
+          BUILD28_BACKEND_APPROVAL, "Delegated backend");
+      }
+      return successorDelegatedCustody(root, measured, measuredApproval);
     };
-    const currentApprovalCustody = approvalCustodyFor(receipt.sourceAuthority.commit);
+    const currentApprovalCustody = approvalCustodyFor(receipt, approval);
     requireApprovalCustody(receipt.approvalAuthority, approvalRead, currentApprovalCustody, "Current backend");
 
     const deployments = [...new Map([historicalRead, candidateRead, current]
@@ -409,7 +522,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
           measured.approvalAuthority?.sha256, "Historical backend approval");
         verifyApproval(root, measured, historicalApproval.value);
         requireApprovalCustody(measured.approvalAuthority, historicalApproval,
-          approvalCustodyFor(measured.sourceAuthority.commit), "Selected backend");
+          approvalCustodyFor(measured, historicalApproval.value), "Selected backend");
       }
       for (const key of ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"]) {
         const authority = measured.cleanMainLiveReadbacks?.[key];
@@ -466,7 +579,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
   }
 }
 
-module.exports = {verifyStagedPromotionSourceAuthority, promotionCiAuthorityExact, BUILD27_GOVERNANCE};
+module.exports = {verifyStagedPromotionSourceAuthority, verifySuccessorDelegatedDecision, promotionCiAuthorityExact, BUILD27_GOVERNANCE};
 
 if (require.main === module) {
   try {

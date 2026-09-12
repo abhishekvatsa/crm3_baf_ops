@@ -68,7 +68,7 @@ class BurnerConditionSubmissionController
     final rows = await store.listForActor(actor.uid);
     _actor(actor.uid);
     return [
-      ...legacy,
+      ...legacy.where((row) => row.state.isUnresolved),
       ...rows.where((row) => row.resourceKey.startsWith('burnerEvidence:')),
     ];
   }

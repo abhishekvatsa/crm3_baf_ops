@@ -76,7 +76,8 @@ def current_backend_authority_proof_exact(
     deployed_authority: dict,
 ) -> bool:
     # Reuse the release gate's immutable approval and nanosecond verifier for
-    # both admitted sources, so changing source cannot bypass approval custody,
+    # historical and explicitly governed successor sources, so changing source
+    # cannot bypass approval custody,
     # and bind its result to the same receipt this audit has actually loaded.
     source_commit = "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
     if (
@@ -120,6 +121,28 @@ def current_backend_authority_proof_exact(
                 == deployed_authority.get("functionFleetEvidenceSha256")
             and (ROOT / deployment_relative).read_bytes() == measured
         )
+    except (OSError, TypeError, ValueError):
+        return False
+
+
+def scoped_backend_iam_boundary_exact(
+    deployment_path: Path, approval_path: Path, approval_sha256: str,
+) -> bool:
+    # One shared raw-evidence adjudicator also serves the production policy and
+    # staged-distribution gates. Historical false claims retain their old path.
+    try:
+        result = subprocess.run(
+            ["node", str(ROOT / "tools/release/scopedCallableInvokerIam.js"),
+             "verify-deployment", "--repository-root", str(ROOT),
+             "--approval", str(approval_path),
+             "--approval-sha256", approval_sha256,
+             "--receipt", str(deployment_path)],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+        proof = json.loads(result.stdout) if result.returncode == 0 else {}
+        return proof.get("ok") is True and proof.get("decision") in {
+            "PASS_NO_IAM_MUTATION", "PASS_NEW_CALLABLE_INVOKER_IAM_ONLY",
+        }
     except (OSError, TypeError, ValueError):
         return False
 
@@ -3481,7 +3504,9 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 11" in isar_migration
+    and "currentSchemaVersion = 12" in isar_migration
+    and "v11SchemaFingerprint" in isar_migration
+    and "12: _addDurableSubmissionReviewOutcomes" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
@@ -3559,10 +3584,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v11" in isar_fixture_test
-    and "populated v3 compliance request migrates through v11"
+    and "repository-proven populated v1 migrates to v12" in isar_fixture_test
+    and "populated v3 compliance request migrates through v12"
         in isar_fixture_test
-    and "populated v6 maintenance ticket migrates to v11"
+    and "populated v6 maintenance ticket migrates to v12"
         in isar_fixture_test
     and "repairMaintenancePlantConditionIndexForSchemaUpgrade("
         in isar_fixture_test
@@ -4723,9 +4748,11 @@ current_backend_immutable_authority_exact = current_backend_authority_proof_exac
     current_backend_deployment,
     current_deployed_backend,
 )
-if current_backend_deployment.get("sourceAuthority", {}).get("commit") == (
-    "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56"
+if current_backend_approval_evidence.get("authorityType") == (
+    "owner-delegated agent decision"
 ):
+    # The shared verifier retains fixed c00 custody and requires the successor's
+    # known delegation, immutable approval/CI bytes and postdecision chronology.
     current_backend_approval_scope_exact = current_backend_immutable_authority_exact
 else:
     # Retain the historical owner-instruction checks without reinterpreting
@@ -7991,8 +8018,8 @@ check(
     ) == current_backend_approval.get("sourceAuthority", {}).get(
         "pullRequestNumber"
     )
-    and current_backend_deployment.get("deployment", {}).get("functionCount")
-        == 15
+    # The immutable proof rederives exact fleet counts from this Git source.
+    and current_backend_immutable_authority_exact
     and current_backend_deployment.get("deployment", {}).get(
         "allFunctionsExactSourceVerified"
     ) is True
@@ -8002,8 +8029,10 @@ check(
     and current_backend_deployment.get("deployment", {}).get(
         "appCheckEnforcement"
     ) is False
-    and current_backend_deployment.get("controlBoundary", {}).get("iamMutated")
-        is False
+    and scoped_backend_iam_boundary_exact(
+        current_backend_deployment_path, current_backend_approval_path,
+        current_deployed_backend.get("deploymentApprovalSha256", ""),
+    )
     and current_backend_deployment.get("controlBoundary", {}).get(
         "productionBusinessDataMutated"
     ) is False
@@ -12838,16 +12867,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 585
-    and a03_inventory_report.get("siteCount") == 2036
+    and a03_inventory_report.get("operationCount") == 593
+    and a03_inventory_report.get("siteCount") == 2073
     and a03_inventory_report.get("inventoryDigest")
-        == "8F1D606CA2F9D7E1D30C1C13087D02645FA8D4E929D0AB7348582472D79B2510"
+        == "71E5D054C25F0657CAACACDD28D740EC0E9040F12EC9D35CAB7BCA9DDEF6B763"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 66
-    and len({surface.get("path") for surface in a03_surfaces}) == 66
+    and len(a03_surfaces) == 68
+    and len({surface.get("path") for surface in a03_surfaces}) == 68
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -12892,9 +12921,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 86
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 92
     and a04_inventory_report.get("inventoryDigest")
-        == "A4F3494A6AB9D68503354F1B2975C8EBF27F34D276E2E2112910AF3146BF3E57"
+        == "12968CD72F7DED7C2E034C04C91925107DC2FD127DD1FE51924A055D5EA2557E"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12902,8 +12931,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 86
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 86
+    and len(a04_inherited_decoders) == 92
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 92
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13171,16 +13200,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 93
-    and a05_timestamp_inventory_report.get("directCallCount") == 229
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 137
+    and a05_timestamp_inventory_report.get("readerCount") == 96
+    and a05_timestamp_inventory_report.get("directCallCount") == 232
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 140
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 34
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 35
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 12
+    ) == 13
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13188,11 +13217,11 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 93
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 96
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 12
+    ) == 13
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13213,16 +13242,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 86
+    and a05_decoder_inventory_report.get("surfaceCount") == 92
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 54
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 46
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 440
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 57
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 47
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 449
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 86
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 92
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -13540,7 +13569,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 34
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 35
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13567,7 +13596,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 34
+    ) == 35
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

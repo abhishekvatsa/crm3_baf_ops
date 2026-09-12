@@ -197,6 +197,9 @@ void main() {
         'lib/features/admin/services/user_authority_command_service.dart': [
           '_parseResult(',
         ],
+        'lib/features/admin/presentation/saved_submission_review_screen.dart': [
+          'SavedSubmissionReviewService(',
+        ],
         'lib/features/assets/repositories/asset_hierarchy_repository.dart': [
           'AssetHierarchyMutationReceipt.fromMap',
         ],
@@ -243,10 +246,15 @@ void main() {
           expect(source, contains(marker), reason: '${entry.key}: $marker');
         }
       }
-      // These two composition roots pass transport to their exact native
+      // These composition roots pass transport to their exact native
       // owners. The owners validate the receipt before retaining acceptance;
       // provider construction alone is not a response validation boundary.
       final nativeResponseOwners = <String, List<String>>{
+        'lib/core/services/saved_submission_review_service.dart': [
+          'durableSubmissionJsonObject(jsonEncode(raw))',
+          'validateDurableSubmissionReviewDecision(',
+          'store.settleReview(',
+        ],
         'lib/features/assets/services/burner_condition_submission_controller.dart':
             [
               'BurnerConditionRoundResult.fromCallableData(',

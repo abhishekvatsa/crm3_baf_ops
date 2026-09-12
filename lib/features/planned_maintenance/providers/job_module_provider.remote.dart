@@ -24,7 +24,14 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     JobModuleInstance module, {
     AppUser? actor,
     AuditContext? auditContext,
+    JobModuleSaveBaseline? expectedBaseline,
+    String? recoveredConflictId,
   }) async {
+    if (recoveredConflictId != null) {
+      throw UnsupportedError(
+        'Native saved drafts must be recovered on this device.',
+      );
+    }
     final existing = module.firestoreId == null
         ? null
         : await _modules.doc(module.firestoreId).get();

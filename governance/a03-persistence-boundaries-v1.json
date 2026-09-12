@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "8F1D606CA2F9D7E1D30C1C13087D02645FA8D4E929D0AB7348582472D79B2510",
+  "inventoryDigest": "71E5D054C25F0657CAACACDD28D740EC0E9040F12EC9D35CAB7BCA9DDEF6B763",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -62,6 +62,7 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/durable_submission_repository_test.dart",
+        "test/saved_submission_review_test.dart",
         "test/inner_cover_acceptance_controller_test.dart"
       ]
     },
@@ -752,6 +753,36 @@
       ]
     },
     {
+      "path": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/inspection_target_context_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/job_module_native_save_conflict_test.dart",
+        "test/job_module_retained_edit_test.dart"
+      ]
+    },
+    {
       "path": "lib/features/planned_maintenance/providers/job_module_provider.local.dart",
       "profile": "repository-adapter",
       "allowedStores": [
@@ -762,7 +793,8 @@
         "read"
       ],
       "regressionTests": [
-        "test/a03_persistence_boundary_contract_test.dart"
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/job_module_native_save_conflict_test.dart"
       ]
     },
     {

@@ -1091,3 +1091,10 @@ describe('Inner Cover lifecycle mutation', () => {
     });
   });
 });
+
+test('administrative review accepts the actual Inner Cover acceptance receipt without changing it', async () => {
+  const memory = fakeDb(seed());
+  await invoke(memory, registerRequest());
+  await invoke(memory, acceptRequest());
+  await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('innerCoverAcceptance', memory.store.get(`inner_cover_lifecycle_receipts/${IDS.accept}`));
+});

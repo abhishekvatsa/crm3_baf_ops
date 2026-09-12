@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/inspection_campaign.dart';
 import '../data/inspection_evidence_snapshot.dart';
 import '../../../core/serialization/tolerant_snapshot_decode.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
+
+part 'inspection_target_context_reader.dart';
 
 class InspectionRepository {
   InspectionRepository({FirebaseFirestore? firestore})
@@ -13,19 +16,25 @@ class InspectionRepository {
   static const _serverRead = GetOptions(source: Source.server);
   static const _reportReadAttempts = 3;
 
+  Future<Map<String, Object?>> readTargetContext(
+    InspectionCampaignTarget target,
+  ) => _readInspectionTargetContext(_firestore, target);
+
   Stream<List<InspectionDefinition>> watchDefinitions() => _firestore
       .collection('inspection_definitions')
       .snapshots()
       .map((snapshot) {
         final rows =
-            decodeSnapshotDocuments(snapshot, InspectionDefinition.fromMap, source: 'InspectionDefinition')
-                .toList(growable: false)
-              ..sort((left, right) {
-                final status = left.status.index.compareTo(right.status.index);
-                return status != 0
-                    ? status
-                    : left.frozen.title.compareTo(right.frozen.title);
-              });
+            decodeSnapshotDocuments(
+              snapshot,
+              InspectionDefinition.fromMap,
+              source: 'InspectionDefinition',
+            ).toList(growable: false)..sort((left, right) {
+              final status = left.status.index.compareTo(right.status.index);
+              return status != 0
+                  ? status
+                  : left.frozen.title.compareTo(right.frozen.title);
+            });
         return List<InspectionDefinition>.unmodifiable(rows);
       });
 
@@ -35,16 +44,18 @@ class InspectionRepository {
           .snapshots(includeMetadataChanges: true)
           .map((snapshot) {
             final rows =
-                decodeSnapshotDocuments(snapshot, InspectionCampaign.fromMap, source: 'InspectionCampaign')
-                    .toList(growable: false)
-                  ..sort((left, right) {
-                    final status = left.status.index.compareTo(
-                      right.status.index,
-                    );
-                    return status != 0
-                        ? status
-                        : right.createdAt.compareTo(left.createdAt);
-                  });
+                decodeSnapshotDocuments(
+                  snapshot,
+                  InspectionCampaign.fromMap,
+                  source: 'InspectionCampaign',
+                ).toList(growable: false)..sort((left, right) {
+                  final status = left.status.index.compareTo(
+                    right.status.index,
+                  );
+                  return status != 0
+                      ? status
+                      : right.createdAt.compareTo(left.createdAt);
+                });
             return InspectionEvidenceSnapshot<InspectionCampaign>(
               records: List<InspectionCampaign>.unmodifiable(rows),
               isServerVerified:
@@ -153,7 +164,8 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        snapshot.docs.map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
+        snapshot.docs
+            .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final observed = right.observedAt.compareTo(left.observedAt);
@@ -166,7 +178,8 @@ class InspectionRepository {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final rows =
-        snapshot.docs.map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
+        snapshot.docs
+            .map((doc) => InspectionFinding.fromMap(doc.data(), doc.id))
             .toList(growable: false)
           ..sort((left, right) {
             final blocking = right.blocksCampaignClosure ? 1 : 0;

@@ -29,6 +29,7 @@ import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
 import 'features/admin/presentation/admin_data_browser.dart';
 import 'features/admin/presentation/local_diagnostics_screen.dart';
+import 'features/admin/presentation/saved_submission_review_screen.dart';
 import 'features/admin/services/device_recovery_listener.dart';
 import 'features/directives/presentation/directives_screen.dart';
 import 'features/maintenance/presentation/closed_tickets_screen.dart';
@@ -1666,6 +1667,19 @@ class _MoreScreen extends StatelessWidget {
         ),
     ];
     final adminDestinations = <_MoreDestinationSpec>[
+      if (appUser.isAdmin)
+        _MoreDestinationSpec(
+          icon: Icons.save_as_outlined,
+          color: BafColors.admin,
+          title: 'Saved work review',
+          subtitle: 'Review retained requests and unblock work safely',
+          keywords: 'saved pending recovery review blocked',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const SavedSubmissionReviewScreen(),
+            ),
+          ),
+        ),
       if (appUser.canOpenAdminDataBrowser)
         _MoreDestinationSpec(
           icon: Icons.admin_panel_settings_outlined,
