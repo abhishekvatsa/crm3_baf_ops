@@ -15,7 +15,7 @@ import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.d
 import 'package:crm3_baf_ops/features/quality/providers/quality_provider.dart';
 import 'package:crm3_baf_ops/features/quality/services/quality_command_service.dart';
 import 'package:crm3_baf_ops/features/quality/services/quality_monitoring_submission_controller.dart';
-import 'support/in_memory_durable_submission_store.dart';
+import '../tool/test_support/in_memory_durable_submission_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

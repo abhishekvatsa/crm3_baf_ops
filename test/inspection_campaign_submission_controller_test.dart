@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
 
 import '../tool/test_support/test_isar_core.dart';
-import 'support/inspection_campaign_submission_fixture.dart';
+import '../tool/test_support/inspection_campaign_submission_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

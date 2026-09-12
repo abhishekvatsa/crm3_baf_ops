@@ -176,7 +176,9 @@ void main() {
             ..actionsJson = '{not-json';
 
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: JobModuleCard(module: module))),
+        MaterialApp(
+          home: Scaffold(body: JobModuleCard(module: module)),
+        ),
       );
 
       expect(find.text('Actions need repair'), findsOneWidget);
@@ -192,25 +194,32 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final now = DateTime.now();
-      final record =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-ui'
-            ..assetType = AssetType.base
-            ..assetNumber = 1
-            ..maintenanceType = MaintenanceType.breakdown
-            ..description = 'Malformed action witness'
-            ..routedTo = RoutedTo.operations
-            ..startDate = now.subtract(const Duration(hours: 1))
-            ..createdAt = now.subtract(const Duration(hours: 1))
-            ..updatedAt = now
-            ..actionsJson = '[{}]'
-            ..resolutionHistoryJson = '[]';
+      final record = MaintenanceRecord()
+        ..firestoreId = 'ticket-ui'
+        ..assetType = AssetType.base
+        ..assetNumber = 1
+        ..maintenanceType = MaintenanceType.breakdown
+        ..description = 'Malformed action witness'
+        ..routedTo = RoutedTo.operations
+        ..startDate = now.subtract(const Duration(hours: 1))
+        ..createdAt = now.subtract(const Duration(hours: 1))
+        ..updatedAt = now
+        ..actionsJson = '[{}]'
+        ..resolutionHistoryJson = '[]';
+      final originalActor = AppUser(
+        uid: 'action-integrity-supervisor',
+        name: 'Action integrity supervisor',
+        email: 'action-integrity@example.invalid',
+        roles: [AppRole.si],
+        isApproved: true,
+        createdAt: DateTime.utc(2026, 8, 5),
+      );
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             currentAppUserProvider.overrideWith(
-              (ref) => Stream<AppUser?>.value(null),
+              (ref) => Stream<AppUser?>.value(originalActor),
             ),
           ],
           child: MaterialApp(home: ResolveForm(ticket: record)),
@@ -223,6 +232,16 @@ void main() {
         find.textContaining('No actions were discarded or replaced'),
         findsOneWidget,
       );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Mark as Resolved'),
+            )
+            .onPressed,
+        isNotNull,
+        reason:
+            'Exercise the corrupt-evidence refusal after account admission.',
+      );
 
       await tester.tap(find.text('Mark as Resolved'));
       await tester.pump();
@@ -231,6 +250,9 @@ void main() {
         findsOneWidget,
       );
       expect(record.isResolved, isFalse);
+      expect(record.actionsJson, '[{}]');
+      expect(record.resolutionHistoryJson, '[]');
+      expect(tester.takeException(), isNull);
     });
 
     test('source no longer contains silent action replacement fallbacks', () {

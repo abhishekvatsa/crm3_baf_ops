@@ -14,7 +14,7 @@ import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tool/test_support/test_isar_core.dart';
-import 'support/published_assignment_receipt_fixture.dart';
+import '../tool/test_support/published_assignment_receipt_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

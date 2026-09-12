@@ -6,7 +6,7 @@ import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_ser
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/in_memory_durable_submission_store.dart';
+import '../tool/test_support/in_memory_durable_submission_store.dart';
 
 void main() {
   testWidgets(

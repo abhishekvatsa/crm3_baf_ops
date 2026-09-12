@@ -13,7 +13,8 @@ typedef BurnerSubmissionInvoker =
 
 /// Native custody is established before dispatch. Content hashes validate
 /// evidence; a fresh operator action receives its own submission identity.
-class BurnerConditionSubmissionController {
+class BurnerConditionSubmissionController
+    implements BurnerConditionSubmissionCommands {
   BurnerConditionSubmissionController({
     required this.store,
     required this.requireActor,
@@ -45,6 +46,7 @@ class BurnerConditionSubmissionController {
 
   static String resourceKey(String furnaceId) => 'burnerEvidence:$furnaceId';
 
+  @override
   Future<List<DurableSubmission>> pending() async {
     final actor = _actor();
     final raw = await readLegacy(actor.uid);
@@ -71,6 +73,7 @@ class BurnerConditionSubmissionController {
     ];
   }
 
+  @override
   Map<String, dynamic> requestOf(DurableSubmission row) {
     if (row.isLegacy || row.protocol != 'assetHierarchy.v2') {
       throw const BurnerConditionRoundException(
@@ -101,6 +104,7 @@ class BurnerConditionSubmissionController {
     return raw;
   }
 
+  @override
   Future<Map<String, dynamic>> submit({
     required Map<String, dynamic> requestWithoutId,
     required String actorUid,
@@ -168,6 +172,7 @@ class BurnerConditionSubmissionController {
     }
   }
 
+  @override
   Future<Map<String, dynamic>> check(String submissionId) async {
     final row = await store.read(submissionId);
     if (row == null) {
@@ -258,6 +263,7 @@ class BurnerConditionSubmissionController {
     return receipt;
   }
 
+  @override
   Future<void> finalizeDirective(String requestId, String actorUid) async {
     _actor(actorUid);
     final row = await store.read(requestId);

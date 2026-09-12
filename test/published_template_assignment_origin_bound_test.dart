@@ -5,7 +5,7 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/published_template_assignment_server_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/published_assignment_receipt_fixture.dart';
+import '../tool/test_support/published_assignment_receipt_fixture.dart';
 
 void main() {
   const request = PublishedTemplateAssignmentRequest(

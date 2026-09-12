@@ -82,14 +82,47 @@ void main() {
           'lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart',
         );
         final submit = _bodyStartingAt(assignment, 'Future<void> _submit');
-        expect(submit, contains('final package = await _selectedPackage();'));
-        expect(submit, contains('final version = await _selectedVersion();'));
-        expect(submit, contains('if (!mounted) return;'));
-        expect(
-          submit.indexOf('if (!mounted) return;'),
-          lessThan(submit.indexOf('if (package == null || version == null)')),
-          reason:
-              'Published-template assignment must not continue into UI/busy-state work after async selection if unmounted.',
+        const packageRead =
+            'await repository.getPackageByFirestoreId(packageId);';
+        const versionRead =
+            'await repository.getVersionByFirestoreId(versionId);';
+        const auditsRead =
+            'await repository.getAuditsForVersion(version.firestoreId!);';
+        _expectBefore(
+          submit,
+          'final container = ProviderScope.containerOf(context, listen: false);',
+          packageRead,
+        );
+        final originGate = _bodyStartingAt(submit, 'void requireOriginal');
+        expect(originGate, contains('container.read(currentAppUserProvider)'));
+        expect(originGate, contains('!access.isReady'));
+        expect(originGate, contains('!access.actor!.canAssignJobExecution'));
+        expect(originGate, contains('access.actor!.uid != actor.uid'));
+        for (final read in [packageRead, versionRead, auditsRead]) {
+          expect(
+            RegExp(
+              '${RegExp.escape(read)}\\s*requireOriginal\\(\\);',
+            ).hasMatch(submit),
+            isTrue,
+            reason: 'Assignment must recheck its original account after $read',
+          );
+        }
+        final afterVersion = submit.substring(submit.indexOf(versionRead));
+        _expectBefore(
+          afterVersion,
+          'if (!mounted) return;',
+          'if (package == null || version == null)',
+        );
+        final afterAudits = submit.substring(submit.indexOf(auditsRead));
+        _expectBefore(
+          afterAudits,
+          'if (!mounted) return;',
+          '_selectedGovernedAsset(preview)',
+        );
+        _expectBefore(
+          afterAudits,
+          'if (!mounted) return;',
+          '_chargeNoController.text',
         );
       },
     );

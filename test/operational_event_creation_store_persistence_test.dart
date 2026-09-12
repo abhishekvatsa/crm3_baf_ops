@@ -31,12 +31,60 @@ void main() {
       }
       expect(await store.pending('actor-a'), isNull);
       expect(replayed.toSet(), hasLength(2));
-      expect(replayed.first, scenario.accepted.first);
+      // Concurrent isolates can record the same clock tick. Retention must not
+      // assume dispatch order; the deterministic cases below verify ordering.
+      expect(replayed, unorderedEquals(scenario.accepted));
       expect(
         replayed.map((value) => value['requestId']).toSet(),
         scenario.accepted.map((value) => value['requestId']).toSet(),
       );
     });
+  }
+
+  for (final equalTimes in [false, true]) {
+    test(
+      equalTimes
+          ? 'equal saved times use stable request-slot order and preserve both exact intents'
+          : 'saved chronology outranks request-slot order and preserves both exact intents',
+      () async {
+        final scenario = await _twoTabs(samePayload: true);
+        final keys = scenario.platform.keys.toList()..sort();
+        expect(keys, hasLength(2));
+        // Set only ordering metadata in the restart fixture. Keep both real
+        // isolated writers' request IDs, event IDs and complete payloads.
+        const earlier = 1789182000000000;
+        for (var index = 0; index < keys.length; index++) {
+          final record =
+              jsonDecode(scenario.platform[keys[index]]! as String)
+                  as Map<String, dynamic>;
+          record['savedAtMicros'] =
+              earlier + (equalTimes || index == 1 ? 0 : 1);
+          scenario.platform[keys[index]] = jsonEncode(record);
+        }
+        final expectedKeys = equalTimes ? keys : keys.reversed.toList();
+        final store = OperationalEventCreationStore(
+          preferencesLoader: () async => _CachedPreferences(scenario.platform),
+        );
+        for (final key in expectedKeys) {
+          final before = Map<String, Object>.from(scenario.platform);
+          final saved = jsonDecode(before[key]! as String) as Map;
+          final expected = scenario.accepted.singleWhere(
+            (request) => request['requestId'] == saved['requestId'],
+          );
+          final pending = (await store.pending('actor-a'))!;
+          expect(pending.toRequest(), expected);
+          expect((await store.pending('actor-a'))!.toRequest(), expected);
+          expect(scenario.platform, before);
+          await store.clearIfMatches(actorUid: 'actor-a', identity: pending);
+          expect(
+            scenario.platform,
+            Map<String, Object>.from(before)..remove(key),
+          );
+        }
+        expect(await store.pending('actor-a'), isNull);
+        expect(scenario.platform, isEmpty);
+      },
+    );
   }
 
   test(

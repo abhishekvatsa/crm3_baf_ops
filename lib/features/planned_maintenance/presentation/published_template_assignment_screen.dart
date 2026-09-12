@@ -90,23 +90,16 @@ class _PublishedTemplateAssignmentScreenState
       );
     }
     if (saved.hasError) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Assign planned work')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Saved assignment evidence could not be checked. Nothing was sent.',
-              ),
-              TextButton(
-                onPressed: () =>
-                    ref.invalidate(pendingPublishedTemplateAssignmentProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Assign planned work',
+        appBarSubtitle: 'Checking retained work',
+        appBarIcon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
+        message:
+            'Saved assignment evidence could not be checked. Nothing was sent.',
+        retryLabel: 'Retry',
+        onRetry: () =>
+            ref.invalidate(pendingPublishedTemplateAssignmentProvider),
       );
     }
     if (saved.valueOrNull != null) {

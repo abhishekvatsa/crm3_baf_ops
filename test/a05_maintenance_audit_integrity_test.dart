@@ -649,24 +649,31 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final now = DateTime.now();
-      final record =
-          MaintenanceRecord()
-            ..firestoreId = 'ticket-ui'
-            ..assetType = AssetType.base
-            ..assetNumber = 1
-            ..maintenanceType = MaintenanceType.breakdown
-            ..description = 'Malformed history witness'
-            ..routedTo = RoutedTo.operations
-            ..startDate = now.subtract(const Duration(hours: 1))
-            ..createdAt = now.subtract(const Duration(hours: 1))
-            ..updatedAt = now
-            ..resolutionHistoryJson = '{not-json';
+      final record = MaintenanceRecord()
+        ..firestoreId = 'ticket-ui'
+        ..assetType = AssetType.base
+        ..assetNumber = 1
+        ..maintenanceType = MaintenanceType.breakdown
+        ..description = 'Malformed history witness'
+        ..routedTo = RoutedTo.operations
+        ..startDate = now.subtract(const Duration(hours: 1))
+        ..createdAt = now.subtract(const Duration(hours: 1))
+        ..updatedAt = now
+        ..resolutionHistoryJson = '{not-json';
+      final originalActor = AppUser(
+        uid: 'history-integrity-supervisor',
+        name: 'History integrity supervisor',
+        email: 'history-integrity@example.invalid',
+        roles: [AppRole.si],
+        isApproved: true,
+        createdAt: DateTime.utc(2026, 8, 5),
+      );
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             currentAppUserProvider.overrideWith(
-              (ref) => Stream<AppUser?>.value(null),
+              (ref) => Stream<AppUser?>.value(originalActor),
             ),
           ],
           child: MaterialApp(home: ResolveForm(ticket: record)),
@@ -679,6 +686,16 @@ void main() {
         find.text('No history entries were discarded or replaced.'),
         findsOneWidget,
       );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Mark as Resolved'),
+            )
+            .onPressed,
+        isNotNull,
+        reason:
+            'Exercise the corrupt-evidence refusal after account admission.',
+      );
 
       await tester.tap(find.text('Mark as Resolved'));
       await tester.pump();
@@ -688,6 +705,8 @@ void main() {
         findsOneWidget,
       );
       expect(record.isResolved, isFalse);
+      expect(record.resolutionHistoryJson, '{not-json');
+      expect(tester.takeException(), isNull);
     });
 
     test('source paths reject silent replacement and surface the UI state', () {

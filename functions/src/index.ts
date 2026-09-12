@@ -608,7 +608,7 @@ export const mutateChargeAbnormalityV2 = onCall(
   {
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
-    memory: "512MiB",
+    memory: "256MiB",
     concurrency: 20,
     serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateChargeAbnormality,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,

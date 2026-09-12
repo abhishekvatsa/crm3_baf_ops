@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/persistence/durable_submission.dart';
 import '../../../core/release/command_capability_service.dart';
+import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../services/published_template_assignment_server_service.dart';
@@ -38,8 +40,11 @@ class _SavedPublishedAssignmentScreenState
         access.actor!.canAssignJobExecution &&
         access.actor!.uid == widget.submission.actorUid;
     if (!allowed || widget.submission.isLegacy) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Saved assignment')),
+      return BafScreenScaffold(
+        title: 'Saved assignment',
+        subtitle: 'Confirm the original planned-work request',
+        icon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
@@ -56,9 +61,12 @@ class _SavedPublishedAssignmentScreenState
           .read(publishedTemplateAssignmentSubmissionControllerProvider)
           .requestFromSaved(widget.submission);
     } catch (_) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Saved assignment')),
-        body: const Padding(
+      return const BafScreenScaffold(
+        title: 'Saved assignment',
+        subtitle: 'Confirm the original planned-work request',
+        icon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
+        body: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
             'The saved assignment needs review. Its original evidence is retained.',
@@ -66,8 +74,11 @@ class _SavedPublishedAssignmentScreenState
         ),
       );
     }
-    return Scaffold(
-      appBar: AppBar(title: const Text('Saved assignment')),
+    return BafScreenScaffold(
+      title: 'Saved assignment',
+      subtitle: 'Confirm the original planned-work request',
+      icon: Icons.assignment_turned_in_outlined,
+      accent: BafColors.planned,
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

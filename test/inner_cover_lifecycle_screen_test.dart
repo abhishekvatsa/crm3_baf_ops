@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/in_memory_durable_submission_store.dart';
+import '../tool/test_support/in_memory_durable_submission_store.dart';
 
 void main() {
   for (final lostResponse in [true, false]) {

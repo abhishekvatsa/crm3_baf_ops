@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const ts = require("typescript");
 
 const {
   FUNCTION_RUNTIME_SERVICE_ACCOUNTS,
@@ -31,7 +32,47 @@ function endpointServiceAccount(endpoint) {
   return typeof value?.toCEL === "function" ? value.toCEL() : value;
 }
 
+function callableOptionTokens(relativePath, exportName) {
+  const filename = path.join(root, "functions", "src", relativePath);
+  const source = ts.createSourceFile(filename, fs.readFileSync(filename, "utf8"),
+    ts.ScriptTarget.Latest, true);
+  let declaration;
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) &&
+        node.name.text === exportName) declaration = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  expect(declaration).toBeDefined();
+  const call = declaration.initializer;
+  expect(ts.isCallExpression(call)).toBe(true);
+  expect(call.expression.getText(source)).toBe("onCall");
+  expect(ts.isObjectLiteralExpression(call.arguments[0])).toBe(true);
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, true,
+    ts.LanguageVariant.Standard, call.arguments[0].getText(source));
+  const tokens = [];
+  for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken;
+    token = scanner.scan()) tokens.push([token, scanner.getTokenText()]);
+  return tokens;
+}
+
 describe("complete Function fleet runtime identity source policy", () => {
+  test.each(Object.entries(expectedRuntimeAliases))(
+    "%s preserves all deployment options of %s without changing origin-bound behavior",
+    (alias, original) => {
+      const exported = require("../lib/index");
+      const relativePath = original === "executeMaintenanceWorkflowCommand" ?
+        "maintenanceWorkflow/callable.ts" : "index.ts";
+      // Compare the complete option declaration, including security spreads,
+      // separately from handlers: V2 must still enforce its stricter origin.
+      // Tokenization ignores layout, not options, values or their override order.
+      expect(callableOptionTokens(relativePath, alias))
+        .toEqual(callableOptionTokens(relativePath, original));
+      expect(exported[alias].__endpoint).toEqual(exported[original].__endpoint);
+      expect(exported[alias].__trigger).toEqual(exported[original].__trigger);
+    },
+  );
+
   test("binds every exported Function to one exact same-project identity", () => {
     const exported = require("../lib/index");
     const endpointNames = Object.entries(exported)

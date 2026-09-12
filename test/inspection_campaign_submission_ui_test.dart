@@ -12,8 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/in_memory_durable_submission_store.dart';
-import 'support/inspection_campaign_submission_fixture.dart';
+import '../tool/test_support/in_memory_durable_submission_store.dart';
+import '../tool/test_support/inspection_campaign_submission_fixture.dart';
 
 void main() {
   late InMemoryDurableSubmissionStore store;

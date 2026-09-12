@@ -6,7 +6,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_error
 import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_command_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/inspection_campaign_submission_fixture.dart';
+import '../tool/test_support/inspection_campaign_submission_fixture.dart';
 
 void main() {
   late _Functions functions;

@@ -7,7 +7,6 @@ import '../../auth/data/user_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/burner_condition_round.dart';
 import '../../../core/persistence/durable_submission_repository.dart';
-import 'burner_condition_submission_controller.dart';
 
 const burnerConditionRoundCallableName = 'mutateAssetHierarchyV2';
 const burnerConditionRoundCallableRegion = 'asia-south1';
@@ -273,11 +272,26 @@ class BurnerDirectiveComplianceResult {
   }
 }
 
+/// The business facade depends on the submission contract. The native owner
+/// implements this contract and uses the receipt parsers above.
+abstract interface class BurnerConditionSubmissionCommands {
+  Future<List<DurableSubmission>> pending();
+  Map<String, dynamic> requestOf(DurableSubmission row);
+  Future<Map<String, dynamic>> submit({
+    required Map<String, dynamic> requestWithoutId,
+    required String actorUid,
+    required String furnaceName,
+    Map<String, Object?> displayMetadata = const {},
+  });
+  Future<Map<String, dynamic>> check(String submissionId);
+  Future<void> finalizeDirective(String requestId, String actorUid);
+}
+
 class BurnerConditionRoundService {
   BurnerConditionRoundService({this.submissions});
 
-  final BurnerConditionSubmissionController? submissions;
-  BurnerConditionSubmissionController get _controller =>
+  final BurnerConditionSubmissionCommands? submissions;
+  BurnerConditionSubmissionCommands get _controller =>
       submissions ??
       (throw const BurnerConditionRoundException(
         'Saved Burner/UV submissions could not be opened. Nothing was sent.',

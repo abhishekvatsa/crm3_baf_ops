@@ -3,8 +3,10 @@
 Date: 2026-09-12. Branch: `codex/system-assessment-remediation-20260912`.
 Starting main: `2ae7cbb45720fe61566b70a38d1bf9a1519e05ca`.
 
-**This is an implementation record, not a release approval.** Changes are still
-uncommitted and integration checks are underway. Historical Build 27, CI results,
+**This is an implementation record, not a release approval.** The source repair and integration corrections are recorded in
+[PR #362](https://github.com/abhishekvatsa/crm3_baf_ops/pull/362). Its current
+head checks determine final candidate verification; intermediate local results
+below retain their original scope. Historical Build 27, CI results,
 APK hashes and deployed-backend evidence do not certify these changes. No APK
 with changed source may reuse the historical Build 27 identity.
 
@@ -35,7 +37,7 @@ repaired historical production projections.
 | Morning Review | All 13 supported operations use the native owner and explicit saved-work check. Accepted evidence precedes server-only subject confirmation. 75 selected tests passed across final runs, including 39 native and three UI cases. Private server receipt collections remain private. |
 | Current-account UI authority | Tested batches cover maintenance actions, abnormalities/directives creation, planned completion, Red exit, compliance navigation, composer and registry. Forms retain entries while unavailable or changed authority blocks actions. A final eight-test composer batch also fences replacement dialogs and paused preference lookup before clearing recovery. These batches do not establish that every privileged action in the app has been reviewed. |
 
-## Work still in progress
+## Verification and remaining scope
 
 - Quality creation replay after a lost response and later closure now uses
   immutable original audit evidence. Actual backend host tests passed (70; one
@@ -48,8 +50,9 @@ repaired historical production projections.
   must not dispatch on a later day; retained accepted receipts can be checked
   across days. A never-sent request may be explicitly cancelled. Cross-day
   unknown outcomes need review until a safe server lookup exists.
-- Final combined Flutter, canonical-governance and emulator gates are running.
-  The full Functions host pipeline passed 1,371 Jest tests and 75 Node tests;
+- The post-code-generation canonical audit passed all 150 checks. Current
+  full-candidate Flutter/CI status is on PR #362. The first full Functions host
+  pipeline passed 1,371 Jest tests and 75 Node tests;
   126 emulator cases and four opt-in fixture generators were skipped in that
   host run. All 126 then passed against the local emulator: 392 emulator-backed
   checks passed overall (Rules, projection reconciliation, governed handlers
@@ -82,3 +85,38 @@ so the currently installed APK version and signer could not be verified. Live
 remote release tags stop at Build 27; Build 28 is unused but not reserved by
 this remediation. Future release validators need explicit schema-11 and
 19-endpoint support without changing historical evidence.
+
+## Integration review of the initial candidate
+
+Canonical pristine audit passed all 150 checks and full analysis was clean. The
+first complete Flutter run passed 2,513 tests, skipped the separately driven
+A05 bridge harness, and found 15 integration failures. These include stale
+source-contract/authority fixtures, current inventory/schema metadata, helper
+placement, a two-file burner import cycle and missing shared BAF frames on
+new assignment states. They are being corrected; this record does not claim
+a complete Flutter pass for the initial candidate.
+
+The root CI Node custody/dependency campaign passed 218 tests after correcting
+two current-source endpoint-count expectations. Historical deployed fleet
+receipts retain their original counts. The existing dated dependency exception
+was unchanged; no new exception or production authority was granted.
+
+The integration corrections then passed all 189 tests in a combined focused
+run, including every previously failing contract, native burner recovery and
+assignment saved-state UI. An independent four-file runtime review found no
+semantic regression from the burner interface or shared assignment frames.
+A05 remained exact at 86 surfaces and 53 catches. The complete Flutter suite
+is being repeated on the integrated source.
+
+The deterministic operational-event test correction passed all 16 tests in its
+suite, with scoped analysis clean. Runtime was unchanged. The separate A05
+actual-reader harness passed 23 tests with no skips, and governed-identity host
+contracts passed 13. The bridge-only test is intentionally skipped in an ordinary
+Flutter run and is exercised by that harness.
+
+Final backend resource parity review aligned quality V2 memory with V1 at
+256 MiB. All four wrappers now have exact source-option and SDK-metadata parity
+checks. The final host pipeline passed 1,375 Jest and 75 Node tests; 14 actual
+V2 emulator cases passed on the new index hash. The prior 392-case emulator
+campaign retains its original hash; the only intervening runtime change was
+that memory option. R04 records the exact hashes and evidence boundary.

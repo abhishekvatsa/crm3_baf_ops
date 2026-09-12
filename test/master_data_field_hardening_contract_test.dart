@@ -193,8 +193,33 @@ void main() {
         expect(src, contains('onPressed: _isSaving ? null : _submit'));
         // buttons disabled while saving
         expect(src, contains('onPressed: _isSaving ? null :'));
-        // spinner shown instead of label
-        expect(src, contains('_isSaving\n'));
+        // Check the actual spinner branch without depending on line endings.
+        expect(
+          RegExp(
+            r'child:\s*_isSaving\s*\?\s*const SizedBox\([\s\S]*?'
+            r'child:\s*CircularProgressIndicator\(',
+          ).hasMatch(src),
+          isTrue,
+        );
+        final submit = src.substring(src.indexOf('Future<void> _submit()'));
+        final busyGuard = submit.indexOf('if (_isSaving) return;');
+        final claim = submit.indexOf('setState(() => _isSaving = true)');
+        final write = submit.indexOf('await repository.saveType(');
+        expect(busyGuard, greaterThanOrEqualTo(0));
+        expect(claim, greaterThan(busyGuard));
+        expect(write, greaterThan(claim));
+        final admission = submit.substring(0, claim);
+        expect(
+          admission,
+          contains(
+            'CurrentActorAccess.resolve(ref.read(currentAppUserProvider))',
+          ),
+        );
+        expect(admission, contains('originUid: widget.actor.uid'));
+        expect(
+          admission,
+          contains('permission: (user) => user.canManageAbnormalityTypes'),
+        );
       },
     );
 

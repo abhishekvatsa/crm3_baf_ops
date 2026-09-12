@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/in_memory_durable_submission_store.dart';
+import '../tool/test_support/in_memory_durable_submission_store.dart';
 
 void main() {
   late InMemoryDurableSubmissionStore store;

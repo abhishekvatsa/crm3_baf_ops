@@ -20,34 +20,36 @@ void main() {
         ).readAsStringSync(),
       ),
     );
-    final collector =
-        File(
-          'tools/release/collectFunctionsIamDependenciesReadback.js',
-        ).readAsStringSync();
-    final collectorTests =
-        File(
-          'tools/release/collectFunctionsIamDependenciesReadback.test.mjs',
-        ).readAsStringSync();
+    final collector = File(
+      'tools/release/collectFunctionsIamDependenciesReadback.js',
+    ).readAsStringSync();
+    final collectorTests = File(
+      'tools/release/collectFunctionsIamDependenciesReadback.test.mjs',
+    ).readAsStringSync();
     final functionsIndex = File('functions/src/index.ts').readAsStringSync();
     final package = _object(
       jsonDecode(File('package.json').readAsStringSync()),
     );
-    final workflow =
-        File('.github/workflows/release-gate.yml').readAsStringSync();
-    final decision =
-        File(
-          'docs/v4_2_r1/LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK.md',
-        ).readAsStringSync();
+    final workflow = File(
+      '.github/workflows/release-gate.yml',
+    ).readAsStringSync();
+    final decision = File(
+      'docs/v4_2_r1/LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK.md',
+    ).readAsStringSync();
 
     const expectedFunctions = <String>{
       'assignPublishedTemplateVersion',
+      'assignPublishedTemplateVersionV2',
       'beginGlobalPullRun',
       'completePlannedJobExecution',
       'executeMaintenanceWorkflowCommand',
+      'executeMaintenanceWorkflowCommandV2',
       'getBackendReleaseIdentity',
       'maintenanceWorkflowEscalationSweep',
       'mutateAssetHierarchy',
+      'mutateAssetHierarchyV2',
       'mutateChargeAbnormality',
+      'mutateChargeAbnormalityV2',
       'mutateRuntimeJobModulePopulation',
       'mutateUserAuthority',
       'onJobAssigned',
@@ -64,10 +66,27 @@ void main() {
       _strings(policy['sourceFunctionExports']).toSet(),
       expectedFunctions,
     );
-    expect(_strings(policy['sourceFunctionExports']), hasLength(15));
+    expect(_strings(policy['sourceFunctionExports']), hasLength(19));
     expect(_strings(policy['sourcePendingDeploymentExports']), <String>[
+      'assignPublishedTemplateVersionV2',
+      'executeMaintenanceWorkflowCommandV2',
       'mutateAssetHierarchy',
+      'mutateAssetHierarchyV2',
+      'mutateChargeAbnormalityV2',
     ]);
+    final runtimeBindings = _object(policy['sourceDeclaredRuntimeBindings']);
+    expect(runtimeBindings.keys.toSet(), expectedFunctions);
+    expect(runtimeBindings.values.toSet(), hasLength(15));
+    const runtimeAliases = <String, String>{
+      'assignPublishedTemplateVersionV2': 'assignPublishedTemplateVersion',
+      'executeMaintenanceWorkflowCommandV2':
+          'executeMaintenanceWorkflowCommand',
+      'mutateAssetHierarchyV2': 'mutateAssetHierarchy',
+      'mutateChargeAbnormalityV2': 'mutateChargeAbnormality',
+    };
+    for (final alias in runtimeAliases.entries) {
+      expect(runtimeBindings[alias.key], runtimeBindings[alias.value]);
+    }
     expect(_strings(policy['trackedRuntimePackages']), hasLength(8));
     expect(_object(policy['mutationBoundary']).values, everyElement(isFalse));
     final privacy = _object(policy['privacyBoundary']);

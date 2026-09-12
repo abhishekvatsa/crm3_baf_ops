@@ -179,10 +179,29 @@ test("AST discovery binds the policy to all current Function exports", () => {
   );
   const discovered = discoverFunctionExports(repositoryRoot);
   assert.deepEqual(discovered, policyValue.sourceFunctionExports);
-  assert.equal(discovered.length, 15);
+  assert.equal(discovered.length, 19);
   assert.deepEqual(policyValue.sourcePendingDeploymentExports, [
+    "assignPublishedTemplateVersionV2",
+    "executeMaintenanceWorkflowCommandV2",
     "mutateAssetHierarchy",
+    "mutateAssetHierarchyV2",
+    "mutateChargeAbnormalityV2",
   ]);
+  const aliases = {
+    assignPublishedTemplateVersionV2: "assignPublishedTemplateVersion",
+    executeMaintenanceWorkflowCommandV2: "executeMaintenanceWorkflowCommand",
+    mutateAssetHierarchyV2: "mutateAssetHierarchy",
+    mutateChargeAbnormalityV2: "mutateChargeAbnormality",
+  };
+  assert.equal(new Set(Object.values(policyValue.sourceDeclaredRuntimeBindings)).size, 15);
+  for (const [wrapper, original] of Object.entries(aliases)) {
+    assert.ok(discovered.includes(wrapper));
+    assert.equal(
+      policyValue.sourceDeclaredRuntimeBindings[wrapper],
+      policyValue.sourceDeclaredRuntimeBindings[original],
+      `${wrapper} must retain its reviewed V1 runtime identity`,
+    );
+  }
 });
 
 test("dependency summaries retain hashes, counts and selected versions only", () => {

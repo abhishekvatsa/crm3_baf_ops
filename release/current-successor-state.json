@@ -98,7 +98,7 @@
     }
   },
   "localStore": {
-    "schemaVersion": 10,
+    "schemaVersion": 11,
     "verifier": "tools/isar/verify_v4_isar_schema.py --release"
   },
   "appCheck": {

@@ -13,6 +13,8 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/baf_knowledge_mod
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/knowledge_correction_promoter.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/repositories/knowledge_correction_source_repository.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   test('A-03 exact operation inventory is complete and source-enforced', () {
     final result = Process.runSync(_dartExecutable(), const <String>[
@@ -109,22 +111,18 @@ void main() {
   });
 
   test('loading, error, offline and denial states remain user-visible', () {
-    final userManagement =
-        File(
-          'lib/features/admin/presentation/user_management_screen.dart',
-        ).readAsStringSync();
-    final closedHistory =
-        File(
-          'lib/features/maintenance/presentation/closed_tickets_screen.dart',
-        ).readAsStringSync();
-    final corrections =
-        File(
-          'lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart',
-        ).readAsStringSync();
-    final diagnostics =
-        File(
-          'lib/features/admin/presentation/local_diagnostics_screen.dart',
-        ).readAsStringSync();
+    final userManagement = File(
+      'lib/features/admin/presentation/user_management_screen.dart',
+    ).readAsStringSync();
+    final closedHistory = readDartLibrarySource(
+      'lib/features/maintenance/presentation/closed_tickets_screen.dart',
+    );
+    final corrections = File(
+      'lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart',
+    ).readAsStringSync();
+    final diagnostics = File(
+      'lib/features/admin/presentation/local_diagnostics_screen.dart',
+    ).readAsStringSync();
     expect(userManagement, contains('Could not verify admin access'));
     expect(userManagement, contains('Could not load users'));
     expect(closedHistory, contains('Could not verify closure-history access'));
