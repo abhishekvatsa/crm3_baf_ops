@@ -285,7 +285,9 @@ So for this candidate, in CI:
 | canonical audit (150/150) | **never ran in CI** |
 
 The correct description is: **four jobs passed; the Flutter host job was blocked
-before its analysis and test stages.** The 2253 / 1 skipped / 1 failed figure and
+before its analysis and test stages.** The job also evaluates the **pull-request
+merge tree**, not the bare branch head, so its result is not a statement about
+the head commit in isolation. The 2253 / 1 skipped / 1 failed figure and
 the 150/150 audit are local evidence only, and should not be read as CI results
 for this head. An earlier draft of this record invited that reading.
 

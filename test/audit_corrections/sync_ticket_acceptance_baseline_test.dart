@@ -246,6 +246,8 @@ void main() {
 
     // The exact readback was consulted rather than trusting the receipt alone.
     expect(remote.calls, contains('readMaintenanceIssueCommandServerState'));
+    expect(remote.unexpected, isEmpty,
+        reason: 'recovery completed without any fall-through path');
 
     final stored = await storedTicket();
     expect(stored!.isSynced, isTrue,
@@ -260,6 +262,30 @@ void main() {
     remote.serverState = serverState(loggedBy: 'operator-2');
 
     await service().syncTicketsForTest();
+
+    // The refusal must come from recovery having run and rejected this
+    // evidence — not from some later path failing for its own reasons and
+    // leaving the record untouched. Assert the sequence, then the outcome.
+    expect(gateway.commands, hasLength(1),
+        reason: 'recovery replayed the original creation command');
+    expect(gateway.commands.single.commandId, commandId);
+    expect(remote.calls, contains('readMaintenanceIssueCommandServerState'),
+        reason: 'the exact readback was consulted before any decision');
+    // What actually happens next, recorded rather than assumed. Recovery
+    // catches its own failure and returns null, and the loop then continues
+    // into generic batch synchronisation — three attempts, from the retry
+    // loop. That fall-through is why the first version of this test passed
+    // without asserting anything about recovery: the generic path failed
+    // against this double too, leaving the record unsynchronised either way.
+    //
+    // Whether contradictory creation evidence should permit a generic push at
+    // all is a live question for the durable-dispatch design. It is pinned
+    // here so a change in that behaviour is visible instead of silent.
+    expect(
+      remote.unexpected.toSet(),
+      <String>{'Symbol("batchUpsertTickets")'},
+      reason: 'the only fall-through is the generic batch push',
+    );
 
     final stored = await storedTicket();
     expect(stored!.isSynced, isFalse,
@@ -350,11 +376,20 @@ class _Remote extends MaintenanceRepository {
     return serverState;
   }
 
-  // Anything else names itself, so a silent fall-through to generic update or
-  // batch-push logic cannot be mistaken for recovery succeeding.
+  /// Calls this double was not expected to receive.
+  ///
+  /// Throwing alone is not enough. Production catches recovery failures and
+  /// falls through to other synchronisation paths, which catch their own
+  /// errors, so an UnimplementedError can be swallowed and leave the ticket
+  /// unsynchronised — exactly the outcome a negative test asserts. Recording
+  /// the call as well turns "it named itself" into "it fails the test".
+  final List<String> unexpected = <String>[];
+
   @override
-  dynamic noSuchMethod(Invocation i) =>
-      throw UnimplementedError(i.memberName.toString());
+  dynamic noSuchMethod(Invocation i) {
+    unexpected.add(i.memberName.toString());
+    throw UnimplementedError(i.memberName.toString());
+  }
 }
 
 class _SilentAudit implements AuditRepository {
