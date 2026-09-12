@@ -23,6 +23,9 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import 'create_directive_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/persistence/durable_submission_repository.dart';
+
+part 'directives_screen.burner_recovery.dart';
 
 class DirectivesScreen extends ConsumerStatefulWidget {
   const DirectivesScreen({super.key});
@@ -81,11 +84,10 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
       icon: _screenIcon,
       accent: BafColors.directives,
       body: directivesAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading operational directives',
-              color: BafColors.directives,
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Loading operational directives',
+          color: BafColors.directives,
+        ),
         error: (e, _) => _ErrorState(message: 'Error: $e'),
         data: (allDirectives) {
           final visible = _visibleDirectives(allDirectives, appUser);
@@ -108,10 +110,9 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                     totalCount: visible.length,
                     query: _query,
                     onQueryChanged: (value) => setState(() => _query = value),
-                    onCreate:
-                        appUser.canCreateDirective
-                            ? _openCreateDirective
-                            : null,
+                    onCreate: appUser.canCreateDirective
+                        ? _openCreateDirective
+                        : null,
                   ),
                   const SizedBox(height: BafSpacing.md),
                   if (directives.isEmpty)
@@ -357,6 +358,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
   Timer? _timer;
   bool _isAcknowledging = false;
   bool _isClosing = false;
+  void _setBurnerClosing(bool value) {
+    if (mounted) setState(() => _isClosing = value);
+  }
 
   @override
   void initState() {
@@ -479,11 +483,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                           children: [
                             if (canAcknowledge)
                               FilledButton.icon(
-                                onPressed:
-                                    _isAcknowledging
-                                        ? null
-                                        : () =>
-                                            _acknowledgeDirective(directive),
+                                onPressed: _isAcknowledging
+                                    ? null
+                                    : () => _acknowledgeDirective(directive),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: BafColors.directives,
                                   foregroundColor: Colors.white,
@@ -494,17 +496,16 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                                     ),
                                   ),
                                 ),
-                                icon:
-                                    _isAcknowledging
-                                        ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                        : const Icon(Icons.task_alt_rounded),
+                                icon: _isAcknowledging
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.task_alt_rounded),
                                 label: Text(
                                   _isAcknowledging
                                       ? 'Acknowledging…'
@@ -516,10 +517,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                               ),
                             if (canClose)
                               FilledButton.icon(
-                                onPressed:
-                                    _isClosing
-                                        ? null
-                                        : () => _closeDirective(directive),
+                                onPressed: _isClosing
+                                    ? null
+                                    : () => _closeDirective(directive),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: BafColors.sync,
                                   foregroundColor: Colors.white,
@@ -530,19 +530,16 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                                     ),
                                   ),
                                 ),
-                                icon:
-                                    _isClosing
-                                        ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                        : const Icon(
-                                          Icons.check_circle_rounded,
+                                icon: _isClosing
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
                                         ),
+                                      )
+                                    : const Icon(Icons.check_circle_rounded),
                                 label: Text(
                                   _isClosing ? 'Closing…' : 'Close Directive',
                                   style: const TextStyle(
@@ -553,6 +550,22 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                           ],
                         ),
                       ],
+                      if (directive.firestoreId?.startsWith(
+                                'burner_round_red_hot_',
+                              ) ==
+                              true &&
+                          appUser?.canRecordBurnerConditionRound == true)
+                        TextButton.icon(
+                          onPressed: _isClosing
+                              ? null
+                              : () => _checkSavedBurnerDirective(
+                                  directive,
+                                  appUser!,
+                                  onlySaved: true,
+                                ),
+                          icon: const Icon(Icons.history),
+                          label: const Text('Check saved Burner/UV compliance'),
+                        ),
                     ],
                   ),
                 ),
@@ -590,13 +603,12 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
       await repo.acknowledgeDirective(id, actor: appUser);
 
-      final outcome =
-          kIsWeb
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'directive_acknowledged',
-                force: true,
-              );
+      final outcome = kIsWeb
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'directive_acknowledged',
+              force: true,
+            );
 
       if (!mounted) return;
 
@@ -650,6 +662,16 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       return;
     }
 
+    if (burnerBinding != null &&
+        await _checkSavedBurnerDirective(
+          directive,
+          appUser,
+          onlySaved: false,
+        )) {
+      return;
+    }
+    if (!mounted) return;
+
     final closure = await showDialog<_DirectiveClosureDraft>(
       context: context,
       builder: (_) => _CloseDirectiveDialog(burnerBinding: burnerBinding),
@@ -666,8 +688,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     var retryIdentityCleanupPending = false;
 
     try {
-      final closureRemarks =
-          closure.remarks.trim().isEmpty ? null : closure.remarks.trim();
+      final closureRemarks = closure.remarks.trim().isEmpty
+          ? null
+          : closure.remarks.trim();
 
       final repo = ref.read(directiveRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
@@ -716,13 +739,12 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         retryIdentityCleanupPending = finalized.retryIdentityCleanupPending;
       }
 
-      final outcome =
-          kIsWeb
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'directive_closed',
-                force: true,
-              );
+      final outcome = kIsWeb
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'directive_closed',
+              force: true,
+            );
 
       if (!mounted) return;
 
@@ -730,8 +752,8 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         SyncRequestOutcome.succeeded => (
           conditionRecorded
               ? retryIdentityCleanupPending
-                  ? 'Burner condition updated and directive closed. Retry cleanup remains queued on this device.'
-                  : 'Burner condition updated; directive closed and synchronized.'
+                    ? 'Burner condition updated and directive closed. Retry cleanup remains queued on this device.'
+                    : 'Burner condition updated; directive closed and synchronized.'
               : 'Directive closed and synchronized.',
           BafColors.sync,
         ),
@@ -851,6 +873,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
           current: current,
           directiveId: directiveId,
           expectedDirectiveVersion: directive.version,
+          wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
           dispositions: dispositions,
           actor: actor,
           closureRemarks: closureRemarks,
@@ -1040,13 +1063,11 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
                             child: Text(value.label),
                           ),
                       ],
-                      validator:
-                          (value) =>
-                              value == null ? 'Select the outcome.' : null,
-                      onChanged:
-                          (value) => setState(() {
-                            _dispositions[position] = value;
-                          }),
+                      validator: (value) =>
+                          value == null ? 'Select the outcome.' : null,
+                      onChanged: (value) => setState(() {
+                        _dispositions[position] = value;
+                      }),
                     ),
                     const SizedBox(height: 10),
                   ],

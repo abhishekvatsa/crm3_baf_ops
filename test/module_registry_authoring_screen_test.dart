@@ -14,6 +14,83 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'registry reason retains its original author through verification failure',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      var writes = 0;
+      String? savedReason;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => actors.stream),
+          ],
+          child: MaterialApp(
+            home: ModuleRegistryAuthoringScreen(
+              draftModules: [_module()],
+              loadDraftRevisions: () async => const [],
+              loadPublishedSources: () async => const [],
+              createDraft: (actor, module, reason) async {
+                expect(actor.uid, 'admin-1');
+                writes++;
+                savedReason = reason;
+              },
+              updateDraft: (actor, revision, module, reason) async {},
+              publishDraft: (actor, revision, reason) async {},
+              retireRevision: (actor, revision, reason) async {},
+              retireFamily: (actor, family, reason) async {},
+            ),
+          ),
+        ),
+      );
+      actors.add(_admin());
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Create registry draft'),
+      );
+      await tester.pumpAndSettle();
+      final reason = find.byType(TextField).last;
+      await tester.enterText(
+        reason,
+        'Create the original authored clamp check',
+      );
+      actors.addError(StateError('account refresh unavailable'));
+      await tester.pumpAndSettle();
+      expect(find.text('Account verification required'), findsOneWidget);
+      expect(writes, 0);
+      actors.add(
+        AppUser(
+          uid: 'another-admin',
+          name: 'Another Admin',
+          email: 'other@example.invalid',
+          roles: const [AppRole.admin],
+          isApproved: true,
+          createdAt: DateTime(2026),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Return to the account that started'),
+        findsOneWidget,
+      );
+      expect(writes, 0);
+      actors.add(_admin());
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(reason).controller!.text,
+        'Create the original authored clamp check',
+      );
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(savedReason, 'Create the original authored clamp check');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'registry authoring creates draft from selected composer module',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 1200));
@@ -31,8 +108,8 @@ void main() {
           ModuleRegistryAuthoringScreen(
             draftModules: [_module()],
             loadDraftRevisions: () async => const <ModuleRegistryRevision>[],
-            loadPublishedSources:
-                () async => const <PublishedRegistryModuleSource>[],
+            loadPublishedSources: () async =>
+                const <PublishedRegistryModuleSource>[],
             createDraft: (actor, module, reason) async {
               mutationActor = actor;
               createdModule = module;
@@ -91,8 +168,8 @@ void main() {
         ModuleRegistryAuthoringScreen(
           draftModules: [_module()],
           loadDraftRevisions: () async => [draft],
-          loadPublishedSources:
-              () async => const <PublishedRegistryModuleSource>[],
+          loadPublishedSources: () async =>
+              const <PublishedRegistryModuleSource>[],
           createDraft: (actor, module, reason) async {},
           updateDraft: (actor, revision, module, reason) async {},
           publishDraft: (actor, revision, reason) async {
@@ -182,8 +259,8 @@ void main() {
                 source: 'module_registry/family-1',
               );
             },
-            loadPublishedSources:
-                () async => const <PublishedRegistryModuleSource>[],
+            loadPublishedSources: () async =>
+                const <PublishedRegistryModuleSource>[],
             createDraft: (actor, module, reason) async {
               createCalled = true;
             },

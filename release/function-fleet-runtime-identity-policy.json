@@ -3,8 +3,18 @@
   "policyId": "FUNCTION-FLEET-RUNTIME-IDENTITY-POLICY-V1",
   "declarationStatus": "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING",
   "deploymentPendingFunctionBindings": [
-    "mutateAssetHierarchy"
+    "assignPublishedTemplateVersionV2",
+    "executeMaintenanceWorkflowCommandV2",
+    "mutateAssetHierarchy",
+    "mutateAssetHierarchyV2",
+    "mutateChargeAbnormalityV2"
   ],
+  "runtimeIdentityAliases": {
+    "assignPublishedTemplateVersionV2": "assignPublishedTemplateVersion",
+    "executeMaintenanceWorkflowCommandV2": "executeMaintenanceWorkflowCommand",
+    "mutateAssetHierarchyV2": "mutateAssetHierarchy",
+    "mutateChargeAbnormalityV2": "mutateChargeAbnormality"
+  },
   "productionProjectId": "crm3-baf-ops-b8638",
   "targetProjectBinding": {
     "builtInParameter": "PROJECT_ID",
@@ -23,6 +33,13 @@
   },
   "functionBindings": {
     "assignPublishedTemplateVersion": {
+      "runtimeServiceAccountId": "crm3-fn-assign-template",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "assignPublishedTemplateVersionV2": {
       "runtimeServiceAccountId": "crm3-fn-assign-template",
       "requiredProjectRoles": [
         "roles/datastore.user"
@@ -50,6 +67,13 @@
       ],
       "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
     },
+    "executeMaintenanceWorkflowCommandV2": {
+      "runtimeServiceAccountId": "crm3-fn-workflow-command",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
     "getBackendReleaseIdentity": {
       "runtimeServiceAccountId": "crm3-backend-identity-runtime",
       "requiredProjectRoles": [
@@ -68,6 +92,20 @@
       ],
       "workloadClass": "SCHEDULED_FIRESTORE_MUTATION"
     },
+    "mutateAssetHierarchy": {
+      "runtimeServiceAccountId": "crm3-fn-asset-hierarchy",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "mutateAssetHierarchyV2": {
+      "runtimeServiceAccountId": "crm3-fn-asset-hierarchy",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
     "mutateChargeAbnormality": {
       "runtimeServiceAccountId": "crm3-fn-charge-abnormality",
       "requiredProjectRoles": [
@@ -75,8 +113,8 @@
       ],
       "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
     },
-    "mutateAssetHierarchy": {
-      "runtimeServiceAccountId": "crm3-fn-asset-hierarchy",
+    "mutateChargeAbnormalityV2": {
+      "runtimeServiceAccountId": "crm3-fn-charge-abnormality",
       "requiredProjectRoles": [
         "roles/datastore.user"
       ],

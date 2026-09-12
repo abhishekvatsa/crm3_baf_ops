@@ -1,14 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/security/actor_session_cache_trust.dart';
+import '../../../core/providers/durable_submission_provider.dart';
+import '../../../core/release/command_capability_service.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/burner_condition_round.dart';
 import '../services/burner_condition_round_idempotency_store.dart';
 import '../services/burner_condition_round_service.dart';
+import '../services/burner_condition_submission_controller.dart';
 
 const burnerConditionRoundReportLimit = 1000;
 const burnerConditionRoundHistoryDisclosure =
@@ -20,11 +24,13 @@ final class LatestBurnerConditionRoundsQuery {
     required String actorUid,
     required Iterable<String> assetInstanceIds,
   }) {
-    final normalizedIds = assetInstanceIds
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet()
-      .toList(growable: false)..sort();
+    final normalizedIds =
+        assetInstanceIds
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
     return LatestBurnerConditionRoundsQuery._(
       actorUid: actorUid.trim(),
       assetInstanceIds: List<String>.unmodifiable(normalizedIds),
@@ -56,50 +62,51 @@ final class LatestBurnerConditionRoundsQuery {
   int get hashCode => Object.hash(actorUid, Object.hashAll(assetInstanceIds));
 }
 
-final latestBurnerConditionRoundsProvider = StreamProvider.autoDispose.family<
-  Map<String, BurnerConditionRound>,
-  LatestBurnerConditionRoundsQuery
->((ref, query) {
-  final actorAsync = ref.watch(currentAppUserProvider);
-  if (actorAsync.isLoading) {
-    throw StateError('Burner-condition access is still being verified.');
-  }
-  if (actorAsync.hasError) {
-    throw StateError('Burner-condition access could not be verified.');
-  }
-  final actor = actorAsync.value;
-  if (actor == null ||
-      !actor.isApproved ||
-      actor.uid != query.actorUid ||
-      query.actorUid.isEmpty) {
-    throw StateError('Approved burner-condition access is required.');
-  }
-  if (query.assetInstanceIds.isEmpty) {
-    return Stream<Map<String, BurnerConditionRound>>.value(
-      const <String, BurnerConditionRound>{},
-    );
-  }
-  final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
-    ..observeActor(query.actorUid);
-  final firestore = FirebaseFirestore.instance;
-  final snapshots = firestore
-      .collection('burner_condition_current')
-      .snapshots(includeMetadataChanges: true);
-  return admitActorSessionSnapshots(
-    snapshots,
-    trust: cacheTrust,
-    actorUid: query.actorUid,
-    queryKey: query.cacheKey,
-    isFromCache: (snapshot) => snapshot.metadata.isFromCache,
-    hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
-  ).asyncMap(
-    (snapshot) => _resolveCurrentBurnerConditionRounds(
-      firestore: firestore,
-      pointerSnapshot: snapshot,
-      assetInstanceIds: query.assetInstanceIds,
-    ),
-  );
-});
+final latestBurnerConditionRoundsProvider = StreamProvider.autoDispose
+    .family<
+      Map<String, BurnerConditionRound>,
+      LatestBurnerConditionRoundsQuery
+    >((ref, query) {
+      final actorAsync = ref.watch(currentAppUserProvider);
+      if (actorAsync.isLoading) {
+        throw StateError('Burner-condition access is still being verified.');
+      }
+      if (actorAsync.hasError) {
+        throw StateError('Burner-condition access could not be verified.');
+      }
+      final actor = actorAsync.value;
+      if (actor == null ||
+          !actor.isApproved ||
+          actor.uid != query.actorUid ||
+          query.actorUid.isEmpty) {
+        throw StateError('Approved burner-condition access is required.');
+      }
+      if (query.assetInstanceIds.isEmpty) {
+        return Stream<Map<String, BurnerConditionRound>>.value(
+          const <String, BurnerConditionRound>{},
+        );
+      }
+      final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
+        ..observeActor(query.actorUid);
+      final firestore = FirebaseFirestore.instance;
+      final snapshots = firestore
+          .collection('burner_condition_current')
+          .snapshots(includeMetadataChanges: true);
+      return admitActorSessionSnapshots(
+        snapshots,
+        trust: cacheTrust,
+        actorUid: query.actorUid,
+        queryKey: query.cacheKey,
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
+      ).asyncMap(
+        (snapshot) => _resolveCurrentBurnerConditionRounds(
+          firestore: firestore,
+          pointerSnapshot: snapshot,
+          assetInstanceIds: query.assetInstanceIds,
+        ),
+      );
+    });
 
 Future<Map<String, BurnerConditionRound>> _resolveCurrentBurnerConditionRounds({
   required FirebaseFirestore firestore,
@@ -180,19 +187,47 @@ Future<Map<String, BurnerConditionRound>> _resolveCurrentBurnerConditionRounds({
   );
 }
 
-typedef BurnerConditionRoundQuery =
-    ({
-      String actorUid,
-      DateTime startInclusive,
-      DateTime endExclusive,
-      String? assetInstanceId,
-    });
+typedef BurnerConditionRoundQuery = ({
+  String actorUid,
+  DateTime startInclusive,
+  DateTime endExclusive,
+  String? assetInstanceId,
+});
 
 final burnerConditionRoundServiceProvider =
     Provider<BurnerConditionRoundService>((ref) {
       return BurnerConditionRoundService(
-        idempotencyStore: ref.watch(
-          burnerConditionRoundIdempotencyStoreProvider,
+        submissions: BurnerConditionSubmissionController(
+          store: ref.watch(durableSubmissionRepositoryProvider),
+          requireActor: () {
+            final state = ref.read(currentAppUserProvider);
+            if (state.isLoading ||
+                state.hasError ||
+                state.valueOrNull == null) {
+              throw const BurnerConditionRoundException(
+                'Current account access must be verified before continuing.',
+                code: 'permission-denied',
+              );
+            }
+            return state.valueOrNull!;
+          },
+          requireCapability: (uid) async {
+            await const CommandCapabilityService().requireCapabilities(
+              callableName: burnerConditionRoundCallableName,
+              originActorUid: uid,
+              requiredCapabilities: {'assetHierarchy.v2'},
+            );
+          },
+          invoke: (envelope) async =>
+              (await FirebaseFunctions.instanceFor(
+                        region: burnerConditionRoundCallableRegion,
+                      )
+                      .httpsCallable(burnerConditionRoundCallableName)
+                      .call<Object?>(envelope))
+                  .data,
+          readLegacy: ref
+              .watch(burnerConditionRoundIdempotencyStoreProvider)
+              .readRawEvidence,
         ),
       );
     });
@@ -218,58 +253,61 @@ final burnerConditionRoundCacheTrustProvider = Provider<ActorSessionCacheTrust>(
   },
 );
 
-final burnerConditionRoundsProvider = StreamProvider.autoDispose.family<
-  List<BurnerConditionRound>,
-  BurnerConditionRoundQuery
->((ref, query) {
-  final actorAsync = ref.watch(currentAppUserProvider);
-  if (actorAsync.isLoading) {
-    throw StateError('Burner-report access is still being verified.');
-  }
-  if (actorAsync.hasError) {
-    throw StateError('Burner-report access could not be verified.');
-  }
-  final actor = actorAsync.value;
-  if (actor == null ||
-      !actor.canViewReports ||
-      actor.uid != query.actorUid ||
-      query.actorUid.trim().isEmpty) {
-    throw StateError('Approved burner-report access is required.');
-  }
-  final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
-    ..observeActor(query.actorUid);
-  Query<Map<String, dynamic>> rounds = FirebaseFirestore.instance.collection(
-    'burner_condition_rounds',
-  );
-  final assetInstanceId = query.assetInstanceId?.trim();
-  if (assetInstanceId != null && assetInstanceId.isNotEmpty) {
-    rounds = rounds.where('assetInstanceId', isEqualTo: assetInstanceId);
-  }
-  final snapshots = rounds
-      .where(
-        'observedAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(query.startInclusive),
-      )
-      .where('observedAt', isLessThan: Timestamp.fromDate(query.endExclusive))
-      .orderBy('observedAt', descending: true)
-      .limit(burnerConditionRoundReportLimit)
-      .snapshots(includeMetadataChanges: true);
-  return admitActorSessionSnapshots(
-    snapshots,
-    trust: cacheTrust,
-    actorUid: query.actorUid,
-    queryKey: burnerConditionRoundQueryKey(query),
-    isFromCache: (snapshot) => snapshot.metadata.isFromCache,
-    hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
-  ).map(
-    (snapshot) => List<BurnerConditionRound>.unmodifiable(
-      snapshot.docs.map(
-        (document) =>
-            BurnerConditionRound.fromMap(document.data(), document.id),
-      ),
-    ),
-  );
-});
+final burnerConditionRoundsProvider = StreamProvider.autoDispose
+    .family<List<BurnerConditionRound>, BurnerConditionRoundQuery>((
+      ref,
+      query,
+    ) {
+      final actorAsync = ref.watch(currentAppUserProvider);
+      if (actorAsync.isLoading) {
+        throw StateError('Burner-report access is still being verified.');
+      }
+      if (actorAsync.hasError) {
+        throw StateError('Burner-report access could not be verified.');
+      }
+      final actor = actorAsync.value;
+      if (actor == null ||
+          !actor.canViewReports ||
+          actor.uid != query.actorUid ||
+          query.actorUid.trim().isEmpty) {
+        throw StateError('Approved burner-report access is required.');
+      }
+      final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
+        ..observeActor(query.actorUid);
+      Query<Map<String, dynamic>> rounds = FirebaseFirestore.instance
+          .collection('burner_condition_rounds');
+      final assetInstanceId = query.assetInstanceId?.trim();
+      if (assetInstanceId != null && assetInstanceId.isNotEmpty) {
+        rounds = rounds.where('assetInstanceId', isEqualTo: assetInstanceId);
+      }
+      final snapshots = rounds
+          .where(
+            'observedAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(query.startInclusive),
+          )
+          .where(
+            'observedAt',
+            isLessThan: Timestamp.fromDate(query.endExclusive),
+          )
+          .orderBy('observedAt', descending: true)
+          .limit(burnerConditionRoundReportLimit)
+          .snapshots(includeMetadataChanges: true);
+      return admitActorSessionSnapshots(
+        snapshots,
+        trust: cacheTrust,
+        actorUid: query.actorUid,
+        queryKey: burnerConditionRoundQueryKey(query),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
+      ).map(
+        (snapshot) => List<BurnerConditionRound>.unmodifiable(
+          snapshot.docs.map(
+            (document) =>
+                BurnerConditionRound.fromMap(document.data(), document.id),
+          ),
+        ),
+      );
+    });
 
 String burnerConditionRoundQueryKey(BurnerConditionRoundQuery query) {
   final assetInstanceId = query.assetInstanceId?.trim();

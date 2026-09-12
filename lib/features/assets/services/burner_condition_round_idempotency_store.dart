@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -149,6 +151,19 @@ class BurnerConditionRoundIdempotencyStore {
     final records = _journal(normalizedActorUid).readAll(preferences);
     return records.isEmpty ? null : records.first.value;
   });
+
+  /// Native review imports exact old bytes; no decoder, rewrite, or pruning.
+  Future<Map<String, Uint8List>> readRawEvidence(String actorUid) =>
+      _serial(() async {
+        final preferences = await _preferencesLoader();
+        await preferences.reload();
+        return {
+          for (final row in _journal(
+            _required(actorUid, 'actorUid'),
+          ).rawEvidence(preferences))
+            row.key: row.bytes,
+        };
+      });
 
   String _key(String actorUid) => '$_keyPrefix$actorUid';
 

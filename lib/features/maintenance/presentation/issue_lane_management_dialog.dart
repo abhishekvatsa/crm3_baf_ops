@@ -24,9 +24,13 @@ class IssueLaneChange {
 Future<IssueLaneChange?> showIssueLaneManagementDialog(
   BuildContext context, {
   required MaintenanceRecord ticket,
+  Widget Function(Widget)? guard,
 }) => showDialog<IssueLaneChange>(
   context: context,
-  builder: (_) => _IssueLaneManagementDialog(ticket: ticket),
+  builder: (_) {
+    final dialog = _IssueLaneManagementDialog(ticket: ticket);
+    return guard?.call(dialog) ?? dialog;
+  },
 );
 
 class _IssueLaneManagementDialog extends StatefulWidget {

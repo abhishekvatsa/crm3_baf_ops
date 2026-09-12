@@ -47,11 +47,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreMaintenance.getTicketsByFirestoreIds(
         firestoreIds,
@@ -91,13 +90,41 @@ extension _SyncServiceTicketsTemplates on SyncService {
         var remote = remoteMap[record.firestoreId];
 
         if (record.isDeleted) {
-          if (remote == null) {
-            // The issue never crossed the governed creation boundary, so no
-            // remote record exists to tombstone. Retain the local deletion and
-            // stop retrying an impossible direct create.
-            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
-            skippedButSyncedRecords.add(record);
-            lastSuccessCount++;
+          try {
+            // The collection lookup can be cached. Neither cached absence nor
+            // a cached tombstone can settle a pending local deletion.
+            remote = await _firestoreMaintenance
+                .readMaintenanceIssueCommandServerState(record.firestoreId!);
+            if (remote == null) {
+              // Even server absence does not prove that an earlier creation
+              // request cannot still commit. Cancellation needs a durable
+              // never-dispatched creation owner, which is not present yet.
+              throw const WorkflowException(
+                WorkflowErrorCode.unavailable,
+                'The server currently has no matching issue. Deletion remains '
+                'pending because an earlier creation may still be in flight.',
+              );
+            }
+            if (remote.firestoreId != record.firestoreId ||
+                remote.version < 1 ||
+                _cleanMaintenanceText(record.loggedByUid) == null ||
+                remote.loggedByUid != record.loggedByUid) {
+              throw const WorkflowException(
+                WorkflowErrorCode.failedPrecondition,
+                'The server issue identity does not match this pending deletion.',
+              );
+            }
+            if (!remote.isDeleted &&
+                (!_sameMaintenanceCreationIdentity(record, remote) ||
+                    _isRemoteNewer(record, remote))) {
+              throw const WorkflowException(
+                WorkflowErrorCode.failedPrecondition,
+                'The pending deletion needs reconciliation with the current '
+                'server issue. Local work is preserved.',
+              );
+            }
+          } catch (error) {
+            await _recordMaintenancePushFailure(record, error);
             continue;
           }
           if (remote.isDeleted) {
@@ -222,11 +249,35 @@ extension _SyncServiceTicketsTemplates on SyncService {
         // continue, using its exact server read rather than a cached lookup.
         remote = recoveredCreation.serverRecord!;
 
-        final replayReceipt = await _tryPushDecomposedMaintenanceTicket(
-          record,
-          remote,
-        );
+        _MaintenanceLifecycleReplayReceipt? replayReceipt;
+        try {
+          replayReceipt = await _tryPushDecomposedMaintenanceTicket(
+            record,
+            remote,
+          );
+        } catch (error) {
+          await _recordMaintenancePushFailure(record, error);
+          continue;
+        }
         if (replayReceipt != null) {
+          final appliedActorUid = _cleanMaintenanceText(
+            replayReceipt.serverRecord.wasTechnicallyResolved
+                ? replayReceipt.serverRecord.closedByUid
+                : replayReceipt.serverRecord.reopenedByUid,
+          );
+          if (appliedActorUid == null ||
+              appliedActorUid !=
+                  _cleanMaintenanceText(_authentication.currentUser?.uid)) {
+            await _recordMaintenancePushFailure(
+              record,
+              const WorkflowException(
+                WorkflowErrorCode.unavailable,
+                'The original actor must confirm the accepted lifecycle '
+                'before local reconciliation.',
+              ),
+            );
+            continue;
+          }
           final adopted = await _maintenanceRepo
               .applyMaintenanceLifecycleReplayReceiptForSync(
                 remote: replayReceipt.serverRecord,
@@ -274,7 +325,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
           entityType: 'maintenance_ticket',
           records: skippedButSyncedRecords,
           evidence:
-              'Exact remote absence or tombstone state was read and the matching local snapshot was reconciled.',
+              'An exact server tombstone was read and the matching local deletion snapshot was reconciled.',
         );
       }
 
@@ -333,6 +384,21 @@ extension _SyncServiceTicketsTemplates on SyncService {
         }
       }
     }
+  }
+
+  Future<void> _recordMaintenancePushFailure(
+    MaintenanceRecord record,
+    Object error,
+  ) async {
+    lastFailureCount++;
+    final detail = _buildPushFailureDetail(
+      entityType: 'maintenance_ticket',
+      entityId: record.firestoreId!,
+      firestoreId: record.firestoreId,
+      error: error,
+    );
+    await _upsertSyncRejection(detail);
+    _appendPushFailureDetail(detail);
   }
 
   String? _maintenanceEvidenceIntegrityError(MaintenanceRecord record) {
@@ -635,9 +701,11 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord? remote,
   ) async {
     final plan = _maintenanceLifecycleReplayPlan(local, remote);
-    if (plan.isEmpty) return null;
 
     try {
+      if (plan.isEmpty) {
+        return await _tryConfirmCompletedMaintenanceLifecycle(local, remote);
+      }
       var stepVersion =
           remote?.version ?? maintenanceCreateReplayVersion(local);
       _MaintenanceLifecycleReplayReceipt? receipt;
@@ -653,27 +721,132 @@ extension _SyncServiceTicketsTemplates on SyncService {
           ),
         };
 
-        await _retry(() async {
-          receipt = await _applyMaintenanceLifecycleReplayStep(
-            local.firestoreId!,
-            stepData,
-          );
-        }, shouldRetry: _shouldRetryWorkflowCommand);
+        // The step itself checks exact readback after an uncertain write.
+        // Failed verification ends this pass; a future pass must start with
+        // fresh server state before deciding which transition is still needed.
+        receipt = await _applyMaintenanceLifecycleReplayStep(
+          local.firestoreId!,
+          stepData,
+        );
 
         stepVersion = stepData['version'] as int;
       }
       return receipt;
     } catch (error, stackTrace) {
-      // If an early replay step committed but a later one did not, falling
-      // through to the normal batch path allows the existing push diagnostics to
-      // either complete the now single-hop transition or surface the remaining
-      // rejection without losing local evidence.
       debugPrint(
         '⚠️ Maintenance lifecycle replay did not complete for ticket ${local.id}: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
+      // Null means no applicable lifecycle work. Once attempted, uncertainty
+      // or contradictory readback never authorizes a different write route.
+      final contradiction =
+          error is StateError ||
+          error is FormatException ||
+          (error is WorkflowException &&
+              const WorkflowRetryPolicy().classify(error) ==
+                  WorkflowRetryDisposition.reject);
+      throw WorkflowException(
+        contradiction
+            ? WorkflowErrorCode.failedPrecondition
+            : WorkflowErrorCode.unavailable,
+        contradiction
+            ? 'The close/reopen outcome needs reconciliation. Local changes '
+                  'are preserved; no fallback update was sent.'
+            : 'The close/reopen outcome could not be confirmed. Local changes '
+                  'remain pending; no fallback update was sent.',
+        details: <String, Object?>{
+          'reasonCode': contradiction
+              ? 'maintenance-lifecycle-reconciliation-required'
+              : 'maintenance-lifecycle-verification-unavailable',
+        },
+      );
+    }
+  }
+
+  Future<_MaintenanceLifecycleReplayReceipt?>
+  _tryConfirmCompletedMaintenanceLifecycle(
+    MaintenanceRecord local,
+    MaintenanceRecord? remote,
+  ) async {
+    // A restarted sync can encounter the final step already committed. Only
+    // the exact unchanged lifecycle intent can converge without another write.
+    final currentUid = _cleanMaintenanceText(_authentication.currentUser?.uid);
+    if (remote == null ||
+        remote.isDeleted ||
+        local.isDeleted ||
+        local.status != remote.status ||
+        _maintenancePinnedFieldDiff(local, remote) != 'none') {
       return null;
     }
+    final Map<String, dynamic> stepData;
+    if (local.wasTechnicallyResolved) {
+      if (remote.version < local.version) return null;
+      if (currentUid == null ||
+          !_canReplayMaintenanceCloseForCurrentUser(
+            _maintenanceCloseEvidence(local),
+            currentUid,
+          )) {
+        throw const WorkflowException(
+          WorkflowErrorCode.unavailable,
+          'The original closing actor must confirm this outcome.',
+        );
+      }
+      if (!persistedJsonEquivalent(
+        local.resolutionHistoryJson,
+        remote.resolutionHistoryJson,
+      )) {
+        throw StateError('The accepted closure history needs reconciliation.');
+      }
+      // A field-scoped closure may have rebased over a server acknowledgement.
+      // After a lost confirmation the saved local revision is still the older
+      // one. Adopt the observed revision only when every saved closure field,
+      // actor, timestamp, subject and original history matches fresh readback;
+      // a higher revision alone is never evidence of this closure.
+      stepData = _maintenanceCloseReplayStepData(
+        local,
+        remote,
+        remote.version - 1,
+      )..['version'] = remote.version;
+    } else if (_hasMaintenanceReopenEvidence(local)) {
+      if (local.version != remote.version) return null;
+      // Convergence must not manufacture legacy attribution from whoever is
+      // signed in now. Only the saved, explicit actor can confirm this intent.
+      if (currentUid == null ||
+          _cleanMaintenanceText(local.reopenedByUid) != currentUid) {
+        throw const WorkflowException(
+          WorkflowErrorCode.unavailable,
+          'The original reopening actor must confirm this outcome.',
+        );
+      }
+      stepData = _maintenanceReopenReplayStepData(local);
+    } else {
+      return null;
+    }
+    final observed = await _firestoreMaintenance
+        .readRemoteMaintenanceLifecycleReplayFieldsForSync(local.firestoreId!);
+    if (_cleanMaintenanceText(_authentication.currentUser?.uid) != currentUid) {
+      throw const WorkflowException(
+        WorkflowErrorCode.unavailable,
+        'The original actor must remain signed in to confirm this outcome.',
+      );
+    }
+    final receipt = _maintenanceLifecycleReceiptFromReadback(
+      local.firestoreId!,
+      observed,
+      stepData,
+    );
+    if (_maintenancePinnedFieldDiff(local, receipt.serverRecord) != 'none' ||
+        receipt.serverRecord.isDeleted ||
+        (local.wasTechnicallyResolved &&
+            !persistedJsonEquivalent(
+              local.resolutionHistoryJson,
+              receipt.serverRecord.resolutionHistoryJson,
+            ))) {
+      throw StateError(
+        'The issue changed while confirming its lifecycle outcome.',
+      );
+    }
+    return receipt;
   }
 
   Future<_MaintenanceLifecycleReplayReceipt>
@@ -702,6 +875,18 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     observed ??= await _firestoreMaintenance
         .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
+    return _maintenanceLifecycleReceiptFromReadback(
+      firestoreId,
+      observed,
+      stepData,
+    );
+  }
+
+  _MaintenanceLifecycleReplayReceipt _maintenanceLifecycleReceiptFromReadback(
+    String firestoreId,
+    Map<String, dynamic>? observed,
+    Map<String, dynamic> stepData,
+  ) {
     final data = observed;
     if (data == null ||
         !maintenanceLifecycleReplayOutcomeMatches(data, stepData)) {
@@ -716,12 +901,11 @@ extension _SyncServiceTicketsTemplates on SyncService {
       source: 'maintenance lifecycle replay $firestoreId',
       minimum: 1,
     );
-    final updatedAt =
-        readRequiredPersistedDateTime(
-          data['updatedAt'],
-          field: 'updatedAt',
-          source: 'maintenance lifecycle replay $firestoreId',
-        ).toUtc();
+    final updatedAt = readRequiredPersistedDateTime(
+      data['updatedAt'],
+      field: 'updatedAt',
+      source: 'maintenance lifecycle replay $firestoreId',
+    ).toUtc();
     final serverRecord = readRemoteMaintenanceRecord(
       data,
       documentId: firestoreId,
@@ -836,9 +1020,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
     final eventTimestamp = evidence.closedAt ?? local.updatedAt;
     final mutationTimestamp =
         serverMutationFloor != null &&
-                eventTimestamp.isBefore(serverMutationFloor)
-            ? serverMutationFloor
-            : eventTimestamp;
+            eventTimestamp.isBefore(serverMutationFloor)
+        ? serverMutationFloor
+        : eventTimestamp;
     final version = maintenanceCloseReplayVersion(
       localIsResolved: local.wasTechnicallyResolved,
       localVersion: local.version,
@@ -883,9 +1067,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
       if (resolvedBurnerLockout != null)
         'burnerAttendedPositions': resolvedBurnerLockout.attendedPositions,
       if (resolvedBurnerLockout != null)
-        'burnerResolutionEvidence':
-            resolvedBurnerLockout
-                .toSynchronizedFields()['burnerResolutionEvidence'],
+        'burnerResolutionEvidence': resolvedBurnerLockout
+            .toSynchronizedFields()['burnerResolutionEvidence'],
       'updatedAt': mutationTimestamp.toUtc().toIso8601String(),
       'updatedByUid': evidence.closedByUid,
       'updatedByName': evidence.closedByName,
@@ -917,9 +1100,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
     final reopenedLanePlan = local.issueLanePlan.reopen();
     final mutationTimestamp =
         serverMutationFloor != null &&
-                local.updatedAt.isBefore(serverMutationFloor)
-            ? serverMutationFloor
-            : local.updatedAt;
+            local.updatedAt.isBefore(serverMutationFloor)
+        ? serverMutationFloor
+        : local.updatedAt;
     return {
       'isResolved': false,
       'status': TicketStatus.open.name,
@@ -1019,11 +1202,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestorePlanned.getTemplatesByFirestoreIds(
         firestoreIds,
@@ -1199,14 +1381,13 @@ bool maintenanceReopenReplayHasCurrentActor({
       reopenedByUid == actorUid;
 }
 
-typedef MaintenanceReopenReplayEvidence =
-    ({
-      String reopenedByUid,
-      String reopenedByName,
-      DateTime reopenedAt,
-      String? reopenReason,
-      bool isLegacyAttribution,
-    });
+typedef MaintenanceReopenReplayEvidence = ({
+  String reopenedByUid,
+  String reopenedByName,
+  DateTime reopenedAt,
+  String? reopenReason,
+  bool isLegacyAttribution,
+});
 
 @visibleForTesting
 bool maintenanceHasLegacyPendingReopenEvidence(MaintenanceRecord local) {
@@ -1265,17 +1446,17 @@ MaintenanceReopenReplayEvidence maintenanceReopenReplayEvidenceForActor({
   }
   const legacyPrefix = 'Legacy reopen synchronized by ';
   const maximumActorLength = 500 - legacyPrefix.length;
-  final boundedActorName =
-      actorName.length <= maximumActorLength
-          ? actorName
-          : actorName.substring(0, maximumActorLength);
+  final boundedActorName = actorName.length <= maximumActorLength
+      ? actorName
+      : actorName.substring(0, maximumActorLength);
   final legacyReason = local.remarks?.trim();
   return (
     reopenedByUid: actorUid,
     reopenedByName: '$legacyPrefix$boundedActorName',
     reopenedAt: local.updatedAt,
-    reopenReason:
-        legacyReason == null || legacyReason.isEmpty ? null : legacyReason,
+    reopenReason: legacyReason == null || legacyReason.isEmpty
+        ? null
+        : legacyReason,
     isLegacyAttribution: true,
   );
 }
@@ -1451,13 +1632,12 @@ typedef _MaintenanceLifecycleReplayReceipt = ({
   MaintenanceRecord serverRecord,
 });
 
-typedef _MaintenanceCloseEvidence =
-    ({
-      String closedByUid,
-      String? closedByName,
-      DateTime? closedAt,
-      String? remarks,
-      double? downtimeHours,
-      List<String> teamsInvolved,
-      String? actionsJson,
-    });
+typedef _MaintenanceCloseEvidence = ({
+  String closedByUid,
+  String? closedByName,
+  DateTime? closedAt,
+  String? remarks,
+  double? downtimeHours,
+  List<String> teamsInvolved,
+  String? actionsJson,
+});

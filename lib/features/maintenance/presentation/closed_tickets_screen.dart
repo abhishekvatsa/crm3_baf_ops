@@ -23,6 +23,8 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/data/user_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -34,51 +36,19 @@ import 'maintenance_ticket_correction_dialog.dart';
 import 'maintenance_ticket_detail_screen.dart';
 
 part 'closed_tickets_screen.corrections.dart';
+part 'closed_tickets_screen.access.dart';
 part 'closed_tickets_screen.record_actions.dart';
 
-class ClosedTicketsScreen extends ConsumerWidget {
+class ClosedTicketsScreen extends ConsumerStatefulWidget {
   const ClosedTicketsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final actorAsync = ref.watch(currentAppUserProvider);
-    return actorAsync.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Closed issue history',
-            appBarSubtitle: 'Resolved work and administrative closures',
-            appBarIcon: Icons.inventory_2_outlined,
-            accent: BafColors.maintenance,
-            label: 'Checking closure-history access',
-          ),
-      error:
-          (_, _) => BafScreenStateScaffold.error(
-            appBarTitle: 'Closed issue history',
-            appBarSubtitle: 'Resolved work and administrative closures',
-            appBarIcon: Icons.inventory_2_outlined,
-            accent: BafColors.maintenance,
-            message: 'Could not verify closure-history access.',
-          ),
-      data: (actor) {
-        if (actor == null || !actor.canViewClosedMaintenanceTickets) {
-          return BafScreenStateScaffold.access(
-            appBarTitle: 'Closed issue history',
-            appBarSubtitle: 'Resolved work and administrative closures',
-            appBarIcon: Icons.inventory_2_outlined,
-            accent: BafColors.maintenance,
-            title: 'History access required',
-            message:
-                'An approved app account is required to view closed records.',
-          );
-        }
-        return _ClosedTicketsBody(actor: actor);
-      },
-    );
-  }
+  ConsumerState<ClosedTicketsScreen> createState() =>
+      _ClosedTicketsAccessState();
 }
 
 class _ClosedTicketsBody extends ConsumerStatefulWidget {
-  const _ClosedTicketsBody({required this.actor});
+  const _ClosedTicketsBody({super.key, required this.actor});
 
   final AppUser actor;
 
@@ -88,6 +58,35 @@ class _ClosedTicketsBody extends ConsumerStatefulWidget {
 }
 
 class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
+  AppUser? _currentActor({
+    String? originUid,
+    bool Function(AppUser)? permission,
+  }) {
+    if (!mounted) return null;
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: originUid ?? widget.actor.uid,
+      permission:
+          permission ?? (actor) => actor.canViewClosedMaintenanceTickets,
+    );
+    if (message != null) {
+      _showSnack(message: message, color: BafColors.warning);
+      return null;
+    }
+    return access.actor;
+  }
+
+  bool get _canReadHistory {
+    if (!mounted) return false;
+    return currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: widget.actor.uid,
+          permission: (actor) => actor.canViewClosedMaintenanceTickets,
+        ) ==
+        null;
+  }
+
   int _currentPage = 0;
   final int _pageSize = 20;
   final List<MaintenanceRecord> _tickets = [];
@@ -122,7 +121,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   }
 
   Future<void> _loadInitial() async {
-    if (!mounted) {
+    if (!_canReadHistory) {
       return;
     }
 
@@ -131,6 +130,10 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     try {
       final service = ref.read(closedTicketHistoryServiceProvider);
       final count = await service.count(actor: widget.actor);
+      if (!_canReadHistory) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
       final page = await service.loadPage(
         actor: widget.actor,
         limit: _pageSize,
@@ -165,6 +168,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   }
 
   Future<void> _loadNextPage() async {
+    if (!_canReadHistory) return;
     if (_isLoading || !_hasMore) {
       return;
     }
@@ -242,16 +246,29 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
       );
       return;
     }
+    final origin = _currentActor(
+      permission: (actor) => actor.canReopenMaintenanceTicket,
+    );
+    if (origin == null) return;
     final remarks = await showDialog<String>(
       context: context,
-      builder:
-          (_) => _ReopenTicketDialog(
-            ticketLabel:
-                '${_assetTypeLabel(ticket.assetType)} ${ticket.assetNumber}',
-          ),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: origin.uid,
+        permission: (actor) => actor.canReopenMaintenanceTicket,
+        child: _ReopenTicketDialog(
+          ticketLabel:
+              '${_assetTypeLabel(ticket.assetType)} ${ticket.assetNumber}',
+        ),
+      ),
     );
 
-    if (!mounted || remarks == null) {
+    if (!mounted ||
+        remarks == null ||
+        _currentActor(
+              originUid: origin.uid,
+              permission: (actor) => actor.canReopenMaintenanceTicket,
+            ) ==
+            null) {
       return;
     }
 
@@ -262,7 +279,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     setState(() => _reopeningTicketKeys.add(ticketKey));
 
     try {
-      final appUser = ref.read(currentAppUserProvider).value;
+      final appUser = _currentActor();
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
       if (appUser == null ||
           firebaseUser == null ||
@@ -354,15 +371,33 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     if (!ticket.isSynced || _endingRelevanceTicketKeys.contains(ticketKey)) {
       return;
     }
+    final origin = _currentActor(
+      permission: (actor) => actor.canCloseMaintenanceIssueWithoutResolution,
+    );
+    if (origin == null) return;
     final draft = await showIssueAdministrativeRelevanceEndDialog(
       context,
       ticket: ticket,
+      guard: (dialog) => CurrentActorDialogGuard(
+        originUid: origin.uid,
+        permission: (actor) => actor.canCloseMaintenanceIssueWithoutResolution,
+        child: dialog,
+      ),
     );
-    if (!mounted || draft == null) return;
+    if (!mounted ||
+        draft == null ||
+        _currentActor(
+              originUid: origin.uid,
+              permission: (actor) =>
+                  actor.canCloseMaintenanceIssueWithoutResolution,
+            ) ==
+            null) {
+      return;
+            }
 
     setState(() => _endingRelevanceTicketKeys.add(ticketKey));
     try {
-      final appUser = ref.read(currentAppUserProvider).value;
+      final appUser = _currentActor();
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
       if (appUser == null ||
           firebaseUser == null ||
@@ -451,16 +486,31 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   ) async {
     final ticketId = ticket.firestoreId?.trim();
     if (ticketId == null || ticketId.isEmpty) return;
+    final origin = _currentActor(
+      permission: (actor) => actor.canClassifyCompletedMaintenance,
+    );
+    if (origin == null) return;
     final current = _ticketMaintenanceClass(ticket);
     final draft = await showDialog<_TicketClassificationDraft>(
       context: context,
-      builder:
-          (_) => _TicketClassificationDialog(
-            definitions: definitions,
-            current: current,
-          ),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: origin.uid,
+        permission: (actor) => actor.canClassifyCompletedMaintenance,
+        child: _TicketClassificationDialog(
+          definitions: definitions,
+          current: current,
+        ),
+      ),
     );
-    if (draft == null || !mounted) return;
+    if (draft == null ||
+        !mounted ||
+        _currentActor(
+              originUid: origin.uid,
+              permission: (actor) => actor.canClassifyCompletedMaintenance,
+            ) ==
+            null) {
+      return;
+            }
     final ticketKey = _ticketKey(ticket);
     setState(() => _classifyingTicketKeys.add(ticketKey));
     try {
@@ -522,7 +572,9 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final appUser = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    ).actor;
     final canReopenTickets = appUser?.canReopenMaintenanceTicket == true;
     final canCorrectTickets = appUser?.canCorrectMaintenanceTicket == true;
     final canEndRetainedRelevance =
@@ -543,99 +595,94 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadInitial,
-        child:
-            _isLoading && _tickets.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _tickets.isEmpty
-                ? const _ClosedTicketsEmptyState()
-                : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    BafSpacing.lg,
-                    BafSpacing.md,
-                    BafSpacing.lg,
-                    BafSpacing.xl,
-                  ),
-                  itemCount: _tickets.length + 2,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: BafSpacing.lg),
-                        child: _ClosedTicketsHeader(
-                          totalCount: _totalCount,
-                          loadedCount: _tickets.length,
-                          hasMore: _hasMore,
-                        ),
-                      );
-                    }
-
-                    if (index == _tickets.length + 1) {
-                      return _LoadMoreFooter(
-                        isLoading: _isLoading,
-                        hasMore: _hasMore,
-                        onLoadMore: _loadNextPage,
-                      );
-                    }
-
-                    final ticket = _tickets[index - 1];
-                    final ticketKey = _ticketKey(ticket);
-                    final assetClassId =
-                        ticket.assetHierarchyReference?.assetClassId;
-                    final matchingClasses =
-                        maintenanceClasses
-                            .where(
-                              (definition) => definition.appliesTo(
-                                assetTypeKey: ticket.assetType.name,
-                                assetClassId: assetClassId,
-                              ),
-                            )
-                            .toList();
-                    final closedAt = ticket.endDate ?? ticket.updatedAt;
-                    final reopenWindowElapsed =
-                        DateTime.now().difference(closedAt).inHours >= 4;
+        child: _isLoading && _tickets.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : _tickets.isEmpty
+            ? const _ClosedTicketsEmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                  BafSpacing.lg,
+                  BafSpacing.md,
+                  BafSpacing.lg,
+                  BafSpacing.xl,
+                ),
+                itemCount: _tickets.length + 2,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
                     return Padding(
-                      key: ValueKey(ticketKey),
-                      padding: const EdgeInsets.only(bottom: BafSpacing.md),
-                      child: _ClosedTicketCard(
-                        ticket: ticket,
-                        onViewDetails:
-                            () => _openTicketDetails(
-                              ticket,
-                              canCorrect: canCorrectTickets && ticket.isSynced,
-                            ),
-                        canCorrect: canCorrectTickets && ticket.isSynced,
-                        isCorrecting: _correctingTicketKeys.contains(ticketKey),
-                        onCorrect: () => _correctTicket(ticket),
-                        canReopenTicket: canReopenTickets,
-                        isReopening: _reopeningTicketKeys.contains(ticketKey),
-                        onReopen: () => _reopenTicket(ticket),
-                        canEndRetainedRelevance:
-                            canEndRetainedRelevance &&
-                            ticket.isSynced &&
-                            ticket.administrativeClosure?.disposition ==
-                                IssueAdministrativeClosureDisposition
-                                    .stillRelevant,
-                        isEndingRelevance: _endingRelevanceTicketKeys.contains(
-                          ticketKey,
-                        ),
-                        onEndRetainedRelevance:
-                            () => _endRetainedRelevance(ticket),
-                        maintenanceClass: _ticketMaintenanceClass(ticket),
-                        canClassify:
-                            appUser?.canClassifyCompletedMaintenance == true &&
-                            ticket.wasTechnicallyResolved &&
-                            reopenWindowElapsed &&
-                            ticket.assetType != AssetType.innerCover &&
-                            ticket.firestoreId?.trim().isNotEmpty == true &&
-                            matchingClasses.isNotEmpty,
-                        isClassifying: _classifyingTicketKeys.contains(
-                          ticketKey,
-                        ),
-                        onClassify:
-                            () => _classifyTicket(ticket, matchingClasses),
+                      padding: const EdgeInsets.only(bottom: BafSpacing.lg),
+                      child: _ClosedTicketsHeader(
+                        totalCount: _totalCount,
+                        loadedCount: _tickets.length,
+                        hasMore: _hasMore,
                       ),
                     );
-                  },
-                ),
+                  }
+
+                  if (index == _tickets.length + 1) {
+                    return _LoadMoreFooter(
+                      isLoading: _isLoading,
+                      hasMore: _hasMore,
+                      onLoadMore: _loadNextPage,
+                    );
+                  }
+
+                  final ticket = _tickets[index - 1];
+                  final ticketKey = _ticketKey(ticket);
+                  final assetClassId =
+                      ticket.assetHierarchyReference?.assetClassId;
+                  final matchingClasses = maintenanceClasses
+                      .where(
+                        (definition) => definition.appliesTo(
+                          assetTypeKey: ticket.assetType.name,
+                          assetClassId: assetClassId,
+                        ),
+                      )
+                      .toList();
+                  final closedAt = ticket.endDate ?? ticket.updatedAt;
+                  final reopenWindowElapsed =
+                      DateTime.now().difference(closedAt).inHours >= 4;
+                  return Padding(
+                    key: ValueKey(ticketKey),
+                    padding: const EdgeInsets.only(bottom: BafSpacing.md),
+                    child: _ClosedTicketCard(
+                      ticket: ticket,
+                      onViewDetails: () => _openTicketDetails(
+                        ticket,
+                        canCorrect: canCorrectTickets && ticket.isSynced,
+                      ),
+                      canCorrect: canCorrectTickets && ticket.isSynced,
+                      isCorrecting: _correctingTicketKeys.contains(ticketKey),
+                      onCorrect: () => _correctTicket(ticket),
+                      canReopenTicket: canReopenTickets,
+                      isReopening: _reopeningTicketKeys.contains(ticketKey),
+                      onReopen: () => _reopenTicket(ticket),
+                      canEndRetainedRelevance:
+                          canEndRetainedRelevance &&
+                          ticket.isSynced &&
+                          ticket.administrativeClosure?.disposition ==
+                              IssueAdministrativeClosureDisposition
+                                  .stillRelevant,
+                      isEndingRelevance: _endingRelevanceTicketKeys.contains(
+                        ticketKey,
+                      ),
+                      onEndRetainedRelevance: () =>
+                          _endRetainedRelevance(ticket),
+                      maintenanceClass: _ticketMaintenanceClass(ticket),
+                      canClassify:
+                          appUser?.canClassifyCompletedMaintenance == true &&
+                          ticket.wasTechnicallyResolved &&
+                          reopenWindowElapsed &&
+                          ticket.assetType != AssetType.innerCover &&
+                          ticket.firestoreId?.trim().isNotEmpty == true &&
+                          matchingClasses.isNotEmpty,
+                      isClassifying: _classifyingTicketKeys.contains(ticketKey),
+                      onClassify: () =>
+                          _classifyTicket(ticket, matchingClasses),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
@@ -1243,20 +1290,19 @@ class _ClosedTicketCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            icon:
-                                isEndingRelevance
-                                    ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: BafColors.textPrimary,
-                                      ),
-                                    )
-                                    : const Icon(
-                                      Icons.event_available_rounded,
-                                      size: 18,
+                            icon: isEndingRelevance
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: BafColors.textPrimary,
                                     ),
+                                  )
+                                : const Icon(
+                                    Icons.event_available_rounded,
+                                    size: 18,
+                                  ),
                             label: Text(
                               isEndingRelevance
                                   ? 'Recording…'
@@ -1282,20 +1328,16 @@ class _ClosedTicketCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            icon:
-                                isReopening
-                                    ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                    : const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 18,
+                            icon: isReopening
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     ),
+                                  )
+                                : const Icon(Icons.refresh_rounded, size: 18),
                             label: Text(
                               isReopening ? 'Reopening…' : 'Reopen Ticket',
                               style: const TextStyle(
@@ -1480,21 +1522,20 @@ class _LoadMoreFooter extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: BafSpacing.md),
       child: Center(
-        child:
-            isLoading
-                ? const CircularProgressIndicator()
-                : OutlinedButton.icon(
-                  onPressed: onLoadMore,
-                  icon: const Icon(Icons.expand_more_rounded),
-                  label: const Text('Load More'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: BafColors.audit,
-                    side: const BorderSide(color: BafColors.audit),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                    ),
+        child: isLoading
+            ? const CircularProgressIndicator()
+            : OutlinedButton.icon(
+                onPressed: onLoadMore,
+                icon: const Icon(Icons.expand_more_rounded),
+                label: const Text('Load More'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: BafColors.audit,
+                  side: const BorderSide(color: BafColors.audit),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
                   ),
                 ),
+              ),
       ),
     );
   }

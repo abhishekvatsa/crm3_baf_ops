@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/persistence/durable_submission_repository.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/asset_hierarchy_model.dart';
@@ -11,6 +12,7 @@ import '../data/burner_condition_round.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/burner_condition_round_provider.dart';
 import '../services/burner_condition_round_service.dart';
+import 'burner_saved_submissions_panel.dart';
 
 class BurnerConditionRoundScreen extends ConsumerStatefulWidget {
   const BurnerConditionRoundScreen({super.key, this.initialAssetInstanceId});
@@ -31,6 +33,9 @@ class _BurnerConditionRoundScreenState
   bool _submitting = false;
   bool _draftSealRedHotObserved = false;
   bool _hotAirAtDraftSealObserved = false;
+  List<DurableSubmission>? _saved;
+  String? _savedActor;
+  int _savedRefresh = 0;
 
   @override
   void initState() {
@@ -70,6 +75,15 @@ class _BurnerConditionRoundScreenState
         ),
       );
     }
+    if (_savedActor != actor.uid) {
+      _savedActor = actor.uid;
+      _saved = null;
+    }
+    final savedBlocksSelection =
+        _saved == null ||
+        _saved!.any(
+          (row) => row.isLegacy || row.aggregateId == _assetInstanceId,
+        );
     final classesAsync = ref.watch(assetClassesProvider);
     final assetsAsync = ref.watch(allAssetInstancesProvider);
     final loading =
@@ -133,6 +147,30 @@ class _BurnerConditionRoundScreenState
             104,
           ),
           children: [
+            BurnerSavedSubmissionsPanel(
+              key: ValueKey('saved-burner-${actor.uid}'),
+              service: ref.read(burnerConditionRoundServiceProvider),
+              actorUid: actor.uid,
+              refreshKey: _savedRefresh,
+              onLoaded: (rows) {
+                if (mounted && _savedActor == actor.uid) {
+                  setState(() => _saved = rows);
+                }
+              },
+              onCheck: (row) async {
+                final navigator = Navigator.of(context);
+                try {
+                  final result = await ref
+                      .read(burnerConditionRoundServiceProvider)
+                      .resumeRound(row);
+                  if (mounted && _savedActor == actor.uid) {
+                    navigator.pop(result);
+                  }
+                } catch (error) {
+                  if (mounted) _showMessage('$error');
+                }
+              },
+            ),
             DropdownButtonFormField<String>(
               initialValue: selected?.id,
               isExpanded: true,
@@ -151,20 +189,19 @@ class _BurnerConditionRoundScreenState
                   ),
               ],
               validator: (value) => value == null ? 'Select a Furnace.' : null,
-              onChanged:
-                  _submitting
-                      ? null
-                      : (value) => setState(() => _assetInstanceId = value),
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(() => _assetInstanceId = value),
             ),
             const SizedBox(height: BafSpacing.xl),
             _DraftSealConditionPanel(
               draftSealRedHotObserved: _draftSealRedHotObserved,
               hotAirAtDraftSealObserved: _hotAirAtDraftSealObserved,
               enabled: !_submitting,
-              onDraftSealRedHotChanged:
-                  (value) => setState(() => _draftSealRedHotObserved = value),
-              onHotAirChanged:
-                  (value) => setState(() => _hotAirAtDraftSealObserved = value),
+              onDraftSealRedHotChanged: (value) =>
+                  setState(() => _draftSealRedHotObserved = value),
+              onHotAirChanged: (value) =>
+                  setState(() => _hotAirAtDraftSealObserved = value),
             ),
             const SizedBox(height: BafSpacing.xl),
             Row(
@@ -182,48 +219,43 @@ class _BurnerConditionRoundScreenState
                 PopupMenuButton<BurnerRoundFlameObservation>(
                   tooltip: 'Apply flame observation to all burners',
                   icon: const Icon(Icons.playlist_add_check_rounded),
-                  onSelected:
-                      _submitting
-                          ? null
-                          : (value) {
-                            setState(() {
-                              for (final observation in _observations) {
-                                observation.flameObservation = value;
-                                if (value ==
-                                        BurnerRoundFlameObservation
-                                            .notChecked ||
-                                    value ==
-                                        BurnerRoundFlameObservation
-                                            .notOperating) {
-                                  observation._microampController.clear();
-                                }
+                  onSelected: _submitting
+                      ? null
+                      : (value) {
+                          setState(() {
+                            for (final observation in _observations) {
+                              observation.flameObservation = value;
+                              if (value ==
+                                      BurnerRoundFlameObservation.notChecked ||
+                                  value ==
+                                      BurnerRoundFlameObservation
+                                          .notOperating) {
+                                observation._microampController.clear();
                               }
-                            });
-                          },
-                  itemBuilder:
-                      (context) => [
-                        for (final value in BurnerRoundFlameObservation.values)
-                          PopupMenuItem(value: value, child: Text(value.label)),
-                      ],
+                            }
+                          });
+                        },
+                  itemBuilder: (context) => [
+                    for (final value in BurnerRoundFlameObservation.values)
+                      PopupMenuItem(value: value, child: Text(value.label)),
+                  ],
                 ),
                 PopupMenuButton<BurnerUvCondition>(
                   tooltip: 'Apply UV condition to all burners',
                   icon: const Icon(Icons.sensors_rounded),
-                  onSelected:
-                      _submitting
-                          ? null
-                          : (value) {
-                            setState(() {
-                              for (final observation in _observations) {
-                                observation.uvCondition = value;
-                              }
-                            });
-                          },
-                  itemBuilder:
-                      (context) => [
-                        for (final value in BurnerUvCondition.values)
-                          PopupMenuItem(value: value, child: Text(value.label)),
-                      ],
+                  onSelected: _submitting
+                      ? null
+                      : (value) {
+                          setState(() {
+                            for (final observation in _observations) {
+                              observation.uvCondition = value;
+                            }
+                          });
+                        },
+                  itemBuilder: (context) => [
+                    for (final value in BurnerUvCondition.values)
+                      PopupMenuItem(value: value, child: Text(value.label)),
+                  ],
                 ),
               ],
             ),
@@ -263,17 +295,15 @@ class _BurnerConditionRoundScreenState
         child: SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed:
-                _submitting || selected == null
-                    ? null
-                    : () => _submit(selected, actor),
-            icon:
-                _submitting
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.fact_check_outlined),
+            onPressed: _submitting || selected == null || savedBlocksSelection
+                ? null
+                : () => _submit(selected, actor),
+            icon: _submitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.fact_check_outlined),
             label: Text(_submitting ? 'Recording...' : 'Record round'),
           ),
         ),
@@ -335,7 +365,13 @@ class _BurnerConditionRoundScreenState
     } on BurnerConditionRoundException catch (error) {
       if (mounted) _showMessage(error.message);
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _saved = null;
+          _savedRefresh++;
+        });
+      }
     }
   }
 
@@ -362,19 +398,17 @@ class _BurnerObservationEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tag =
-        furnaceNumber == null
-            ? 'Burner ${draft.position}'
-            : 'FR-${furnaceNumber.toString().padLeft(2, '0')}-B${draft.position.toString().padLeft(2, '0')}';
+    final tag = furnaceNumber == null
+        ? 'Burner ${draft.position}'
+        : 'FR-${furnaceNumber.toString().padLeft(2, '0')}-B${draft.position.toString().padLeft(2, '0')}';
     return Material(
       color: BafColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
         side: BorderSide(
-          color:
-              draft.redHotObserved
-                  ? BafColors.danger.withValues(alpha: 0.5)
-                  : BafColors.border,
+          color: draft.redHotObserved
+              ? BafColors.danger.withValues(alpha: 0.5)
+              : BafColors.border,
         ),
       ),
       child: Padding(
@@ -405,38 +439,35 @@ class _BurnerObservationEditor extends StatelessWidget {
                 for (final value in BurnerRoundFlameObservation.values)
                   DropdownMenuItem(value: value, child: Text(value.label)),
               ],
-              validator:
-                  (value) => value == null ? 'Select an observation.' : null,
-              onChanged:
-                  enabled
-                      ? (value) {
-                        if (value == null) return;
-                        draft.flameObservation = value;
-                        if (value == BurnerRoundFlameObservation.notChecked ||
-                            value == BurnerRoundFlameObservation.notOperating) {
-                          draft._microampController.clear();
-                        }
-                        onChanged();
+              validator: (value) =>
+                  value == null ? 'Select an observation.' : null,
+              onChanged: enabled
+                  ? (value) {
+                      if (value == null) return;
+                      draft.flameObservation = value;
+                      if (value == BurnerRoundFlameObservation.notChecked ||
+                          value == BurnerRoundFlameObservation.notOperating) {
+                        draft._microampController.clear();
                       }
-                      : null,
+                      onChanged();
+                    }
+                  : null,
             ),
             const SizedBox(height: BafSpacing.sm),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('Red-hot burner block observed'),
-              subtitle:
-                  draft.redHotObserved
-                      ? const Text('A critical I&A directive will be created.')
-                      : null,
+              subtitle: draft.redHotObserved
+                  ? const Text('A critical I&A directive will be created.')
+                  : null,
               value: draft.redHotObserved,
               activeTrackColor: BafColors.danger,
-              onChanged:
-                  enabled
-                      ? (value) {
-                        draft.redHotObserved = value;
-                        onChanged();
-                      }
-                      : null,
+              onChanged: enabled
+                  ? (value) {
+                      draft.redHotObserved = value;
+                      onChanged();
+                    }
+                  : null,
             ),
             const SizedBox(height: BafSpacing.xs),
             DropdownButtonFormField<BurnerUvCondition>(
@@ -453,16 +484,15 @@ class _BurnerObservationEditor extends StatelessWidget {
                     child: Text(condition.label),
                   ),
               ],
-              validator:
-                  (value) => value == null ? 'Select the UV condition.' : null,
-              onChanged:
-                  enabled
-                      ? (value) {
-                        if (value == null) return;
-                        draft.uvCondition = value;
-                        onChanged();
-                      }
-                      : null,
+              validator: (value) =>
+                  value == null ? 'Select the UV condition.' : null,
+              onChanged: enabled
+                  ? (value) {
+                      if (value == null) return;
+                      draft.uvCondition = value;
+                      onChanged();
+                    }
+                  : null,
             ),
             const SizedBox(height: BafSpacing.sm),
             TextFormField(
@@ -551,10 +581,9 @@ class _BurnerObservationDraft {
       flameObservation: observation,
       redHotObserved: redHotObserved,
       microampReading: reading,
-      remarks:
-          _remarksController.text.trim().isEmpty
-              ? null
-              : _remarksController.text.trim(),
+      remarks: _remarksController.text.trim().isEmpty
+          ? null
+          : _remarksController.text.trim(),
     );
   }
 
@@ -566,10 +595,9 @@ class _BurnerObservationDraft {
     return BurnerUvObservation(
       position: position,
       condition: condition,
-      remarks:
-          _remarksController.text.trim().isEmpty
-              ? null
-              : _remarksController.text.trim(),
+      remarks: _remarksController.text.trim().isEmpty
+          ? null
+          : _remarksController.text.trim(),
     );
   }
 

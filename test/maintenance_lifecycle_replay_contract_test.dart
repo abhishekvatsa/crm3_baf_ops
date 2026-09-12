@@ -6,73 +6,77 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('69D.2 maintenance offline lifecycle replay contract', () {
-    test('sync path attempts maintenance replay before standard batch push', () {
-      final source = _read(_syncPath);
-      final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
+    test(
+      'sync path attempts maintenance replay before standard batch push',
+      () {
+        final source = _read(_syncPath);
+        final syncBlock = _blockStartingAt(
+          source,
+          'Future<void> _syncTickets()',
+        );
 
-      _expectOrder(syncBlock, const [
-        'var remote = remoteMap[record.firestoreId];',
-        'if (remote == null)',
-        'await _pushMissingMaintenanceTicket(record);',
-        'continue;',
-        'final expectedLocal = _syncPushSnapshot(record);',
-        'await _tryRecoverAcceptedMaintenanceCreation(',
-        '.applyGovernedCreationServerStateForSync(',
-        'continue;',
-        'final replayReceipt = await _tryPushDecomposedMaintenanceTicket',
-        '.applyMaintenanceLifecycleReplayReceiptForSync(',
-        'remote: replayReceipt.serverRecord,',
-        'expectedLocal: expectedLocal,',
-        'if (_isRemoteNewer(record, remote))',
-        'recordsToPush.add(record);',
-      ]);
+        _expectOrder(syncBlock, const [
+          'var remote = remoteMap[record.firestoreId];',
+          'if (remote == null)',
+          'await _pushMissingMaintenanceTicket(record);',
+          'continue;',
+          'final expectedLocal = _syncPushSnapshot(record);',
+          'await _tryRecoverAcceptedMaintenanceCreation(',
+          '.applyGovernedCreationServerStateForSync(',
+          'continue;',
+          'replayReceipt = await _tryPushDecomposedMaintenanceTicket',
+          '.applyMaintenanceLifecycleReplayReceiptForSync(',
+          'remote: replayReceipt.serverRecord,',
+          'expectedLocal: expectedLocal,',
+          'if (_isRemoteNewer(record, remote))',
+          'recordsToPush.add(record);',
+        ]);
 
-      final replaySuccess = _blockStartingAt(
-        syncBlock,
-        'if (replayReceipt != null)',
-      );
-      expect(
-        replaySuccess,
-        isNot(contains('skippedButSyncedSnapshots.add')),
-        reason:
-            'A rebased replay must adopt its exact server receipt instead of '
-            'marking the stale local snapshot clean.',
-      );
+        final replaySuccess = _blockStartingAt(
+          syncBlock,
+          'if (replayReceipt != null)',
+        );
+        expect(
+          replaySuccess,
+          isNot(contains('skippedButSyncedSnapshots.add')),
+          reason:
+              'A rebased replay must adopt its exact server receipt instead of '
+              'marking the stale local snapshot clean.',
+        );
 
-      expect(syncBlock, contains('lastSuccessCount++;'));
-      expect(
-        syncBlock,
-        isNot(contains('SyncRejection()')),
-        reason:
-            'Recovery reports a hold through the shared diagnostic writer; '
-            'it must not construct or repair held rejection rows directly.',
-      );
-      expect(syncBlock, contains('await _upsertSyncRejection(detail);'));
-    });
+        expect(syncBlock, contains('lastSuccessCount++;'));
+        expect(
+          syncBlock,
+          isNot(contains('SyncRejection()')),
+          reason:
+              'Recovery reports a hold through the shared diagnostic writer; '
+              'it must not construct or repair held rejection rows directly.',
+        );
+        expect(syncBlock, contains('await _upsertSyncRejection(detail);'));
+      },
+    );
 
     test(
       'stale local closure rebases over server acknowledgement without hiding business edits',
       () {
-        final remote =
-            _maintenanceTicket(version: 6)
-              ..status = TicketStatus.acknowledged
-              ..acknowledgedByUid = 'maintenance-supervisor'
-              ..acknowledgedByName = 'Maintenance Supervisor'
-              ..acknowledgedAt = DateTime.utc(2026, 8, 22, 8, 5)
-              ..workflowQueueState = 'released'
-              ..workflowReleasedAt = DateTime.utc(2026, 8, 22, 8, 6)
-              ..workflowReleasedByUid = 'operations-supervisor'
-              ..workflowReleasedByName = 'Operations Supervisor'
-              ..workflowUpdatedAt = DateTime.utc(2026, 8, 22, 8, 6)
-              ..updatedAt = DateTime.utc(2026, 8, 22, 8, 6);
-        final local =
-            _maintenanceTicket(version: 6)
-              ..isResolved = true
-              ..status = TicketStatus.resolved
-              ..closedByUid = 'maintenance-supervisor'
-              ..closedByName = 'Maintenance Supervisor'
-              ..endDate = DateTime.utc(2026, 8, 22, 8, 10)
-              ..updatedAt = DateTime.utc(2026, 8, 22, 8, 10);
+        final remote = _maintenanceTicket(version: 6)
+          ..status = TicketStatus.acknowledged
+          ..acknowledgedByUid = 'maintenance-supervisor'
+          ..acknowledgedByName = 'Maintenance Supervisor'
+          ..acknowledgedAt = DateTime.utc(2026, 8, 22, 8, 5)
+          ..workflowQueueState = 'released'
+          ..workflowReleasedAt = DateTime.utc(2026, 8, 22, 8, 6)
+          ..workflowReleasedByUid = 'operations-supervisor'
+          ..workflowReleasedByName = 'Operations Supervisor'
+          ..workflowUpdatedAt = DateTime.utc(2026, 8, 22, 8, 6)
+          ..updatedAt = DateTime.utc(2026, 8, 22, 8, 6);
+        final local = _maintenanceTicket(version: 6)
+          ..isResolved = true
+          ..status = TicketStatus.resolved
+          ..closedByUid = 'maintenance-supervisor'
+          ..closedByName = 'Maintenance Supervisor'
+          ..endDate = DateTime.utc(2026, 8, 22, 8, 10)
+          ..updatedAt = DateTime.utc(2026, 8, 22, 8, 10);
 
         expect(
           maintenanceResolvedReplayCanRebase(
@@ -125,15 +129,13 @@ void main() {
     );
 
     test('stale closure cannot rebase while workflow is deferred', () {
-      final remote =
-          _maintenanceTicket(version: 9)
-            ..workflowDeferred = true
-            ..workflowQueueState = 'deferred';
-      final local =
-          _maintenanceTicket(version: 6)
-            ..isResolved = true
-            ..status = TicketStatus.resolved
-            ..closedByUid = 'maintenance-supervisor';
+      final remote = _maintenanceTicket(version: 9)
+        ..workflowDeferred = true
+        ..workflowQueueState = 'deferred';
+      final local = _maintenanceTicket(version: 6)
+        ..isResolved = true
+        ..status = TicketStatus.resolved
+        ..closedByUid = 'maintenance-supervisor';
 
       expect(
         maintenanceResolvedReplayCanRebase(
@@ -159,12 +161,11 @@ void main() {
 
     test('administrative closure cannot enter technical-resolution replay', () {
       final remote = _maintenanceTicket(version: 6);
-      final local =
-          _maintenanceTicket(version: 7)
-            ..isResolved = true
-            ..status = TicketStatus.closedWithoutResolution
-            ..closedByUid = 'admin-1'
-            ..closedByName = 'Admin One';
+      final local = _maintenanceTicket(version: 7)
+        ..isResolved = true
+        ..status = TicketStatus.closedWithoutResolution
+        ..closedByUid = 'admin-1'
+        ..closedByName = 'Admin One';
 
       expect(
         maintenanceResolvedReplayCanRebase(
@@ -219,8 +220,15 @@ void main() {
         final submit = _blockStartingAt(source, 'Future<void> _submit()');
 
         _expectOrder(submit, const <String>[
-          'final appUser = ref.read(currentAppUserProvider).value;',
+          'CurrentActorAccess.resolve(ref.read(currentAppUserProvider))',
+          '_originActorUid ??= access.actor?.uid;',
+          'currentActorActionMessage(',
+          'originUid: _originActorUid,',
+          'if (accountMessage != null)',
+          'final appUser = CurrentActorAccess.resolve(',
           '!appUser.isApproved',
+          'firebaseUser.uid != appUser.uid',
+          'appUser.uid != _originActorUid',
           'final createCommand = buildMaintenanceIssueCreateCommand(',
           'await repository.saveTicket(record);',
           'await waitForMaintenanceIssueAcceptance(',
@@ -228,7 +236,16 @@ void main() {
           'readTicket: () => repository.getByFirestoreId(',
           'syncCoordinator.runFullSyncWithResult(',
         ]);
-        expect(submit, contains('firebaseUser.uid != appUser.uid'));
+        expect(
+          _blockStartingAt(submit, 'if (accountMessage != null)'),
+          contains('return;'),
+          reason: 'an unavailable or changed account must stop before saving',
+        );
+        expect(
+          submit,
+          isNot(contains('ref.read(currentAppUserProvider).value')),
+          reason: 'a stale AsyncValue must not stand in for current authority',
+        );
         expect(submit, contains('server acceptance is not yet confirmed'));
         expect(submit, contains('Do not raise it again;'));
         expect(submit, contains('SYNC PENDING'));
@@ -397,18 +414,17 @@ void main() {
 
     test('pending v6 reopen is retained through explicit legacy attribution', () {
       final reopenedAt = DateTime.utc(2026, 8, 23, 18, 45);
-      final local =
-          _maintenanceTicket(version: 8)
-            ..isSynced = false
-            ..updatedAt = reopenedAt
-            ..remarks = 'Returned for burner correction'
-            ..resolutionHistory = <ResolutionHistory>[
-              ResolutionHistory(
-                resolvedByUid: 'supervisor-1',
-                resolvedByName: 'Shift Supervisor',
-                resolvedAt: DateTime.utc(2026, 8, 23, 18),
-              ),
-            ];
+      final local = _maintenanceTicket(version: 8)
+        ..isSynced = false
+        ..updatedAt = reopenedAt
+        ..remarks = 'Returned for burner correction'
+        ..resolutionHistory = <ResolutionHistory>[
+          ResolutionHistory(
+            resolvedByUid: 'supervisor-1',
+            resolvedByName: 'Shift Supervisor',
+            resolvedAt: DateTime.utc(2026, 8, 23, 18),
+          ),
+        ];
 
       expect(maintenanceHasLegacyPendingReopenEvidence(local), isTrue);
       expect(
@@ -441,16 +457,15 @@ void main() {
     });
 
     test('partial v7 reopen evidence is never treated as legacy', () {
-      final local =
-          _maintenanceTicket(version: 8)
-            ..isSynced = false
-            ..reopenedByUid = 'operations-1'
-            ..resolutionHistory = <ResolutionHistory>[
-              ResolutionHistory(
-                resolvedByUid: 'supervisor-1',
-                resolvedAt: DateTime.utc(2026, 8, 23, 18),
-              ),
-            ];
+      final local = _maintenanceTicket(version: 8)
+        ..isSynced = false
+        ..reopenedByUid = 'operations-1'
+        ..resolutionHistory = <ResolutionHistory>[
+          ResolutionHistory(
+            resolvedByUid: 'supervisor-1',
+            resolvedAt: DateTime.utc(2026, 8, 23, 18),
+          ),
+        ];
 
       expect(maintenanceHasLegacyPendingReopenEvidence(local), isFalse);
       expect(
@@ -1045,43 +1060,45 @@ void main() {
       );
     });
 
-    test(
-      'successful lifecycle replay also requires exact receipt readback',
-      () {
-        final source = _read(_syncPath);
-        final applyStep = _blockStartingAt(
-          source,
-          'Future<_MaintenanceLifecycleReplayReceipt>\n'
-          '  _applyMaintenanceLifecycleReplayStep(',
-        );
+    test('successful lifecycle replay also requires exact receipt readback', () {
+      final source = _read(_syncPath);
+      final applyStep = _blockStartingAt(
+        source,
+        'Future<_MaintenanceLifecycleReplayReceipt>\n'
+        '  _applyMaintenanceLifecycleReplayStep(',
+      );
 
-        expect(
-          applyStep,
-          contains(
-            'observed ??= await _firestoreMaintenance\n'
-            '        .readRemoteMaintenanceLifecycleReplayFieldsForSync',
-          ),
-          reason:
-              'A successful write must be read back; error-only readback can '
-              'leave the local row at its stale pre-rebase version.',
-        );
-        expect(applyStep, contains('readRequiredPersistedInt('));
-        expect(applyStep, contains("data['version']"));
-        expect(applyStep, contains('readRequiredPersistedDateTime('));
-        expect(applyStep, contains("data['updatedAt']"));
+      expect(
+        applyStep,
+        contains(
+          'observed ??= await _firestoreMaintenance\n'
+          '        .readRemoteMaintenanceLifecycleReplayFieldsForSync',
+        ),
+        reason:
+            'A successful write must be read back; error-only readback can '
+            'leave the local row at its stale pre-rebase version.',
+      );
+      expect(applyStep, contains('_maintenanceLifecycleReceiptFromReadback('));
+      final readback = _blockStartingAt(
+        source,
+        '_MaintenanceLifecycleReplayReceipt _maintenanceLifecycleReceiptFromReadback(',
+      );
+      expect(readback, contains('readRequiredPersistedInt('));
+      expect(readback, contains("data['version']"));
+      expect(readback, contains('readRequiredPersistedDateTime('));
+      expect(readback, contains("data['updatedAt']"));
 
-        final provider = _readMaintenanceProviderLibrary();
-        expect(
-          provider,
-          contains('applyMaintenanceLifecycleReplayReceiptForSync('),
-        );
-        expect(provider, contains('_overwriteLocalMaintenanceRecord('));
-        expect(provider, contains('required MaintenanceRecord remote'));
-        expect(provider, contains('const GetOptions(source: Source.server)'));
-        expect(applyStep, contains('readRemoteMaintenanceRecord('));
-        expect(applyStep, contains('serverRecord: serverRecord'));
-      },
-    );
+      final provider = _readMaintenanceProviderLibrary();
+      expect(
+        provider,
+        contains('applyMaintenanceLifecycleReplayReceiptForSync('),
+      );
+      expect(provider, contains('_overwriteLocalMaintenanceRecord('));
+      expect(provider, contains('required MaintenanceRecord remote'));
+      expect(provider, contains('const GetOptions(source: Source.server)'));
+      expect(readback, contains('readRemoteMaintenanceRecord('));
+      expect(readback, contains('serverRecord: serverRecord'));
+    });
 
     test('uncertain reopen outcome preserves exact resolution history', () {
       final updatedAt = DateTime.utc(2026, 8, 21, 10, 5);
@@ -1115,32 +1132,86 @@ void main() {
       expect(form, contains("? 'Furnace / Inner Cover interface'"));
     });
 
-    test('never-created local tombstones do not attempt remote creation', () {
-      final source = _read(_syncPath);
-      final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
+    test(
+      'absent server issues retain deletion until creation cancellation is provable',
+      () {
+        final source = _read(_syncPath);
+        final syncBlock = _blockStartingAt(
+          source,
+          'Future<void> _syncTickets()',
+        );
 
-      _expectOrder(syncBlock, const [
-        'if (record.isDeleted)',
-        'if (remote == null)',
-        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
-        'continue;',
-        'if (remote == null)',
-        'await _pushMissingMaintenanceTicket(record)',
-      ]);
+        final deletion = _blockStartingAt(syncBlock, 'if (record.isDeleted)');
+        _expectOrder(deletion, const [
+          '.readMaintenanceIssueCommandServerState(record.firestoreId!)',
+          'if (remote == null)',
+          'throw const WorkflowException(',
+          'await _recordMaintenancePushFailure(record, error);',
+          'continue;',
+          'if (remote.isDeleted)',
+          'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        ]);
+        expect(deletion, isNot(contains('_pushMissingMaintenanceTicket')));
+        expect(deletion, contains('earlier creation'));
+        final absent = _blockStartingAt(deletion, 'if (remote == null)');
+        expect(absent, isNot(contains('skippedButSyncedSnapshots.add')));
+        expect(absent, isNot(contains('lastSuccessCount++')));
+      },
+    );
+
+    test('authoritative reads reject cached and pending-write snapshots', () {
+      final provider = _readMaintenanceProviderLibrary();
+      for (final start in <String>[
+        'Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(',
+        'readRemoteMaintenanceLifecycleReplayFieldsForSync(String firestoreId) async',
+      ]) {
+        // Only the remote part has these implementations with a server read.
+        final remote = _read(
+          'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+        );
+        final read = _blockStartingAt(remote, start);
+        expect(read, contains('GetOptions(source: Source.server)'));
+        expect(read, contains('.metadata.isFromCache'));
+        expect(read, contains('.metadata.hasPendingWrites'));
+        expect(read, contains("code: 'unavailable'"));
+      }
       expect(
-        syncBlock,
-        contains('The issue never crossed the governed creation boundary'),
+        provider,
+        contains('an in-flight creation can never commit afterward'),
       );
+    });
+
+    test('attempted lifecycle failure cannot return the no-plan sentinel', () {
+      final source = _read(_syncPath);
+      final replay = _blockStartingAt(
+        source,
+        '  _tryPushDecomposedMaintenanceTicket(',
+      );
+      final failure = _blockStartingAt(replay, 'catch (error, stackTrace)');
+      expect(failure, contains('throw WorkflowException('));
+      expect(failure, isNot(contains('return null')));
+      final sync = _blockStartingAt(source, 'Future<void> _syncTickets()');
+      final call = sync.indexOf(
+        'replayReceipt = await _tryPushDecomposedMaintenanceTicket',
+      );
+      final guarded = sync.substring(
+        call,
+        sync.indexOf('if (replayReceipt != null)', call),
+      );
+      expect(
+        guarded,
+        contains('await _recordMaintenancePushFailure(record, error);'),
+      );
+      expect(guarded, contains('continue;'));
     });
 
     test(
       'a never-created local issue always starts the server aggregate at v1',
       () {
         final open = _maintenanceTicket(version: 2);
-        final locallyClosed =
-            _maintenanceTicket(version: 7)
-              ..isResolved = true
-              ..status = TicketStatus.resolved;
+        final locallyClosed = _maintenanceTicket(version: 7)
+          ..isResolved = true
+          ..status = TicketStatus.resolved;
 
         expect(maintenanceCreateReplayVersion(open), 1);
         expect(maintenanceCreateReplayVersion(locallyClosed), 1);

@@ -8,8 +8,11 @@ import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/inner_cover_lifecycle_screen.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
+import 'package:crm3_baf_ops/features/assets/providers/inner_cover_acceptance_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/furnace_stuckup_provider.dart';
 import 'package:crm3_baf_ops/features/assets/repositories/asset_hierarchy_repository.dart';
+import 'package:crm3_baf_ops/features/assets/services/inner_cover_acceptance_controller.dart';
+import 'package:crm3_baf_ops/features/auth/domain/current_actor_access.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -17,7 +20,164 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/in_memory_durable_submission_store.dart';
+
 void main() {
+  for (final lostResponse in [true, false]) {
+    testWidgets(
+      'saved acceptance reopens after the entire UI is replaced: lost response=$lostResponse',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1100));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final store = InMemoryDurableSubmissionStore();
+        final repository = _IntakeRepository(existing: true)
+          ..loseNextAcceptanceResponse = lostResponse
+          ..failNextRead = !lostResponse;
+        addTearDown(repository.updates.close);
+        await _pumpIntake(tester, repository, submissionStore: store);
+        await _openAcceptance(tester);
+        await _fillAcceptance(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+        await tester.pumpAndSettle();
+        expect(repository.acceptCalls, 1);
+        final first = repository.acceptRequests.single;
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        await _pumpIntake(tester, repository, submissionStore: store);
+        await _openAcceptance(tester);
+        expect(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('Inspection reference'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Recovered'), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, 'Check or retry'));
+        await tester.pumpAndSettle();
+        expect(repository.acceptCalls, lostResponse ? 2 : 1);
+        expect(repository.acceptRequests.last[#requestId], first[#requestId]);
+        expect(repository.acceptRequests.last[#reason], first[#reason]);
+        expect(find.text('1 available'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets('overlong acceptance reason stays editable and is never sent', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(600, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _IntakeRepository(existing: true);
+    addTearDown(repository.updates.close);
+    await _pumpIntake(tester, repository);
+    await _openAcceptance(tester);
+    await _fillAcceptance(tester, reason: 'x' * 1001);
+    await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+    await tester.pumpAndSettle();
+    expect(repository.acceptCalls, 0);
+    expect(find.text('Use at most 1,000 characters.'), findsOneWidget);
+    final reason = find.widgetWithText(TextFormField, 'Acceptance reason');
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(of: reason, matching: find.byType(EditableText)),
+          )
+          .readOnly,
+      isFalse,
+    );
+    await tester.enterText(reason, 'Inspection evidence reviewed.');
+    await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+    await tester.pumpAndSettle();
+    expect(repository.acceptCalls, 1);
+    expect(find.text('1 available'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'stale acceptance reviews the current cover before a fresh request',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _IntakeRepository(existing: true);
+      addTearDown(repository.updates.close);
+      await _pumpIntake(tester, repository);
+      await _openAcceptance(tester);
+      await _fillAcceptance(tester);
+      repository.serverVersion = 2;
+      await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+      await tester.pumpAndSettle();
+      expect(repository.acceptCalls, 1);
+      expect(
+        find.widgetWithText(FilledButton, 'Review current cover'),
+        findsOneWidget,
+      );
+      expect(find.text('Inspection reference'), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Review current cover'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        repository.acceptCalls,
+        1,
+        reason: 'Review must not dispatch acceptance.',
+      );
+      expect(find.textContaining('revision 2'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+      await tester.pumpAndSettle();
+      expect(repository.acceptCalls, 2);
+      final first = repository.acceptRequests.first;
+      final second = repository.acceptRequests.last;
+      expect((first[#cover] as InnerCoverProfile).version, 1);
+      expect((second[#cover] as InnerCoverProfile).version, 2);
+      expect(second[#requestId], isNot(first[#requestId]));
+      expect(second[#inspectedOn], first[#inspectedOn]);
+      expect(second[#acceptanceReference], first[#acceptanceReference]);
+      expect(second[#reason], first[#reason]);
+      expect(find.text('1 available'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'acceptance refuses retained actor data after verification failure',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      actors.add(_actor(AppRole.admin));
+      final repository = _IntakeRepository(existing: true);
+      addTearDown(repository.updates.close);
+      await _pumpIntake(tester, repository, actorStream: actors.stream);
+      await _openAcceptance(tester);
+      await _fillAcceptance(tester);
+      actors.addError(StateError('profile unavailable'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+      await tester.pumpAndSettle();
+      expect(repository.acceptCalls, 0);
+      expect(
+        find.textContaining('Your account could not be verified right now.'),
+        findsOneWidget,
+      );
+      expect(find.text('Inspection reference'), findsOneWidget);
+      actors.add(_actor(AppRole.admin));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
+      await tester.pumpAndSettle();
+      expect(
+        repository.acceptCalls,
+        1,
+        reason: tester
+            .widgetList<Text>(find.byType(Text))
+            .map((text) => text.data)
+            .join('\n'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final failure in ['refusal', 'timeout']) {
     testWidgets(
       'Acceptance $failure retains evidence with the correct retry identity',
@@ -76,7 +236,10 @@ void main() {
           await tester.enterText(field, 'Corrected reference');
           await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
         } else {
-          expect(find.textContaining('Response lost'), findsOneWidget);
+          expect(
+            find.textContaining('outcome is not yet confirmed'),
+            findsOneWidget,
+          );
           await tester.tap(find.widgetWithText(FilledButton, 'Check or retry'));
         }
         await tester.pumpAndSettle();
@@ -90,8 +253,8 @@ void main() {
           expect(last[#acceptanceReference], 'Corrected reference');
         } else {
           expect(
-            last,
-            first,
+            repository.acceptanceWireRequests.last,
+            repository.acceptanceWireRequests.first,
             reason:
                 'An uncertain acceptance must retain the identical request and evidence.',
           );
@@ -166,7 +329,12 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Accept').last);
       await tester.pumpAndSettle();
       expect(repository.acceptCalls, 1);
-      expect(find.textContaining('Acceptance was recorded.'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Acceptance was recorded and saved on this device.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Inspection IC-30'), findsOneWidget);
       expect(
         tester
@@ -966,7 +1134,10 @@ Future<void> _pumpIntake(
   WidgetTester tester,
   _IntakeRepository repository, {
   bool adminEntry = false,
+  Stream<AppUser?>? actorStream,
+  InMemoryDurableSubmissionStore? submissionStore,
 }) async {
+  final store = submissionStore ?? InMemoryDurableSubmissionStore();
   final now = DateTime.utc(2026, 8, 1);
   final assetClass = AssetClassRecord(
     id: 'inner-class',
@@ -986,8 +1157,24 @@ Future<void> _pumpIntake(
     ProviderScope(
       overrides: [
         assetHierarchyRepositoryProvider.overrideWithValue(repository),
+        innerCoverAcceptanceControllerProvider.overrideWith(
+          (ref) => InnerCoverAcceptanceController(
+            store: store,
+            repository: repository,
+            requireActor: () {
+              final access = CurrentActorAccess.resolve(
+                ref.read(currentAppUserProvider),
+              );
+              if (!access.isReady) {
+                throw AssetHierarchyException(access.message);
+              }
+              return access.actor!;
+            },
+            requireCapability: (_) async {},
+          ),
+        ),
         currentAppUserProvider.overrideWith(
-          (ref) => Stream.value(_actor(AppRole.admin)),
+          (ref) => actorStream ?? Stream.value(_actor(AppRole.admin)),
         ),
         assetClassesProvider.overrideWith((ref) => Stream.value([assetClass])),
         assetHierarchyNodesProvider(
@@ -1031,6 +1218,40 @@ Future<void> _pumpIntake(
   await tester.pumpAndSettle();
 }
 
+Future<void> _openAcceptance(WidgetTester tester) async {
+  await tester.tap(find.text('Pool'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('GR30'));
+  await tester.pumpAndSettle();
+  final accept = find.widgetWithText(FilledButton, 'Accept');
+  await tester.tap(
+    accept.evaluate().isNotEmpty
+        ? accept
+        : find.widgetWithText(OutlinedButton, 'Check saved acceptance'),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _fillAcceptance(
+  WidgetTester tester, {
+  String reason = 'Inspection evidence reviewed.',
+}) async {
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Acceptance reference'),
+    'Inspection reference',
+  );
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Acceptance reason'),
+    reason,
+  );
+  await tester.tap(find.text('Choose inspection date and time'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('OK'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('OK'));
+  await tester.pumpAndSettle();
+}
+
 class _IntakeRepository extends Fake implements AssetHierarchyRepository {
   _IntakeRepository({bool existing = false}) {
     if (existing) profiles = [_current()];
@@ -1041,14 +1262,17 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
   bool rejectNextAcceptance = false;
   bool loseNextAcceptanceResponse = false;
   final acceptRequests = <Map<Symbol, dynamic>>[];
+  final acceptanceWireRequests = <Map<String, dynamic>>[];
   int acceptCalls = 0;
   int readCalls = 0;
   int registerCalls = 0;
   String? acceptedRequestId;
   String? acceptanceReference;
   DateTime? inspectedOn;
+  int serverVersion = 1;
+  int? acceptedVersion;
 
-  InnerCoverProfile _current() => InnerCoverProfile(
+  InnerCoverProfile _current({int? version}) => InnerCoverProfile(
     id: 'new-cover',
     assetClassId: 'inner-class',
     assetClassCode: 'INNER_COVER',
@@ -1061,7 +1285,7 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
         ? InnerCoverLifecycleState.awaitingInspection
         : InnerCoverLifecycleState.available,
     traceabilityGrade: InnerCoverTraceabilityGrade.t3,
-    version: acceptedRequestId == null ? 1 : 2,
+    version: version ?? acceptedVersion ?? serverVersion,
     createdAt: DateTime.utc(2026, 8, 1),
     updatedAt: DateTime.now(),
     lastMutationId: acceptedRequestId ?? 'registration',
@@ -1098,9 +1322,33 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
       updates.add(profiles);
       return Future<String>.value('new-cover');
     }
-    if (invocation.memberName == #acceptInnerCover) {
+    if (invocation.memberName == #acceptInnerCover ||
+        invocation.memberName == #dispatchFrozenInnerCoverAcceptance) {
+      final Map<Symbol, dynamic> arguments;
+      if (invocation.memberName == #dispatchFrozenInnerCoverAcceptance) {
+        final request =
+            invocation.positionalArguments.single as Map<String, dynamic>;
+        acceptanceWireRequests.add({
+          'originActorUid': invocation.namedArguments[#originActorUid],
+          'request': Map<String, dynamic>.from(request),
+        });
+        final draft = request['acceptanceDraft'] as Map;
+        expect(invocation.namedArguments[#originActorUid], 'actor-1');
+        arguments = {
+          #requestId: request['requestId'],
+          #cover: _current(version: request['expectedVersion'] as int),
+          #inspectedOn: DateTime.parse(draft['inspectedOn'] as String),
+          #acceptanceReference: draft['acceptanceReference'],
+          #reason: request['reason'],
+          #leakTestReference: draft['leakTestReference'],
+          #ndtReference: draft['ndtReference'],
+          #notes: draft['notes'],
+        };
+      } else {
+        arguments = Map<Symbol, dynamic>.from(invocation.namedArguments);
+      }
       acceptCalls++;
-      acceptRequests.add(Map<Symbol, dynamic>.from(invocation.namedArguments));
+      acceptRequests.add(arguments);
       if (rejectNextAcceptance) {
         rejectNextAcceptance = false;
         return Future<AssetHierarchyMutationReceipt>.error(
@@ -1110,10 +1358,22 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
           ),
         );
       }
-      acceptedRequestId = invocation.namedArguments[#requestId] as String;
-      acceptanceReference =
-          invocation.namedArguments[#acceptanceReference] as String;
-      inspectedOn = invocation.namedArguments[#inspectedOn] as DateTime;
+      final incomingId = arguments[#requestId] as String;
+      final submittedCover = arguments[#cover] as InnerCoverProfile;
+      if (incomingId != acceptedRequestId &&
+          submittedCover.version != serverVersion) {
+        return Future<AssetHierarchyMutationReceipt>.error(
+          const AssetHierarchyCommandRefused(
+            'The cover changed. Review its current state.',
+            code: 'aborted',
+            reasonCode: 'inner-cover-version-mismatch',
+          ),
+        );
+      }
+      acceptedVersion ??= serverVersion + 1;
+      acceptedRequestId = arguments[#requestId] as String;
+      acceptanceReference = arguments[#acceptanceReference] as String;
+      inspectedOn = arguments[#inspectedOn] as DateTime;
       profiles = [_current()];
       updates.add(profiles);
       if (loseNextAcceptanceResponse) {
@@ -1127,7 +1387,7 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
           requestId: acceptedRequestId!,
           operation: 'ACCEPT_INNER_COVER',
           entityId: 'new-cover',
-          version: 2,
+          version: acceptedVersion!,
           auditId: 'inner_cover_$acceptedRequestId',
           committedAt: DateTime.now(),
           idempotentReplay: false,

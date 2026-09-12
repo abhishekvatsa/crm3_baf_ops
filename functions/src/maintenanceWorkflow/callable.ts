@@ -10,6 +10,7 @@ import {FirebaseWorkflowStore} from "./firebaseStore";
 import {MUTATING_CALLABLE_SECURITY_OPTIONS} from "../callableSecurityConfig";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
+import {executeOriginBoundCallable} from "../originBoundCallableProtocol";
 import {
   CallableAbuseControlError,
   executeWithCallableAbuseControl,
@@ -142,4 +143,22 @@ export const executeMaintenanceWorkflowCommand = onCall(
       throw new HttpsError("internal", "Maintenance workflow command failed.");
     }
   },
+);
+
+export const executeMaintenanceWorkflowCommandV2 = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.executeMaintenanceWorkflowCommand,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
+  },
+  async (request: CallableRequest<unknown>) => executeOriginBoundCallable({
+    callableName: "executeMaintenanceWorkflowCommandV2",
+    authUid: request.auth?.uid ?? null,
+    data: request.data,
+    readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
+    execute: async (payload) => executeMaintenanceWorkflowCommand.run({...request, data: payload}),
+  }),
 );

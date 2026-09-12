@@ -317,7 +317,8 @@ const validateTarget = async (args: {
       asset.assetInstanceId !== assetId || asset.assetClassId !== classId ||
       asset.status !== "active" || asset.assetNumber !== args.expectedAssetNumber ||
       asset.assetClassCode !== assetClass.code ||
-      asset.assetClassName !== assetClass.name ||
+      typeof asset.assetClassName !== "string" || asset.assetClassName.trim().length === 0 ||
+      typeof assetClass.name !== "string" || assetClass.name.trim().length === 0 ||
       !nodeSnapshot.exists || node == null || node.schemaVersion !== 1 ||
       node.nodeId !== nodeId || node.assetClassId !== classId ||
       node.status !== "active" || node.version !== nodeVersion ||
@@ -411,27 +412,25 @@ const currentStateId = (assetInstanceId: string, burnerPosition: number): string
     .digest("hex").slice(0, 40)}`;
 
 const isLaterLifecycleData = (candidate: JsonMap, current: JsonMap): boolean => {
-  const candidateRecordedAt = Date.parse(parseInstant(
-    candidate.recordedAt,
-    "current.recordedAt",
-  ));
-  const currentRecordedAt = Date.parse(parseInstant(
-    current.recordedAt,
-    "current.recordedAt",
-  ));
-  if (candidateRecordedAt !== currentRecordedAt) {
-    return candidateRecordedAt > currentRecordedAt;
-  }
+  // Physical installation time determines what is installed now. A late
+  // ordinary report remains history; it is not an implicit correction.
   const candidatePerformedAt = Date.parse(parseInstant(
-    candidate.actionPerformedAt,
-    "current.actionPerformedAt",
+    candidate.actionPerformedAt, "current.actionPerformedAt",
   ));
   const currentPerformedAt = Date.parse(parseInstant(
-    current.actionPerformedAt,
-    "current.actionPerformedAt",
+    current.actionPerformedAt, "current.actionPerformedAt",
+  ));
+  const candidateRecordedAt = Date.parse(parseInstant(
+    candidate.recordedAt, "current.recordedAt",
+  ));
+  const currentRecordedAt = Date.parse(parseInstant(
+    current.recordedAt, "current.recordedAt",
   ));
   if (candidatePerformedAt !== currentPerformedAt) {
     return candidatePerformedAt > currentPerformedAt;
+  }
+  if (candidateRecordedAt !== currentRecordedAt) {
+    return candidateRecordedAt > currentRecordedAt;
   }
   return requiredText(candidate.eventId, "current.eventId") >
     requiredText(current.eventId, "current.eventId");

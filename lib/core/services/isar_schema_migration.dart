@@ -573,7 +573,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 10;
+  static const int currentSchemaVersion = 11;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -664,7 +664,7 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v10SchemaFingerprint =
       'v10:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
       'ReopenEvidence+PlantConditionEffect+PlantConditionContributionIndex,'
       'JobTemplate,JobExecution+WorkflowTerminalState,'
@@ -676,6 +676,20 @@ class IsarSchemaMigrator {
       'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
+
+  static const String currentSchemaFingerprint =
+      'v11:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
+      'ReopenEvidence+PlantConditionEffect+PlantConditionContributionIndex,'
+      'JobTemplate,JobExecution+WorkflowTerminalState,'
+      'JobDiaryEntry+EMD+RED,JobModuleInstance+EMD+RED,TemplatePackage,'
+      'TemplateVersion,TemplatePublishAudit,BafKnowledgeRow,'
+      'BafKnowledgeMatrixMetaStore,OperationalDirective,AuditEvent,'
+      'SyncRejection+OriginatingUid,AbnormalityType,ChargeAbnormality,'
+      'WorkflowAggregateRecord+GovernedAssetIdentity,JobLaneRecord,'
+      'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
+      'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
+      'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord,'
+      'DurableSubmissionRecord';
 
   static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
     currentVersion: currentSchemaVersion,
@@ -691,7 +705,8 @@ class IsarSchemaMigrator {
       7: <String>{v7SchemaFingerprint},
       8: <String>{v8SchemaFingerprint},
       9: <String>{v9SchemaFingerprint},
-      10: <String>{currentSchemaFingerprint},
+      10: <String>{v10SchemaFingerprint},
+      11: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
@@ -703,6 +718,7 @@ class IsarSchemaMigrator {
       8: _addSyncRejectionOriginatingUid,
       9: _addMaintenancePlantConditionEffect,
       10: _addMaintenancePlantConditionContributionIndex,
+      11: _addDurableSubmissionCollection,
     },
   );
 
@@ -858,6 +874,24 @@ class IsarSchemaMigrator {
   }
 
   const IsarSchemaMigrator._();
+
+  static Future<void> _addDurableSubmissionCollection(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 10 || context.toVersion != 11) {
+      throw IsarSchemaMigrationException(
+        'Unexpected durable submission storage transition.',
+        reasonCode: 'unexpected-v10-v11-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // Isar adds the new collection at open without rewriting business rows.
+    // Older markers remain recognized; an older binary rejects v11 rather
+    // than opening the store without its retained pending submissions.
+  }
 
   static Future<IsarSchemaOpenPreparation> prepareBeforeOpen({
     required IsarSchemaProvenanceStore store,

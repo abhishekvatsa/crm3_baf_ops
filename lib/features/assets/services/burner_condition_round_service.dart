@@ -1,15 +1,15 @@
 import 'dart:convert';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/burner_condition_round.dart';
-import 'burner_condition_round_idempotency_store.dart';
+import '../../../core/persistence/durable_submission_repository.dart';
+import 'burner_condition_submission_controller.dart';
 
-const burnerConditionRoundCallableName = 'mutateAssetHierarchy';
+const burnerConditionRoundCallableName = 'mutateAssetHierarchyV2';
 const burnerConditionRoundCallableRegion = 'asia-south1';
 const burnerDirectiveComplianceOperation = 'COMPLETE_BURNER_RED_HOT_DIRECTIVE';
 
@@ -274,19 +274,65 @@ class BurnerDirectiveComplianceResult {
 }
 
 class BurnerConditionRoundService {
-  BurnerConditionRoundService({
-    FirebaseFunctions? functions,
-    BurnerConditionRoundIdempotencyStore? idempotencyStore,
-  }) : _functions = functions,
-       _idempotencyStore =
-           idempotencyStore ?? BurnerConditionRoundIdempotencyStore();
+  BurnerConditionRoundService({this.submissions});
 
-  final FirebaseFunctions? _functions;
-  final BurnerConditionRoundIdempotencyStore _idempotencyStore;
+  final BurnerConditionSubmissionController? submissions;
+  BurnerConditionSubmissionController get _controller =>
+      submissions ??
+      (throw const BurnerConditionRoundException(
+        'Saved Burner/UV submissions could not be opened. Nothing was sent.',
+        code: 'failed-precondition',
+      ));
 
-  FirebaseFunctions get _client =>
-      _functions ??
-      FirebaseFunctions.instanceFor(region: burnerConditionRoundCallableRegion);
+  Future<List<DurableSubmission>> pending() => _controller.pending();
+
+  Future<Map<String, dynamic>> _submit(
+    Map<String, dynamic> request,
+    AppUser actor,
+    String furnaceName, {
+    Map<String, Object?> displayMetadata = const {},
+  }) async {
+    try {
+      return await _controller.submit(
+        requestWithoutId: request,
+        actorUid: actor.uid,
+        furnaceName: furnaceName,
+        displayMetadata: displayMetadata,
+      );
+    } on DurableSubmissionException catch (error) {
+      throw BurnerConditionRoundException(error.message, code: error.code);
+    } on BurnerConditionRoundException {
+      rethrow;
+    } catch (error) {
+      throw BurnerConditionRoundException(
+        'Saved Burner/UV entries could not be confirmed: $error',
+        code: 'saved-request-held',
+      );
+    }
+  }
+
+  Future<BurnerConditionRoundResult> resumeRound(DurableSubmission row) async {
+    final request = _controller.requestOf(row);
+    return BurnerConditionRoundResult.fromCallableData(
+      await _controller.check(row.submissionId),
+      expectedRequestId: row.requestId,
+      expectedAssetClassId: request['assetClassId'] as String,
+      expectedAssetInstanceId: row.aggregateId,
+    );
+  }
+
+  Future<BurnerDirectiveComplianceResult> resumeDirective(
+    DurableSubmission row,
+  ) async {
+    final request = _controller.requestOf(row);
+    return BurnerDirectiveComplianceResult.fromCallableData(
+      await _controller.check(row.submissionId),
+      expectedRequestId: row.requestId,
+      expectedAssetClassId: request['assetClassId'] as String,
+      expectedAssetInstanceId: row.aggregateId,
+      expectedDirectiveId: request['directiveId'] as String,
+    );
+  }
 
   Future<BurnerConditionRoundResult> record({
     required AssetInstanceRecord furnace,
@@ -334,66 +380,30 @@ class BurnerConditionRoundService {
         code: 'invalid-argument',
       );
     }
-    final payloadFingerprint = burnerConditionRoundPayloadFingerprint(
-      furnace: furnace,
-      observations: observations,
-      roundNote: roundNote,
-      draftSealRedHotObserved: draftSealRedHotObserved,
-      hotAirAtDraftSealObserved: hotAirAtDraftSealObserved,
-      uvObservations: uvObservations,
-    );
-    final pendingIdentity = await _resolvePendingIdentity(
-      actorUid: actor.uid,
-      payloadFingerprint: payloadFingerprint,
-    );
-    final requestId = pendingIdentity.requestId;
-    try {
-      final request = <String, dynamic>{
-        'requestId': requestId,
-        'operation': burnerConditionRoundOperation,
-        'assetClassId': furnace.assetClassId,
-        'assetInstanceId': furnace.id,
-        'expectedAssetVersion': furnace.version,
-        'observations': observations
+    final request = <String, dynamic>{
+      'operation': burnerConditionRoundOperation,
+      'assetClassId': furnace.assetClassId,
+      'assetInstanceId': furnace.id,
+      'expectedAssetVersion': furnace.version,
+      'observations': observations
+          .map((item) => item.toCommandMap())
+          .toList(growable: false),
+      if (extended) ...<String, dynamic>{
+        'draftSealRedHotObserved': draftSealRedHotObserved,
+        'hotAirAtDraftSealObserved': hotAirAtDraftSealObserved,
+        'uvObservations': uvObservations!
             .map((item) => item.toCommandMap())
             .toList(growable: false),
-        if (extended) ...<String, dynamic>{
-          'draftSealRedHotObserved': draftSealRedHotObserved,
-          'hotAirAtDraftSealObserved': hotAirAtDraftSealObserved,
-          'uvObservations': uvObservations!
-              .map((item) => item.toCommandMap())
-              .toList(growable: false),
-        },
-        'roundNote': _cleanOptionalText(roundNote),
-      };
-      final response = await _client
-          .httpsCallable(burnerConditionRoundCallableName)
-          .call<Object?>(request);
-      final result = BurnerConditionRoundResult.fromCallableData(
-        response.data,
-        expectedRequestId: requestId,
-        expectedAssetClassId: furnace.assetClassId,
-        expectedAssetInstanceId: furnace.id,
-      );
-      return finalizeBurnerConditionRoundResult(
-        result: result,
-        clearPendingIdentity:
-            () => _idempotencyStore.clearIfMatches(
-              actorUid: actor.uid,
-              requestId: requestId,
-            ),
-      );
-    } on FirebaseFunctionsException catch (error) {
-      throw BurnerConditionRoundException(
-        error.message ?? 'The burner condition round could not be recorded.',
-        code: error.code,
-      );
-    } on PersistedDataFormatException catch (error) {
-      throw BurnerConditionRoundException(
-        'Burner-round response evidence is invalid: $error',
-        code: 'data-loss',
-      );
-    }
+      },
+      'roundNote': _cleanOptionalText(roundNote),
+    };
+    final receipt = await _submit(request, actor, furnace.name);
+    return BurnerConditionRoundResult.fromCallableData(
+      receipt,
+      expectedRequestId: receipt['requestId'] as String,
+      expectedAssetClassId: furnace.assetClassId,
+      expectedAssetInstanceId: furnace.id,
+    );
   }
 
   Future<BurnerDirectiveComplianceResult> completeDirective({
@@ -401,6 +411,7 @@ class BurnerConditionRoundService {
     required BurnerConditionRound current,
     required String directiveId,
     required int expectedDirectiveVersion,
+    required bool wasUnacknowledged,
     required Map<int, BurnerDirectiveComplianceDisposition> dispositions,
     required AppUser actor,
     String? closureRemarks,
@@ -423,9 +434,8 @@ class BurnerConditionRoundService {
         code: 'failed-precondition',
       );
     }
-    final orderedDispositions =
-        dispositions.entries.toList()
-          ..sort((left, right) => left.key.compareTo(right.key));
+    final orderedDispositions = dispositions.entries.toList()
+      ..sort((left, right) => left.key.compareTo(right.key));
     final canonical = <String, dynamic>{
       'operation': burnerDirectiveComplianceOperation,
       'assetClassId': furnace.assetClassId,
@@ -443,76 +453,29 @@ class BurnerConditionRoundService {
       ],
       'closureRemarks': _cleanOptionalText(closureRemarks),
     };
-    final payloadFingerprint =
-        sha256.convert(utf8.encode(jsonEncode(canonical))).toString();
-    final pendingIdentity = await _resolvePendingIdentity(
-      actorUid: actor.uid,
-      payloadFingerprint: payloadFingerprint,
+    final receipt = await _submit(
+      canonical,
+      actor,
+      furnace.name,
+      displayMetadata: {'wasUnacknowledged': wasUnacknowledged},
     );
-    final requestId = pendingIdentity.requestId;
-    try {
-      final response = await _client
-          .httpsCallable(burnerConditionRoundCallableName)
-          .call<Object?>(<String, dynamic>{
-            'requestId': requestId,
-            ...canonical,
-          });
-      final result = BurnerDirectiveComplianceResult.fromCallableData(
-        response.data,
-        expectedRequestId: requestId,
-        expectedAssetClassId: furnace.assetClassId,
-        expectedAssetInstanceId: furnace.id,
-        expectedDirectiveId: cleanedDirectiveId,
-      );
-      return result;
-    } on FirebaseFunctionsException catch (error) {
-      throw BurnerConditionRoundException(
-        error.message ?? 'Burner directive compliance could not be completed.',
-        code: error.code,
-      );
-    } on PersistedDataFormatException catch (error) {
-      throw BurnerConditionRoundException(
-        'Burner-compliance response evidence is invalid: $error',
-        code: 'data-loss',
-      );
-    }
+    return BurnerDirectiveComplianceResult.fromCallableData(
+      receipt,
+      expectedRequestId: receipt['requestId'] as String,
+      expectedAssetClassId: furnace.assetClassId,
+      expectedAssetInstanceId: furnace.id,
+      expectedDirectiveId: cleanedDirectiveId,
+    );
   }
 
   Future<BurnerDirectiveComplianceResult> finalizeDirectiveCompliance({
     required BurnerDirectiveComplianceResult result,
     required String actorUid,
-  }) {
-    return finalizeBurnerDirectiveComplianceResult(
-      result: result,
-      clearPendingIdentity:
-          () => _idempotencyStore.clearIfMatches(
-            actorUid: actorUid,
-            requestId: result.roundId,
-          ),
-    );
-  }
-
-  Future<BurnerConditionRoundPendingIdentity> _resolvePendingIdentity({
-    required String actorUid,
-    required String payloadFingerprint,
-  }) async {
-    try {
-      return await _idempotencyStore.resolve(
-        actorUid: actorUid,
-        payloadFingerprint: payloadFingerprint,
-      );
-    } on PersistedDataFormatException catch (error) {
-      throw BurnerConditionRoundException(
-        'The saved burner-round retry identity is invalid: $error',
-        code: 'data-loss',
-      );
-    } catch (error) {
-      throw BurnerConditionRoundException(
-        'The burner-round retry identity could not be preserved safely: $error',
-        code: 'failed-precondition',
-      );
-    }
-  }
+  }) => finalizeBurnerDirectiveComplianceResult(
+    result: result,
+    clearPendingIdentity: () =>
+        _controller.finalizeDirective(result.roundId, actorUid),
+  );
 }
 
 Future<BurnerDirectiveComplianceResult>

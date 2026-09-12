@@ -15,6 +15,10 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
+
+
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
@@ -34,7 +38,20 @@ class _AbnormalityTypesScreenState
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    final appUser = access.actor;
+    if (!access.isReady) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Abnormality types',
+        appBarSubtitle: 'Cycle-event and quality classification',
+        appBarIcon: Icons.rule_folder_outlined,
+        accent: BafColors.charges,
+        title: 'Account verification required',
+        message: access.message,
+      );
+    }
     if (appUser == null || !appUser.canManageAbnormalityTypes) {
       return Scaffold(
         backgroundColor: BafColors.background,
@@ -181,7 +198,9 @@ class _AbnormalityTypesScreenState
   }
 
   Future<void> _seedDefaults() async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
     if (actor == null || !actor.canManageAbnormalityTypes) {
       _showAbnormalityTypeSnack(
         'Only Admin can seed abnormality type master data.',
@@ -227,7 +246,9 @@ class _AbnormalityTypesScreenState
   }
 
   Future<void> _showTypeForm({AbnormalityType? existing}) async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
 
     if (actor == null || !actor.canManageAbnormalityTypes) {
       _showAbnormalityTypeSnack(
@@ -240,8 +261,11 @@ class _AbnormalityTypesScreenState
     final syncOutcome = await showDialog<SyncRequestOutcome>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (_) => _AbnormalityTypeFormDialog(actor: actor, existing: existing),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canManageAbnormalityTypes,
+        child: _AbnormalityTypeFormDialog(actor: actor, existing: existing),
+      ),
     );
 
     if (!mounted || syncOutcome == null) {
@@ -264,7 +288,9 @@ class _AbnormalityTypesScreenState
   }
 
   Future<void> _confirmDelete(AbnormalityType type) async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
 
     if (actor == null || !actor.canManageAbnormalityTypes) {
       _showAbnormalityTypeSnack(
@@ -276,13 +302,25 @@ class _AbnormalityTypesScreenState
 
     final decision = await showDialog<_AbnormalityTypeDeleteDecision>(
       context: context,
-      builder: (_) => _AbnormalityTypeDeleteDialog(type: type),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canManageAbnormalityTypes,
+        child: _AbnormalityTypeDeleteDialog(type: type),
+      ),
     );
 
     if (!mounted || decision == null) {
       return;
     }
 
+    if (currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: actor.uid,
+          permission: (user) => user.canManageAbnormalityTypes,
+        ) !=
+        null) {
+      return;
+        }
     final dynamic id = kIsWeb ? type.firestoreId : type.id;
 
     if (id == null) {
@@ -518,36 +556,31 @@ class _AbnormalityTypeFormDialogState
                   child: Wrap(
                     spacing: BafSpacing.sm,
                     runSpacing: BafSpacing.sm,
-                    children:
-                        AssetType.values.map((assetType) {
-                          final selected = _selectedAssets.contains(assetType);
-                          return FilterChip(
-                            label: Text(_assetTypeLabel(assetType)),
-                            selected: selected,
-                            selectedColor: BafColors.assets.withValues(
-                              alpha: 0.14,
-                            ),
-                            checkmarkColor: BafColors.assets,
-                            side: BorderSide(
-                              color:
-                                  selected
-                                      ? BafColors.assets.withValues(alpha: 0.35)
-                                      : BafColors.border,
-                            ),
-                            onSelected:
-                                _isSaving
-                                    ? null
-                                    : (value) {
-                                      setState(() {
-                                        if (value) {
-                                          _selectedAssets.add(assetType);
-                                        } else {
-                                          _selectedAssets.remove(assetType);
-                                        }
-                                      });
-                                    },
-                          );
-                        }).toList(),
+                    children: AssetType.values.map((assetType) {
+                      final selected = _selectedAssets.contains(assetType);
+                      return FilterChip(
+                        label: Text(_assetTypeLabel(assetType)),
+                        selected: selected,
+                        selectedColor: BafColors.assets.withValues(alpha: 0.14),
+                        checkmarkColor: BafColors.assets,
+                        side: BorderSide(
+                          color: selected
+                              ? BafColors.assets.withValues(alpha: 0.35)
+                              : BafColors.border,
+                        ),
+                        onSelected: _isSaving
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  if (value) {
+                                    _selectedAssets.add(assetType);
+                                  } else {
+                                    _selectedAssets.remove(assetType);
+                                  }
+                                });
+                              },
+                      );
+                    }).toList(),
                   ),
                 ),
                 const SizedBox(height: BafSpacing.lg),
@@ -608,6 +641,19 @@ class _AbnormalityTypeFormDialogState
   }
 
   Future<void> _submit() async {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: widget.actor.uid,
+      permission: (user) => user.canManageAbnormalityTypes,
+    );
+    if (message != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+    final actor = access.actor!;
     if (!_formKey.currentState!.validate()) return;
     if (_isSaving) return;
 
@@ -625,8 +671,8 @@ class _AbnormalityTypeFormDialogState
         record
           ..firestoreId = const Uuid().v4()
           ..createdAt = now
-          ..createdByUid = widget.actor.uid
-          ..createdByName = widget.actor.name
+          ..createdByUid = actor.uid
+          ..createdByName = actor.name
           ..version = 1;
       }
 
@@ -644,17 +690,16 @@ class _AbnormalityTypeFormDialogState
         ..isActive = _isActive
         ..isDeleted = false
         ..updatedAt = now
-        ..lastEditedByUid = widget.actor.uid
-        ..lastEditedByName = widget.actor.name
+        ..lastEditedByUid = actor.uid
+        ..lastEditedByName = actor.name
         ..isSynced = false;
 
       final auditContext = AuditContext(
-        performedByUid: widget.actor.uid,
-        performedByName: widget.actor.name,
-        reasonNotes:
-            existing == null
-                ? 'Created abnormality type'
-                : 'Updated abnormality type',
+        performedByUid: actor.uid,
+        performedByName: actor.name,
+        reasonNotes: existing == null
+            ? 'Created abnormality type'
+            : 'Updated abnormality type',
         before: beforeSnapshot,
       );
 
@@ -664,13 +709,13 @@ class _AbnormalityTypeFormDialogState
       if (existing == null) {
         await repository.saveType(
           record,
-          actor: widget.actor,
+          actor: actor,
           auditContext: auditContext,
         );
       } else {
         await repository.updateType(
           record,
-          actor: widget.actor,
+          actor: actor,
           auditContext: auditContext,
         );
       }
@@ -876,7 +921,9 @@ class _HeaderCard extends StatelessWidget {
                 const SizedBox(height: BafSpacing.md),
                 Row(
                   children: [
-                    Expanded(child: _MetricPill(label: 'Total', value: total)),
+                    Expanded(
+                      child: _MetricPill(label: 'Total', value: total),
+                    ),
                     const SizedBox(width: BafSpacing.sm),
                     Expanded(
                       child: _MetricPill(label: 'Active', value: active),

@@ -17,10 +17,14 @@
     "mutatingSecurityOptionsExport": "MUTATING_CALLABLE_SECURITY_OPTIONS",
     "mutatingCallables": [
       "assignPublishedTemplateVersion",
+      "assignPublishedTemplateVersionV2",
       "completePlannedJobExecution",
       "executeMaintenanceWorkflowCommand",
-      "mutateChargeAbnormality",
+      "executeMaintenanceWorkflowCommandV2",
       "mutateAssetHierarchy",
+      "mutateAssetHierarchyV2",
+      "mutateChargeAbnormality",
+      "mutateChargeAbnormalityV2",
       "mutateRuntimeJobModulePopulation",
       "mutateUserAuthority"
     ],

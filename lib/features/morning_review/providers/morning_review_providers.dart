@@ -5,6 +5,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../../core/providers/durable_submission_provider.dart';
+import '../../../core/release/command_capability_service.dart';
 import '../data/morning_review_repository.dart';
 import '../domain/morning_review_models.dart';
 import '../services/morning_review_command_service.dart';
@@ -22,6 +25,32 @@ final _morningReviewCommandServiceByActorProvider =
           region: morningReviewCallableRegion,
         ),
         actorScope: actorScope,
+        durableStore: ref.watch(durableSubmissionRepositoryProvider),
+        requireActor: () {
+          final access = CurrentActorAccess.resolve(
+            ref.read(currentAppUserProvider),
+          );
+          if (!access.isReady ||
+              ref.read(firebaseAuthProvider).currentUser?.uid !=
+                  access.actor?.uid) {
+            throw MorningReviewCommandException(
+              access.isReady
+                  ? 'Your signed-in account changed. The saved change is retained.'
+                  : access.message,
+            );
+          }
+          return access.actor!;
+        },
+        requireCapability: (uid) async {
+          await const CommandCapabilityService().requireCapabilities(
+            callableName: morningReviewV2CallableName,
+            originActorUid: uid,
+            requiredCapabilities: const {'assetHierarchy.v2'},
+          );
+        },
+        readSubject: ref
+            .watch(morningReviewRepositoryProvider)
+            .readSubjectFromServer,
       );
     });
 
@@ -29,7 +58,8 @@ final morningReviewCommandServiceProvider =
     Provider<MorningReviewCommandService>((ref) {
       final actorScope = ref.watch(
         currentAppUserProvider.select(
-          (value) => value.value?.uid ?? 'signed-out',
+          (value) =>
+              CurrentActorAccess.resolve(value).actor?.uid ?? 'unverified',
         ),
       );
       return ref.watch(_morningReviewCommandServiceByActorProvider(actorScope));
@@ -49,7 +79,9 @@ final morningReviewPlantDayProvider = Provider<String>((ref) {
 
 final currentMorningReviewSessionProvider =
     StreamProvider<MorningReviewSession?>((ref) {
-      final actor = ref.watch(currentAppUserProvider).value;
+      final actor = CurrentActorAccess.resolve(
+        ref.watch(currentAppUserProvider),
+      ).actor;
       if (actor == null || !actor.canViewMorningReview) {
         return Stream.value(null);
       }
@@ -60,7 +92,9 @@ final currentMorningReviewSessionProvider =
 
 final recentMorningReviewSessionsProvider =
     StreamProvider<List<MorningReviewSession>>((ref) {
-      final actor = ref.watch(currentAppUserProvider).value;
+      final actor = CurrentActorAccess.resolve(
+        ref.watch(currentAppUserProvider),
+      ).actor;
       if (actor == null || !actor.canViewMorningReview) {
         return Stream.value(const <MorningReviewSession>[]);
       }
@@ -69,6 +103,12 @@ final recentMorningReviewSessionsProvider =
 
 final morningReviewParticipantsProvider = StreamProvider.autoDispose
     .family<List<MorningReviewParticipant>, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(const <MorningReviewParticipant>[]);
+      }
       return ref
           .watch(morningReviewRepositoryProvider)
           .watchParticipants(sessionId);
@@ -76,11 +116,23 @@ final morningReviewParticipantsProvider = StreamProvider.autoDispose
 
 final morningReviewEntriesProvider = StreamProvider.autoDispose
     .family<List<MorningReviewEntry>, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(const <MorningReviewEntry>[]);
+      }
       return ref.watch(morningReviewRepositoryProvider).watchEntries(sessionId);
     });
 
 final morningReviewActionsProvider = StreamProvider.autoDispose
     .family<List<MorningReviewAction>, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(const <MorningReviewAction>[]);
+      }
       return ref
           .watch(morningReviewRepositoryProvider)
           .watchSessionActions(sessionId);
@@ -88,7 +140,9 @@ final morningReviewActionsProvider = StreamProvider.autoDispose
 
 final activeMorningReviewActionsProvider =
     StreamProvider<List<MorningReviewAction>>((ref) {
-      final actor = ref.watch(currentAppUserProvider).value;
+      final actor = CurrentActorAccess.resolve(
+        ref.watch(currentAppUserProvider),
+      ).actor;
       if (actor == null || !actor.canViewMorningReview) {
         return Stream.value(const <MorningReviewAction>[]);
       }
@@ -97,7 +151,9 @@ final activeMorningReviewActionsProvider =
 
 final morningReviewStandingConcernsProvider =
     StreamProvider<List<MorningReviewStandingConcern>>((ref) {
-      final actor = ref.watch(currentAppUserProvider).value;
+      final actor = CurrentActorAccess.resolve(
+        ref.watch(currentAppUserProvider),
+      ).actor;
       if (actor == null || !actor.canViewMorningReview) {
         return Stream.value(const <MorningReviewStandingConcern>[]);
       }
@@ -106,6 +162,12 @@ final morningReviewStandingConcernsProvider =
 
 final morningReviewConcernChecksProvider = StreamProvider.autoDispose
     .family<List<MorningReviewConcernCheck>, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(const <MorningReviewConcernCheck>[]);
+      }
       return ref
           .watch(morningReviewRepositoryProvider)
           .watchConcernChecks(sessionId);
@@ -113,6 +175,12 @@ final morningReviewConcernChecksProvider = StreamProvider.autoDispose
 
 final morningReviewDocumentProvider = StreamProvider.autoDispose
     .family<MorningReviewDocument?, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(null);
+      }
       return ref
           .watch(morningReviewRepositoryProvider)
           .watchDocument(sessionId);

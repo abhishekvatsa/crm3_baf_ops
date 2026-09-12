@@ -7,17 +7,23 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/persistence/durable_submission.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/furnace_stuckup_record.dart';
 import '../data/inner_cover_lifecycle.dart';
+import '../domain/inner_cover_acceptance_input.dart';
+import '../domain/inner_cover_acceptance_submission.dart';
 import '../../maintenance/domain/furnace_stuckup_case.dart';
 import 'widgets/inner_cover_registration_date_field.dart';
 import '../providers/asset_hierarchy_provider.dart';
+import '../providers/inner_cover_acceptance_provider.dart';
 import '../providers/furnace_stuckup_provider.dart';
 import '../repositories/asset_hierarchy_repository.dart';
+import '../services/inner_cover_acceptance_controller.dart';
 
 part 'inner_cover_lifecycle_screen.details.dart';
 part 'inner_cover_lifecycle_screen.acceptance.dart';
@@ -101,24 +107,24 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
           ],
         ),
         body: loading
-                ? const Center(child: CircularProgressIndicator())
-                : error != null
-                ? _LoadError(error: error)
-                : _LifecycleBody(
-                  user: user,
-                  profiles: profiles.value ?? const <InnerCoverProfile>[],
-                  assignments:
-                      assignments.value ?? const <BaseInnerCoverAssignment>[],
-                  assetClasses: classes.value ?? const <AssetClassRecord>[],
-                  assets: assets.value ?? const <AssetInstanceRecord>[],
-                  stuckupCases:
-                      stuckupCases.value ?? const <FurnaceStuckupRecord>[],
-                  conditionDeclarations:
-                      conditionDeclarations.value ??
-                      const <AssetConditionDeclarationRecord>[],
-                  bulgeEvidenceAvailable:
-                      !stuckupCases.hasError && !conditionDeclarations.hasError,
-                ),
+            ? const Center(child: CircularProgressIndicator())
+            : error != null
+            ? _LoadError(error: error)
+            : _LifecycleBody(
+                user: user,
+                profiles: profiles.value ?? const <InnerCoverProfile>[],
+                assignments:
+                    assignments.value ?? const <BaseInnerCoverAssignment>[],
+                assetClasses: classes.value ?? const <AssetClassRecord>[],
+                assets: assets.value ?? const <AssetInstanceRecord>[],
+                stuckupCases:
+                    stuckupCases.value ?? const <FurnaceStuckupRecord>[],
+                conditionDeclarations:
+                    conditionDeclarations.value ??
+                    const <AssetConditionDeclarationRecord>[],
+                bulgeEvidenceAvailable:
+                    !stuckupCases.hasError && !conditionDeclarations.hasError,
+              ),
       ),
     );
   }
@@ -173,7 +179,28 @@ class _InnerCoverIntakePageState extends ConsumerState<_InnerCoverIntakePage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentAppUserProvider).value;
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    if (access.availability == CurrentActorAvailability.verifying) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Registered Inner Cover',
+        appBarSubtitle: 'Confirm intake and continue to inspection',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        label: 'Checking Inner Cover access',
+      );
+    }
+    if (access.availability == CurrentActorAvailability.verificationFailed) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Registered Inner Cover',
+        appBarSubtitle: 'Confirm intake and continue to inspection',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        message: 'Inner Cover access could not be verified.',
+      );
+    }
+    final user = access.actor;
     return BafScreenScaffold(
       title: 'Registered Inner Cover',
       subtitle: 'Confirm intake and continue to inspection',
@@ -195,7 +222,8 @@ class _InnerCoverIntakePageState extends ConsumerState<_InnerCoverIntakePage> {
                   return SingleChildScrollView(
                     child: BafStatePanel.error(
                       title: 'Registration recorded; current state unconfirmed',
-                      message: 'Do not register the cover again. Check its current state to continue to inspection.',
+                      message:
+                          'Do not register the cover again. Check its current state to continue to inspection.',
                       primaryLabel: 'Check current cover',
                       onPrimary: () => setState(() => _profile = _read()),
                     ),
@@ -285,9 +313,9 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
     final stuckupCases = widget.stuckupCases;
     final conditionDeclarations = widget.conditionDeclarations;
     final baseClassIds = assetClasses
-            .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
-            .map((item) => item.id)
-            .toSet();
+        .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
+        .map((item) => item.id)
+        .toSet();
     final bases =
         assets
             .where(
@@ -309,7 +337,7 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
       declarations: conditionDeclarations,
     );
     final pool = profiles.where((profile) => !profile.isInstalled).toList()
-          ..sort(_poolSort);
+      ..sort(_poolSort);
     final canManage = user?.canManageAssetHierarchy == true;
 
     return Column(
@@ -318,8 +346,8 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
           profiles: profiles,
           baseCount: bases.length,
           occupiedBaseCount: bases
-                  .where((base) => assignmentByBase.containsKey(base.id))
-                  .length,
+              .where((base) => assignmentByBase.containsKey(base.id))
+              .length,
           bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
           bulgeEvidenceAvailable: widget.bulgeEvidenceAvailable,
           onShowAllBases: () => _showBases(_BaseListFilter.all),
@@ -339,27 +367,27 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 profileById: profileById,
                 filter: _baseFilter,
                 onFilterChanged: (filter) => setState(() {
-                      _baseFilter = filter;
-                    }),
+                  _baseFilter = filter;
+                }),
                 canManage: canManage,
                 onHistory: (base) => _showBaseHistory(context, base),
                 onDelink: (assignment, cover) => _delinkCover(
-                      context,
-                      ref,
-                      cover,
-                      assignment,
-                      user!,
-                      closeSurfaceOnSuccess: false,
-                    ),
+                  context,
+                  ref,
+                  cover,
+                  assignment,
+                  user!,
+                  closeSurfaceOnSuccess: false,
+                ),
                 onManage: (base, assignment) => _manageBaseCover(
-                      context,
-                      ref,
-                      user!,
-                      base,
-                      assignment,
-                      profiles,
-                      assignmentByBase,
-                    ),
+                  context,
+                  ref,
+                  user!,
+                  base,
+                  assignment,
+                  profiles,
+                  assignmentByBase,
+                ),
               ),
               _CoverList(
                 profiles: pool,
@@ -367,18 +395,18 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
                 filter: _poolFilter,
                 onFilterChanged: (filter) => setState(() {
-                      _poolFilter = filter;
-                    }),
+                  _poolFilter = filter;
+                }),
                 onOpen: (cover) => _showCoverDetails(
-                      context,
-                      ref,
-                      cover,
-                      assignmentByBase,
-                      profileById,
-                      bases,
-                      bulgeEvidenceByCoverId[cover.id],
-                      user,
-                    ),
+                  context,
+                  ref,
+                  cover,
+                  assignmentByBase,
+                  profileById,
+                  bases,
+                  bulgeEvidenceByCoverId[cover.id],
+                  user,
+                ),
               ),
               _CoverList(
                 profiles: profiles,
@@ -386,18 +414,18 @@ class _LifecycleBodyState extends ConsumerState<_LifecycleBody> {
                 bulgeEvidenceByCoverId: bulgeEvidenceByCoverId,
                 filter: _allCoverFilter,
                 onFilterChanged: (filter) => setState(() {
-                      _allCoverFilter = filter;
-                    }),
+                  _allCoverFilter = filter;
+                }),
                 onOpen: (cover) => _showCoverDetails(
-                      context,
-                      ref,
-                      cover,
-                      assignmentByBase,
-                      profileById,
-                      bases,
-                      bulgeEvidenceByCoverId[cover.id],
-                      user,
-                    ),
+                  context,
+                  ref,
+                  cover,
+                  assignmentByBase,
+                  profileById,
+                  bases,
+                  bulgeEvidenceByCoverId[cover.id],
+                  user,
+                ),
               ),
             ],
           ),
@@ -543,15 +571,15 @@ class _SummaryBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final available = profiles.where((item) => item.isAvailable).length;
     final retired = profiles
-            .where((item) => _isRetirementState(item.lifecycleState))
-            .length;
+        .where((item) => _isRetirementState(item.lifecycleState))
+        .length;
     final vacantBases = (baseCount - occupiedBaseCount).clamp(0, baseCount);
     final bulgeRecords = bulgeEvidenceByCoverId.values
-            .where((evidence) => evidence.hasAnyRecord)
-            .length;
+        .where((evidence) => evidence.hasAnyRecord)
+        .length;
     final attention = profiles
-            .where((item) => _needsLifecycleAttention(item.lifecycleState))
-            .length;
+        .where((item) => _needsLifecycleAttention(item.lifecycleState))
+        .length;
     return Container(
       width: double.infinity,
       color: BafColors.card,
@@ -590,16 +618,16 @@ class _SummaryBand extends StatelessWidget {
               _SummaryFilterBadge(
                 label: '$attention need attention',
                 color: attention == 0
-                        ? BafColors.textSecondary
-                        : BafColors.warning,
+                    ? BafColors.textSecondary
+                    : BafColors.warning,
                 tooltip: 'Show Inner Covers needing attention',
                 onTap: onShowAttention,
               ),
               _SummaryFilterBadge(
                 label: '$vacantBases Bases with no Inner Covers',
                 color: vacantBases == 0
-                        ? BafColors.textSecondary
-                        : BafColors.audit,
+                    ? BafColors.textSecondary
+                    : BafColors.audit,
                 tooltip: 'Show Bases with no Inner Cover',
                 onTap: onShowVacantBases,
               ),
@@ -717,22 +745,22 @@ class _BaseListState extends State<_BaseList> {
     }
     final query = _search.text.trim().toLowerCase();
     final vacantCount = widget.bases
-            .where((base) => !widget.assignmentByBase.containsKey(base.id))
-            .length;
+        .where((base) => !widget.assignmentByBase.containsKey(base.id))
+        .length;
     final filtered = widget.bases.where((base) {
-          final assignment = widget.assignmentByBase[base.id];
-          final matchesFilter = switch (widget.filter) {
-            _BaseListFilter.all => true,
-            _BaseListFilter.vacant => assignment == null,
-            _BaseListFilter.occupied => assignment != null,
-          };
-          if (!matchesFilter) return false;
-          if (query.isEmpty) return true;
-          final serial = assignment?.innerCoverSerialNumber.toLowerCase() ?? '';
-          return '${base.assetNumber}'.contains(query) ||
-              base.name.toLowerCase().contains(query) ||
-              serial.contains(query);
-        }).toList();
+      final assignment = widget.assignmentByBase[base.id];
+      final matchesFilter = switch (widget.filter) {
+        _BaseListFilter.all => true,
+        _BaseListFilter.vacant => assignment == null,
+        _BaseListFilter.occupied => assignment != null,
+      };
+      if (!matchesFilter) return false;
+      if (query.isEmpty) return true;
+      final serial = assignment?.innerCoverSerialNumber.toLowerCase() ?? '';
+      return '${base.assetNumber}'.contains(query) ||
+          base.name.toLowerCase().contains(query) ||
+          serial.contains(query);
+    }).toList();
 
     return Column(
       children: [
@@ -761,126 +789,126 @@ class _BaseListState extends State<_BaseList> {
         ),
         Expanded(
           child: filtered.isEmpty
-                  ? const _EmptyState(
-                    icon: Icons.search_off_rounded,
-                    message: 'No Base matches this search and filter.',
-                  )
-                  : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      BafSpacing.lg,
-                      BafSpacing.sm,
-                      BafSpacing.lg,
-                      BafSpacing.lg,
-                    ),
-                    itemCount: filtered.length,
+              ? const _EmptyState(
+                  icon: Icons.search_off_rounded,
+                  message: 'No Base matches this search and filter.',
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.lg,
+                    BafSpacing.sm,
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                  ),
+                  itemCount: filtered.length,
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: BafSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final base = filtered[index];
-                      final assignment = widget.assignmentByBase[base.id];
+                  itemBuilder: (context, index) {
+                    final base = filtered[index];
+                    final assignment = widget.assignmentByBase[base.id];
                     final profile = assignment == null
-                              ? null
-                              : widget.profileById[assignment.innerCoverId];
-                      final drift =
-                          assignment != null &&
-                          (profile == null ||
-                              profile.currentBaseAssetInstanceId != base.id ||
-                              profile.currentLinkageId != assignment.linkageId);
-                      return Material(
-                        color: BafColors.card,
-                        clipBehavior: Clip.antiAlias,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            color: drift ? BafColors.danger : BafColors.border,
-                          ),
-                          borderRadius: BorderRadius.circular(BafRadius.medium),
+                        ? null
+                        : widget.profileById[assignment.innerCoverId];
+                    final drift =
+                        assignment != null &&
+                        (profile == null ||
+                            profile.currentBaseAssetInstanceId != base.id ||
+                            profile.currentLinkageId != assignment.linkageId);
+                    return Material(
+                      color: BafColors.card,
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(
+                          color: drift ? BafColors.danger : BafColors.border,
                         ),
-                        child: ListTile(
-                          onTap: () => widget.onHistory(base),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: BafSpacing.lg,
-                            vertical: BafSpacing.sm,
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                      ),
+                      child: ListTile(
+                        onTap: () => widget.onHistory(base),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: BafSpacing.lg,
+                          vertical: BafSpacing.sm,
+                        ),
+                        leading: CircleAvatar(
+                          backgroundColor: BafColors.assets.withValues(
+                            alpha: 0.12,
                           ),
-                          leading: CircleAvatar(
-                            backgroundColor: BafColors.assets.withValues(
-                              alpha: 0.12,
-                            ),
-                            foregroundColor: BafColors.assets,
-                            child: Text(
-                              '${base.assetNumber}',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                          title: Text(
-                            'Base ${base.assetNumber}',
+                          foregroundColor: BafColors.assets,
+                          child: Text(
+                            '${base.assetNumber}',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: BafSpacing.xs),
-                            child: Text(
-                              drift
-                                  ? 'Pairing data needs reconciliation'
-                                  : assignment == null
-                                  ? 'No Inner Cover linked'
-                                  : profile?.incorporatedOn == null
-                                  ? 'Inner Cover ${assignment.innerCoverSerialNumber}'
-                                  : 'Inner Cover ${assignment.innerCoverSerialNumber}\n'
+                        ),
+                        title: Text(
+                          'Base ${base.assetNumber}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: BafSpacing.xs),
+                          child: Text(
+                            drift
+                                ? 'Pairing data needs reconciliation'
+                                : assignment == null
+                                ? 'No Inner Cover linked'
+                                : profile?.incorporatedOn == null
+                                ? 'Inner Cover ${assignment.innerCoverSerialNumber}'
+                                : 'Inner Cover ${assignment.innerCoverSerialNumber}\n'
                                       'Incorporated ${_formatInnerCoverDate(profile!.incorporatedOn!)}',
-                              style: TextStyle(
+                            style: TextStyle(
                               color: drift
-                                        ? BafColors.danger
-                                        : assignment == null
-                                        ? BafColors.textSecondary
-                                        : BafColors.success,
+                                  ? BafColors.danger
+                                  : assignment == null
+                                  ? BafColors.textSecondary
+                                  : BafColors.success,
                               fontWeight: assignment == null
-                                        ? FontWeight.w400
-                                        : FontWeight.w700,
-                              ),
+                                  ? FontWeight.w400
+                                  : FontWeight.w700,
                             ),
                           ),
+                        ),
                         trailing: widget.canManage && !drift
-                                  ? assignment == null
-                                      ? IconButton(
-                                        tooltip: 'Link Inner Cover',
+                            ? assignment == null
+                                  ? IconButton(
+                                      tooltip: 'Link Inner Cover',
                                       onPressed: () =>
                                           widget.onManage(base, assignment),
-                                        icon: const Icon(Icons.link_rounded),
-                                      )
-                                      : SizedBox(
-                                        width: 96,
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            IconButton(
-                                              tooltip:
-                                                  'Delink Inner Cover from Base',
+                                      icon: const Icon(Icons.link_rounded),
+                                    )
+                                  : SizedBox(
+                                      width: 96,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            tooltip:
+                                                'Delink Inner Cover from Base',
                                             onPressed: () => widget.onDelink(
-                                                    assignment,
-                                                    profile!,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.link_off_rounded,
-                                              ),
+                                              assignment,
+                                              profile!,
                                             ),
-                                            IconButton(
-                                              tooltip: 'Change Inner Cover',
+                                            icon: const Icon(
+                                              Icons.link_off_rounded,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'Change Inner Cover',
                                             onPressed: () => widget.onManage(
-                                                    base,
-                                                    assignment,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.swap_horiz_rounded,
-                                              ),
+                                              base,
+                                              assignment,
                                             ),
-                                          ],
-                                        ),
-                                      )
-                                  : null,
-                        ),
-                      );
-                    },
-                  ),
+                                            icon: const Icon(
+                                              Icons.swap_horiz_rounded,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -946,24 +974,24 @@ class _CoverListState extends State<_CoverList> {
     final query = _search.text.trim().toLowerCase();
     final sorted = [...widget.profiles]..sort(_compareInnerCoverSerial);
     final filtered = sorted.where((cover) {
-          final bulge = widget.bulgeEvidenceByCoverId[cover.id];
-          final matchesFilter = switch (widget.filter) {
-            _CoverListFilter.all => true,
-            _CoverListFilter.available => cover.isAvailable,
-            _CoverListFilter.installed => cover.isInstalled,
-            _CoverListFilter.attention => _needsLifecycleAttention(
-              cover.lifecycleState,
-            ),
+      final bulge = widget.bulgeEvidenceByCoverId[cover.id];
+      final matchesFilter = switch (widget.filter) {
+        _CoverListFilter.all => true,
+        _CoverListFilter.available => cover.isAvailable,
+        _CoverListFilter.installed => cover.isInstalled,
+        _CoverListFilter.attention => _needsLifecycleAttention(
+          cover.lifecycleState,
+        ),
         _CoverListFilter.retired => _isRetirementState(cover.lifecycleState),
-            _CoverListFilter.bulge => bulge?.hasAnyRecord == true,
-          };
-          if (!matchesFilter) return false;
-          if (query.isEmpty) return true;
-          return cover.serialNumber.toLowerCase().contains(query) ||
-              cover.normalizedSerialNumber.toLowerCase().contains(query) ||
-              cover.lifecycleState.label.toLowerCase().contains(query) ||
-              '${cover.currentBaseAssetNumber ?? ''}'.contains(query);
-        }).toList();
+        _CoverListFilter.bulge => bulge?.hasAnyRecord == true,
+      };
+      if (!matchesFilter) return false;
+      if (query.isEmpty) return true;
+      return cover.serialNumber.toLowerCase().contains(query) ||
+          cover.normalizedSerialNumber.toLowerCase().contains(query) ||
+          cover.lifecycleState.label.toLowerCase().contains(query) ||
+          '${cover.currentBaseAssetNumber ?? ''}'.contains(query);
+    }).toList();
     final availableCount = widget.profiles
         .where((item) => item.isAvailable)
         .length;
@@ -971,17 +999,17 @@ class _CoverListState extends State<_CoverList> {
         .where((item) => item.isInstalled)
         .length;
     final attentionCount = widget.profiles
-            .where((item) => _needsLifecycleAttention(item.lifecycleState))
-            .length;
+        .where((item) => _needsLifecycleAttention(item.lifecycleState))
+        .length;
     final retiredCount = widget.profiles
-            .where((item) => _isRetirementState(item.lifecycleState))
-            .length;
+        .where((item) => _isRetirementState(item.lifecycleState))
+        .length;
     final bulgeCount = widget.profiles
-            .where(
-              (item) =>
-                  widget.bulgeEvidenceByCoverId[item.id]?.hasAnyRecord == true,
-            )
-            .length;
+        .where(
+          (item) =>
+              widget.bulgeEvidenceByCoverId[item.id]?.hasAnyRecord == true,
+        )
+        .length;
 
     return Column(
       children: [
@@ -1032,73 +1060,73 @@ class _CoverListState extends State<_CoverList> {
         ),
         Expanded(
           child: filtered.isEmpty
-                  ? const _EmptyState(
-                    icon: Icons.search_off_rounded,
-                    message: 'No Inner Cover matches this search and filter.',
-                  )
-                  : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      BafSpacing.lg,
-                      BafSpacing.sm,
-                      BafSpacing.lg,
-                      BafSpacing.lg,
-                    ),
-                    itemCount: filtered.length,
+              ? const _EmptyState(
+                  icon: Icons.search_off_rounded,
+                  message: 'No Inner Cover matches this search and filter.',
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.lg,
+                    BafSpacing.sm,
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                  ),
+                  itemCount: filtered.length,
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: BafSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final cover = filtered[index];
-                      final bulge = widget.bulgeEvidenceByCoverId[cover.id];
-                      return Material(
-                        color: BafColors.card,
-                        clipBehavior: Clip.antiAlias,
-                        shape: RoundedRectangleBorder(
-                          side: const BorderSide(color: BafColors.border),
-                          borderRadius: BorderRadius.circular(BafRadius.medium),
+                  itemBuilder: (context, index) {
+                    final cover = filtered[index];
+                    final bulge = widget.bulgeEvidenceByCoverId[cover.id];
+                    return Material(
+                      color: BafColors.card,
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        side: const BorderSide(color: BafColors.border),
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                      ),
+                      child: ListTile(
+                        onTap: () => widget.onOpen(cover),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: BafSpacing.lg,
+                          vertical: BafSpacing.sm,
                         ),
-                        child: ListTile(
-                          onTap: () => widget.onOpen(cover),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: BafSpacing.lg,
-                            vertical: BafSpacing.sm,
-                          ),
-                          leading: Icon(
-                            cover.isInstalled
-                                ? Icons.link_rounded
-                                : Icons.layers_outlined,
-                            color: _stateColor(cover.lifecycleState),
-                          ),
-                          title: Text(
-                            cover.serialNumber,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: BafSpacing.xs),
-                            child: Text(
-                              [
-                                cover.isInstalled
-                                    ? '${cover.lifecycleState.label} on Base ${cover.currentBaseAssetNumber}'
-                                    : '${cover.lifecycleState.label} · ${cover.originClassification.label}',
-                                if (cover.incorporatedOn != null)
-                                  'Incorporated ${_formatInnerCoverDate(cover.incorporatedOn!)}',
-                                if (bulge?.hasConfirmedRecord == true)
-                                  'Confirmed bulge record',
-                                if (bulge?.hasConfirmedRecord != true &&
-                                    bulge?.hasPendingSuspicion == true)
-                                  'Bulge confirmation pending',
-                              ].join('\n'),
-                              style: TextStyle(
+                        leading: Icon(
+                          cover.isInstalled
+                              ? Icons.link_rounded
+                              : Icons.layers_outlined,
+                          color: _stateColor(cover.lifecycleState),
+                        ),
+                        title: Text(
+                          cover.serialNumber,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: BafSpacing.xs),
+                          child: Text(
+                            [
+                              cover.isInstalled
+                                  ? '${cover.lifecycleState.label} on Base ${cover.currentBaseAssetNumber}'
+                                  : '${cover.lifecycleState.label} · ${cover.originClassification.label}',
+                              if (cover.incorporatedOn != null)
+                                'Incorporated ${_formatInnerCoverDate(cover.incorporatedOn!)}',
+                              if (bulge?.hasConfirmedRecord == true)
+                                'Confirmed bulge record',
+                              if (bulge?.hasConfirmedRecord != true &&
+                                  bulge?.hasPendingSuspicion == true)
+                                'Bulge confirmation pending',
+                            ].join('\n'),
+                            style: TextStyle(
                               color: bulge?.hasConfirmedRecord == true
-                                        ? BafColors.danger
-                                        : BafColors.textSecondary,
-                              ),
+                                  ? BafColors.danger
+                                  : BafColors.textSecondary,
                             ),
                           ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
                         ),
-                      );
-                    },
-                  ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -1135,15 +1163,15 @@ class _ListFinder extends StatelessWidget {
             hintText: hintText,
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: controller.text.isEmpty
-                    ? null
-                    : IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: () {
-                        controller.clear();
-                        onChanged('');
-                      },
-                      icon: const Icon(Icons.clear_rounded),
-                    ),
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: () {
+                      controller.clear();
+                      onChanged('');
+                    },
+                    icon: const Icon(Icons.clear_rounded),
+                  ),
             filled: true,
             fillColor: BafColors.card,
           ),
@@ -1246,7 +1274,7 @@ Future<void> _registerCover(
   final classes = ref.read(assetClassesProvider).value ?? const [];
   final innerCoverClass = classes
       .where((item) => item.isActive && item.legacyAssetTypeKey == 'innerCover')
-          .firstOrNull;
+      .firstOrNull;
   if (innerCoverClass == null) {
     _showError(
       context,
@@ -1257,8 +1285,8 @@ Future<void> _registerCover(
   final result = await showDialog<_RegistrationResult>(
     context: context,
     builder: (_) => _RegistrationDialog(
-          profiles: ref.read(innerCoverProfilesProvider).value ?? const [],
-        ),
+      profiles: ref.read(innerCoverProfilesProvider).value ?? const [],
+    ),
   );
   if (result == null || !context.mounted) return;
   String? registeredId;
@@ -1301,12 +1329,12 @@ Future<void> _manageBaseCover(
   Map<String, BaseInnerCoverAssignment> assignments,
 ) async {
   final candidates = profiles
-          .where(
-            (cover) =>
-                cover.isAvailable ||
+      .where(
+        (cover) =>
+            cover.isAvailable ||
             (cover.isInstalled && cover.currentBaseAssetInstanceId != base.id),
-          )
-          .toList();
+      )
+      .toList();
   if (candidates.isEmpty) {
     _showError(context, 'No available or transferable Inner Cover was found.');
     return;
@@ -1346,8 +1374,8 @@ Future<void> _manageBaseCover(
       return;
     }
     final displaced = profiles
-            .where((profile) => profile.id == current.innerCoverId)
-            .firstOrNull;
+        .where((profile) => profile.id == current.innerCoverId)
+        .firstOrNull;
     if (displaced == null) {
       throw const AssetHierarchyException(
         'The installed Inner Cover profile needs reconciliation.',
@@ -1397,28 +1425,28 @@ Future<void> _showCoverDetails(
     useSafeArea: true,
     showDragHandle: true,
     builder: (sheetContext) => _CoverDetailsSheet(
-          cover: cover,
-          bulgeEvidence: bulgeEvidence,
-          canManage: user?.canManageAssetHierarchy == true,
-          onAccept: () => _acceptCover(sheetContext, ref, cover, user!),
+      cover: cover,
+      bulgeEvidence: bulgeEvidence,
+      canManage: user?.canManageAssetHierarchy == true,
+      onAccept: () => _acceptCover(sheetContext, ref, cover, user!),
       onAssign: () => _assignAvailableCover(
-                sheetContext,
-                ref,
-                user!,
-                cover,
-                bases,
-                assignments,
-                profiles,
-              ),
+        sheetContext,
+        ref,
+        user!,
+        cover,
+        bases,
+        assignments,
+        profiles,
+      ),
       onDelink: () => _delinkCover(
-                sheetContext,
-                ref,
-                cover,
-                assignments[cover.currentBaseAssetInstanceId],
-                user!,
-              ),
-          onState: () => _changeCoverState(sheetContext, ref, cover, user!),
-        ),
+        sheetContext,
+        ref,
+        cover,
+        assignments[cover.currentBaseAssetInstanceId],
+        user!,
+      ),
+      onState: () => _changeCoverState(sheetContext, ref, cover, user!),
+    ),
   );
 }
 
@@ -1458,10 +1486,10 @@ Future<void> _assignAvailableCover(
   final selection = await showDialog<_BaseAssignmentSelection>(
     context: context,
     builder: (_) => _BaseAssignmentDialog(
-          cover: cover,
-          bases: bases,
-          assignments: assignments,
-        ),
+      cover: cover,
+      bases: bases,
+      assignments: assignments,
+    ),
   );
   if (selection == null || !context.mounted) return;
   final targetAssignment = assignments[selection.base.id];
@@ -1505,64 +1533,81 @@ Future<void> _acceptCover(
   AppUser user,
 ) async {
   final repository = ref.read(assetHierarchyRepositoryProvider);
-  AssetHierarchyMutationReceipt? receipt;
+  // The launching consumer can be replaced while account verification recovers.
+  // The dialog must read live authority without retaining that disposed ref.
+  final container = ProviderScope.containerOf(context, listen: false);
+  AppUser requireOriginalActor() {
+    final access = CurrentActorAccess.resolve(
+      container.read(currentAppUserProvider),
+    );
+    if (!access.isReady) throw AssetHierarchyException(access.message);
+    if (access.actor!.uid != user.uid) {
+      throw const AssetHierarchyException(
+        'Return to the original account to check this acceptance.',
+      );
+    }
+    return access.actor!;
+  }
+
+  late final InnerCoverAcceptanceController controller;
+  final DurableSubmission? pending;
+  try {
+    controller = container.read(innerCoverAcceptanceControllerProvider);
+    requireOriginalActor();
+    pending = await controller.restore(cover.id);
+    requireOriginalActor();
+  } catch (error) {
+    if (context.mounted) _showError(context, '$error');
+    return;
+  }
+  if (!context.mounted) return;
   final result = await showDialog<InnerCoverProfile>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _AcceptanceDialog(
-      onSubmit: (draft, requestId) async {
-        if (ref.read(currentAppUserProvider).value?.uid != user.uid) {
+      initialCover: cover,
+      initialSubmission: pending,
+      originalActor: user,
+      onRefreshSubject: (previous) async {
+        requireOriginalActor();
+        final current = await repository.readInnerCoverFromServer(
+          cover.id,
+          minimumVersion: previous.version,
+        );
+        requireOriginalActor();
+        if (current.id != cover.id ||
+            current.assetClassId != cover.assetClassId ||
+            current.assetClassCode != cover.assetClassCode ||
+            current.normalizedSerialNumber != cover.normalizedSerialNumber) {
           throw const AssetHierarchyException(
-            'The account changed. Return to the original account to check this acceptance.',
+            'The current record does not match this cover. Your inspection is retained for review.',
           );
         }
-        receipt ??= await repository.acceptInnerCover(
-          cover: cover,
-          inspectedOn: draft.inspectedOn,
-          acceptanceReference: draft.acceptanceReference,
-          leakTestReference: draft.leakTestReference,
-          ndtReference: draft.ndtReference,
-          notes: draft.notes,
-          actor: user,
-          reason: draft.reason,
-          requestId: requestId,
-        );
+        return current;
+      },
+      onSubmit: (draft, requestId, reviewedCover) async {
+        requireOriginalActor();
         try {
-          final current = await repository.readInnerCoverFromServer(
-            cover.id,
-            minimumVersion: receipt!.version,
+          return await controller.submit(
+            cover: reviewedCover,
+            input: draft,
+            requestId: requestId,
           );
-          if (current.normalizedSerialNumber != cover.normalizedSerialNumber ||
-              (current.version == receipt!.version &&
-                  (!current.isAvailable ||
-                      current.lastMutationId != receipt!.requestId ||
-                      current.acceptanceReference !=
-                          draft.acceptanceReference ||
-                      current.acceptedByUid != user.uid ||
-                      current.acceptedAt?.millisecondsSinceEpoch !=
-                          draft.inspectedOn.millisecondsSinceEpoch))) {
-            throw const AssetHierarchyException(
-              'The confirmed acceptance and current record need reconciliation.',
-            );
-          }
-          return current;
-        } catch (error) {
-          throw AssetHierarchyException(
-            'Acceptance was recorded. The current cover could not yet be confirmed: $error. Check again; acceptance will not be sent again.',
-          );
+        } finally {
+          container.invalidate(innerCoverAcceptancePendingProvider(cover.id));
         }
       },
     ),
   );
   if (result == null || !context.mounted) return;
-  ref.invalidate(innerCoverProfilesProvider);
+  container.invalidate(innerCoverProfilesProvider);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
         '${result.serialNumber}: ${result.lifecycleState.label}, confirmed from server.',
       ),
     ),
-        );
+  );
   Navigator.pop(context);
 }
 
@@ -1581,15 +1626,15 @@ Future<void> _delinkCover(
   final result = await showDialog<_StateReasonResult>(
     context: context,
     builder: (_) => const _StateReasonDialog(
-          title: 'Remove from Base',
-          states: [
-            InnerCoverLifecycleState.available,
-            InnerCoverLifecycleState.awaitingInspection,
-            InnerCoverLifecycleState.underRepair,
-            InnerCoverLifecycleState.quarantined,
-          ],
-          initialState: InnerCoverLifecycleState.awaitingInspection,
-        ),
+      title: 'Remove from Base',
+      states: [
+        InnerCoverLifecycleState.available,
+        InnerCoverLifecycleState.awaitingInspection,
+        InnerCoverLifecycleState.underRepair,
+        InnerCoverLifecycleState.quarantined,
+      ],
+      initialState: InnerCoverLifecycleState.awaitingInspection,
+    ),
   );
   if (result == null || !context.mounted) return;
   final succeeded = await _runCommand(context, () async {
@@ -1623,18 +1668,18 @@ Future<void> _changeCoverState(
     context: context,
     builder: (_) => _StateReasonDialog(
       title: cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage
-                  ? 'Return retired cover to inspection'
-                  : 'Change lifecycle state',
-          states: states,
-          initialState: states.first,
-          supportingText:
-              cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage
-                  ? 'The retirement record remains visible. Fresh inspection and acceptance are required before this cover can be linked again.'
-                  : null,
-          requireHistoricalRetirementCondition:
+          ? 'Return retired cover to inspection'
+          : 'Change lifecycle state',
+      states: states,
+      initialState: states.first,
+      supportingText:
+          cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage
+          ? 'The retirement record remains visible. Fresh inspection and acceptance are required before this cover can be linked again.'
+          : null,
+      requireHistoricalRetirementCondition:
           cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage &&
-              cover.retirementCondition == null,
-        ),
+          cover.retirementCondition == null,
+    ),
   );
   if (result == null || !context.mounted) return;
   final succeeded = await _runCommand(context, () async {

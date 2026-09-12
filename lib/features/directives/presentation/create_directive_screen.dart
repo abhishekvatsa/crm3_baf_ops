@@ -12,6 +12,9 @@ import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../maintenance/utils/asset_validator.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 
 class CreateDirectiveScreen extends ConsumerStatefulWidget {
   const CreateDirectiveScreen({super.key});
@@ -28,6 +31,7 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
   final _assetNumberController = TextEditingController();
 
   bool _isSubmitting = false;
+  AppUser? _draftActor;
 
   AppRole? _directedTo;
   AssetType? _assetType;
@@ -119,6 +123,19 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: _draftActor?.uid,
+      permission: (actor) => actor.canCreateDirective,
+    );
+    if (message != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     if (_directedTo == null) {
@@ -131,7 +148,7 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final actor = ref.read(currentAppUserProvider).value;
+      final actor = access.actor;
       if (actor == null || !actor.canCreateDirective) {
         throw Exception('Not authorized to issue operational directives.');
       }
@@ -261,11 +278,22 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
-    if (appUser == null || !appUser.canCreateDirective) {
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    final actor = access.actor;
+    if (actor?.canCreateDirective == true) _draftActor ??= actor;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _draftActor?.uid,
+      permission: (user) => user.canCreateDirective,
+    );
+    if (_draftActor == null &&
+        access.isReady &&
+        actor?.canCreateDirective != true) {
       return const _DirectiveAccessDeniedScaffold();
     }
-    final validTargets = appUser.directiveTargets;
+    final validTargets = _draftActor?.directiveTargets ?? <AppRole>[];
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -288,6 +316,8 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
             BafSpacing.xl,
           ),
           children: [
+            if (accountMessage != null)
+              CurrentActorNotice(message: accountMessage),
             _HeroCard(validTargetsCount: validTargets.length),
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
@@ -471,7 +501,7 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
       ),
       bottomNavigationBar: _BottomSubmitBar(
         isSubmitting: _isSubmitting,
-        onSubmit: _isSubmitting ? null : _submit,
+        onSubmit: _isSubmitting || accountMessage != null ? null : _submit,
       ),
     );
   }

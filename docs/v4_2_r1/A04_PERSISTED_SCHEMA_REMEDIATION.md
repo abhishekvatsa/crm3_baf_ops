@@ -127,3 +127,18 @@ check as `8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA`.
 The dated source snapshot above and the PR #235 closure, CI and
 production-reconciliation receipts remain historical evidence. This addition
 claims no new deployment, data migration, device result or release authority.
+
+## 12 September 2026 source re-arm
+
+The current source inventory classifies 55 fields: 49 JSON strings and six
+nested dynamic values, and inherits 86 reviewed decoder surfaces. The two new
+fields are the immutable submission envelope and retained acceptance receipt.
+Their explicit policies bind identity, original actor, protocol, hashes and
+domain validation; malformed evidence remains pending for review. Native reopen
+and atomic adoption rollback are covered by the durable-submission tests. The
+current extension registry contains zero fields.
+
+The current source digest is
+`A4F3494A6AB9D68503354F1B2975C8EBF27F34D276E2E2112910AF3146BF3E57`.
+Historical closure and production reconciliation evidence above remains intact;
+it is not certification of this uncommitted source or schema-11 distribution.

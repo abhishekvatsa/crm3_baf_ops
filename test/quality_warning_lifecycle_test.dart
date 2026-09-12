@@ -14,12 +14,153 @@ import 'package:crm3_baf_ops/features/quality/domain/quality_warning_projection.
 import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
 import 'package:crm3_baf_ops/features/quality/providers/quality_provider.dart';
 import 'package:crm3_baf_ops/features/quality/services/quality_command_service.dart';
+import 'package:crm3_baf_ops/features/quality/services/quality_monitoring_submission_controller.dart';
+import 'support/in_memory_durable_submission_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('saved monitoring remains reachable when its browse feed fails', (
+    tester,
+  ) async {
+    final commands = _MonitoringUiCommands(
+      pendingRequest: {
+        'baseNumber': 4,
+        'grade': 'Saved grade',
+        'cycleReference': 'Saved cycle',
+        'chargeNumbers': [12345, 12346],
+        'reason': 'Original evidence',
+        'savedSubmissionState': 'acceptedPendingAdoption',
+        'canCancelBeforeSend': false,
+      },
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_qualityManager()),
+          ),
+          qualityWarningsProvider.overrideWith(
+            (ref) => Stream.value(<QualityWarning>[]),
+          ),
+          qualityMonitoringRequestsProvider.overrideWith(
+            (ref) => Stream.error(StateError('Browse unavailable')),
+          ),
+          qualityCommandServiceProvider.overrideWithValue(
+            QualityCommandService(monitoringCreation: commands),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const QualityHomeScreen.monitoring(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Monitoring requests unavailable'), findsOneWidget);
+    await tester.tap(find.text('Check saved monitoring'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Original evidence'), findsOneWidget);
+    expect(find.textContaining('12345, 12346'), findsOneWidget);
+    expect(
+      find.textContaining('creation will not be sent again'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Check saved request'));
+    await tester.pumpAndSettle();
+    expect(commands.checks, 1);
+    expect(commands.creations, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'monitoring form retains entries through an account error and refuses another account',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      final commands = _MonitoringUiCommands();
+      final now = DateTime.utc(2026, 9, 12);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => actors.stream),
+            qualityWarningsProvider.overrideWith(
+              (ref) => Stream.value(<QualityWarning>[]),
+            ),
+            qualityMonitoringRequestsProvider.overrideWith(
+              (ref) => Stream.value(<QualityMonitoringRequest>[]),
+            ),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value([_baseClass(now)]),
+            ),
+            allAssetInstancesProvider.overrideWith(
+              (ref) => Stream.value([_baseAsset(now, number: 4)]),
+            ),
+            qualityCommandServiceProvider.overrideWithValue(
+              QualityCommandService(monitoringCreation: commands),
+            ),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: const QualityHomeScreen.monitoring(),
+          ),
+        ),
+      );
+      actors.add(_qualityManager());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('New monitoring request'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('quality-monitoring-governed-base')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Base 4').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(_textFieldWithLabel('Grade'), 'Retained grade');
+      await tester.enterText(
+        _textFieldWithLabel('Cycle reference'),
+        'Retained cycle',
+      );
+      await tester.enterText(
+        _textFieldWithLabel('Monitoring reason'),
+        'Retained reason',
+      );
+      final grade = tester
+          .widget<TextField>(_textFieldWithLabel('Grade'))
+          .controller!;
+      actors.addError(StateError('account refresh failed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Account verification required'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Create'), findsNothing);
+      expect(grade.text, 'Retained grade');
+      actors.add(
+        AppUser(
+          uid: 'other-si',
+          name: 'Other SI',
+          email: 'other@example.com',
+          roles: [AppRole.si],
+          isApproved: true,
+          createdAt: now,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Account verification required'), findsOneWidget);
+      expect(commands.creations, isEmpty);
+      actors.add(_qualityManager());
+      await tester.pumpAndSettle();
+      expect(find.text('Account verification required'), findsNothing);
+      expect(grade.text, 'Retained grade');
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      expect(commands.creations.single['grade'], 'Retained grade');
+      expect(commands.creations.single['baseAssetInstanceId'], 'base-4');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   group('quality warning projections', () {
     test('suspected issue produces a deterministic warning projection', () {
       final createdAt = DateTime.utc(2026, 8, 14, 8);
@@ -774,8 +915,14 @@ void main() {
           ),
           qualityCommandServiceProvider.overrideWithValue(
             QualityCommandService(
-              monitoringScope: () => 'project:si-1',
-              transport: (_) async => throw StateError('not submitted'),
+              monitoringCreation: QualityMonitoringSubmissionController(
+                store: InMemoryDurableSubmissionStore(),
+                projectId: 'project',
+                requireActor: _qualityManager,
+                requireCapability: (_) async {},
+                invoke: (_) async => throw StateError('not submitted'),
+                readFromServer: (_) async => throw StateError('not submitted'),
+              ),
             ),
           ),
         ],
@@ -1215,6 +1362,34 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+class _MonitoringUiCommands implements QualityMonitoringCreation {
+  _MonitoringUiCommands({this.pendingRequest});
+  final Map<String, dynamic>? pendingRequest;
+  final creations = <Map<String, dynamic>>[];
+  int checks = 0;
+  @override
+  Future<Map<String, dynamic>?> pending() async => pendingRequest;
+  @override
+  Future<QualityCommandResult> create(Map<String, dynamic> payload) async {
+    creations.add(payload);
+    throw const QualityCommandException(
+      'Transport intentionally unavailable in UI-only test.',
+    );
+  }
+
+  @override
+  Future<QualityCommandResult> retry() async {
+    checks++;
+    throw const QualityCommandException(
+      'Current server read remains unavailable.',
+    );
+  }
+
+  @override
+  Future<void> cancelNeverSent() async =>
+      throw UnsupportedError('No native store in UI double.');
 }
 
 Future<void> _pumpQualityWarningScreen(

@@ -5,9 +5,9 @@ import {
   Actor,
   JsonMap,
   WorkflowCommand,
-  WorkflowCommandReceipt,
 } from "./types";
-import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
+import {cleanText, iso, payloadFingerprint, persistedInstantText, stableJson} from "./utils";
+export {verifyFurnaceStuckupAudit} from "./furnaceStuckupReplay";
 
 const CAUSES = new Set([
   "innerCoverBulging",
@@ -132,10 +132,10 @@ const writeAudit = (args: {
   after: JsonMap;
   summary: string;
   resultVersion: number;
-}): string => {
+}): {id: string; fingerprint: string} => {
   const id = auditId(args.command.commandId);
-  args.tx.create(auditPath(args.command.commandId), {
-    schemaVersion: 1,
+  const data: JsonMap = {
+    schemaVersion: 2,
     auditId: id,
     entityType: "furnaceStuckupCase",
     entityId: args.command.aggregateId,
@@ -152,8 +152,10 @@ const writeAudit = (args: {
     afterJson: stableJson(args.after),
     requestId: args.command.commandId,
     resultVersion: args.resultVersion,
-  });
-  return id;
+    commandFingerprint: payloadFingerprint(args.command as unknown as JsonMap),
+  };
+  args.tx.create(auditPath(args.command.commandId), data);
+  return {id, fingerprint: payloadFingerprint(data)};
 };
 
 const releaseConstraint = (args: {
@@ -300,7 +302,12 @@ export const releaseFurnaceStuckup = async ({
   return {
     resultKey: "furnace-stuckup-released",
     aggregateVersion: nextVersion,
-    result: {caseId: command.aggregateId, auditId: id},
+    result: {
+      caseId: command.aggregateId,
+      auditId: id.id,
+      auditSchemaVersion: 2,
+      auditFingerprint: id.fingerprint,
+    },
   };
 };
 
@@ -456,55 +463,13 @@ export const adjudicateFurnaceStuckup = async ({
     aggregateVersion: nextVersion,
     result: {
       caseId: command.aggregateId,
-      auditId: id,
+      auditId: id.id,
+      auditSchemaVersion: 2,
+      auditFingerprint: id.fingerprint,
       declarationId,
       evidenceId,
     },
   };
-};
-
-const parsedObject = (value: unknown): JsonMap | null => {
-  if (typeof value !== "string") return null;
-  try {
-    const decoded = JSON.parse(value) as unknown;
-    return decoded != null && typeof decoded === "object" &&
-      !Array.isArray(decoded) ? decoded as JsonMap : null;
-  } catch {
-    return null;
-  }
-};
-
-export const verifyFurnaceStuckupAudit = async (args: {
-  tx: WorkflowTransaction;
-  command: WorkflowCommand;
-  actor: Actor;
-  receipt: WorkflowCommandReceipt;
-}): Promise<void> => {
-  if (args.command.commandType !== "releaseFurnaceStuckup" &&
-      args.command.commandType !== "adjudicateFurnaceStuckup") return;
-  const id = auditId(args.command.commandId);
-  const audit = await args.tx.get(auditPath(args.command.commandId));
-  const data = audit.data;
-  const stuckupCase = await args.tx.get(casePath(args.command.aggregateId));
-  if (!audit.exists || data == null ||
-      data.schemaVersion !== 1 || data.auditId !== id ||
-      data.entityType !== "furnaceStuckupCase" ||
-      data.entityId !== args.command.aggregateId ||
-      data.operation !== args.command.commandType ||
-      data.performedByUid !== args.actor.uid ||
-      data.requestId !== args.command.commandId ||
-      data.resultVersion !== args.receipt.aggregateVersion ||
-      args.receipt.result.auditId !== id ||
-      parsedObject(data.beforeJson) == null ||
-      parsedObject(data.afterJson) == null ||
-      !stuckupCase.exists || stuckupCase.data == null ||
-      stuckupCase.data.version !== args.receipt.aggregateVersion) {
-    throw new WorkflowError(
-      "failed-precondition",
-      "Furnace stuck-up receipt no longer matches its governed evidence.",
-      {reasonCode: "furnace-stuckup-replay-evidence-invalid"},
-    );
-  }
 };
 
 export const furnaceStuckupPaths = {

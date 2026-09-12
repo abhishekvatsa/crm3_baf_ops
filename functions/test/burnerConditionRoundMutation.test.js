@@ -165,6 +165,18 @@ async function invoke(memory, data = request(), authUid = 'actor-1') {
 }
 
 describe('burner condition round mutation', () => {
+  test.each([null, '', '   '])('malformed current class display still fails closed: %s', async (name) => {
+    const m = fakeDb(seed()); m.store.get(`asset_classes/${IDS.class}`).name = name;
+    await expect(invoke(m)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(m.writes).toHaveLength(0);
+  });
+
+  test('class display rename does not change the stable operational identity', async () => {
+    const m = fakeDb(seed());
+    m.store.get(`asset_classes/${IDS.class}`).name = 'BAF Heating Furnaces';
+    expect((await invoke(m)).ok).toBe(true);
+  });
+
   test('requires an exact eight-position observation set', () => {
     expect(parseBurnerConditionRoundMutationRequest(request()).observations)
       .toHaveLength(8);

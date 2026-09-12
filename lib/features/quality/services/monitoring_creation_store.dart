@@ -14,6 +14,16 @@ class MonitoringCreationStore {
   }) : _load = preferencesLoader ?? SharedPreferences.getInstance;
 
   final Future<SharedPreferences> Function() _load;
+
+  Future<List<RetainedRequestBytes>> legacyEvidence(String scope) =>
+      _serial(() async {
+        final prefs = await _load();
+        await prefs.reload();
+        return _journal(scope).rawEvidence(prefs);
+      });
+
+  static Map<String, dynamic> validateSavedRequest(Object? value) =>
+      MonitoringCreationStore()._validate(value);
   static Future<void> _tail = Future<void>.value();
   static const _uuid = Uuid();
   static final _uuidPattern = RegExp(

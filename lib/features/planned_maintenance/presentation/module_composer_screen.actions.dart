@@ -16,7 +16,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   }
 
   Future<void> _seedCloudKnowledgeBaseline() async {
-    final actor = ref.read(currentAppUserProvider).asData?.value;
+    final actor = _currentComposerActor;
     if (!widget.canSeedCloudKnowledge ||
         actor == null ||
         !actor.canManageTemplateGovernance) {
@@ -29,7 +29,8 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
     final reason = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => const _SeedCloudKnowledgeBaselineDialog(),
+      builder: (dialogContext) =>
+          _guardComposerDialog(const _SeedCloudKnowledgeBaselineDialog()),
     );
     if (!mounted) {
       return;
@@ -39,6 +40,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
+    if (!_hasLiveComposerAuthority(expectedUid: actor.uid)) return;
     setState(() => _isSeedingCloud = true);
     try {
       await (_knowledgeRepository ??= BafKnowledgeRepository())
@@ -172,7 +174,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   }
 
   Future<void> _openSavedTemplateDrafts() async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = _currentComposerActor;
     if (actor == null || !actor.canPublishTemplateVersion) {
       _showSnack(
         'Only Admin/SI users can manage governed TemplateVersion drafts.',
@@ -210,6 +212,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
+    if (!_hasLiveComposerAuthority(expectedUid: actor.uid)) return;
     entries.sort((a, b) => b.version.updatedAt.compareTo(a.version.updatedAt));
     if (!mounted) {
       return;
@@ -217,9 +220,13 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
     final pickerResult = await showDialog<_SavedTemplateDraftPickerResult>(
       context: context,
-      builder: (_) => _SavedTemplateDraftPickerDialog(entries: entries),
+      builder: (_) => _guardComposerDialog(
+        _SavedTemplateDraftPickerDialog(entries: entries),
+      ),
     );
-    if (!mounted || pickerResult == null) {
+    if (!mounted ||
+        pickerResult == null ||
+        !_hasLiveComposerAuthority(expectedUid: actor.uid)) {
       return;
     }
 
@@ -232,7 +239,9 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
       final reason = await showDialog<String>(
         context: context,
-        builder: (_) => _RestoreTemplateDraftReasonDialog(entry: selected),
+        builder: (_) => _guardComposerDialog(
+          _RestoreTemplateDraftReasonDialog(entry: selected),
+        ),
       );
       if (!mounted || reason == null) {
         return;
@@ -241,7 +250,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       try {
         await repository.restoreArchivedDraftVersion(
           selected.version,
-          actor: actor,
+          actor: _requireComposerActor(actor.uid, publishing: true),
           reason: reason,
         );
         if (!mounted) {
@@ -282,7 +291,9 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     if (pickerResult.action == _SavedTemplateDraftAction.archive) {
       final reason = await showDialog<String>(
         context: context,
-        builder: (_) => _ArchiveTemplateDraftReasonDialog(entry: selected),
+        builder: (_) => _guardComposerDialog(
+          _ArchiveTemplateDraftReasonDialog(entry: selected),
+        ),
       );
       if (!mounted || reason == null) {
         return;
@@ -296,7 +307,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       try {
         await repository.archiveDraftVersion(
           selected.version,
-          actor: actor,
+          actor: _requireComposerActor(actor.uid, publishing: true),
           reason: reason,
         );
         if (!mounted) {
@@ -349,25 +360,28 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         _draft.modules.isNotEmpty) {
       final replace = await showDialog<bool>(
         context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: const Text('Replace current composer draft?'),
-              content: const Text(
-                'Opening the saved TemplateVersion draft will replace the current composer working state. Unsaved changes in the current composer will be discarded.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Open saved draft'),
-                ),
-              ],
+        builder: (dialogContext) => _guardComposerDialog(
+          AlertDialog(
+            title: const Text('Replace current composer draft?'),
+            content: const Text(
+              'Opening the saved TemplateVersion draft will replace the current composer working state. Unsaved changes in the current composer will be discarded.',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Open saved draft'),
+              ),
+            ],
+          ),
+        ),
       );
-      if (!mounted || replace != true) {
+      if (!mounted ||
+          replace != true ||
+          !_hasLiveComposerAuthority(expectedUid: actor.uid)) {
         return;
       }
     }
@@ -388,8 +402,11 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
-    await _clearRecoveryDraft();
-    if (!mounted) return;
+    if (!await _clearRecoveryDraft() ||
+        !mounted ||
+        !_hasLiveComposerAuthority(expectedUid: actor.uid)) {
+      return;
+    }
 
     _suppressRecoverySave = true;
     try {
@@ -424,7 +441,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = _currentComposerActor;
     if (actor == null || !actor.canPublishTemplateVersion) {
       _showSnack(
         'Only Admin/SI users can prepare governed TemplateVersion publishing.',
@@ -437,16 +454,20 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     late final List<TemplatePackage> activePackages;
     try {
       final packages = await repository.getAllPackages();
-      activePackages = packages
-        .where(
-          (package) =>
-              !package.isDeleted &&
-              package.lifecycleStatus == TemplatePackageLifecycleStatus.active,
-        )
-        .toList(growable: false)..sort(
-        (a, b) =>
-            a.packageCode.toLowerCase().compareTo(b.packageCode.toLowerCase()),
-      );
+      activePackages =
+          packages
+              .where(
+                (package) =>
+                    !package.isDeleted &&
+                    package.lifecycleStatus ==
+                        TemplatePackageLifecycleStatus.active,
+              )
+              .toList(growable: false)
+            ..sort(
+              (a, b) => a.packageCode.toLowerCase().compareTo(
+                b.packageCode.toLowerCase(),
+              ),
+            );
     } on Object catch (error) {
       _showSnack('Unable to load template packages: $error', BafColors.danger);
       return;
@@ -456,9 +477,11 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
+    if (!_hasLiveComposerAuthority(expectedUid: actor.uid)) return;
     final result = await PublishMetadataDialog.show(
       context,
       actor: actor,
+      guard: _guardComposerDialog,
       draft: _draft,
       existingPackages: activePackages,
       initialPackageCode: _suggestPublishPackageCode(),
@@ -471,13 +494,19 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
               ModuleComposerJsonBuilder.semanticFingerprint(_draft),
       actions: PublishMetadataDialogActions(
         savePackage: (package, actionActor) {
-          return repository.savePackage(package, actor: actionActor);
+          return repository.savePackage(
+            package,
+            actor: _requireComposerActor(actionActor.uid, publishing: true),
+          );
         },
         saveVersionDraft: (version, actionActor) {
           return saveAndRefreshComposerTemplateVersionDraft(
             version: version,
             persistLocal: () async {
-              await repository.saveVersion(version, actor: actionActor);
+              await repository.saveVersion(
+                version,
+                actor: _requireComposerActor(actionActor.uid, publishing: true),
+              );
               await _clearRecoveryDraft();
             },
             runSync:
@@ -493,20 +522,17 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         publishVersion: (version, actionActor, reason) async {
           final published = await publishAndRefreshComposerTemplateVersion(
             version: version,
-            persistLocal:
-                () => repository.publishVersion(
-                  version,
-                  actor: actionActor,
-                  reason: reason,
+            persistLocal: () => repository.publishVersion(
+              version,
+              actor: _requireComposerActor(actionActor.uid, publishing: true),
+              reason: reason,
+            ),
+            runSync: () => ref
+                .read(syncCoordinatorProvider)
+                .runFullSyncWithResult(
+                  reason: 'template_governance_version_published_from_composer',
+                  force: true,
                 ),
-            runSync:
-                () => ref
-                    .read(syncCoordinatorProvider)
-                    .runFullSyncWithResult(
-                      reason:
-                          'template_governance_version_published_from_composer',
-                      force: true,
-                    ),
             reloadLocal: repository.getVersionByFirestoreId,
           );
           await _clearRecoveryDraft();
@@ -556,7 +582,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   }
 
   Future<void> _openRegistryAuthoring() async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = _currentComposerActor;
     if (actor == null || !actor.canManageTemplateGovernance) {
       _showSnack('Registry authoring is Admin/SI-only.', BafColors.danger);
       return;
@@ -565,63 +591,62 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     final repository = ref.read(moduleRegistryRepositoryProvider);
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder:
-            (_) => ModuleRegistryAuthoringScreen(
-              draftModules: _draft.modules
-                  .map(cloneComposerModuleDraft)
-                  .toList(growable: false),
-              loadDraftRevisions: repository.getDraftRevisions,
-              loadPublishedSources: repository.getPublishedSources,
-              createDraft: (liveActor, module, reason) {
-                return repository.createDraftFromModule(
-                  module: module,
-                  actor: liveActor,
-                  sourceType: 'moduleComposerDraft',
-                  lineage: <String, dynamic>{
-                    'sourceModuleCode': module.moduleCode,
-                    'sourceLocalId': module.localId,
-                    'createdFromRegistryAuthoringUi': true,
-                  },
-                  reason: reason,
-                );
+        builder: (_) => ModuleRegistryAuthoringScreen(
+          draftModules: _draft.modules
+              .map(cloneComposerModuleDraft)
+              .toList(growable: false),
+          loadDraftRevisions: repository.getDraftRevisions,
+          loadPublishedSources: repository.getPublishedSources,
+          createDraft: (liveActor, module, reason) {
+            return repository.createDraftFromModule(
+              module: module,
+              actor: liveActor,
+              sourceType: 'moduleComposerDraft',
+              lineage: <String, dynamic>{
+                'sourceModuleCode': module.moduleCode,
+                'sourceLocalId': module.localId,
+                'createdFromRegistryAuthoringUi': true,
               },
-              updateDraft: (liveActor, revision, module, reason) {
-                return repository.updateDraftRevision(
-                  revision: revision,
-                  module: module,
-                  actor: liveActor,
-                  sourceType: 'moduleComposerDraft',
-                  lineage: <String, dynamic>{
-                    'sourceModuleCode': module.moduleCode,
-                    'sourceLocalId': module.localId,
-                    'updatedFromRegistryAuthoringUi': true,
-                  },
-                  reason: reason,
-                );
+              reason: reason,
+            );
+          },
+          updateDraft: (liveActor, revision, module, reason) {
+            return repository.updateDraftRevision(
+              revision: revision,
+              module: module,
+              actor: liveActor,
+              sourceType: 'moduleComposerDraft',
+              lineage: <String, dynamic>{
+                'sourceModuleCode': module.moduleCode,
+                'sourceLocalId': module.localId,
+                'updatedFromRegistryAuthoringUi': true,
               },
-              publishDraft: (liveActor, revision, reason) {
-                return repository.publishDraftRevision(
-                  registryModuleId: revision.registryModuleId,
-                  revisionId: revision.revisionId,
-                  actor: liveActor,
-                  reason: reason,
-                );
-              },
-              retireRevision: (liveActor, revision, reason) {
-                return repository.retirePublishedRevision(
-                  revision: revision,
-                  actor: liveActor,
-                  reason: reason,
-                );
-              },
-              retireFamily: (liveActor, family, reason) {
-                return repository.retireFamily(
-                  family: family,
-                  actor: liveActor,
-                  reason: reason,
-                );
-              },
-            ),
+              reason: reason,
+            );
+          },
+          publishDraft: (liveActor, revision, reason) {
+            return repository.publishDraftRevision(
+              registryModuleId: revision.registryModuleId,
+              revisionId: revision.revisionId,
+              actor: liveActor,
+              reason: reason,
+            );
+          },
+          retireRevision: (liveActor, revision, reason) {
+            return repository.retirePublishedRevision(
+              revision: revision,
+              actor: liveActor,
+              reason: reason,
+            );
+          },
+          retireFamily: (liveActor, family, reason) {
+            return repository.retireFamily(
+              family: family,
+              actor: liveActor,
+              reason: reason,
+            );
+          },
+        ),
       ),
     );
     if (!mounted) {
@@ -1062,26 +1087,25 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                key: const Key('composer-confirm-delete'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: BafColors.danger,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Delete'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            key: const Key('composer-confirm-delete'),
+            style: FilledButton.styleFrom(
+              backgroundColor: BafColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
     return confirmed == true;
   }
@@ -1186,16 +1210,23 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       if (!module.deviceTagRefs.contains(result.normalizedTag)) {
         module.deviceTagRefs.add(result.normalizedTag);
       }
-      module.targetRefs =
-          {...module.targetRefs, ...result.hierarchyPath}.toList();
-      module.procedureRefs =
-          {...module.procedureRefs, ...result.procedureRefs}.toList();
-      module.safetyClasses =
-          {...module.safetyClasses, ...result.safetyClasses}.toList();
+      module.targetRefs = {
+        ...module.targetRefs,
+        ...result.hierarchyPath,
+      }.toList();
+      module.procedureRefs = {
+        ...module.procedureRefs,
+        ...result.procedureRefs,
+      }.toList();
+      module.safetyClasses = {
+        ...module.safetyClasses,
+        ...result.safetyClasses,
+      }.toList();
       if (result.ownerDisciplines.isNotEmpty) {
-        module.ownerDisciplines =
-            {...module.ownerDisciplines, ...result.ownerDisciplines}.toList()
-              ..sort();
+        module.ownerDisciplines = {
+          ...module.ownerDisciplines,
+          ...result.ownerDisciplines,
+        }.toList()..sort();
         if (module.ownerDisciplines.length > 1) {
           module.discipline = JobModuleDiscipline.shared;
         }
@@ -1259,8 +1290,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
     final output = ModuleComposerJsonBuilder.build(_draft);
-    await _clearRecoveryDraft();
-    if (!mounted) {
+    if (!await _clearRecoveryDraft() || !mounted) {
       return;
     }
     Navigator.pop(context, output);

@@ -309,3 +309,16 @@ not the number of database sites. Its regression proves a persisted contradictio
 hold survives reopening and a missing hold collection does not authorize a send.
 The historical closure evidence and CI receipts remain unaltered; this review
 does not claim a new admitted CI run, deployment or device result.
+
+## 12 September 2026 source re-arm
+
+The current reviewed source inventory contains 585 operations and 2,036 sites
+across 66 surfaces. Its digest is
+`8F1D606CA2F9D7E1D30C1C13087D02645FA8D4E929D0AB7348582472D79B2510`.
+The five added boundaries are the native submission repository and its provider,
+the server-only campaign creation reader, atomic published-assignment adoption,
+and the server-only quality monitoring reader. Each has the common persistence
+contract and relevant recovery regressions. The additions preserve the existing
+repository/read-provider profiles; presentation code gains no database writes.
+This is current source review and local inventory evidence. The historical CI
+closure above is preserved and does not certify this uncommitted change.

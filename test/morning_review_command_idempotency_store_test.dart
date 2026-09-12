@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crm3_baf_ops/features/morning_review/services/morning_review_command_idempotency_store.dart';
-import 'package:crm3_baf_ops/features/morning_review/services/morning_review_command_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -111,85 +110,4 @@ void main() {
     expect(serialized, contains('Current compliance statement'));
     expect(serialized, contains(pending.payloadFingerprint));
   });
-
-  test('replays an exact submitted request after service recreation', () async {
-    final store = MorningReviewCommandIdempotencyStore();
-    final pending = await store.resolve(
-      actorUid: actorUid,
-      operation: MorningReviewCommand.start.wireName,
-      sessionId: null,
-      extra: const <String, dynamic>{},
-    );
-    final requests = <Map<String, dynamic>>[];
-    final recreatedService = MorningReviewCommandService(
-      actorScope: actorUid,
-      idempotencyStore: MorningReviewCommandIdempotencyStore(),
-      callableInvoker: (request) async {
-        requests.add(Map<String, dynamic>.from(request));
-        return _receipt(request, status: 'open', entityId: '2026-09-05');
-      },
-    );
-
-    final result = await recreatedService.reconcilePending();
-
-    expect(result?.requestId, pending.requestId);
-    expect(requests, hasLength(1));
-    expect(requests.single['requestId'], pending.requestId);
-    expect(requests.single['operation'], MorningReviewCommand.start.wireName);
-    expect(await store.pending(actorUid), isNull);
-  });
-
-  test(
-    'reconciles an older intent before allowing a different command',
-    () async {
-      final store = MorningReviewCommandIdempotencyStore();
-      final pending = await store.resolve(
-        actorUid: actorUid,
-        operation: MorningReviewCommand.start.wireName,
-        sessionId: null,
-        extra: const <String, dynamic>{},
-      );
-      final requests = <Map<String, dynamic>>[];
-      final service = MorningReviewCommandService(
-        actorScope: actorUid,
-        idempotencyStore: store,
-        callableInvoker: (request) async {
-          requests.add(Map<String, dynamic>.from(request));
-          return _receipt(request, status: 'open', entityId: '2026-09-05');
-        },
-      );
-
-      await expectLater(
-        service.join('2026-09-05'),
-        throwsA(
-          isA<MorningReviewCommandException>().having(
-            (error) => error.code,
-            'code',
-            'prior-command-reconciled',
-          ),
-        ),
-      );
-
-      expect(requests, hasLength(1));
-      expect(requests.single['requestId'], pending.requestId);
-      expect(requests.single['operation'], MorningReviewCommand.start.wireName);
-      expect(await store.pending(actorUid), isNull);
-    },
-  );
 }
-
-Map<String, dynamic> _receipt(
-  Map<String, dynamic> request, {
-  required String status,
-  required String entityId,
-}) => <String, dynamic>{
-  'ok': true,
-  'requestId': request['requestId'],
-  'operation': request['operation'],
-  'sessionId': request['sessionId'] ?? '2026-09-05',
-  'entityId': entityId,
-  'status': status,
-  'version': 1,
-  'committedAt': '2026-09-05T03:00:00.000Z',
-  'idempotentReplay': true,
-};

@@ -7,9 +7,13 @@ import '../domain/issue_coordination_draft.dart';
 Future<IssueCoordinationDraft?> showIssueCoordinationDialog(
   BuildContext context, {
   required MaintenanceRecord ticket,
+  Widget Function(Widget)? guard,
 }) => showDialog<IssueCoordinationDraft>(
   context: context,
-  builder: (_) => _IssueCoordinationDialog(ticket: ticket),
+  builder: (_) {
+    final dialog = _IssueCoordinationDialog(ticket: ticket);
+    return guard?.call(dialog) ?? dialog;
+  },
 );
 
 class _IssueCoordinationDialog extends StatefulWidget {

@@ -1,0 +1,208 @@
+{
+  "provenance": {
+    "sourceCommit": "c00c77e2",
+    "sourceSha256": {
+      "qualityMutation.ts": "ad98ec4d0091c491c926ea0d9dc4501d7bfba6e7c5ea7c089094cf924878b89f",
+      "chargeNumber.ts": "aefe2cb26b556a5eb75d689ea43a191a30f10022c275b388ca2a6ee0362eb15a",
+      "affectedAssetHierarchyReference.ts": "8770401b657be9fb67b20e48685aedde3499b3b5aaa083e130b661a784677bc4",
+      "persistedInstant.ts": "8666230b04a091d24f85f5d9422d7deb31a9e9283a425658d7c36b7b606aa813",
+      "stableJson.ts": "84161f34764dd5c731e6f247891d8da7624a7b65cc72998c53265c97e73be06d",
+      "userAuthority.ts": "779c4aa3298475586af5b4e28f25994bdf4c75a2a01df98e31dd9e3ca103368e",
+      "maintenanceWorkflow/policy.generated.ts": "5f9dbd059dedbbc2fa6350370d23f583083c3fc0f2208b60d9400458398c31ff"
+    },
+    "description": "Actual deployed c00 quality source graph transpiled in memory; accepted audit and receipt emitted by its handler."
+  },
+  "request": {
+    "requestId": "11111111-1111-4111-8111-111111111111",
+    "operation": "CREATE_QUALITY_MONITORING_REQUEST",
+    "monitoringRequestId": "44444444-4444-4444-8444-444444444444",
+    "expectedVersion": 0,
+    "reason": "Monitor reviewed atmosphere stability.",
+    "baseNumber": 12,
+    "baseAssetClassId": "base-class",
+    "baseAssetInstanceId": "base-12",
+    "baseAssetInstanceVersion": 4,
+    "grade": "CRGO M4",
+    "cycleReference": "Cycle family 7A",
+    "chargeNumbers": [
+      12011,
+      12012
+    ]
+  },
+  "actorUid": "admin-1",
+  "accepted": {
+    "ok": true,
+    "requestId": "11111111-1111-4111-8111-111111111111",
+    "operation": "CREATE_QUALITY_MONITORING_REQUEST",
+    "entityId": "44444444-4444-4444-8444-444444444444",
+    "version": 1,
+    "auditId": "server_quality_11111111-1111-4111-8111-111111111111",
+    "committedAt": "2026-09-07T12:00:00.000Z",
+    "idempotentReplay": false,
+    "entity": {
+      "schemaVersion": 3,
+      "requestId": "44444444-4444-4444-8444-444444444444",
+      "baseNumber": 12,
+      "baseAssetClassId": "base-class",
+      "baseAssetInstanceId": "base-12",
+      "baseAssetInstanceVersion": 4,
+      "grade": "CRGO M4",
+      "cycleReference": "Cycle family 7A",
+      "chargeNumbers": [
+        12011,
+        12012
+      ],
+      "reason": "Monitor reviewed atmosphere stability.",
+      "status": "active",
+      "visibilityState": "active",
+      "visibleUntil": null,
+      "archivedAt": null,
+      "createdAt": {
+        "_seconds": 1788782400,
+        "_nanoseconds": 0
+      },
+      "createdByUid": "admin-1",
+      "createdByName": "Admin One",
+      "closedAt": null,
+      "closedByUid": null,
+      "closedByName": null,
+      "closeReason": null,
+      "updatedAt": {
+        "_seconds": 1788782400,
+        "_nanoseconds": 0
+      },
+      "updatedByUid": "admin-1",
+      "updatedByName": "Admin One",
+      "version": 1,
+      "lastMutationId": "11111111-1111-4111-8111-111111111111"
+    },
+    "linkedAbnormality": null
+  },
+  "documents": [
+    [
+      "users/admin-1",
+      {
+        "name": "Admin One",
+        "isApproved": true,
+        "roles": [
+          "admin"
+        ]
+      }
+    ],
+    [
+      "asset_classes/base-class",
+      {
+        "schemaVersion": 1,
+        "assetClassId": "base-class",
+        "code": "BASE",
+        "name": "Base",
+        "legacyAssetTypeKey": "base",
+        "status": "active"
+      }
+    ],
+    [
+      "asset_instances/base-12",
+      {
+        "schemaVersion": 1,
+        "assetInstanceId": "base-12",
+        "assetClassId": "base-class",
+        "assetClassCode": "BASE",
+        "assetClassName": "Base",
+        "assetNumber": 12,
+        "name": "Base 12",
+        "status": "active",
+        "version": 4
+      }
+    ],
+    [
+      "quality_monitoring_requests/44444444-4444-4444-8444-444444444444",
+      {
+        "schemaVersion": 3,
+        "requestId": "44444444-4444-4444-8444-444444444444",
+        "baseNumber": 12,
+        "baseAssetClassId": "base-class",
+        "baseAssetInstanceId": "base-12",
+        "baseAssetInstanceVersion": 4,
+        "grade": "CRGO M4",
+        "cycleReference": "Cycle family 7A",
+        "chargeNumbers": [
+          12011,
+          12012
+        ],
+        "reason": "Monitor reviewed atmosphere stability.",
+        "status": "active",
+        "visibilityState": "active",
+        "visibleUntil": null,
+        "archivedAt": null,
+        "createdAt": {
+          "_seconds": 1788782400,
+          "_nanoseconds": 0
+        },
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "closedAt": null,
+        "closedByUid": null,
+        "closedByName": null,
+        "closeReason": null,
+        "updatedAt": {
+          "_seconds": 1788782400,
+          "_nanoseconds": 0
+        },
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "version": 1,
+        "lastMutationId": "11111111-1111-4111-8111-111111111111"
+      }
+    ],
+    [
+      "audit_logs/server_quality_11111111-1111-4111-8111-111111111111",
+      {
+        "schemaVersion": 1,
+        "eventType": "qualityMutation",
+        "entityType": "quality_monitoring_request",
+        "entityId": "44444444-4444-4444-8444-444444444444",
+        "action": "create",
+        "severity": "high",
+        "performedByUid": "admin-1",
+        "performedByName": "Admin One",
+        "timestamp": {
+          "_seconds": 1788782400,
+          "_nanoseconds": 0
+        },
+        "reason": "other",
+        "reasonNotes": "Monitor reviewed atmosphere stability.",
+        "summary": "Quality command CREATE_QUALITY_MONITORING_REQUEST",
+        "beforeJson": null,
+        "afterJson": "{\"schemaVersion\":3,\"requestId\":\"44444444-4444-4444-8444-444444444444\",\"baseNumber\":12,\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-12\",\"baseAssetInstanceVersion\":4,\"grade\":\"CRGO M4\",\"cycleReference\":\"Cycle family 7A\",\"chargeNumbers\":[12011,12012],\"reason\":\"Monitor reviewed atmosphere stability.\",\"status\":\"active\",\"visibilityState\":\"active\",\"visibleUntil\":null,\"archivedAt\":null,\"createdAt\":{\"_seconds\":1788782400,\"_nanoseconds\":0},\"createdByUid\":\"admin-1\",\"createdByName\":\"Admin One\",\"closedAt\":null,\"closedByUid\":null,\"closedByName\":null,\"closeReason\":null,\"updatedAt\":{\"_seconds\":1788782400,\"_nanoseconds\":0},\"updatedByUid\":\"admin-1\",\"updatedByName\":\"Admin One\",\"version\":1,\"lastMutationId\":\"11111111-1111-4111-8111-111111111111\"}",
+        "requestId": "11111111-1111-4111-8111-111111111111",
+        "operation": "CREATE_QUALITY_MONITORING_REQUEST",
+        "expectedVersion": 0,
+        "resultVersion": 1,
+        "linkedAbnormalityId": null,
+        "linkedAbnormalityBeforeVersion": null,
+        "linkedAbnormalityResultVersion": null
+      }
+    ],
+    [
+      "quality_mutation_receipts/11111111-1111-4111-8111-111111111111",
+      {
+        "schemaVersion": 1,
+        "requestId": "11111111-1111-4111-8111-111111111111",
+        "actorUid": "admin-1",
+        "entityId": "44444444-4444-4444-8444-444444444444",
+        "operation": "CREATE_QUALITY_MONITORING_REQUEST",
+        "payloadFingerprint": "qualityreq1-sha256:a6e2ed7f58619f2dfb776cc2626341aca01ddb299f2d3d090339fe2128c77898",
+        "expectedVersion": 0,
+        "resultVersion": 1,
+        "linkedAbnormalityId": null,
+        "linkedAbnormalityVersion": null,
+        "auditId": "server_quality_11111111-1111-4111-8111-111111111111",
+        "committedAt": {
+          "_seconds": 1788782400,
+          "_nanoseconds": 0
+        },
+        "committedAtIso": "2026-09-07T12:00:00.000Z"
+      }
+    ]
+  ]
+}

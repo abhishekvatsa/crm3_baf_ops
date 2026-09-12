@@ -7,7 +7,9 @@
       "id": "approved-user-profile",
       "readerFile": "lib/features/auth/data/user_model.dart",
       "readerMarker": "factory AppUser.fromFirestore",
-      "requiredFields": ["createdAt"],
+      "requiredFields": [
+        "createdAt"
+      ],
       "optionalFields": [],
       "owner": "authentication",
       "purpose": "restore the persisted approved-user profile",
@@ -19,7 +21,9 @@
       "id": "audit-event",
       "readerFile": "lib/features/audit/repositories/audit_repository.dart",
       "readerMarker": "AuditEvent decodePersistedAuditEvent(",
-      "requiredFields": ["timestamp"],
+      "requiredFields": [
+        "timestamp"
+      ],
       "optionalFields": [],
       "owner": "audit",
       "purpose": "restore immutable audit chronology",
@@ -31,7 +35,9 @@
       "id": "charge-abnormality-command-response",
       "readerFile": "lib/features/abnormalities/services/charge_abnormality_command_service.dart",
       "readerMarker": "ChargeAbnormalityMutationResult _parseResult(",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "abnormalities",
       "purpose": "verify server-committed abnormality mutation evidence",
@@ -43,7 +49,9 @@
       "id": "user-authority-command-response",
       "readerFile": "lib/features/admin/services/user_authority_command_service.dart",
       "readerMarker": "UserAuthorityMutationResult _parseResult(",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "administration",
       "purpose": "verify server-committed user-authority mutation evidence",
@@ -55,7 +63,9 @@
       "id": "asset-hierarchy-command-response",
       "readerFile": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
       "readerMarker": "factory AssetHierarchyMutationReceipt.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "verify server-committed hierarchy, registry, Inner Cover, and asset-condition mutation evidence",
@@ -67,7 +77,9 @@
       "id": "published-template-assignment-response",
       "readerFile": "lib/features/planned_maintenance/services/published_template_assignment_server_service.dart",
       "readerMarker": "factory PublishedTemplateAssignmentServerResult.fromCallableData",
-      "requiredFields": ["assignedAt"],
+      "requiredFields": [
+        "assignedAt"
+      ],
       "optionalFields": [],
       "owner": "planned-maintenance",
       "purpose": "verify server assignment chronology before local reconciliation",
@@ -79,8 +91,13 @@
       "id": "abnormality-type",
       "readerFile": "lib/features/abnormalities/data/remote_abnormality_timestamps.dart",
       "readerMarker": "RemoteAbnormalityTypeTimestamps readRemoteAbnormalityTypeTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt"
+      ],
       "owner": "abnormalities",
       "purpose": "restore abnormality-type ordering and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -91,8 +108,13 @@
       "id": "charge-abnormality",
       "readerFile": "lib/features/abnormalities/data/remote_abnormality_timestamps.dart",
       "readerMarker": "RemoteChargeAbnormalityTimestamps readRemoteChargeAbnormalityTimestamps(",
-      "requiredFields": ["loggedAt", "updatedAt"],
-      "optionalFields": ["deletedAt"],
+      "requiredFields": [
+        "loggedAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt"
+      ],
       "owner": "abnormalities",
       "purpose": "restore charge-abnormality ordering and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -104,7 +126,9 @@
       "readerFile": "lib/core/services/global_pull_cursor_store.dart",
       "readerMarker": "factory GlobalPullDomainCursor.fromJson",
       "requiredFields": [],
-      "optionalFields": ["cursor"],
+      "optionalFields": [
+        "cursor"
+      ],
       "owner": "global-pull",
       "purpose": "restore the durable domain watermark",
       "authorityBoundary": "local-persisted-control-state",
@@ -115,7 +139,9 @@
       "id": "authoritative-purge-manifest",
       "readerFile": "lib/core/services/local_sync_recovery_service.dart",
       "readerMarker": "factory AuthoritativePurgeManifest.fromRemote",
-      "requiredFields": ["purgedAt"],
+      "requiredFields": [
+        "purgedAt"
+      ],
       "optionalFields": [],
       "owner": "synchronization",
       "purpose": "verify server-authoritative purge chronology before removing a clean local tombstone",
@@ -127,8 +153,12 @@
       "id": "component-action",
       "readerFile": "lib/features/planned_maintenance/models/component_action_model.dart",
       "readerMarker": "factory ComponentAction.fromMap",
-      "requiredFields": ["createdAt"],
-      "optionalFields": ["updatedAt"],
+      "requiredFields": [
+        "createdAt"
+      ],
+      "optionalFields": [
+        "updatedAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore nested component-action chronology",
       "authorityBoundary": "persisted-nested-operational-state",
@@ -139,8 +169,13 @@
       "id": "job-template",
       "readerFile": "lib/features/planned_maintenance/data/remote_job_timestamps.dart",
       "readerMarker": "RemoteJobTemplateTimestamps readRemoteJobTemplateTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore job-template ordering and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -151,8 +186,16 @@
       "id": "job-execution",
       "readerFile": "lib/features/planned_maintenance/data/remote_job_timestamps.dart",
       "readerMarker": "RemoteJobExecutionTimestamps readRemoteJobExecutionTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["cancelledAt", "laneSetFinalizedAt", "completedAt", "deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "cancelledAt",
+        "laneSetFinalizedAt",
+        "completedAt",
+        "deletedAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore execution lifecycle chronology",
       "authorityBoundary": "remote-operational-record",
@@ -163,8 +206,13 @@
       "id": "job-diary-entry",
       "readerFile": "lib/features/planned_maintenance/data/remote_job_timestamps.dart",
       "readerMarker": "RemoteJobDiaryTimestamps readRemoteJobDiaryTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore job-diary ordering and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -175,8 +223,18 @@
       "id": "job-module-instance",
       "readerFile": "lib/features/planned_maintenance/data/remote_job_timestamps.dart",
       "readerMarker": "RemoteJobModuleTimestamps readRemoteJobModuleTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["addedAt", "submittedAt", "acceptedAt", "reopenedAt", "notApplicableAt", "deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "addedAt",
+        "submittedAt",
+        "acceptedAt",
+        "reopenedAt",
+        "notApplicableAt",
+        "deletedAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore runtime module lifecycle chronology",
       "authorityBoundary": "remote-operational-record",
@@ -187,8 +245,14 @@
       "id": "template-package",
       "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
       "readerMarker": "TemplatePackage readRemoteTemplatePackage(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["deletedAt", "retiredAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt",
+        "retiredAt"
+      ],
       "owner": "template-governance",
       "purpose": "restore package governance lifecycle",
       "authorityBoundary": "remote-governance-record",
@@ -199,8 +263,15 @@
       "id": "template-version",
       "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
       "readerMarker": "TemplateVersion readRemoteTemplateVersion(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["deletedAt", "publishedAt", "retiredAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt",
+        "publishedAt",
+        "retiredAt"
+      ],
       "owner": "template-governance",
       "purpose": "restore immutable version governance lifecycle",
       "authorityBoundary": "remote-governance-record",
@@ -211,7 +282,10 @@
       "id": "template-publish-audit",
       "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
       "readerMarker": "TemplatePublishAudit readRemoteTemplatePublishAudit(",
-      "requiredFields": ["performedAt", "updatedAt"],
+      "requiredFields": [
+        "performedAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "template-governance",
       "purpose": "restore publication audit chronology",
@@ -224,7 +298,9 @@
       "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
       "readerMarker": "_TemplateClosureReviewState _readStrictClosureReviewState(",
       "requiredFields": [],
-      "optionalFields": ["closureReviewConfirmedAt"],
+      "optionalFields": [
+        "closureReviewConfirmedAt"
+      ],
       "owner": "template-governance",
       "purpose": "restore closure authority from the frozen snapshot",
       "authorityBoundary": "remote-nested-governance-state",
@@ -236,7 +312,9 @@
       "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
       "readerMarker": "_TemplateClosureReviewState _readClosureProjection(",
       "requiredFields": [],
-      "optionalFields": ["closureReviewConfirmedAt"],
+      "optionalFields": [
+        "closureReviewConfirmedAt"
+      ],
       "owner": "template-governance",
       "purpose": "verify the top-level closure authority projection",
       "authorityBoundary": "remote-governance-projection",
@@ -248,7 +326,9 @@
       "readerFile": "lib/features/planned_maintenance/data/template_governance_model.dart",
       "readerMarker": "_TemplateClosureReviewState _deriveClosureReviewState(",
       "requiredFields": [],
-      "optionalFields": ["closureReviewConfirmedAt"],
+      "optionalFields": [
+        "closureReviewConfirmedAt"
+      ],
       "owner": "template-governance",
       "purpose": "derive local draft closure display state without timestamp coercion",
       "authorityBoundary": "local-defensive-persisted-snapshot",
@@ -259,7 +339,10 @@
       "id": "baf-knowledge-row",
       "readerFile": "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart",
       "readerMarker": "RemoteBafKnowledgeRowData readRemoteBafKnowledgeRow(",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "knowledge-governance",
       "purpose": "restore governed knowledge-row chronology",
@@ -271,7 +354,9 @@
       "id": "baf-knowledge-meta",
       "readerFile": "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart",
       "readerMarker": "RemoteBafKnowledgeMetaData readRemoteBafKnowledgeMeta(",
-      "requiredFields": ["updatedAt"],
+      "requiredFields": [
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "knowledge-governance",
       "purpose": "restore governed knowledge-matrix chronology",
@@ -283,8 +368,13 @@
       "id": "module-registry-family",
       "readerFile": "lib/features/planned_maintenance/data/remote_module_registry_reader.dart",
       "readerMarker": "ModuleRegistryFamily readRemoteModuleRegistryFamily(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["retiredAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "retiredAt"
+      ],
       "owner": "module-registry",
       "purpose": "restore registry family identity and governance lifecycle",
       "authorityBoundary": "remote-governance-record",
@@ -295,8 +385,14 @@
       "id": "module-registry-revision",
       "readerFile": "lib/features/planned_maintenance/data/remote_module_registry_reader.dart",
       "readerMarker": "ModuleRegistryRevision readRemoteModuleRegistryRevision(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["publishedAt", "retiredAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "publishedAt",
+        "retiredAt"
+      ],
       "owner": "module-registry",
       "purpose": "restore registry revision identity and immutable lifecycle",
       "authorityBoundary": "remote-governance-record",
@@ -307,8 +403,16 @@
       "id": "operational-directive",
       "readerFile": "lib/features/directives/data/remote_operational_directive_timestamps.dart",
       "readerMarker": "RemoteOperationalDirectiveTimestamps readRemoteOperationalDirectiveTimestamps(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["issuedAt", "acknowledgedAt", "closedAt", "deletedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "issuedAt",
+        "acknowledgedAt",
+        "closedAt",
+        "deletedAt"
+      ],
       "owner": "operational-directives",
       "purpose": "restore directive lifecycle chronology and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -319,7 +423,9 @@
       "id": "workflow-pull-cursor",
       "readerFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
       "readerMarker": "DateTime? _since(",
-      "requiredFields": ["cursor"],
+      "requiredFields": [
+        "cursor"
+      ],
       "optionalFields": [],
       "owner": "maintenance-workflow",
       "purpose": "resume each workflow projection strictly from local pull control state",
@@ -331,8 +437,12 @@
       "id": "workflow-pull-quarantine",
       "readerFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
       "readerMarker": "factory WorkflowPullQuarantineRecord.fromJson",
-      "requiredFields": ["quarantinedAt"],
-      "optionalFields": ["observedAt"],
+      "requiredFields": [
+        "quarantinedAt"
+      ],
+      "optionalFields": [
+        "observedAt"
+      ],
       "owner": "maintenance-workflow",
       "purpose": "restore durable workflow quarantine evidence",
       "authorityBoundary": "local-persisted-repair-state",
@@ -343,8 +453,21 @@
       "id": "maintenance-ticket",
       "readerFile": "lib/features/maintenance/data/remote_maintenance_timestamps.dart",
       "readerMarker": "RemoteMaintenanceTimestamps readRemoteMaintenanceTimestamps(",
-      "requiredFields": ["startDate", "createdAt", "updatedAt"],
-      "optionalFields": ["workflowDeferredAt", "workflowReactivatedAt", "workflowReleasedAt", "workflowUpdatedAt", "acknowledgedAt", "reopenedAt", "endDate", "deletedAt"],
+      "requiredFields": [
+        "startDate",
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "workflowDeferredAt",
+        "workflowReactivatedAt",
+        "workflowReleasedAt",
+        "workflowUpdatedAt",
+        "acknowledgedAt",
+        "reopenedAt",
+        "endDate",
+        "deletedAt"
+      ],
       "owner": "maintenance",
       "purpose": "restore ticket chronology, including reopening, workflow transitions, and tombstone authority",
       "authorityBoundary": "remote-operational-record",
@@ -355,7 +478,9 @@
       "id": "maintenance-issue-administrative-closure",
       "readerFile": "lib/features/maintenance/domain/issue_administrative_closure.dart",
       "readerMarker": "factory IssueAdministrativeClosure.fromSynchronizedFields",
-      "requiredFields": ["issueClosureRelevanceEndedAt"],
+      "requiredFields": [
+        "issueClosureRelevanceEndedAt"
+      ],
       "optionalFields": [],
       "owner": "maintenance",
       "purpose": "restore the immutable instant when an unresolved issue stopped affecting Plant Condition",
@@ -367,7 +492,9 @@
       "id": "maintenance-issue-lane-completion-evidence",
       "readerFile": "lib/features/maintenance/domain/issue_lane_plan.dart",
       "readerMarker": "factory IssueLaneCompletionEvidence.fromMap(",
-      "requiredFields": ["$issueLaneCompletionEvidenceFieldName.$lane.completedAt"],
+      "requiredFields": [
+        "$issueLaneCompletionEvidenceFieldName.$lane.completedAt"
+      ],
       "optionalFields": [],
       "owner": "maintenance",
       "purpose": "restore the exact server-certified completion instant for one maintenance issue lane",
@@ -379,8 +506,12 @@
       "id": "resolution-history",
       "readerFile": "lib/features/maintenance/data/maintenance_model.dart",
       "readerMarker": "factory ResolutionHistory.fromMap",
-      "requiredFields": ["resolvedAt"],
-      "optionalFields": ["reopenedAt"],
+      "requiredFields": [
+        "resolvedAt"
+      ],
+      "optionalFields": [
+        "reopenedAt"
+      ],
       "owner": "maintenance",
       "purpose": "restore nested resolution and reopening chronology",
       "authorityBoundary": "persisted-nested-operational-state",
@@ -391,7 +522,9 @@
       "id": "workflow-command-receipt",
       "readerFile": "lib/features/maintenance_workflow/domain/workflow_command_contract.dart",
       "readerMarker": "factory WorkflowCommandReceipt.fromMap",
-      "requiredFields": ["appliedAt"],
+      "requiredFields": [
+        "appliedAt"
+      ],
       "optionalFields": [],
       "owner": "maintenance-workflow",
       "purpose": "restore workflow command application evidence",
@@ -404,7 +537,9 @@
       "readerFile": "lib/core/release/backend_release_identity_service.dart",
       "readerMarker": "factory BackendReleaseIdentity.fromCallableData",
       "requiredFields": [],
-      "optionalFields": ["deployedAt"],
+      "optionalFields": [
+        "deployedAt"
+      ],
       "owner": "release-custody",
       "purpose": "decode optional backend deployment evidence without suppressing malformed callable data",
       "authorityBoundary": "remote-command-response",
@@ -415,7 +550,9 @@
       "id": "template-lifecycle-audit-snapshot",
       "readerFile": "lib/core/services/sync_service.template_governance.dart",
       "readerMarker": "bool _templateLifecycleAuditSnapshotMatchesRemote",
-      "requiredFields": ["updatedAt"],
+      "requiredFields": [
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "template-governance",
       "purpose": "verify lifecycle audit evidence against the authoritative remote version chronology",
@@ -428,7 +565,9 @@
       "readerFile": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
       "readerMarker": "DateTime? _readClosureReviewConfirmedAt",
       "requiredFields": [],
-      "optionalFields": ["closureReviewConfirmedAt"],
+      "optionalFields": [
+        "closureReviewConfirmedAt"
+      ],
       "owner": "template-governance",
       "purpose": "validate optional closure-review evidence before publication or assignment",
       "authorityBoundary": "persisted-governance-snapshot",
@@ -439,7 +578,10 @@
       "id": "asset-class-record",
       "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
       "readerMarker": "factory AssetClassRecord.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "restore governed asset-class lifecycle chronology",
@@ -451,7 +593,10 @@
       "id": "asset-hierarchy-node-record",
       "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
       "readerMarker": "factory AssetHierarchyNode.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "restore governed component-definition lifecycle chronology",
@@ -463,8 +608,13 @@
       "id": "inner-cover-event-reference",
       "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
       "readerMarker": "factory InnerCoverEventReference.fromMap",
-      "requiredFields": ["innerCoverAssociation.eventAt", "innerCoverAssociation.confirmedAt"],
-      "optionalFields": ["innerCoverAssociation.linkedAt"],
+      "requiredFields": [
+        "innerCoverAssociation.eventAt",
+        "innerCoverAssociation.confirmedAt"
+      ],
+      "optionalFields": [
+        "innerCoverAssociation.linkedAt"
+      ],
       "owner": "asset-governance",
       "purpose": "restore the event-time Base and Inner Cover association chronology",
       "authorityBoundary": "persisted-maintenance-asset-reference",
@@ -475,8 +625,17 @@
       "id": "inner-cover-profile-record",
       "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "readerMarker": "factory InnerCoverProfile.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["retiredAt", "returnedToInspectionAt", "receivedOrCompletedOn", "incorporatedOn", "acceptedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "retiredAt",
+        "returnedToInspectionAt",
+        "receivedOrCompletedOn",
+        "incorporatedOn",
+        "acceptedAt"
+      ],
       "owner": "asset-governance",
       "purpose": "restore Inner Cover receipt, incorporation, acceptance, retirement, return-to-inspection, and profile chronology",
       "authorityBoundary": "remote-inner-cover-profile",
@@ -487,7 +646,10 @@
       "id": "base-inner-cover-assignment-record",
       "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "readerMarker": "factory BaseInnerCoverAssignment.fromMap",
-      "requiredFields": ["linkedAt", "updatedAt"],
+      "requiredFields": [
+        "linkedAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "restore current Base-to-Inner-Cover assignment chronology",
@@ -499,8 +661,12 @@
       "id": "inner-cover-linkage-record",
       "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "readerMarker": "factory InnerCoverLinkage.fromMap",
-      "requiredFields": ["installedAt"],
-      "optionalFields": ["removedAt"],
+      "requiredFields": [
+        "installedAt"
+      ],
+      "optionalFields": [
+        "removedAt"
+      ],
       "owner": "asset-governance",
       "purpose": "restore complete Inner Cover installation and removal history",
       "authorityBoundary": "remote-inner-cover-linkage-history",
@@ -512,7 +678,9 @@
       "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "readerMarker": "factory InnerCoverFabricationDossier.fromMap",
       "requiredFields": [],
-      "optionalFields": ["completedOn"],
+      "optionalFields": [
+        "completedOn"
+      ],
       "owner": "asset-governance",
       "purpose": "restore declared Inner Cover fabrication completion chronology",
       "authorityBoundary": "remote-inner-cover-fabrication-dossier",
@@ -523,8 +691,13 @@
       "id": "asset-instance-record",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory AssetInstanceRecord.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["commissionedOn"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "commissionedOn"
+      ],
       "owner": "asset-governance",
       "purpose": "restore physical-asset lifecycle and commissioning chronology",
       "authorityBoundary": "remote-physical-asset-record",
@@ -535,8 +708,13 @@
       "id": "installed-component-record",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory InstalledComponentRecord.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["installedOn"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "installedOn"
+      ],
       "owner": "asset-governance",
       "purpose": "restore installed-component lifecycle and installation chronology",
       "authorityBoundary": "remote-installed-component-record",
@@ -547,7 +725,9 @@
       "id": "installed-component-lifecycle-audit",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory InstalledComponentLifecycleAudit.fromMap",
-      "requiredFields": ["performedAt"],
+      "requiredFields": [
+        "performedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "restore immutable installed-component revision and replacement chronology",
@@ -559,7 +739,9 @@
       "id": "asset-tag-claim-record",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory AssetTagClaimRecord.fromMap",
-      "requiredFields": ["claimedAt"],
+      "requiredFields": [
+        "claimedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-governance",
       "purpose": "validate installed-component tag ownership chronology",
@@ -571,8 +753,13 @@
       "id": "asset-operational-condition-record",
       "readerFile": "lib/features/assets/data/asset_operational_condition.dart",
       "readerMarker": "factory AssetOperationalConditionRecord.fromMap",
-      "requiredFields": ["updatedAt"],
-      "optionalFields": ["declaredAt", "restoredAt"],
+      "requiredFields": [
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "declaredAt",
+        "restoredAt"
+      ],
       "owner": "asset-operations",
       "purpose": "restore declaration, restoration, and current-condition chronology",
       "authorityBoundary": "remote-asset-operational-condition-record",
@@ -583,8 +770,14 @@
       "id": "operational-event-record",
       "readerFile": "lib/features/operational_events/data/operational_event.dart",
       "readerMarker": "factory OperationalEvent.fromMap",
-      "requiredFields": ["startedAt", "createdAt", "updatedAt"],
-      "optionalFields": ["resolvedAt"],
+      "requiredFields": [
+        "startedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "resolvedAt"
+      ],
       "owner": "plant-operations",
       "purpose": "restore operational disruption chronology and complete resolution evidence",
       "authorityBoundary": "remote-operational-event-record",
@@ -595,7 +788,9 @@
       "id": "operational-event-command-response",
       "readerFile": "lib/features/operational_events/services/operational_event_service.dart",
       "readerMarker": "factory OperationalEventCommandResult.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "plant-operations",
       "purpose": "verify the canonical server commit instant in operational-event mutation evidence",
@@ -607,7 +802,10 @@
       "id": "operational-event-issue-link-record",
       "readerFile": "lib/features/operational_events/data/operational_event_issue_link.dart",
       "readerMarker": "factory OperationalEventIssueLink.fromMap",
-      "requiredFields": ["eventOccurrenceStartedAt", "linkedAt"],
+      "requiredFields": [
+        "eventOccurrenceStartedAt",
+        "linkedAt"
+      ],
       "optionalFields": [],
       "owner": "plant-operations",
       "purpose": "restore immutable event-occurrence and issue-link chronology",
@@ -619,7 +817,9 @@
       "id": "operational-event-issue-link-command-response",
       "readerFile": "lib/features/operational_events/services/operational_event_issue_link_service.dart",
       "readerMarker": "factory OperationalEventIssueLinkCommandResult.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "plant-operations",
       "purpose": "verify the canonical server commit instant in issue-link mutation evidence",
@@ -631,7 +831,9 @@
       "id": "quality-command-response",
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "factory QualityCommandResult.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "quality-assurance",
       "purpose": "verify the canonical server commit instant in quality mutation evidence",
@@ -643,8 +845,16 @@
       "id": "quality-command-returned-entity",
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "Map<String, dynamic> _normaliseQualityEntity(",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["closureRequestedAt", "closedAt", "visibleUntil", "archivedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "closureRequestedAt",
+        "closedAt",
+        "visibleUntil",
+        "archivedAt"
+      ],
       "owner": "quality-assurance",
       "purpose": "normalize callable-serialized Firestore timestamps before strict returned-entity validation",
       "authorityBoundary": "remote-quality-command-returned-entity",
@@ -655,8 +865,14 @@
       "id": "quality-warning-record",
       "readerFile": "lib/features/quality/data/quality_warning.dart",
       "readerMarker": "factory QualityWarning.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["closedAt", "closureRequestedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "closedAt",
+        "closureRequestedAt"
+      ],
       "owner": "quality-assurance",
       "purpose": "restore warning creation, closure-request, adjudication, and update chronology",
       "authorityBoundary": "remote-quality-warning-record",
@@ -667,8 +883,15 @@
       "id": "quality-monitoring-record",
       "readerFile": "lib/features/quality/data/quality_warning.dart",
       "readerMarker": "factory QualityMonitoringRequest.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["closedAt", "visibleUntil", "archivedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "closedAt",
+        "visibleUntil",
+        "archivedAt"
+      ],
       "owner": "quality-assurance",
       "purpose": "restore monitoring request creation, update, closure, recent-visibility, and archival chronology",
       "authorityBoundary": "remote-quality-monitoring-record",
@@ -679,7 +902,9 @@
       "id": "burner-condition-round-record",
       "readerFile": "lib/features/assets/data/burner_condition_round.dart",
       "readerMarker": "factory BurnerConditionRound.fromMap",
-      "requiredFields": ["observedAt"],
+      "requiredFields": [
+        "observedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "restore the immutable observation instant for an eight-position Furnace burner round",
@@ -691,7 +916,10 @@
       "id": "burner-condition-current-pointer",
       "readerFile": "lib/features/assets/data/burner_condition_round.dart",
       "readerMarker": "factory BurnerConditionCurrentPointer.fromMap",
-      "requiredFields": ["observedAt", "updatedAt"],
+      "requiredFields": [
+        "observedAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "verify the current-round projection chronology before resolving authoritative Furnace burner condition",
@@ -703,7 +931,11 @@
       "id": "burner-block-lifecycle-record",
       "readerFile": "lib/features/assets/data/burner_block_lifecycle_event.dart",
       "readerMarker": "factory BurnerBlockLifecycleEvent.fromMap",
-      "requiredFields": ["actionPerformedAt", "completedAt", "recordedAt"],
+      "requiredFields": [
+        "actionPerformedAt",
+        "completedAt",
+        "recordedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "restore the immutable burner-block intervention, closure, and recording chronology used by lifecycle history and the current-state projection",
@@ -715,7 +947,11 @@
       "id": "uv-detector-lifecycle-record",
       "readerFile": "lib/features/assets/data/uv_detector_lifecycle_event.dart",
       "readerMarker": "factory UvDetectorLifecycleEvent.fromMap",
-      "requiredFields": ["actionPerformedAt", "completedAt", "recordedAt"],
+      "requiredFields": [
+        "actionPerformedAt",
+        "completedAt",
+        "recordedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "restore the immutable UV-detector intervention, closure, and recording chronology used by lifecycle history and the current-state projection",
@@ -727,7 +963,9 @@
       "id": "burner-condition-round-command-response",
       "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
       "readerMarker": "factory BurnerConditionRoundResult.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "verify the canonical server commit instant in burner-condition round mutation evidence",
@@ -739,7 +977,9 @@
       "id": "burner-directive-compliance-command-response",
       "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
       "readerMarker": "factory BurnerDirectiveComplianceResult.fromCallableData",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "furnace-reliability",
       "purpose": "verify the canonical server commit instant before adopting an atomic burner compliance and directive-closure receipt",
@@ -751,8 +991,12 @@
       "id": "asset-availability-record",
       "readerFile": "lib/features/assets/data/asset_availability_record.dart",
       "readerMarker": "factory AssetAvailabilityRecord.fromMap",
-      "requiredFields": ["updatedAt"],
-      "optionalFields": ["since"],
+      "requiredFields": [
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "since"
+      ],
       "owner": "asset-operations",
       "purpose": "restore the current asset availability state and the start of its active constraint",
       "authorityBoundary": "remote-asset-availability-record",
@@ -763,8 +1007,14 @@
       "id": "furnace-stuckup-record",
       "readerFile": "lib/features/assets/data/furnace_stuckup_record.dart",
       "readerMarker": "factory FurnaceStuckupRecord.fromMap",
-      "requiredFields": ["reportedAt", "updatedAt"],
-      "optionalFields": ["releasedAt", "adjudicatedAt"],
+      "requiredFields": [
+        "reportedAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "releasedAt",
+        "adjudicatedAt"
+      ],
       "owner": "asset-operations",
       "purpose": "restore stuck-up reporting, release, cause-adjudication, and update chronology",
       "authorityBoundary": "remote-furnace-stuckup-record",
@@ -775,7 +1025,10 @@
       "id": "asset-condition-declaration-record",
       "readerFile": "lib/features/assets/data/furnace_stuckup_record.dart",
       "readerMarker": "factory AssetConditionDeclarationRecord.fromMap",
-      "requiredFields": ["firstConfirmedAt", "latestEvidenceAt"],
+      "requiredFields": [
+        "firstConfirmedAt",
+        "latestEvidenceAt"
+      ],
       "optionalFields": [],
       "owner": "asset-operations",
       "purpose": "restore the first and latest evidence chronology for a declared asset condition",
@@ -787,7 +1040,9 @@
       "id": "inspection-definition-record",
       "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
       "readerMarker": "factory InspectionDefinition.fromMap",
-      "requiredFields": ["updatedAt"],
+      "requiredFields": [
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-inspection",
       "purpose": "restore the latest governed inspection-definition revision instant",
@@ -799,8 +1054,12 @@
       "id": "inspection-campaign-record",
       "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
       "readerMarker": "factory InspectionCampaign.fromMap",
-      "requiredFields": ["createdAt"],
-      "optionalFields": ["latestObservationAt"],
+      "requiredFields": [
+        "createdAt"
+      ],
+      "optionalFields": [
+        "latestObservationAt"
+      ],
       "owner": "asset-inspection",
       "purpose": "restore campaign creation and latest-observation chronology",
       "authorityBoundary": "remote-inspection-campaign-record",
@@ -811,8 +1070,13 @@
       "id": "inspection-observation-record",
       "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
       "readerMarker": "factory InspectionObservation.fromMap",
-      "requiredFields": ["observedAt", "recordedAt"],
-      "optionalFields": ["linkedAt"],
+      "requiredFields": [
+        "observedAt",
+        "recordedAt"
+      ],
+      "optionalFields": [
+        "linkedAt"
+      ],
       "owner": "asset-inspection",
       "purpose": "restore immutable field-observation, server-recording, and installed-asset linkage chronology",
       "authorityBoundary": "remote-inspection-observation-record",
@@ -823,8 +1087,13 @@
       "id": "inspection-campaign-target-record",
       "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
       "readerMarker": "factory InspectionCampaignTarget.fromMap",
-      "requiredFields": ["dispositionAt"],
-      "optionalFields": ["linkedAt", "lastObservedAt"],
+      "requiredFields": [
+        "dispositionAt"
+      ],
+      "optionalFields": [
+        "linkedAt",
+        "lastObservedAt"
+      ],
       "owner": "asset-inspection",
       "purpose": "restore target linkage, disposition, and latest-observation chronology within an exact campaign population",
       "authorityBoundary": "remote-inspection-campaign-target-record",
@@ -835,7 +1104,11 @@
       "id": "inspection-finding-record",
       "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
       "readerMarker": "factory InspectionFinding.fromMap",
-      "requiredFields": ["firstObservedAt", "latestObservedAt", "updatedAt"],
+      "requiredFields": [
+        "firstObservedAt",
+        "latestObservedAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "asset-inspection",
       "purpose": "restore finding origin, recurrence, and latest governed revision chronology",
@@ -847,7 +1120,10 @@
       "id": "frequent-issue-definition-record",
       "readerFile": "lib/features/maintenance/data/frequent_issue_definition.dart",
       "readerMarker": "factory FrequentIssueDefinition.fromMap",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "maintenance-intake",
       "purpose": "restore governed frequent-issue creation and revision chronology",
@@ -859,7 +1135,9 @@
       "id": "maintenance-class-definition-record",
       "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "readerMarker": "factory MaintenanceClassDefinition.fromMap",
-      "requiredFields": ["updatedAt"],
+      "requiredFields": [
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "planned-maintenance",
       "purpose": "restore the latest governed maintenance-class revision instant",
@@ -872,7 +1150,10 @@
       "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "readerMarker": "factory MaintenanceDueState.fromMap",
       "requiredFields": [],
-      "optionalFields": ["lastCompletionAt", "nextDueAt"],
+      "optionalFields": [
+        "lastCompletionAt",
+        "nextDueAt"
+      ],
       "owner": "planned-maintenance",
       "purpose": "restore the last completion and next due chronology for one asset counter",
       "authorityBoundary": "remote-maintenance-due-state-record",
@@ -883,7 +1164,10 @@
       "id": "maintenance-completion-event-record",
       "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "readerMarker": "factory MaintenanceCompletionEvent.fromMap",
-      "requiredFields": ["completedAt", "recordedAt"],
+      "requiredFields": [
+        "completedAt",
+        "recordedAt"
+      ],
       "optionalFields": [],
       "owner": "planned-maintenance",
       "purpose": "restore the effective completion date and immutable recording chronology for modern and historical maintenance",
@@ -895,7 +1179,10 @@
       "id": "maintenance-plan-record",
       "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "readerMarker": "factory MaintenancePlan.fromMap",
-      "requiredFields": ["targetWindowStart", "targetWindowEnd"],
+      "requiredFields": [
+        "targetWindowStart",
+        "targetWindowEnd"
+      ],
       "optionalFields": [],
       "owner": "planned-maintenance",
       "purpose": "restore the governed target window for a planned maintenance intervention",
@@ -907,8 +1194,17 @@
       "id": "critical-alarm-record",
       "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "readerMarker": "factory CriticalAlarm.fromFirestore",
-      "requiredFields": ["raisedAt", "createdAt", "updatedAt"],
-      "optionalFields": ["detailsProvidedAt", "supportConfirmedAt", "resolvedAt", "withdrawnAt"],
+      "requiredFields": [
+        "raisedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "detailsProvidedAt",
+        "supportConfirmedAt",
+        "resolvedAt",
+        "withdrawnAt"
+      ],
       "owner": "critical-safety",
       "purpose": "restore exact critical-alarm detail, support, resolution, withdrawal, and server chronology",
       "authorityBoundary": "remote-critical-alarm-record",
@@ -919,7 +1215,10 @@
       "id": "critical-alarm-definition-record",
       "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "readerMarker": "factory CriticalAlarmDefinition.fromFirestore",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "critical-safety",
       "purpose": "restore the governed critical-alarm catalogue definition and revision chronology",
@@ -931,7 +1230,10 @@
       "id": "critical-alarm-contact-record",
       "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "readerMarker": "factory CriticalAlarmContact.fromFirestore",
-      "requiredFields": ["createdAt", "updatedAt"],
+      "requiredFields": [
+        "createdAt",
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "critical-safety",
       "purpose": "restore the governed creation and latest revision chronology for one hazard-specific contact",
@@ -942,13 +1244,15 @@
     {
       "id": "maintenance-lifecycle-replay-receipt",
       "readerFile": "lib/core/services/sync_service.tickets_templates.dart",
-      "readerMarker": "Future<_MaintenanceLifecycleReplayReceipt>\n  _applyMaintenanceLifecycleReplayStep(",
-      "requiredFields": ["updatedAt"],
+      "readerMarker": "_MaintenanceLifecycleReplayReceipt _maintenanceLifecycleReceiptFromReadback(",
+      "requiredFields": [
+        "updatedAt"
+      ],
       "optionalFields": [],
       "owner": "synchronization",
       "purpose": "adopt the exact server version and mutation time after a maintenance lifecycle replay",
       "authorityBoundary": "remote-maintenance-lifecycle-replay-readback",
-      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
       "reArmCondition": "replay success no longer requires exact server timestamp readback or local receipt adoption"
     },
     {
@@ -956,7 +1260,9 @@
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewSourceFact.fromMap",
       "requiredFields": [],
-      "optionalFields": ["observedAtIso"],
+      "optionalFields": [
+        "observedAtIso"
+      ],
       "owner": "morning-review",
       "purpose": "restore the optional source-event chronology retained in the meeting snapshot",
       "authorityBoundary": "remote-morning-review-source-fact",
@@ -967,7 +1273,9 @@
       "id": "morning-review-facilitator-transition",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewFacilitatorTransition.fromMap",
-      "requiredFields": ["takenOverAt"],
+      "requiredFields": [
+        "takenOverAt"
+      ],
       "optionalFields": [],
       "owner": "morning-review",
       "purpose": "restore the immutable facilitator takeover chronology",
@@ -979,8 +1287,15 @@
       "id": "morning-review-session",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewSession.fromMap",
-      "requiredFields": ["updatedAt", "expiresAt"],
-      "optionalFields": ["openedAt", "finalizedAt", "sourceCapturedAt"],
+      "requiredFields": [
+        "updatedAt",
+        "expiresAt"
+      ],
+      "optionalFields": [
+        "openedAt",
+        "finalizedAt",
+        "sourceCapturedAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore meeting lifecycle, source-capture, revision, and retention chronology",
       "authorityBoundary": "remote-morning-review-session",
@@ -991,7 +1306,10 @@
       "id": "morning-review-participant",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewParticipant.fromMap",
-      "requiredFields": ["expiresAt", "joinedAt"],
+      "requiredFields": [
+        "expiresAt",
+        "joinedAt"
+      ],
       "optionalFields": [],
       "owner": "morning-review",
       "purpose": "restore explicit attendance and retention chronology",
@@ -1003,7 +1321,10 @@
       "id": "morning-review-entry",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewEntry.fromMap",
-      "requiredFields": ["expiresAt", "createdAt"],
+      "requiredFields": [
+        "expiresAt",
+        "createdAt"
+      ],
       "optionalFields": [],
       "owner": "morning-review",
       "purpose": "restore attributed meeting contribution and retention chronology",
@@ -1015,8 +1336,16 @@
       "id": "morning-review-action",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewAction.fromMap",
-      "requiredFields": ["updatedAt", "createdAt"],
-      "optionalFields": ["acceptedAt", "completedAt", "expiresAt", "dueAt"],
+      "requiredFields": [
+        "updatedAt",
+        "createdAt"
+      ],
+      "optionalFields": [
+        "acceptedAt",
+        "completedAt",
+        "expiresAt",
+        "dueAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore action assignment, acceptance, completion, due, revision, and retention chronology",
       "authorityBoundary": "remote-morning-review-action",
@@ -1027,8 +1356,14 @@
       "id": "morning-review-standing-concern",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewStandingConcern.fromMap",
-      "requiredFields": ["updatedAt", "createdAt"],
-      "optionalFields": ["resolvedAt", "expiresAt"],
+      "requiredFields": [
+        "updatedAt",
+        "createdAt"
+      ],
+      "optionalFields": [
+        "resolvedAt",
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore standing-concern origin, resolution, revision, and retention chronology",
       "authorityBoundary": "remote-morning-review-standing-concern",
@@ -1039,7 +1374,10 @@
       "id": "morning-review-standing-concern-check",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewConcernCheck.fromMap",
-      "requiredFields": ["expiresAt", "checkedAt"],
+      "requiredFields": [
+        "expiresAt",
+        "checkedAt"
+      ],
       "optionalFields": [],
       "owner": "morning-review",
       "purpose": "restore the daily concern-review evidence and retention chronology",
@@ -1051,8 +1389,13 @@
       "id": "morning-review-frozen-document",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewDocument.fromMap",
-      "requiredFields": ["finalizedAt", "expiresAt"],
-      "optionalFields": ["sourceCapturedAt"],
+      "requiredFields": [
+        "finalizedAt",
+        "expiresAt"
+      ],
+      "optionalFields": [
+        "sourceCapturedAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore the frozen meeting source-capture, finalization, and retention chronology",
       "authorityBoundary": "remote-morning-review-frozen-document",
@@ -1063,8 +1406,13 @@
       "id": "quality-linked-abnormality-command-response",
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "Map<String, dynamic> _normaliseLinkedAbnormalityEntity(",
-      "requiredFields": ["loggedAt", "updatedAt"],
-      "optionalFields": ["deletedAt"],
+      "requiredFields": [
+        "loggedAt",
+        "updatedAt"
+      ],
+      "optionalFields": [
+        "deletedAt"
+      ],
       "owner": "quality",
       "purpose": "strictly decode the linked abnormality chronology returned with a canonical quality command receipt without substituting local time",
       "authorityBoundary": "remote-quality-command-linked-abnormality-response",
@@ -1075,7 +1423,9 @@
       "id": "morning-review-command-response",
       "readerFile": "lib/features/morning_review/services/morning_review_command_service.dart",
       "readerMarker": "factory MorningReviewCommandResult.fromMap",
-      "requiredFields": ["committedAt"],
+      "requiredFields": [
+        "committedAt"
+      ],
       "optionalFields": [],
       "owner": "morning-review",
       "purpose": "verify the canonical server commit instant in a request-bound Morning Review command receipt",
@@ -1087,13 +1437,43 @@
       "id": "knowledge-correction-publication-time",
       "readerFile": "lib/features/planned_maintenance/repositories/knowledge_correction_source_repository.dart",
       "readerMarker": "DateTime readKnowledgeCorrectionPublicationTime(",
-      "requiredFields": ["publishedAt"],
+      "requiredFields": [
+        "publishedAt"
+      ],
       "optionalFields": [],
       "owner": "template-governance",
       "purpose": "retain the authoritative publication instant while harvesting governed template corrections",
       "authorityBoundary": "remote-published-template-correction-source",
       "regression": "test/knowledge_correction_publication_time_test.dart",
       "reArmCondition": "the correction source publication instant is defaulted, coerced or read from an unclassified field"
+    },
+    {
+      "id": "inner-cover-frozen-acceptance-inspection-time",
+      "readerFile": "lib/features/assets/domain/inner_cover_acceptance_submission.dart",
+      "readerMarker": "factory InnerCoverAcceptanceSubmission.parse(",
+      "requiredFields": [
+        "inspectedOn"
+      ],
+      "optionalFields": [],
+      "owner": "asset-lifecycle",
+      "purpose": "restore the exact original inspection instant from the durable acceptance envelope",
+      "authorityBoundary": "native frozen acceptance intent; never derive a date from current time or cover state",
+      "regression": "test/inner_cover_acceptance_controller_test.dart",
+      "reArmCondition": "a malformed or noncanonical saved inspection instant is coerced, defaulted or dispatched"
+    },
+    {
+      "id": "morning-review-accepted-subject-time",
+      "readerFile": "lib/features/morning_review/services/morning_review_command_service.readback.dart",
+      "readerMarker": "bool at(Object? value, DateTime expected)",
+      "requiredFields": [
+        "acceptedAt"
+      ],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "compare actual operation subject timestamps with its durable accepted receipt",
+      "authorityBoundary": "exact permitted server document read; parse failure rejects adoption",
+      "regression": "test/morning_review_durable_submission_test.dart",
+      "reArmCondition": "invalid subject time can produce a successful accepted-receipt adoption"
     }
   ]
 }

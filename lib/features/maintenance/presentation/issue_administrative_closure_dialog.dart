@@ -17,22 +17,29 @@ class IssueAdministrativeClosureDraft {
 Future<IssueAdministrativeClosureDraft?> showIssueAdministrativeClosureDialog(
   BuildContext context, {
   required MaintenanceRecord ticket,
+  Widget Function(Widget)? guard,
 }) => showDialog<IssueAdministrativeClosureDraft>(
   context: context,
-  builder: (_) => _IssueAdministrativeClosureDialog(ticket: ticket),
+  builder: (_) {
+    final dialog = _IssueAdministrativeClosureDialog(ticket: ticket);
+    return guard?.call(dialog) ?? dialog;
+  },
 );
 
 Future<IssueAdministrativeClosureDraft?>
 showIssueAdministrativeRelevanceEndDialog(
   BuildContext context, {
   required MaintenanceRecord ticket,
+  Widget Function(Widget)? guard,
 }) => showDialog<IssueAdministrativeClosureDraft>(
   context: context,
-  builder:
-      (_) => _IssueAdministrativeClosureDialog(
-        ticket: ticket,
-        endingRetainedRelevance: true,
-      ),
+  builder: (_) {
+    final dialog = _IssueAdministrativeClosureDialog(
+      ticket: ticket,
+      endingRetainedRelevance: true,
+    );
+    return guard?.call(dialog) ?? dialog;
+  },
 );
 
 class _IssueAdministrativeClosureDialog extends StatefulWidget {

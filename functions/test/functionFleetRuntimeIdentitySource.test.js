@@ -19,6 +19,12 @@ const liveReadbackPolicy = JSON.parse(fs.readFileSync(
   path.join(root, "release", "lr03-lr06-functions-live-readback-policy.json"),
   "utf8",
 ));
+const expectedRuntimeAliases = {
+  assignPublishedTemplateVersionV2: "assignPublishedTemplateVersion",
+  executeMaintenanceWorkflowCommandV2: "executeMaintenanceWorkflowCommand",
+  mutateAssetHierarchyV2: "mutateAssetHierarchy",
+  mutateChargeAbnormalityV2: "mutateChargeAbnormality",
+};
 
 function endpointServiceAccount(endpoint) {
   const value = endpoint.__endpoint.serviceAccountEmail;
@@ -33,24 +39,37 @@ describe("complete Function fleet runtime identity source policy", () => {
       .map(([name]) => name)
       .sort();
     const governedNames = Object.keys(policy.functionBindings).sort();
+    expect(policy.runtimeIdentityAliases).toEqual(expectedRuntimeAliases);
+    const canonicalNames = governedNames.filter(
+      (name) => !Object.hasOwn(expectedRuntimeAliases, name),
+    );
 
     expect(endpointNames).toEqual(governedNames);
     expect(Object.keys(FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS).sort())
-      .toEqual(governedNames);
+      .toEqual(canonicalNames);
     expect(Object.keys(FUNCTION_RUNTIME_SERVICE_ACCOUNTS).sort())
-      .toEqual(governedNames);
+      .toEqual(canonicalNames);
 
     const accountIds = new Set();
     for (const name of governedNames) {
       const binding = policy.functionBindings[name];
-      const accountId = FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS[name];
+      const canonicalName = expectedRuntimeAliases[name] ?? name;
+      const accountId = FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS[canonicalName];
       accountIds.add(accountId);
+      if (canonicalName !== name) {
+        expect(canonicalNames).toContain(canonicalName);
+        expect(binding).toEqual(policy.functionBindings[canonicalName]);
+        expect(endpointServiceAccount(exported[name]))
+          .toBe(endpointServiceAccount(exported[canonicalName]));
+      }
       expect(binding.runtimeServiceAccountId).toBe(accountId);
       expect(endpointServiceAccount(exported[name])).toBe(
         `${accountId}@{{ params.PROJECT_ID }}.iam.gserviceaccount.com`,
       );
     }
-    expect(accountIds.size).toBe(governedNames.length);
+    expect(accountIds.size).toBe(canonicalNames.length);
+    expect(governedNames).toHaveLength(19);
+    expect(accountIds.size).toBe(15);
 
     const sourceBindings = functionRuntimeServiceAccountsForProject(
       policy.productionProjectId,
@@ -61,12 +80,12 @@ describe("complete Function fleet runtime identity source policy", () => {
     expect(liveReadbackPolicy.sourceDeclaredRuntimeBindings).toEqual(
       Object.fromEntries(liveBindingNames.map((name) => [
         name,
-        sourceBindings[name],
+        sourceBindings[expectedRuntimeAliases[name] ?? name],
       ])),
     );
     expect(liveBindingNames.sort()).toEqual(governedNames);
-    expect(liveReadbackPolicy.sourcePendingDeploymentExports.sort())
-      .toEqual(policy.deploymentPendingFunctionBindings.sort());
+    expect([...liveReadbackPolicy.sourcePendingDeploymentExports].sort())
+      .toEqual([...policy.deploymentPendingFunctionBindings].sort());
     expect(policy.deploymentPendingFunctionBindings.every(
       (name) => liveBindingNames.includes(name),
     )).toBe(true);
@@ -99,8 +118,9 @@ describe("complete Function fleet runtime identity source policy", () => {
     expect(policy.declarationStatus).toBe(
       "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING",
     );
-    expect(policy.deploymentPendingFunctionBindings)
-      .toEqual(["mutateAssetHierarchy"]);
+    expect([...policy.deploymentPendingFunctionBindings].sort())
+      .toEqual(["assignPublishedTemplateVersionV2", "executeMaintenanceWorkflowCommandV2",
+        "mutateAssetHierarchy", "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2"]);
     expect(policy.roleExactnessRequired).toBe(true);
     expect(policy.customRoles.notificationSender.includedPermissions)
       .toEqual(["cloudmessaging.messages.create"]);

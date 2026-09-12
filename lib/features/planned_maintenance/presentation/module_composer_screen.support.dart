@@ -185,25 +185,24 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Start a separate clean draft?'),
-            content: const Text(
-              'The malformed saved template or publisher JSON will remain unchanged for later repair. This opens a new detached draft and will not overwrite the damaged source.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                key: const Key('composer-confirm-start-fresh'),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                icon: const Icon(Icons.note_add_outlined),
-                label: const Text('Start fresh'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Start a separate clean draft?'),
+        content: const Text(
+          'The malformed saved template or publisher JSON will remain unchanged for later repair. This opens a new detached draft and will not overwrite the damaged source.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton.icon(
+            key: const Key('composer-confirm-start-fresh'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.note_add_outlined),
+            label: const Text('Start fresh'),
+          ),
+        ],
+      ),
     );
     if (!mounted ||
         confirmed != true ||
@@ -244,12 +243,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   String get _recoveryKey {
-    final liveActor = ref.read(currentAppUserProvider).asData?.value;
-    final actor = _safeKeySegment(
-      liveActor?.canManageTemplateGovernance == true
-          ? liveActor!.uid
-          : 'unverified_actor',
-    );
+    final actor = _safeKeySegment(_originActorUid ?? 'unverified_actor');
     final scope = _safeKeySegment(
       widget.recoveryScopeId.trim().isEmpty
           ? 'default_scope'
@@ -305,7 +299,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   bool _hasLiveComposerAuthority({String? expectedUid}) {
-    final actor = ref.read(currentAppUserProvider).asData?.value;
+    final actor = _currentComposerActor;
     return actor != null &&
         actor.canManageTemplateGovernance &&
         (expectedUid == null || actor.uid == expectedUid);
@@ -377,7 +371,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   void _setClosureReviewConfirmed(bool value) {
-    final actor = ref.read(currentAppUserProvider).asData?.value;
+    final actor = _currentComposerActor;
     final canConfirm = actor?.canManageTemplateGovernance == true;
     _draft.closureReviewConfirmed = value && canConfirm;
     if (value && canConfirm) {
@@ -440,7 +434,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       _applyMatrixMetaToDraft();
       final output = ModuleComposerJsonBuilder.build(_draft);
       final prefs = await SharedPreferences.getInstance();
-      if (!mounted) {
+      if (!mounted || !_hasLiveComposerAuthority()) {
         return;
       }
       await prefs.setString(
@@ -459,13 +453,19 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
   }
 
-  Future<void> _clearRecoveryDraft() async {
+  Future<bool> _clearRecoveryDraft() async {
     if (!_hasLiveComposerAuthority()) {
-      return;
+      return false;
     }
+    final originUid = _originActorUid!;
+    final recoveryKey = _recoveryKey;
     _recoverySaveDebounce?.cancel();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_recoveryKey);
+    final prefs = await ref.read(moduleComposerRecoveryPreferencesProvider)();
+    if (!mounted || !_hasLiveComposerAuthority(expectedUid: originUid)) {
+      return false;
+    }
+    await prefs.remove(recoveryKey);
+    return mounted && _hasLiveComposerAuthority(expectedUid: originUid);
   }
 
   Future<void> _checkForRecoverableDraft() async {
@@ -496,23 +496,24 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
     final restore = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Recover unsaved composer draft?'),
-            content: Text(
-              'An unsaved Module Composer draft was found for this publisher context. Saved at: $savedAt. Restore it?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Discard'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Restore'),
-              ),
-            ],
+      builder: (dialogContext) => _guardComposerDialog(
+        AlertDialog(
+          title: const Text('Recover unsaved composer draft?'),
+          content: Text(
+            'An unsaved Module Composer draft was found for this publisher context. Saved at: $savedAt. Restore it?',
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Discard'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      ),
     );
     if (!mounted || !_hasLiveComposerAuthority()) {
       return;

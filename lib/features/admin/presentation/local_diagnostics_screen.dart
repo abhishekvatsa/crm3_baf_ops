@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
+import '../../../core/services/crash_reporting_bootstrap.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_service.dart';
@@ -45,6 +46,7 @@ final localDiagnosticsReportProvider =
       if (kIsWeb) {
         return LocalDiagnosticsReport.webUnavailable(
           supportSnapshot: supportSnapshot,
+          crashReporting: crashReportingStartupHealth,
           releaseSnapshot: releaseSnapshot,
           provenanceInventory:
               IsarInstalledStoreProvenanceInventory.unsupported(),
@@ -85,6 +87,7 @@ final localDiagnosticsReportProvider =
         collectionCount: rows.length + 2,
         governanceSummary: governanceSummary,
         supportSnapshot: supportSnapshot,
+        crashReporting: crashReportingStartupHealth,
         releaseSnapshot: releaseSnapshot,
         provenanceInventory: persistence.provenanceInventory,
       );
@@ -104,6 +107,7 @@ class LocalDiagnosticsReport {
   final LocalReleaseDiagnosticsSnapshot releaseSnapshot;
   final IsarInstalledStoreProvenanceInventory provenanceInventory;
   final bool isWebUnavailable;
+  final CrashReportingStartupHealth crashReporting;
 
   const LocalDiagnosticsReport({
     required this.generatedAt,
@@ -118,6 +122,9 @@ class LocalDiagnosticsReport {
     required this.releaseSnapshot,
     required this.provenanceInventory,
     this.governanceSummary,
+    this.crashReporting = const CrashReportingStartupHealth(
+      CrashReportingStartupStatus.notAttempted,
+    ),
     this.isWebUnavailable = false,
   });
 
@@ -125,6 +132,9 @@ class LocalDiagnosticsReport {
     required LocalDiagnosticsSupportSnapshot supportSnapshot,
     required LocalReleaseDiagnosticsSnapshot releaseSnapshot,
     required IsarInstalledStoreProvenanceInventory provenanceInventory,
+    CrashReportingStartupHealth crashReporting = const CrashReportingStartupHealth(
+      CrashReportingStartupStatus.notAttempted,
+    ),
   }) {
     return LocalDiagnosticsReport(
       generatedAt: DateTime.now(),
@@ -136,6 +146,7 @@ class LocalDiagnosticsReport {
       commandJournal: const LocalDiagnosticsCommandJournalSnapshot.empty(),
       collectionCount: 0,
       supportSnapshot: supportSnapshot,
+      crashReporting: crashReporting,
       releaseSnapshot: releaseSnapshot,
       provenanceInventory: provenanceInventory,
       isWebUnavailable: true,
@@ -165,6 +176,8 @@ class LocalDiagnosticsReport {
           )
           ..writeln('workflowCommandRows: ${commandJournal.total}')
           ..writeln('collectionsReported: $collectionCount')
+          ..writeln('crashReportingStartup: ${crashReporting.status.name}')
+          ..writeln('crashReportingErrorType: ${crashReporting.errorType ?? 'none'}')
           ..writeln('syncStatus: ${supportSnapshot.syncStatusLabel}')
           ..writeln('syncRunning: ${supportSnapshot.syncIsRunning}')
           ..writeln(
@@ -260,6 +273,7 @@ class LocalDiagnosticsReport {
       },
       'collectionsReported': collectionCount,
       'support': supportSnapshot.toMap(),
+      'crashReportingStartup': crashReporting.toMap(),
       'releaseIdentity': releaseSnapshot.toMap(),
       'localDatabaseProvenance': provenanceInventory.toMap(),
       if (governanceSummary != null)
@@ -858,6 +872,12 @@ class _DiagnosticsSummary extends StatelessWidget {
         spacing: BafSpacing.sm,
         runSpacing: BafSpacing.sm,
         children: [
+          if (report.crashReporting.status == CrashReportingStartupStatus.unavailable)
+            const _SummaryChip(
+              label: 'Crash reporting unavailable; local work can continue',
+              icon: Icons.bug_report_outlined,
+              color: BafColors.warning,
+            ),
           _SummaryChip(
             label: '${report.totalUnsyncedRows} unsynced rows',
             icon: Icons.cloud_off_rounded,

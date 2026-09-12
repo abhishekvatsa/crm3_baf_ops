@@ -13,15 +13,18 @@ Future<MorningReviewEntryInput?> showMorningReviewEntryEditor(
   required List<MorningReviewEntryKind> allowedKinds,
   MorningReviewSourceFact? sourceFact,
   MorningReviewEntryKind? initialKind,
+  Widget Function(Widget)? guard,
 }) => showDialog<MorningReviewEntryInput>(
   context: context,
-  builder:
-      (_) => _MorningReviewEntryEditor(
-        assets: assets,
-        allowedKinds: allowedKinds,
-        sourceFact: sourceFact,
-        initialKind: initialKind,
-      ),
+  builder: (_) => _guardEditor(
+    guard,
+    _MorningReviewEntryEditor(
+      assets: assets,
+      allowedKinds: allowedKinds,
+      sourceFact: sourceFact,
+      initialKind: initialKind,
+    ),
+  ),
 );
 
 Future<MorningReviewActionInput?> showMorningReviewActionEditor(
@@ -29,29 +32,37 @@ Future<MorningReviewActionInput?> showMorningReviewActionEditor(
   required List<AssetInstanceRecord> assets,
   required List<MorningReviewParticipant> participants,
   MorningReviewSection initialSection = MorningReviewSection.plantWide,
+  Widget Function(Widget)? guard,
 }) => showDialog<MorningReviewActionInput>(
   context: context,
-  builder:
-      (_) => _MorningReviewActionEditor(
-        assets: assets,
-        participants: participants,
-        initialSection: initialSection,
-      ),
+  builder: (_) => _guardEditor(
+    guard,
+    _MorningReviewActionEditor(
+      assets: assets,
+      participants: participants,
+      initialSection: initialSection,
+    ),
+  ),
 );
 
 Future<MorningReviewStandingConcernInput?>
-showMorningReviewStandingConcernEditor(BuildContext context) =>
-    showDialog<MorningReviewStandingConcernInput>(
-      context: context,
-      builder: (_) => const _MorningReviewStandingConcernEditor(),
-    );
+showMorningReviewStandingConcernEditor(
+  BuildContext context, {
+  Widget Function(Widget)? guard,
+}) => showDialog<MorningReviewStandingConcernInput>(
+  context: context,
+  builder: (_) =>
+      _guardEditor(guard, const _MorningReviewStandingConcernEditor()),
+);
 
 Future<MorningReviewConcernCheckInput?> showMorningReviewConcernCheckEditor(
   BuildContext context, {
   required MorningReviewStandingConcern concern,
+  Widget Function(Widget)? guard,
 }) => showDialog<MorningReviewConcernCheckInput>(
   context: context,
-  builder: (_) => _MorningReviewConcernCheckEditor(concern: concern),
+  builder: (_) =>
+      _guardEditor(guard, _MorningReviewConcernCheckEditor(concern: concern)),
 );
 
 Future<String?> showMorningReviewTextPrompt(
@@ -62,18 +73,24 @@ Future<String?> showMorningReviewTextPrompt(
   String? supportingText,
   int maximum = 2000,
   int minLines = 3,
+  Widget Function(Widget)? guard,
 }) => showDialog<String>(
   context: context,
-  builder:
-      (_) => _MorningReviewTextPrompt(
-        title: title,
-        label: label,
-        actionLabel: actionLabel,
-        supportingText: supportingText,
-        maximum: maximum,
-        minLines: minLines,
-      ),
+  builder: (_) => _guardEditor(
+    guard,
+    _MorningReviewTextPrompt(
+      title: title,
+      label: label,
+      actionLabel: actionLabel,
+      supportingText: supportingText,
+      maximum: maximum,
+      minLines: minLines,
+    ),
+  ),
 );
+
+Widget _guardEditor(Widget Function(Widget)? guard, Widget child) =>
+    guard?.call(child) ?? child;
 
 class MorningReviewConcernCheckInput {
   const MorningReviewConcernCheckInput({
@@ -845,55 +862,50 @@ class _AssetTargetFields extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       LayoutBuilder(
-        builder:
-            (context, constraints) =>
-                constraints.maxWidth < 440
-                    ? DropdownButtonFormField<String>(
-                      initialValue: mode,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Asset scope',
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'none',
-                          child: Text('General / plant-wide'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'registered',
-                          child: Text('Registered asset'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'provisional',
-                          child: Text('Asset not yet registered'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) onModeChanged(value);
-                      },
-                    )
-                    : SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(
-                          value: 'none',
-                          icon: Icon(Icons.public_outlined),
-                          label: Text('General'),
-                        ),
-                        ButtonSegment(
-                          value: 'registered',
-                          icon: Icon(Icons.precision_manufacturing_outlined),
-                          label: Text('Registered'),
-                        ),
-                        ButtonSegment(
-                          value: 'provisional',
-                          icon: Icon(Icons.add_box_outlined),
-                          label: Text('Not registered'),
-                        ),
-                      ],
-                      selected: {mode},
-                      onSelectionChanged:
-                          (value) => onModeChanged(value.single),
-                    ),
+        builder: (context, constraints) => constraints.maxWidth < 440
+            ? DropdownButtonFormField<String>(
+                initialValue: mode,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Asset scope'),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'none',
+                    child: Text('General / plant-wide'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'registered',
+                    child: Text('Registered asset'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'provisional',
+                    child: Text('Asset not yet registered'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onModeChanged(value);
+                },
+              )
+            : SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'none',
+                    icon: Icon(Icons.public_outlined),
+                    label: Text('General'),
+                  ),
+                  ButtonSegment(
+                    value: 'registered',
+                    icon: Icon(Icons.precision_manufacturing_outlined),
+                    label: Text('Registered'),
+                  ),
+                  ButtonSegment(
+                    value: 'provisional',
+                    icon: Icon(Icons.add_box_outlined),
+                    label: Text('Not registered'),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: (value) => onModeChanged(value.single),
+              ),
       ),
       if (mode == 'registered') ...[
         const SizedBox(height: 12),

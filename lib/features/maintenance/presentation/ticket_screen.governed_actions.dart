@@ -24,8 +24,8 @@ extension _TicketGovernedActions on _TicketScreenState {
   }
 
   Future<void> _correctTicket(MaintenanceRecord ticket) async {
-    if (!ticket.isSynced || _busyTicketId != null) return;
-    final actor = ref.read(currentAppUserProvider).value;
+    if (!mounted || !ticket.isSynced || _busyTicketId != null) return;
+    final actor = _currentActor();
     final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
     if (actor == null ||
         firebaseUser == null ||
@@ -46,9 +46,21 @@ extension _TicketGovernedActions on _TicketScreenState {
     final draft = await showDialog<MaintenanceTicketCorrectionDraft>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => MaintenanceTicketCorrectionDialog(ticket: ticket),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canCorrectMaintenanceTicket,
+        child: MaintenanceTicketCorrectionDialog(ticket: ticket),
+      ),
     );
     if (!mounted || draft == null || _busyTicketId != null) return;
+    if (_currentActor(
+              originUid: actor.uid,
+              permission: (user) => user.canCorrectMaintenanceTicket,
+            ) ==
+            null ||
+        ref.read(firebaseAuthProvider).currentUser?.uid != actor.uid) {
+      return;
+        }
 
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
@@ -104,13 +116,27 @@ extension _TicketGovernedActions on _TicketScreenState {
   Future<void> _closeWithoutResolution(MaintenanceRecord ticket) async {
     final ticketId = ticket.firestoreId?.trim();
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
-    final actor = ref.read(currentAppUserProvider).value;
-    if (actor?.canCloseMaintenanceIssueWithoutResolution != true) return;
+    final actor = _currentActor();
+    if (actor == null || !actor.canCloseMaintenanceIssueWithoutResolution) {
+      return;
+    }
     final draft = await showIssueAdministrativeClosureDialog(
       context,
       ticket: ticket,
+      guard: (dialog) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canCloseMaintenanceIssueWithoutResolution,
+        child: dialog,
+      ),
     );
     if (draft == null || !mounted) return;
+    if (_currentActor(
+          originUid: actor.uid,
+          permission: (user) => user.canCloseMaintenanceIssueWithoutResolution,
+        ) ==
+        null) {
+      return;
+        }
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
     _setBusyTicketId(ticketId);
@@ -181,7 +207,7 @@ extension _TicketGovernedActions on _TicketScreenState {
           complianceId: complianceId,
         )).future,
       );
-      if (!mounted) return;
+      if (!mounted || _currentActor(originUid: actor.uid) == null) return;
       if (record == null) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           const SnackBar(

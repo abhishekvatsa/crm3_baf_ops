@@ -88,6 +88,7 @@ void main(List<String> arguments) {
       },
       'regressions': <String>[
         'test/a04_persisted_schema_contract_test.dart',
+        'test/durable_submission_repository_test.dart',
         'test/a05_component_action_integrity_test.dart',
         'test/a05_response_payload_integrity_test.dart',
         'test/a05_template_composer_integrity_test.dart',
@@ -225,6 +226,10 @@ Map<String, Object?> _fieldPolicy({
 }
 
 String _policyId(String className, String fieldName) {
+  if (className == 'DurableSubmissionRecord') {
+    if (fieldName == 'immutableJson') return 'durable-submission-envelope-v1';
+    if (fieldName == 'receiptJson') return 'durable-submission-receipt-v1';
+  }
   if (fieldName == 'extensions') return 'registered-extension-bag-v1';
   if (fieldName == 'value') return 'bounded-response-json-union-v1';
   if (fieldName == 'validation' || fieldName == 'validationJson') {
@@ -276,6 +281,12 @@ String _policyId(String className, String fieldName) {
 }
 
 String _decoderContract(String policy) {
+  if (policy == 'durable-submission-envelope-v1') {
+    return 'DurableSubmissionRepository validates the closed immutable schema, exact bytes/hash, supported origin-bound protocol, request/aggregate identity and legacy review-only boundary; domain readers revalidate the frozen operation before use.';
+  }
+  if (policy == 'durable-submission-receipt-v1') {
+    return 'A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized; malformed evidence cannot settle work.';
+  }
   if (policy == 'registered-extension-bag-v1') {
     return 'readBoundedPersistedExtensionBag plus an explicit field/type registry; current registry is empty.';
   }
@@ -297,6 +308,9 @@ String _decoderContract(String policy) {
 }
 
 String _regressionFor(String path, String fieldName) {
+  if (path.endsWith('durable_submission_record.dart')) {
+    return 'test/durable_submission_repository_test.dart';
+  }
   if (path.endsWith('component_action_model.dart') ||
       fieldName == 'actionsJson') {
     return 'test/a05_component_action_integrity_test.dart';

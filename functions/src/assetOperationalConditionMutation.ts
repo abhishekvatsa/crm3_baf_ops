@@ -495,7 +495,9 @@ function verifyAsset(data: JsonMap, request: ParsedRequest): void {
 function verifyAssetClass(data: JsonMap, asset: JsonMap, request: ParsedRequest): void {
   if (data.schemaVersion !== 1 || data.assetClassId !== request.assetClassId ||
       data.status !== "active" || data.code !== asset.assetClassCode ||
-      data.name !== asset.assetClassName || typeof data.legacyAssetTypeKey !== "string") {
+      typeof data.name !== "string" || data.name.trim().length === 0 ||
+      typeof asset.assetClassName !== "string" || asset.assetClassName.trim().length === 0 ||
+      typeof data.legacyAssetTypeKey !== "string") {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The governed asset class is malformed, changed, or retired.",

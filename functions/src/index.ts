@@ -201,6 +201,7 @@ import type {
   GlobalPullWriteChangeLike,
 } from "./globalPullServerClock";
 import {isAuthorizedPilotRecordPurge} from "./pilotRecordPurge";
+import {executeOriginBoundCallable} from "./originBoundCallableProtocol";
 
 admin.initializeApp();
 
@@ -603,6 +604,60 @@ interface MutateAssetHierarchyRequest {
   [key: string]: unknown;
 }
 
+export const mutateChargeAbnormalityV2 = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateChargeAbnormality,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
+  },
+  async (request: CallableRequest<unknown>) => executeOriginBoundCallable({
+    callableName: "mutateChargeAbnormalityV2",
+    authUid: request.auth?.uid ?? null,
+    data: request.data,
+    readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
+    execute: async (payload) => mutateChargeAbnormality.run({...request, data: payload}),
+  }),
+);
+
+export const assignPublishedTemplateVersionV2 = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.assignPublishedTemplateVersion,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
+  },
+  async (request: CallableRequest<unknown>) => executeOriginBoundCallable({
+    callableName: "assignPublishedTemplateVersionV2",
+    authUid: request.auth?.uid ?? null,
+    data: request.data,
+    readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
+    execute: async (payload) => assignPublishedTemplateVersion.run({...request, data: payload}),
+  }),
+);
+
+export const mutateAssetHierarchyV2 = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateAssetHierarchy,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
+  },
+  async (request: CallableRequest<unknown>) => executeOriginBoundCallable({
+    callableName: "mutateAssetHierarchyV2",
+    authUid: request.auth?.uid ?? null,
+    data: request.data,
+    readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
+    execute: async (payload) => mutateAssetHierarchy.run({...request, data: payload}),
+  }),
+);
+
 export const mutateAssetHierarchy = onCall(
   {
     region: CALLABLE_REGION,
@@ -902,6 +957,7 @@ export const onJobAssigned = onDocumentCreated(
 // ─── Maintenance workflow control plane ───────────────────────────────
 export {
   executeMaintenanceWorkflowCommand,
+  executeMaintenanceWorkflowCommandV2,
   maintenanceWorkflowEscalationSweep,
   onMaintenanceWorkflowEventCreated,
 } from "./maintenanceWorkflow/firebaseExports";

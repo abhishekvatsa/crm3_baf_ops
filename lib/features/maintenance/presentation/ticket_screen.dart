@@ -13,6 +13,8 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
@@ -48,6 +50,26 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   String _query = '';
   String? _busyTicketId;
 
+  AppUser? _currentActor({
+    String? originUid,
+    bool Function(AppUser)? permission,
+  }) {
+    if (!mounted) return null;
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: originUid,
+      permission: permission,
+    );
+    if (message != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message)));
+      return null;
+    }
+    return access.actor;
+  }
+
   void _setBusyTicketId(String? value) => setState(() => _busyTicketId = value);
 
   @override
@@ -78,12 +100,14 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           backgroundColor: BafColors.card,
           onRefresh: _refreshTickets,
           child: appUserAsync.when(
+            skipLoadingOnRefresh: false,
+            skipError: false,
             loading: _buildLoadingState,
-            error:
-                (error, _) => _buildErrorState(
-                  title: 'Could not load your access',
-                  message: '$error',
-                ),
+            error: (error, _) => _buildErrorState(
+              title: 'Could not load your access',
+              message:
+                  'Could not verify your account. Check your connection and try again.',
+            ),
             data: (appUser) {
               if (appUser == null || !appUser.isApproved) {
                 return _buildAccessPendingState();
@@ -116,7 +140,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   }
 
   Future<void> _refreshTickets() async {
-    final appUser = ref.read(currentAppUserProvider).value;
+    final appUser = _currentActor();
     if (appUser == null || !appUser.isApproved) return;
 
     try {
@@ -330,20 +354,17 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   onCoordinate: () => _startIssueCoordination(ticket),
                   onOpenCoordination:
                       ticket.workflowComplianceId?.trim().isNotEmpty == true
-                          ? () => _openIssueCoordination(ticket)
-                          : null,
-                  onViewEventLinks:
-                      ticket.operationalEventIssueLinkIds.isEmpty
-                          ? null
-                          : () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder:
-                                  (_) => MaintenanceIssueEventLinksScreen(
-                                    issue: ticket,
-                                  ),
-                            ),
+                      ? () => _openIssueCoordination(ticket)
+                      : null,
+                  onViewEventLinks: ticket.operationalEventIssueLinkIds.isEmpty
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                MaintenanceIssueEventLinksScreen(issue: ticket),
                           ),
+                        ),
                 ),
               );
             }),
@@ -402,7 +423,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
-    final appUser = ref.read(currentAppUserProvider).value;
+    final appUser = _currentActor();
     final plan = ticket.issueLanePlanReadResult.value;
     if (appUser == null || plan == null) return;
     final candidates = plan.lanesAwaitingAcknowledgement
@@ -416,26 +437,36 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (lane == null || !mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Acknowledge this issue?'),
-            content: Text(
-              'This records that ${_TicketCard._deptLabel(lane)} has received and accepted responsibility for triage. It does not resolve the issue or another lane.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                icon: const Icon(Icons.verified_rounded),
-                label: const Text('Acknowledge'),
-              ),
-            ],
+      builder: (dialogContext) => CurrentActorDialogGuard(
+        originUid: appUser.uid,
+        permission: (actor) => actor.canAcknowledgeMaintenanceTicket(lane),
+        child: AlertDialog(
+          title: const Text('Acknowledge this issue?'),
+          content: Text(
+            'This records that ${_TicketCard._deptLabel(lane)} has received and accepted responsibility for triage. It does not resolve the issue or another lane.',
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.verified_rounded),
+              label: const Text('Acknowledge'),
+            ),
+          ],
+        ),
+      ),
     );
     if (confirmed != true || !mounted) return;
+    if (_currentActor(
+          originUid: appUser.uid,
+          permission: (actor) => actor.canAcknowledgeMaintenanceTicket(lane),
+        ) ==
+        null) {
+      return;
+        }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -487,7 +518,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
-    final appUser = ref.read(currentAppUserProvider).value;
+    final appUser = _currentActor();
     final plan = ticket.issueLanePlanReadResult.value;
     if (appUser == null || plan == null) return;
     final candidates = plan.acknowledgedLanes
@@ -502,26 +533,36 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (lane == null || !mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text('Complete ${_TicketCard._deptLabel(lane)}?'),
-            content: const Text(
-              'This settles only this lane. Final issue closure remains a separate supervisory decision.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                icon: const Icon(Icons.task_alt_rounded),
-                label: const Text('Complete lane'),
-              ),
-            ],
+      builder: (dialogContext) => CurrentActorDialogGuard(
+        originUid: appUser.uid,
+        permission: (actor) => actor.canCompleteMaintenanceIssueLane(lane),
+        child: AlertDialog(
+          title: Text('Complete ${_TicketCard._deptLabel(lane)}?'),
+          content: const Text(
+            'This settles only this lane. Final issue closure remains a separate supervisory decision.',
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.task_alt_rounded),
+              label: const Text('Complete lane'),
+            ),
+          ],
+        ),
+      ),
     );
     if (confirmed != true || !mounted) return;
+    if (_currentActor(
+          originUid: appUser.uid,
+          permission: (actor) => actor.canCompleteMaintenanceIssueLane(lane),
+        ) ==
+        null) {
+      return;
+        }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -576,26 +617,25 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (lanes.length == 1) return lanes.single;
     return showDialog<RoutedTo>(
       context: context,
-      builder:
-          (dialogContext) => SimpleDialog(
-            title: Text(title),
-            children: [
-              for (final lane in lanes)
-                SimpleDialogOption(
-                  onPressed: () => Navigator.pop(dialogContext, lane),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.route_rounded,
-                        color: _TicketCard._agencyColor(lane),
-                      ),
-                      const SizedBox(width: BafSpacing.md),
-                      Text(_TicketCard._deptLabel(lane)),
-                    ],
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(title),
+        children: [
+          for (final lane in lanes)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, lane),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.route_rounded,
+                    color: _TicketCard._agencyColor(lane),
                   ),
-                ),
-            ],
-          ),
+                  const SizedBox(width: BafSpacing.md),
+                  Text(_TicketCard._deptLabel(lane)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -649,8 +689,27 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     }
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
-    final change = await showIssueLaneManagementDialog(context, ticket: ticket);
+    final actor = _currentActor(
+      permission: (user) => user.canManageMaintenanceIssueLanes,
+    );
+    if (actor == null) return;
+    final change = await showIssueLaneManagementDialog(
+      context,
+      ticket: ticket,
+      guard: (dialog) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canManageMaintenanceIssueLanes,
+        child: dialog,
+      ),
+    );
     if (change == null || !mounted) return;
+    if (_currentActor(
+          originUid: actor.uid,
+          permission: (user) => user.canManageMaintenanceIssueLanes,
+        ) ==
+        null) {
+      return;
+        }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -752,7 +811,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
     final expectedLocalVersion = ticket.version;
     final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
-    final appUser = ref.read(currentAppUserProvider).value;
+    final appUser = _currentActor();
     final plan = ticket.issueLanePlanReadResult.value;
     if (appUser == null || plan == null) return;
     final candidates = plan.acknowledgedLanes
@@ -765,8 +824,23 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       lanes: candidates,
     );
     if (originLane == null || !mounted) return;
-    final draft = await showIssueCoordinationDialog(context, ticket: ticket);
+    final draft = await showIssueCoordinationDialog(
+      context,
+      ticket: ticket,
+      guard: (dialog) => CurrentActorDialogGuard(
+        originUid: appUser.uid,
+        permission: (actor) => actor.canStartIssueCoordination(originLane),
+        child: dialog,
+      ),
+    );
     if (draft == null || !mounted) return;
+    if (_currentActor(
+          originUid: appUser.uid,
+          permission: (actor) => actor.canStartIssueCoordination(originLane),
+        ) ==
+        null) {
+      return;
+        }
     final workflowId = WorkflowCommandFactory.uniqueId('issue_coordination');
     final complianceId = WorkflowCommandFactory.uniqueId('issue_compliance');
     setState(() => _busyTicketId = ticketId);
@@ -1283,30 +1357,29 @@ class _TicketCard extends StatelessWidget {
                     enabled: !isBusy,
                     icon: const Icon(Icons.more_vert_rounded),
                     onSelected: (index) => secondaryActions[index].onSelected(),
-                    itemBuilder:
-                        (_) => [
-                          for (
-                            var index = 0;
-                            index < secondaryActions.length;
-                            index++
-                          )
-                            PopupMenuItem<int>(
-                              value: index,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    secondaryActions[index].icon,
-                                    size: 20,
-                                    color: BafColors.maintenance,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(secondaryActions[index].label),
-                                  ),
-                                ],
+                    itemBuilder: (_) => [
+                      for (
+                        var index = 0;
+                        index < secondaryActions.length;
+                        index++
+                      )
+                        PopupMenuItem<int>(
+                          value: index,
+                          child: Row(
+                            children: [
+                              Icon(
+                                secondaryActions[index].icon,
+                                size: 20,
+                                color: BafColors.maintenance,
                               ),
-                            ),
-                        ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(secondaryActions[index].label),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

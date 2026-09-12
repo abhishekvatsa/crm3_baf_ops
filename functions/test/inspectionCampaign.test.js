@@ -1053,7 +1053,9 @@ describe('cross-asset inspection campaigns', () => {
     await expect(run({...verify, commandId: 'verify-before-repair-complete'}, observer, '2026-08-22T05:45:00Z'))
       .rejects.toThrow('must be resolved');
     // Represents the independent corrective-maintenance completion boundary.
-    store.seed('maintenance_records/repair-1', {...store.read('maintenance_records/repair-1'), isResolved: true});
+    store.seed('maintenance_records/repair-1', {
+      ...store.read('maintenance_records/repair-1'), isResolved: true, status: 'resolved',
+    });
     await expect(run(verify, observer, '2026-08-22T05:50:00Z'))
       .resolves.toMatchObject({resultKey: 'inspection-finding-verifiedResolved'});
     expect(store.read('inspection_findings/inspection-finding-observation-1'))
@@ -1582,5 +1584,120 @@ describe('cross-asset inspection campaigns', () => {
       baselineObservationId: 'baseline-observation',
       comparisonOutcome: 'recurred',
     });
+  });
+});
+
+describe('Corrective completion semantics for new inspection verification', () => {
+  test.each(['resolved', 'closedWithoutResolution', 'deleted', 'reopened',
+    'mismatched-identity', 'missing-status', 'missing-deletion-flag', 'unresolved-flag'])(
+    'real maintenance lifecycle %s supplies the correct verification prerequisite', async (mode) => {
+      const store = new MemoryWorkflowStore();
+      seedFurnaceHierarchy(store);
+      store.seed('asset_classes/class-furnace', {
+        ...store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace',
+      });
+      store.seed('asset_instances/furnace-1', {
+        ...store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace', ownershipStatus: 'unassigned',
+        ownerDiscipline: null, accountableRoleKeys: [],
+      });
+      const admin = seedActor(store, 'admin', ['admin']);
+      const service = new MaintenanceWorkflowCommandService(store);
+      const run = (command, time = '2026-08-21T07:00:00.000Z') =>
+        service.execute(command, {actor: admin, serverNow: at(time)});
+      await run(upsertDefinition());
+      await run(createCampaign({targetAssetNumbers: [1]}));
+      await run(observation());
+      await run({
+        commandId: 'create-real-repair', commandType: 'createMaintenanceTicket',
+        aggregateId: 'real-repair', expectedVersion: 0,
+        payload: {ticket: {
+          schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+          component: 'Pressure transmitter', subsystem: null, tag: null,
+          hierarchyPath: [], assetHierarchyRefJson: JSON.stringify({
+            schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+            assetInstanceId: 'furnace-1', assetInstanceVersion: 1,
+          }), maintenanceType: 'breakdown', classification: null,
+          description: 'Correct pressure outside the inspection limits.', routedTo: 'instrumentation',
+          otherDepartment: null, isCritical: false, startDate: '2026-08-21T05:10:00.000Z',
+          chargeNoAtEvent: null, qualityIntentSchemaVersion: 1,
+          qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+        }},
+      });
+      await run({
+        commandId: 'link-real-repair', commandType: 'linkInspectionObservationIssue',
+        aggregateId: 'campaign-furnace-pt-august', expectedVersion: 2,
+        payload: {observationId: 'observation-1', ticketId: 'real-repair', reason: 'Correct the finding.'},
+      });
+      await run({
+        commandId: 'complete-real-repair',
+        commandType: mode === 'closedWithoutResolution' ? 'closeMaintenanceTicketWithoutResolution' : 'resolveMaintenanceTicket',
+        aggregateId: 'real-repair', expectedVersion: 1,
+        payload: mode === 'closedWithoutResolution' ? {
+          disposition: 'stillRelevant', reason: 'Administrative closure retains the unresolved condition.',
+        } : {
+          endDate: '2026-08-21T05:30:00.000Z', remarks: 'Pressure corrected and checked.',
+          teamsInvolved: ['instrumentation'], actionsJson: '[]',
+        },
+      });
+      if (mode === 'deleted') {
+        // Logical deletion is a separate boundary, represented explicitly here.
+        store.seed('maintenance_records/real-repair', {
+          ...store.read('maintenance_records/real-repair'), isDeleted: true,
+        });
+      }
+      if (mode === 'reopened') await run({
+        commandId: 'reopen-real-repair', commandType: 'reopenMaintenanceTicket',
+        aggregateId: 'real-repair', expectedVersion: 2,
+        payload: {remarks: 'The corrective issue needs further work.'},
+      });
+      const malformedPatch = {
+        'mismatched-identity': {firestoreId: 'different-ticket'},
+        'missing-status': {status: null},
+        'missing-deletion-flag': {isDeleted: null},
+        'unresolved-flag': {isResolved: false},
+      }[mode];
+      if (malformedPatch != null) store.seed('maintenance_records/real-repair', {
+        ...store.read('maintenance_records/real-repair'), ...malformedPatch,
+      });
+      await run(observation({
+        commandId: 'followup', observationId: 'followup', expectedVersion: 2,
+        numericValue: 2.8, observedAt: '2026-08-21T06:00:00.000Z',
+      }));
+      const command = {
+        commandId: 'verify-real-repair', commandType: 'verifyInspectionFinding',
+        aggregateId: 'campaign-furnace-pt-august', expectedVersion: 3,
+        payload: {findingId: 'inspection-finding-observation-1', observationId: 'followup',
+          expectedFindingVersion: store.read('inspection_findings/inspection-finding-observation-1').version,
+          outcome: 'resolved', reason: 'Follow-up reading is within range.'},
+      };
+      if (mode === 'resolved') {
+        const receipt = await run(command);
+        expect(receipt.result.status).toBe('verifiedResolved');
+        // A later real reopen does not rewrite or invalidate the accepted verification.
+        await run({commandId: 'later-reopen', commandType: 'reopenMaintenanceTicket',
+          aggregateId: 'real-repair', expectedVersion: 2, payload: {remarks: 'A later recurrence.'}});
+        const before = store.entries();
+        await expect(run(command)).resolves.toEqual(receipt);
+        expect(store.entries()).toEqual(before);
+      } else {
+        const before = store.entries();
+        await expect(run(command)).rejects.toMatchObject({
+          code: 'failed-precondition', details: {reasonCode: 'inspection-corrective-maintenance-not-completed'},
+        });
+        expect(store.entries()).toEqual(before);
+      }
+    },
+  );
+
+  test('a historical accepted command is replayed without rejudging linked work', async () => {
+    const fixture = require('./fixtures/inspectionLegacyVerification.json');
+    const store = new MemoryWorkflowStore();
+    for (const [path, data] of fixture.documents) store.seed(path, data);
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(fixture.command, {
+      actor: {uid: 'si', name: 'SI'}, serverNow: at('2026-09-12T12:00:00.000Z'),
+    })).resolves.toEqual(fixture.receipt);
+    expect(store.entries()).toEqual(before);
   });
 });

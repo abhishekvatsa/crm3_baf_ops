@@ -116,6 +116,37 @@ function invoke({
 }
 
 describe('S-03 callable abuse control', () => {
+  test('an old-client update/review refusal consumes quota without accumulating an abuse ban', async () => {
+    const db = new MemoryFirestore(); const timer = clock();
+    for (let n = 0; n < 35; n++) {
+      await expect(invoke({db, callableName: 'executeMaintenanceWorkflowCommandV2', now: timer.now,
+        execute: async () => { throw {code: 'failed-precondition', details: {
+          reasonCode: 'inspection-finding-client-update-required'}}; }}))
+        .rejects.toMatchObject({code: 'failed-precondition'});
+    }
+    expect(db.abuseRecords()).toHaveLength(1);
+    expect(db.abuseRecords()[0].data).toMatchObject({callableName: 'executeMaintenanceWorkflowCommand',
+      burstRequestCount: 35, anomalyCount: 0});
+  });
+  test.each([
+    ['mutateAssetHierarchy', 'mutateAssetHierarchyV2'],
+    ['executeMaintenanceWorkflowCommand', 'executeMaintenanceWorkflowCommandV2'],
+    ['mutateChargeAbnormality', 'mutateChargeAbnormalityV2'],
+    ['assignPublishedTemplateVersion', 'assignPublishedTemplateVersionV2'],
+  ])('%s and %s cannot obtain separate admission budgets', async (v1, v2) => {
+    const db = new MemoryFirestore(); const timer = clock();
+    const limit = CALLABLE_ABUSE_POLICIES[v1].burstRequestLimit;
+    let executed = 0;
+    for (let n = 0; n < limit; n++) {
+      await invoke({db, callableName: n % 2 === 0 ? v1 : v2, now: timer.now,
+        execute: async () => { executed++; return {ok: true}; }});
+    }
+    await expect(invoke({db, callableName: v2, now: timer.now,
+      execute: async () => { executed++; }})).rejects.toMatchObject({code: 'resource-exhausted'});
+    expect(executed).toBe(limit);
+    expect(db.abuseRecords()).toHaveLength(1);
+    expect(db.abuseRecords()[0].data.callableName).toBe(v1);
+  });
   test('defines bounded policy for every and only mutating callable', () => {
     const mutatingCallables = Object.entries(
       CALLABLE_SECURITY_CLASSIFICATION,

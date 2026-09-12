@@ -543,3 +543,179 @@ describe('Furnace stuck-up governed lifecycle', () => {
     expect(store.read('furnace_stuckup_cases/pre-linkage-issue')).toBeNull();
   });
 });
+
+const replayWithoutWrites = async (store, service, command, actor, receipt) => {
+  const before = store.entries();
+  const transact = store.runTransaction.bind(store);
+  const spy = jest.spyOn(store, 'runTransaction').mockImplementation((work) => transact((tx) => {
+    const write = () => { throw new Error('Replay must not stage any write'); };
+    return work({get: tx.get.bind(tx), query: tx.query.bind(tx), create: write, update: write, set: write, delete: write});
+  }));
+  try {
+    await expect(service.execute(command, {actor, serverNow: at('2026-09-12T12:00:00.000Z')}))
+      .resolves.toEqual(receipt);
+  } finally { spy.mockRestore(); }
+  expect(store.entries()).toEqual(before);
+};
+
+const timestampMaps = (value, key = '') => {
+  if (typeof value === 'string' && (key === 'timestamp' || key.endsWith('At')) &&
+      /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value) && key !== 'appliedAt') {
+    return persistedTimestamp(value);
+  }
+  if (Array.isArray(value)) return value.map((item) => timestampMaps(item));
+  if (value != null && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([child, item]) => [child, timestampMaps(item, child)]),
+  );
+  return value;
+};
+
+class TimestampWorkflowStore extends MemoryWorkflowStore {
+  runTransaction(work) {
+    return super.runTransaction((tx) => work({
+      get: tx.get.bind(tx), query: tx.query.bind(tx), delete: tx.delete.bind(tx),
+      create: (path, data) => tx.create(path, timestampMaps(data)),
+      update: (path, data) => tx.update(path, timestampMaps(data)),
+      set: (path, data, merge) => tx.set(path, timestampMaps(data), merge),
+    }));
+  }
+}
+
+const modernStuckupJourney = async (adjudicateFirst, timestamps = false) => {
+  const store = timestamps ? new TimestampWorkflowStore() : new MemoryWorkflowStore();
+  seedAssets(store);
+  const operations = seedActor(store, 'operations-1', ['operations']);
+  const si = seedActor(store, 'si-1', ['si']);
+  const service = new MaintenanceWorkflowCommandService(store);
+  await service.execute(createCommand(), {actor: operations, serverNow: at('2026-08-20T04:05:00Z')});
+  const commands = [
+    {commandId: 'modern-release', commandType: 'releaseFurnaceStuckup', aggregateId: 'stuckup-case-1', expectedVersion: 1, payload: {releaseNotes: 'Furnace safely separated.'}},
+    {commandId: 'modern-adjudicate', commandType: 'adjudicateFurnaceStuckup', aggregateId: 'stuckup-case-1', expectedVersion: 2, payload: {confirmedCause: 'innerCoverBulging', adjudicationNotes: 'SI confirmed bulging after examination.'}},
+  ];
+  if (adjudicateFirst) commands.reverse();
+  commands.forEach((command, i) => { command.expectedVersion = i + 1; });
+  const actors = commands.map((command) => command.commandType === 'releaseFurnaceStuckup' ? operations : si);
+  const receipts = [];
+  for (let i = 0; i < commands.length; i++) receipts.push(await service.execute(commands[i], {
+    actor: actors[i], serverNow: at(`2026-08-20T0${5 + i}:00:00.000Z`),
+  }));
+  return {store, service, commands, actors, receipts, operations, si};
+};
+
+describe('Historical stuck-up acceptance after later business progress', () => {
+  test.each([false, true])('new commands replay after both lifecycle operations (adjudicate first=%s)', async (adjudicateFirst) => {
+    const journey = await modernStuckupJourney(adjudicateFirst);
+    const {store, service, commands, actors, receipts, operations, si} = journey;
+    // A later incident changes the mutable availability and condition-declaration tips.
+    await service.execute(createCommand('later-case'), {actor: operations, serverNow: at('2026-08-20T07:00:00Z')});
+    await service.execute({commandId: 'later-adjudication', commandType: 'adjudicateFurnaceStuckup',
+      aggregateId: 'later-case', expectedVersion: 1, payload: {confirmedCause: 'combinedCondition', adjudicationNotes: 'Another inspected incident.'}},
+    {actor: si, serverNow: at('2026-08-20T08:00:00Z')});
+    expect(store.read('asset_availability_current/base-117').availabilityState).toBe('temporarilyBlocked');
+    expect(store.read('asset_condition_declarations/inner_cover_bulged_inner-gr26').evidenceCount).toBe(2);
+    for (let i = 0; i < commands.length; i++) await replayWithoutWrites(store, service, commands[i], actors[i], receipts[i]);
+  });
+
+  test.each([false, true])('stored Timestamp forms preserve exact audit proof (adjudicate first=%s)', async (adjudicateFirst) => {
+    const {store, service, commands, actors, receipts} = await modernStuckupJourney(adjudicateFirst, true);
+    for (let i = 0; i < commands.length; i++) await replayWithoutWrites(store, service, commands[i], actors[i], receipts[i]);
+    const path = `audit_logs/${receipts[0].result.auditId}`;
+    const audit = store.read(path);
+    store.seed(path, {...audit, timestamp: {...audit.timestamp, _nanoseconds: audit.timestamp._nanoseconds + 1}});
+    const before = store.entries();
+    await expect(service.execute(commands[0], {actor: actors[0], serverNow: at('2026-09-12T12:00:00Z')}))
+      .rejects.toMatchObject({details: {reasonCode: 'furnace-stuckup-replay-evidence-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test.each(require('./fixtures/furnaceStuckupLegacyReplay.json').scenarios.map((scenario) => [scenario.order, scenario]))(
+    'actual pre-fix receipts remain write-free after %s', async (_, scenario) => {
+      const store = new MemoryWorkflowStore();
+      for (const [path, data] of scenario.documents) store.seed(path, data);
+      const service = new MaintenanceWorkflowCommandService(store);
+      for (let i = 0; i < scenario.commands.length; i++) await replayWithoutWrites(store, service, scenario.commands[i], scenario.actors[i], scenario.receipts[i]);
+    },
+  );
+
+  const corruptions = [
+    ['audit absent', async (s, c, r) => s.runTransaction((tx) => tx.delete(`audit_logs/${r.result.auditId}`))],
+    ['audit actor', (s, c, r) => { const p = `audit_logs/${r.result.auditId}`; s.seed(p, {...s.read(p), performedByUid: 'another-actor'}); }],
+    ['audit outcome', (s, c, r) => { const p = `audit_logs/${r.result.auditId}`; const a = s.read(p); s.seed(p, {...a, afterJson: JSON.stringify({...JSON.parse(a.afterJson), releaseNotes: 'Different physical action'})}); }],
+    ['audit original version', (s, c, r) => { const p = `audit_logs/${r.result.auditId}`; const a = s.read(p); s.seed(p, {...a, beforeJson: JSON.stringify({...JSON.parse(a.beforeJson), version: 9})}); }],
+    ['audit time', (s, c, r) => { const p = `audit_logs/${r.result.auditId}`; s.seed(p, {...s.read(p), timestamp: '2026-08-20T05:01:00.000Z'}); }],
+    ['receipt time', (s, c) => { const p = `maintenance_workflow_command_receipts/${c.commandId}`; s.seed(p, {...s.read(p), appliedAt: '2026-08-20T05:01:00.000Z'}); }],
+    ['receipt case', (s, c) => { const p = `maintenance_workflow_command_receipts/${c.commandId}`; const r = s.read(p); s.seed(p, {...r, result: {...r.result, caseId: 'another-case'}}); }],
+    ['receipt result kind', (s, c) => { const p = `maintenance_workflow_command_receipts/${c.commandId}`; s.seed(p, {...s.read(p), resultKey: 'furnace-stuckup-adjudicated'}); }],
+    ['current case replaced', (s, c) => { const p = `furnace_stuckup_cases/${c.aggregateId}`; s.seed(p, {...s.read(p), baseAssetInstanceId: 'another-base'}); }],
+    ['current case rolled back', (s, c) => { const p = `furnace_stuckup_cases/${c.aggregateId}`; s.seed(p, {...s.read(p), version: 1}); }],
+    ['release constraint absent', async (s, c) => s.runTransaction((tx) => tx.delete(`asset_availability_constraints/${c.aggregateId}_base-117`))],
+    ['release constraint actor', (s, c) => { const p = `asset_availability_constraints/${c.aggregateId}_base-117`; s.seed(p, {...s.read(p), releasedByUid: 'another-actor'}); }],
+  ];
+  test.each(corruptions.flatMap(([name, mutate]) => [ ['legacy', name, mutate], ['modern', name, mutate] ]))(
+    '%s replay rejects %s without writes', async (kind, _, mutate) => {
+      let store, service, commands, actors, receipts;
+      if (kind === 'modern') ({store, service, commands, actors, receipts} = await modernStuckupJourney(false));
+      else {
+        const scenario = require('./fixtures/furnaceStuckupLegacyReplay.json').scenarios[0];
+        ({commands, actors, receipts} = scenario); store = new MemoryWorkflowStore();
+        for (const [path, data] of scenario.documents) store.seed(path, data);
+        service = new MaintenanceWorkflowCommandService(store);
+      }
+      await mutate(store, commands[0], receipts[0]);
+      const before = store.entries();
+      await expect(service.execute(commands[0], {actor: actors[0], serverNow: at('2026-09-12T12:00:00Z')}))
+        .rejects.toMatchObject({details: {reasonCode: 'furnace-stuckup-replay-evidence-invalid'}});
+      expect(store.entries()).toEqual(before);
+    },
+  );
+
+  test.each(['fingerprint', 'audit-schema', 'receipt-schema', 'condition-evidence', 'actor', 'payload', 'revoked'])(
+    'modern adjudication proof rejects %s', async (kind) => {
+      const {store, service, commands, actors, receipts} = await modernStuckupJourney(true);
+      const command = structuredClone(commands[0]);
+      const receiptPath = `maintenance_workflow_command_receipts/${command.commandId}`;
+      const auditPath = `audit_logs/${receipts[0].result.auditId}`;
+      let actor = actors[0];
+      if (kind === 'fingerprint') { const receipt = store.read(receiptPath); delete receipt.result.auditFingerprint; store.seed(receiptPath, receipt); }
+      if (kind === 'audit-schema') { const audit = store.read(auditPath); audit.schemaVersion = 1; delete audit.commandFingerprint; store.seed(auditPath, audit); }
+      if (kind === 'receipt-schema') { const receipt = store.read(receiptPath); delete receipt.result.auditSchemaVersion; store.seed(receiptPath, receipt); }
+      if (kind === 'condition-evidence') await store.runTransaction((tx) => tx.delete(`asset_condition_evidence/${receipts[0].result.evidenceId}`));
+      if (kind === 'actor') actor = seedActor(store, 'other-si', ['si']);
+      if (kind === 'payload') command.payload.adjudicationNotes = 'Changed request intent';
+      if (kind === 'revoked') store.seed(`users/${actor.uid}`, {name: actor.name, isApproved: true, roles: ['operations']});
+      const before = store.entries();
+      await expect(service.execute(command, {actor, serverNow: at('2026-09-12T12:00:00Z')})).rejects.toBeDefined();
+      expect(store.entries()).toEqual(before);
+    },
+  );
+});
+
+describe('Legacy stuck-up evidence is not guessed or downgraded', () => {
+  test.each(['missing', 'wrong cause', 'wrong original time'])('legacy adjudication rejects %s condition evidence', async (corruption) => {
+    const scenario = require('./fixtures/furnaceStuckupLegacyReplay.json').scenarios[1];
+    const store = new MemoryWorkflowStore();
+    for (const [path, data] of scenario.documents) store.seed(path, data);
+    const path = `asset_condition_evidence/${scenario.receipts[0].result.evidenceId}`;
+    if (corruption === 'missing') await store.runTransaction((tx) => tx.delete(path));
+    else store.seed(path, {...store.read(path), ...(corruption === 'wrong cause' ?
+      {confirmedCause: 'other'} : {confirmedAt: '2026-08-20T05:01:00.000Z'})});
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(scenario.commands[0], {
+      actor: scenario.actors[0], serverNow: at('2026-09-12T12:00:00Z'),
+    })).rejects.toMatchObject({details: {reasonCode: 'furnace-stuckup-replay-evidence-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('the unsupported legacy workflow receipt still requires reconciliation', async () => {
+    const scenario = require('./fixtures/furnaceStuckupLegacyReplay.json').scenarios[0];
+    const store = new MemoryWorkflowStore();
+    for (const [path, data] of scenario.documents) store.seed(path, data);
+    const path = `maintenance_workflow_command_receipts/${scenario.commands[0].commandId}`;
+    store.seed(path, {...store.read(path), receiptSchemaVersion: 1, payloadHash: '0123456789abcdef'});
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(scenario.commands[0], {
+      actor: scenario.actors[0], serverNow: at('2026-09-12T12:00:00Z'),
+    })).rejects.toMatchObject({details: {reasonCode: 'legacy-workflow-receipt-reconciliation-required'}});
+    expect(store.entries()).toEqual(before);
+  });
+});

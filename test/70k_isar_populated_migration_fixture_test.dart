@@ -4,6 +4,7 @@ import 'dart:io';
 // ignore_for_file: file_names, invalid_use_of_protected_member
 
 import 'package:crypto/crypto.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_record.dart';
 import 'package:crm3_baf_ops/core/services/isar_schema_migration.dart';
 import 'package:crm3_baf_ops/core/services/maintenance_plant_condition_index_repair.dart';
 import 'package:crm3_baf_ops/core/services/operational_assurance_local_repair.dart';
@@ -69,6 +70,7 @@ final List<CollectionSchema<dynamic>> _currentSchemas =
       WorkflowEventRecordSchema,
       WorkflowCommandRecordSchema,
       WorkflowCommandReceiptRecordSchema,
+      DurableSubmissionRecordSchema,
     ];
 
 Map<String, dynamic> _object(Object? value) {
@@ -558,7 +560,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v10 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v11 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -673,7 +675,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v10 without evidence loss',
+    'populated v3 compliance request migrates through v11 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -750,7 +752,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 10);
+        expect(preparation.result.toVersion, 11);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -801,7 +803,7 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 10);
+        expect(committed.schemaVersion, 11);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -817,7 +819,7 @@ void main() {
   );
 
   test(
-    'populated v6 maintenance ticket migrates to v10 and pending reopen remains replayable',
+    'populated v6 maintenance ticket migrates to v11 and pending reopen remains replayable',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_maintenance_reopen_v6_',
@@ -903,7 +905,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 6);
-        expect(preparation.result.toVersion, 10);
+        expect(preparation.result.toVersion, 11);
 
         isar = await Isar.open(
           _currentSchemas,
@@ -962,7 +964,7 @@ void main() {
         );
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 10);
+        expect(committed.schemaVersion, 11);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -1037,7 +1039,8 @@ void main() {
             7: <String>{IsarSchemaMigrator.v7SchemaFingerprint},
             8: <String>{IsarSchemaMigrator.v8SchemaFingerprint},
             9: <String>{IsarSchemaMigrator.v9SchemaFingerprint},
-            10: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            10: <String>{IsarSchemaMigrator.v10SchemaFingerprint},
+            11: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -1073,6 +1076,10 @@ void main() {
             10: (context) async {
               expect(context.fromVersion, 9);
               expect(context.toVersion, 10);
+            },
+            11: (context) async {
+              expect(context.fromVersion, 10);
+              expect(context.toVersion, 11);
             },
           },
         );

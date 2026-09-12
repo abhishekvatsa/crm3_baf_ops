@@ -687,6 +687,13 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final doc = await _collection
         .doc(firestoreId)
         .get(const GetOptions(source: Source.server));
+    if (doc.metadata.isFromCache || doc.metadata.hasPendingWrites) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'unavailable',
+        message: 'The issue server state is not confirmed yet.',
+      );
+    }
     return doc.exists ? _mapTicket(doc) : null;
   }
 
@@ -823,6 +830,13 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final document = await _collection
         .doc(id)
         .get(const GetOptions(source: Source.server));
+    if (document.metadata.isFromCache || document.metadata.hasPendingWrites) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'unavailable',
+        message: 'The lifecycle server outcome is not confirmed yet.',
+      );
+    }
     final data = document.data();
     return document.exists && data != null
         ? Map<String, dynamic>.from(data)

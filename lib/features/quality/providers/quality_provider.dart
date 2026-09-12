@@ -10,11 +10,16 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/quality_warning.dart';
 import '../services/quality_command_service.dart';
+import 'quality_monitoring_submission_provider.dart';
 
 const qualityWarningLiveWindowLimit = 500;
 
 final qualityCommandServiceProvider = Provider<QualityCommandService>(
-  (ref) => QualityCommandService(),
+  (ref) => QualityCommandService(
+    monitoringCreation: ref.watch(
+      qualityMonitoringSubmissionControllerProvider,
+    ),
+  ),
 );
 
 final qualityReportCacheTrustProvider = Provider<ActorSessionCacheTrust>((ref) {
@@ -367,7 +372,9 @@ Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
   List<QualityMonitoringRequest>? latestLegacy;
 
   void emitWhenReady() {
-    if (latestCurrent == null || latestLegacy == null || controller.isClosed) return;
+    if (latestCurrent == null || latestLegacy == null || controller.isClosed) {
+      return;
+    }
     final now = DateTime.now().toUtc();
     final merged = mergeQualityMonitoringWindows(
       latestCurrent!,
@@ -401,26 +408,32 @@ Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
 
   controller = StreamController<List<QualityMonitoringRequest>>(
     onListen: () {
-      currentSubscription = current.listen((value) {
-        latestCurrent = value;
-        emitWhenReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        latestCurrent = null;
-        // Expiry must not turn stale monitoring evidence back into success.
-        expiryTimer?.cancel();
-        expiryTimer = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      });
-      legacySubscription = legacy.listen((value) {
-        latestLegacy = value;
-        emitWhenReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        latestLegacy = null;
-        // Expiry must not turn stale monitoring evidence back into success.
-        expiryTimer?.cancel();
-        expiryTimer = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      });
+      currentSubscription = current.listen(
+        (value) {
+          latestCurrent = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          latestCurrent = null;
+          // Expiry must not turn stale monitoring evidence back into success.
+          expiryTimer?.cancel();
+          expiryTimer = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+      );
+      legacySubscription = legacy.listen(
+        (value) {
+          latestLegacy = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          latestLegacy = null;
+          // Expiry must not turn stale monitoring evidence back into success.
+          expiryTimer?.cancel();
+          expiryTimer = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+      );
     },
     onCancel: () async {
       expiryTimer?.cancel();

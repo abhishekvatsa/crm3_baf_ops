@@ -829,7 +829,8 @@ const requireFreshAssetReference = async (args: {
       (scope !== "installedComponent" &&
         asset.version !== expectedAssetVersion) ||
       asset.assetClassCode !== assetClass.code ||
-      asset.assetClassName !== assetClass.name ||
+      typeof asset.assetClassName !== "string" || asset.assetClassName.trim().length === 0 ||
+      assetClass.name.trim().length === 0 ||
       typeof asset.name !== "string") {
     throw new WorkflowError(
       "aborted",

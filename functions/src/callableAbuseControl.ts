@@ -55,8 +55,19 @@ const DAY_SECONDS = 24 * 60 * 60;
 const MAX_STORED_COUNTER = 1_000_000_000;
 const MAX_TRANSACTION_CLOCK_REORDER_MILLIS = 5_000;
 
-export const CALLABLE_ABUSE_POLICIES: Readonly<
-  Record<MutatingCallableName, CallableAbusePolicy>
+export const CALLABLE_ABUSE_QUOTA_ALIASES: Readonly<Partial<Record<
+  MutatingCallableName, MutatingCallableName
+>>> = Object.freeze({
+  mutateAssetHierarchyV2: "mutateAssetHierarchy",
+  executeMaintenanceWorkflowCommandV2: "executeMaintenanceWorkflowCommand",
+  mutateChargeAbnormalityV2: "mutateChargeAbnormality",
+  assignPublishedTemplateVersionV2: "assignPublishedTemplateVersion",
+});
+
+const PRIMARY_CALLABLE_ABUSE_POLICIES: Readonly<
+  Record<Exclude<MutatingCallableName,
+    "mutateAssetHierarchyV2" | "executeMaintenanceWorkflowCommandV2" |
+    "mutateChargeAbnormalityV2" | "assignPublishedTemplateVersionV2">, CallableAbusePolicy>
 > = Object.freeze({
   completePlannedJobExecution: Object.freeze({
     burstWindowSeconds: 60,
@@ -109,6 +120,14 @@ export const CALLABLE_ABUSE_POLICIES: Readonly<
   }),
 });
 
+export const CALLABLE_ABUSE_POLICIES: Readonly<Record<MutatingCallableName, CallableAbusePolicy>> = Object.freeze({
+  ...PRIMARY_CALLABLE_ABUSE_POLICIES,
+  mutateAssetHierarchyV2: PRIMARY_CALLABLE_ABUSE_POLICIES.mutateAssetHierarchy,
+  executeMaintenanceWorkflowCommandV2: PRIMARY_CALLABLE_ABUSE_POLICIES.executeMaintenanceWorkflowCommand,
+  mutateChargeAbnormalityV2: PRIMARY_CALLABLE_ABUSE_POLICIES.mutateChargeAbnormality,
+  assignPublishedTemplateVersionV2: PRIMARY_CALLABLE_ABUSE_POLICIES.assignPublishedTemplateVersion,
+});
+
 const STATE_FIELDS = new Set([
   "schemaVersion",
   "callableName",
@@ -142,6 +161,8 @@ const CALLER_ANOMALY_CODES = new Set([
 const ORDINARY_ASSET_BUSINESS_PRECONDITIONS = new Set([
   "asset-class-active-nodes",
   "asset-class-active-instances",
+  "asset-class-live-inner-covers",
+  "asset-class-legacy-role-collision",
   "morning-review-session-not-open",
   "morning-review-entry-capacity-reached",
   "morning-review-action-capacity-reached",
@@ -471,6 +492,13 @@ function anomalyCode(
       ORDINARY_ASSET_BUSINESS_PRECONDITIONS.has(error.details.reasonCode)) {
     return null;
   }
+  if (callableName === "executeMaintenanceWorkflowCommand" &&
+      error.code === "failed-precondition" && "details" in error &&
+      error.details != null && typeof error.details === "object" &&
+      "reasonCode" in error.details &&
+      error.details.reasonCode === "inspection-finding-client-update-required") {
+    return null;
+  }
   return CALLER_ANOMALY_CODES.has(error.code) ? error.code : null;
 }
 
@@ -614,18 +642,21 @@ export async function executeWithCallableAbuseControl<T>(args: {
     throw internalError(args.callableName, "abuse-control-principal-empty");
   }
   const now = args.now ?? (() => new Date());
-  await admitRequest({...args, actorUid, now});
+  // Both wire versions share one quota and anomaly namespace. Switching an
+  // endpoint must not create a second admission budget for the same actor.
+  const callableName = CALLABLE_ABUSE_QUOTA_ALIASES[args.callableName] ?? args.callableName;
+  await admitRequest({...args, callableName, actorUid, now});
 
   try {
     return await args.execute();
   } catch (error) {
-    const code = anomalyCode(error, args.callableName);
+    const code = anomalyCode(error, callableName);
     if (code != null) {
       try {
         await recordAnomaly({
           db: args.db,
           actorUid,
-          callableName: args.callableName,
+          callableName,
           code,
           now,
         });

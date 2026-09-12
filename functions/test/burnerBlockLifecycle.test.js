@@ -263,7 +263,7 @@ describe('burner-block lifecycle projection', () => {
       path.startsWith('burner_block_lifecycle_events/'))).toHaveLength(2);
   });
 
-  test('a later server receipt wins even when its device action time is older', async () => {
+  test('a late older physical installation stays in history and cannot silently replace current', async () => {
     const store = seedStore();
     await prepare(store, action({
       id: 'first-recorded',
@@ -285,9 +285,55 @@ describe('burner-block lifecycle projection', () => {
     const current = store.entries().find(([path]) =>
       path.startsWith('burner_block_lifecycle_current/'))[1];
 
-    expect(current.sourceId).toBe('execution-later-recorded');
-    expect(current.actionPerformedAt).toBe('2026-08-27T08:00:00.000Z');
-    expect(current.recordedAt).toBe('2026-08-28T10:00:00.000Z');
+    expect(current.sourceId).toBe('execution-first-recorded');
+    expect(current.actionPerformedAt).toBe('2026-08-28T08:00:00.000Z');
+    expect(current.recordedAt).toBe('2026-08-28T09:00:00.000Z');
+    const history = store.entries().filter(([path]) => path.includes('_lifecycle_events/'));
+    expect(history).toHaveLength(2);
+    expect(history.some(([, event]) => event.sourceId === 'execution-later-recorded' &&
+      event.actionPerformedAt === '2026-08-27T08:00:00.000Z')).toBe(true);
+  });
+
+  test('physical-time ties use receipt time, then event identity independent of delivery order', async () => {
+    const run = async (order, sameReceiptTime) => {
+      const store = seedStore();
+      for (const n of order) {
+        const receiptTime = sameReceiptTime || n === 1 ?
+          '2026-08-28T09:00:00.000Z' : '2026-08-28T10:00:00.000Z';
+        await prepare(store, action({id: `tie-${n}`, createdAt: '2026-08-28T08:00:00.000Z'}), {
+          sourceId: `execution-tie-${n}`, completedAt: receiptTime, recordedAt: receiptTime,
+        });
+      }
+      return store.entries().find(([path]) => path.includes('_lifecycle_current/'))[1];
+    };
+    expect((await run([1, 2], false)).sourceId).toBe('execution-tie-2');
+    expect((await run([2, 1], false)).sourceId).toBe('execution-tie-2');
+    expect((await run([1, 2], true)).currentEventId).toBe((await run([2, 1], true)).currentEventId);
+  });
+
+  test('a revised-part disposition does not authorize correction of the current installation', async () => {
+    const store = seedStore();
+    await prepare(store, action({id: 'physical-later', createdAt: '2026-08-28T08:00:00.000Z'}), {
+      sourceId: 'execution-physical-later',
+    });
+    const before = store.entries().find(([path]) => path.includes('_lifecycle_current/'))[1];
+    await prepare(store, action({id: 'late-revised-part', replacement: 'revised',
+      createdAt: '2026-08-27T08:00:00.000Z'}), {sourceId: 'execution-revised-history',
+      completedAt: '2026-08-28T10:00:00.000Z', recordedAt: '2026-08-28T10:00:00.000Z'});
+    expect(store.entries().find(([path]) => path.includes('_lifecycle_current/'))[1]).toEqual(before);
+    expect(store.entries().filter(([path]) => path.includes('_lifecycle_events/'))).toHaveLength(2);
+  });
+
+  test('renamed class remains compatible with an existing physical asset and frozen action reference', async () => {
+    const store = seedStore();
+    const path = `asset_classes/${IDS.assetClass}`;
+    const current = store.entries().find(([key]) => key === path)[1];
+    store.seed(path, {...current, name: 'BAF Heating Furnaces'});
+    const plan = await prepare(store);
+    expect(plan.events).toHaveLength(1);
+    expect(plan.events[0].data.assetClassName).toBe('BAF Heating Furnaces');
+    expect(store.entries().find(([key]) => key === `asset_instances/${IDS.asset}`)[1].assetClassName)
+      .toBe('Furnace');
   });
 
   test('accepts Firestore timestamps in an existing current projection', async () => {

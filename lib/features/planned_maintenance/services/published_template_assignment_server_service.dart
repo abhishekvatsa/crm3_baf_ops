@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/persistence/durable_submission.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
@@ -13,6 +15,8 @@ import '../data/job_template_model.dart';
 const publishedTemplateAssignmentCallableName =
     'assignPublishedTemplateVersion';
 const publishedTemplateAssignmentCallableRegion = 'asia-south1';
+const publishedTemplateAssignmentV2CallableName =
+    'assignPublishedTemplateVersionV2';
 
 const _assignmentRequestUuid = Uuid();
 
@@ -48,6 +52,87 @@ class PublishedTemplateAssignmentRequest {
     this.chargeNoAtEvent,
     this.remarks,
   });
+
+  factory PublishedTemplateAssignmentRequest.fromCallableData(
+    Map<String, dynamic> raw,
+  ) {
+    const requiredKeys = {
+      'requestId',
+      'packageId',
+      'versionId',
+      'expectedVersionNumber',
+      'expectedContentHash',
+      'assetType',
+      'assetNumber',
+    };
+    const optionalKeys = {
+      'assetClassId',
+      'assetInstanceId',
+      'sourcePlanId',
+      'sourcePlanExpectedVersion',
+      'chargeNoAtEvent',
+      'remarks',
+    };
+    if (!raw.keys.toSet().containsAll(requiredKeys) ||
+        raw.keys.any(
+          (key) => !requiredKeys.contains(key) && !optionalKeys.contains(key),
+        )) {
+      throw const FormatException(
+        'The saved assignment request has missing or unsupported fields.',
+      );
+    }
+    String text(String key) {
+      final value = raw[key];
+      if (value is! String || value.trim().isEmpty || value != value.trim()) {
+        throw FormatException('The saved assignment $key is invalid.');
+      }
+      return value;
+    }
+
+    int positive(String key) {
+      final value = raw[key];
+      if (value is! int || value < 1 || value > 9007199254740991) {
+        throw FormatException('The saved assignment $key is invalid.');
+      }
+      return value;
+    }
+
+    final type = AssetType.values
+        .where((value) => value.name == raw['assetType'])
+        .singleOrNull;
+    if (type == null) {
+      throw const FormatException(
+        'The saved assignment asset type is invalid.',
+      );
+    }
+    final request = PublishedTemplateAssignmentRequest(
+      requestId: text('requestId'),
+      packageFirestoreId: text('packageId'),
+      versionFirestoreId: text('versionId'),
+      expectedVersionNumber: positive('expectedVersionNumber'),
+      expectedContentHash: text('expectedContentHash'),
+      assetType: type,
+      assetNumber: positive('assetNumber'),
+      assetClassId: raw.containsKey('assetClassId')
+          ? text('assetClassId')
+          : null,
+      assetInstanceId: raw.containsKey('assetInstanceId')
+          ? text('assetInstanceId')
+          : null,
+      sourcePlanId: raw.containsKey('sourcePlanId')
+          ? text('sourcePlanId')
+          : null,
+      sourcePlanExpectedVersion: raw.containsKey('sourcePlanExpectedVersion')
+          ? positive('sourcePlanExpectedVersion')
+          : null,
+      chargeNoAtEvent: raw.containsKey('chargeNoAtEvent')
+          ? positive('chargeNoAtEvent')
+          : null,
+      remarks: raw.containsKey('remarks') ? text('remarks') : null,
+    );
+    request._requireCompleteGovernedIdentity();
+    return request;
+  }
 
   Map<String, dynamic> toCallableData() {
     _requireCompleteGovernedIdentity();
@@ -135,6 +220,8 @@ class PublishedTemplateAssignmentServerResult {
     Object? raw, {
     required String fallbackRequestId,
     PublishedTemplateAssignmentRequest? expectedRequest,
+    String? expectedOriginActorUid,
+    bool allowCompletedProjection = false,
   }) {
     if (raw is! Map || raw['ok'] != true) {
       throw const FormatException(
@@ -243,6 +330,8 @@ class PublishedTemplateAssignmentServerResult {
         request: expectedRequest,
         execution: execution,
         modules: modules,
+        expectedOriginActorUid: expectedOriginActorUid,
+        allowCompletedProjection: allowCompletedProjection,
       );
     }
 
@@ -259,15 +348,63 @@ class PublishedTemplateAssignmentServerResult {
 
 class PublishedTemplateAssignmentServerService {
   final FirebaseFunctions? _functions;
+  final String? Function()? currentActorUid;
 
-  PublishedTemplateAssignmentServerService({FirebaseFunctions? functions})
-    : _functions = functions;
+  PublishedTemplateAssignmentServerService({
+    FirebaseFunctions? functions,
+    this.currentActorUid,
+  }) : _functions = functions;
 
   FirebaseFunctions get _client =>
       _functions ??
       FirebaseFunctions.instanceFor(
         region: publishedTemplateAssignmentCallableRegion,
       );
+
+  /// V2 dispatch consumes the original wrapper; the durable caller owns retry
+  /// and settlement. Return the validated complete receipt for native retention.
+  Future<Map<String, dynamic>> assignFrozenEnvelope(String envelopeJson) async {
+    final outer = durableSubmissionJsonObject(envelopeJson);
+    final origin = outer['originActorUid'];
+    if (outer.length != 3 ||
+        outer['protocolVersion'] != 2 ||
+        origin is! String ||
+        origin.trim().isEmpty ||
+        origin != origin.trim() ||
+        outer['request'] is! Map<String, dynamic>) {
+      throw const FormatException(
+        'The saved assignment does not prove its original account.',
+      );
+    }
+    final request = PublishedTemplateAssignmentRequest.fromCallableData(
+      outer['request'] as Map<String, dynamic>,
+    );
+    final live = currentActorUid == null
+        ? FirebaseAuth.instance.currentUser?.uid
+        : currentActorUid!();
+    if (live != origin) {
+      throw const PublishedTemplateAssignmentServerException(
+        code: 'origin-account-mismatch',
+        message:
+            'Return to the account that saved this assignment. Nothing was sent.',
+      );
+    }
+    try {
+      final response = await _client
+          .httpsCallable(publishedTemplateAssignmentV2CallableName)
+          .call(outer);
+      PublishedTemplateAssignmentServerResult.fromCallableData(
+        response.data,
+        fallbackRequestId: request.requestId,
+        expectedRequest: request,
+        expectedOriginActorUid: origin,
+        allowCompletedProjection: true,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on FirebaseFunctionsException catch (error) {
+      throw PublishedTemplateAssignmentServerException.fromFirebase(error);
+    }
+  }
 
   Future<PublishedTemplateAssignmentServerResult> assign({
     required PublishedTemplateAssignmentRequest request,
@@ -298,7 +435,25 @@ void _validateAssignmentResponseMeaning({
   required PublishedTemplateAssignmentRequest request,
   required JobExecution execution,
   required List<JobModuleInstance> modules,
+  String? expectedOriginActorUid,
+  bool allowCompletedProjection = false,
 }) {
+  final origin = !allowCompletedProjection || execution.metadataJson == null
+      ? null
+      : durableSubmissionJsonObject(execution.metadataJson!);
+  // Finalization may replace remarks with the completion note. Its current
+  // projection is not the original input; the protected request/assignment
+  // origin still binds the accepted creation. Ordinary mismatches remain errors.
+  final completedProjection =
+      allowCompletedProjection &&
+      expectedOriginActorUid != null &&
+      execution.assignedByUid == expectedOriginActorUid &&
+      execution.isCompleted &&
+      !execution.isDeleted &&
+      !execution.isCancelled &&
+      execution.version > 1 &&
+      origin?['source'] == 'server_governed_published_template_assignment' &&
+      origin?['requestId'] == request.requestId;
   final executionMatches =
       execution.templateFirestoreId == request.versionFirestoreId &&
       execution.templatePackageId == request.packageFirestoreId &&
@@ -308,7 +463,8 @@ void _validateAssignmentResponseMeaning({
       execution.assetType == request.assetType &&
       execution.assetNumber == request.assetNumber &&
       execution.chargeNoAtEvent == request.chargeNoAtEvent &&
-      _clean(execution.remarks) == _clean(request.remarks);
+      (_clean(execution.remarks) == _clean(request.remarks) ||
+          completedProjection);
   if (!executionMatches) {
     throw const FormatException(
       'Server assignment response did not match the submitted assignment meaning.',

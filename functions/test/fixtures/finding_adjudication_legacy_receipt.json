@@ -1,0 +1,162 @@
+{
+  "provenance": {
+    "sourceCommit": "c00c77e2",
+    "sourceSha256": {
+      "maintenanceWorkflow/dispatcher.ts": "f92c1ddc62f9cb13ea1da82ef104b0889ac55bd401a6b7116f20086171b1eb2e",
+      "maintenanceWorkflow/commandAuthority.ts": "47a50f23f529a5762ae5a148066eb26c98747ace1dcee221cea83c646ff058c9",
+      "maintenanceWorkflow/authority.ts": "a7e101ab6eb325a321602d4f07ea1afda22bffd01544bbfb6a258d75808de991",
+      "maintenanceWorkflow/policy.generated.ts": "5f9dbd059dedbbc2fa6350370d23f583083c3fc0f2208b60d9400458398c31ff",
+      "maintenanceWorkflow/errors.ts": "89ea09e149127abb2926526d01754a50752c43126a2d1041e4f5be12e1cc3263",
+      "maintenanceWorkflow/documents.ts": "2f8bd6278660c39289304058d48c6fde945a1404f9d50dfeb8a3f37f875dca34",
+      "maintenanceWorkflow/paths.ts": "d242f08125fb22cec0e475565bfbfef0611ce0edf83f672932e85f4d1377c798",
+      "maintenanceWorkflow/utils.ts": "1493a19861c2d3e8006424212ae220987a6af2b0b0043f47df5fd860b92d7c42",
+      "stableJson.ts": "84161f34764dd5c731e6f247891d8da7624a7b65cc72998c53265c97e73be06d",
+      "maintenanceWorkflow/ticketLanePlan.ts": "982ce125af580a5bbb1eb873b5e014403246cbad0ba8005b1dfde1448c44bf7c",
+      "maintenanceWorkflow/idempotency.ts": "d3654c854f0569e641b4ba8ddfe729fe2d4cb34df1abc2daa5e91fffb8906594",
+      "maintenanceWorkflow/laneHandlers.ts": "8291a1deb135d6fad54418138db4b08665580e0df4ea86dcc4419b791dc0122b",
+      "maintenanceWorkflow/canonicalClosure.ts": "f0a41d8e7d25afca55a38b5c0ce3ad4c2d364d0f317886d077e2df0628d8720e",
+      "plannedJobClosure.ts": "52d67e2af65428a0f31b07acd5033205383fe1997104165abdaff652337b147d",
+      "persistedActionPayload.ts": "919dedd313a07b7b59984cfeee5d4f2400609f2293c7843bc84bd304e3f9b4a5",
+      "persistedWorkPayload.ts": "738b2becf967a51af24946e2467faa3e4ddbb2561e2db1ee9c3e936db0917a43",
+      "userAuthority.ts": "779c4aa3298475586af5b4e28f25994bdf4c75a2a01df98e31dd9e3ca103368e",
+      "maintenanceWorkflow/maintenanceIntelligence.ts": "b66f1c1e52b96239697fbceb322b07d580c923845e5ac4e5073310e1318e34f4",
+      "maintenanceWorkflow/ticketHandlers.ts": "17012355a73f9efd12f24c42e080425ca4e910c2c1a92302e67d3ddf53f230b6",
+      "maintenanceWorkflow/events.ts": "7ba53ef279d7229e3bfe48a65bd7571676a4ea07d811c375be9833ae1785e9e9",
+      "chargeNumber.ts": "aefe2cb26b556a5eb75d689ea43a191a30f10022c275b388ca2a6ee0362eb15a",
+      "persistedInstant.ts": "8666230b04a091d24f85f5d9422d7deb31a9e9283a425658d7c36b7b606aa813",
+      "maintenanceWorkflow/maintenanceBridge.ts": "fde8313b7320524da0953d36287ca2a6f3ac43c33eee39e55436e1c5413d0717",
+      "maintenanceWorkflow/burnerBlockLifecycle.ts": "660f7706b337374179fb59ff22c2b18bc01016c7700de737d22767a451f7a5db",
+      "maintenanceWorkflow/uvDetectorLifecycle.ts": "e60bc071b170628d8e613eea878dd6d70ef51e770ef589c932ffd3b091344d76",
+      "maintenanceWorkflow/equipmentFacts.ts": "5fe998f98333a1e2ec6ac93c5ff825e0cf3e194facaa3af0c246310ca9d196ea",
+      "maintenanceWorkflow/equipmentProjection.ts": "eb81ab6438cfaed9a3ea3e304579feedf5e917bd55d88aa84d2d32eaa62c41a0",
+      "maintenanceWorkflow/aggregate.ts": "cf95a94b08b1dbfcdde0ee6762bbe8e05c9613e908875402cf25fa26f2a65df1",
+      "maintenanceWorkflow/laneProgress.ts": "6b5461689644c95c2a54bd96c7c545349701dd0df94ca613ea3500f39f7f1f3a",
+      "maintenanceWorkflow/modulePolicy.ts": "6a44f3781ebabf89b6d2863a3e75f49583a19fd820ed5d567fdd48792d55a3f4",
+      "maintenanceWorkflow/complianceHandlers.ts": "d30c82090210361b85a04d6088a21e640426b7074ce6c4d50e203d82118c66bb",
+      "maintenanceWorkflow/escalationPolicy.ts": "44d9b4c61dbda74d5ad1d7388774c5a9a118031688b0c1a034cd0966f5e03b14",
+      "maintenanceWorkflow/equipmentHandlers.ts": "25c1235f351ddb3f7488b51d01a019b5a107e04c6cdfdc771d991ca954827dd9",
+      "maintenanceWorkflow/finalizeJobHandler.ts": "ea570de617f093beef72ddb81d9597c2dc99cb8d0f47d8b9e3018a57d8834cb9",
+      "maintenanceWorkflow/redPolicy.ts": "32ae95bdd28ac132ef31ebee10e14ddbe346a803164368151eb0855414880ef5",
+      "maintenanceWorkflow/redSuccessorTemplateResolver.ts": "33ed4fc58a60988155f087a7ddaf006bfd680fd8212e3e19a8f173fb42c2a2e4",
+      "maintenanceWorkflow/redHandlers.ts": "5e43a714db5261b870e797844bc42a56b9d6c8af3966442597609acf9291a76c",
+      "maintenanceWorkflow/jobCreationHandler.ts": "7c39a16c30f24b31469db4f98c9a1e9bea7406d011749f83150dc330e45f4ea1",
+      "maintenanceWorkflow/moduleLifecycleHandlers.ts": "e308dd97807aee3636041ac8b80536d83ba081f7f802fcacfaece088a1337bb4",
+      "maintenanceWorkflow/furnaceStuckupHandlers.ts": "37683e512d0f9bb34cbdf5db136f5052b97a3c5225c9061965cb1194ad3fab28",
+      "maintenanceWorkflow/issueCoordinationHandler.ts": "03c41bf64cd696e61fda5a195952bfb1c320d0694205ebe03577680ed20b5178",
+      "maintenanceWorkflow/frequentIssueDefinitionHandlers.ts": "5aabfd0f527311709d3f6c1dfe4bf5058b4e92c0db5a0c16f09fa0191aa585ad",
+      "maintenanceWorkflow/maintenanceClassHandlers.ts": "a6db723517789bc1c6639ddadf622c011f8234b5f31c23e1acc4d8f762776e63",
+      "maintenanceWorkflow/maintenancePlanHandlers.ts": "63cbc0b5beaf9ae0e170a5b467128ad2a42d1c6686270c253115336029365a7f",
+      "maintenanceWorkflow/inspectionCampaignHandlers.ts": "e0c4dc7a21ca99736805dd3d3001074216d88145a07adbd39c4c248b04c6da4f",
+      "maintenanceWorkflow/inspectionPopulation.ts": "31d389f0e261d93834773bb9526d23874f2ccfc0e576674435d762ff8904ed05",
+      "maintenanceWorkflow/inspectionEvidenceHandlers.ts": "c8f6200eb4643027bf055ca658594d156975de9d9def8a9db6af3a8bf4c20150",
+      "maintenanceWorkflow/historicalMaintenanceHandlers.ts": "bc922079d74c34fcc650bdbffc6fc8a99ebc57667567c326f57a6eeba07de01d",
+      "pilotRecordPurge.ts": "57ee4bd02bcd8f9e692de68c73b4dce20dbae4b1c6662b8924787b394c162f74",
+      "maintenanceWorkflow/criticalAlarmHandlers.ts": "bad712c394242fa7ae3f789dca9913e51b03b6f8eb0f1b66d66f3533876efedb",
+      "maintenanceWorkflow/memoryStore.ts": "a26c90b387a5a35ab30a0392524693d1fdca7ba5f96abacb7790a4941067ba63"
+    },
+    "description": "Actual old deployed source graph transpiled in memory; no current handler or fabricated receipt hash."
+  },
+  "command": {
+    "commandId": "adjudicateInspectionFinding_legacy-confirmed",
+    "commandType": "adjudicateInspectionFinding",
+    "aggregateId": "legacy-campaign",
+    "expectedVersion": 4,
+    "payload": {
+      "findingId": "legacy-finding",
+      "status": "acceptedCondition",
+      "reason": "SI reviewed the historical observation."
+    }
+  },
+  "actor": {
+    "uid": "admin-legacy",
+    "name": "Legacy Admin"
+  },
+  "accepted": {
+    "commandId": "adjudicateInspectionFinding_legacy-confirmed",
+    "resultKey": "inspection-finding-acceptedCondition",
+    "aggregateVersion": 4,
+    "result": {
+      "campaignId": "legacy-campaign",
+      "findingId": "legacy-finding",
+      "status": "acceptedCondition"
+    },
+    "appliedAt": "2026-09-07T12:00:00.000Z"
+  },
+  "documents": [
+    [
+      "users/admin-legacy",
+      {
+        "name": "Legacy Admin",
+        "isApproved": true,
+        "roles": [
+          "admin"
+        ]
+      }
+    ],
+    [
+      "inspection_campaigns/legacy-campaign",
+      {
+        "schemaVersion": 1,
+        "campaignId": "legacy-campaign",
+        "status": "open",
+        "version": 4
+      }
+    ],
+    [
+      "inspection_findings/legacy-finding",
+      {
+        "schemaVersion": 1,
+        "findingId": "legacy-finding",
+        "campaignId": "legacy-campaign",
+        "status": "acceptedCondition",
+        "version": 3,
+        "adjudicationReason": "SI reviewed the historical observation.",
+        "adjudicatedAt": "2026-09-07T12:00:00.000Z",
+        "adjudicatedByUid": "admin-legacy",
+        "adjudicatedByName": "Legacy Admin",
+        "updatedAt": "2026-09-07T12:00:00.000Z",
+        "updatedByUid": "admin-legacy",
+        "updatedByName": "Legacy Admin"
+      }
+    ],
+    [
+      "inspection_finding_events/adjudicateInspectionFinding_legacy-confirmed",
+      {
+        "schemaVersion": 1,
+        "eventId": "adjudicateInspectionFinding_legacy-confirmed",
+        "findingId": "legacy-finding",
+        "campaignId": "legacy-campaign",
+        "operation": "adjudicate",
+        "previousStatus": "open",
+        "resultingStatus": "acceptedCondition",
+        "reason": "SI reviewed the historical observation.",
+        "performedAt": "2026-09-07T12:00:00.000Z",
+        "performedByUid": "admin-legacy",
+        "performedByName": "Legacy Admin"
+      }
+    ],
+    [
+      "maintenance_workflow_command_receipts/adjudicateInspectionFinding_legacy-confirmed",
+      {
+        "receiptSchemaVersion": 2,
+        "commandId": "adjudicateInspectionFinding_legacy-confirmed",
+        "commandType": "adjudicateInspectionFinding",
+        "aggregateId": "legacy-campaign",
+        "actorUid": "admin-legacy",
+        "authorityScope": {
+          "schemaVersion": 1,
+          "capability": "inspectionFinding.adjudicate"
+        },
+        "payloadFingerprint": "sha256:89cd442dbb3a065cf787167a18eaf184c7175573c144c52356145d21c6571004",
+        "resultKey": "inspection-finding-acceptedCondition",
+        "aggregateVersion": 4,
+        "result": {
+          "campaignId": "legacy-campaign",
+          "findingId": "legacy-finding",
+          "status": "acceptedCondition"
+        },
+        "appliedAt": "2026-09-07T12:00:00.000Z"
+      }
+    ]
+  ]
+}

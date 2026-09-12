@@ -24,6 +24,7 @@ extension _ClosedTicketCorrections on _ClosedTicketsScreenState {
   }
 
   Future<void> _correctTicket(MaintenanceRecord ticket) async {
+    if (!mounted) return;
     if (!ticket.isSynced) {
       _showSnack(
         message: 'Synchronize this issue before recording a correction.',
@@ -31,7 +32,7 @@ extension _ClosedTicketCorrections on _ClosedTicketsScreenState {
       );
       return;
     }
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = _currentActor();
     final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
     if (actor == null ||
         firebaseUser == null ||
@@ -54,9 +55,21 @@ extension _ClosedTicketCorrections on _ClosedTicketsScreenState {
     final draft = await showDialog<MaintenanceTicketCorrectionDraft>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => MaintenanceTicketCorrectionDialog(ticket: ticket),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canCorrectMaintenanceTicket,
+        child: MaintenanceTicketCorrectionDialog(ticket: ticket),
+      ),
     );
     if (!mounted || draft == null) return;
+    if (_currentActor(
+              originUid: actor.uid,
+              permission: (user) => user.canCorrectMaintenanceTicket,
+            ) ==
+            null ||
+        ref.read(firebaseAuthProvider).currentUser?.uid != actor.uid) {
+      return;
+        }
 
     final ticketKey = _ClosedTicketsScreenState._ticketKey(ticket);
     if (_correctingTicketKeys.contains(ticketKey)) return;
