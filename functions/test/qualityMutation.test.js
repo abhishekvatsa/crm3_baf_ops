@@ -1242,3 +1242,12 @@ describe('quality mutation', () => {
     expect(ambiguous.writes).toHaveLength(0);
   });
 });
+
+test('administrative review accepts the actual quality monitoring creation receipt', async () => {
+  const memory = fakeDb(seed());
+  await invoke(memory, 'si-1', {requestId: IDS.request, operation: 'CREATE_QUALITY_MONITORING_REQUEST',
+    monitoringRequestId: IDS.monitoring, expectedVersion: 0, reason: 'Monitor this reviewed production campaign.',
+    baseNumber: 12, baseAssetClassId: 'base-class', baseAssetInstanceId: 'base-12', baseAssetInstanceVersion: 4,
+    grade: 'CRGO M4', cycleReference: 'Cycle family 7A', chargeNumbers: [12011, 12012]});
+  await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('qualityMonitoring', memory.store.get(`quality_mutation_receipts/${IDS.request}`));
+});

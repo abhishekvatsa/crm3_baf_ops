@@ -227,9 +227,43 @@ function verifiedOriginBoundDelegation(program, call, name, exported) {
   const options = body.arguments[0];
   if (!ts.isObjectLiteralExpression(options) || options.properties.some((p) => !ts.isPropertyAssignment(p))) return false;
   const properties = new Map(options.properties.map((p) => [propertyName(p), p.initializer]));
-  if (properties.size !== options.properties.length ||
-      !sameValues(properties.keys(), ["callableName", "authUid", "data", "readActor", "execute"])) return false;
+  const expectedKeys = ["callableName", "authUid", "data", "readActor", "execute"];
+  if (properties.has("recoverSubmission")) expectedKeys.push("recoverSubmission");
+  if (properties.has("lookupReceipt") && name === "mutateAssetHierarchyV2") expectedKeys.push("lookupReceipt");
+  if (properties.size !== options.properties.length || !sameValues(properties.keys(), expectedKeys)) return false;
   const compact = (node) => node.getText().replace(/\s+/g, "");
+  // Review is a separate Admin-only transaction, never a quota/business
+  // delegation exemption. Admit only this exact centrally validated route.
+  if (properties.has("recoverSubmission")) {
+    const review = properties.get("recoverSubmission");
+    if (!ts.isArrowFunction(review) || review.parameters.length !== 1 ||
+        !ts.isIdentifier(review.parameters[0].name) || !ts.isCallExpression(review.body) ||
+        !ts.isIdentifier(review.body.expression) || review.body.expression.text !== "reviewSavedSubmissionWithDb") return false;
+    const symbol = checker.getSymbolAtLocation(review.body.expression);
+    if (symbol == null || !(resolvedSymbol(checker, symbol).getDeclarations() ?? []).some((declaration) =>
+      ts.isFunctionDeclaration(declaration) && declaration.name?.text === "reviewSavedSubmissionWithDb" &&
+      declaration.getSourceFile().fileName.replaceAll("\\", "/").endsWith("/src/submissionRecovery.ts"))) return false;
+    const payload = review.parameters[0].name.text;
+    if (compact(review.body) !== `reviewSavedSubmissionWithDb({db:admin.firestore()asunknownasSubmissionRecoveryDb,endpoint:"${name}",authUid:${outerName}.auth?.uid??null,data:${payload},})`) return false;
+  }
+  if (properties.has("lookupReceipt")) {
+    const lookup = properties.get("lookupReceipt");
+    if (!ts.isArrowFunction(lookup) || lookup.parameters.length !== 1 || !ts.isIdentifier(lookup.parameters[0].name)) return false;
+    const payload = lookup.parameters[0].name.text;
+    if (compact(lookup.body) !== `{try{returnawaitlookupMorningReviewReceiptWithDb({db:admin.firestore()asunknownasMorningReviewFirestoreLike,authUid:${outerName}.auth?.uid??null,data:${payload},});}catch(error){if(errorinstanceofAssetHierarchyMutationError){thrownewHttpsError(error.code,error.message,error.details);}throwerror;}}`) return false;
+    let realLookup = false;
+    const visit = (node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "lookupMorningReviewReceiptWithDb") {
+        const symbol = checker.getSymbolAtLocation(node.expression);
+        realLookup = symbol != null && (resolvedSymbol(checker, symbol).getDeclarations() ?? []).some((declaration) =>
+          ts.isFunctionDeclaration(declaration) && declaration.name?.text === "lookupMorningReviewReceiptWithDb" &&
+          declaration.getSourceFile().fileName.replaceAll("\\", "/").endsWith("/src/morningReviewMutation.ts"));
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(lookup.body);
+    if (!realLookup) return false;
+  }
   const callableName = properties.get("callableName");
   if (!ts.isStringLiteral(callableName) || callableName.text !== name ||
       compact(properties.get("authUid")) !== `${outerName}.auth?.uid??null` ||

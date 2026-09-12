@@ -12,6 +12,7 @@ import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../models/component_action_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import 'action_performed_time_field.dart';
 
 final class GovernedActionContext {
   const GovernedActionContext({
@@ -31,12 +32,16 @@ class ActionBottomSheet extends ConsumerStatefulWidget {
   const ActionBottomSheet({
     super.key,
     required this.target,
+    required this.workStartedAt,
+    this.workCompletedAt,
     this.performedAt,
     this.performedBy,
     this.workDiscipline,
   });
 
   final GovernedActionContext target;
+  final DateTime workStartedAt;
+  final DateTime? workCompletedAt;
   final DateTime? performedAt;
   final String? performedBy;
   final String? workDiscipline;
@@ -76,10 +81,12 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   ReplacementType? _replacementType;
   int? _burnerPosition;
   BurnerBlockSupplyMode? _burnerBlockSupplyMode;
+  DateTime? _performedAt;
 
   @override
   void initState() {
     super.initState();
+    _performedAt = widget.performedAt;
     Future<void>.microtask(_loadTarget);
   }
 
@@ -373,6 +380,7 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         numberedBurnerReady &&
         burnerBlockReady &&
         _disciplineReady &&
+        _timeError == null &&
         (tag.isEmpty ||
             (hierarchyReference!.scope ==
                     AssetHierarchyReferenceScope.installedComponent &&
@@ -387,6 +395,16 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   void _save() {
     final component = _componentController.text.trim();
     final tag = _tagController.text.trim();
+
+    // Recheck the clock at submission, including if it changed while open.
+    final timeError = _timeError;
+    if (timeError != null) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(timeError), backgroundColor: BafColors.danger),
+      );
+      return;
+    }
 
     if (asset == null || hierarchyReference == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -432,7 +450,7 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       status: _status,
       issue: _issueController.text.trim(),
       isAutoResolved: _isAutoResolved,
-      createdAt: widget.performedAt ?? DateTime.now(),
+      createdAt: _performedAt!,
       performedBy: widget.performedBy,
       burnerPosition: _usesNumberedBurnerPosition ? _burnerPosition : null,
       burnerBlockSupplyMode:
@@ -445,6 +463,13 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
 
     Navigator.pop(context, action);
   }
+
+  String? get _timeError => componentActionTimeError(
+    performedAt: _performedAt,
+    workStartedAt: widget.workStartedAt,
+    workCompletedAt: widget.workCompletedAt,
+    now: DateTime.now(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +535,13 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 18),
+              ActionPerformedTimeField(
+                value: _performedAt,
+                workStartedAt: widget.workStartedAt,
+                workCompletedAt: widget.workCompletedAt,
+                onChanged: (value) => setState(() => _performedAt = value),
               ),
               const SizedBox(height: 18),
               if (_loadingTarget)

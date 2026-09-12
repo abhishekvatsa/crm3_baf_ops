@@ -1,5 +1,3 @@
-// FILE: lib/features/planned_maintenance/presentation/complete_job_screen.dart
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -520,6 +518,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         originUid: actor.uid,
         permission: (user) => user.canCompleteJobExecution,
         child: ActionBottomSheet(
+          workStartedAt: widget.execution.createdAt,
+          workCompletedAt: widget.execution.completedAt,
           performedBy: actor.name,
           target: GovernedActionContext(
             assetTypeKey: widget.execution.assetType.name,

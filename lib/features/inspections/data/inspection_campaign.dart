@@ -1,5 +1,8 @@
 import '../../../core/serialization/persisted_data_reader.dart';
 
+part 'inspection_target_context.dart';
+part 'inspection_campaign_target.dart';
+
 enum InspectionDefinitionStatus { active, retired }
 
 enum InspectionCampaignStatus { open, paused, closed }
@@ -388,20 +391,16 @@ class InspectionCampaign {
   final DateTime? latestObservationAt;
   final DateTime createdAt;
 
-  int get distinctTargetCount =>
-      targets
-          .where(
-            (target) =>
-                target.disposition == InspectionTargetDisposition.observed,
-          )
-          .length;
-  int get accountedTargetCount =>
-      targets
-          .where(
-            (target) =>
-                target.disposition != InspectionTargetDisposition.pending,
-          )
-          .length;
+  int get distinctTargetCount => targets
+      .where(
+        (target) => target.disposition == InspectionTargetDisposition.observed,
+      )
+      .length;
+  int get accountedTargetCount => targets
+      .where(
+        (target) => target.disposition != InspectionTargetDisposition.pending,
+      )
+      .length;
   int get remainingPopulation => expectedPopulation - accountedTargetCount;
   double get coverageFraction =>
       expectedPopulation == 0 ? 0 : distinctTargetCount / expectedPopulation;
@@ -468,8 +467,9 @@ class InspectionCampaign {
       map['targetDispositionCounts'],
       field: 'targetDispositionCounts',
       source: source,
-      exactKeys:
-          InspectionTargetDisposition.values.map((value) => value.name).toSet(),
+      exactKeys: InspectionTargetDisposition.values
+          .map((value) => value.name)
+          .toSet(),
     );
     if (definition.id !=
             readRequiredPersistedString(
@@ -589,10 +589,9 @@ class InspectionCampaign {
       ),
     );
     final exactDefinitionClasses = campaign.definition.assetClassIds;
-    final definitionScopeMatches =
-        exactDefinitionClasses.isNotEmpty
-            ? exactDefinitionClasses.contains(campaign.assetClassId)
-            : campaign.definition.assetTypeKeys.contains(campaign.assetTypeKey);
+    final definitionScopeMatches = exactDefinitionClasses.isNotEmpty
+        ? exactDefinitionClasses.contains(campaign.assetClassId)
+        : campaign.definition.assetTypeKeys.contains(campaign.assetTypeKey);
     if (!definitionScopeMatches ||
         campaign.expectedPopulation != campaign.targets.length ||
         campaign.observationCount < campaign.distinctTargetKeys.length ||
@@ -638,281 +637,11 @@ class InspectionCampaign {
   }
 }
 
-class InspectionCampaignTarget {
-  const InspectionCampaignTarget({
-    required this.targetKey,
-    required this.assetTypeKey,
-    required this.assetClassId,
-    required this.assetNumber,
-    required this.assetInstanceId,
-    required this.assetInstanceVersion,
-    required this.assetInstanceName,
-    required this.hostAssetClassId,
-    required this.hostAssetInstanceId,
-    required this.hostAssetInstanceVersion,
-    required this.hostAssetNumber,
-    required this.hostAssetInstanceName,
-    required this.subjectSerialNumber,
-    required this.linkageId,
-    required this.linkageVersion,
-    required this.linkedAt,
-    required this.componentNodeId,
-    required this.physicalPosition,
-    required this.disposition,
-    required this.dispositionReason,
-    required this.dispositionAt,
-    required this.dispositionByUid,
-    required this.dispositionByName,
-    required this.addedLater,
-    required this.lastObservationId,
-    required this.lastObservedAt,
-  });
-
-  final String targetKey;
-  final String assetTypeKey;
-  final String assetClassId;
-  final int assetNumber;
-  final String assetInstanceId;
-  final int assetInstanceVersion;
-  final String assetInstanceName;
-  final String? hostAssetClassId;
-  final String? hostAssetInstanceId;
-  final int? hostAssetInstanceVersion;
-  final int? hostAssetNumber;
-  final String? hostAssetInstanceName;
-  final String? subjectSerialNumber;
-  final String? linkageId;
-  final int? linkageVersion;
-  final DateTime? linkedAt;
-  final String? componentNodeId;
-  final String? physicalPosition;
-  final InspectionTargetDisposition disposition;
-  final String? dispositionReason;
-  final DateTime dispositionAt;
-  final String dispositionByUid;
-  final String dispositionByName;
-  final bool addedLater;
-  final String? lastObservationId;
-  final DateTime? lastObservedAt;
-
-  bool get hasInstalledInnerCoverContext =>
-      hostAssetClassId != null &&
-      hostAssetInstanceId != null &&
-      hostAssetInstanceVersion != null &&
-      hostAssetNumber != null &&
-      hostAssetInstanceName != null &&
-      subjectSerialNumber != null &&
-      linkageId != null &&
-      linkageVersion != null &&
-      linkedAt != null;
-
-  String get rowLabel =>
-      hasInstalledInnerCoverContext
-          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
-          : assetInstanceName;
-
-  factory InspectionCampaignTarget.fromMap(
-    Map<String, dynamic> map, {
-    required String source,
-  }) {
-    if (readRequiredPersistedInt(
-          map['schemaVersion'],
-          field: 'schemaVersion',
-          source: source,
-        ) !=
-        1) {
-      throw PersistedDataFormatException(
-        field: 'schemaVersion',
-        source: source,
-        detail: 'unsupported target schema',
-      );
-    }
-    final target = InspectionCampaignTarget(
-      targetKey: readRequiredPersistedString(
-        map['targetKey'],
-        field: 'targetKey',
-        source: source,
-      ),
-      assetTypeKey: readRequiredPersistedString(
-        map['assetTypeKey'],
-        field: 'assetTypeKey',
-        source: source,
-      ),
-      assetClassId: readRequiredPersistedString(
-        map['assetClassId'],
-        field: 'assetClassId',
-        source: source,
-      ),
-      assetNumber: readRequiredPersistedInt(
-        map['assetNumber'],
-        field: 'assetNumber',
-        source: source,
-        minimum: 1,
-      ),
-      assetInstanceId: readRequiredPersistedString(
-        map['assetInstanceId'],
-        field: 'assetInstanceId',
-        source: source,
-      ),
-      assetInstanceVersion: readRequiredPersistedInt(
-        map['assetInstanceVersion'],
-        field: 'assetInstanceVersion',
-        source: source,
-        minimum: 1,
-      ),
-      assetInstanceName: readRequiredPersistedString(
-        map['assetInstanceName'],
-        field: 'assetInstanceName',
-        source: source,
-      ),
-      hostAssetClassId: readOptionalPersistedString(
-        map['hostAssetClassId'],
-        field: 'hostAssetClassId',
-        source: source,
-      ),
-      hostAssetInstanceId: readOptionalPersistedString(
-        map['hostAssetInstanceId'],
-        field: 'hostAssetInstanceId',
-        source: source,
-      ),
-      hostAssetInstanceVersion: readOptionalPersistedInt(
-        map['hostAssetInstanceVersion'],
-        field: 'hostAssetInstanceVersion',
-        source: source,
-        minimum: 1,
-      ),
-      hostAssetNumber: readOptionalPersistedInt(
-        map['hostAssetNumber'],
-        field: 'hostAssetNumber',
-        source: source,
-        minimum: 1,
-      ),
-      hostAssetInstanceName: readOptionalPersistedString(
-        map['hostAssetInstanceName'],
-        field: 'hostAssetInstanceName',
-        source: source,
-      ),
-      subjectSerialNumber: readOptionalPersistedString(
-        map['subjectSerialNumber'],
-        field: 'subjectSerialNumber',
-        source: source,
-      ),
-      linkageId: readOptionalPersistedString(
-        map['linkageId'],
-        field: 'linkageId',
-        source: source,
-      ),
-      linkageVersion: readOptionalPersistedInt(
-        map['linkageVersion'],
-        field: 'linkageVersion',
-        source: source,
-        minimum: 1,
-      ),
-      linkedAt: readOptionalPersistedDateTime(
-        map['linkedAt'],
-        field: 'linkedAt',
-        source: source,
-      ),
-      componentNodeId: readOptionalPersistedString(
-        map['componentNodeId'],
-        field: 'componentNodeId',
-        source: source,
-      ),
-      physicalPosition: readOptionalPersistedString(
-        map['physicalPosition'],
-        field: 'physicalPosition',
-        source: source,
-      ),
-      disposition: readRequiredPersistedEnum(
-        InspectionTargetDisposition.values,
-        map['disposition'],
-        field: 'disposition',
-        source: source,
-      ),
-      dispositionReason: readOptionalPersistedString(
-        map['dispositionReason'],
-        field: 'dispositionReason',
-        source: source,
-      ),
-      dispositionAt: readRequiredPersistedDateTime(
-        map['dispositionAt'],
-        field: 'dispositionAt',
-        source: source,
-      ),
-      dispositionByUid: readRequiredPersistedString(
-        map['dispositionByUid'],
-        field: 'dispositionByUid',
-        source: source,
-      ),
-      dispositionByName: readRequiredPersistedString(
-        map['dispositionByName'],
-        field: 'dispositionByName',
-        source: source,
-      ),
-      addedLater: readRequiredPersistedBool(
-        map['addedLater'],
-        field: 'addedLater',
-        source: source,
-      ),
-      lastObservationId: readOptionalPersistedString(
-        map['lastObservationId'],
-        field: 'lastObservationId',
-        source: source,
-      ),
-      lastObservedAt: readOptionalPersistedDateTime(
-        map['lastObservedAt'],
-        field: 'lastObservedAt',
-        source: source,
-      ),
-    );
-    final installedContextFields = <Object?>[
-      target.hostAssetClassId,
-      target.hostAssetInstanceId,
-      target.hostAssetInstanceVersion,
-      target.hostAssetNumber,
-      target.hostAssetInstanceName,
-      target.subjectSerialNumber,
-      target.linkageId,
-      target.linkageVersion,
-      target.linkedAt,
-    ];
-    final contextAbsent = installedContextFields.every(
-      (value) => value == null,
-    );
-    if (target.targetKey !=
-            _inspectionTargetKey(
-              assetClassId: target.assetClassId,
-              assetInstanceId: target.assetInstanceId,
-              componentNodeId: target.componentNodeId,
-              physicalPosition: target.physicalPosition,
-              linkageId: target.linkageId,
-            ) ||
-        (!contextAbsent && !target.hasInstalledInnerCoverContext) ||
-        (target.hasInstalledInnerCoverContext &&
-            (target.assetTypeKey != 'innerCover' ||
-                target.assetNumber != target.hostAssetNumber)) ||
-        (target.disposition == InspectionTargetDisposition.observed &&
-            (target.lastObservationId == null ||
-                target.lastObservedAt == null)) ||
-        (target.disposition == InspectionTargetDisposition.pending &&
-            target.dispositionReason != null) ||
-        (![
-              InspectionTargetDisposition.pending,
-              InspectionTargetDisposition.observed,
-            ].contains(target.disposition) &&
-            target.dispositionReason == null)) {
-      throw PersistedDataFormatException(
-        field: 'disposition',
-        source: source,
-        detail: 'target disposition evidence is inconsistent',
-      );
-    }
-    return target;
-  }
-}
-
 class InspectionObservation {
   const InspectionObservation({
+    this.targetContextRevision = 0,
+    this.targetContextAuditId,
+    this.targetContextOriginalLinkageId,
     required this.id,
     required this.campaignId,
     required this.definition,
@@ -956,6 +685,9 @@ class InspectionObservation {
   });
 
   final String id;
+  final int targetContextRevision;
+  final String? targetContextAuditId;
+  final String? targetContextOriginalLinkageId;
   final String campaignId;
   final FrozenInspectionDefinition definition;
   final String assetTypeKey;
@@ -1007,10 +739,9 @@ class InspectionObservation {
       linkageVersion != null &&
       linkedAt != null;
 
-  String get rowLabel =>
-      hasInstalledInnerCoverContext
-          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
-          : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
+  String get rowLabel => hasInstalledInnerCoverContext
+      ? 'Base $hostAssetNumber ($subjectSerialNumber)'
+      : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
 
   String get displayValue => switch (definition.valueType) {
     InspectionValueType.number => '${numericValue ?? '-'} ${unit ?? ''}'.trim(),
@@ -1066,6 +797,24 @@ class InspectionObservation {
       );
     }
     final observation = InspectionObservation(
+      targetContextRevision:
+          readOptionalPersistedInt(
+            map['targetContextRevision'],
+            field: 'targetContextRevision',
+            source: source,
+            minimum: 0,
+          ) ??
+          0,
+      targetContextAuditId: readOptionalPersistedString(
+        map['targetContextAuditId'],
+        field: 'targetContextAuditId',
+        source: source,
+      ),
+      targetContextOriginalLinkageId: readOptionalPersistedString(
+        map['targetContextOriginalLinkageId'],
+        field: 'targetContextOriginalLinkageId',
+        source: source,
+      ),
       id: id,
       campaignId: readRequiredPersistedString(
         map['campaignId'],
@@ -1272,16 +1021,17 @@ class InspectionObservation {
     );
     final hasAssetClass = observation.assetClassId != null;
     final hasAssetInstance = observation.assetInstanceId != null;
-    final expectedTargetKey =
-        hasAssetClass && hasAssetInstance
-            ? _inspectionTargetKey(
-              assetClassId: observation.assetClassId!,
-              assetInstanceId: observation.assetInstanceId!,
-              componentNodeId: observation.componentNodeId,
-              physicalPosition: observation.physicalPosition,
-              linkageId: observation.linkageId,
-            )
-            : null;
+    final expectedTargetKey = hasAssetClass && hasAssetInstance
+        ? _inspectionTargetKey(
+            assetClassId: observation.assetClassId!,
+            assetInstanceId: observation.assetInstanceId!,
+            componentNodeId: observation.componentNodeId,
+            physicalPosition: observation.physicalPosition,
+            linkageId: observation.targetContextRevision > 0
+                ? observation.targetContextOriginalLinkageId
+                : observation.linkageId,
+          )
+        : null;
     final installedContextFields = <Object?>[
       observation.hostAssetClassId,
       observation.hostAssetInstanceId,
@@ -1301,15 +1051,15 @@ class InspectionObservation {
       observation.componentNodeVersion,
       observation.componentName,
     ];
-    final componentPartCount =
-        componentParts.where((item) => item != null).length;
-    final valuePartCount =
-        [
-          observation.numericValue,
-          observation.booleanValue,
-          observation.textValue,
-          observation.choiceValue,
-        ].where((item) => item != null).length;
+    final componentPartCount = componentParts
+        .where((item) => item != null)
+        .length;
+    final valuePartCount = [
+      observation.numericValue,
+      observation.booleanValue,
+      observation.textValue,
+      observation.choiceValue,
+    ].where((item) => item != null).length;
     final valueMatches = switch (definition.valueType) {
       InspectionValueType.number =>
         observation.numericValue != null && observation.unit == definition.unit,
@@ -1320,6 +1070,13 @@ class InspectionObservation {
             definition.choiceValues.contains(observation.choiceValue),
     };
     if (hasAssetClass != hasAssetInstance ||
+        ((observation.targetContextRevision > 0) !=
+            (observation.targetContextAuditId != null)) ||
+        (observation.targetContextRevision == 0 &&
+            observation.targetContextOriginalLinkageId != null) ||
+        (observation.targetContextRevision > 0 &&
+            (observation.hasInstalledInnerCoverContext !=
+                (observation.targetContextOriginalLinkageId != null))) ||
         (expectedTargetKey != null &&
             observation.targetKey != expectedTargetKey) ||
         (hasAnyInstalledContext &&
@@ -1409,18 +1166,16 @@ class InspectionFinding {
   final InspectionComparisonOutcome? lastVerificationOutcome;
   final DateTime updatedAt;
 
-  bool get blocksCampaignClosure =>
-      !{
-        InspectionFindingStatus.correctiveActionLinked,
-        InspectionFindingStatus.verifiedResolved,
-        InspectionFindingStatus.acceptedCondition,
-        InspectionFindingStatus.invalidated,
-      }.contains(status);
+  bool get blocksCampaignClosure => !{
+    InspectionFindingStatus.correctiveActionLinked,
+    InspectionFindingStatus.verifiedResolved,
+    InspectionFindingStatus.acceptedCondition,
+    InspectionFindingStatus.invalidated,
+  }.contains(status);
 
-  String get rowLabel =>
-      hostAssetNumber != null && subjectSerialNumber != null
-          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
-          : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
+  String get rowLabel => hostAssetNumber != null && subjectSerialNumber != null
+      ? 'Base $hostAssetNumber ($subjectSerialNumber)'
+      : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
 
   factory InspectionFinding.fromMap(
     Map<String, dynamic> map,

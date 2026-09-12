@@ -3,10 +3,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart' hide Query;
+import 'package:uuid/uuid.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -14,6 +16,7 @@ import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../data/job_module_model.dart';
+import '../data/job_template_model.dart';
 import '../domain/planned_job_module_set_resolver.dart';
 import '../services/runtime_job_module_population_service.dart';
 import '../../../core/services/sync_push_snapshot.dart';
@@ -24,6 +27,7 @@ import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'job_module_provider.local.dart';
 part 'job_module_provider.remote.dart';
+part 'job_module_provider.edit_conflicts.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -488,6 +492,8 @@ abstract class JobModuleRepository {
     JobModuleInstance module, {
     AppUser? actor,
     AuditContext? auditContext,
+    JobModuleSaveBaseline? expectedBaseline,
+    String? recoveredConflictId,
   });
 
   Future<List<JobModuleInstance>> getModulesForJob({

@@ -449,9 +449,13 @@ void main() {
           requireCapability: (_) async {
             probes++;
           },
-          callableInvoker: (_) async {
-            mutations++;
-            return null;
+          callableInvoker: (envelope) async {
+            expect(envelope.keys, contains('receiptLookup'));
+            expect(envelope.keys, isNot(contains('request')));
+            reads++;
+            throw StateError(
+              'No receipt found; absence does not authorize a new request',
+            );
           },
           now: () => originalDay.add(const Duration(days: 1)),
         );
@@ -461,12 +465,13 @@ void main() {
             isA<MorningReviewCommandException>().having(
               (error) => error.code,
               'code',
-              'sessionless-day-changed',
+              attempted ? 'outcome-uncertain' : 'sessionless-day-changed',
             ),
           ),
         );
         expect(mutations, 0);
-        expect(probes, 0);
+        expect(probes, attempted ? 1 : 0);
+        expect(reads, attempted ? 1 : 0);
         if (attempted) {
           await expectLater(
             nextDayService.cancelNeverSent(),
@@ -497,6 +502,75 @@ void main() {
   final records = (fixture['records'] as List).cast<Map<String, dynamic>>();
   final advanced = (fixture['advancedSubjects'] as List)
       .cast<Map<String, dynamic>>();
+
+  for (final intendedDay in [false, true]) {
+    test(
+      'lost sessionless reply crosses India day through receipt lookup only (date-bound=$intendedDay)',
+      () async {
+        final record = records.singleWhere(
+          (row) => row['request']['operation'] == 'START_MORNING_REVIEW',
+        );
+        final request = Map<String, dynamic>.from(record['request'] as Map);
+        final receipt = Map<String, dynamic>.from(record['receipt'] as Map);
+        final acceptedAt = DateTime.parse(receipt['committedAt'] as String);
+        if (intendedDay) request['expectedPlantDay'] = receipt['sessionId'];
+        final uid = record['actorUid'] as String;
+        final id = request['requestId'] as String;
+        final dayStore = DurableSubmissionRepository(
+          database,
+          now: () => acceptedAt,
+        );
+        final saved = await dayStore.prepare(
+          DurableSubmissionDraft(
+            submissionId: id,
+            actorUid: uid,
+            requestId: id,
+            aggregateId: id,
+            resourceKey: 'morningReview:$uid',
+            protocol: 'assetHierarchy.v2',
+            envelopeJson: jsonEncode({
+              'protocolVersion': 2,
+              'originActorUid': uid,
+              'request': request,
+            }),
+          ),
+        );
+        final claim = await dayStore.claim(submissionId: id, actorUid: uid);
+        await dayStore.recordOutcome(
+          claim,
+          state: DurableSubmissionState.uncertain,
+          errorCode: 'reply-lost',
+          message: 'Acceptance reply lost',
+        );
+        await database.close();
+        await open();
+        final nextDay = MorningReviewCommandService(
+          actorScope: uid,
+          durableStore: store,
+          requireActor: () => user(uid),
+          requireCapability: (_) async {},
+          now: () => acceptedAt.add(const Duration(days: 1)),
+          callableInvoker: (envelope) async {
+            expect(envelope, {
+              'protocolVersion': 2,
+              'originActorUid': uid,
+              'receiptLookup': request,
+            });
+            reads++;
+            return {...receipt, 'idempotentReplay': true};
+          },
+          readSubject: (collection, entityId) async =>
+              Map<String, dynamic>.from(record['subject'] as Map),
+        );
+        expect((await nextDay.reconcilePending())!.requestId, id);
+        final recovered = (await store.read(id))!;
+        expect(recovered.state, DurableSubmissionState.reconciled);
+        expect(recovered.envelopeJson, saved.envelopeJson);
+        expect(reads, 1);
+        expect(mutations, 0);
+      },
+    );
+  }
 
   test(
     'accepted sessionless receipt crosses India day with readback only',
@@ -579,6 +653,21 @@ void main() {
               envelopeJson: jsonEncode(envelope),
             ),
           );
+          final unpinnedSessionless = request['sessionId'] == null;
+          if (unpinnedSessionless) {
+            // These producer fixtures predate expectedPlantDay. Preserve their
+            // original fingerprint and model a lost reply from that attempt.
+            final firstClaim = await store.claim(
+              submissionId: id,
+              actorUid: uid,
+            );
+            await store.recordOutcome(
+              firstClaim,
+              state: DurableSubmissionState.uncertain,
+              errorCode: 'reply-lost',
+              message: 'The original acceptance reply was lost.',
+            );
+          }
           var dispatches = 0;
           final subjectData = afterAdvance
               ? advanced.singleWhere(
@@ -592,7 +681,16 @@ void main() {
             requireCapability: (_) async {},
             callableInvoker: (received) async {
               dispatches++;
-              expect(received, envelope);
+              expect(
+                received,
+                unpinnedSessionless
+                    ? {
+                        'protocolVersion': 2,
+                        'originActorUid': uid,
+                        'receiptLookup': request,
+                      }
+                    : envelope,
+              );
               return record['receipt'];
             },
             readSubject: (collection, entityId) async {
@@ -610,5 +708,165 @@ void main() {
         },
       );
     }
+  }
+
+  for (final operation in const [
+    'START_MORNING_REVIEW',
+    'RECORD_MORNING_REVIEW_NOT_HELD',
+  ]) {
+    test(
+      'unpinned $operation recovery paused across India midnight only looks up its original receipt',
+      () async {
+        final record = records.singleWhere(
+          (row) => row['request']['operation'] == operation,
+        );
+        final request = Map<String, dynamic>.from(record['request'] as Map);
+        final receipt = Map<String, dynamic>.from(record['receipt'] as Map);
+        final uid = record['actorUid'] as String;
+        final id = request['requestId'] as String;
+        var clock = DateTime.utc(2026, 8, 31, 18, 29, 59);
+        final originalStore = DurableSubmissionRepository(
+          database,
+          now: () => clock,
+        );
+        final saved = await originalStore.prepare(
+          DurableSubmissionDraft(
+            submissionId: id,
+            actorUid: uid,
+            requestId: id,
+            aggregateId: id,
+            resourceKey: 'morningReview:$uid',
+            protocol: 'assetHierarchy.v2',
+            envelopeJson: jsonEncode({
+              'protocolVersion': 2,
+              'originActorUid': uid,
+              'request': request,
+            }),
+          ),
+        );
+        final firstClaim = await originalStore.claim(
+          submissionId: id,
+          actorUid: uid,
+        );
+        await originalStore.recordOutcome(
+          firstClaim,
+          state: DurableSubmissionState.uncertain,
+          errorCode: 'reply-lost',
+          message: 'Original acceptance reply was lost.',
+        );
+        await reopen();
+        final reopenedStore = DurableSubmissionRepository(
+          database,
+          now: () => clock,
+        );
+        final enteredProbe = Completer<void>();
+        final releaseProbe = Completer<void>();
+        final calls = <Map<String, dynamic>>[];
+        var subjectReads = 0;
+        final recovery = MorningReviewCommandService(
+          actorScope: uid,
+          durableStore: reopenedStore,
+          requireActor: () => user(uid),
+          now: () => clock,
+          requireCapability: (_) async {
+            expect(currentIndiaPlantDay(clock), '2026-08-31');
+            enteredProbe.complete();
+            await releaseProbe.future;
+          },
+          callableInvoker: (envelope) async {
+            expect(currentIndiaPlantDay(clock), '2026-09-01');
+            calls.add(Map<String, dynamic>.from(envelope));
+            expect(envelope, {
+              'protocolVersion': 2,
+              'originActorUid': uid,
+              'receiptLookup': request,
+            });
+            return {...receipt, 'idempotentReplay': true};
+          },
+          readSubject: (collection, entityId) async {
+            subjectReads++;
+            expect(collection, record['collection']);
+            expect(entityId, receipt['entityId']);
+            return Map<String, dynamic>.from(record['subject'] as Map);
+          },
+        );
+        final pending = recovery.reconcilePending();
+        await enteredProbe.future;
+        expect(calls, isEmpty);
+        clock = DateTime.utc(2026, 8, 31, 18, 30, 1);
+        releaseProbe.complete();
+        final result = await pending;
+        expect(result!.requestId, id);
+        expect(result.sessionId, '2026-08-31');
+        expect(calls, hasLength(1));
+        expect(subjectReads, 1);
+        final restored = (await reopenedStore.read(id))!;
+        expect(restored.state, DurableSubmissionState.reconciled);
+        expect(restored.envelopeJson, saved.envelopeJson);
+        expect(restored.requestId, saved.requestId);
+        expect(jsonDecode(restored.receiptJson!), receipt);
+      },
+    );
+
+    test(
+      'unpinned never-attempted $operation remains unsent on its original day and can be explicitly cancelled',
+      () async {
+        final record = records.singleWhere(
+          (row) => row['request']['operation'] == operation,
+        );
+        final request = Map<String, dynamic>.from(record['request'] as Map);
+        final uid = record['actorUid'] as String;
+        final id = request['requestId'] as String;
+        final clock = DateTime.utc(2026, 8, 31, 3);
+        final dayStore = DurableSubmissionRepository(
+          database,
+          now: () => clock,
+        );
+        final saved = await dayStore.prepare(
+          DurableSubmissionDraft(
+            submissionId: id,
+            actorUid: uid,
+            requestId: id,
+            aggregateId: id,
+            resourceKey: 'morningReview:$uid',
+            protocol: 'assetHierarchy.v2',
+            envelopeJson: jsonEncode({
+              'protocolVersion': 2,
+              'originActorUid': uid,
+              'request': request,
+            }),
+          ),
+        );
+        var capabilityCalls = 0;
+        var invokeCalls = 0;
+        final recovery = MorningReviewCommandService(
+          actorScope: uid,
+          durableStore: dayStore,
+          requireActor: () => user(uid),
+          now: () => clock,
+          requireCapability: (_) async {
+            capabilityCalls++;
+          },
+          callableInvoker: (_) async {
+            invokeCalls++;
+            throw StateError('Unpinned unsent requests must not dispatch.');
+          },
+        );
+        await expectLater(
+          recovery.reconcilePending(),
+          throwsA(isA<MorningReviewCommandException>()),
+        );
+        expect(capabilityCalls, 0);
+        expect(invokeCalls, 0);
+        final retained = (await dayStore.read(id))!;
+        expect(retained.state, DurableSubmissionState.intent);
+        expect(retained.attemptCount, 0);
+        expect(retained.envelopeJson, saved.envelopeJson);
+        await recovery.cancelNeverSent();
+        final cancelled = (await dayStore.read(id))!;
+        expect(cancelled.state, DurableSubmissionState.cancelledBeforeSend);
+        expect(cancelled.envelopeJson, saved.envelopeJson);
+      },
+    );
   }
 }

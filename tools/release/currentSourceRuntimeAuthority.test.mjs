@@ -9,6 +9,71 @@ import {fileURLToPath} from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+test("schema 12 exact-source approval preserves historical 11 and refuses a declared downgrade", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-schema12-authority-"));
+  const git = (...args) => execFileSync("git", ["--no-replace-objects", "-C", directory, ...args],
+    {encoding: "utf8", windowsHide: true}).trim();
+  const sourceFile = "lib/core/services/isar_schema_migration.dart";
+  try {
+    git("init", "--quiet");
+    fs.mkdirSync(path.dirname(path.join(directory, sourceFile)), {recursive: true});
+    const current = fs.readFileSync(path.join(repositoryRoot, sourceFile), "utf8");
+    assert.match(current, /static const int currentSchemaVersion = 12;/);
+    const historical = execFileSync("git", ["--no-replace-objects", "-C", repositoryRoot, "show",
+      `86e06e7b:${sourceFile}`], {encoding: "utf8", windowsHide: true});
+    assert.match(historical, /static const int currentSchemaVersion = 11;/);
+    const commit = (text, version) => {
+      fs.writeFileSync(path.join(directory, sourceFile), text);
+      git("add", sourceFile);
+      git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", `isolated schema ${version}`);
+      const literals = text.match(/static const String currentSchemaFingerprint =([\s\S]*?);/)[1];
+      const fingerprint = [...literals.matchAll(/'([^']+)'/g)].map((part) => part[1]).join("");
+      assert.ok(fingerprint.startsWith(`v${version}:`));
+      return {completion: {sourceAuthority: {commit: git("rev-parse", "HEAD"), tree: git("rev-parse", "HEAD^{tree}")}},
+        approval: {requiredSource: {localStoreSchemaVersion: version,
+          localStoreSchemaFingerprintSha256: createHash("sha256").update(fingerprint).digest("hex").toUpperCase()}}};
+    };
+    const v11 = commit(historical, 11); const v12 = commit(current, 12);
+    const cases = [{label: "historical11 exact source still supported", ...v11, accepted: true},
+      {label: "new12 exact source supported", ...v12, accepted: true}];
+    for (const [label, mutate] of [
+      ["schema12 cannot use old11 approval", (row) => { row.approval = structuredClone(v11.approval); }],
+      ["schema12 needs explicit approved requirements", (row) => { row.approval = {}; }],
+      ["schema12 declaration cannot be a string", (row) => { row.approval.requiredSource.localStoreSchemaVersion = "12"; }],
+      ["schema12 declaration cannot be an array", (row) => { row.approval.requiredSource.localStoreSchemaVersion = [12]; }],
+      ["schema12 cannot reuse old11 fingerprint", (row) => { row.approval.requiredSource.localStoreSchemaFingerprintSha256 = v11.approval.requiredSource.localStoreSchemaFingerprintSha256; }],
+      ["schema12 cannot substitute another source tree", (row) => { row.completion.sourceAuthority.tree = v11.completion.sourceAuthority.tree; }],
+      ["old11 cannot be relabelled12", (row) => { row.completion = structuredClone(v11.completion); }],
+    ]) { const row = {label, ...structuredClone(v12), accepted: false}; mutate(row); cases.push(row); }
+    fs.writeFileSync(path.join(directory, "cases.json"), JSON.stringify(cases));
+    fs.writeFileSync(path.join(directory, "check.ps1"), String.raw`
+param([string]$Source, [string]$RepositoryRoot)
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($Source, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'Production verifier does not parse' }
+$function = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ArtifactLocalStoreSchemaAuthority'}, $false)
+Invoke-Expression $function.Extent.Text
+$rows = foreach ($case in (Get-Content cases.json -Raw | ConvertFrom-Json)) {
+  $accepted = $true; $failure = $null
+  try { $result = Get-ArtifactLocalStoreSchemaAuthority -RepositoryRoot $RepositoryRoot -CompletionReceipt $case.completion -VersionSource $case.approval }
+  catch { $accepted = $false; $failure = $_.Exception.Message }
+  [ordered]@{label = $case.label; accepted = $accepted; expected = $case.accepted; failure = $failure}
+}
+$rows | ConvertTo-Json -Compress
+`);
+    const rows = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", path.join(directory, "check.ps1"),
+      path.join(repositoryRoot, "tools/release/Test-ProductionReleasePolicy.ps1"), directory],
+    {cwd: directory, encoding: "utf8", windowsHide: true}));
+    assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+    t.diagnostic(`${rows.length} actual helper cases from isolated committed schema11/schema12 source trees; no artifact or device evidence created`);
+  } finally {
+    assert.equal(path.dirname(path.resolve(directory)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(directory).startsWith("crm3-schema12-authority-"));
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+});
+
 test("canonical backend authority consumes the real delegated proof and retains historical owner restrictions", (t) => {
   const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), "utf8"));
   const digest = (bytes) => createHash("sha256").update(bytes).digest("hex").toUpperCase();
@@ -586,11 +651,12 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   const candidateCommit = git("rev-parse", "HEAD");
   const candidateTree = git("rev-parse", `${candidateCommit}^{tree}`);
   const candidateSchema = git("show", `${candidateCommit}:lib/core/services/isar_schema_migration.dart`);
-  assert.match(candidateSchema, /static const int currentSchemaVersion = 11;/);
+  const candidateSchemaVersion = Number(candidateSchema.match(/static const int currentSchemaVersion = (\d+);/)[1]);
+  assert.ok([11, 12].includes(candidateSchemaVersion));
   const schemaFingerprint = [...candidateSchema.match(/static const String currentSchemaFingerprint =([\s\S]*?);/)[1]
     .matchAll(/'([^']+)'/g)].map((part) => part[1]).join("");
   const schemaFingerprintSha256 = createHash("sha256").update(schemaFingerprint, "utf8").digest("hex").toUpperCase();
-  const requiredSource = {localStoreSchemaVersion: 11, localStoreSchemaFingerprintSha256: schemaFingerprintSha256};
+  const requiredSource = {localStoreSchemaVersion: candidateSchemaVersion, localStoreSchemaFingerprintSha256: schemaFingerprintSha256};
   const device = structuredClone(originalDevice);
   const completion = structuredClone(originalCompletion);
   Object.assign(completion.release, {
@@ -612,7 +678,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   });
   device.status = "passed-exact-build28-physical-in-place-authenticated-read-only-surfaces";
   device.releaseBoundary.build27FinalizationReceiptChanged = false;
-  device.localStoreMigration.targetSchemaVersion = 11;
+  device.localStoreMigration.targetSchemaVersion = candidateSchemaVersion;
   device.localStoreMigration.targetSchemaFingerprintSha256 = schemaFingerprintSha256;
   const base = {
     label: "healthy owner evaluation", device, completion, accepted: true,
@@ -631,7 +697,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   priorSchemaCandidate.device.localStoreMigration = structuredClone(originalDevice.localStoreMigration);
   delete priorSchemaCandidate.requiredSource;
   const withoutMeasuredFingerprint = structuredClone(base);
-  withoutMeasuredFingerprint.label = "schema 11 governed open does not require an unavailable device hash";
+  withoutMeasuredFingerprint.label = `schema ${candidateSchemaVersion} governed open does not require an unavailable device hash`;
   delete withoutMeasuredFingerprint.device.localStoreMigration.targetSchemaFingerprintSha256;
   const cases = [historical, priorSchemaCandidate, base, withoutMeasuredFingerprint];
   const change = (label, edit) => {
@@ -650,7 +716,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   for (const value of [undefined, null, false, [], [requiredSource]]) {
     change(`invalid schema requirement object: ${JSON.stringify(value)}`, (row) => set(row, "requiredSource", value));
   }
-  for (const value of [undefined, null, "11", 10, 12, false, [11]]) {
+  for (const value of [undefined, null, String(candidateSchemaVersion), 10, candidateSchemaVersion + 1, false, [candidateSchemaVersion]]) {
     change(`invalid approved schema version: ${JSON.stringify(value)}`, (row) =>
       set(row.requiredSource, "localStoreSchemaVersion", value));
   }
@@ -674,7 +740,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
     set(row, field, value);
     cases.push(row);
   }
-  change("coherent receipt and approval downgrade cannot override schema 11 source", (row) => {
+  change("coherent receipt and approval downgrade cannot override the committed schema source", (row) => {
     row.requiredSource.localStoreSchemaVersion = 10;
     row.device.localStoreMigration.targetSchemaVersion = 10;
     delete row.device.localStoreMigration.targetSchemaFingerprintSha256;
@@ -691,7 +757,7 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
     row.completion.sourceAuthority.commit = "8".repeat(40);
     row.device.release.sourceCommit = "8".repeat(40);
   });
-  change("old source cannot acquire schema 11 through new declarations", (row) => {
+  change("old source cannot acquire a newer schema through new declarations", (row) => {
     row.completion.sourceAuthority = structuredClone(originalCompletion.sourceAuthority);
     row.device.release.sourceCommit = originalCompletion.sourceAuthority.commit;
     row.device.release.sourceTree = originalCompletion.sourceAuthority.tree;

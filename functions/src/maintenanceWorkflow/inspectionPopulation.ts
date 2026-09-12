@@ -35,7 +35,7 @@ export interface InspectionPopulationAsset {
   readonly installedInnerCoverContext?: InstalledInnerCoverTargetContext;
 }
 
-export interface InspectionCampaignTarget {
+export interface InspectionCampaignTarget extends JsonMap {
   readonly schemaVersion: 1;
   readonly targetKey: string;
   readonly assetTypeKey: string;
@@ -63,7 +63,43 @@ export interface InspectionCampaignTarget {
   readonly addedLater: boolean;
   readonly lastObservationId: string | null;
   readonly lastObservedAt: string | null;
+  readonly contextReview?: InspectionTargetContextReview;
 }
+
+export interface InspectionTargetContextReview extends JsonMap {
+  readonly schemaVersion: 1;
+  readonly revision: number;
+  readonly auditId: string;
+  readonly reviewedAt: string;
+  readonly reviewedByUid: string;
+  readonly reviewedByName: string;
+  readonly reason: string;
+  readonly context: InspectionCampaignTarget;
+}
+
+export const currentInspectionTargetContext = (target: InspectionCampaignTarget):
+InspectionCampaignTarget => target.contextReview?.context ?? target;
+
+export const inspectionContextIdentity = (target: InspectionCampaignTarget): JsonMap => ({
+  assetTypeKey: target.assetTypeKey, assetClassId: target.assetClassId,
+  assetInstanceId: target.assetInstanceId, assetInstanceVersion: target.assetInstanceVersion,
+  assetInstanceName: target.assetInstanceName, assetNumber: target.assetNumber,
+  hostAssetClassId: target.hostAssetClassId, hostAssetInstanceId: target.hostAssetInstanceId,
+  hostAssetInstanceVersion: target.hostAssetInstanceVersion,
+  hostAssetInstanceName: target.hostAssetInstanceName, hostAssetNumber: target.hostAssetNumber,
+  subjectSerialNumber: target.subjectSerialNumber, linkageId: target.linkageId,
+  linkageVersion: target.linkageVersion, linkedAt: target.linkedAt,
+  componentNodeId: target.componentNodeId, physicalPosition: target.physicalPosition,
+});
+
+export const sameInspectionPhysicalTarget = (
+  original: InspectionCampaignTarget, current: InspectionCampaignTarget,
+): boolean => original.assetTypeKey === current.assetTypeKey &&
+  original.assetClassId === current.assetClassId && original.assetInstanceId === current.assetInstanceId &&
+  original.subjectSerialNumber === current.subjectSerialNumber &&
+  original.componentNodeId === current.componentNodeId && original.physicalPosition === current.physicalPosition &&
+  original.hostAssetClassId === current.hostAssetClassId &&
+  (original.subjectSerialNumber != null || original.assetNumber === current.assetNumber);
 
 const dispositions = new Set<InspectionTargetDisposition>([
   "pending",
@@ -459,7 +495,27 @@ export const parseInspectionTargetPopulation = (
         {reasonCode: "inspection-target-population-inconsistent", targetKey: target.targetKey},
       );
     }
-    return target;
+    if (data.contextReview == null) return target;
+    const raw = data.contextReview as JsonMap;
+    if (typeof raw !== "object" || Array.isArray(raw) || raw.schemaVersion !== 1 ||
+        raw.context == null || typeof raw.context !== "object" || Array.isArray(raw.context) ||
+        (raw.context as JsonMap).contextReview != null) {
+      throw new WorkflowError("failed-precondition", "Inspection context review is malformed.",
+        {reasonCode: "inspection-context-review-malformed"});
+    }
+    const context = parseInspectionTargetPopulation([raw.context])[0];
+    if (!sameInspectionPhysicalTarget(target, context)) {
+      throw new WorkflowError("failed-precondition", "Inspection context review changes the original physical subject.",
+        {reasonCode: "inspection-context-subject-changed"});
+    }
+    return {...target, contextReview: {
+      schemaVersion: 1, revision: positiveInteger(raw.revision, "contextReview.revision"),
+      auditId: requiredString(raw.auditId, "contextReview.auditId"),
+      reviewedAt: requiredPersistedInstant(raw.reviewedAt, "contextReview.reviewedAt"),
+      reviewedByUid: requiredString(raw.reviewedByUid, "contextReview.reviewedByUid"),
+      reviewedByName: requiredString(raw.reviewedByName, "contextReview.reviewedByName"),
+      reason: requiredString(raw.reason, "contextReview.reason"), context,
+    }};
   });
   const keys = targets.map((target) => target.targetKey);
   if (new Set(keys).size !== keys.length) {

@@ -322,3 +322,39 @@ contract and relevant recovery regressions. The additions preserve the existing
 repository/read-provider profiles; presentation code gains no database writes.
 This is current source review and local inventory evidence. The historical CI
 closure above is preserved and does not certify this uncommitted change.
+
+## Deep-audit source re-arm, 2026-09-13
+
+The current source inventory passes with 593 operations and 2,073 sites across
+68 classified surfaces. Its measured digest is
+`71E5D054C25F0657CAACACDD28D740EC0E9040F12EC9D35CAB7BCA9DDEF6B763`.
+Compared with the preceding 585-operation inventory, the eight additional
+operations and 37 additional sites have explicit purposes:
+
+- The native submission repository adds an authority-gated administrative read
+  and an atomic review settlement, with four sites between them. Existing
+  acceptance settlement adds one write site to preserve late acceptance and
+  review conflict evidence. Reviewed rows retain their original command/source
+  bytes and do not invent a legacy actor.
+- The inspection repository adds one server-read helper with two sites. It
+  rejects cached, pending-write, absent or contradictory physical target
+  evidence. The command repeats the subject checks transactionally; this local
+  read does not authorize a mutation by itself.
+- The native module conflict part owns six operations and 35 sites. These
+  replace the former five-site native save operation and add complete preimage
+  comparison, current parent checks, actor-scoped retained-draft discovery and
+  review, and atomic audit evidence. A refused save is surfaced as a conflict;
+  it is not a successful module mutation. Explicit reapplication compares the
+  freshly reviewed current row again before writing.
+
+The two new surfaces use the existing repository and repository-adapter
+profiles. The former admits Firestore reads only; the latter admits Isar reads
+and mutations. No file under a presentation or widget directory acquired a
+persistence primitive. Named regressions include the native saved-submission
+review suite, the native module conflict/restart suite, its recovery UI suite
+and the inspection target-context suite. The digest excludes line numbers, so
+it reflects operation identities and persistence sites rather than formatting.
+
+This is classified current-source growth and a passing local inventory. It
+does not replace the historical 484-operation closure, assert an admitted CI
+run for this working tree, or authorize deployment, device testing or release.

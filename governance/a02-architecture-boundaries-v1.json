@@ -740,7 +740,6 @@
       "responsibilities": [
         "authority",
         "presentation",
-        "serialization",
         "state-orchestration"
       ],
       "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
@@ -748,7 +747,9 @@
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/job_module_native_save_conflict_test.dart",
+        "test/job_module_retained_edit_test.dart"
       ],
       "maximumLines": 2149,
       "requiredMarkers": [
@@ -921,6 +922,39 @@
       "forbiddenMarkers": [
         "class Isar",
         "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns native module preimage comparison, atomic refused-draft evidence, and explicitly reviewed reapplication within the local repository library.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Rechecks the actual admitted editing actor before and within local mutation, and returns retained drafts only to their matching actor; audit payloads never grant authority.",
+      "persistenceOwnership": "Reads native module, parent and audit rows; preserves complete reviewed/current/attempted snapshots as checksum-bound audit chunks without granting remote transport or presentation ownership.",
+      "transactionOwnership": "Owns the module compare-and-save transaction, committing refused work without changing the module or atomically recording successful explicit reapplication against a freshly reviewed preimage.",
+      "rationale": "Extracted the cohesive native save/conflict transaction from the local adapter to preserve its existing ceiling; remote persistence, provider wiring and dialogs remain separate.",
+      "regressionTests": [
+        "test/job_module_native_save_conflict_test.dart",
+        "test/job_module_retained_edit_test.dart"
+      ],
+      "maximumLines": 688,
+      "requiredMarkers": [
+        "part of 'job_module_provider.dart';",
+        "_saveNativeModuleWithPreimage",
+        "_retainModuleSaveConflict",
+        "class JobModuleDraftRecovery"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore",
+        "Widget build("
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },

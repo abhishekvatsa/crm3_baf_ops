@@ -82,6 +82,9 @@ export const A05_DECISIONS = Object.freeze({
 });
 
 export const A05_COLLECTION_REGISTRY = Object.freeze({
+  submission_recovery_decisions: 'SERVER_CONTROL_RECORD',
+  submission_recovery_fences: 'SERVER_CONTROL_RECORD',
+  submission_recovery_controls: 'SERVER_CONTROL_RECORD',
   users: 'STRICT_USER_PROFILE',
   runtime_contracts: 'STRICT_RUNTIME_CONTRACT',
   asset_classes: 'DART_RECONCILIATION_REQUIRED',

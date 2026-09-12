@@ -11,6 +11,7 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -24,6 +25,7 @@ import '../widgets/action_bottom_sheet.dart';
 import '../widgets/action_mini_card.dart';
 import 'widgets/job_module_response_form.dart';
 import 'widgets/job_module_response_summary.dart';
+import 'widgets/job_module_draft_recovery.dart';
 
 /// Detail workspace for a single process module inside a planned job.
 ///
@@ -85,23 +87,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     return _module.id;
   }
 
-  JobModuleInstance _editableCopy() {
-    final copy =
-        JobModuleInstance.fromMap(
-            _module.toMap(),
-            _module.firestoreId ?? '__local_module__',
-          )
-          ..id = _module.id
-          ..firestoreId = _module.firestoreId
-          // fromMap() is intentionally remote-safe and ignores transported
-          // Isar ids. Preserve the genuine local relation when cloning an
-          // offline/local module for editing on this device.
-          ..jobExecutionLocalId = _module.jobExecutionLocalId
-          ..isSynced = _module.isSynced;
-    return copy;
-  }
+  JobModuleInstance _editableCopy() => copyJobModuleForEditing(_module);
 
   Future<void> _saveStructuredResponses(List<FieldResponse> responses) async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
 
@@ -137,6 +126,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -153,6 +143,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   }
 
   Future<void> _saveProgress() async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
 
@@ -198,6 +189,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -211,6 +203,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   }
 
   Future<void> _addComponentAction() async {
+    final baseline = JobModuleSaveBaseline.capture(_module);
     final actor = await _readActor();
     if (!mounted) return;
     if (actor == null ||
@@ -242,6 +235,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
       ),
       builder:
           (_) => ActionBottomSheet(
+            workStartedAt: widget.execution.createdAt,
+            workCompletedAt: widget.execution.completedAt,
             target: GovernedActionContext(
               assetTypeKey: widget.execution.assetType.name,
               assetNumber: widget.execution.assetNumber,
@@ -271,6 +266,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             .saveModule(
               updated,
               actor: actor,
+              expectedBaseline: baseline,
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
@@ -281,6 +277,32 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         setState(() => _module = updated);
       },
     );
+  }
+
+  Future<void> _reviewSavedDrafts() async {
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (actor == null || _isBusy) return;
+    final moduleId = _module.id;
+    final firestoreId = _module.firestoreId;
+    final recovered = await showJobModuleDraftRecovery(
+      context,
+      ref,
+      module: _module,
+    );
+    if (!mounted || recovered == null) return;
+    final liveActor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (liveActor?.uid != actor.uid ||
+        !(liveActor?.canSaveJobModuleWorkFor(recovered.discipline.name) ??
+            false) ||
+        _module.id != moduleId ||
+        _module.firestoreId != firestoreId) {
+      return;
+    }
+    setState(() => _module = recovered);
   }
 
   Future<void> _submitModule() async {
@@ -642,6 +664,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
+        actions: [
+          if (!kIsWeb)
+            TextButton.icon(
+              onPressed: _isBusy ? null : _reviewSavedDrafts,
+              icon: const Icon(Icons.restore_page_outlined),
+              label: const Text('Saved drafts'),
+            ),
+        ],
         title: const BafAppBarTitle(
           title: 'Module workspace',
           subtitle: 'Record field evidence, checks and acceptance',

@@ -142,3 +142,26 @@ The current source digest is
 `A4F3494A6AB9D68503354F1B2975C8EBF27F34D276E2E2112910AF3146BF3E57`.
 Historical closure and production reconciliation evidence above remains intact;
 it is not certification of this uncommitted source or schema-11 distribution.
+
+## Deep-audit source review, 2026-09-13
+
+The current inventory still classifies 55 fields: 49 JSON strings and six
+dynamic values, with three bounded extension bags and zero registered extension
+fields. It inherits 92 reviewed decoder surfaces. Its exact digest is
+`12968CD72F7DED7C2E034C04C91925107DC2FD127DD1FE51924A055D5EA2557E`.
+
+The six additional inherited boundaries cover the typed saved-submission review
+decision, its authority-gated service, the inspection target and review models,
+the inspection server-context reader, and retained native module edit conflicts.
+Existing field shapes and extension restrictions are unchanged. The receipt
+field contract now explicitly distinguishes typed administrative review proof
+from business acceptance: review proof keeps `acceptedAt` null and preserves
+the original unknown actor and source bytes; a later acceptance retains both
+proofs in a blocking conflict. The native review suite is named alongside the
+existing durable-submission regressions.
+
+The current manifest binds the reviewed A-05 policy through its canonical text
+hash. This is a local source inventory result. The runtime's semantic reader
+floor change is governed separately; this manifest neither performs migration
+nor supplies deployment, production-reconciliation or physical-device evidence.
+The historical closure and reconciliation records above remain unchanged.

@@ -73,6 +73,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   deleteUnusedInspectionCampaign: "inspectionCampaign.deleteUnused",
   addInspectionCampaignTargets: "inspectionCampaign.manage",
   setInspectionTargetDisposition: "inspectionCampaign.manage",
+  revalidateInspectionTargetContext: "inspectionCampaign.manage",
   recordInspectionObservation: "inspection.observe",
   linkInspectionObservationIssue: "inspectionIssue.link",
   verifyInspectionFinding: "inspection.observe",

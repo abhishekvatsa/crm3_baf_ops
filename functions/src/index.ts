@@ -146,6 +146,7 @@ import type {
 } from "./operationalEventIssueLinkMutation";
 import {
   isMorningReviewOperation,
+  lookupMorningReviewReceiptWithDb,
   mutateMorningReviewWithDb,
   userCanMutateMorningReview,
 } from "./morningReviewMutation";
@@ -202,6 +203,10 @@ import type {
 } from "./globalPullServerClock";
 import {isAuthorizedPilotRecordPurge} from "./pilotRecordPurge";
 import {executeOriginBoundCallable} from "./originBoundCallableProtocol";
+import {
+  reviewSavedSubmissionWithDb, withSubmissionRecoveryFence,
+  SubmissionRecoveryDb,
+} from "./submissionRecovery";
 
 admin.initializeApp();
 
@@ -314,7 +319,7 @@ export const assignPublishedTemplateVersion = onCall(
     request: CallableRequest<AssignPublishedTemplateVersionRequest>,
   ) => {
     try {
-      const db = admin.firestore();
+      const db = withSubmissionRecoveryFence(admin.firestore(), "assignPublishedTemplateVersion", request.data);
       return await executeAuthorizedMutation({
         db,
         authUid: request.auth?.uid ?? null,
@@ -556,7 +561,7 @@ export const mutateChargeAbnormality = onCall(
   },
   async (request: CallableRequest<MutateChargeAbnormalityRequest>) => {
     try {
-      const db = admin.firestore();
+      const db = withSubmissionRecoveryFence(admin.firestore(), "mutateChargeAbnormality", request.data);
       return await executeAuthorizedMutation<
         ChargeAbnormalityMutationResult | QualityMutationResult
       >({
@@ -619,6 +624,10 @@ export const mutateChargeAbnormalityV2 = onCall(
     data: request.data,
     readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
     execute: async (payload) => mutateChargeAbnormality.run({...request, data: payload}),
+    recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
+      db: admin.firestore() as unknown as SubmissionRecoveryDb,
+      endpoint: "mutateChargeAbnormalityV2", authUid: request.auth?.uid ?? null, data: payload,
+    }),
   }),
 );
 
@@ -637,6 +646,10 @@ export const assignPublishedTemplateVersionV2 = onCall(
     data: request.data,
     readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
     execute: async (payload) => assignPublishedTemplateVersion.run({...request, data: payload}),
+    recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
+      db: admin.firestore() as unknown as SubmissionRecoveryDb,
+      endpoint: "assignPublishedTemplateVersionV2", authUid: request.auth?.uid ?? null, data: payload,
+    }),
   }),
 );
 
@@ -655,6 +668,24 @@ export const mutateAssetHierarchyV2 = onCall(
     data: request.data,
     readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
     execute: async (payload) => mutateAssetHierarchy.run({...request, data: payload}),
+    recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
+      db: admin.firestore() as unknown as SubmissionRecoveryDb,
+      endpoint: "mutateAssetHierarchyV2", authUid: request.auth?.uid ?? null, data: payload,
+    }),
+    lookupReceipt: async (payload) => {
+      try {
+        return await lookupMorningReviewReceiptWithDb({
+          db: admin.firestore() as unknown as MorningReviewFirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: payload,
+        });
+      } catch (error) {
+        if (error instanceof AssetHierarchyMutationError) {
+          throw new HttpsError(error.code, error.message, error.details);
+        }
+        throw error;
+      }
+    },
   }),
 );
 
@@ -669,7 +700,7 @@ export const mutateAssetHierarchy = onCall(
   },
   async (request: CallableRequest<MutateAssetHierarchyRequest>) => {
     try {
-      const db = admin.firestore();
+      const db = withSubmissionRecoveryFence(admin.firestore(), "mutateAssetHierarchy", request.data);
       return await executeAuthorizedMutation<
         AssetHierarchyMutationResult |
         AssetRegistryMutationResult |

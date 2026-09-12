@@ -1,6 +1,7 @@
 // FILE: lib/features/planned_maintenance/widgets/action_mini_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/component_action_model.dart';
 import '../../../core/theme/baf_design_system.dart';
@@ -165,6 +166,13 @@ class ActionMiniCard extends StatelessWidget {
                         color: BafColors.assets,
                         icon: Icons.receipt_long_outlined,
                       ),
+                    StatusBadge(
+                      label: DateFormat(
+                        'dd MMM yyyy',
+                      ).format(action.createdAt.toLocal()),
+                      color: BafColors.admin,
+                      icon: Icons.event_outlined,
+                    ),
                     StatusBadge(
                       label: TimeOfDay.fromDateTime(
                         action.createdAt.toLocal(),

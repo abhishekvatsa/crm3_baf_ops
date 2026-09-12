@@ -46,6 +46,44 @@ Future<IsarSchemaOpenPreparation> _prepare({
 
 void main() {
   test(
+    'v11 review evidence compatibility floor preserves generation and refuses old reader',
+    () async {
+      final original = _marker(
+        schemaVersion: 11,
+        schemaFingerprint: IsarSchemaMigrator.v11SchemaFingerprint,
+      );
+      final store = InMemoryIsarSchemaProvenanceStore(
+        canonicalMarkerJson: original.encode(),
+      );
+      final preparation = await _prepare(
+        store: store,
+        hasExistingLocalStore: true,
+      );
+      expect(preparation.result.fromVersion, 11);
+      expect(preparation.result.toVersion, 12);
+      final committed = await preparation.commitAfterSuccessfulOpen();
+      expect(committed.databaseGenerationId, original.databaseGenerationId);
+      const oldPlan = IsarSchemaMigrationPlan(
+        currentVersion: 11,
+        schemaFingerprint: IsarSchemaMigrator.v11SchemaFingerprint,
+        acceptedFingerprintsByVersion: {
+          11: {IsarSchemaMigrator.v11SchemaFingerprint},
+        },
+        stepsByTargetVersion: {},
+      );
+      await expectLater(
+        _prepare(store: store, hasExistingLocalStore: true, plan: oldPlan),
+        throwsA(
+          isA<IsarSchemaMigrationException>().having(
+            (error) => error.reasonCode,
+            'reason',
+            'stored-schema-newer-than-app',
+          ),
+        ),
+      );
+    },
+  );
+  test(
     'v10 adds durable submission storage while retaining database generation',
     () async {
       final original = _marker(
@@ -60,7 +98,10 @@ void main() {
         hasExistingLocalStore: true,
       );
       expect(preparation.result.fromVersion, 10);
-      expect(preparation.result.toVersion, 11);
+      expect(
+        preparation.result.toVersion,
+        IsarSchemaMigrator.currentSchemaVersion,
+      );
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       expect(
         preparation.marker.databaseGenerationId,
@@ -72,7 +113,7 @@ void main() {
       );
       final committed = await preparation.commitAfterSuccessfulOpen();
       expect(committed.state, IsarSchemaMarkerState.committed);
-      expect(committed.schemaVersion, 11);
+      expect(committed.schemaVersion, IsarSchemaMigrator.currentSchemaVersion);
       // An older binary must refuse this store, not open it without the journal.
       const oldPlan = IsarSchemaMigrationPlan(
         currentVersion: 10,
@@ -323,7 +364,10 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 1);
-      expect(preparation.result.toVersion, 11);
+      expect(
+        preparation.result.toVersion,
+        IsarSchemaMigrator.currentSchemaVersion,
+      );
       expect(preparation.marker.sourceSchemaVersion, 1);
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       await preparation.commitAfterSuccessfulOpen();
@@ -392,7 +436,10 @@ void main() {
         );
 
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 11);
+        expect(
+          preparation.result.toVersion,
+          IsarSchemaMigrator.currentSchemaVersion,
+        );
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.sourceSchemaVersion, 3);
         expect(
@@ -417,7 +464,10 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 6);
-      expect(preparation.result.toVersion, 11);
+      expect(
+        preparation.result.toVersion,
+        IsarSchemaMigrator.currentSchemaVersion,
+      );
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       expect(preparation.marker.sourceSchemaVersion, 6);
       expect(
@@ -443,7 +493,10 @@ void main() {
         );
 
         expect(preparation.result.fromVersion, 7);
-        expect(preparation.result.toVersion, 11);
+        expect(
+          preparation.result.toVersion,
+          IsarSchemaMigrator.currentSchemaVersion,
+        );
         expect(preparation.marker.sourceSchemaVersion, 7);
         expect(
           preparation.marker.sourceSchemaFingerprint,
@@ -467,7 +520,10 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 8);
-      expect(preparation.result.toVersion, 11);
+      expect(
+        preparation.result.toVersion,
+        IsarSchemaMigrator.currentSchemaVersion,
+      );
       expect(preparation.marker.sourceSchemaVersion, 8);
       expect(
         preparation.marker.sourceSchemaFingerprint,
@@ -492,7 +548,10 @@ void main() {
         );
 
         expect(preparation.result.fromVersion, 9);
-        expect(preparation.result.toVersion, 11);
+        expect(
+          preparation.result.toVersion,
+          IsarSchemaMigrator.currentSchemaVersion,
+        );
         expect(preparation.marker.sourceSchemaVersion, 9);
         expect(
           preparation.marker.sourceSchemaFingerprint,

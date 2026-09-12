@@ -2,75 +2,25 @@ part of 'job_module_provider.dart';
 
 class IsarJobModuleRepository implements JobModuleRepository {
   final AuditRepository _auditRepo;
+  final void Function(AppUser actor)? _verifyActor;
 
-  IsarJobModuleRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  IsarJobModuleRepository({
+    AuditRepository? auditRepository,
+    void Function(AppUser actor)? verifyActor,
+  }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _verifyActor = verifyActor;
 
   @override
   Future<void> saveModule(
     JobModuleInstance module, {
     AppUser? actor,
     AuditContext? auditContext,
-  }) async {
-    final isCreate = module.id == Isar.autoIncrement;
-    if (actor == null) {
-      throw StateError('Actor is required when saving planned-job modules.');
-    }
-    if (isCreate) {
-      _requireCanAddModuleDuringExecution(actor);
-      _requireRuntimeModuleAddControl(actor, module);
-    } else {
-      _requireCanSaveModuleWork(actor, module);
-    }
-
-    Map<String, dynamic>? beforeSnapshot;
-    Map<String, dynamic>? afterSnapshot;
-    String? entityId;
-
-    await isar.writeTxn(() async {
-      JobModuleInstance? existing;
-      if (!isCreate && module.id != Isar.autoIncrement) {
-        existing = await isar.jobModuleInstances.get(module.id);
-        beforeSnapshot = existing?.toAuditMap();
-      }
-
-      _normaliseModuleForUserSave(
-        module,
-        markUnsynced: true,
-        auditContext: auditContext,
-        incrementVersion: existing != null,
-      );
-
-      await isar.jobModuleInstances.put(module);
-      afterSnapshot = module.toAuditMap();
-      entityId = module.firestoreId ?? module.id.toString();
-    });
-
-    if (auditContext != null && afterSnapshot != null && entityId != null) {
-      final action = beforeSnapshot == null
-          ? AuditAction.create
-          : AuditAction.update;
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'planned_job_module',
-            entityId: entityId!,
-            action: action,
-            context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
-              summary:
-                  auditContext.summary ??
-                  (action == AuditAction.create
-                      ? 'Added planned-maintenance module'
-                      : 'Updated planned-maintenance module'),
-            ),
-          ),
-        ),
-      );
-    }
-  }
+    JobModuleSaveBaseline? expectedBaseline,
+    String? recoveredConflictId,
+  }) => _saveNativeModuleWithPreimage(
+    this, module, actor: actor, auditContext: auditContext,
+    expectedBaseline: expectedBaseline, recoveredConflictId: recoveredConflictId,
+  );
 
   @override
   Future<List<JobModuleInstance>> getModulesForJob({

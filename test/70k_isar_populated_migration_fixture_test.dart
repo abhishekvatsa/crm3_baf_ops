@@ -560,7 +560,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v11 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v12 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -675,7 +675,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v11 without evidence loss',
+    'populated v3 compliance request migrates through v12 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -752,7 +752,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 11);
+        expect(preparation.result.toVersion, IsarSchemaMigrator.currentSchemaVersion);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -803,7 +803,7 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 11);
+        expect(committed.schemaVersion, IsarSchemaMigrator.currentSchemaVersion);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -819,7 +819,7 @@ void main() {
   );
 
   test(
-    'populated v6 maintenance ticket migrates to v11 and pending reopen remains replayable',
+    'populated v6 maintenance ticket migrates to v12 and pending reopen remains replayable',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_maintenance_reopen_v6_',
@@ -905,7 +905,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 6);
-        expect(preparation.result.toVersion, 11);
+        expect(preparation.result.toVersion, IsarSchemaMigrator.currentSchemaVersion);
 
         isar = await Isar.open(
           _currentSchemas,
@@ -964,7 +964,7 @@ void main() {
         );
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 11);
+        expect(committed.schemaVersion, IsarSchemaMigrator.currentSchemaVersion);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -1080,6 +1080,10 @@ void main() {
             11: (context) async {
               expect(context.fromVersion, 10);
               expect(context.toVersion, 11);
+            },
+            12: (context) async {
+              expect(context.fromVersion, 11);
+              expect(context.toVersion, 12);
             },
           },
         );

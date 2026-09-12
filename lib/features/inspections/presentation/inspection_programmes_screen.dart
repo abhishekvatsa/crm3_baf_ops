@@ -21,6 +21,7 @@ import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/inspection_campaign.dart';
 import '../domain/inspection_campaign_report.dart';
 import '../providers/inspection_provider.dart';
+import '../providers/inspection_target_context_provider.dart';
 import '../providers/inspection_campaign_submission_provider.dart';
 import '../domain/inspection_campaign_submission.dart';
 import 'saved_inspection_campaign_panel.dart';
@@ -30,6 +31,7 @@ part 'inspection_programmes_audit_board.dart';
 part 'inspection_programmes_dialogs.dart';
 part 'inspection_programmes_target_picker.dart';
 part 'inspection_programmes_status_actions.dart';
+part 'inspection_programmes_context_review.dart';
 
 class InspectionProgrammesScreen extends ConsumerWidget {
   const InspectionProgrammesScreen({super.key});
@@ -831,6 +833,15 @@ class _CampaignDetail extends ConsumerWidget {
                     campaign,
                     availableTargetOptions,
                   );
+                } else if (action == 'reviewContext') {
+                  await showDialog<void>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => _InspectionContextReviewDialog(
+                      campaign: campaign,
+                      originUid: actor.uid,
+                    ),
+                  );
                 } else if (action == 'deleteUnused') {
                   await _deleteUnusedCampaign(context, ref, campaign);
                 } else {
@@ -838,6 +849,13 @@ class _CampaignDetail extends ConsumerWidget {
                 }
               },
               itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'reviewContext',
+                  child: ListTile(
+                    leading: Icon(Icons.fact_check_outlined),
+                    title: Text('Review target after repair or relocation'),
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'addTargets',
                   child: ListTile(

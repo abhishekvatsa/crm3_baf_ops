@@ -1,5 +1,6 @@
 import {WorkflowError} from "./errors";
 import {isCompletedCorrectiveMaintenance} from "./correctiveMaintenanceCompletion";
+import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
 import {CommandHandler} from "./handlerTypes";
 import {
   buildInspectionTargetPopulation,
@@ -442,6 +443,7 @@ export const verifyInspectionFinding: CommandHandler = async ({
         {reasonCode: "inspection-corrective-maintenance-not-completed"},
       );
     }
+    requireInspectionCorrectiveSubject(ticket.data!, finding.data.linkedTicketId, observation.data);
   }
   const now = iso(context.serverNow);
   const status = outcome === "resolved" ? "verifiedResolved" :

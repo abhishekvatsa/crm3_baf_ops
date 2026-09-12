@@ -939,6 +939,8 @@ class _InspectionObservationDraft {
   Map<String, Object?> toPayload() => {
     'observationId': observationId,
     'targetKey': target.targetKey,
+    if (target.contextRevision > 0)
+      'targetContextRevision': target.contextRevision,
     'definitionVersion': campaign.definition.version,
     'assetTypeKey': campaign.assetTypeKey,
     'assetNumber': target.assetNumber,

@@ -1,6 +1,8 @@
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
+import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
+import {requireInspectionContextReview} from "./inspectionTargetContextHandlers";
 import {
   Actor,
   JsonMap,
@@ -1063,7 +1065,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     "componentName", "hierarchyPath", "physicalPosition", "observedAt", "value",
     "unit", "operatingConditions", "chargeNo", "note", "evidenceUrls",
     "supersedesObservationId",
-  ], ["targetKey"], "payload");
+  ], ["targetKey", "targetContextRevision"], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const [campaign, existingObservation, superseded] = await Promise.all([
@@ -1164,7 +1166,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       {reasonCode: "inspection-target-ambiguous"},
     );
   }
-  const governedTarget = candidateTargets[0];
+  let governedTarget = candidateTargets[0];
   const targetKey = governedTarget?.targetKey ?? requestedTargetKey ?? "";
   if (governedTarget == null || governedTarget.assetNumber !== assetNumber ||
       governedTarget.assetTypeKey !== assetTypeKey ||
@@ -1186,6 +1188,16 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (assetClassId !== campaign.data.assetClassId || payloadIdentityInvalid) {
     throw new WorkflowError("invalid-argument", "Observation registry identity is invalid.");
   }
+  const targetContextRevision = governedTarget.contextReview?.revision ?? 0;
+  const suppliedContextRevision = command.payload.targetContextRevision === undefined ? 0 :
+    command.payload.targetContextRevision;
+  if (!Number.isSafeInteger(suppliedContextRevision) || suppliedContextRevision !== targetContextRevision) {
+    throw new WorkflowError("aborted", "The inspection target was reviewed again. Refresh its context before recording this observation.",
+      {reasonCode: "inspection-context-review-stale"});
+  }
+  const targetContextAuditId = governedTarget.contextReview?.auditId ?? null;
+  const targetContextOriginalLinkageId = targetContextRevision > 0 ? governedTarget.linkageId : null;
+  governedTarget = await requireInspectionContextReview(tx, campaignId, governedTarget);
   const value = parseObservationValue(command.payload.value, definition);
   const unit = optionalText(command.payload.unit, "unit", 40);
   if (unit !== (definition.unit ?? null)) {
@@ -1290,6 +1302,10 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     }
   }
   const observedAt = isoDate(command.payload.observedAt, "observedAt");
+  if (governedTarget.linkedAt != null && Date.parse(observedAt) < Date.parse(governedTarget.linkedAt)) {
+    throw new WorkflowError("failed-precondition", "The observation predates this Inner Cover installation.",
+      {reasonCode: "inspection-observation-before-linkage"});
+  }
   if (new Date(observedAt).getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
     throw new WorkflowError("invalid-argument", "observedAt cannot be in the future.");
   }
@@ -1423,7 +1439,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     definitionVersion: campaign.data.definitionVersion,
     definitionCode: campaign.data.definitionCode,
     assetTypeKey,
-    assetNumber: assetNumber as number,
+    assetNumber: governedTarget.assetNumber,
     assetClassId,
     assetInstanceId,
     hostAssetClassId: governedTarget.hostAssetClassId,
@@ -1441,6 +1457,9 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     hierarchyPath,
     physicalPosition,
     targetKey,
+    targetContextRevision,
+    targetContextAuditId,
+    targetContextOriginalLinkageId,
     observedAt,
     observerUid: context.actor.uid,
     observerName: context.actor.name,
@@ -1498,7 +1517,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       definitionVersion: campaign.data.definitionVersion,
       targetKey,
       assetTypeKey,
-      assetNumber: assetNumber as number,
+      assetNumber: governedTarget.assetNumber,
       assetClassId,
       assetInstanceId,
       hostAssetClassId: governedTarget.hostAssetClassId,
@@ -1604,10 +1623,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
   if (!ticket.exists || ticket.data == null || ticket.data.isDeleted === true) {
     throw new WorkflowError("not-found", "Maintenance issue was not found.");
   }
-  if (ticket.data.assetType !== observation.data.assetTypeKey ||
-      ticket.data.assetNumber !== observation.data.assetNumber) {
-    throw new WorkflowError("failed-precondition", "Maintenance issue targets a different asset.");
-  }
+  requireInspectionCorrectiveSubject(ticket.data, ticketId, observation.data);
   if (link.exists) {
     throw new WorkflowError("already-exists", "This observation and issue are already linked.");
   }

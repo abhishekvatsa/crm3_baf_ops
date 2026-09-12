@@ -304,6 +304,22 @@
           "occurrence": 1
         }
       ]
+    },
+    {
+      "id": "durable-review-outcome-exact-time",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "durable-submission-recovery",
+      "purpose": "validate the server recovery outcome time against its exact UTC canonical representation; reject malformed evidence",
+      "authorityBoundary": "review receipt parser; no invented or repaired time and no legacy identity inference",
+      "regression": "test/saved_submission_review_test.dart",
+      "reArmCondition": "timestamp accepted without canonical roundtrip, defaulted, or used to infer an origin",
+      "sites": [
+        {
+          "file": "lib/core/persistence/durable_submission_review.dart",
+          "expression": "DateTime.tryParse(",
+          "occurrence": 1
+        }
+      ]
     }
   ]
 }

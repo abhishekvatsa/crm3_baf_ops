@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import 'durable_submission.dart';
 import 'durable_submission_record.dart';
+import 'durable_submission_review.dart';
 
 export 'durable_submission.dart';
 export 'durable_submission_record.dart' show DurableSubmissionRecordSchema;
@@ -149,7 +150,9 @@ class DurableSubmissionRepository {
       if (view.state.isAccepted) {
         return stop(DurableSubmissionClaimDisposition.accepted);
       }
-      if (view.state == DurableSubmissionState.needsReview || view.isLegacy) {
+      if (view.state == DurableSubmissionState.needsReview ||
+          view.state == DurableSubmissionState.reviewConflict ||
+          view.isLegacy) {
         return stop(DurableSubmissionClaimDisposition.needsReview);
       }
       if (!view.state.isUnresolved) {
@@ -262,6 +265,27 @@ class DurableSubmissionRepository {
         }
         return view;
       }
+      if (view.state == DurableSubmissionState.reviewResolved ||
+          view.state == DurableSubmissionState.reviewConflict) {
+        // Never erase a reviewed decision when a valid delayed reply arrives.
+        // A contradictory outcome blocks this resource again for investigation.
+        final history = durableSubmissionJsonObject(row.receiptJson!);
+        final late = (history['lateAcceptances'] as List).toList();
+        if (!late.any((item) => jsonEncode(item) == receiptJson)) {
+          late.add(receipt);
+        }
+        final raw = jsonEncode({...history, 'lateAcceptances': late});
+        row
+          ..stateKey = DurableSubmissionState.reviewConflict.name
+          ..receiptJson = raw
+          ..receiptSha256 = durableSubmissionSha256(raw)
+          ..updatedAt = _time
+          ..lastErrorCode = 'acceptance-after-review'
+          ..lastErrorMessage =
+              'A late acceptance arrived after review. Both outcomes are retained; review this item before continuing.';
+        await _rows.put(row);
+        return _view(row);
+      }
       final at = _time;
       row
         ..stateKey = DurableSubmissionState.acceptedPendingAdoption.name
@@ -305,7 +329,8 @@ class DurableSubmissionRepository {
           ..lastErrorCode = 'resource-conflict'
           ..lastErrorMessage = message
           ..updatedAt = at;
-        if (!otherView.state.isAccepted) {
+        if (!otherView.state.isAccepted &&
+            otherView.state != DurableSubmissionState.reviewConflict) {
           other
             ..stateKey = DurableSubmissionState.needsReview.name
             ..claimToken = null
@@ -433,6 +458,95 @@ class DurableSubmissionRepository {
         ..updatedAt = _time;
       _view(row);
       await _rows.put(row);
+      return _view(row);
+    });
+  }
+
+  /// The caller supplies a fresh approved-admin guard; unknown legacy origins
+  /// are visible only in this explicitly administrative local review surface.
+  Future<List<DurableSubmission>> listForAdministrativeReview({
+    required void Function() requireReviewer,
+  }) async {
+    requireReviewer();
+    final rows = await _rows.where().findAll();
+    requireReviewer();
+    final result = rows.map(_view).toList()
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    return result;
+  }
+
+  Future<DurableSubmission> settleReview({
+    required String submissionId,
+    required String evidenceSha256,
+    required String reviewerUid,
+    required String decisionJson,
+    required void Function() requireReviewer,
+  }) async {
+    final decision = durableSubmissionJsonObject(decisionJson);
+    requireReviewer();
+    return isar.writeTxn(() async {
+      final row = await _required(submissionId);
+      final view = _view(row);
+      requireReviewer();
+      if (view.reviewEvidenceSha256 != evidenceSha256) {
+        _fail(
+          'review-evidence-changed',
+          'The original saved evidence changed. The hold remains.',
+        );
+      }
+      validateDurableSubmissionReviewDecision(
+        view,
+        decision,
+        reviewerUid: reviewerUid,
+      );
+      if (view.state.isAccepted) {
+        _fail(
+          'accepted-needs-adoption',
+          'Acceptance arrived during review. Check and adopt that saved result first.',
+        );
+      }
+      if (view.state == DurableSubmissionState.reviewConflict) {
+        _fail(
+          'review-conflict-investigation',
+          'A late acceptance conflicts with an earlier review. Both outcomes require specialist investigation; an old decision cannot release this hold.',
+        );
+      }
+      if (!view.state.isUnresolved &&
+          view.state != DurableSubmissionState.reviewResolved) {
+        _fail('already-terminal', 'This saved request is already resolved.');
+      }
+      final reviewed =
+          view.state == DurableSubmissionState.reviewResolved ||
+          view.state == DurableSubmissionState.reviewConflict;
+      final history = reviewed
+          ? durableSubmissionJsonObject(row.receiptJson!)
+          : {
+              'schemaVersion': 1,
+              'kind': 'savedSubmissionReview',
+              'decisions': <dynamic>[],
+              'lateAcceptances': <dynamic>[],
+            };
+      final decisions = (history['decisions'] as List).toList();
+      if (!decisions.any((item) => jsonEncode(item) == decisionJson)) {
+        decisions.add(decision);
+      }
+      final proof = jsonEncode({...history, 'decisions': decisions});
+      row
+        ..stateKey = DurableSubmissionState.reviewResolved.name
+        ..receiptJson = proof
+        ..receiptSha256 = durableSubmissionSha256(proof)
+        ..acceptedAt = null
+        ..reconciledAt = null
+        ..claimToken = null
+        ..claimExpiresAt = null
+        ..nextRetryAt = null
+        ..updatedAt = _time
+        ..lastErrorCode = 'review-resolved'
+        ..lastErrorMessage =
+            'An administrator reviewed this saved request. Original evidence and the server decision are retained.';
+      _view(row);
+      await _rows.put(row);
+      requireReviewer();
       return _view(row);
     });
   }
@@ -706,6 +820,9 @@ class DurableSubmissionRepository {
       _fail('invalid-state', 'The saved submission state needs review.');
     }
     final state = states.single;
+    final reviewed =
+        state == DurableSubmissionState.reviewResolved ||
+        state == DurableSubmissionState.reviewConflict;
     if (row.attemptCount < 0 ||
         ((state == DurableSubmissionState.sending ||
                 state == DurableSubmissionState.uncertain ||
@@ -717,7 +834,8 @@ class DurableSubmissionRepository {
             (row.claimToken != null && row.claimExpiresAt != null)) ||
         ((row.claimToken == null) != (row.claimExpiresAt == null)) ||
         ((row.receiptJson == null) != (row.receiptSha256 == null)) ||
-        ((row.receiptJson == null) != (row.acceptedAt == null)) ||
+        (!reviewed && (row.receiptJson == null) != (row.acceptedAt == null)) ||
+        (reviewed && (row.receiptJson == null || row.acceptedAt != null)) ||
         (state.isAccepted !=
             (row.receiptJson != null &&
                 row.receiptSha256 != null &&
@@ -727,7 +845,9 @@ class DurableSubmissionRepository {
         ((state == DurableSubmissionState.intent ||
                 state == DurableSubmissionState.cancelledBeforeSend) &&
             row.attemptCount != 0) ||
-        (legacy != null && state != DurableSubmissionState.needsReview)) {
+        (legacy != null &&
+            state != DurableSubmissionState.needsReview &&
+            !reviewed)) {
       _fail(
         'invalid-state',
         'Saved submission outcome evidence is inconsistent and needs review.',
@@ -742,7 +862,7 @@ class DurableSubmissionRepository {
       }
       durableSubmissionJsonObject(row.receiptJson!);
     }
-    return DurableSubmission(
+    final view = DurableSubmission(
       submissionId: row.submissionId,
       actorUid: row.actorUid,
       requestId: data['requestId'] as String,
@@ -765,6 +885,13 @@ class DurableSubmissionRepository {
       legacySourceKey: legacy,
       legacySourceBase64: data['legacySourceBase64'] as String?,
     );
+    if (reviewed) {
+      validateDurableSubmissionReviewHistory(
+        view,
+        durableSubmissionJsonObject(row.receiptJson!),
+      );
+    }
+    return view;
   }
 
   void _text(Object? value, String field) {

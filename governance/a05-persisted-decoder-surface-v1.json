@@ -1056,7 +1056,6 @@
         "factory FrozenInspectionDefinition.fromMap",
         "factory InspectionDefinition.fromMap",
         "factory InspectionCampaign.fromMap",
-        "factory InspectionCampaignTarget.fromMap",
         "factory InspectionObservation.fromMap",
         "factory InspectionFinding.fromMap"
       ],
@@ -1064,8 +1063,8 @@
       "owner": "asset-inspection",
       "authorityBoundary": "version-frozen inspection definition, campaign scope, coverage, typed observation, component identity, and correction evidence",
       "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
-      "compatibility": "schema version 1 only; no partial identity, typed value, counter set, or frozen-definition projection",
-      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js",
+      "compatibility": "Existing supported definition/observation/finding schemas and campaign schema 2 remain readable; an explicit optional target context review preserves the original key and baseline. Relocated follow-up observations require the new review-aware reader.",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js",
       "reArmCondition": "inspection definition, scope, value, coverage, target, chronology, correction, or component evidence validation changes",
       "riskFingerprint": "47dbe5abcfb044790cdbfe5e823a0a61560e172985c0949c25de3c59118c46e6"
     },
@@ -1375,6 +1374,100 @@
       "regression": "test/published_template_assignment_submission_test.dart",
       "reArmCondition": "malformed origin is treated as matching, clean same-version disagreement is reconciled, accepted receipt overwrites later/unsynced work, actor changes are ignored, or partial execution/module writes survive a failed marker transaction",
       "riskFingerprint": "284d80694843c3fe01847edf2ffd22486c33532f6257575140f1de664f02e572"
+    },
+    {
+      "id": "inspection-target-record",
+      "file": "lib/features/inspections/data/inspection_campaign_target.dart",
+      "markers": [
+        "factory InspectionCampaignTarget.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "inspections",
+      "authorityBoundary": "original physical subject, content-bound target key, disposition and latest reading; optional explicit same-subject context successor",
+      "malformedDisposition": "strict parsing rejects inconsistent context, rebound serial/class/component/position or malformed disposition; never substitutes the new Base occupant",
+      "compatibility": "absent contextReview means the exact original target; supported schema-one target shape remains intact",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_campaign_model_test.dart",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "c427517784f9d8001db0c92656c0acf684b89cea30115f3f3870a55b8c1ad8d6"
+    },
+    {
+      "id": "inspection-context-review-record",
+      "file": "lib/features/inspections/data/inspection_target_context.dart",
+      "markers": [
+        "factory InspectionTargetContextReview.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "inspections",
+      "authorityBoundary": "manager review revision, immutable audit identity/reason/actor/time and nested current physical context",
+      "malformedDisposition": "missing metadata, unsupported or nested reviews and malformed times propagate a format error without fallback",
+      "compatibility": "new optional schema-one review only; caller verifies exact original physical identity after parsing",
+      "regression": "test/inspection_target_context_test.dart",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "inspection-server-context-review-reader",
+      "file": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
+      "markers": [
+        "Future<Map<String, Object?>> _readInspectionTargetContext("
+      ],
+      "classification": "REMOTE_AUTHORITY_READ",
+      "owner": "inspections",
+      "authorityBoundary": "server-only lookup of original asset or serial ID, current host and linkage used to present an explicit manager review",
+      "malformedDisposition": "missing, cached, pending, mismatched or malformed identity/time rejects the preview; the server rechecks the frozen reviewed map transactionally before acceptance",
+      "compatibility": "no fallback to an old Base occupant, cached projection or inferred version; original numbered identity stays exact",
+      "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart; functions/test/inspectionPhysicalContext.test.js",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "job-module-retained-edit-conflicts",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart",
+      "markers": [
+        "class JobModuleSaveBaseline",
+        "class JobModuleDraftRecovery",
+        "Future<void> _saveNativeModuleWithPreimage("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "full native preimage compared within save transaction; refused attempted work retained in actor-bound immutable audit chunks; extracted native save CAS remains the sole transaction owner for accepted module writes and refused-draft retention",
+      "malformedDisposition": "invalid JSON, incomplete or conflicting chunks, checksum mismatch, actor mismatch or changed/closed parent refuses recovery without deleting draft evidence or overwriting current business data",
+      "compatibility": "native local identity and server linkage remain distinct; explicit reapplication uses a fresh reviewed baseline and existing save guards",
+      "regression": "test/job_module_native_save_conflict_test.dart; test/job_module_retained_edit_test.dart",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "e84f9bd5701f6ec8d6ac68dbb9c04896da40b0c5b683c58228c972def3ab7885"
+    },
+    {
+      "id": "durable-submission-review-decision",
+      "file": "lib/core/persistence/durable_submission_review.dart",
+      "markers": [
+        "class DurableSubmissionReviewTarget",
+        "void validateDurableSubmissionReviewDecision("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "durable-submissions",
+      "authorityBoundary": "retained exact legacy bytes identify a request for server review without reconstructing dispatchable intent or inventing original actor; canonical decision is bound to domain/request/evidence/reviewer",
+      "malformedDisposition": "unrecognized legacy envelope or missing request ID stays held; malformed decision shape/identity/time/outcome/receipt summary refuses local review settlement",
+      "compatibility": "legacy actor may remain null; reviewedExisting and cancelled are distinct from accepted/reconciled business receipt states",
+      "regression": "test/saved_submission_review_test.dart",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "09b4152607ba5fc8e339e8761901bf573c4d9ab03aa2e285def9aa8c88fa7336"
+    },
+    {
+      "id": "durable-submission-review-service",
+      "file": "lib/core/services/saved_submission_review_service.dart",
+      "markers": [
+        "Future<SavedSubmissionReviewInspection> inspect(",
+        "Future<DurableSubmission> finalize("
+      ],
+      "classification": "REMOTE_AUTHORITY_READ",
+      "owner": "durable-submissions",
+      "authorityBoundary": "approved original reviewer checks capability and server two-phase exact evidence decision, then settles it durably with repeated live authority checks",
+      "malformedDisposition": "invalid observation/token/receipt/decision/reason or changed local evidence retains the hold; missing receipt alone never authorizes local retirement",
+      "compatibility": "ambiguous prior finalization can adopt its immutable same-reviewer decision and original reason; no replacement business command is generated",
+      "regression": "test/saved_submission_review_test.dart",
+      "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "catchSites": [

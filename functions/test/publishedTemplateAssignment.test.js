@@ -2151,3 +2151,9 @@ describe("published TemplateVersion server assignment", () => {
     expect(writes).toHaveLength(0);
   });
 });
+
+test('administrative review accepts the actual published assignment receipt without changing it', async () => {
+  const memory = fakeAssignmentDb();
+  await assignPublishedTemplateVersionWithDb({db: memory.db, authUid: 'supervisor1', data: requestFixture(), now: () => new Date('2026-06-19T11:00:00.000Z')});
+  await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('publishedTemplateAssignment', memory.store.get(`published_template_assignment_requests/${REQUEST_ID}`));
+});
