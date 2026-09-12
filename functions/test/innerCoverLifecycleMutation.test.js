@@ -623,6 +623,92 @@ describe('Inner Cover lifecycle mutation', () => {
       .toMatchObject({innerCoverId: IDS.cover, version: 4});
   });
 
+  test('the same donor part cannot be allocated twice in one request', async () => {
+    // The neighbouring test is named for this invariant but allocates the
+    // donor once, so it never exercised the guard. The guard read
+    // `!donorClaimIds.add(claimId)`, and Set.add returns the Set rather than
+    // whether the value was new, so it was false for a first allocation and a
+    // repeat alike.
+    //
+    // Two distinct section ids can name the same donor cover and section key.
+    // Within one request both persistent-claim reads see absence before either
+    // write, so the in-request check is the only thing that catches it.
+    const donorId = IDS.cover2;
+    const donor = profile(donorId, 'GR20', 'retiredForSalvage', 6);
+    const duplicateDonorSection = {
+      sectionType: 'lowerAssembly',
+      materialSource: 'reusedKnownDonor',
+      donorInnerCoverId: donorId,
+      donorSectionKey: 'lower-01',
+      donorExpectedVersion: 6,
+      lengthMm: 1200,
+      cutCount: 1,
+      notes: null,
+    };
+    const fabricated = {
+      ...registerRequest(),
+      registrationDraft: {
+        ...registerRequest().registrationDraft,
+        sourceType: 'fabricated',
+        originClassification: 'documentedFabrication',
+        serialNumber: 'GR31',
+        // All four required section types stay present, so the rejection
+        // cannot come from a missing-section check. Two of them name the same
+        // donor cover and section key, which is what makes one claim id twice.
+        fabricationSections: [
+          {...duplicateDonorSection, sectionId: IDS.donorSection},
+          {
+            ...duplicateDonorSection,
+            sectionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            sectionType: 'flatVertical',
+            lengthMm: 2200,
+          },
+          {
+            sectionId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+            sectionType: 'corrugatedShell',
+            materialSource: 'newFabricated',
+            donorInnerCoverId: null,
+            donorSectionKey: null,
+            donorExpectedVersion: null,
+            lengthMm: 4400,
+            cutCount: 2,
+            notes: null,
+          },
+          {
+            sectionId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+            sectionType: 'topCover',
+            materialSource: 'newFabricated',
+            donorInnerCoverId: null,
+            donorSectionKey: null,
+            donorExpectedVersion: null,
+            lengthMm: null,
+            cutCount: 1,
+            notes: null,
+          },
+        ],
+      },
+    };
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${donorId}`]: donor,
+    });
+
+    // Assert the specific refusal. `invalid-argument` alone is produced by
+    // several other validations, so matching only the code would let this test
+    // pass while the donor guard did nothing.
+    await expect(invoke(memory, fabricated)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining(
+        'cannot allocate the same donor part more than once',
+      ),
+    });
+
+    // Nothing was committed: the donor keeps its version and no new cover
+    // profile was written for the fabricated serial.
+    expect(memory.store.get(`inner_cover_profiles/${donorId}`))
+      .toMatchObject({version: 6});
+  });
+
   test('known donor part can be allocated only once', async () => {
     const donorId = IDS.cover2;
     const donor = profile(

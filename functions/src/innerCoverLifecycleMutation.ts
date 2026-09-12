@@ -1404,12 +1404,19 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           "utf8",
         ).digest("hex");
         const claimRef = donorClaims.doc(claimId);
-        if (!donorClaimIds.add(claimId)) {
+        // Set.add returns the Set, not whether the value was new, so
+        // `!donorClaimIds.add(claimId)` was false for a first allocation and
+        // for a repeat alike — the guard never fired. Two distinct section ids
+        // can name the same donor cover and part, and within one request both
+        // persistent-claim reads see absence before either write, so this is
+        // the only check that catches that case.
+        if (donorClaimIds.has(claimId)) {
           invalid(
             "registrationDraft.fabricationSections",
             "cannot allocate the same donor part more than once",
           );
         }
+        donorClaimIds.add(claimId);
         if ((await transaction.get(claimRef)).exists) {
           throw new AssetHierarchyMutationError(
             "already-exists",
