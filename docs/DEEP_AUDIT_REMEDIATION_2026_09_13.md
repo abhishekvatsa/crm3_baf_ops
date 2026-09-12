@@ -91,9 +91,21 @@ Combined application verification after these repairs:
   verifier and successor selection. Scoped permission evidence: **40 passed**
   on the frozen source, `build/build28-scoped-iam-frozen-root-check.txt`.
   The initial integrated custody run overlapped the final command-timestamp
-  fixture update and retained one failure from the older fixture; the frozen
-  focused run above includes that correction. Exact final-source CI remains
-  required before deployment.
+  fixture update and retained one failure from the older fixture. The final
+  integrated run on committed `64661ce1` passed **156/156**, including that
+  correction, `build/build28-release-custody-frozen-final.txt`. Exact
+  final-source CI remains required before deployment.
+
+The final independent review found the same account-change visibility gap in
+the sibling module progress form. Its body now uses the current-actor guard,
+retains the original operator's entries for their return, and rechecks current
+authority before saving and before adopting the result or showing success.
+The complete production-provider/component/progress regression file passed
+**16/16** and scoped analysis was clean, `build/job-module-progress-authority-test.txt`
+and `build/job-module-progress-authority-analyze.txt`. The screen remains within
+its existing 2,149-line architecture cap. This nine-line runtime delta followed
+the full Flutter run above; it has its own targeted tests and requires the
+final-source CI gate.
 
 The retained release records describe the older 15-function deployment. The
 new source declares 19 endpoints, including four new V2 callable endpoints.

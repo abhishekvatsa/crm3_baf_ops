@@ -167,7 +167,12 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           top: Radius.circular(BafRadius.large),
         ),
       ),
-      builder: (_) => _ModuleProgressSheet(module: _module),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (current) =>
+            current.canSaveJobModuleWorkFor(_module.discipline.name),
+        child: _ModuleProgressSheet(module: _module),
+      ),
     );
 
     if (!mounted || draft == null) return;
@@ -185,6 +190,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module progress saved',
       action: () async {
+        _verifyWorkActor(actor);
         await ref
             .read(jobModuleRepositoryProvider)
             .saveModule(
@@ -198,6 +204,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyWorkActor(actor);
         setState(() => _module = updated);
       },
     );

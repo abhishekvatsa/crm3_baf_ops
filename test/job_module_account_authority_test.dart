@@ -119,6 +119,7 @@ class _EmptyHierarchy extends Fake implements AssetHierarchyRepository {
 class _SavingRepository extends Fake implements JobModuleRepository {
   int saves = 0;
   Completer<void>? pending;
+  JobModuleInstance? saved;
   @override
   Future<void> saveModule(
     JobModuleInstance module, {
@@ -128,6 +129,7 @@ class _SavingRepository extends Fake implements JobModuleRepository {
     String? recoveredConflictId,
   }) async {
     saves++;
+    saved = copyJobModuleForEditing(module);
     await pending?.future;
   }
 }
@@ -292,10 +294,10 @@ void main() {
     }
   });
 
-  group('actual module component action sheet', () {
+  group('actual module work sheets', () {
     late StreamController<AppUser?> accounts;
     late _SavingRepository repository;
-    Future<void> open(WidgetTester tester) async {
+    Future<void> open(WidgetTester tester, {bool progress = false}) async {
       tester.view.physicalSize = const Size(1000, 1500);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -321,19 +323,165 @@ void main() {
       );
       accounts.add(_actor());
       await tester.pumpAndSettle();
+      final opener = find.text(
+        progress ? 'Save Progress' : 'Add component work',
+      );
       await tester.scrollUntilVisible(
-        find.text('Add component work'),
+        opener,
         400,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Add component work'));
+      if (progress) {
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(opener);
       await tester.pumpAndSettle();
-      expect(find.byType(ActionBottomSheet), findsOneWidget);
+      expect(
+        progress
+            ? find.text('Save module progress')
+            : find.byType(ActionBottomSheet),
+        findsOneWidget,
+      );
       addTearDown(() async {
         await tester.pumpWidget(const SizedBox.shrink());
         await accounts.close();
       });
     }
+
+    Finder progressField(String label) => find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == label,
+    );
+    Finder progressSaveButton() => find
+        .ancestor(
+          of: find.text('Save Progress').last,
+          matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+        )
+        .first;
+
+    testWidgets(
+      'progress entries hide on account loss and restore before an authorized save',
+      (tester) async {
+        await open(tester, progress: true);
+        final note = progressField('Progress note');
+        final pending = progressField('Pending issue / blocker pointer');
+        await tester.enterText(note, 'Original progress retained');
+        await tester.enterText(pending, 'Original pending work retained');
+        await tester.tap(find.byType(CheckboxListTile).last);
+        await tester.pumpAndSettle();
+        for (final mode in [
+          'other',
+          'unapproved',
+          'role lost',
+          'signed out',
+          'error',
+        ]) {
+          switch (mode) {
+            case 'other':
+              accounts.add(_actor(uid: 'other'));
+            case 'unapproved':
+              accounts.add(_actor(approved: false));
+            case 'role lost':
+              accounts.add(_actor(admin: false));
+            case 'signed out':
+              accounts.add(null);
+            case 'error':
+              accounts.addError(StateError('Account verification failed'));
+          }
+          await tester.pumpAndSettle();
+          expect(note, findsNothing, reason: mode);
+          expect(pending, findsNothing, reason: mode);
+          expect(
+            find.text('Original progress retained'),
+            findsNothing,
+            reason: mode,
+          );
+          expect(
+            find.text('Original pending work retained'),
+            findsNothing,
+            reason: mode,
+          );
+          expect(find.text('Save module progress'), findsNothing, reason: mode);
+          expect(
+            find.text('Account verification required'),
+            findsOneWidget,
+            reason: mode,
+          );
+          expect(repository.saves, 0);
+          accounts.add(_actor());
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<TextField>(note).controller!.text,
+            'Original progress retained',
+          );
+          expect(
+            tester.widget<TextField>(pending).controller!.text,
+            'Original pending work retained',
+          );
+          expect(
+            tester
+                .widget<CheckboxListTile>(find.byType(CheckboxListTile).last)
+                .value,
+            isTrue,
+          );
+        }
+        await tester.ensureVisible(progressSaveButton());
+        await tester.tap(progressSaveButton());
+        await tester.pumpAndSettle();
+        expect(repository.saves, 1);
+        expect(repository.saved!.draftNote, 'Original progress retained');
+        expect(
+          repository.saved!.pendingIssue,
+          'Original pending work retained',
+        );
+        expect(repository.saved!.requiresFollowUp, isTrue);
+        expect(repository.saved!.updatedByUid, 'editor');
+        expect(find.text('Module progress saved'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a late progress callback cannot save under a changed account',
+      (tester) async {
+        await open(tester, progress: true);
+        await tester.enterText(
+          progressField('Progress note'),
+          'Late progress result',
+        );
+        final submit = tester
+            .widget<FilledButton>(progressSaveButton())
+            .onPressed!;
+        accounts.add(_actor(uid: 'other'));
+        await tester.pumpAndSettle();
+        expect(find.text('Save module progress'), findsNothing);
+        submit();
+        await tester.pumpAndSettle();
+        expect(repository.saves, 0);
+        expect(find.text('Module progress saved'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'account loss during awaited progress save prevents adoption and success',
+      (tester) async {
+        await open(tester, progress: true);
+        await tester.enterText(
+          progressField('Progress note'),
+          'Late progress result',
+        );
+        repository.pending = Completer<void>();
+        await tester.ensureVisible(progressSaveButton());
+        await tester.tap(progressSaveButton());
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(repository.saves, 1);
+        accounts.add(_actor(admin: false));
+        await tester.pump(const Duration(milliseconds: 100));
+        repository.pending!.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Module progress saved'), findsNothing);
+        expect(find.text('Late progress result'), findsNothing);
+      },
+    );
 
     testWidgets(
       'account switch and permission loss hide editable work and preserve it for origin',
