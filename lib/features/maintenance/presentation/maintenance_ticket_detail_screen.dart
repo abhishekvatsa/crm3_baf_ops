@@ -8,6 +8,8 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance_workflow/data/compliance_request_record.dart';
 import '../../maintenance_workflow/presentation/widgets/workflow_progress_route.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -33,7 +35,10 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final actor = ref.watch(currentAppUserProvider).asData?.value;
+    final account = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    final actor = account.actor;
     final cleanTicketId = ticket.firestoreId?.trim();
     final correctionAudit = cleanTicketId == null || cleanTicketId.isEmpty
         ? const AsyncData<List<AuditEvent>>(<AuditEvent>[])
@@ -69,12 +74,14 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                   : correctionAudit.hasError
                   ? 'Correction evidence is unavailable'
                   : 'Create complete PDF dossier',
-              onPressed: correctionAudit.asData == null
+              onPressed:
+                  correctionAudit.isLoading ||
+                      correctionAudit.hasError ||
+                      correctionAudit.asData == null
                   ? null
                   : () => _openPdfDossier(
                       context,
                       ref,
-                      actor!.name,
                       correctionAudit.requireValue,
                     ),
               icon: const Icon(Icons.picture_as_pdf_outlined),
@@ -83,7 +90,17 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
             IconButton(
               key: const ValueKey('ticket-detail-correct'),
               tooltip: 'Record an audited correction',
-              onPressed: onCorrect,
+              onPressed: actor?.canCorrectMaintenanceTicket == true
+                  ? () {
+                      final current = CurrentActorAccess.resolve(
+                        ref.read(currentAppUserProvider),
+                      ).actor;
+                      if (current?.uid == actor!.uid &&
+                          current?.canCorrectMaintenanceTicket == true) {
+                        onCorrect!();
+                          }
+                    }
+                  : null,
               icon: const Icon(Icons.edit_note_rounded),
             ),
         ],
@@ -91,6 +108,7 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: BafSpacing.xl),
         children: [
+          if (!account.isReady) CurrentActorNotice(message: account.message),
           _IssueIdentityHeader(ticket: ticket),
           _DetailSection(
             title: 'Issue context',
@@ -389,15 +407,18 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
   void _openPdfDossier(
     BuildContext context,
     WidgetRef ref,
-    String actorName,
     List<AuditEvent> correctionEvents,
   ) {
     try {
+      final actor = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      ).actor;
+      if (actor?.canViewReports != true) return;
       final report = buildMaintenanceTicketDossier(
         ticket: ticket,
         correctionEvents: correctionEvents,
         generatedAt: DateTime.now(),
-        generatedByName: actorName,
+        generatedByName: actor!.name,
         provenance: readApplicationReportProvenance(
           ref,
           completenessNotes: const <String>[

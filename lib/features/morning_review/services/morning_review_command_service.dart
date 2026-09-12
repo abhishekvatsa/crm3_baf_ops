@@ -1,9 +1,18 @@
+import 'dart:convert';
+
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/persistence/durable_submission_repository.dart';
+import '../../auth/data/user_model.dart';
+import 'package:uuid/uuid.dart';
 import '../domain/morning_review_models.dart';
 import 'morning_review_command_idempotency_store.dart';
 
+part 'morning_review_command_service.durable.dart';
+part 'morning_review_command_service.readback.dart';
+
+const morningReviewV2CallableName = 'mutateAssetHierarchyV2';
 const morningReviewCallableName = 'mutateAssetHierarchy';
 const morningReviewCallableRegion = 'asia-south1';
 
@@ -300,16 +309,31 @@ class MorningReviewCommandService {
     String actorScope = 'unresolved-actor',
     MorningReviewCommandIdempotencyStore? idempotencyStore,
     MorningReviewCallableInvoker? callableInvoker,
+    DurableSubmissionRepository? durableStore,
+    AppUser Function()? requireActor,
+    Future<void> Function(String)? requireCapability,
+    Future<Map<String, dynamic>> Function(String, String)? readSubject,
+    DateTime Function()? now,
   }) : _functions = functions,
        _actorScope = actorScope,
        _idempotencyStore =
            idempotencyStore ?? MorningReviewCommandIdempotencyStore(),
-       _callableInvoker = callableInvoker;
+       _callableInvoker = callableInvoker,
+       _durableStore = durableStore,
+       _requireActor = requireActor,
+       _requireCapability = requireCapability,
+       _readSubject = readSubject,
+       _now = now ?? DateTime.now;
 
   final FirebaseFunctions? _functions;
   final String _actorScope;
   final MorningReviewCommandIdempotencyStore _idempotencyStore;
   final MorningReviewCallableInvoker? _callableInvoker;
+  final DurableSubmissionRepository? _durableStore;
+  final AppUser Function()? _requireActor;
+  final Future<void> Function(String)? _requireCapability;
+  final Future<Map<String, dynamic>> Function(String, String)? _readSubject;
+  final DateTime Function() _now;
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -437,157 +461,32 @@ class MorningReviewCommandService {
     MorningReviewCommand operation, {
     String? sessionId,
     Map<String, dynamic> extra = const {},
-  }) async {
-    final fingerprint = MorningReviewCommandIdempotencyStore.fingerprintFor(
+  }) => _submitDurable(operation, sessionId: sessionId, extra: extra);
+
+  Future<DurableSubmission?> pendingSubmission() => _restoreDurable();
+
+  Future<void> cancelNeverSent() async {
+    final saved = await _restoreDurable();
+    if (saved == null) return;
+    _actor();
+    await _store.cancelNeverSent(
+      submissionId: saved.submissionId,
       actorUid: _actorScope,
-      operation: operation.wireName,
-      sessionId: sessionId,
-      extra: extra,
     );
-    final pending = await _pendingIdentity();
-    if (pending != null && pending.payloadFingerprint != fingerprint) {
-      await _replayPending(pending);
-      throw const MorningReviewCommandException(
-        'A previously submitted Morning Review change was confirmed first. '
-        'Review the refreshed meeting, then submit this change again.',
-        code: 'prior-command-reconciled',
-      );
-    }
-    final MorningReviewPendingCommandIdentity identity;
-    try {
-      identity = await _idempotencyStore.resolve(
-        actorUid: _actorScope,
-        operation: operation.wireName,
-        sessionId: sessionId,
-        extra: extra,
-      );
-    } on MorningReviewCommandIdempotencyException catch (error) {
-      throw MorningReviewCommandException(error.message, code: 'local-state');
-    }
-    return _dispatch(
-      operation: operation,
-      requestId: identity.requestId,
-      sessionId: sessionId,
-      extra: extra,
-      payloadFingerprint: fingerprint,
-    );
+    _actor();
   }
 
   Future<MorningReviewCommandResult?> reconcilePending() async {
-    final pending = await _pendingIdentity();
-    if (pending == null) return null;
-    return _replayPending(pending);
+    final saved = await _restoreDurable();
+    return saved == null ? null : _checkDurable(saved);
   }
 
-  Future<MorningReviewPendingCommandIdentity?> _pendingIdentity() async {
-    try {
-      return await _idempotencyStore.pending(_actorScope);
-    } on MorningReviewCommandIdempotencyException catch (error) {
-      throw MorningReviewCommandException(error.message, code: 'local-state');
-    }
-  }
-
-  Future<MorningReviewCommandResult> _replayPending(
-    MorningReviewPendingCommandIdentity pending,
-  ) async {
-    final operations = MorningReviewCommand.values.where(
-      (operation) => operation.wireName == pending.operation,
-    );
-    if (operations.length != 1) {
-      throw const MorningReviewCommandException(
-        'Saved Morning Review retry evidence names an unsupported operation.',
-        code: 'local-state',
-      );
-    }
-    return _dispatch(
-      operation: operations.single,
-      requestId: pending.requestId,
-      sessionId: pending.sessionId,
-      extra: pending.extra,
-      payloadFingerprint: pending.payloadFingerprint,
-    );
-  }
-
-  Future<MorningReviewCommandResult> _dispatch({
-    required MorningReviewCommand operation,
-    required String requestId,
-    required String? sessionId,
-    required Map<String, dynamic> extra,
-    required String payloadFingerprint,
-  }) async {
-    final request = buildMorningReviewCommandRequest(
-      operation: operation,
-      requestId: requestId,
-      sessionId: sessionId,
-      extra: extra,
-    );
-    for (var attempt = 0; attempt < 2; attempt++) {
-      try {
-        final responseData = await _invoke(request);
-        final result = MorningReviewCommandResult.fromMap(
-          _stringMap(responseData),
-          expectedRequestId: requestId,
-          expectedOperation: operation,
-          expectedSessionId: sessionId,
-        );
-        await _clearPendingIdentity(
-          requestId: requestId,
-          payloadFingerprint: payloadFingerprint,
-        );
-        return result;
-      } on FirebaseFunctionsException catch (error) {
-        final uncertain = isUncertainMorningReviewCommandCode(error.code);
-        if (uncertain && attempt == 0) continue;
-        if (!uncertain) {
-          await _clearPendingIdentity(
-            requestId: requestId,
-            payloadFingerprint: payloadFingerprint,
-          );
-        }
-        throw MorningReviewCommandException(
-          uncertain
-              ? 'The server outcome could not be confirmed. Refresh today\'s '
-                  'Morning Review before retrying; an unchanged retry will '
-                  'reuse the same protected request.'
-              : error.message ??
-                  'The Morning Review command could not be completed.',
-          code: error.code,
-        );
-      } on PersistedDataFormatException catch (error) {
-        throw MorningReviewCommandException(
-          'The server returned invalid Morning Review evidence: $error',
-          code: 'data-loss',
-        );
-      }
-    }
-    throw const MorningReviewCommandException(
-      'The Morning Review command outcome could not be confirmed.',
-      code: 'unavailable',
-    );
-  }
-
-  Future<Object?> _invoke(Map<String, dynamic> request) async {
-    final callableInvoker = _callableInvoker;
-    if (callableInvoker != null) return callableInvoker(request);
-    final response = await _client
-        .httpsCallable(morningReviewCallableName)
-        .call<Object?>(request);
-    return response.data;
-  }
-
-  Future<void> _clearPendingIdentity({
-    required String requestId,
-    required String payloadFingerprint,
-  }) async {
-    try {
-      await _idempotencyStore.clearIfMatches(
-        actorUid: _actorScope,
-        requestId: requestId,
-        payloadFingerprint: payloadFingerprint,
-      );
-    } on MorningReviewCommandIdempotencyException catch (error) {
-      throw MorningReviewCommandException(error.message, code: 'local-state');
-    }
+  Future<Object?> _invoke(Map<String, dynamic> envelope) async {
+    if (_callableInvoker != null) return _callableInvoker(envelope);
+    return (await _client
+            .httpsCallable(morningReviewV2CallableName)
+            .call<Object?>(envelope))
+        .data;
   }
 }
 

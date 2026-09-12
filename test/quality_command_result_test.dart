@@ -8,111 +8,9 @@ void main() {
   const requestId = '11111111-1111-4111-8111-111111111111';
   const warningId = 'issue_ticket-1';
 
-  group('durable monitoring creation', () {
+  // End-to-end native restart/receipt tests live in quality_monitoring_submission_controller_test.dart.
+  group('legacy monitoring journal preservation', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
-    Future<QualityCommandResult> create(
-      QualityCommandService service, {
-      String reason = 'Monitor temperature uniformity',
-    }) => service.createMonitoringRequest(
-      baseNumber: 4,
-      baseAssetClassId: 'base-class',
-      baseAssetInstanceId: 'base-4',
-      baseAssetInstanceVersion: 3,
-      grade: 'CRCA',
-      cycleReference: 'Cycle 4412',
-      chargeNumbers: [12345, 12346],
-      reason: reason,
-    );
-
-    test(
-      'lost response then restarted service reuses IDs; later deliberate create is new',
-      () async {
-        final requests = <Map<String, dynamic>>[];
-        final committed = <String, Map<String, dynamic>>{};
-        Future<Map<String, dynamic>> server(
-          Map<String, dynamic> request,
-        ) async {
-          requests.add(Map.of(request));
-          final id = request['requestId'] as String;
-          final result = committed.putIfAbsent(
-            id,
-            () => _monitoringResult(
-              requestId: id,
-              monitoringId: request['monitoringRequestId'] as String,
-            ),
-          );
-          if (requests.length == 1) {
-            throw StateError('Response lost after commit');
-          }
-          return {...result, 'idempotentReplay': requests.length == 2};
-        }
-
-        final first = QualityCommandService(
-          monitoringScope: () => 'project:si-1',
-          transport: server,
-        );
-        await expectLater(create(first), throwsStateError);
-        final restarted = QualityCommandService(
-          monitoringScope: () => 'project:si-1',
-          transport: server,
-        );
-        final pending = await restarted.pendingMonitoringCreation();
-        expect(pending?['reason'], 'Monitor temperature uniformity');
-        await restarted.retryMonitoringCreation();
-        expect(requests[1], requests[0]);
-        expect(committed.length, 1);
-        expect(await restarted.pendingMonitoringCreation(), isNull);
-        await create(restarted);
-        expect(committed.length, 2);
-        expect(requests[2]['requestId'], isNot(requests[0]['requestId']));
-        expect(
-          requests[2]['monitoringRequestId'],
-          isNot(requests[0]['monitoringRequestId']),
-        );
-      },
-    );
-
-    test(
-      'malformed receipt retains intent and changed form cannot rotate it',
-      () async {
-        var sends = 0;
-        final service = QualityCommandService(
-          monitoringScope: () => 'project:si-1',
-          transport: (_) async {
-            sends++;
-            return {};
-          },
-        );
-        await expectLater(
-          create(service),
-          throwsA(isA<QualityCommandException>()),
-        );
-        final pending = await service.pendingMonitoringCreation();
-        await expectLater(
-          create(service, reason: 'A different request'),
-          throwsStateError,
-        );
-        expect(sends, 1);
-        expect(await service.pendingMonitoringCreation(), pending);
-      },
-    );
-
-    test('persistence failure sends nothing', () async {
-      var sends = 0;
-      final service = QualityCommandService(
-        monitoringScope: () => 'project:si-1',
-        monitoringStore: MonitoringCreationStore(
-          preferencesLoader: () async => throw StateError('Disk unavailable'),
-        ),
-        transport: (_) async {
-          sends++;
-          return {};
-        },
-      );
-      await expectLater(create(service), throwsStateError);
-      expect(sends, 0);
-    });
-
     test(
       'simultaneous retries share intent; different accounts and projects do not',
       () async {
@@ -203,15 +101,14 @@ void main() {
 
   test('rejects a standalone warning receipt without its linked case', () {
     const abnormalityWarningId = 'abnormality_abn-1';
-    final payload =
-        _warningResult(requestId: requestId)
-          ..['entityId'] = abnormalityWarningId
-          ..['entity'] = <String, dynamic>{
-            ..._warningEntity(requestId: requestId),
-            'warningId': abnormalityWarningId,
-            'sourceType': 'abnormality',
-            'sourceId': 'abn-1',
-          };
+    final payload = _warningResult(requestId: requestId)
+      ..['entityId'] = abnormalityWarningId
+      ..['entity'] = <String, dynamic>{
+        ..._warningEntity(requestId: requestId),
+        'warningId': abnormalityWarningId,
+        'sourceType': 'abnormality',
+        'sourceId': 'abn-1',
+      };
 
     expect(
       () => QualityCommandResult.fromMap(
@@ -274,20 +171,17 @@ void main() {
     payload
       ..['operation'] = 'CLOSE_QUALITY_MONITORING_REQUEST'
       ..['version'] = 2;
-    final entity =
-        Map<String, dynamic>.from(payload['entity']! as Map)
-          ..['status'] = 'closed'
-          ..['visibilityState'] = 'recent'
-          ..['visibleUntil'] = _serializedTimestamp(
-            DateTime.utc(2026, 8, 21, 12),
-          )
-          ..['closedAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
-          ..['closedByUid'] = 'si-1'
-          ..['closedByName'] = 'SI One'
-          ..['closeReason'] = 'The monitoring campaign is complete.'
-          ..['createdAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
-          ..['updatedAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
-          ..['version'] = 2;
+    final entity = Map<String, dynamic>.from(payload['entity']! as Map)
+      ..['status'] = 'closed'
+      ..['visibilityState'] = 'recent'
+      ..['visibleUntil'] = _serializedTimestamp(DateTime.utc(2026, 8, 21, 12))
+      ..['closedAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
+      ..['closedByUid'] = 'si-1'
+      ..['closedByName'] = 'SI One'
+      ..['closeReason'] = 'The monitoring campaign is complete.'
+      ..['createdAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
+      ..['updatedAt'] = _serializedTimestamp(DateTime.utc(2026, 8, 14, 12))
+      ..['version'] = 2;
     payload['entity'] = entity;
 
     final recent = QualityCommandResult.fromMap(
@@ -410,10 +304,9 @@ void main() {
   });
 
   test('rejects stale linked evidence after an RA mutation', () {
-    final payload =
-        _warningResult(requestId: requestId)
-          ..['operation'] = 'DECLARE_QUALITY_CASE_RA_REQUIRED'
-          ..['linkedAbnormality'] = _linkedAbnormalityEntity();
+    final payload = _warningResult(requestId: requestId)
+      ..['operation'] = 'DECLARE_QUALITY_CASE_RA_REQUIRED'
+      ..['linkedAbnormality'] = _linkedAbnormalityEntity();
     final linked = Map<String, dynamic>.from(
       payload['linkedAbnormality']! as Map,
     )..['updatedAt'] = '2026-08-14T11:59:59.000Z';

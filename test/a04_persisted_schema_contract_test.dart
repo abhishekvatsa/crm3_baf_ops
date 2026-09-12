@@ -30,12 +30,12 @@ void main() {
     final report =
         jsonDecode(output.substring(jsonStart)) as Map<String, dynamic>;
     expect(report['result'], 'PASS');
-    expect(report['fieldCount'], 53);
-    expect(report['jsonStringFieldCount'], 47);
+    expect(report['fieldCount'], 55);
+    expect(report['jsonStringFieldCount'], 49);
     expect(report['dynamicValueFieldCount'], 6);
     expect(report['extensionBagCount'], 3);
     expect(report['registeredExtensionFieldCount'], 0);
-    expect(report['inheritedDecoderSurfaceCount'], 83);
+    expect(report['inheritedDecoderSurfaceCount'], 86);
     expect(report['failures'], isEmpty);
   });
 

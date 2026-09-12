@@ -1,11 +1,15 @@
 export const CALLABLE_SECURITY_CLASSIFICATION = {
   assignPublishedTemplateVersion: "mutating",
+  assignPublishedTemplateVersionV2: "mutating",
   beginGlobalPullRun: "read-only",
   completePlannedJobExecution: "mutating",
   executeMaintenanceWorkflowCommand: "mutating",
+  executeMaintenanceWorkflowCommandV2: "mutating",
   getBackendReleaseIdentity: "read-only",
   mutateChargeAbnormality: "mutating",
+  mutateChargeAbnormalityV2: "mutating",
   mutateAssetHierarchy: "mutating",
+  mutateAssetHierarchyV2: "mutating",
   mutateRuntimeJobModulePopulation: "mutating",
   mutateUserAuthority: "mutating",
 } as const;

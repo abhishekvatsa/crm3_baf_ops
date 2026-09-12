@@ -84,6 +84,37 @@ class MorningReviewRepository {
 
   final FirebaseFirestore firestore;
 
+  Future<Map<String, dynamic>> readSubjectFromServer(
+    String collection,
+    String id,
+  ) async {
+    if (!const {
+          'morning_review_sessions',
+          'morning_review_participants',
+          'morning_review_entries',
+          'morning_review_actions',
+          'morning_review_standing_concerns',
+          'morning_review_concern_checks',
+          'morning_review_documents',
+        }.contains(collection) ||
+        id.isEmpty ||
+        id.contains('/')) {
+      throw const MorningReviewFeedUnverifiedException(
+        'saved subject identity',
+      );
+    }
+    final document = await firestore
+        .collection(collection)
+        .doc(id)
+        .get(const GetOptions(source: Source.server));
+    if (!document.exists ||
+        document.metadata.isFromCache ||
+        document.metadata.hasPendingWrites) {
+      throw const MorningReviewFeedUnverifiedException('saved change');
+    }
+    return document.data()!;
+  }
+
   Stream<MorningReviewSession?> watchSession(String sessionId) =>
       _verifiedDocumentSnapshots(
         firestore
@@ -120,40 +151,48 @@ class MorningReviewRepository {
         );
       });
 
-  Stream<List<MorningReviewParticipant>> watchParticipants(
-    String sessionId,
-  ) => _sessionQuery('morning_review_participants', sessionId).map((snapshot) {
-    final values = snapshot.docs
-        .map(
-          (document) =>
-              MorningReviewParticipant.fromMap(document.data(), document.id),
-        )
-        .toList(growable: false)
-      ..sort((left, right) => left.joinedAt.compareTo(right.joinedAt));
-    return List.unmodifiable(values);
-  });
+  Stream<List<MorningReviewParticipant>> watchParticipants(String sessionId) =>
+      _sessionQuery('morning_review_participants', sessionId).map((snapshot) {
+        final values =
+            snapshot.docs
+                .map(
+                  (document) => MorningReviewParticipant.fromMap(
+                    document.data(),
+                    document.id,
+                  ),
+                )
+                .toList(growable: false)
+              ..sort((left, right) => left.joinedAt.compareTo(right.joinedAt));
+        return List.unmodifiable(values);
+      });
 
   Stream<List<MorningReviewEntry>> watchEntries(String sessionId) =>
       _sessionQuery('morning_review_entries', sessionId).map((snapshot) {
-        final values = snapshot.docs
-            .map(
-              (document) =>
-                  MorningReviewEntry.fromMap(document.data(), document.id),
-            )
-            .toList(growable: false)
-          ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+        final values =
+            snapshot.docs
+                .map(
+                  (document) =>
+                      MorningReviewEntry.fromMap(document.data(), document.id),
+                )
+                .toList(growable: false)
+              ..sort(
+                (left, right) => left.createdAt.compareTo(right.createdAt),
+              );
         return List.unmodifiable(values);
       });
 
   Stream<List<MorningReviewAction>> watchSessionActions(String sessionId) =>
       _sessionQuery('morning_review_actions', sessionId).map((snapshot) {
-        final values = snapshot.docs
-            .map(
-              (document) =>
-                  MorningReviewAction.fromMap(document.data(), document.id),
-            )
-            .toList(growable: false)
-          ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+        final values =
+            snapshot.docs
+                .map(
+                  (document) =>
+                      MorningReviewAction.fromMap(document.data(), document.id),
+                )
+                .toList(growable: false)
+              ..sort(
+                (left, right) => left.createdAt.compareTo(right.createdAt),
+              );
         return List.unmodifiable(values);
       });
 
@@ -224,13 +263,16 @@ class MorningReviewRepository {
   ) => _sessionQuery('morning_review_concern_checks', sessionId).map((
     snapshot,
   ) {
-    final values = snapshot.docs
-        .map(
-          (document) =>
-              MorningReviewConcernCheck.fromMap(document.data(), document.id),
-        )
-        .toList(growable: false)
-      ..sort((left, right) => left.checkedAt.compareTo(right.checkedAt));
+    final values =
+        snapshot.docs
+            .map(
+              (document) => MorningReviewConcernCheck.fromMap(
+                document.data(),
+                document.id,
+              ),
+            )
+            .toList(growable: false)
+          ..sort((left, right) => left.checkedAt.compareTo(right.checkedAt));
     return List.unmodifiable(values);
   });
 

@@ -5,7 +5,6 @@ import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
-import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_idempotency_store.dart';
 import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_service.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -193,10 +192,9 @@ void main() {
   });
 
   test('current furnace resolution is not bounded by retained history', () {
-    final providerSource =
-        File(
-          'lib/features/assets/providers/burner_condition_round_provider.dart',
-        ).readAsStringSync().split('typedef BurnerConditionRoundQuery').first;
+    final providerSource = File(
+      'lib/features/assets/providers/burner_condition_round_provider.dart',
+    ).readAsStringSync().split('typedef BurnerConditionRoundQuery').first;
 
     expect(providerSource, contains("collection('burner_condition_current')"));
     expect(providerSource, contains("where('assetInstanceId'"));
@@ -431,9 +429,7 @@ void main() {
 
   test('storage admission failure becomes an operator-facing error', () async {
     final now = DateTime.utc(2026, 8, 16);
-    final service = BurnerConditionRoundService(
-      idempotencyStore: _ThrowingBurnerRoundIdentityStore(),
-    );
+    final service = BurnerConditionRoundService();
 
     await expectLater(
       service.record(
@@ -464,17 +460,6 @@ void main() {
       ),
     );
   });
-}
-
-class _ThrowingBurnerRoundIdentityStore
-    extends BurnerConditionRoundIdempotencyStore {
-  @override
-  Future<BurnerConditionRoundPendingIdentity> resolve({
-    required String actorUid,
-    required String payloadFingerprint,
-  }) {
-    throw Exception('platform storage unavailable');
-  }
 }
 
 AssetInstanceRecord _furnace(DateTime now) => AssetInstanceRecord(

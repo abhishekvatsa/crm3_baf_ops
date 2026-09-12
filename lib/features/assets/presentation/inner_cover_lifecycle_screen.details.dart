@@ -23,6 +23,9 @@ class _CoverDetailsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(innerCoverHistoryProvider(cover.id));
     final fabrication = ref.watch(innerCoverFabricationProvider(cover.id));
+    final pendingAcceptance = canManage
+        ? ref.watch(innerCoverAcceptancePendingProvider(cover.id))
+        : const AsyncData<DurableSubmission?>(null);
     final date = DateFormat('dd MMM yyyy, HH:mm');
     return SafeArea(
       child: ConstrainedBox(
@@ -156,6 +159,16 @@ class _CoverDetailsSheet extends ConsumerWidget {
                       onPressed: onAccept,
                       icon: const Icon(Icons.verified_rounded),
                       label: const Text('Accept'),
+                    ),
+                  if (!const {
+                    InnerCoverLifecycleState.awaitingInspection,
+                    InnerCoverLifecycleState.underInspection,
+                  }.contains(cover.lifecycleState) &&
+                      (pendingAcceptance.valueOrNull != null || pendingAcceptance.hasError))
+                    OutlinedButton.icon(
+                      onPressed: onAccept,
+                      icon: const Icon(Icons.pending_actions_rounded),
+                      label: const Text('Check saved acceptance'),
                     ),
                   if (cover.isInstalled)
                     OutlinedButton.icon(

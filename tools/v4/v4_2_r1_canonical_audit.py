@@ -2317,7 +2317,11 @@ functions_live_sealed_exports = [
     "stampGlobalPullServerClock",
 ]
 functions_live_expected_exports = sorted(
-    functions_live_sealed_exports + ["mutateAssetHierarchy"]
+    functions_live_sealed_exports + [
+        "mutateAssetHierarchy", "executeMaintenanceWorkflowCommandV2",
+        "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2",
+        "assignPublishedTemplateVersionV2",
+    ]
 )
 functions_live_gate_records = {
     record.get("gateId"): record
@@ -2343,7 +2347,9 @@ check(
         == functions_live_expected_exports
     and functions_live_readback_policy.get(
         "sourcePendingDeploymentExports"
-    ) == ["mutateAssetHierarchy"]
+    ) == sorted(["mutateAssetHierarchy", "executeMaintenanceWorkflowCommandV2",
+                 "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2",
+                 "assignPublishedTemplateVersionV2"])
     and len(functions_live_readback_policy.get("trackedRuntimePackages", []))
         == 8
     and set(
@@ -2582,7 +2588,7 @@ function_fleet_account_ids = [
     if isinstance(binding, dict)
 ]
 check(
-    "S-01 complete Function fleet has unique target-project identities",
+    "S-01 Function fleet has target-project identities with exact V2 aliases",
     function_fleet_identity_policy.get("schemaVersion") == 1
     and function_fleet_identity_policy.get("declarationStatus")
         == "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING"
@@ -2594,10 +2600,29 @@ check(
         "sameProjectRequired": True,
         "crossProjectResolutionAllowed": False,
     }
-    and function_fleet_pending_bindings == ["mutateAssetHierarchy"]
+    and function_fleet_pending_bindings == sorted([
+        "executeMaintenanceWorkflowCommandV2", "mutateAssetHierarchy",
+        "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2",
+        "assignPublishedTemplateVersionV2",
+    ])
     and sorted(function_fleet_bindings) == functions_live_expected_exports
-    and len(function_fleet_account_ids) == 15
+    and len(function_fleet_account_ids) == 19
     and len(set(function_fleet_account_ids)) == 15
+    and function_fleet_identity_policy.get("runtimeIdentityAliases") == {
+        "assignPublishedTemplateVersionV2": "assignPublishedTemplateVersion",
+        "mutateChargeAbnormalityV2": "mutateChargeAbnormality",
+        "executeMaintenanceWorkflowCommandV2": "executeMaintenanceWorkflowCommand",
+        "mutateAssetHierarchyV2": "mutateAssetHierarchy",
+    }
+    and all(
+        function_fleet_bindings[alias] == function_fleet_bindings[original]
+        for alias, original in function_fleet_identity_policy.get("runtimeIdentityAliases", {}).items()
+    )
+    and len({
+        binding.get("runtimeServiceAccountId")
+        for name, binding in function_fleet_bindings.items()
+        if name not in function_fleet_identity_policy.get("runtimeIdentityAliases", {})
+    }) == 15
     and all(
         function_fleet_bindings.get(name, {}).get("runtimeServiceAccountId")
             == live_binding.split("@", 1)[0]
@@ -3456,7 +3481,7 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 10" in isar_migration
+    and "currentSchemaVersion = 11" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
@@ -3534,10 +3559,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v10" in isar_fixture_test
-    and "populated v3 compliance request migrates through v10"
+    and "repository-proven populated v1 migrates to v11" in isar_fixture_test
+    and "populated v3 compliance request migrates through v11"
         in isar_fixture_test
-    and "populated v6 maintenance ticket migrates to v10"
+    and "populated v6 maintenance ticket migrates to v11"
         in isar_fixture_test
     and "repairMaintenancePlantConditionIndexForSchemaUpgrade("
         in isar_fixture_test
@@ -10421,9 +10446,9 @@ s02_record = s02_records[0] if len(s02_records) == 1 else {}
 functions_scripts = data("functions/package.json").get("scripts", {})
 check(
     "S-02 callable inventory is discovered, policy-complete and default-off",
-    len(exported_callable_occurrences) == len(exported_callable_names) == 9
+    len(exported_callable_occurrences) == len(exported_callable_names) == 13
     and set(exported_callable_names) == set(callable_classification)
-    and len(callable_names) == 7
+    and len(callable_names) == 11
     and len(read_only_callable_names) == 2
     and set(callable_names) == set(s02_policy.get("mutatingCallables", []))
     and set(read_only_callable_names)
@@ -10442,10 +10467,10 @@ check(
     and "default: false" in callable_security_source
     and callable_index_source.count(
         "...MUTATING_CALLABLE_SECURITY_OPTIONS"
-    ) == 6
+    ) == 9
     and workflow_callable_source.count(
         "...MUTATING_CALLABLE_SECURITY_OPTIONS"
-    ) == 1
+    ) == 2
     and callable_index_source.count(
         "...GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS"
     ) == 1
@@ -10509,8 +10534,11 @@ check(
     and all(
         f'callableName: "{name}"' in callable_index_source
         for name in callable_names
-        if name != "executeMaintenanceWorkflowCommand"
+        if name not in {"executeMaintenanceWorkflowCommand", "executeMaintenanceWorkflowCommandV2"}
     )
+    and 'callableName: "executeMaintenanceWorkflowCommandV2"' in workflow_callable_source
+    and 'executeMaintenanceWorkflowCommand.run(' in workflow_callable_source
+    and 'executeOriginBoundCallable(' in workflow_callable_source
     and 'const actor = await actorFromRequest(request, db);'
         in workflow_callable_source
     and 'callableName: "executeMaintenanceWorkflowCommand"'
@@ -11043,8 +11071,8 @@ check(
         in ui_operations_report_provider_source
     and "ref.invalidate(burnerConditionRoundsProvider)"
         in ui_operations_report_provider_source
-    and "StreamProvider.autoDispose.family"
-        in ui_burner_round_provider_source
+    and re.search(r"StreamProvider\s*\.autoDispose\s*\.family",
+                  ui_burner_round_provider_source)
     and "String actorUid" in ui_burner_round_provider_source
     and "admitActorSessionSnapshots("
         in ui_burner_round_provider_source
@@ -12810,16 +12838,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 566
-    and a03_inventory_report.get("siteCount") == 1973
+    and a03_inventory_report.get("operationCount") == 585
+    and a03_inventory_report.get("siteCount") == 2036
     and a03_inventory_report.get("inventoryDigest")
-        == "D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1"
+        == "8F1D606CA2F9D7E1D30C1C13087D02645FA8D4E929D0AB7348582472D79B2510"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 61
-    and len({surface.get("path") for surface in a03_surfaces}) == 61
+    and len(a03_surfaces) == 66
+    and len({surface.get("path") for surface in a03_surfaces}) == 66
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -12859,23 +12887,23 @@ check(
     a04_inventory_process.returncode == 0
     and a04_inventory_report.get("result") == "PASS"
     and a04_inventory_report.get("findingId") == "A-04"
-    and a04_inventory_report.get("fieldCount") == 53
-    and a04_inventory_report.get("jsonStringFieldCount") == 47
+    and a04_inventory_report.get("fieldCount") == 55
+    and a04_inventory_report.get("jsonStringFieldCount") == 49
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 83
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 86
     and a04_inventory_report.get("inventoryDigest")
-        == "8126C69881B21116B42A0BA1C3F874CD7CB22F8899BD746AD47C855EFBCC36DA"
+        == "A4F3494A6AB9D68503354F1B2975C8EBF27F34D276E2E2112910AF3146BF3E57"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
-    and len(a04_fields) == 53
-    and len({field.get("id") for field in a04_fields}) == 53
+    and len(a04_fields) == 55
+    and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 83
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 83
+    and len(a04_inherited_decoders) == 86
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 86
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -12891,7 +12919,7 @@ check(
         is False
     and a04_extension_policy.get("registeredFields") == {}
     and "Status: CLOSED" in a04_remediation
-    and "classifies 53" in a04_remediation
+    and "classifies 55" in a04_remediation
     and "current extension registry contains zero fields" in a04_remediation
     and "supported-local-generation reconciliation" in a04_remediation,
     (
@@ -13143,16 +13171,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 91
-    and a05_timestamp_inventory_report.get("directCallCount") == 227
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 135
+    and a05_timestamp_inventory_report.get("readerCount") == 93
+    and a05_timestamp_inventory_report.get("directCallCount") == 229
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 137
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 34
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 10
+    ) == 12
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13160,11 +13188,11 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 91
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 93
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 10
+    ) == 12
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13185,17 +13213,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 83
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 52
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 43
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 441
+    and a05_decoder_inventory_report.get("surfaceCount") == 86
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 54
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 46
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 440
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 83
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 52
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 86
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13512,7 +13540,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 32
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 34
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13539,7 +13567,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 32
+    ) == 34
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

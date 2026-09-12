@@ -367,14 +367,15 @@ function verifyFurnace(
     assetClass.status === "active" &&
     assetClass.legacyAssetTypeKey === "furnace" &&
     typeof assetClass.code === "string" &&
-    typeof assetClass.name === "string" &&
+    typeof assetClass.name === "string" && assetClass.name.trim().length > 0 &&
     Number.isSafeInteger(assetClass.version) &&
     (assetClass.version as number) >= 1;
   const validAsset = asset.schemaVersion === 1 &&
     asset.assetInstanceId === request.assetInstanceId &&
     asset.assetClassId === request.assetClassId &&
     asset.assetClassCode === assetClass.code &&
-    asset.assetClassName === assetClass.name &&
+    // Names are display snapshots; class ID and immutable code bind identity.
+    typeof asset.assetClassName === "string" && asset.assetClassName.trim().length > 0 &&
     asset.status === "active" &&
     asset.serviceState !== "outOfService" &&
     ["inService", "standby"].includes(asset.serviceState as string) &&

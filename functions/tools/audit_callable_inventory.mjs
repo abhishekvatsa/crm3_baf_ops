@@ -199,6 +199,69 @@ function calledFunctions(call) {
   return names;
 }
 
+// Only these reviewed origin-bound wrappers may share admission with their
+// existing V1 implementation. This is deliberately not generic delegation.
+function verifiedOriginBoundDelegation(program, call, name, exported) {
+  const targets = {
+    mutateAssetHierarchyV2: "mutateAssetHierarchy",
+    executeMaintenanceWorkflowCommandV2: "executeMaintenanceWorkflowCommand",
+    mutateChargeAbnormalityV2: "mutateChargeAbnormality",
+    assignPublishedTemplateVersionV2: "assignPublishedTemplateVersion",
+  };
+  const targetName = targets[name];
+  if (targetName == null) return false;
+  const callback = call.initializer.arguments[1];
+  if (callback == null || !ts.isArrowFunction(callback) || callback.parameters.length !== 1 ||
+      !ts.isIdentifier(callback.parameters[0].name)) return false;
+  const outerName = callback.parameters[0].name.text;
+  const body = callback.body;
+  if (!ts.isCallExpression(body) || !ts.isIdentifier(body.expression) ||
+      body.expression.text !== "executeOriginBoundCallable" || body.arguments.length !== 1) return false;
+  const checker = program.getTypeChecker();
+  const helperSymbol = checker.getSymbolAtLocation(body.expression);
+  if (helperSymbol == null) return false;
+  const helper = resolvedSymbol(checker, helperSymbol);
+  if (!(helper.getDeclarations() ?? []).some((declaration) =>
+    ts.isFunctionDeclaration(declaration) && declaration.name?.text === "executeOriginBoundCallable" &&
+    declaration.getSourceFile().fileName.replaceAll("\\", "/").endsWith("/src/originBoundCallableProtocol.ts"))) return false;
+  const options = body.arguments[0];
+  if (!ts.isObjectLiteralExpression(options) || options.properties.some((p) => !ts.isPropertyAssignment(p))) return false;
+  const properties = new Map(options.properties.map((p) => [propertyName(p), p.initializer]));
+  if (properties.size !== options.properties.length ||
+      !sameValues(properties.keys(), ["callableName", "authUid", "data", "readActor", "execute"])) return false;
+  const compact = (node) => node.getText().replace(/\s+/g, "");
+  const callableName = properties.get("callableName");
+  if (!ts.isStringLiteral(callableName) || callableName.text !== name ||
+      compact(properties.get("authUid")) !== `${outerName}.auth?.uid??null` ||
+      compact(properties.get("data")) !== `${outerName}.data`) return false;
+  const reader = properties.get("readActor");
+  if (!ts.isArrowFunction(reader) || reader.parameters.length !== 1 ||
+      !ts.isIdentifier(reader.parameters[0].name)) return false;
+  const uid = reader.parameters[0].name.text;
+  if (compact(reader.body) !== `(awaitadmin.firestore().collection("users").doc(${uid}).get()).data()??null`) return false;
+  const execute = properties.get("execute");
+  if (!ts.isArrowFunction(execute) || execute.parameters.length !== 1 ||
+      !ts.isIdentifier(execute.parameters[0].name) || !ts.isCallExpression(execute.body)) return false;
+  const invocation = execute.body;
+  if (!ts.isPropertyAccessExpression(invocation.expression) || invocation.expression.name.text !== "run" ||
+      !ts.isIdentifier(invocation.expression.expression) || invocation.expression.expression.text !== targetName ||
+      invocation.arguments.length !== 1) return false;
+  const forwarded = invocation.arguments[0];
+  if (!ts.isObjectLiteralExpression(forwarded) || forwarded.properties.length !== 2 ||
+      !ts.isSpreadAssignment(forwarded.properties[0]) ||
+      !ts.isIdentifier(forwarded.properties[0].expression) || forwarded.properties[0].expression.text !== outerName ||
+      !ts.isPropertyAssignment(forwarded.properties[1]) || propertyName(forwarded.properties[1]) !== "data" ||
+      !ts.isIdentifier(forwarded.properties[1].initializer) ||
+      forwarded.properties[1].initializer.text !== execute.parameters[0].name.text) return false;
+  const target = exported.get(targetName);
+  const localSymbol = checker.getSymbolAtLocation(invocation.expression.expression);
+  if (target == null || localSymbol == null ||
+      callExpressionForSymbol(resolvedSymbol(checker, localSymbol))?.declaration !== target.declaration) return false;
+  const targetCalls = calledFunctions(target);
+  return containsCallableName(target, targetName) &&
+    (targetCalls.has("executeAuthorizedMutation") || targetCalls.has("executeWithCallableAbuseControl"));
+}
+
 function sorted(values) {
   return [...values].sort();
 }
@@ -305,6 +368,7 @@ export function auditCallableInventory({
       if (
         !calls.has("executeAuthorizedMutation")
         && !calls.has("executeWithCallableAbuseControl")
+        && !verifiedOriginBoundDelegation(program, call, name, exported)
       ) {
         errors.push(`abuse-control-admission-missing callable=${name}`);
       }

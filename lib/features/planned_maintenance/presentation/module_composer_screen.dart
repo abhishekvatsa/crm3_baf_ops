@@ -14,6 +14,9 @@ import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/baf_module_catalogue_seed.dart';
 import '../data/job_module_model.dart';
@@ -44,6 +47,11 @@ part 'module_composer_widgets.dart';
 part 'module_composer_dialogs.dart';
 
 const int _jsonPreviewMaxChars = 2200;
+
+final moduleComposerRecoveryPreferencesProvider =
+    Provider<Future<SharedPreferences> Function()>(
+      (ref) => SharedPreferences.getInstance,
+    );
 
 class ModuleComposerScreen extends ConsumerStatefulWidget {
   final String initialJobTemplateJson;
@@ -92,6 +100,7 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   bool _isLoadingKnowledge = true;
   bool _isSeedingCloud = false;
   bool _suppressRecoverySave = false;
+  String? _originActorUid;
   String? _initializingForActorUid;
   String? _initializedForActorUid;
   String? _governedAssetClassId;
@@ -133,6 +142,36 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       _selectedModuleIndex = 0;
     }
   }
+
+  AppUser? get _currentComposerActor {
+    if (!mounted) return null;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    return actor != null &&
+            actor.canManageTemplateGovernance &&
+            (_originActorUid == null || actor.uid == _originActorUid)
+        ? actor
+        : null;
+  }
+
+  AppUser _requireComposerActor(String uid, {bool publishing = false}) {
+    final actor = _currentComposerActor;
+    if (actor == null ||
+        actor.uid != uid ||
+        (publishing && !actor.canPublishTemplateVersion)) {
+      throw StateError(
+        'Verify the original authorized account before continuing. Your draft is retained.',
+      );
+    }
+    return actor;
+  }
+
+  Widget _guardComposerDialog(Widget child) => CurrentActorDialogGuard(
+    originUid: _originActorUid!,
+    permission: (actor) => actor.canManageTemplateGovernance,
+    child: child,
+  );
 
   bool _hasCanonicalFreshAuthoringSeed() {
     try {
@@ -231,6 +270,14 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       );
     }
 
+    _originActorUid ??= actor.uid;
+    if (actor.uid != _originActorUid) {
+      return const _ComposerAuthorityState(
+        title: 'Account changed',
+        message:
+            'Return to the account that started this composer to continue with its retained draft.',
+      );
+    }
     final initialPayloadError = _initialPayloadError;
     if (initialPayloadError != null) {
       return Scaffold(

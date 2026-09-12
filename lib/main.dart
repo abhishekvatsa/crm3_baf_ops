@@ -14,6 +14,7 @@ import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'firebase_options.dart';
+import 'core/persistence/durable_submission_record.dart';
 
 // ── DATA MODELS ───────────────────────────────────────────────
 import 'features/charges/data/charge_model.dart';
@@ -123,6 +124,7 @@ final _isarSchemas = [
   WorkflowEventRecordSchema,
   WorkflowCommandRecordSchema,
   WorkflowCommandReceiptRecordSchema,
+  DurableSubmissionRecordSchema,
 ];
 
 Future<Isar> _openLocalIsar() async {
@@ -434,25 +436,16 @@ Future<StartupFailure?> _initializeFirebaseAndCrashReporting() async {
     );
   }
 
-  try {
-    await AppLogger.init(throwOnFailure: true);
-    await AppLogger.setCustomKeys({
-      'startup_stage': 'firebase_initialized',
-      'app_check_enabled': appCheckPlan.enabled,
-      'app_check_provider': appCheckPlan.provider.name,
-    });
-    installGlobalCrashReportingHandlers();
-  } catch (e, st) {
-    debugPrint(
-      '❌ Crash reporting initialization failed before app startup: $e',
-    );
-    debugPrint('$st');
-    return _captureStartupFailure(
-      stage: 'app_logger_init',
-      error: e,
-      stackTrace: st,
-    );
-  }
+  await initializeOptionalCrashReporting(
+    initialize: () async {
+      await AppLogger.init(throwOnFailure: true);
+      await AppLogger.setCustomKeys({
+        'startup_stage': 'firebase_initialized',
+        'app_check_enabled': appCheckPlan.enabled,
+        'app_check_provider': appCheckPlan.provider.name,
+      });
+    },
+  );
 
   return null;
 }
@@ -1559,7 +1552,7 @@ class _LocalDatabaseStartupErrorScreen extends StatelessWidget {
         ? 'The app could not open the offline Isar database. This can happen after a schema-stage app update or if the local store is damaged.\n\n'
               'Do not uninstall the app or clear app data before authorized Admin/SI recovery review, because unsynced plant-floor evidence may still exist only in local Isar files.\n\n'
               'First create a recovery package. Rebuild should happen only after backup; Firestore can restore synced cloud records, not local-only unsynced evidence.\n\n'
-        : 'The app could not complete core startup before showing the sign-in flow. This can happen if Firebase configuration, crash reporting bootstrap, or another required startup service fails.\n\n'
+        : 'The app could not complete core startup before showing the sign-in flow. This can happen if Firebase configuration, App Check, or another required startup service fails.\n\n'
               'Do not use the app for plant-floor evidence capture until Admin/SI support reviews the diagnostics. Local data has not been modified by this screen.\n\n';
 
     return _FullScreenStatus(

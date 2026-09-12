@@ -9,6 +9,8 @@ import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
@@ -84,14 +86,9 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
       data: (items) => items.where((warning) => warning.isOpen).length,
     );
     final monitoringCount = monitoring.whenOrNull(
-      data:
-          (items) =>
-              items
-                  .where(
-                    (request) =>
-                        request.status == QualityMonitoringStatus.active,
-                  )
-                  .length,
+      data: (items) => items
+          .where((request) => request.status == QualityMonitoringStatus.active)
+          .length,
     );
     return DefaultTabController(
       length: 2,
@@ -128,43 +125,38 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   Widget _buildWarnings(AppUser? actor) {
     final warnings = ref.watch(qualityWarningsProvider);
     return warnings.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading quality warnings',
-            color: BafColors.charges,
-          ),
-      error:
-          (error, _) => _ErrorState(
-            title: 'Quality warnings unavailable',
-            detail: '$error',
-            onRetry: () => ref.invalidate(qualityWarningsProvider),
-          ),
+      loading: () => const BafLoadingPanel(
+        label: 'Loading quality warnings',
+        color: BafColors.charges,
+      ),
+      error: (error, _) => _ErrorState(
+        title: 'Quality warnings unavailable',
+        detail: '$error',
+        onRetry: () => ref.invalidate(qualityWarningsProvider),
+      ),
       data: (items) {
-        final open =
-            items
-                .where((warning) => warning.status == QualityWarningStatus.open)
-                .length;
-        final review =
-            items
-                .where(
-                  (warning) =>
-                      warning.status == QualityWarningStatus.closureRequested,
-                )
-                .length;
+        final open = items
+            .where((warning) => warning.status == QualityWarningStatus.open)
+            .length;
+        final review = items
+            .where(
+              (warning) =>
+                  warning.status == QualityWarningStatus.closureRequested,
+            )
+            .length;
         final closed = items.length - open - review;
-        final visible =
-            items
-                .where(
-                  (warning) => switch (_filter) {
-                    _WarningFilter.open =>
-                      warning.status == QualityWarningStatus.open,
-                    _WarningFilter.review =>
-                      warning.status == QualityWarningStatus.closureRequested,
-                    _WarningFilter.closed =>
-                      warning.status == QualityWarningStatus.closed,
-                  },
-                )
-                .toList();
+        final visible = items
+            .where(
+              (warning) => switch (_filter) {
+                _WarningFilter.open =>
+                  warning.status == QualityWarningStatus.open,
+                _WarningFilter.review =>
+                  warning.status == QualityWarningStatus.closureRequested,
+                _WarningFilter.closed =>
+                  warning.status == QualityWarningStatus.closed,
+              },
+            )
+            .toList();
 
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(qualityWarningsProvider),
@@ -207,9 +199,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                         ),
                       ],
                       selected: <_WarningFilter>{_filter},
-                      onSelectionChanged:
-                          (selection) =>
-                              setState(() => _filter = selection.first),
+                      onSelectionChanged: (selection) =>
+                          setState(() => _filter = selection.first),
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     if (visible.isEmpty)
@@ -230,12 +221,10 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                   busy: _submitting,
                   onRequestClosure: () => _requestWarningClosure(warning),
                   onDeclareRaRequired: () => _declareRaRequired(warning),
-                  onRecordRaCompleted:
-                      (linkedAbnormality) =>
-                          _recordRaCompleted(warning, linkedAbnormality),
-                  onClose:
-                      (linkedAbnormality) =>
-                          _closeWarning(warning, linkedAbnormality),
+                  onRecordRaCompleted: (linkedAbnormality) =>
+                      _recordRaCompleted(warning, linkedAbnormality),
+                  onClose: (linkedAbnormality) =>
+                      _closeWarning(warning, linkedAbnormality),
                   onReopen: () => _reopenWarning(warning),
                 ),
               );
@@ -248,58 +237,72 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
 
   Widget _buildMonitoring(AppUser? actor) {
     final requests = ref.watch(qualityMonitoringRequestsProvider);
-    return requests.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading cycle monitoring',
-            color: BafColors.charges,
-          ),
-      error:
-          (error, _) => _ErrorState(
-            title: 'Monitoring requests unavailable',
-            detail: '$error',
-            onRetry: () => ref.invalidate(qualityMonitoringRequestsProvider),
-          ),
-      data:
-          (items) => RefreshIndicator(
-            onRefresh:
-                () async => ref.invalidate(qualityMonitoringRequestsProvider),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                BafSpacing.lg,
-                BafSpacing.lg,
-                BafSpacing.lg,
-                BafSpacing.xl,
-              ),
+    return Column(
+      children: [
+        if (actor?.canManageQualityMonitoring == true)
+          Padding(
+            padding: const EdgeInsets.all(BafSpacing.lg),
+            child: Wrap(
+              spacing: BafSpacing.md,
+              runSpacing: BafSpacing.sm,
               children: [
-                if (actor?.canManageQualityMonitoring == true)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton.icon(
-                      onPressed: _submitting ? null : _createMonitoringRequest,
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('New monitoring request'),
-                    ),
-                  ),
-                const SizedBox(height: BafSpacing.lg),
-                if (items.isEmpty)
-                  const _EmptyState(
-                    icon: Icons.monitor_heart_outlined,
-                    title: 'No quality monitoring requests',
-                  )
-                else
-                  for (final request in items) ...[
-                    _MonitoringCard(
-                      request: request,
-                      canClose: actor?.canManageQualityMonitoring == true,
-                      busy: _submitting,
-                      onClose: () => _closeMonitoringRequest(request),
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                  ],
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _createMonitoringRequest,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('New monitoring request'),
+                ),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => _createMonitoringRequest(savedOnly: true),
+                  child: const Text('Check saved monitoring'),
+                ),
               ],
             ),
           ),
+        Expanded(
+          child: requests.when(
+            loading: () => const BafLoadingPanel(
+              label: 'Loading cycle monitoring',
+              color: BafColors.charges,
+            ),
+            error: (error, _) => _ErrorState(
+              title: 'Monitoring requests unavailable',
+              detail: '$error',
+              onRetry: () => ref.invalidate(qualityMonitoringRequestsProvider),
+            ),
+            data: (items) => RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(qualityMonitoringRequestsProvider),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  BafSpacing.lg,
+                  BafSpacing.lg,
+                  BafSpacing.lg,
+                  BafSpacing.xl,
+                ),
+                children: [
+                  if (items.isEmpty)
+                    const _EmptyState(
+                      icon: Icons.monitor_heart_outlined,
+                      title: 'No quality monitoring requests',
+                    )
+                  else
+                    for (final request in items) ...[
+                      _MonitoringCard(
+                        request: request,
+                        canClose: actor?.canManageQualityMonitoring == true,
+                        busy: _submitting,
+                        onClose: () => _closeMonitoringRequest(request),
+                      ),
+                      const SizedBox(height: BafSpacing.md),
+                    ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -322,11 +325,10 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   ) async {
     final decision = await showDialog<_WarningDecision>(
       context: context,
-      builder:
-          (context) => _CloseWarningDialog(
-            warning: warning,
-            linkedAbnormality: linkedAbnormality,
-          ),
+      builder: (context) => _CloseWarningDialog(
+        warning: warning,
+        linkedAbnormality: linkedAbnormality,
+      ),
     );
     if (decision == null) return;
     await _runCommand(
@@ -361,11 +363,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   ) async {
     final completion = await showDialog<_RaCompletionInput>(
       context: context,
-      builder:
-          (context) => _RecordRaCompletionDialog(
-            warning: warning,
-            abnormality: abnormality,
-          ),
+      builder: (context) =>
+          _RecordRaCompletionDialog(warning: warning, abnormality: abnormality),
     );
     if (completion == null) return;
     await _runCommand(
@@ -392,81 +391,113 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     );
   }
 
-  Future<void> _createMonitoringRequest() async {
-    final service = ref.read(qualityCommandServiceProvider);
+  Future<void> _createMonitoringRequest({bool savedOnly = false}) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    String? originUid;
+    void requireOrigin() {
+      final access = CurrentActorAccess.resolve(
+        container.read(currentAppUserProvider),
+      );
+      final message = currentActorActionMessage(
+        access,
+        originUid: originUid,
+        permission: (actor) => actor.canManageQualityMonitoring,
+      );
+      if (message != null) throw QualityCommandException(message);
+      originUid ??= access.actor!.uid;
+    }
+
     try {
+      requireOrigin();
+      final service = container.read(qualityCommandServiceProvider);
       final pending = await service.pendingMonitoringCreation();
+      requireOrigin();
       if (!mounted) return;
       if (pending != null) {
-        final retry = await showDialog<bool>(
+        final choice = await showDialog<String>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Monitoring confirmation pending'),
-                content: SingleChildScrollView(
-                  child: Text(
-                    'Base ${pending['baseNumber']}\n'
-                    '${pending['grade']} - ${pending['cycleReference']}\n'
-                    '${pending['reason']}\n\n'
-                    'This submission has not been confirmed on this device.',
-                  ),
+          builder: (context) => CurrentActorDialogGuard(
+            originUid: originUid!,
+            permission: (actor) => actor.canManageQualityMonitoring,
+            child: AlertDialog(
+              title: const Text('Monitoring confirmation pending'),
+              content: SingleChildScrollView(
+                child: Text(
+                  'Base ${pending['baseNumber']}\n'
+                  '${pending['grade']} - ${pending['cycleReference']}\n'
+                  'Charges: ${(pending['chargeNumbers'] as List).join(', ')}\n'
+                  '${pending['reason']}\n\n'
+                  '${pending['savedSubmissionState'] == 'acceptedPendingAdoption' ? 'Monitoring was recorded. Check its current record; creation will not be sent again.' : 'The original entries are saved on this device. Check this submission before creating another.'}',
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Later'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Retry confirmation'),
-                  ),
-                ],
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Later'),
+                ),
+                if (pending['canCancelBeforeSend'] == true)
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'cancel'),
+                    child: const Text('Cancel unsent request'),
+                  ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, 'check'),
+                  child: const Text('Check saved request'),
+                ),
+              ],
+            ),
+          ),
         );
-        if (retry == true && mounted) {
+        requireOrigin();
+        if (!mounted) return;
+        if (choice == 'check') {
           await _runCommand(service.retryMonitoringCreation);
+        }
+        if (choice == 'cancel') {
+          await service.cancelNeverSentMonitoringCreation();
         }
         return;
       }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$error')));
+      if (savedOnly) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No saved monitoring submission needs confirmation.'),
+          ),
+        );
+        return;
       }
-      return;
-    }
-    late final List<AssetInstanceRecord> governedBases;
-    try {
-      governedBases = await _loadGovernedBases();
+      final governedBases = await _loadGovernedBases();
+      requireOrigin();
+      if (!mounted) return;
+      final request = await showDialog<_MonitoringInput>(
+        context: context,
+        builder: (context) => CurrentActorDialogGuard(
+          originUid: originUid!,
+          permission: (actor) => actor.canManageQualityMonitoring,
+          child: _MonitoringRequestDialog(bases: governedBases),
+        ),
+      );
+      requireOrigin();
+      if (request == null || !mounted) return;
+      await _runCommand(
+        () => service.createMonitoringRequest(
+          baseNumber: request.baseNumber,
+          baseAssetClassId: request.baseAssetClassId,
+          baseAssetInstanceId: request.baseAssetInstanceId,
+          baseAssetInstanceVersion: request.baseAssetInstanceVersion,
+          grade: request.grade,
+          cycleReference: request.cycleReference,
+          chargeNumbers: request.chargeNumbers,
+          reason: request.reason,
+        ),
+      );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
         );
       }
-      return;
     }
-    if (!mounted) return;
-    final request = await showDialog<_MonitoringInput>(
-      context: context,
-      builder: (context) => _MonitoringRequestDialog(bases: governedBases),
-    );
-    if (request == null) return;
-    await _runCommand(
-      () => ref
-          .read(qualityCommandServiceProvider)
-          .createMonitoringRequest(
-            baseNumber: request.baseNumber,
-            baseAssetClassId: request.baseAssetClassId,
-            baseAssetInstanceId: request.baseAssetInstanceId,
-            baseAssetInstanceVersion: request.baseAssetInstanceVersion,
-            grade: request.grade,
-            cycleReference: request.cycleReference,
-            chargeNumbers: request.chargeNumbers,
-            reason: request.reason,
-          ),
-    );
   }
 
   Future<List<AssetInstanceRecord>> _loadGovernedBases() async {
@@ -485,10 +516,13 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
       );
     }
     final classId = baseClasses.single.id;
-    final bases = assets
-        .where((item) => item.isActive && item.assetClassId == classId)
-        .toList(growable: false)
-      ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+    final bases =
+        assets
+            .where((item) => item.isActive && item.assetClassId == classId)
+            .toList(growable: false)
+          ..sort(
+            (left, right) => left.assetNumber.compareTo(right.assetNumber),
+          );
     if (bases.isEmpty) {
       throw StateError(
         'No active governed Base is available for cycle monitoring.',
@@ -522,12 +556,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     String? initialValue,
   }) => showDialog<String>(
     context: context,
-    builder:
-        (context) => _ReasonDialog(
-          title: title,
-          label: label,
-          initialValue: initialValue,
-        ),
+    builder: (context) =>
+        _ReasonDialog(title: title, label: label, initialValue: initialValue),
   );
 
   Future<void> _runCommand(
@@ -566,8 +596,9 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                 ? 'Quality record updated'
                 : 'Updated in the cloud; this phone still needs a refresh sync.',
           ),
-          backgroundColor:
-              localReadbackApplied ? BafColors.sync : BafColors.warning,
+          backgroundColor: localReadbackApplied
+              ? BafColors.sync
+              : BafColors.warning,
         ),
       );
     } catch (error) {
@@ -652,11 +683,10 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
                   ),
                 ),
             ],
-            onChanged:
-                (value) => setState(() {
-                  _selectedBaseId = value;
-                  _error = null;
-                }),
+            onChanged: (value) => setState(() {
+              _selectedBaseId = value;
+              _error = null;
+            }),
           ),
           const SizedBox(height: BafSpacing.md),
           TextField(
@@ -718,9 +748,8 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
               cycle.isEmpty ||
               reason.isEmpty) {
             setState(
-              () =>
-                  _error =
-                      'Select a governed Base and enter Grade, cycle and a reason.',
+              () => _error =
+                  'Select a governed Base and enter Grade, cycle and a reason.',
             );
             return;
           }

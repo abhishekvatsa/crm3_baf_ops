@@ -10,13 +10,17 @@
   ],
   "sourceFunctionExports": [
     "assignPublishedTemplateVersion",
+    "assignPublishedTemplateVersionV2",
     "beginGlobalPullRun",
     "completePlannedJobExecution",
     "executeMaintenanceWorkflowCommand",
+    "executeMaintenanceWorkflowCommandV2",
     "getBackendReleaseIdentity",
     "maintenanceWorkflowEscalationSweep",
     "mutateAssetHierarchy",
+    "mutateAssetHierarchyV2",
     "mutateChargeAbnormality",
+    "mutateChargeAbnormalityV2",
     "mutateRuntimeJobModulePopulation",
     "mutateUserAuthority",
     "onJobAssigned",
@@ -27,13 +31,17 @@
   ],
   "sourceDeclaredRuntimeBindings": {
     "assignPublishedTemplateVersion": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "assignPublishedTemplateVersionV2": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "beginGlobalPullRun": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "completePlannedJobExecution": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "executeMaintenanceWorkflowCommand": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "executeMaintenanceWorkflowCommandV2": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "getBackendReleaseIdentity": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "maintenanceWorkflowEscalationSweep": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateAssetHierarchy": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateAssetHierarchyV2": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateChargeAbnormality": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateChargeAbnormalityV2": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateRuntimeJobModulePopulation": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateUserAuthority": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "onJobAssigned": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
@@ -43,7 +51,11 @@
     "stampGlobalPullServerClock": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
   },
   "sourcePendingDeploymentExports": [
-    "mutateAssetHierarchy"
+    "assignPublishedTemplateVersionV2",
+    "executeMaintenanceWorkflowCommandV2",
+    "mutateAssetHierarchy",
+    "mutateAssetHierarchyV2",
+    "mutateChargeAbnormalityV2"
   ],
   "forbiddenBroadProjectRoles": [
     "roles/editor",

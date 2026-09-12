@@ -267,6 +267,27 @@ async function invoke(memory, data = request()) {
 }
 
 describe('burner directive compliance mutation', () => {
+  test('a refreshed asset display snapshot does not relabel or invalidate the historical source round', async () => {
+    const m = fakeDb(seed());
+    m.store.get(`asset_classes/${IDS.class}`).name = 'BAF Heating Furnaces';
+    m.store.get(`asset_instances/${IDS.asset}`).assetClassName = 'BAF Heating Furnaces';
+    const previous = [...m.store].filter(([key]) => key.startsWith('burner_condition_rounds/'));
+    expect((await invoke(m)).ok).toBe(true);
+    for (const [key, value] of previous) expect(m.store.get(key)).toEqual(value);
+  });
+
+  test.each([null, '', '   '])('malformed current class display still fails closed: %s', async (name) => {
+    const m = fakeDb(seed()); m.store.get(`asset_classes/${IDS.class}`).name = name;
+    await expect(invoke(m)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(m.writes).toHaveLength(0);
+  });
+
+  test('class display rename does not change the stable operational identity', async () => {
+    const m = fakeDb(seed());
+    m.store.get(`asset_classes/${IDS.class}`).name = 'BAF Heating Furnaces';
+    expect((await invoke(m)).ok).toBe(true);
+  });
+
   test('parses exact canonical dispositions and rejects partial identity', () => {
     expect(parseBurnerDirectiveComplianceRequest(request()).dispositions)
       .toEqual([{position: 3, disposition: 'restoredInService'}]);

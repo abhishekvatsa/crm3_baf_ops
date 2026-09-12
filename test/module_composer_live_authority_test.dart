@@ -18,6 +18,61 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  testWidgets(
+    'retained account failure cannot save the composer under a new owner',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      await tester.pumpWidget(
+        _composerApp(
+          actorStream: actors.stream,
+          knowledgeLoader: () async => _knowledgeBundle(),
+        ),
+      );
+      actors.add(_admin());
+      await tester.pumpAndSettle();
+      final title = find.byKey(const Key('module-composer-template-title'));
+      await tester.enterText(title, 'Original author retained draft');
+      await tester.tap(find.byTooltip('Add blank module'));
+      await tester.pump(const Duration(milliseconds: 100));
+      actors.addError(StateError('account refresh unavailable'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        find.text('Authoring access could not be verified'),
+        findsOneWidget,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where((key) => key.startsWith('RECOVERY::')),
+        isEmpty,
+      );
+      actors.add(_actor(AppRole.si));
+      await tester.pumpAndSettle();
+      expect(find.text('Account changed'), findsOneWidget);
+      expect(
+        prefs.getKeys().where((key) => key.contains('authority-si')),
+        isEmpty,
+      );
+      actors.add(_admin());
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextFormField>(title).controller!.text,
+        'Original author retained draft',
+      );
+      await tester.tap(find.byTooltip('Add blank module'));
+      await tester.pump(const Duration(seconds: 1));
+      final keys = prefs
+          .getKeys()
+          .where((key) => key.startsWith('RECOVERY::'))
+          .toList();
+      expect(keys, hasLength(1));
+      expect(keys.single, startsWith('RECOVERY::authority-admin::'));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('non-governor cannot load composer knowledge data', (
     tester,
   ) async {

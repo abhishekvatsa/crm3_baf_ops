@@ -437,15 +437,35 @@ void main() {
         submit,
       );
       final actorRead = source.indexOf(
-        'final appUser = ref.read(currentAppUserProvider).value;',
+        'final appUser = CurrentActorAccess.resolve(',
         submit,
       );
       final ticketSave = source.indexOf('await repository.saveTicket(record);');
+      final finalActorRead = source.indexOf(
+        'final dispatchAccess = CurrentActorAccess.resolve(',
+        actorRead,
+      );
       expect(selector, greaterThanOrEqualTo(0));
       expect(tagField, greaterThan(selector));
       expect(awaitedTagVerdict, greaterThan(submit));
       expect(actorRead, greaterThan(awaitedTagVerdict));
-      expect(ticketSave, greaterThan(actorRead));
+      expect(
+        finalActorRead,
+        greaterThan(
+          source.lastIndexOf('await _resolveEventAssetReference(', ticketSave),
+        ),
+      );
+      expect(ticketSave, greaterThan(finalActorRead));
+      final finalAdmission = source.substring(
+        finalActorRead,
+        source.indexOf('if (kIsWeb)', finalActorRead),
+      );
+      expect(finalAdmission, contains('originUid: reporterUid'));
+      expect(finalAdmission, contains('currentUser?.uid != reporterUid'));
+      expect(
+        source,
+        isNot(contains('ref.read(currentAppUserProvider).value;')),
+      );
       expect(source, isNot(contains('_assetNumController')));
       expect(source, contains('hasGovernedAssetIdentity: true'));
       expect(source, contains('Duration(milliseconds: 450)'));
@@ -552,7 +572,9 @@ void main() {
             'Action time',
             DateFormat('dd MMM yyyy, HH:mm').format(action.createdAt.toLocal()),
             'Last corrected',
-            DateFormat('dd MMM yyyy, HH:mm').format(action.updatedAt!.toLocal()),
+            DateFormat(
+              'dd MMM yyyy, HH:mm',
+            ).format(action.updatedAt!.toLocal()),
             'Burner action',
             'Flame Adjustment',
             'Burner outcome',

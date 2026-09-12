@@ -5,6 +5,10 @@ import {
   normalizeCanonicalUserRoles,
 } from "./userAuthority";
 import {stableJson} from "./stableJson";
+import {
+  ASSET_CLASS_GUARDS, assetClassGuardId, assetClassGuardValid,
+  HISTORICAL_INNER_COVER_STATES, nextAssetClassGuard,
+} from "./assetClassMutationGuards";
 
 type JsonMap = {[key: string]: unknown};
 
@@ -115,6 +119,7 @@ interface ParsedRequest {
   classDraft: ClassDraft | null;
   nodeDraft: NodeDraft | null;
   fingerprint: string;
+  legacyFingerprint: string;
 }
 
 export interface AssetHierarchyMutationResult {
@@ -389,7 +394,7 @@ export function parseAssetHierarchyMutationRequest(raw: JsonMap): ParsedRequest 
   if (raw.allowTagTransfer != null && typeof raw.allowTagTransfer !== "boolean") {
     invalid("allowTagTransfer", "must be a boolean");
   }
-  const request: Omit<ParsedRequest, "fingerprint"> = {
+  const request: Omit<ParsedRequest, "fingerprint" | "legacyFingerprint"> = {
     requestId,
     operation,
     assetClassId,
@@ -426,9 +431,10 @@ export function parseAssetHierarchyMutationRequest(raw: JsonMap): ParsedRequest 
       invalid("nodeId", "must be a canonical UUID for creation");
     }
   }
-  const fingerprint = `assetreq1-sha256:${createHash("sha256")
-    .update(stableJson(request), "utf8").digest("hex")}`;
-  return {...request, fingerprint};
+  const digest = createHash("sha256")
+    .update(stableJson(request), "utf8").digest("hex");
+  return {...request, fingerprint: `assetreq2-sha256:${digest}`,
+    legacyFingerprint: `assetreq1-sha256:${digest}`};
 }
 
 export function userCanMutateAssetHierarchy(data: JsonMap): boolean {
@@ -530,10 +536,18 @@ function resultFromReceipt(
   actorUid: string,
   data: JsonMap,
 ): AssetHierarchyMutationResult {
-  if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
+  const expectedResultVersion = request.operation.startsWith("CREATE_") ? 1 :
+    (request.expectedVersion ?? 0) + 1;
+  if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
+      data.actorUid !== actorUid ||
+      (data.fingerprint !== request.fingerprint &&
+        data.fingerprint !== request.legacyFingerprint) ||
       data.operation !== request.operation || data.assetClassId !== request.assetClassId ||
       data.nodeId !== request.nodeId || !Number.isSafeInteger(data.version) ||
-      typeof data.auditId !== "string" || typeof data.committedAtIso !== "string") {
+      data.version !== expectedResultVersion ||
+      data.auditId !== `asset_hierarchy_${request.requestId}` ||
+      !hierarchyTimeMatches(data.committedAtIso, data.committedAtIso) ||
+      !hierarchyTimeMatches(data.committedAt, data.committedAtIso)) {
     throw new AssetHierarchyMutationError(
       "data-loss", "The hierarchy mutation receipt is malformed or does not match this request.",
       {reasonCode: "asset-hierarchy-receipt-mismatch"},
@@ -550,6 +564,94 @@ function resultFromReceipt(
     committedAt: data.committedAtIso as string,
     idempotentReplay: true,
   };
+}
+
+function hierarchyTimeMatches(value: unknown, expected: unknown): boolean {
+  if (typeof expected !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(expected)) return false;
+  const expectedMillis = Date.parse(expected);
+  if (!Number.isFinite(expectedMillis) || new Date(expectedMillis).toISOString() !== expected) {
+    return false;
+  }
+  if (typeof value === "string") return value === expected;
+  if (value instanceof Date) return value.getTime() === expectedMillis;
+  if (value != null && typeof value === "object") {
+    const stamp = value as {seconds?: unknown; nanoseconds?: unknown};
+    return Number.isSafeInteger(stamp.seconds) && Number.isSafeInteger(stamp.nanoseconds) &&
+      (stamp.nanoseconds as number) >= 0 && (stamp.nanoseconds as number) < 1e9 &&
+      (stamp.nanoseconds as number) % 1e6 === 0 &&
+      (stamp.seconds as number) * 1000 + (stamp.nanoseconds as number) / 1e6 === expectedMillis;
+  }
+  return false;
+}
+
+function hierarchyAuditHash(audit: JsonMap): string {
+  const {performedAt: _performedAt, ...evidence} = audit;
+  return createHash("sha256").update(stableJson(evidence), "utf8").digest("hex");
+}
+
+function recordedObject(value: unknown): JsonMap | null {
+  if (typeof value !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed != null && typeof parsed === "object" && !Array.isArray(parsed) ?
+      parsed as JsonMap : null;
+  } catch {
+    return null;
+  }
+}
+
+function validateHierarchyReplay(
+  request: ParsedRequest, actorUid: string, receipt: JsonMap, audit: JsonMap,
+): void {
+  const after = recordedObject(audit.afterJson);
+  const before = recordedObject(audit.beforeJson);
+  const create = request.operation.startsWith("CREATE_");
+  const action = create ? "create" : request.operation.startsWith("UPDATE_") ?
+    "update" : request.status;
+  const modern = receipt.fingerprint === request.fingerprint;
+  const proofValid = modern ?
+    receipt.evidenceVersion === 2 && audit.evidenceVersion === 2 &&
+      audit.fingerprint === request.fingerprint &&
+      receipt.auditEvidenceSha256 === hierarchyAuditHash(audit) :
+    receipt.evidenceVersion == null && receipt.auditEvidenceSha256 == null &&
+      audit.evidenceVersion == null && audit.fingerprint == null;
+  const draft = request.classDraft ?? request.nodeDraft;
+  const draftMatches = after != null && (draft == null ||
+    Object.entries(draft).every(([key, value]) => stableJson(after[key]) === stableJson(value)));
+  const originalIdentityValid = create ? audit.beforeJson === null && after != null &&
+    after.createdByUid === actorUid && after.createdByName === audit.performedByName :
+    before != null && after != null && before.schemaVersion === 1 &&
+      before.assetClassId === request.assetClassId &&
+      (request.nodeId == null || before.nodeId === request.nodeId) &&
+      before.version === request.expectedVersion &&
+      after.createdByUid === before.createdByUid && after.createdByName === before.createdByName;
+  const version = receipt.version;
+  const auditValid = proofValid && audit.schemaVersion === 1 &&
+    audit.auditId === `asset_hierarchy_${request.requestId}` &&
+    audit.requestId === request.requestId && audit.performedByUid === actorUid &&
+    typeof audit.performedByName === "string" && audit.performedByName.trim().length > 0 &&
+    audit.entityType === (request.nodeId == null ? "asset_class" : "hierarchy_node") &&
+    audit.entityId === (request.nodeId ?? request.assetClassId) &&
+    audit.assetClassId === request.assetClassId && audit.action === action &&
+    audit.reason === request.reason && audit.tagTransferApproved === request.allowTagTransfer &&
+    hierarchyTimeMatches(audit.performedAt, receipt.committedAtIso) &&
+    originalIdentityValid &&
+    after != null && draftMatches && after.schemaVersion === 1 &&
+    after.assetClassId === request.assetClassId &&
+    (request.nodeId == null || after.nodeId === request.nodeId) &&
+    after.version === version && after.lastMutationId === request.requestId &&
+    after.updatedByUid === actorUid && after.updatedByName === audit.performedByName &&
+    (request.status == null || after.status === request.status) &&
+    (create ? after.status === "active" : true);
+  // The original snapshot is acceptance evidence. Later legitimate commands,
+  // including child-count updates, may replace the mutable live document.
+  if (!auditValid) {
+    throw new AssetHierarchyMutationError(
+      "data-loss", "The hierarchy receipt and immutable acceptance evidence do not agree.",
+      {reasonCode: "asset-hierarchy-replay-evidence-drift"},
+    );
+  }
 }
 
 export async function mutateAssetHierarchyWithDb(args: {
@@ -572,8 +674,10 @@ export async function mutateAssetHierarchyWithDb(args: {
   const users = db.collection("users");
   const classes = db.collection("asset_classes");
   const codes = db.collection("asset_class_codes");
+  const guards = db.collection(ASSET_CLASS_GUARDS);
   const nodes = db.collection("asset_hierarchy_nodes");
   const assets = db.collection("asset_instances");
+  const innerCovers = db.collection("inner_cover_profiles");
   const installedComponents = db.collection("asset_component_instances");
   const audits = db.collection("asset_hierarchy_audits");
   const receipts = db.collection("asset_hierarchy_mutation_receipts");
@@ -595,35 +699,18 @@ export async function mutateAssetHierarchyWithDb(args: {
     );
     const actor = actorAuthority(actorRecord);
     if (receipt.exists) {
+      const receiptData = receipt.data() ?? {};
       const replay = resultFromReceipt(
         request,
         actorUid,
-        receipt.data() ?? {},
-      );
-      const entityRef = nodeRef ?? classRef;
-      const entity = snapshot(
-        await transaction.get(entityRef),
-        "Hierarchy replay entity lookup",
+        receiptData,
       );
       const audit = snapshot(
         await transaction.get(auditRef),
         "Hierarchy replay audit lookup",
       );
-      const entityData = requireRecord(entity, "Recorded hierarchy entity");
       const auditData = requireRecord(audit, "Recorded hierarchy audit");
-      if (
-        entityData.version !== replay.version ||
-        entityData.lastMutationId !== request.requestId ||
-        auditData.requestId !== request.requestId ||
-        auditData.performedByUid !== actorUid ||
-        auditData.entityId !== (request.nodeId ?? request.assetClassId)
-      ) {
-        throw new AssetHierarchyMutationError(
-          "data-loss",
-          "The hierarchy mutation receipt no longer matches its entity and audit evidence.",
-          {reasonCode: "asset-hierarchy-replay-evidence-drift"},
-        );
-      }
+      validateHierarchyReplay(request, actorUid, receiptData, auditData);
       return replay;
     }
 
@@ -631,9 +718,72 @@ export async function mutateAssetHierarchyWithDb(args: {
       await transaction.get(classRef), "Asset class lookup",
     );
     const currentClass = classRecord.exists ? classRecord.data() ?? {} : null;
+    const guardWrites: Array<{ref: DocumentRefLike; data: JsonMap}> = [];
+    const classOperation = request.operation.includes("CLASS");
+    if (classOperation) {
+      const oldRole = currentClass?.legacyAssetTypeKey ?? null;
+      const desiredRole = request.classDraft == null ? oldRole :
+        request.classDraft.legacyAssetTypeKey;
+      const desiredStatus = request.operation === "CREATE_CLASS" ? "active" :
+        request.operation === "SET_CLASS_STATUS" ? request.status : currentClass?.status;
+      // Each affected role has a common read/write lock. Distinct class IDs
+      // cannot both acquire an empty legacy-role query in concurrent commands.
+      for (const role of new Set([oldRole, desiredRole])) {
+        if (role == null) continue;
+        if (typeof role !== "string" ||
+            !["base", "furnace", "forceCooler", "innerCover"].includes(role)) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition", "The existing asset-class role is malformed.",
+          );
+        }
+        const guardRef = guards.doc(assetClassGuardId("legacyRole", role));
+        const guard = snapshot(await transaction.get(guardRef), "Class role guard");
+        const guardData = guard.exists ? guard.data() ?? {} : null;
+        if (guardData != null && !assetClassGuardValid(guardData, "legacyRole", role)) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition", "The asset-class role guard needs reconciliation.",
+            {reasonCode: "asset-class-guard-malformed"},
+          );
+        }
+        const owners = querySnapshot(await transaction.get(
+          classes.where("legacyAssetTypeKey", "==", role),
+        ), "Canonical asset-class role owners");
+        if (desiredStatus === "active" && desiredRole === role &&
+            owners.docs.some((owner) => {
+              const data = owner.data() ?? {};
+              return data.status === "active" &&
+                (owner.id ?? data.assetClassId) !== request.assetClassId;
+            })) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition", "Another active asset class already owns this operational role.",
+            {reasonCode: "asset-class-legacy-role-collision", legacyAssetTypeKey: role},
+          );
+        }
+        guardWrites.push({ref: guardRef, data: nextAssetClassGuard(
+          guardData, "legacyRole", role, request.requestId,
+        )});
+      }
+    }
     let activeClassNodes: QuerySnapshotLike | null = null;
     let activeClassAssets: QuerySnapshotLike | null = null;
+    let classInnerCovers: QuerySnapshotLike | null = null;
     if (request.operation === "SET_CLASS_STATUS" && request.status === "retired") {
+      const guardRef = guards.doc(assetClassGuardId("serialInventory", request.assetClassId));
+      const guard = snapshot(await transaction.get(guardRef), "Class inventory guard");
+      const guardData = guard.exists ? guard.data() ?? {} : null;
+      if (guardData != null &&
+          !assetClassGuardValid(guardData, "serialInventory", request.assetClassId)) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "The asset-class inventory guard needs reconciliation.",
+          {reasonCode: "asset-class-guard-malformed"},
+        );
+      }
+      guardWrites.push({ref: guardRef, data: nextAssetClassGuard(
+        guardData, "serialInventory", request.assetClassId, request.requestId,
+      )});
+      classInnerCovers = querySnapshot(await transaction.get(
+        innerCovers.where("assetClassId", "==", request.assetClassId),
+      ), "Serial Inner Cover inventory");
       activeClassNodes = querySnapshot(
         await transaction.get(
           nodes.where("assetClassId", "==", request.assetClassId)
@@ -659,10 +809,11 @@ export async function mutateAssetHierarchyWithDb(args: {
 
     let parent: JsonMap | null = null;
     let oldParent: JsonMap | null = null;
-    const desiredParentId = request.nodeDraft?.parentNodeId ??
-      (typeof currentNode?.parentNodeId === "string" ? currentNode.parentNodeId : null);
     const oldParentId = typeof currentNode?.parentNodeId === "string" ?
       currentNode.parentNodeId : null;
+    // A draft's explicit null selects the root; only status commands omit it.
+    const desiredParentId = request.nodeDraft == null ? oldParentId :
+      request.nodeDraft.parentNodeId;
     if (desiredParentId != null) {
       parent = requireRecord(
         snapshot(await transaction.get(nodes.doc(desiredParentId)), "Parent lookup"),
@@ -773,6 +924,21 @@ export async function mutateAssetHierarchyWithDb(args: {
           "failed-precondition",
           "Retire physical assets before retiring this asset class.",
           {reasonCode: "asset-class-active-instances"},
+        );
+      }
+      if (classInnerCovers != null && classInnerCovers.docs.some((cover) => {
+        const data = cover.data() ?? {};
+        return data.schemaVersion !== 1 ||
+          data.innerCoverId !== cover.id || data.assetClassId !== request.assetClassId ||
+          !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
+          typeof data.serialNumber !== "string" || data.serialNumber.trim().length === 0 ||
+          !HISTORICAL_INNER_COVER_STATES.has(String(data.lifecycleState)) ||
+          data.currentBaseAssetInstanceId != null || data.currentBaseAssetNumber != null ||
+          data.currentBaseAssetName != null || data.currentLinkageId != null;
+      })) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "Retire or reconcile live serial Inner Covers before retiring this class.",
+          {reasonCode: "asset-class-live-inner-covers"},
         );
       }
       before = nodeSnapshot(current);
@@ -967,7 +1133,8 @@ export async function mutateAssetHierarchyWithDb(args: {
 
     }
 
-    transaction.set(auditRef, {
+    for (const guard of guardWrites) transaction.set(guard.ref, guard.data);
+    const auditData: JsonMap = {
       schemaVersion: 1,
       auditId,
       entityType: request.nodeId == null ? "asset_class" : "hierarchy_node",
@@ -982,7 +1149,10 @@ export async function mutateAssetHierarchyWithDb(args: {
       performedAt: committedAt,
       requestId: request.requestId,
       tagTransferApproved: request.allowTagTransfer,
-    });
+      evidenceVersion: 2,
+      fingerprint: request.fingerprint,
+    };
+    transaction.set(auditRef, auditData);
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -995,6 +1165,8 @@ export async function mutateAssetHierarchyWithDb(args: {
       auditId,
       committedAt,
       committedAtIso,
+      evidenceVersion: 2,
+      auditEvidenceSha256: hierarchyAuditHash(auditData),
     });
     return {
       ok: true,

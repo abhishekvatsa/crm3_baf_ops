@@ -1,0 +1,160 @@
+{
+  "provenance": {
+    "sourceCommit": "2ae7cbb4",
+    "method": "Actual pre-remediation dispatcher on minimal synthetic records; this is not full ticket creation provenance"
+  },
+  "command": {
+    "commandId": "legacy-accepted-verification",
+    "commandType": "verifyInspectionFinding",
+    "aggregateId": "campaign",
+    "expectedVersion": 7,
+    "payload": {
+      "findingId": "finding",
+      "observationId": "followup",
+      "expectedFindingVersion": 2,
+      "outcome": "resolved",
+      "reason": "Historical accepted verification"
+    }
+  },
+  "receipt": {
+    "commandId": "legacy-accepted-verification",
+    "resultKey": "inspection-finding-verifiedResolved",
+    "aggregateVersion": 7,
+    "result": {
+      "campaignId": "campaign",
+      "findingId": "finding",
+      "findingVersion": 3,
+      "observationId": "followup",
+      "outcome": "resolved",
+      "status": "verifiedResolved"
+    },
+    "appliedAt": "2026-09-12T10:00:00.000Z"
+  },
+  "documents": [
+    [
+      "users/si",
+      {
+        "name": "SI",
+        "roles": [
+          "si"
+        ],
+        "isApproved": true
+      }
+    ],
+    [
+      "inspection_campaigns/campaign",
+      {
+        "schemaVersion": 2,
+        "campaignId": "campaign",
+        "version": 7,
+        "status": "open",
+        "observerRoleKeys": [
+          "si"
+        ]
+      }
+    ],
+    [
+      "inspection_findings/finding",
+      {
+        "schemaVersion": 1,
+        "findingId": "finding",
+        "campaignId": "campaign",
+        "version": 3,
+        "verificationCount": 1,
+        "status": "verifiedResolved",
+        "targetKey": "furnace7-burner2",
+        "currentObservationId": "followup",
+        "firstObservedAt": "2026-09-12T08:00:00.000Z",
+        "latestObservedAt": "2026-09-12T09:00:00.000Z",
+        "linkedTicketId": "ticket",
+        "lastVerificationId": "legacy-accepted-verification",
+        "lastVerifiedObservationId": "followup",
+        "lastVerificationOutcome": "resolved",
+        "updatedAt": "2026-09-12T10:00:00.000Z",
+        "updatedByUid": "si",
+        "updatedByName": "SI"
+      }
+    ],
+    [
+      "inspection_observations/followup",
+      {
+        "schemaVersion": 1,
+        "observationId": "followup",
+        "campaignId": "campaign",
+        "targetKey": "furnace7-burner2",
+        "observedAt": "2026-09-12T09:00:00.000Z",
+        "outOfRange": false
+      }
+    ],
+    [
+      "maintenance_records/ticket",
+      {
+        "firestoreId": "ticket",
+        "version": 3,
+        "isResolved": true,
+        "isDeleted": false,
+        "status": "closedWithoutResolution",
+        "issueClosureSchemaVersion": 1,
+        "issueClosureDisposition": "stillRelevant"
+      }
+    ],
+    [
+      "inspection_verifications/legacy-accepted-verification",
+      {
+        "schemaVersion": 1,
+        "verificationId": "legacy-accepted-verification",
+        "findingId": "finding",
+        "campaignId": "campaign",
+        "observationId": "followup",
+        "outcome": "resolved",
+        "reason": "Historical accepted verification",
+        "verifiedAt": "2026-09-12T10:00:00.000Z",
+        "verifiedByUid": "si",
+        "verifiedByName": "SI"
+      }
+    ],
+    [
+      "inspection_finding_events/legacy-accepted-verification",
+      {
+        "schemaVersion": 1,
+        "eventId": "legacy-accepted-verification",
+        "findingId": "finding",
+        "campaignId": "campaign",
+        "operation": "verify",
+        "previousStatus": "awaitingVerification",
+        "resultingStatus": "verifiedResolved",
+        "observationId": "followup",
+        "outcome": "resolved",
+        "performedAt": "2026-09-12T10:00:00.000Z",
+        "performedByUid": "si",
+        "performedByName": "SI"
+      }
+    ],
+    [
+      "maintenance_workflow_command_receipts/legacy-accepted-verification",
+      {
+        "receiptSchemaVersion": 2,
+        "commandId": "legacy-accepted-verification",
+        "commandType": "verifyInspectionFinding",
+        "aggregateId": "campaign",
+        "actorUid": "si",
+        "authorityScope": {
+          "schemaVersion": 1,
+          "capability": "inspection.observe"
+        },
+        "payloadFingerprint": "sha256:a859ee5ae2ff9ec23a84091c639ca849e4ecbc902419537462b2e70dc728f165",
+        "resultKey": "inspection-finding-verifiedResolved",
+        "aggregateVersion": 7,
+        "result": {
+          "campaignId": "campaign",
+          "findingId": "finding",
+          "findingVersion": 3,
+          "observationId": "followup",
+          "outcome": "resolved",
+          "status": "verifiedResolved"
+        },
+        "appliedAt": "2026-09-12T10:00:00.000Z"
+      }
+    ]
+  ]
+}

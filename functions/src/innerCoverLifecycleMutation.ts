@@ -6,6 +6,9 @@ import {
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {
+  ASSET_CLASS_GUARDS, assetClassGuardId, assetClassGuardValid, nextAssetClassGuard,
+} from "./assetClassMutationGuards";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -1351,6 +1354,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
   const classes = db.collection("asset_classes");
   const assets = db.collection("asset_instances");
   const profiles = db.collection("inner_cover_profiles");
+  const classGuards = db.collection(ASSET_CLASS_GUARDS);
   const assignments = db.collection("base_inner_cover_assignments");
   const linkages = db.collection("inner_cover_linkages");
   const serialClaims = db.collection("inner_cover_serial_claims");
@@ -1398,6 +1402,31 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
     const currentProfile = profileDocument.exists ? requireProfile(
       profileDocument.data() ?? {}, request.innerCoverId, "Inner Cover",
     ) : null;
+    // Registration and return from salvage introduce live serial inventory.
+    // Serialize them against class retirement, including an initially empty pool.
+    const introducesLiveInventory = request.operation === "REGISTER_INNER_COVER" ||
+      (request.operation === "SET_INNER_COVER_STATE" &&
+        currentProfile?.lifecycleState === "retiredForSalvage" &&
+        request.targetState === "awaitingInspection");
+    const inventoryClassId = request.operation === "REGISTER_INNER_COVER" ?
+      request.innerCoverAssetClassId! : currentProfile?.assetClassId as string;
+    const inventoryGuardRef = introducesLiveInventory ?
+      classGuards.doc(assetClassGuardId("serialInventory", inventoryClassId)) : null;
+    let inventoryGuard: JsonMap | null = null;
+    if (inventoryGuardRef != null) {
+      const guardSnapshot = await transaction.get(inventoryGuardRef);
+      inventoryGuard = guardSnapshot.exists ? guardSnapshot.data() ?? {} : null;
+      if (inventoryGuard != null &&
+          !assetClassGuardValid(inventoryGuard, "serialInventory", inventoryClassId)) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "The asset-class inventory guard needs reconciliation.",
+          {reasonCode: "asset-class-guard-malformed"},
+        );
+      }
+      requireInnerCoverClass(record(
+        await transaction.get(classes.doc(inventoryClassId)), "Inner Cover asset class",
+      ), inventoryClassId);
+    }
     const displacedRef = request.displacedInnerCoverId == null ? null :
       profiles.doc(request.displacedInnerCoverId);
     const displacedSnapshot = displacedRef == null ? null :
@@ -2094,6 +2123,11 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       }
     }
 
+    if (inventoryGuardRef != null) {
+      transaction.set(inventoryGuardRef, nextAssetClassGuard(
+        inventoryGuard, "serialInventory", inventoryClassId, request.requestId,
+      ));
+    }
     const auditData: JsonMap = {
       schemaVersion: 1,
       auditId,

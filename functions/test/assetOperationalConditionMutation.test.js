@@ -229,6 +229,12 @@ async function invoke(memory, authUid, data) {
 }
 
 describe('asset operational condition mutation', () => {
+  test('class display rename does not change the stable operational identity', async () => {
+    const m = fakeDb(baseSeed());
+    m.store.get(`asset_classes/${IDS.class}`).name = 'BAF Heating Furnaces';
+    expect((await invoke(m, 'ops-1', declareRequest())).ok).toBe(true);
+  });
+
   test('historical acceptance remains readable with missing current projection', async () => {
     const memory = fakeDb(baseSeed());
     const first = await invoke(memory, 'ops-1', declareRequest());

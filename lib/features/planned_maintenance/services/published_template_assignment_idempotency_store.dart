@@ -72,6 +72,16 @@ class PublishedTemplateAssignmentIdempotencyStore {
     Future<SharedPreferences> Function()? preferencesLoader,
   }) : _preferencesLoader = preferencesLoader ?? SharedPreferences.getInstance;
 
+  /// Migration reads preserve the old hash-only evidence exactly. It cannot be
+  /// reconstructed into a dispatchable full assignment by the current account.
+  Future<List<RetainedRequestBytes>> rawEvidence(String actorUid) =>
+      _serial(() async {
+        final actor = _required(actorUid, 'actorUid');
+        final preferences = await _preferencesLoader();
+        await preferences.reload();
+        return _journal(actor).rawEvidence(preferences);
+      });
+
   Future<PublishedTemplateAssignmentPendingIdentity> resolve({
     required String actorUid,
     required String payloadFingerprint,

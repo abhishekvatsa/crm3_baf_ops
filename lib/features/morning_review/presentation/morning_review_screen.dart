@@ -10,6 +10,9 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
+import '../../../core/persistence/durable_submission.dart';
 import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../domain/morning_review_models.dart';
 import '../domain/morning_review_report.dart';
@@ -17,6 +20,9 @@ import '../providers/morning_review_providers.dart';
 import '../services/morning_review_command_service.dart';
 import 'morning_review_agenda_view.dart';
 import 'morning_review_editors.dart';
+import 'saved_morning_review_change_panel.dart';
+
+part 'morning_review_screen.commands.dart';
 
 class MorningReviewScreen extends ConsumerStatefulWidget {
   const MorningReviewScreen({super.key});
@@ -29,26 +35,30 @@ class MorningReviewScreen extends ConsumerStatefulWidget {
 class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
   bool _busy = false;
   String? _reconciliationScheduledFor;
+  DurableSubmission? _savedChange;
+  String? _savedChangeError;
+
+  void _update(VoidCallback action) => setState(action);
 
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     return actorAsync.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Morning Review',
-            appBarSubtitle: 'Daily plant coordination and action ownership',
-            appBarIcon: Icons.groups_2_outlined,
-            label: 'Loading review authority',
-          ),
-      error:
-          (error, _) => BafScreenStateScaffold.error(
-            appBarTitle: 'Morning Review',
-            appBarSubtitle: 'Daily plant coordination and action ownership',
-            appBarIcon: Icons.groups_2_outlined,
-            message: '$error',
-            onRetry: () => ref.invalidate(currentAppUserProvider),
-          ),
+      skipLoadingOnRefresh: false,
+      skipError: false,
+      loading: () => BafScreenStateScaffold.loading(
+        appBarTitle: 'Morning Review',
+        appBarSubtitle: 'Daily plant coordination and action ownership',
+        appBarIcon: Icons.groups_2_outlined,
+        label: 'Loading review authority',
+      ),
+      error: (error, _) => BafScreenStateScaffold.error(
+        appBarTitle: 'Morning Review',
+        appBarSubtitle: 'Daily plant coordination and action ownership',
+        appBarIcon: Icons.groups_2_outlined,
+        message: '$error',
+        onRetry: () => ref.invalidate(currentAppUserProvider),
+      ),
       data: (actor) {
         if (actor == null || !actor.canViewMorningReview) {
           return const BafScreenStateScaffold(
@@ -67,53 +77,6 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
         return _buildAuthorized(context, actor);
       },
     );
-  }
-
-  void _schedulePendingReconciliation(AppUser actor) {
-    if (_reconciliationScheduledFor == actor.uid) return;
-    _reconciliationScheduledFor = actor.uid;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_reconcilePending(actor.uid));
-    });
-  }
-
-  Future<void> _reconcilePending(String actorUid) async {
-    if (_busy) {
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      if (!mounted || _reconciliationScheduledFor != actorUid) return;
-      return _reconcilePending(actorUid);
-    }
-    setState(() => _busy = true);
-    try {
-      final result =
-          await ref
-              .read(morningReviewCommandServiceProvider)
-              .reconcilePending();
-      if (!mounted ||
-          _reconciliationScheduledFor != actorUid ||
-          result == null) {
-        return;
-      }
-      _refreshSession(result.sessionId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'A previously submitted Morning Review change was confirmed.',
-          ),
-          backgroundColor: BafColors.success,
-        ),
-      );
-    } on MorningReviewCommandException catch (error) {
-      if (!mounted || _reconciliationScheduledFor != actorUid) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Widget _buildAuthorized(BuildContext context, AppUser actor) {
@@ -149,16 +112,24 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
             Tab(icon: Icon(Icons.picture_as_pdf_outlined), text: 'Archive'),
           ],
         ),
-        body: sessionAsync.when(
-          loading:
-              () => const BafLoadingPanel(label: 'Loading today\'s review'),
-          error:
-              (error, _) =>
-                  BafStatePanel.error(message: '$error', onPrimary: _refresh),
-          data:
-              (session) =>
-                  session == null
-                      ? _NoSessionTabs(
+        body: Column(
+          children: [
+            if (_savedChange != null || _savedChangeError != null)
+              SavedMorningReviewChangePanel(
+                saved: _savedChange,
+                error: _savedChangeError,
+                busy: _busy,
+                onCheck: () => unawaited(_reconcilePending(actor.uid)),
+                onCancelNeverSent: () => unawaited(_cancelUnsentChange()),
+              ),
+            Expanded(
+              child: sessionAsync.when(
+                loading: () =>
+                    const BafLoadingPanel(label: 'Loading today\'s review'),
+                error: (error, _) =>
+                    BafStatePanel.error(message: '$error', onPrimary: _refresh),
+                data: (session) => session == null
+                    ? _NoSessionTabs(
                         actor: actor,
                         busy: _busy,
                         recentAsync: recentAsync,
@@ -180,6 +151,9 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                         concernsAsync: concernsAsync,
                         assets: assets,
                       ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -336,317 +310,6 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _startReview() => _runCommand(
-    () => ref.read(morningReviewCommandServiceProvider).start(),
-    success: 'Morning Review opened. You are the facilitator.',
-  );
-
-  Future<void> _joinReview(String sessionId) => _runCommand(
-    () => ref.read(morningReviewCommandServiceProvider).join(sessionId),
-    success: 'Attendance recorded. You can now contribute.',
-    sessionId: sessionId,
-  );
-
-  Future<void> _recordNotHeld() async {
-    final reason = await showMorningReviewTextPrompt(
-      context,
-      title: 'Record review not held',
-      label: 'Reason',
-      actionLabel: 'Record not held',
-      supportingText:
-          'This creates the single governed record for today and a viewable PDF record.',
-      maximum: 1600,
-    );
-    if (reason == null) return;
-    await _runCommand(
-      () => ref.read(morningReviewCommandServiceProvider).recordNotHeld(reason),
-      success: 'Today has been recorded as not held.',
-    );
-  }
-
-  Future<void> _addEntry({
-    required AppUser actor,
-    required MorningReviewSession session,
-    required List<AssetInstanceRecord> assets,
-    MorningReviewSourceFact? sourceFact,
-  }) async {
-    final kinds = <MorningReviewEntryKind>[
-      MorningReviewEntryKind.update,
-      MorningReviewEntryKind.observation,
-      MorningReviewEntryKind.plan,
-      MorningReviewEntryKind.blocker,
-      MorningReviewEntryKind.decision,
-      MorningReviewEntryKind.idea,
-      MorningReviewEntryKind.remainingCompliance,
-      MorningReviewEntryKind.safetyConcern,
-      if (actor.canProvideMorningReviewMaintenanceUpdate) ...[
-        MorningReviewEntryKind.currentCompliance,
-        MorningReviewEntryKind.maintenanceUpdate,
-      ],
-      if (session.facilitatorUid == actor.uid || actor.isAdmin)
-        MorningReviewEntryKind.conclusion,
-    ];
-    final entry = await showMorningReviewEntryEditor(
-      context,
-      assets: assets,
-      allowedKinds: kinds,
-      sourceFact: sourceFact,
-      initialKind:
-          sourceFact?.section == MorningReviewSection.safety
-              ? MorningReviewEntryKind.safetyConcern
-              : null,
-    );
-    if (entry == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .addEntry(sessionId: session.sessionId, entry: entry),
-      success: 'Contribution added under your name.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _addAddendum({
-    required MorningReviewSession session,
-    required List<AssetInstanceRecord> assets,
-  }) async {
-    final entry = await showMorningReviewEntryEditor(
-      context,
-      assets: assets,
-      allowedKinds: const [MorningReviewEntryKind.addendum],
-      initialKind: MorningReviewEntryKind.addendum,
-    );
-    if (entry == null || !mounted) return;
-    final reason = await showMorningReviewTextPrompt(
-      context,
-      title: 'Reason for addendum',
-      label: 'Why the frozen record needs this clarification',
-      actionLabel: 'Append addendum',
-      maximum: 1600,
-    );
-    if (reason == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .addAddendum(
-            sessionId: session.sessionId,
-            entry: entry,
-            reason: reason,
-          ),
-      success:
-          'Attributed addendum appended without changing the frozen record.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _createAction({
-    required MorningReviewSession session,
-    required List<AssetInstanceRecord> assets,
-    required List<MorningReviewParticipant> participants,
-  }) async {
-    final action = await showMorningReviewActionEditor(
-      context,
-      assets: assets,
-      participants: participants,
-    );
-    if (action == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .createAction(sessionId: session.sessionId, action: action),
-      success: 'Owned action created.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _acceptAction(MorningReviewAction action) => _runCommand(
-    () => ref
-        .read(morningReviewCommandServiceProvider)
-        .acceptAction(sessionId: action.sessionId, action: action),
-    success: 'Action accepted.',
-    sessionId: action.sessionId,
-  );
-
-  Future<void> _completeAction(MorningReviewAction action) async {
-    final note = await showMorningReviewTextPrompt(
-      context,
-      title: 'Complete action',
-      label: 'Completion evidence or outcome',
-      actionLabel: 'Mark completed',
-      maximum: 1600,
-    );
-    if (note == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .completeAction(
-            sessionId: action.sessionId,
-            action: action,
-            note: note,
-          ),
-      success: 'Action completed with attributed evidence.',
-      sessionId: action.sessionId,
-    );
-  }
-
-  Future<void> _addStandingConcern(MorningReviewSession session) async {
-    final concern = await showMorningReviewStandingConcernEditor(context);
-    if (concern == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .createStandingConcern(
-            sessionId: session.sessionId,
-            concern: concern,
-          ),
-      success: 'Standing concern will carry until formally resolved.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _checkStandingConcern(
-    MorningReviewSession session,
-    MorningReviewStandingConcern concern,
-  ) async {
-    final input = await showMorningReviewConcernCheckEditor(
-      context,
-      concern: concern,
-    );
-    if (input == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .checkStandingConcern(
-            sessionId: session.sessionId,
-            concern: concern,
-            state: input.state,
-            note: input.note,
-          ),
-      success: 'Today\'s standing-concern check recorded.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _resolveStandingConcern(
-    MorningReviewSession session,
-    MorningReviewStandingConcern concern,
-  ) async {
-    final reason = await showMorningReviewTextPrompt(
-      context,
-      title: 'Resolve standing concern',
-      label: 'Resolution evidence',
-      actionLabel: 'Resolve concern',
-      maximum: 1600,
-    );
-    if (reason == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .resolveStandingConcern(
-            sessionId: session.sessionId,
-            concern: concern,
-            reason: reason,
-          ),
-      success: 'Standing concern resolved.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _takeOver(MorningReviewSession session) async {
-    final reason = await showMorningReviewTextPrompt(
-      context,
-      title: 'Take over facilitation',
-      label: 'Reason for controlled takeover',
-      actionLabel: 'Take over',
-      maximum: 1600,
-    );
-    if (reason == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .takeOver(session: session, reason: reason),
-      success: 'You are now the recorded facilitator.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _finalize(MorningReviewSession session) async {
-    final summary = await showMorningReviewTextPrompt(
-      context,
-      title: 'Finalize Morning Review',
-      label: 'Room conclusion and forward plan',
-      actionLabel: 'Finalize meeting',
-      supportingText:
-          'This freezes the source snapshot, contributions, attendance and current action register into the meeting document.',
-    );
-    if (summary == null) return;
-    await _runCommand(
-      () => ref
-          .read(morningReviewCommandServiceProvider)
-          .finalize(session: session, summary: summary),
-      success: 'Meeting finalized. The PDF record is now available.',
-      sessionId: session.sessionId,
-    );
-  }
-
-  Future<void> _runCommand(
-    Future<MorningReviewCommandResult> Function() command, {
-    required String success,
-    String? sessionId,
-  }) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await command();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success), backgroundColor: BafColors.success),
-      );
-      _refreshSession(sessionId);
-    } on MorningReviewCommandException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Morning Review could not be updated: $error'),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _refresh() {
-    final actorUid = ref.read(currentAppUserProvider).value?.uid;
-    _refreshSession(
-      ref.read(currentMorningReviewSessionProvider).value?.sessionId,
-    );
-    if (actorUid != null) unawaited(_reconcilePending(actorUid));
-  }
-
-  void _refreshSession(String? sessionId) {
-    ref.invalidate(morningReviewPlantDayProvider);
-    ref.invalidate(currentMorningReviewSessionProvider);
-    ref.invalidate(recentMorningReviewSessionsProvider);
-    ref.invalidate(activeMorningReviewActionsProvider);
-    ref.invalidate(morningReviewStandingConcernsProvider);
-    if (sessionId != null) {
-      ref.invalidate(morningReviewParticipantsProvider(sessionId));
-      ref.invalidate(morningReviewEntriesProvider(sessionId));
-      ref.invalidate(morningReviewActionsProvider(sessionId));
-      ref.invalidate(morningReviewConcernChecksProvider(sessionId));
-      ref.invalidate(morningReviewDocumentProvider(sessionId));
-    }
   }
 
   void _openArchive(String sessionId) {
@@ -1129,45 +792,43 @@ class _PeopleBoundary extends StatelessWidget {
   Widget build(BuildContext context) => participantsAsync.when(
     loading: () => const BafLoadingPanel(label: 'Loading attendance'),
     error: (error, _) => BafStatePanel.error(message: '$error'),
-    data:
-        (participants) => ListView(
-          children: [
-            BafContentFrame(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  BafScreenIntro(
-                    title: 'Explicit attendance',
-                    subtitle:
-                        'Only users who select Join appear in the meeting record.',
-                    icon: Icons.how_to_reg_outlined,
-                    accent: BafColors.cobalt,
-                    trailing:
-                        session.isOpen && !joined
-                            ? FilledButton.icon(
-                              onPressed: busy ? null : onJoin,
-                              icon: const Icon(Icons.how_to_reg_outlined),
-                              label: const Text('Join review'),
-                            )
-                            : null,
-                  ),
-                  const SizedBox(height: BafSpacing.xl),
-                  ...participants.map(
-                    (participant) => Padding(
-                      padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                      child: _ParticipantCard(
-                        participant: participant,
-                        isFacilitator:
-                            participant.userUid == session.facilitatorUid,
-                        isCurrentUser: participant.userUid == actor.uid,
-                      ),
-                    ),
-                  ),
-                ],
+    data: (participants) => ListView(
+      children: [
+        BafContentFrame(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BafScreenIntro(
+                title: 'Explicit attendance',
+                subtitle:
+                    'Only users who select Join appear in the meeting record.',
+                icon: Icons.how_to_reg_outlined,
+                accent: BafColors.cobalt,
+                trailing: session.isOpen && !joined
+                    ? FilledButton.icon(
+                        onPressed: busy ? null : onJoin,
+                        icon: const Icon(Icons.how_to_reg_outlined),
+                        label: const Text('Join review'),
+                      )
+                    : null,
               ),
-            ),
-          ],
+              const SizedBox(height: BafSpacing.xl),
+              ...participants.map(
+                (participant) => Padding(
+                  padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                  child: _ParticipantCard(
+                    participant: participant,
+                    isFacilitator:
+                        participant.userUid == session.facilitatorUid,
+                    isCurrentUser: participant.userUid == actor.uid,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ],
+    ),
   );
 }
 
@@ -1181,93 +842,86 @@ class _ArchiveTab extends StatelessWidget {
   Widget build(BuildContext context) => recentAsync.when(
     loading: () => const BafLoadingPanel(label: 'Loading meeting records'),
     error: (error, _) => BafStatePanel.error(message: '$error'),
-    data:
-        (sessions) => ListView(
-          children: [
-            BafContentFrame(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const BafScreenIntro(
-                    title: 'Recent meeting records',
-                    subtitle:
-                        'Final records remain available for 14 days after finalization.',
-                    icon: Icons.picture_as_pdf_outlined,
-                    accent: BafColors.audit,
-                  ),
-                  const SizedBox(height: BafSpacing.xl),
-                  if (sessions.isEmpty)
-                    BafStatePanel.empty(
-                      title: 'No retained meeting records',
-                      message:
-                          'Finalized and not-held records will appear here during their retention period.',
-                      icon: Icons.inventory_2_outlined,
-                      color: BafColors.audit,
-                    )
-                  else
-                    ...sessions.map(
-                      (session) => Padding(
-                        padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                        child: BafRecordSurface(
-                          onTap:
-                              session.isOpen
-                                  ? null
-                                  : () => onOpen(session.sessionId),
-                          accent:
-                              session.isOpen
-                                  ? BafColors.success
-                                  : session.status ==
-                                      MorningReviewStatus.notHeld
-                                  ? BafColors.warning
-                                  : BafColors.audit,
-                          child: Row(
-                            children: [
-                              Icon(
-                                session.isOpen
-                                    ? Icons.radio_button_checked
-                                    : session.status ==
-                                        MorningReviewStatus.notHeld
-                                    ? Icons.event_busy_outlined
-                                    : Icons.picture_as_pdf_outlined,
-                              ),
-                              const SizedBox(width: BafSpacing.md),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      session.plantDay,
-                                      style:
-                                          Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      session.status ==
-                                              MorningReviewStatus.notHeld
-                                          ? 'Not held · ${session.finalSummary}'
-                                          : session.isOpen
-                                          ? 'Live · ${session.facilitatorName}'
-                                          : 'Finalized by ${session.finalizedByName}',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!session.isOpen)
-                                const Icon(Icons.chevron_right_rounded),
-                            ],
+    data: (sessions) => ListView(
+      children: [
+        BafContentFrame(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const BafScreenIntro(
+                title: 'Recent meeting records',
+                subtitle:
+                    'Final records remain available for 14 days after finalization.',
+                icon: Icons.picture_as_pdf_outlined,
+                accent: BafColors.audit,
+              ),
+              const SizedBox(height: BafSpacing.xl),
+              if (sessions.isEmpty)
+                BafStatePanel.empty(
+                  title: 'No retained meeting records',
+                  message:
+                      'Finalized and not-held records will appear here during their retention period.',
+                  icon: Icons.inventory_2_outlined,
+                  color: BafColors.audit,
+                )
+              else
+                ...sessions.map(
+                  (session) => Padding(
+                    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                    child: BafRecordSurface(
+                      onTap: session.isOpen
+                          ? null
+                          : () => onOpen(session.sessionId),
+                      accent: session.isOpen
+                          ? BafColors.success
+                          : session.status == MorningReviewStatus.notHeld
+                          ? BafColors.warning
+                          : BafColors.audit,
+                      child: Row(
+                        children: [
+                          Icon(
+                            session.isOpen
+                                ? Icons.radio_button_checked
+                                : session.status == MorningReviewStatus.notHeld
+                                ? Icons.event_busy_outlined
+                                : Icons.picture_as_pdf_outlined,
                           ),
-                        ),
+                          const SizedBox(width: BafSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  session.plantDay,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  session.status == MorningReviewStatus.notHeld
+                                      ? 'Not held · ${session.finalSummary}'
+                                      : session.isOpen
+                                      ? 'Live · ${session.facilitatorName}'
+                                      : 'Finalized by ${session.finalizedByName}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!session.isOpen)
+                            const Icon(Icons.chevron_right_rounded),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ),
-          ],
+                  ),
+                ),
+            ],
+          ),
         ),
+      ],
+    ),
   );
 }
 
@@ -1306,12 +960,9 @@ class MorningReviewRecordScreen extends ConsumerWidget {
           if (entriesAsync.hasError) {
             return BafStatePanel.error(message: '${entriesAsync.error}');
           }
-          final addenda =
-              (entriesAsync.value ?? const <MorningReviewEntry>[])
-                  .where(
-                    (entry) => entry.kind == MorningReviewEntryKind.addendum,
-                  )
-                  .toList();
+          final addenda = (entriesAsync.value ?? const <MorningReviewEntry>[])
+              .where((entry) => entry.kind == MorningReviewEntryKind.addendum)
+              .toList();
           return ListView(
             children: [
               BafContentFrame(

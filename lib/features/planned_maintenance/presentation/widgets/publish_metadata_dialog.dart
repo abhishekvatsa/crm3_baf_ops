@@ -81,22 +81,25 @@ class PublishMetadataDialog extends StatefulWidget {
     String? initialPackageFirestoreId,
     TemplateVersion? initialVersion,
     bool hasUnsavedComposerChanges = false,
+    Widget Function(Widget)? guard,
   }) {
     return showDialog<PublishMetadataDialogResult>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (_) => PublishMetadataDialog(
-            actor: actor,
-            draft: draft,
-            existingPackages: existingPackages,
-            actions: actions,
-            initialPackageCode: initialPackageCode,
-            initialPackageTitle: initialPackageTitle,
-            initialPackageFirestoreId: initialPackageFirestoreId,
-            initialVersion: initialVersion,
-            hasUnsavedComposerChanges: hasUnsavedComposerChanges,
-          ),
+      builder: (_) {
+        final dialog = PublishMetadataDialog(
+          actor: actor,
+          draft: draft,
+          existingPackages: existingPackages,
+          actions: actions,
+          initialPackageCode: initialPackageCode,
+          initialPackageTitle: initialPackageTitle,
+          initialPackageFirestoreId: initialPackageFirestoreId,
+          initialVersion: initialVersion,
+          hasUnsavedComposerChanges: hasUnsavedComposerChanges,
+        );
+        return guard?.call(dialog) ?? dialog;
+      },
     );
   }
 
@@ -317,13 +320,9 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
   }
 
   Future<TemplatePackage> _ensurePackage() async {
-    final package =
-        _createNewPackage
-            ? buildTemplatePackageForPublish(
-              input: _input(),
-              actor: widget.actor,
-            )
-            : _selectedPackage!;
+    final package = _createNewPackage
+        ? buildTemplatePackageForPublish(input: _input(), actor: widget.actor)
+        : _selectedPackage!;
     final resumedPackageId = widget.initialVersion?.packageFirestoreId?.trim();
     if (resumedPackageId != null &&
         resumedPackageId.isNotEmpty &&

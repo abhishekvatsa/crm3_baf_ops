@@ -11,6 +11,7 @@ import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
@@ -20,6 +21,9 @@ import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/inspection_campaign.dart';
 import '../domain/inspection_campaign_report.dart';
 import '../providers/inspection_provider.dart';
+import '../providers/inspection_campaign_submission_provider.dart';
+import '../domain/inspection_campaign_submission.dart';
+import 'saved_inspection_campaign_panel.dart';
 
 part 'inspection_programmes_editors.dart';
 part 'inspection_programmes_audit_board.dart';
@@ -89,11 +93,18 @@ class _InspectionProgrammeBody extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Column(
           children: [
-            _CampaignList(actor: actor, closed: false),
-            _CampaignList(actor: actor, closed: true),
-            _DefinitionList(actor: actor),
+            const SavedInspectionCampaignPanel(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _CampaignList(actor: actor, closed: false),
+                  _CampaignList(actor: actor, closed: true),
+                  _DefinitionList(actor: actor),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1915,30 +1926,67 @@ Future<void> _createCampaign(
   List<BaseInnerCoverAssignment> innerCoverAssignments,
   List<InspectionCampaign> closedCampaigns,
 ) async {
-  final draft = await showDialog<_InspectionCampaignDraft>(
-    context: context,
-    builder: (_) => _InspectionCampaignEditor(
-      definitions: definitions.where((item) => item.isActive).toList(),
-      assets: assets.where((item) => item.isActive).toList(),
-      assetClasses: assetClasses.where((item) => item.isActive).toList(),
-      innerCovers: innerCovers,
-      innerCoverAssignments: innerCoverAssignments,
-      closedCampaigns: closedCampaigns,
-    ),
-  );
-  if (draft == null || !context.mounted) return;
-  await _runInspectionCommand(
-    context,
-    ref,
-    WorkflowCommand(
-      commandId: 'createInspectionCampaign_${const Uuid().v4()}',
-      type: WorkflowCommandType.createInspectionCampaign,
-      aggregateId: 'inspection-campaign-${const Uuid().v4()}',
-      expectedVersion: 0,
+  final container = ProviderScope.containerOf(context, listen: false);
+  try {
+    final access = CurrentActorAccess.resolve(
+      container.read(currentAppUserProvider),
+    );
+    if (!access.isReady || !access.actor!.canManageInspectionCampaigns) {
+      throw const InspectionCampaignSubmissionException(
+        'Verify your programme manager account before continuing.',
+      );
+    }
+    final actorUid = access.actor!.uid;
+    final controller = container.read(
+      inspectionCampaignSubmissionControllerProvider,
+    );
+    final existing = await controller.restore();
+    if (!context.mounted) return;
+    if (existing != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => SavedInspectionCampaignDialog(submission: existing),
+      );
+      return;
+    }
+    final draft = await showDialog<_InspectionCampaignDraft>(
+      context: context,
+      builder: (_) => _InspectionCampaignEditor(
+        definitions: definitions.where((item) => item.isActive).toList(),
+        assets: assets.where((item) => item.isActive).toList(),
+        assetClasses: assetClasses.where((item) => item.isActive).toList(),
+        innerCovers: innerCovers,
+        innerCoverAssignments: innerCoverAssignments,
+        closedCampaigns: closedCampaigns,
+      ),
+    );
+    if (draft == null || !context.mounted) return;
+    final saved = await controller.prepare(
+      originActorUid: actorUid,
       payload: draft.toPayload(),
-    ),
-    'Inspection campaign opened.',
-  );
+      definitionCode: draft.definition.frozen.code,
+      definitionTitle: draft.definition.frozen.title,
+    );
+    container.invalidate(pendingInspectionCampaignSubmissionProvider);
+    await controller.check(saved.submissionId);
+    container.invalidate(inspectionCampaignsProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inspection programme confirmed.')),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(inspectionCampaignSubmissionMessage(error)),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
+  } finally {
+    container.invalidate(pendingInspectionCampaignSubmissionProvider);
+  }
 }
 
 Future<void> _deleteUnusedCampaign(

@@ -1,31 +1,90 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../../core/persistence/durable_submission.dart';
 
 import '../domain/workflow_command_contract.dart';
 import '../domain/workflow_error.dart';
 
 const maintenanceWorkflowCallableName = 'executeMaintenanceWorkflowCommand';
 const maintenanceWorkflowCallableRegion = 'asia-south1';
+const maintenanceWorkflowV2CallableName = 'executeMaintenanceWorkflowCommandV2';
 
 abstract interface class WorkflowCommandGateway {
   Future<WorkflowCommandReceipt> execute(WorkflowCommand command);
 }
 
-class FirebaseWorkflowCommandGateway implements WorkflowCommandGateway {
+abstract interface class OriginBoundWorkflowCommandGateway {
+  Future<WorkflowCommandReceipt> executeOriginBoundEnvelope(
+    String envelopeJson,
+  );
+}
+
+class FirebaseWorkflowCommandGateway
+    implements WorkflowCommandGateway, OriginBoundWorkflowCommandGateway {
   final FirebaseFunctions? functions;
-  const FirebaseWorkflowCommandGateway({this.functions});
+  final String? Function()? currentActorUid;
+  const FirebaseWorkflowCommandGateway({this.functions, this.currentActorUid});
 
   FirebaseFunctions get _client =>
       functions ??
       FirebaseFunctions.instanceFor(region: maintenanceWorkflowCallableRegion);
 
   @override
-  Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
+  Future<WorkflowCommandReceipt> execute(WorkflowCommand command) => _execute(
+    maintenanceWorkflowCallableName,
+    command.toMap(),
+    command.commandId,
+  );
+
+  /// Consume the saved wrapper, never attach today's account to a prior draft.
+  /// This transport creates no second local command/retry owner.
+  @override
+  Future<WorkflowCommandReceipt> executeOriginBoundEnvelope(
+    String envelopeJson,
+  ) {
+    final envelope = durableSubmissionJsonObject(envelopeJson);
+    final command = envelope['command'];
+    final origin = envelope['originActorUid'];
+    if (envelope.length != 3 ||
+        envelope['protocolVersion'] != 2 ||
+        origin is! String ||
+        origin.trim().isEmpty ||
+        origin != origin.trim() ||
+        command is! Map<String, dynamic> ||
+        command['commandId'] is! String) {
+      throw const WorkflowException(
+        WorkflowErrorCode.invalidArgument,
+        'The saved command does not prove its original account. Nothing was sent.',
+      );
+    }
+    final liveActor = currentActorUid == null
+        ? FirebaseAuth.instance.currentUser?.uid
+        : currentActorUid!();
+    if (liveActor != origin) {
+      throw const WorkflowException(
+        WorkflowErrorCode.permissionDenied,
+        'Return to the account that saved this command before checking it.',
+      );
+    }
+    return _execute(
+      maintenanceWorkflowV2CallableName,
+      envelope,
+      command['commandId'] as String,
+    );
+  }
+
+  Future<WorkflowCommandReceipt> _execute(
+    String callableName,
+    Map<String, Object?> envelope,
+    String commandId,
+  ) async {
     try {
       final response = await _client
-          .httpsCallable(maintenanceWorkflowCallableName)
-          .call<Map<String, dynamic>>(command.toMap());
+          .httpsCallable(callableName)
+          .call<Map<String, dynamic>>(envelope);
       final receipt = WorkflowCommandReceipt.fromMap(response.data);
-      if (receipt.commandId != command.commandId) {
+      if (receipt.commandId != commandId) {
         throw const FormatException(
           'Workflow command receipt identity does not match the request.',
         );

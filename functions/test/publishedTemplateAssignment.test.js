@@ -1536,6 +1536,56 @@ describe("published TemplateVersion server assignment", () => {
     expect(fixture.writes).toHaveLength(writeCount);
   });
 
+  test("original assignment replay returns later completed execution/module evidence without new writes", async () => {
+    const fixture = fakeAssignmentDb();
+    const request = requestFixture({remarks: "Original assignment note"});
+    const first = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db, authUid: "supervisor1", data: request,
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    });
+    const requestPath = `published_template_assignment_requests/${REQUEST_ID}`;
+    const originalReceipt = JSON.stringify(fixture.store.get(requestPath));
+    const executionPath = `job_executions/${first.executionId}`;
+    // These are the later mutable fields written by canonicalClosure; the
+    // assignment handler itself is invoked for A and replay A below.
+    fixture.store.set(executionPath, {
+      ...fixture.store.get(executionPath), version: 2, isCompleted: true,
+      completedAt: "2026-06-19T12:00:00.000Z", completedByUid: "si1",
+      remarks: "Verified and completed", updatedAt: "2026-06-19T12:00:00.000Z",
+    });
+    for (const module of first.modules) {
+      const path = `job_modules/${module.firestoreId}`;
+      fixture.store.set(path, {...fixture.store.get(path), version: 2,
+        status: "accepted", acceptanceNote: "Checked by the accountable lane",
+        updatedAt: "2026-06-19T11:59:00.000Z"});
+    }
+    const writes = fixture.writes.length;
+    const replay = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db, authUid: "supervisor1", data: request,
+      now: () => new Date("2026-06-19T13:00:00.000Z"),
+    });
+    expect(replay).toMatchObject({requestId: REQUEST_ID, executionId: first.executionId,
+      idempotentReplay: true, assignedAt: first.assignedAt,
+      execution: {version: 2, isCompleted: true, remarks: "Verified and completed"}});
+    expect(replay.modules.every((module) => module.version === 2 && module.status === "accepted")).toBe(true);
+    expect(fixture.writes).toHaveLength(writes);
+    expect(JSON.stringify(fixture.store.get(requestPath))).toBe(originalReceipt);
+  });
+
+  test.each(["isCancelled", "isDeleted"])("assignment replay preserves current %s instead of reactivating a job", async (terminalFlag) => {
+    const fixture = fakeAssignmentDb();
+    const first = await assignPublishedTemplateVersionWithDb({db: fixture.db,
+      authUid: "supervisor1", data: requestFixture()});
+    const path = `job_executions/${first.executionId}`;
+    fixture.store.set(path, {...fixture.store.get(path), version: 2, [terminalFlag]: true});
+    const writes = fixture.writes.length;
+    const replay = await assignPublishedTemplateVersionWithDb({db: fixture.db,
+      authUid: "supervisor1", data: requestFixture()});
+    expect(replay.execution[terminalFlag]).toBe(true);
+    expect(fixture.store.get(path)[terminalFlag]).toBe(true);
+    expect(fixture.writes).toHaveLength(writes);
+  });
+
   test("replay fails closed when assignment timestamp evidence is absent or corrupt", async () => {
     const fixture = fakeAssignmentDb();
     const first = await assignPublishedTemplateVersionWithDb({

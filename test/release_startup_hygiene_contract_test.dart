@@ -39,12 +39,17 @@ void main() {
       _expectOrder(firebaseBlock, const [
         'await Firebase.initializeApp(',
         'appCheckPlan = await activateCrm3AppCheck();',
+        'await initializeOptionalCrashReporting(',
         'await AppLogger.init(throwOnFailure: true);',
-        'installGlobalCrashReportingHandlers();',
       ]);
       expect(firebaseBlock, contains("stage: 'firebase_initialize'"));
       expect(firebaseBlock, contains("stage: 'app_check_activate'"));
-      expect(firebaseBlock, contains("stage: 'app_logger_init'"));
+      expect(firebaseBlock, isNot(contains("stage: 'app_logger_init'")));
+      expect(
+        _occurrences(firebaseBlock, 'return _captureStartupFailure('),
+        2,
+        reason: 'Firebase and App Check remain required; telemetry is optional.',
+      );
       expect(firebaseBlock, contains("'app_check_enabled'"));
       expect(firebaseBlock, contains("'app_check_provider'"));
     });

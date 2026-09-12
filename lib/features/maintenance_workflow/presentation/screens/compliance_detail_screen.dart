@@ -7,6 +7,7 @@ import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../auth/domain/current_actor_access.dart';
 import '../../data/compliance_request_record.dart';
 import '../../domain/compliance_visibility_policy.dart';
 import '../../domain/workflow_types.dart';
@@ -33,7 +34,9 @@ class _ComplianceDetailScreenState
   bool _openingRevision = false;
 
   Future<void> _openRevisedRequest(ComplianceRequestRecord original) async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
     final id = original.supersededById;
     if (_openingRevision || actor == null || !actor.isApproved || id == null) {
       return;
@@ -47,7 +50,9 @@ class _ComplianceDetailScreenState
         )).future,
       );
       if (!mounted) return;
-      final currentActor = ref.read(currentAppUserProvider).value;
+      final currentActor = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      ).actor;
       if (currentActor == null || currentActor.uid != actor.uid) return;
       if (successor == null ||
           successor.isDeleted ||

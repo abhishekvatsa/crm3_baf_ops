@@ -1,4 +1,5 @@
 import {WorkflowError} from "./errors";
+import {isCompletedCorrectiveMaintenance} from "./correctiveMaintenanceCompletion";
 import {CommandHandler} from "./handlerTypes";
 import {
   buildInspectionTargetPopulation,
@@ -432,10 +433,13 @@ export const verifyInspectionFinding: CommandHandler = async ({
   }
   if (outcome === "resolved" && typeof finding.data.linkedTicketId === "string") {
     const ticket = await tx.get(`maintenance_records/${finding.data.linkedTicketId}`);
-    if (!ticket.exists || ticket.data?.isResolved !== true) {
+    if (!ticket.exists || !isCompletedCorrectiveMaintenance(
+      ticket.data, finding.data.linkedTicketId,
+    )) {
       throw new WorkflowError(
         "failed-precondition",
-        "Linked corrective maintenance must be resolved before verification closure.",
+        "Linked corrective maintenance must be resolved by technical completion and remain undeleted before verification closure.",
+        {reasonCode: "inspection-corrective-maintenance-not-completed"},
       );
     }
   }
@@ -501,6 +505,17 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
   command,
   context,
 }) => {
+  // Dispatcher resolves original accepted receipts before reaching this guard.
+  // Old clients did not record the finding revision their operator reviewed;
+  // the current server revision cannot supply that missing evidence.
+  if (!Object.prototype.hasOwnProperty.call(command.payload, "expectedFindingVersion")) {
+    exactKeys(command.payload, ["findingId", "status", "reason"], "payload");
+    throw new WorkflowError(
+      "failed-precondition", "Update the app and review this finding again before adjudicating it.",
+      {reasonCode: "inspection-finding-client-update-required",
+        requiredCapability: "inspectionFindingExpectedVersion.v1"},
+    );
+  }
   exactKeys(command.payload, [
     "findingId", "expectedFindingVersion", "status", "reason",
   ], "payload");

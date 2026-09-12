@@ -23,6 +23,10 @@ import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/presentation/current_actor_gate.dart';
+
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/governed_issue_asset_selection.dart';
 import '../data/abnormality_model.dart';
@@ -126,74 +130,67 @@ class _ChargeAbnormalitiesScreenState
                 ),
               ),
             ...abnormalitiesAsync.when<List<Widget>>(
-              loading:
-                  () => const [
-                    SliverToBoxAdapter(
-                      child: BafLoadingPanel(
-                        label: 'Loading charge abnormalities',
-                        color: BafColors.charges,
-                      ),
+              loading: () => const [
+                SliverToBoxAdapter(
+                  child: BafLoadingPanel(
+                    label: 'Loading charge abnormalities',
+                    color: BafColors.charges,
+                  ),
+                ),
+              ],
+              error: (err, _) => [
+                SliverToBoxAdapter(
+                  child: _StateCard(
+                    icon: Icons.error_outline_rounded,
+                    title: 'Could not load abnormalities',
+                    message: '$err',
+                    color: BafColors.danger,
+                  ),
+                ),
+              ],
+              data: (records) => [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                    BafSpacing.sm,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _HeaderCard(
+                      sourceChargeNo: widget.sourceChargeNo,
+                      subtitle: widget.subtitle,
+                      total: records.length,
+                      raCount: records
+                          .where((record) => record.requiresReannealing)
+                          .length,
+                      completedRaCount: records
+                          .where((record) => record.hasCompletedReannealing)
+                          .length,
                     ),
-                  ],
-              error:
-                  (err, _) => [
-                    SliverToBoxAdapter(
-                      child: _StateCard(
-                        icon: Icons.error_outline_rounded,
-                        title: 'Could not load abnormalities',
-                        message: '$err',
-                        color: BafColors.danger,
-                      ),
+                  ),
+                ),
+                if (records.isEmpty)
+                  const SliverToBoxAdapter(
+                    child: _StateCard(
+                      icon: Icons.fact_check_outlined,
+                      title: 'No abnormalities logged',
+                      message:
+                          'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
                     ),
-                  ],
-              data:
-                  (records) => [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        BafSpacing.lg,
-                        BafSpacing.lg,
-                        BafSpacing.lg,
-                        BafSpacing.sm,
-                      ),
-                      sliver: SliverToBoxAdapter(
-                        child: _HeaderCard(
-                          sourceChargeNo: widget.sourceChargeNo,
-                          subtitle: widget.subtitle,
-                          total: records.length,
-                          raCount:
-                              records
-                                  .where((record) => record.requiresReannealing)
-                                  .length,
-                          completedRaCount:
-                              records
-                                  .where(
-                                    (record) => record.hasCompletedReannealing,
-                                  )
-                                  .length,
-                        ),
-                      ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      BafSpacing.sm,
+                      BafSpacing.lg,
+                      BafSpacing.lg,
                     ),
-                    if (records.isEmpty)
-                      const SliverToBoxAdapter(
-                        child: _StateCard(
-                          icon: Icons.fact_check_outlined,
-                          title: 'No abnormalities logged',
-                          message:
-                              'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          BafSpacing.lg,
-                          BafSpacing.sm,
-                          BafSpacing.lg,
-                          BafSpacing.lg,
-                        ),
-                        sliver: SliverList.builder(
-                          itemCount: records.length,
-                          itemBuilder: (context, index) {
-                            final record = records[index];
+                    sliver: SliverList.builder(
+                      itemCount: records.length,
+                      itemBuilder: (context, index) {
+                        final record = records[index];
 
                             return _ChargeAbnormalityCard(
                               record: record,
@@ -219,7 +216,9 @@ class _ChargeAbnormalitiesScreenState
   }
 
   Future<void> _showAbnormalityForm({ChargeAbnormality? existing}) async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
 
     final allowed =
         existing == null
@@ -259,20 +258,44 @@ class _ChargeAbnormalitiesScreenState
     }
 
     if (!mounted) return;
+    bool allowedNow(AppUser user) => existing == null
+        ? user.canLogChargeAbnormality
+        : user.canEditChargeAbnormality;
+    if (currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: actor.uid,
+          permission: allowedNow,
+        ) !=
+        null) {
+      return;
+        }
 
     final draft = await showDialog<_ChargeAbnormalityDraft>(
       context: context,
       barrierDismissible: false,
       builder: (_) {
-        return _ChargeAbnormalityFormDialog(
-          sourceChargeNo: widget.sourceChargeNo,
-          activeTypes: activeTypes,
-          existing: existing,
+        return CurrentActorDialogGuard(
+          originUid: actor.uid,
+          permission: allowedNow,
+          child: _ChargeAbnormalityFormDialog(
+            originUid: actor.uid,
+            sourceChargeNo: widget.sourceChargeNo,
+            activeTypes: activeTypes,
+            existing: existing,
+          ),
         );
       },
     );
 
     if (!mounted || draft == null) return;
+    if (currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: actor.uid,
+          permission: allowedNow,
+        ) !=
+        null) {
+      return;
+        }
 
     try {
       final now = DateTime.now();
@@ -373,28 +396,27 @@ class _ChargeAbnormalitiesScreenState
 
       if (!mounted) return;
 
-      final (message, color) =
-          existing != null || record.isSynced
-              ? (
-                existing == null
-                    ? 'Charge abnormality logged and synchronized.'
-                    : 'Charge abnormality updated in the plant system.',
+      final (message, color) = existing != null || record.isSynced
+          ? (
+              existing == null
+                  ? 'Charge abnormality logged and synchronized.'
+                  : 'Charge abnormality updated in the plant system.',
+              BafColors.sync,
+            )
+          : switch (createSyncOutcome!) {
+              SyncRequestOutcome.succeeded => (
+                'Charge abnormality logged and synchronized.',
                 BafColors.sync,
-              )
-              : switch (createSyncOutcome!) {
-                SyncRequestOutcome.succeeded => (
-                  'Charge abnormality logged and synchronized.',
-                  BafColors.sync,
-                ),
-                SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-                  'Charge abnormality saved on this device; synchronization is queued.',
-                  BafColors.warning,
-                ),
-                SyncRequestOutcome.failed => (
-                  'Charge abnormality saved on this device, but cloud synchronization needs attention.',
-                  BafColors.danger,
-                ),
-              };
+              ),
+              SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+                'Charge abnormality saved on this device; synchronization is queued.',
+                BafColors.warning,
+              ),
+              SyncRequestOutcome.failed => (
+                'Charge abnormality saved on this device, but cloud synchronization needs attention.',
+                BafColors.danger,
+              ),
+            };
 
       ScaffoldMessenger.maybeOf(
         context,
@@ -412,7 +434,9 @@ class _ChargeAbnormalitiesScreenState
   }
 
   Future<void> _confirmDelete(ChargeAbnormality record) async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
 
     if (actor == null || !actor.canSoftDeleteChargeAbnormality) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -426,10 +450,22 @@ class _ChargeAbnormalitiesScreenState
 
     final decision = await showDialog<_DeleteDecision>(
       context: context,
-      builder: (_) => const _DeleteAbnormalityDialog(),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canSoftDeleteChargeAbnormality,
+        child: const _DeleteAbnormalityDialog(),
+      ),
     );
 
     if (!mounted || decision == null) return;
+    if (currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: actor.uid,
+          permission: (user) => user.canSoftDeleteChargeAbnormality,
+        ) !=
+        null) {
+      return;
+        }
 
     try {
       if (record.firestoreId == null) {

@@ -62,10 +62,13 @@ void main() {
       contains("'This stale issue was removed from the active device list.'"),
     );
     expect(
-      ticketScreen,
-      contains(
-        'final hasGovernedServerState =\n                  ticket.isSynced',
-      ),
+      RegExp(
+        r'final\s+hasGovernedServerState\s*=\s*ticket\.isSynced\s*&&\s*'
+        r'ticketId\s*!=\s*null\s*&&\s*ticketId\.isNotEmpty\s*;',
+      ).hasMatch(ticketScreen),
+      isTrue,
+      reason:
+          'Governed actions require a synchronized record with a real server identity.',
     );
     expect(ticketScreen, contains("label: 'SYNC PENDING'"));
     expect(

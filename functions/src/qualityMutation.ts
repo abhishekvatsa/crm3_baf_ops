@@ -1598,7 +1598,8 @@ function certifyMonitoringBase(args: {
       typeof assetClass.code !== "string" ||
       typeof assetClass.name !== "string" ||
       asset.assetClassCode !== assetClass.code ||
-      asset.assetClassName !== assetClass.name ||
+      typeof asset.assetClassName !== "string" || asset.assetClassName.trim().length === 0 ||
+      assetClass.name.trim().length === 0 ||
       typeof asset.name !== "string" ||
       !Number.isSafeInteger(asset.version) ||
       (asset.version as number) < 1) {
@@ -1623,6 +1624,93 @@ function certifyMonitoringBase(args: {
   return {instanceVersion};
 }
 
+function monitoringCreationFingerprint(request: ParsedRequest): string {
+  return request.fingerprint.replace("qualityreq1-sha256:", "qualitycreate2-sha256:");
+}
+
+function creationAuditDigest(audit: UserAuthorityJsonMap): string {
+  const {timestamp: _timestamp, ...evidence} = audit;
+  return createHash("sha256").update(stableJson(evidence), "utf8").digest("hex");
+}
+
+// Creation commits are server-generated millisecond instants. Exact evidence
+// checks must not discard malformed string forms or sub-millisecond drift.
+function creationTimeMillis(value: unknown): number {
+  if (value instanceof Date) return value.valueOf();
+  if (typeof value === "string") {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return NaN;
+    const date = new Date(value);
+    return Number.isFinite(date.valueOf()) && date.toISOString() === value ? date.valueOf() : NaN;
+  }
+  if (value == null || typeof value !== "object") return NaN;
+  const raw = value as UserAuthorityJsonMap;
+  const seconds = raw.seconds ?? raw._seconds;
+  const nanos = raw.nanoseconds ?? raw._nanoseconds;
+  if (!Number.isSafeInteger(seconds) || !Number.isSafeInteger(nanos) ||
+      (nanos as number) < 0 || (nanos as number) >= 1_000_000_000 || (nanos as number) % 1_000_000 !== 0 ||
+      (raw.seconds != null && raw._seconds != null && raw.seconds !== raw._seconds) ||
+      (raw.nanoseconds != null && raw._nanoseconds != null && raw.nanoseconds !== raw._nanoseconds)) return NaN;
+  const millis = (seconds as number) * 1000 + (nanos as number) / 1_000_000;
+  return Number.isSafeInteger(millis) && Number.isFinite(new Date(millis).valueOf()) ? millis : NaN;
+}
+
+function replayMonitoringCreation(args: {
+  request: ParsedMonitoringRequest;
+  actorUid: string;
+  receipt: UserAuthorityJsonMap;
+  audit: UserAuthorityJsonMap;
+  current: UserAuthorityJsonMap;
+  auditId: string;
+}): QualityMutationResult {
+  const {request, actorUid, receipt, audit, current, auditId} = args;
+  const fail = (): never => { throw new QualityMutationError("data-loss",
+    "Original monitoring creation evidence is incomplete or inconsistent.",
+    {reasonCode: "quality-monitoring-creation-replay-invalid"}); };
+  const modern = receipt.payloadFingerprint === monitoringCreationFingerprint(request);
+  if ((modern && (receipt.creationEvidenceVersion !== 2 || audit.creationEvidenceVersion !== 2 ||
+      audit.payloadFingerprint !== receipt.payloadFingerprint || receipt.creationAuditSha256 !== creationAuditDigest(audit))) ||
+      (!modern && (receipt.creationEvidenceVersion != null || audit.creationEvidenceVersion != null ||
+        receipt.creationAuditSha256 != null || audit.payloadFingerprint != null))) fail();
+  const committed = creationTimeMillis(receipt.committedAtIso);
+  if (!Number.isFinite(committed) || receipt.schemaVersion !== 1 || receipt.requestId !== request.requestId ||
+      receipt.expectedVersion !== 0 || receipt.resultVersion !== 1 || receipt.auditId !== auditId ||
+      receipt.linkedAbnormalityId !== null || receipt.linkedAbnormalityVersion !== null ||
+      creationTimeMillis(receipt.committedAt) !== committed || audit.schemaVersion !== 1 ||
+      audit.eventType !== "qualityMutation" || audit.entityType !== "quality_monitoring_request" ||
+      audit.entityId !== request.monitoringRequestId || audit.action !== "create" || audit.severity !== "high" ||
+      audit.performedByUid !== actorUid || typeof audit.performedByName !== "string" || audit.performedByName.trim().length === 0 ||
+      creationTimeMillis(audit.timestamp) !== committed || audit.reason !== "other" || audit.reasonNotes !== request.reason ||
+      audit.summary !== "Quality command CREATE_QUALITY_MONITORING_REQUEST" || audit.beforeJson !== null ||
+      audit.requestId !== request.requestId || audit.operation !== request.operation || audit.expectedVersion !== 0 || audit.resultVersion !== 1 ||
+      audit.linkedAbnormalityId !== null || audit.linkedAbnormalityBeforeVersion !== null || audit.linkedAbnormalityResultVersion !== null ||
+      typeof audit.afterJson !== "string") fail();
+  let parsed: unknown;
+  try { parsed = JSON.parse(audit.afterJson as string); } catch (_) { fail(); }
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) fail();
+  let original: UserAuthorityJsonMap;
+  try { original = validateQualityMonitoringRecord(parsed as UserAuthorityJsonMap, request.monitoringRequestId); }
+  catch (_) { return fail(); }
+  if (original.version !== 1 || original.status !== "active" || original.lastMutationId !== request.requestId ||
+      original.createdByUid !== actorUid || original.updatedByUid !== actorUid ||
+      original.createdByName !== audit.performedByName || original.updatedByName !== audit.performedByName ||
+      creationTimeMillis(original.createdAt) !== committed || creationTimeMillis(original.updatedAt) !== committed ||
+      original.baseNumber !== request.baseNumber || original.grade !== request.grade || original.cycleReference !== request.cycleReference ||
+      original.reason !== request.reason || stableJson(original.chargeNumbers) !== stableJson(request.chargeNumbers) ||
+      (request.baseAssetClassId != null && (original.baseAssetClassId !== request.baseAssetClassId ||
+        original.baseAssetInstanceId !== request.baseAssetInstanceId || original.baseAssetInstanceVersion !== request.baseAssetInstanceVersion))) fail();
+  // The later record is checked for immutable creation identity only. Legitimate
+  // closure/archive state cannot rewrite or block acknowledgement of creation A.
+  for (const field of ["requestId", "baseNumber", "grade", "cycleReference", "chargeNumbers", "reason",
+    "createdByUid", "createdByName", "baseAssetClassId", "baseAssetInstanceId", "baseAssetInstanceVersion"]) {
+    if (stableJson(original[field]) !== stableJson(current[field])) fail();
+  }
+  if ((current.version as number) < 1 || creationTimeMillis(current.createdAt) !== committed) fail();
+  return {ok: true, requestId: request.requestId, operation: request.operation,
+    entityId: request.monitoringRequestId, version: 1, auditId,
+    committedAt: receipt.committedAtIso as string, idempotentReplay: true,
+    entity: original, linkedAbnormality: null};
+}
+
 function replayResult(args: {
   request: ParsedRequest;
   actorUid: string;
@@ -1642,7 +1730,8 @@ function replayResult(args: {
     auditId,
   } = args;
   const entityId = targetIdentity(request);
-  if (receipt.payloadFingerprint !== request.fingerprint ||
+  if ((receipt.payloadFingerprint !== request.fingerprint &&
+        !(request.operation === "CREATE_QUALITY_MONITORING_REQUEST" && receipt.payloadFingerprint === monitoringCreationFingerprint(request))) ||
       receipt.actorUid !== actorUid ||
       receipt.entityId !== entityId ||
       receipt.operation !== request.operation) {
@@ -1662,6 +1751,10 @@ function replayResult(args: {
   const current = "warningId" in request ?
     validateQualityWarningRecord(target, entityId) :
     validateQualityMonitoringRecord(target, entityId);
+  if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST") {
+    return replayMonitoringCreation({request: request as ParsedMonitoringRequest,
+      actorUid, receipt, audit, current, auditId});
+  }
   const hasLinkedEvidence = Object.prototype.hasOwnProperty.call(
     receipt,
     "linkedAbnormalityId",
@@ -2207,7 +2300,7 @@ export async function mutateQualityWithDb(args: {
     if (linkedAbnormality != null && linkedAbnormalityAfter != null) {
       transaction.set(linkedAbnormality.ref, linkedAbnormalityAfter);
     }
-    transaction.set(auditRef, {
+    const auditRecord: UserAuthorityJsonMap = {
       schemaVersion: 1,
       eventType: "qualityMutation",
       entityType: "warningId" in request ?
@@ -2232,14 +2325,22 @@ export async function mutateQualityWithDb(args: {
         linkedAbnormality?.before.version ?? null,
       linkedAbnormalityResultVersion:
         linkedAbnormalityAfter?.version ?? linkedAbnormality?.before.version ?? null,
+    };
+    const creatingMonitoring = request.operation === "CREATE_QUALITY_MONITORING_REQUEST";
+    const storedFingerprint = creatingMonitoring ? monitoringCreationFingerprint(request) : request.fingerprint;
+    if (creatingMonitoring) Object.assign(auditRecord, {
+      creationEvidenceVersion: 2, payloadFingerprint: storedFingerprint,
     });
+    transaction.set(auditRef, auditRecord);
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
       actorUid,
       entityId,
       operation: request.operation,
-      payloadFingerprint: request.fingerprint,
+      payloadFingerprint: storedFingerprint,
+      ...(creatingMonitoring ? {creationEvidenceVersion: 2,
+        creationAuditSha256: creationAuditDigest(auditRecord)} : {}),
       expectedVersion: request.expectedVersion,
       resultVersion,
       linkedAbnormalityId: linkedAbnormality?.id ?? null,

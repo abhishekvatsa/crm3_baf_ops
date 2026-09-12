@@ -1,0 +1,1094 @@
+{
+  "provenance": {
+    "sourceCommit": "2ae7cbb4",
+    "method": "Actual pre-remediation compiled dispatcher: governed ticket creation followed by both lifecycle orders; no synthetic receipts/audits",
+    "sourceSha256": "37683e512d0f9bb34cbdf5db136f5052b97a3c5225c9061965cb1194ad3fab28",
+    "compiledSha256": "1bcb0c5f95dd8abda1230c42556f04a44e5976d6d05400c6a47ac8b5f691212f"
+  },
+  "scenarios": [
+    {
+      "order": "release-then-adjudicate",
+      "commands": [
+        {
+          "commandId": "legacy-release",
+          "commandType": "releaseFurnaceStuckup",
+          "aggregateId": "stuckup-case-1",
+          "expectedVersion": 1,
+          "payload": {
+            "releaseNotes": "Furnace lifted clear."
+          }
+        },
+        {
+          "commandId": "legacy-adjudicate",
+          "commandType": "adjudicateFurnaceStuckup",
+          "aggregateId": "stuckup-case-1",
+          "expectedVersion": 2,
+          "payload": {
+            "confirmedCause": "innerCoverBulging",
+            "adjudicationNotes": "SI confirmed physical bulging."
+          }
+        }
+      ],
+      "actors": [
+        {
+          "uid": "operations-1",
+          "name": "operations-1"
+        },
+        {
+          "uid": "si-1",
+          "name": "si-1"
+        }
+      ],
+      "receipts": [
+        {
+          "commandId": "legacy-release",
+          "resultKey": "furnace-stuckup-released",
+          "aggregateVersion": 2,
+          "result": {
+            "caseId": "stuckup-case-1",
+            "auditId": "server_asset_integrity_legacy-release"
+          },
+          "appliedAt": "2026-08-20T05:00:00.000Z"
+        },
+        {
+          "commandId": "legacy-adjudicate",
+          "resultKey": "furnace-stuckup-adjudicated",
+          "aggregateVersion": 3,
+          "result": {
+            "caseId": "stuckup-case-1",
+            "auditId": "server_asset_integrity_legacy-adjudicate",
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1"
+          },
+          "appliedAt": "2026-08-20T06:00:00.000Z"
+        }
+      ],
+      "documents": [
+        [
+          "asset_classes/base-class",
+          {
+            "schemaVersion": 1,
+            "assetClassId": "base-class",
+            "code": "BASE",
+            "name": "Base",
+            "legacyAssetTypeKey": "base",
+            "status": "active"
+          }
+        ],
+        [
+          "asset_classes/furnace-class",
+          {
+            "schemaVersion": 1,
+            "assetClassId": "furnace-class",
+            "code": "FURNACE",
+            "name": "Furnace",
+            "legacyAssetTypeKey": "furnace",
+            "status": "active"
+          }
+        ],
+        [
+          "asset_instances/base-117",
+          {
+            "schemaVersion": 1,
+            "assetInstanceId": "base-117",
+            "assetClassId": "base-class",
+            "assetClassCode": "BASE",
+            "assetClassName": "Base",
+            "assetNumber": 117,
+            "name": "Base 117",
+            "status": "active",
+            "version": 1,
+            "ownershipStatus": "unassigned",
+            "ownerDiscipline": null,
+            "accountableRoleKeys": []
+          }
+        ],
+        [
+          "asset_instances/furnace-12",
+          {
+            "schemaVersion": 1,
+            "assetInstanceId": "furnace-12",
+            "assetClassId": "furnace-class",
+            "assetClassCode": "FURNACE",
+            "assetClassName": "Furnace",
+            "assetNumber": 12,
+            "name": "Furnace 12",
+            "status": "active",
+            "version": 1,
+            "ownershipStatus": "unassigned",
+            "ownerDiscipline": null,
+            "accountableRoleKeys": []
+          }
+        ],
+        [
+          "base_inner_cover_assignments/base-117",
+          {
+            "schemaVersion": 1,
+            "baseAssetInstanceId": "base-117",
+            "baseAssetClassId": "base-class",
+            "baseAssetNumber": 117,
+            "innerCoverId": "inner-gr26",
+            "innerCoverSerialNumber": "GR26",
+            "linkageId": "link-gr26-base-117",
+            "linkedAt": "2026-08-01T04:00:00.000Z",
+            "version": 3
+          }
+        ],
+        [
+          "inner_cover_profiles/inner-gr26",
+          {
+            "schemaVersion": 1,
+            "innerCoverId": "inner-gr26",
+            "serialNumber": "GR26",
+            "lifecycleState": "installed",
+            "currentBaseAssetInstanceId": "base-117",
+            "currentBaseAssetNumber": 117,
+            "currentLinkageId": "link-gr26-base-117"
+          }
+        ],
+        [
+          "users/operations-1",
+          {
+            "isApproved": true,
+            "roles": [
+              "operations"
+            ],
+            "name": "operations-1"
+          }
+        ],
+        [
+          "users/si-1",
+          {
+            "isApproved": true,
+            "roles": [
+              "si"
+            ],
+            "name": "si-1"
+          }
+        ],
+        [
+          "furnace_stuckup_cases/stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "version": 3,
+            "obstructionStatus": "released",
+            "adjudicationStatus": "confirmed",
+            "suspectedCause": "innerCoverBulging",
+            "confirmedCause": "innerCoverBulging",
+            "adjudicationNotes": "SI confirmed physical bulging.",
+            "conditionDeclarationId": "inner_cover_bulged_inner-gr26",
+            "conditionEvidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "furnaceAssetClassId": "furnace-class",
+            "furnaceAssetInstanceId": "furnace-12",
+            "furnaceAssetNumber": 12,
+            "furnaceAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"FURNACE\",\"assetClassId\":\"furnace-class\",\"assetClassName\":\"Furnace\",\"assetInstanceId\":\"furnace-12\",\"assetInstanceName\":\"Furnace 12\",\"assetInstanceVersion\":1,\"assetNumber\":12,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"innerCoverAssociation\":null,\"nodeId\":\"furnace-12\",\"nodeName\":\"Furnace 12\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "baseAssetClassId": "base-class",
+            "baseAssetInstanceId": "base-117",
+            "baseAssetNumber": 117,
+            "baseAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"BASE\",\"assetClassId\":\"base-class\",\"assetClassName\":\"Base\",\"assetInstanceId\":\"base-117\",\"assetInstanceName\":\"Base 117\",\"assetInstanceVersion\":1,\"assetNumber\":117,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Base\",\"Base 117\"],\"innerCoverAssociation\":{\"assignmentVersion\":3,\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"confirmedAt\":\"2026-08-20T04:05:00.000Z\",\"confirmedByName\":\"operations-1\",\"confirmedByUid\":\"operations-1\",\"eventAt\":\"2026-08-20T04:00:00.000Z\",\"innerCoverId\":\"inner-gr26\",\"innerCoverSerialNumber\":\"GR26\",\"linkageId\":\"link-gr26-base-117\",\"linkedAt\":\"2026-08-01T04:00:00.000Z\",\"positionState\":\"linked\"},\"nodeId\":\"base-117\",\"nodeName\":\"Base 117\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "innerCoverId": "inner-gr26",
+            "innerCoverSerialNumber": "GR26",
+            "innerCoverLinkageId": "link-gr26-base-117",
+            "innerCoverAssignmentVersion": 3,
+            "operatingContext": "postAnnealingRemoval",
+            "chargeNoAtEvent": 12345,
+            "reportedAt": "2026-08-20T04:00:00.000Z",
+            "reportedByUid": "operations-1",
+            "reportedByName": "operations-1",
+            "releasedAt": "2026-08-20T05:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "releaseNotes": "Furnace lifted clear.",
+            "adjudicatedAt": "2026-08-20T06:00:00.000Z",
+            "adjudicatedByUid": "si-1",
+            "adjudicatedByName": "si-1",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "updatedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_constraints/stuckup-case-1_base-117",
+          {
+            "schemaVersion": 1,
+            "constraintId": "stuckup-case-1_base-117",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "constraintType": "furnaceStuckup",
+            "status": "released",
+            "assetType": "base",
+            "assetClassId": "base-class",
+            "assetInstanceId": "base-117",
+            "assetNumber": 117,
+            "counterpartLabel": "Furnace 12",
+            "since": "2026-08-20T04:00:00.000Z",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "createdByUid": "operations-1",
+            "createdByName": "operations-1",
+            "releasedAt": "2026-08-20T05:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "version": 2,
+            "updatedAt": "2026-08-20T05:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_constraints/stuckup-case-1_furnace-12",
+          {
+            "schemaVersion": 1,
+            "constraintId": "stuckup-case-1_furnace-12",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "constraintType": "furnaceStuckup",
+            "status": "released",
+            "assetType": "furnace",
+            "assetClassId": "furnace-class",
+            "assetInstanceId": "furnace-12",
+            "assetNumber": 12,
+            "counterpartLabel": "Base 117",
+            "since": "2026-08-20T04:00:00.000Z",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "createdByUid": "operations-1",
+            "createdByName": "operations-1",
+            "releasedAt": "2026-08-20T05:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "version": 2,
+            "updatedAt": "2026-08-20T05:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_current/base-117",
+          {
+            "schemaVersion": 1,
+            "assetType": "base",
+            "assetClassId": "base-class",
+            "assetInstanceId": "base-117",
+            "assetNumber": 117,
+            "availabilityState": "clear",
+            "activeConstraintId": null,
+            "reasonType": null,
+            "linkedCaseId": null,
+            "linkedTicketId": null,
+            "since": null,
+            "updatedAt": "2026-08-20T05:00:00.000Z",
+            "updatedByUid": "operations-1",
+            "updatedByName": "operations-1",
+            "version": 2
+          }
+        ],
+        [
+          "asset_availability_current/furnace-12",
+          {
+            "schemaVersion": 1,
+            "assetType": "furnace",
+            "assetClassId": "furnace-class",
+            "assetInstanceId": "furnace-12",
+            "assetNumber": 12,
+            "availabilityState": "clear",
+            "activeConstraintId": null,
+            "reasonType": null,
+            "linkedCaseId": null,
+            "linkedTicketId": null,
+            "since": null,
+            "updatedAt": "2026-08-20T05:00:00.000Z",
+            "updatedByUid": "operations-1",
+            "updatedByName": "operations-1",
+            "version": 2
+          }
+        ],
+        [
+          "audit_logs/server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+            "entityType": "maintenance",
+            "entityId": "stuckup-case-1",
+            "action": "create",
+            "operation": "createMaintenanceTicket",
+            "performedByUid": "operations-1",
+            "performedByName": "operations-1",
+            "timestamp": "2026-08-20T04:05:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Maintenance issue created through the governed command boundary.",
+            "summary": "Maintenance issue created",
+            "severity": "medium",
+            "beforeJson": "{}",
+            "afterJson": "{\"acknowledgedAt\":null,\"acknowledgedByName\":null,\"acknowledgedByUid\":null,\"actionsJson\":\"[]\",\"assetHierarchyRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"assetNumber\":12,\"assetType\":\"furnace\",\"chargeNoAtEvent\":12345,\"chargeQualityCaseId\":null,\"classification\":\"furnaceStuckup\",\"closedByName\":null,\"closedByUid\":null,\"component\":\"Furnace / Inner Cover interface\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"description\":\"Furnace remains stuck on the Base during post-annealing removal.\",\"downtimeHours\":null,\"endDate\":null,\"firestoreId\":\"stuckup-case-1\",\"furnaceStuckupSchemaVersion\":1,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"isCritical\":true,\"isDeleted\":false,\"isResolved\":false,\"issueAcknowledgedLanes\":[],\"issueAssignedLanes\":[\"mechanical\"],\"issueCompletedLanes\":[],\"issueLaneCompletionEvidence\":{},\"issueLaneRevision\":1,\"issueLaneSchemaVersion\":1,\"loggedByName\":\"operations-1\",\"loggedByUid\":\"operations-1\",\"maintenanceType\":\"breakdown\",\"metadataJson\":null,\"otherDepartment\":null,\"performedBy\":null,\"plantConditionEffect\":\"stuckUp\",\"qualityAbnormalityId\":null,\"qualityImpactAssessment\":\"notSuspected\",\"qualityIntentSchemaVersion\":1,\"qualityWarningId\":null,\"qualityWarningReason\":null,\"remarks\":null,\"reportedBy\":\"operations-1\",\"resolutionHistoryJson\":\"[]\",\"routedTo\":\"mechanical\",\"startDate\":\"2026-08-20T04:00:00.000Z\",\"status\":\"open\",\"stuckupBaseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"stuckupBaseNumber\":117,\"stuckupOperatingContext\":\"postAnnealingRemoval\",\"stuckupSuspectedCause\":\"innerCoverBulging\",\"subsystem\":\"Furnace positioning and sealing\",\"tag\":null,\"teamsInvolved\":[],\"updatedAt\":\"2026-08-20T04:05:00.000Z\",\"version\":1}",
+            "requestId": "createMaintenanceTicket_stuckup-case-1",
+            "resultVersion": 1
+          }
+        ],
+        [
+          "maintenance_records/stuckup-case-1",
+          {
+            "firestoreId": "stuckup-case-1",
+            "version": 1,
+            "assetType": "furnace",
+            "assetNumber": 12,
+            "component": "Furnace / Inner Cover interface",
+            "subsystem": "Furnace positioning and sealing",
+            "tag": null,
+            "hierarchyPath": [
+              "Furnace",
+              "Furnace 12"
+            ],
+            "assetHierarchyRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"FURNACE\",\"assetClassId\":\"furnace-class\",\"assetClassName\":\"Furnace\",\"assetInstanceId\":\"furnace-12\",\"assetInstanceName\":\"Furnace 12\",\"assetInstanceVersion\":1,\"assetNumber\":12,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"innerCoverAssociation\":null,\"nodeId\":\"furnace-12\",\"nodeName\":\"Furnace 12\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "maintenanceType": "breakdown",
+            "classification": "furnaceStuckup",
+            "description": "Furnace remains stuck on the Base during post-annealing removal.",
+            "plantConditionEffect": "stuckUp",
+            "routedTo": "mechanical",
+            "otherDepartment": null,
+            "status": "open",
+            "isResolved": false,
+            "isCritical": true,
+            "loggedByUid": "operations-1",
+            "loggedByName": "operations-1",
+            "reportedBy": "operations-1",
+            "acknowledgedByUid": null,
+            "acknowledgedByName": null,
+            "acknowledgedAt": null,
+            "issueLaneSchemaVersion": 1,
+            "issueLaneRevision": 1,
+            "issueAssignedLanes": [
+              "mechanical"
+            ],
+            "issueAcknowledgedLanes": [],
+            "issueCompletedLanes": [],
+            "issueLaneCompletionEvidence": {},
+            "closedByUid": null,
+            "closedByName": null,
+            "teamsInvolved": [],
+            "performedBy": null,
+            "remarks": null,
+            "startDate": "2026-08-20T04:00:00.000Z",
+            "endDate": null,
+            "downtimeHours": null,
+            "chargeNoAtEvent": 12345,
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "updatedAt": "2026-08-20T04:05:00.000Z",
+            "metadataJson": null,
+            "actionsJson": "[]",
+            "resolutionHistoryJson": "[]",
+            "qualityIntentSchemaVersion": 1,
+            "qualityImpactAssessment": "notSuspected",
+            "qualityWarningReason": null,
+            "qualityAbnormalityId": null,
+            "qualityWarningId": null,
+            "chargeQualityCaseId": null,
+            "furnaceStuckupSchemaVersion": 1,
+            "stuckupBaseNumber": 117,
+            "stuckupBaseAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"BASE\",\"assetClassId\":\"base-class\",\"assetClassName\":\"Base\",\"assetInstanceId\":\"base-117\",\"assetInstanceName\":\"Base 117\",\"assetInstanceVersion\":1,\"assetNumber\":117,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Base\",\"Base 117\"],\"innerCoverAssociation\":{\"assignmentVersion\":3,\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"confirmedAt\":\"2026-08-20T04:05:00.000Z\",\"confirmedByName\":\"operations-1\",\"confirmedByUid\":\"operations-1\",\"eventAt\":\"2026-08-20T04:00:00.000Z\",\"innerCoverId\":\"inner-gr26\",\"innerCoverSerialNumber\":\"GR26\",\"linkageId\":\"link-gr26-base-117\",\"linkedAt\":\"2026-08-01T04:00:00.000Z\",\"positionState\":\"linked\"},\"nodeId\":\"base-117\",\"nodeName\":\"Base 117\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "stuckupSuspectedCause": "innerCoverBulging",
+            "stuckupOperatingContext": "postAnnealingRemoval",
+            "isDeleted": false,
+            "deletedAt": null,
+            "deletedByUid": null,
+            "deletedByName": null,
+            "deleteReason": null
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/createMaintenanceTicket_stuckup-case-1",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "createMaintenanceTicket_stuckup-case-1",
+            "commandType": "createMaintenanceTicket",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "operations-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "ticket.create"
+            },
+            "payloadFingerprint": "sha256:732d9a747af68dd39fd5839e542275dfb9d33f73fe11d27dd57752b8a1fb72db",
+            "resultKey": "maintenance-ticket-created",
+            "aggregateVersion": 1,
+            "result": {
+              "ticketId": "stuckup-case-1",
+              "auditId": "server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+              "warningId": null,
+              "abnormalityId": null,
+              "directiveId": null,
+              "stuckupCaseId": "stuckup-case-1",
+              "reviewQueueId": null
+            },
+            "appliedAt": "2026-08-20T04:05:00.000Z"
+          }
+        ],
+        [
+          "audit_logs/server_asset_integrity_legacy-release",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_asset_integrity_legacy-release",
+            "entityType": "furnaceStuckupCase",
+            "entityId": "stuckup-case-1",
+            "action": "update",
+            "operation": "releaseFurnaceStuckup",
+            "performedByUid": "operations-1",
+            "performedByName": "operations-1",
+            "timestamp": "2026-08-20T05:00:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Furnace stuck-up physical obstruction released",
+            "summary": "Furnace stuck-up physical obstruction released",
+            "severity": "medium",
+            "beforeJson": "{\"adjudicatedAt\":null,\"adjudicatedByName\":null,\"adjudicatedByUid\":null,\"adjudicationNotes\":null,\"adjudicationStatus\":\"pending\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":null,\"conditionEvidenceId\":null,\"confirmedCause\":null,\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"active\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":null,\"releasedAt\":null,\"releasedByName\":null,\"releasedByUid\":null,\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T04:05:00.000Z\",\"version\":1}",
+            "afterJson": "{\"adjudicatedAt\":null,\"adjudicatedByName\":null,\"adjudicatedByUid\":null,\"adjudicationNotes\":null,\"adjudicationStatus\":\"pending\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":null,\"conditionEvidenceId\":null,\"confirmedCause\":null,\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"released\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":\"Furnace lifted clear.\",\"releasedAt\":\"2026-08-20T05:00:00.000Z\",\"releasedByName\":\"operations-1\",\"releasedByUid\":\"operations-1\",\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T05:00:00.000Z\",\"version\":2}",
+            "requestId": "legacy-release",
+            "resultVersion": 2
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/legacy-release",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "legacy-release",
+            "commandType": "releaseFurnaceStuckup",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "operations-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "integrity.supervise"
+            },
+            "payloadFingerprint": "sha256:6163fe2b942bb45f83569c2a30a0f79ff0763fb89555217be320842ea0894133",
+            "resultKey": "furnace-stuckup-released",
+            "aggregateVersion": 2,
+            "result": {
+              "caseId": "stuckup-case-1",
+              "auditId": "server_asset_integrity_legacy-release"
+            },
+            "appliedAt": "2026-08-20T05:00:00.000Z"
+          }
+        ],
+        [
+          "asset_condition_declarations/inner_cover_bulged_inner-gr26",
+          {
+            "schemaVersion": 1,
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "conditionType": "innerCoverBulged",
+            "assetType": "innerCover",
+            "assetId": "inner-gr26",
+            "assetSerialNumber": "GR26",
+            "state": "confirmed",
+            "evidenceCount": 1,
+            "firstConfirmedAt": "2026-08-20T06:00:00.000Z",
+            "latestEvidenceAt": "2026-08-20T06:00:00.000Z",
+            "latestEvidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "latestCaseId": "stuckup-case-1",
+            "confirmedByAuthority": "adminOrSI",
+            "updatedAt": "2026-08-20T06:00:00.000Z",
+            "updatedByUid": "si-1",
+            "updatedByName": "si-1",
+            "version": 1
+          }
+        ],
+        [
+          "asset_condition_evidence/inner_cover_bulged_inner-gr26_stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "evidenceType": "confirmedFurnaceStuckupCause",
+            "confirmedCause": "innerCoverBulging",
+            "notes": "SI confirmed physical bulging.",
+            "observedAt": "2026-08-20T04:00:00.000Z",
+            "confirmedAt": "2026-08-20T06:00:00.000Z",
+            "confirmedByUid": "si-1",
+            "confirmedByName": "si-1"
+          }
+        ],
+        [
+          "audit_logs/server_asset_integrity_legacy-adjudicate",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_asset_integrity_legacy-adjudicate",
+            "entityType": "furnaceStuckupCase",
+            "entityId": "stuckup-case-1",
+            "action": "update",
+            "operation": "adjudicateFurnaceStuckup",
+            "performedByUid": "si-1",
+            "performedByName": "si-1",
+            "timestamp": "2026-08-20T06:00:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Furnace stuck-up cause confirmed",
+            "summary": "Furnace stuck-up cause confirmed",
+            "severity": "medium",
+            "beforeJson": "{\"adjudicatedAt\":null,\"adjudicatedByName\":null,\"adjudicatedByUid\":null,\"adjudicationNotes\":null,\"adjudicationStatus\":\"pending\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":null,\"conditionEvidenceId\":null,\"confirmedCause\":null,\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"released\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":\"Furnace lifted clear.\",\"releasedAt\":\"2026-08-20T05:00:00.000Z\",\"releasedByName\":\"operations-1\",\"releasedByUid\":\"operations-1\",\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T05:00:00.000Z\",\"version\":2}",
+            "afterJson": "{\"adjudicatedAt\":\"2026-08-20T06:00:00.000Z\",\"adjudicatedByName\":\"si-1\",\"adjudicatedByUid\":\"si-1\",\"adjudicationNotes\":\"SI confirmed physical bulging.\",\"adjudicationStatus\":\"confirmed\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":\"inner_cover_bulged_inner-gr26\",\"conditionEvidenceId\":\"inner_cover_bulged_inner-gr26_stuckup-case-1\",\"confirmedCause\":\"innerCoverBulging\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"released\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":\"Furnace lifted clear.\",\"releasedAt\":\"2026-08-20T05:00:00.000Z\",\"releasedByName\":\"operations-1\",\"releasedByUid\":\"operations-1\",\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T06:00:00.000Z\",\"version\":3}",
+            "requestId": "legacy-adjudicate",
+            "resultVersion": 3
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/legacy-adjudicate",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "legacy-adjudicate",
+            "commandType": "adjudicateFurnaceStuckup",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "si-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "integrity.adjudicate"
+            },
+            "payloadFingerprint": "sha256:640a87860c0b83f2468cbe504817e23309a695b278bc85dce836f7d03e72d902",
+            "resultKey": "furnace-stuckup-adjudicated",
+            "aggregateVersion": 3,
+            "result": {
+              "caseId": "stuckup-case-1",
+              "auditId": "server_asset_integrity_legacy-adjudicate",
+              "declarationId": "inner_cover_bulged_inner-gr26",
+              "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1"
+            },
+            "appliedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ]
+      ]
+    },
+    {
+      "order": "adjudicate-then-release",
+      "commands": [
+        {
+          "commandId": "legacy-adjudicate",
+          "commandType": "adjudicateFurnaceStuckup",
+          "aggregateId": "stuckup-case-1",
+          "expectedVersion": 1,
+          "payload": {
+            "confirmedCause": "innerCoverBulging",
+            "adjudicationNotes": "SI confirmed physical bulging."
+          }
+        },
+        {
+          "commandId": "legacy-release",
+          "commandType": "releaseFurnaceStuckup",
+          "aggregateId": "stuckup-case-1",
+          "expectedVersion": 2,
+          "payload": {
+            "releaseNotes": "Furnace lifted clear."
+          }
+        }
+      ],
+      "actors": [
+        {
+          "uid": "si-1",
+          "name": "si-1"
+        },
+        {
+          "uid": "operations-1",
+          "name": "operations-1"
+        }
+      ],
+      "receipts": [
+        {
+          "commandId": "legacy-adjudicate",
+          "resultKey": "furnace-stuckup-adjudicated",
+          "aggregateVersion": 2,
+          "result": {
+            "caseId": "stuckup-case-1",
+            "auditId": "server_asset_integrity_legacy-adjudicate",
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1"
+          },
+          "appliedAt": "2026-08-20T05:00:00.000Z"
+        },
+        {
+          "commandId": "legacy-release",
+          "resultKey": "furnace-stuckup-released",
+          "aggregateVersion": 3,
+          "result": {
+            "caseId": "stuckup-case-1",
+            "auditId": "server_asset_integrity_legacy-release"
+          },
+          "appliedAt": "2026-08-20T06:00:00.000Z"
+        }
+      ],
+      "documents": [
+        [
+          "asset_classes/base-class",
+          {
+            "schemaVersion": 1,
+            "assetClassId": "base-class",
+            "code": "BASE",
+            "name": "Base",
+            "legacyAssetTypeKey": "base",
+            "status": "active"
+          }
+        ],
+        [
+          "asset_classes/furnace-class",
+          {
+            "schemaVersion": 1,
+            "assetClassId": "furnace-class",
+            "code": "FURNACE",
+            "name": "Furnace",
+            "legacyAssetTypeKey": "furnace",
+            "status": "active"
+          }
+        ],
+        [
+          "asset_instances/base-117",
+          {
+            "schemaVersion": 1,
+            "assetInstanceId": "base-117",
+            "assetClassId": "base-class",
+            "assetClassCode": "BASE",
+            "assetClassName": "Base",
+            "assetNumber": 117,
+            "name": "Base 117",
+            "status": "active",
+            "version": 1,
+            "ownershipStatus": "unassigned",
+            "ownerDiscipline": null,
+            "accountableRoleKeys": []
+          }
+        ],
+        [
+          "asset_instances/furnace-12",
+          {
+            "schemaVersion": 1,
+            "assetInstanceId": "furnace-12",
+            "assetClassId": "furnace-class",
+            "assetClassCode": "FURNACE",
+            "assetClassName": "Furnace",
+            "assetNumber": 12,
+            "name": "Furnace 12",
+            "status": "active",
+            "version": 1,
+            "ownershipStatus": "unassigned",
+            "ownerDiscipline": null,
+            "accountableRoleKeys": []
+          }
+        ],
+        [
+          "base_inner_cover_assignments/base-117",
+          {
+            "schemaVersion": 1,
+            "baseAssetInstanceId": "base-117",
+            "baseAssetClassId": "base-class",
+            "baseAssetNumber": 117,
+            "innerCoverId": "inner-gr26",
+            "innerCoverSerialNumber": "GR26",
+            "linkageId": "link-gr26-base-117",
+            "linkedAt": "2026-08-01T04:00:00.000Z",
+            "version": 3
+          }
+        ],
+        [
+          "inner_cover_profiles/inner-gr26",
+          {
+            "schemaVersion": 1,
+            "innerCoverId": "inner-gr26",
+            "serialNumber": "GR26",
+            "lifecycleState": "installed",
+            "currentBaseAssetInstanceId": "base-117",
+            "currentBaseAssetNumber": 117,
+            "currentLinkageId": "link-gr26-base-117"
+          }
+        ],
+        [
+          "users/operations-1",
+          {
+            "isApproved": true,
+            "roles": [
+              "operations"
+            ],
+            "name": "operations-1"
+          }
+        ],
+        [
+          "users/si-1",
+          {
+            "isApproved": true,
+            "roles": [
+              "si"
+            ],
+            "name": "si-1"
+          }
+        ],
+        [
+          "furnace_stuckup_cases/stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "version": 3,
+            "obstructionStatus": "released",
+            "adjudicationStatus": "confirmed",
+            "suspectedCause": "innerCoverBulging",
+            "confirmedCause": "innerCoverBulging",
+            "adjudicationNotes": "SI confirmed physical bulging.",
+            "conditionDeclarationId": "inner_cover_bulged_inner-gr26",
+            "conditionEvidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "furnaceAssetClassId": "furnace-class",
+            "furnaceAssetInstanceId": "furnace-12",
+            "furnaceAssetNumber": 12,
+            "furnaceAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"FURNACE\",\"assetClassId\":\"furnace-class\",\"assetClassName\":\"Furnace\",\"assetInstanceId\":\"furnace-12\",\"assetInstanceName\":\"Furnace 12\",\"assetInstanceVersion\":1,\"assetNumber\":12,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"innerCoverAssociation\":null,\"nodeId\":\"furnace-12\",\"nodeName\":\"Furnace 12\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "baseAssetClassId": "base-class",
+            "baseAssetInstanceId": "base-117",
+            "baseAssetNumber": 117,
+            "baseAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"BASE\",\"assetClassId\":\"base-class\",\"assetClassName\":\"Base\",\"assetInstanceId\":\"base-117\",\"assetInstanceName\":\"Base 117\",\"assetInstanceVersion\":1,\"assetNumber\":117,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Base\",\"Base 117\"],\"innerCoverAssociation\":{\"assignmentVersion\":3,\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"confirmedAt\":\"2026-08-20T04:05:00.000Z\",\"confirmedByName\":\"operations-1\",\"confirmedByUid\":\"operations-1\",\"eventAt\":\"2026-08-20T04:00:00.000Z\",\"innerCoverId\":\"inner-gr26\",\"innerCoverSerialNumber\":\"GR26\",\"linkageId\":\"link-gr26-base-117\",\"linkedAt\":\"2026-08-01T04:00:00.000Z\",\"positionState\":\"linked\"},\"nodeId\":\"base-117\",\"nodeName\":\"Base 117\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "innerCoverId": "inner-gr26",
+            "innerCoverSerialNumber": "GR26",
+            "innerCoverLinkageId": "link-gr26-base-117",
+            "innerCoverAssignmentVersion": 3,
+            "operatingContext": "postAnnealingRemoval",
+            "chargeNoAtEvent": 12345,
+            "reportedAt": "2026-08-20T04:00:00.000Z",
+            "reportedByUid": "operations-1",
+            "reportedByName": "operations-1",
+            "releasedAt": "2026-08-20T06:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "releaseNotes": "Furnace lifted clear.",
+            "adjudicatedAt": "2026-08-20T05:00:00.000Z",
+            "adjudicatedByUid": "si-1",
+            "adjudicatedByName": "si-1",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "updatedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_constraints/stuckup-case-1_base-117",
+          {
+            "schemaVersion": 1,
+            "constraintId": "stuckup-case-1_base-117",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "constraintType": "furnaceStuckup",
+            "status": "released",
+            "assetType": "base",
+            "assetClassId": "base-class",
+            "assetInstanceId": "base-117",
+            "assetNumber": 117,
+            "counterpartLabel": "Furnace 12",
+            "since": "2026-08-20T04:00:00.000Z",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "createdByUid": "operations-1",
+            "createdByName": "operations-1",
+            "releasedAt": "2026-08-20T06:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "version": 2,
+            "updatedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_constraints/stuckup-case-1_furnace-12",
+          {
+            "schemaVersion": 1,
+            "constraintId": "stuckup-case-1_furnace-12",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "constraintType": "furnaceStuckup",
+            "status": "released",
+            "assetType": "furnace",
+            "assetClassId": "furnace-class",
+            "assetInstanceId": "furnace-12",
+            "assetNumber": 12,
+            "counterpartLabel": "Base 117",
+            "since": "2026-08-20T04:00:00.000Z",
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "createdByUid": "operations-1",
+            "createdByName": "operations-1",
+            "releasedAt": "2026-08-20T06:00:00.000Z",
+            "releasedByUid": "operations-1",
+            "releasedByName": "operations-1",
+            "version": 2,
+            "updatedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ],
+        [
+          "asset_availability_current/base-117",
+          {
+            "schemaVersion": 1,
+            "assetType": "base",
+            "assetClassId": "base-class",
+            "assetInstanceId": "base-117",
+            "assetNumber": 117,
+            "availabilityState": "clear",
+            "activeConstraintId": null,
+            "reasonType": null,
+            "linkedCaseId": null,
+            "linkedTicketId": null,
+            "since": null,
+            "updatedAt": "2026-08-20T06:00:00.000Z",
+            "updatedByUid": "operations-1",
+            "updatedByName": "operations-1",
+            "version": 2
+          }
+        ],
+        [
+          "asset_availability_current/furnace-12",
+          {
+            "schemaVersion": 1,
+            "assetType": "furnace",
+            "assetClassId": "furnace-class",
+            "assetInstanceId": "furnace-12",
+            "assetNumber": 12,
+            "availabilityState": "clear",
+            "activeConstraintId": null,
+            "reasonType": null,
+            "linkedCaseId": null,
+            "linkedTicketId": null,
+            "since": null,
+            "updatedAt": "2026-08-20T06:00:00.000Z",
+            "updatedByUid": "operations-1",
+            "updatedByName": "operations-1",
+            "version": 2
+          }
+        ],
+        [
+          "audit_logs/server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+            "entityType": "maintenance",
+            "entityId": "stuckup-case-1",
+            "action": "create",
+            "operation": "createMaintenanceTicket",
+            "performedByUid": "operations-1",
+            "performedByName": "operations-1",
+            "timestamp": "2026-08-20T04:05:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Maintenance issue created through the governed command boundary.",
+            "summary": "Maintenance issue created",
+            "severity": "medium",
+            "beforeJson": "{}",
+            "afterJson": "{\"acknowledgedAt\":null,\"acknowledgedByName\":null,\"acknowledgedByUid\":null,\"actionsJson\":\"[]\",\"assetHierarchyRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"assetNumber\":12,\"assetType\":\"furnace\",\"chargeNoAtEvent\":12345,\"chargeQualityCaseId\":null,\"classification\":\"furnaceStuckup\",\"closedByName\":null,\"closedByUid\":null,\"component\":\"Furnace / Inner Cover interface\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"description\":\"Furnace remains stuck on the Base during post-annealing removal.\",\"downtimeHours\":null,\"endDate\":null,\"firestoreId\":\"stuckup-case-1\",\"furnaceStuckupSchemaVersion\":1,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"isCritical\":true,\"isDeleted\":false,\"isResolved\":false,\"issueAcknowledgedLanes\":[],\"issueAssignedLanes\":[\"mechanical\"],\"issueCompletedLanes\":[],\"issueLaneCompletionEvidence\":{},\"issueLaneRevision\":1,\"issueLaneSchemaVersion\":1,\"loggedByName\":\"operations-1\",\"loggedByUid\":\"operations-1\",\"maintenanceType\":\"breakdown\",\"metadataJson\":null,\"otherDepartment\":null,\"performedBy\":null,\"plantConditionEffect\":\"stuckUp\",\"qualityAbnormalityId\":null,\"qualityImpactAssessment\":\"notSuspected\",\"qualityIntentSchemaVersion\":1,\"qualityWarningId\":null,\"qualityWarningReason\":null,\"remarks\":null,\"reportedBy\":\"operations-1\",\"resolutionHistoryJson\":\"[]\",\"routedTo\":\"mechanical\",\"startDate\":\"2026-08-20T04:00:00.000Z\",\"status\":\"open\",\"stuckupBaseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"stuckupBaseNumber\":117,\"stuckupOperatingContext\":\"postAnnealingRemoval\",\"stuckupSuspectedCause\":\"innerCoverBulging\",\"subsystem\":\"Furnace positioning and sealing\",\"tag\":null,\"teamsInvolved\":[],\"updatedAt\":\"2026-08-20T04:05:00.000Z\",\"version\":1}",
+            "requestId": "createMaintenanceTicket_stuckup-case-1",
+            "resultVersion": 1
+          }
+        ],
+        [
+          "maintenance_records/stuckup-case-1",
+          {
+            "firestoreId": "stuckup-case-1",
+            "version": 1,
+            "assetType": "furnace",
+            "assetNumber": 12,
+            "component": "Furnace / Inner Cover interface",
+            "subsystem": "Furnace positioning and sealing",
+            "tag": null,
+            "hierarchyPath": [
+              "Furnace",
+              "Furnace 12"
+            ],
+            "assetHierarchyRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"FURNACE\",\"assetClassId\":\"furnace-class\",\"assetClassName\":\"Furnace\",\"assetInstanceId\":\"furnace-12\",\"assetInstanceName\":\"Furnace 12\",\"assetInstanceVersion\":1,\"assetNumber\":12,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Furnace\",\"Furnace 12\"],\"innerCoverAssociation\":null,\"nodeId\":\"furnace-12\",\"nodeName\":\"Furnace 12\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "maintenanceType": "breakdown",
+            "classification": "furnaceStuckup",
+            "description": "Furnace remains stuck on the Base during post-annealing removal.",
+            "plantConditionEffect": "stuckUp",
+            "routedTo": "mechanical",
+            "otherDepartment": null,
+            "status": "open",
+            "isResolved": false,
+            "isCritical": true,
+            "loggedByUid": "operations-1",
+            "loggedByName": "operations-1",
+            "reportedBy": "operations-1",
+            "acknowledgedByUid": null,
+            "acknowledgedByName": null,
+            "acknowledgedAt": null,
+            "issueLaneSchemaVersion": 1,
+            "issueLaneRevision": 1,
+            "issueAssignedLanes": [
+              "mechanical"
+            ],
+            "issueAcknowledgedLanes": [],
+            "issueCompletedLanes": [],
+            "issueLaneCompletionEvidence": {},
+            "closedByUid": null,
+            "closedByName": null,
+            "teamsInvolved": [],
+            "performedBy": null,
+            "remarks": null,
+            "startDate": "2026-08-20T04:00:00.000Z",
+            "endDate": null,
+            "downtimeHours": null,
+            "chargeNoAtEvent": 12345,
+            "createdAt": "2026-08-20T04:05:00.000Z",
+            "updatedAt": "2026-08-20T04:05:00.000Z",
+            "metadataJson": null,
+            "actionsJson": "[]",
+            "resolutionHistoryJson": "[]",
+            "qualityIntentSchemaVersion": 1,
+            "qualityImpactAssessment": "notSuspected",
+            "qualityWarningReason": null,
+            "qualityAbnormalityId": null,
+            "qualityWarningId": null,
+            "chargeQualityCaseId": null,
+            "furnaceStuckupSchemaVersion": 1,
+            "stuckupBaseNumber": 117,
+            "stuckupBaseAssetRefJson": "{\"accountableRoleKeys\":[],\"assetClassCode\":\"BASE\",\"assetClassId\":\"base-class\",\"assetClassName\":\"Base\",\"assetInstanceId\":\"base-117\",\"assetInstanceName\":\"Base 117\",\"assetInstanceVersion\":1,\"assetNumber\":117,\"componentInstanceId\":null,\"componentInstanceVersion\":null,\"componentTag\":null,\"hierarchyPath\":[\"Base\",\"Base 117\"],\"innerCoverAssociation\":{\"assignmentVersion\":3,\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"confirmedAt\":\"2026-08-20T04:05:00.000Z\",\"confirmedByName\":\"operations-1\",\"confirmedByUid\":\"operations-1\",\"eventAt\":\"2026-08-20T04:00:00.000Z\",\"innerCoverId\":\"inner-gr26\",\"innerCoverSerialNumber\":\"GR26\",\"linkageId\":\"link-gr26-base-117\",\"linkedAt\":\"2026-08-01T04:00:00.000Z\",\"positionState\":\"linked\"},\"nodeId\":\"base-117\",\"nodeName\":\"Base 117\",\"nodeVersion\":1,\"ownerDiscipline\":null,\"ownershipStatus\":\"unassigned\",\"schemaVersion\":3,\"scope\":\"physicalAsset\"}",
+            "stuckupSuspectedCause": "innerCoverBulging",
+            "stuckupOperatingContext": "postAnnealingRemoval",
+            "isDeleted": false,
+            "deletedAt": null,
+            "deletedByUid": null,
+            "deletedByName": null,
+            "deleteReason": null
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/createMaintenanceTicket_stuckup-case-1",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "createMaintenanceTicket_stuckup-case-1",
+            "commandType": "createMaintenanceTicket",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "operations-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "ticket.create"
+            },
+            "payloadFingerprint": "sha256:732d9a747af68dd39fd5839e542275dfb9d33f73fe11d27dd57752b8a1fb72db",
+            "resultKey": "maintenance-ticket-created",
+            "aggregateVersion": 1,
+            "result": {
+              "ticketId": "stuckup-case-1",
+              "auditId": "server_maintenance_ticket_createMaintenanceTicket_stuckup-case-1",
+              "warningId": null,
+              "abnormalityId": null,
+              "directiveId": null,
+              "stuckupCaseId": "stuckup-case-1",
+              "reviewQueueId": null
+            },
+            "appliedAt": "2026-08-20T04:05:00.000Z"
+          }
+        ],
+        [
+          "asset_condition_declarations/inner_cover_bulged_inner-gr26",
+          {
+            "schemaVersion": 1,
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "conditionType": "innerCoverBulged",
+            "assetType": "innerCover",
+            "assetId": "inner-gr26",
+            "assetSerialNumber": "GR26",
+            "state": "confirmed",
+            "evidenceCount": 1,
+            "firstConfirmedAt": "2026-08-20T05:00:00.000Z",
+            "latestEvidenceAt": "2026-08-20T05:00:00.000Z",
+            "latestEvidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "latestCaseId": "stuckup-case-1",
+            "confirmedByAuthority": "adminOrSI",
+            "updatedAt": "2026-08-20T05:00:00.000Z",
+            "updatedByUid": "si-1",
+            "updatedByName": "si-1",
+            "version": 1
+          }
+        ],
+        [
+          "asset_condition_evidence/inner_cover_bulged_inner-gr26_stuckup-case-1",
+          {
+            "schemaVersion": 1,
+            "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1",
+            "declarationId": "inner_cover_bulged_inner-gr26",
+            "caseId": "stuckup-case-1",
+            "ticketId": "stuckup-case-1",
+            "evidenceType": "confirmedFurnaceStuckupCause",
+            "confirmedCause": "innerCoverBulging",
+            "notes": "SI confirmed physical bulging.",
+            "observedAt": "2026-08-20T04:00:00.000Z",
+            "confirmedAt": "2026-08-20T05:00:00.000Z",
+            "confirmedByUid": "si-1",
+            "confirmedByName": "si-1"
+          }
+        ],
+        [
+          "audit_logs/server_asset_integrity_legacy-adjudicate",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_asset_integrity_legacy-adjudicate",
+            "entityType": "furnaceStuckupCase",
+            "entityId": "stuckup-case-1",
+            "action": "update",
+            "operation": "adjudicateFurnaceStuckup",
+            "performedByUid": "si-1",
+            "performedByName": "si-1",
+            "timestamp": "2026-08-20T05:00:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Furnace stuck-up cause confirmed",
+            "summary": "Furnace stuck-up cause confirmed",
+            "severity": "medium",
+            "beforeJson": "{\"adjudicatedAt\":null,\"adjudicatedByName\":null,\"adjudicatedByUid\":null,\"adjudicationNotes\":null,\"adjudicationStatus\":\"pending\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":null,\"conditionEvidenceId\":null,\"confirmedCause\":null,\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"active\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":null,\"releasedAt\":null,\"releasedByName\":null,\"releasedByUid\":null,\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T04:05:00.000Z\",\"version\":1}",
+            "afterJson": "{\"adjudicatedAt\":\"2026-08-20T05:00:00.000Z\",\"adjudicatedByName\":\"si-1\",\"adjudicatedByUid\":\"si-1\",\"adjudicationNotes\":\"SI confirmed physical bulging.\",\"adjudicationStatus\":\"confirmed\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":\"inner_cover_bulged_inner-gr26\",\"conditionEvidenceId\":\"inner_cover_bulged_inner-gr26_stuckup-case-1\",\"confirmedCause\":\"innerCoverBulging\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"active\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":null,\"releasedAt\":null,\"releasedByName\":null,\"releasedByUid\":null,\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T05:00:00.000Z\",\"version\":2}",
+            "requestId": "legacy-adjudicate",
+            "resultVersion": 2
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/legacy-adjudicate",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "legacy-adjudicate",
+            "commandType": "adjudicateFurnaceStuckup",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "si-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "integrity.adjudicate"
+            },
+            "payloadFingerprint": "sha256:e46129ae3b3f143a0d04ca13704b521b57f8ec3402e989a969d5e16b4700a7f0",
+            "resultKey": "furnace-stuckup-adjudicated",
+            "aggregateVersion": 2,
+            "result": {
+              "caseId": "stuckup-case-1",
+              "auditId": "server_asset_integrity_legacy-adjudicate",
+              "declarationId": "inner_cover_bulged_inner-gr26",
+              "evidenceId": "inner_cover_bulged_inner-gr26_stuckup-case-1"
+            },
+            "appliedAt": "2026-08-20T05:00:00.000Z"
+          }
+        ],
+        [
+          "audit_logs/server_asset_integrity_legacy-release",
+          {
+            "schemaVersion": 1,
+            "auditId": "server_asset_integrity_legacy-release",
+            "entityType": "furnaceStuckupCase",
+            "entityId": "stuckup-case-1",
+            "action": "update",
+            "operation": "releaseFurnaceStuckup",
+            "performedByUid": "operations-1",
+            "performedByName": "operations-1",
+            "timestamp": "2026-08-20T06:00:00.000Z",
+            "reason": "other",
+            "reasonNotes": "Furnace stuck-up physical obstruction released",
+            "summary": "Furnace stuck-up physical obstruction released",
+            "severity": "medium",
+            "beforeJson": "{\"adjudicatedAt\":\"2026-08-20T05:00:00.000Z\",\"adjudicatedByName\":\"si-1\",\"adjudicatedByUid\":\"si-1\",\"adjudicationNotes\":\"SI confirmed physical bulging.\",\"adjudicationStatus\":\"confirmed\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":\"inner_cover_bulged_inner-gr26\",\"conditionEvidenceId\":\"inner_cover_bulged_inner-gr26_stuckup-case-1\",\"confirmedCause\":\"innerCoverBulging\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"active\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":null,\"releasedAt\":null,\"releasedByName\":null,\"releasedByUid\":null,\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T05:00:00.000Z\",\"version\":2}",
+            "afterJson": "{\"adjudicatedAt\":\"2026-08-20T05:00:00.000Z\",\"adjudicatedByName\":\"si-1\",\"adjudicatedByUid\":\"si-1\",\"adjudicationNotes\":\"SI confirmed physical bulging.\",\"adjudicationStatus\":\"confirmed\",\"baseAssetClassId\":\"base-class\",\"baseAssetInstanceId\":\"base-117\",\"baseAssetNumber\":117,\"baseAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"BASE\\\",\\\"assetClassId\\\":\\\"base-class\\\",\\\"assetClassName\\\":\\\"Base\\\",\\\"assetInstanceId\\\":\\\"base-117\\\",\\\"assetInstanceName\\\":\\\"Base 117\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":117,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Base\\\",\\\"Base 117\\\"],\\\"innerCoverAssociation\\\":{\\\"assignmentVersion\\\":3,\\\"baseAssetInstanceId\\\":\\\"base-117\\\",\\\"baseAssetNumber\\\":117,\\\"confirmedAt\\\":\\\"2026-08-20T04:05:00.000Z\\\",\\\"confirmedByName\\\":\\\"operations-1\\\",\\\"confirmedByUid\\\":\\\"operations-1\\\",\\\"eventAt\\\":\\\"2026-08-20T04:00:00.000Z\\\",\\\"innerCoverId\\\":\\\"inner-gr26\\\",\\\"innerCoverSerialNumber\\\":\\\"GR26\\\",\\\"linkageId\\\":\\\"link-gr26-base-117\\\",\\\"linkedAt\\\":\\\"2026-08-01T04:00:00.000Z\\\",\\\"positionState\\\":\\\"linked\\\"},\\\"nodeId\\\":\\\"base-117\\\",\\\"nodeName\\\":\\\"Base 117\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"caseId\":\"stuckup-case-1\",\"chargeNoAtEvent\":12345,\"conditionDeclarationId\":\"inner_cover_bulged_inner-gr26\",\"conditionEvidenceId\":\"inner_cover_bulged_inner-gr26_stuckup-case-1\",\"confirmedCause\":\"innerCoverBulging\",\"createdAt\":\"2026-08-20T04:05:00.000Z\",\"furnaceAssetClassId\":\"furnace-class\",\"furnaceAssetInstanceId\":\"furnace-12\",\"furnaceAssetNumber\":12,\"furnaceAssetRefJson\":\"{\\\"accountableRoleKeys\\\":[],\\\"assetClassCode\\\":\\\"FURNACE\\\",\\\"assetClassId\\\":\\\"furnace-class\\\",\\\"assetClassName\\\":\\\"Furnace\\\",\\\"assetInstanceId\\\":\\\"furnace-12\\\",\\\"assetInstanceName\\\":\\\"Furnace 12\\\",\\\"assetInstanceVersion\\\":1,\\\"assetNumber\\\":12,\\\"componentInstanceId\\\":null,\\\"componentInstanceVersion\\\":null,\\\"componentTag\\\":null,\\\"hierarchyPath\\\":[\\\"Furnace\\\",\\\"Furnace 12\\\"],\\\"innerCoverAssociation\\\":null,\\\"nodeId\\\":\\\"furnace-12\\\",\\\"nodeName\\\":\\\"Furnace 12\\\",\\\"nodeVersion\\\":1,\\\"ownerDiscipline\\\":null,\\\"ownershipStatus\\\":\\\"unassigned\\\",\\\"schemaVersion\\\":3,\\\"scope\\\":\\\"physicalAsset\\\"}\",\"innerCoverAssignmentVersion\":3,\"innerCoverId\":\"inner-gr26\",\"innerCoverLinkageId\":\"link-gr26-base-117\",\"innerCoverSerialNumber\":\"GR26\",\"obstructionStatus\":\"released\",\"operatingContext\":\"postAnnealingRemoval\",\"releaseNotes\":\"Furnace lifted clear.\",\"releasedAt\":\"2026-08-20T06:00:00.000Z\",\"releasedByName\":\"operations-1\",\"releasedByUid\":\"operations-1\",\"reportedAt\":\"2026-08-20T04:00:00.000Z\",\"reportedByName\":\"operations-1\",\"reportedByUid\":\"operations-1\",\"schemaVersion\":1,\"suspectedCause\":\"innerCoverBulging\",\"ticketId\":\"stuckup-case-1\",\"updatedAt\":\"2026-08-20T06:00:00.000Z\",\"version\":3}",
+            "requestId": "legacy-release",
+            "resultVersion": 3
+          }
+        ],
+        [
+          "maintenance_workflow_command_receipts/legacy-release",
+          {
+            "receiptSchemaVersion": 2,
+            "commandId": "legacy-release",
+            "commandType": "releaseFurnaceStuckup",
+            "aggregateId": "stuckup-case-1",
+            "actorUid": "operations-1",
+            "authorityScope": {
+              "schemaVersion": 1,
+              "capability": "integrity.supervise"
+            },
+            "payloadFingerprint": "sha256:640c3a1da846c0386b9a8df64d5ff2a1e45d7727a94b87e0db2fd02d7459ecb1",
+            "resultKey": "furnace-stuckup-released",
+            "aggregateVersion": 3,
+            "result": {
+              "caseId": "stuckup-case-1",
+              "auditId": "server_asset_integrity_legacy-release"
+            },
+            "appliedAt": "2026-08-20T06:00:00.000Z"
+          }
+        ]
+      ]
+    }
+  ]
+}

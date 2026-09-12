@@ -372,11 +372,13 @@
       "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
       "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_account_authority_test.dart",
+        "test/maintenance_form_interaction_test.dart"
       ],
-      "maximumLines": 2940,
+      "maximumLines": 2958,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],
@@ -399,11 +401,12 @@
       "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
       "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_account_authority_test.dart"
       ],
-      "maximumLines": 1570,
+      "maximumLines": 1601,
       "requiredMarkers": [
         "class ResolveForm"
       ],
@@ -426,12 +429,13 @@
       "authorityBoundary": "Approved-user capabilities determine visible issue lanes and available commands; every mutation is re-authorized by the governed workflow backend or Firestore Rules.",
       "persistenceOwnership": "No direct persistence is admitted; maintenance providers, the sync coordinator, and workflow command service own reads and mutations.",
       "transactionOwnership": "No database transaction is owned by this presentation surface.",
-      "rationale": "The open queue and its lane-progress cards share one screen lifecycle; lane-reassignment form state is already extracted, and further extraction is re-armed before this surface reaches the declared ceiling or acquires persistence ownership.",
+      "rationale": "The open queue and its lane-progress cards share one screen lifecycle; lane-reassignment form state is already extracted, and further extraction is re-armed before this surface reaches the declared ceiling or acquires persistence ownership. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
       "regressionTests": [
         "test/maintenance_ticket_supervision_contract_test.dart",
-        "test/issue_multi_lane_workflow_test.dart"
+        "test/issue_multi_lane_workflow_test.dart",
+        "test/maintenance_account_authority_test.dart"
       ],
-      "maximumLines": 1600,
+      "maximumLines": 1630,
       "requiredMarkers": [
         "class TicketScreen",
         "WorkflowCommandType.reconfigureMaintenanceTicketLanes"
@@ -517,12 +521,13 @@
       "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
       "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
       "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
-      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership. The 2026-09-12 reviewed extension preserves one lifecycle write/readback attempt per pass and refuses an attempted decomposition failure without falling through to the generic writer.",
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart",
-        "test/maintenance_plant_condition_stream_test.dart"
+        "test/maintenance_plant_condition_stream_test.dart",
+        "test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
       ],
-      "maximumLines": 968,
+      "maximumLines": 980,
       "requiredMarkers": [
         "part of '"
       ],
@@ -632,11 +637,12 @@
       "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
       "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/complete_job_screen_server_gate_test.dart"
       ],
-      "maximumLines": 2254,
+      "maximumLines": 2269,
       "requiredMarkers": [
         "class CompleteJobScreen"
       ],
@@ -1278,13 +1284,14 @@
       "authorityBoundary": "Approved-user capabilities control reopen and classification affordances; the backend revalidates issue finality, reopen-window expiry, asset identity, class version, and actor authority.",
       "persistenceOwnership": "Maintenance and maintenance-intelligence providers own reads; mutations use governed workflow commands and this screen owns no direct database access.",
       "transactionOwnership": "No client transaction is owned by the closed-ticket screen; server command handlers atomically own classification and cadence updates.",
-      "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority.",
+      "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
       "regressionTests": [
         "test/issue_administrative_closure_transition_test.dart",
         "test/operational_ux_restructure_test.dart",
-        "functions/test/maintenanceIntelligence.test.js"
+        "functions/test/maintenanceIntelligence.test.js",
+        "test/maintenance_account_authority_test.dart"
       ],
-      "maximumLines": 1563,
+      "maximumLines": 1604,
       "requiredMarkers": [
         "class ClosedTicketsScreen",
         "classifyMaintenanceTicket"

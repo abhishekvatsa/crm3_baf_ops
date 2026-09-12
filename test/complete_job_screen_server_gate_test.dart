@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -248,7 +250,105 @@ Future<void> _pumpFrames(
   }
 }
 
+class _AccountPreflightSync extends Fake implements SyncCoordinator {
+  final pending = Completer<SyncRequestOutcome>();
+  int calls = 0;
+  @override
+  Future<SyncRequestOutcome> runFullSyncWithResult({
+    String reason = 'unknown',
+    bool force = false,
+  }) {
+    calls++;
+    return pending.future;
+  }
+}
+
 void main() {
+  for (final transition in [
+    'error',
+    'different account',
+    'permission revoked',
+  ]) {
+    testWidgets(
+      'completion rechecks original authority after preflight: $transition',
+      (tester) async {
+        final actors = StreamController<AppUser?>();
+        addTearDown(actors.close);
+        final sync = _AccountPreflightSync();
+        final planned = _GateRejectingPlannedRepository();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith((ref) => actors.stream),
+              syncCoordinatorProvider.overrideWithValue(sync),
+              plannedRepositoryProvider.overrideWithValue(planned),
+              jobModuleRepositoryProvider.overrideWithValue(
+                _StaticJobModuleRepository([_acceptedModule()]),
+              ),
+            ],
+            child: MaterialApp(
+              home: CompleteJobScreen(execution: _execution()),
+            ),
+          ),
+        );
+        await _pumpFrames(tester);
+        actors.addError(StateError('first account lookup failed'));
+        await _pumpFrames(tester);
+        expect(tester.takeException(), isNull);
+        FilledButton submit() =>
+            tester.widget<FilledButton>(find.byType(FilledButton).last);
+        expect(submit().onPressed, isNull);
+        actors.add(_supervisor());
+        await _pumpFrames(tester);
+        final remarks = find.byType(TextFormField);
+        await tester.scrollUntilVisible(
+          remarks,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.enterText(remarks, 'Retained completion evidence');
+        final controller = tester.widget<TextFormField>(remarks).controller!;
+        await tester.tap(find.text('Mark Job Completed'));
+        await _pumpFrames(tester, frames: 2);
+        expect(sync.calls, 1);
+        if (transition == 'error') {
+          actors.addError(StateError('authority refresh failed'));
+        } else {
+          actors.add(
+            AppUser(
+              uid: transition == 'different account'
+                  ? 'another-supervisor'
+                  : 'supervisor_1',
+              name: 'Current User',
+              email: 'current@example.invalid',
+              roles: [
+                transition == 'different account'
+                    ? AppRole.shiftSupervisor
+                    : AppRole.operations,
+              ],
+              isApproved: true,
+              createdAt: DateTime.utc(2026, 9, 1),
+            ),
+          );
+        }
+        await _pumpFrames(tester, frames: 2);
+        sync.pending.complete(SyncRequestOutcome.succeeded);
+        await _pumpFrames(tester);
+        expect(planned.completionCalls, 0);
+        expect(controller.text, 'Retained completion evidence');
+        expect(submit().onPressed, isNull);
+        actors.add(_supervisor());
+        await _pumpFrames(tester);
+        expect(submit().onPressed, isNotNull);
+        await tester.tap(find.text('Mark Job Completed'));
+        await _pumpFrames(tester);
+        expect(planned.completionCalls, 1);
+        expect(find.text('Server closure gate blocked'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('malformed saved execution responses block completion visibly', (
     tester,
   ) async {

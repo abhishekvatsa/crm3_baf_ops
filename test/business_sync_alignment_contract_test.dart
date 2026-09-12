@@ -6,8 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('cross-business offline/cloud alignment', () {
     test('every sync operation remains explicitly inventoried', () {
-      final source =
-          File('lib/core/services/sync_service.dart').readAsStringSync();
+      final source = File(
+        'lib/core/services/sync_service.dart',
+      ).readAsStringSync();
       final body = _functionBody(source, 'Future<void> syncAll(');
       final discovered = <String>{
         for (final match in RegExp(
@@ -85,44 +86,39 @@ void main() {
           );
         }
 
-        final maintenance =
-            File(
-              'lib/core/services/sync_service.tickets_templates.dart',
-            ).readAsStringSync();
+        final maintenance = File(
+          'lib/core/services/sync_service.tickets_templates.dart',
+        ).readAsStringSync();
         expect(maintenance, contains('_applyMaintenanceLifecycleReplayStep'));
         expect(
           maintenance,
           contains('applyGovernedCreationServerStateForSync'),
         );
 
-        final modules =
-            File(
-              'lib/features/planned_maintenance/providers/job_module_provider.remote.dart',
-            ).readAsStringSync();
+        final modules = File(
+          'lib/features/planned_maintenance/providers/job_module_provider.remote.dart',
+        ).readAsStringSync();
         expect(modules, contains('jobModuleClientSnapshotsEquivalentForSync'));
 
-        final governedAbnormality =
-            File(
-              'lib/core/services/sync_service.directives_abnormalities.dart',
-            ).readAsStringSync();
+        final governedAbnormality = File(
+          'lib/core/services/sync_service.directives_abnormalities.dart',
+        ).readAsStringSync();
         expect(
           governedAbnormality,
           contains('_governedChargeAbnormalityStateMatches(record, remote)'),
         );
 
-        final governance =
-            File(
-              'lib/core/services/sync_service.template_governance.dart',
-            ).readAsStringSync();
+        final governance = File(
+          'lib/core/services/sync_service.template_governance.dart',
+        ).readAsStringSync();
         expect(governance, contains('_templatePublishAuditMatchesRemote'));
       },
     );
 
     test('server-timestamped knowledge writes adopt an exact remote receipt', () {
-      final source =
-          File(
-            'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
+      ).readAsStringSync();
       expect(source, contains('final receipt = await _pushLocalRow(row);'));
       expect(source, contains('_applyKnowledgePushReceiptIfUnchanged'));
       expect(source, contains('_knowledgePushReceiptMatches'));
@@ -135,22 +131,18 @@ void main() {
     });
 
     test('governed local mirrors adopt receipts without losing newer work', () {
-      final executionRepository =
-          File(
-            'lib/features/planned_maintenance/providers/planned_maintenance_provider.local.dart',
-          ).readAsStringSync();
-      final moduleRepository =
-          File(
-            'lib/features/planned_maintenance/providers/job_module_provider.local.dart',
-          ).readAsStringSync();
-      final abnormalityRepository =
-          File(
-            'lib/features/abnormalities/providers/abnormality_provider.local.dart',
-          ).readAsStringSync();
-      final assignmentReconciler =
-          File(
-            'lib/features/planned_maintenance/services/published_template_assignment_local_reconciler.dart',
-          ).readAsStringSync();
+      final executionRepository = File(
+        'lib/features/planned_maintenance/providers/planned_maintenance_provider.local.dart',
+      ).readAsStringSync();
+      final moduleRepository = File(
+        'lib/features/planned_maintenance/providers/job_module_provider.local.dart',
+      ).readAsStringSync();
+      final abnormalityRepository = File(
+        'lib/features/abnormalities/providers/abnormality_provider.local.dart',
+      ).readAsStringSync();
+      final assignmentReconciler = File(
+        'lib/features/planned_maintenance/services/published_template_assignment_local_reconciler.dart',
+      ).readAsStringSync();
 
       expect(
         executionRepository,
@@ -173,10 +165,9 @@ void main() {
     });
 
     test('web abnormality commands accept their authoritative readback', () {
-      final repository =
-          File(
-            'lib/features/abnormalities/providers/abnormality_provider.remote.dart',
-          ).readAsStringSync();
+      final repository = File(
+        'lib/features/abnormalities/providers/abnormality_provider.remote.dart',
+      ).readAsStringSync();
       final readback = _functionBody(
         repository,
         'Future<bool> applyAbnormalityServerReadbackIfUnchanged(',
@@ -190,6 +181,9 @@ void main() {
       final expectedReceiptBoundaries = <String, List<String>>{
         'lib/core/release/backend_release_identity_service.dart': [
           'BackendReleaseIdentity.fromCallableData',
+        ],
+        'lib/core/release/command_capability_service.dart': [
+          'CommandCapabilities.parse(response, callableName)',
         ],
         'lib/core/services/global_pull_protocol.dart': [
           'GlobalPullRunAuthority.fromCallableData',
@@ -206,9 +200,8 @@ void main() {
         'lib/features/assets/repositories/asset_hierarchy_repository.dart': [
           'AssetHierarchyMutationReceipt.fromMap',
         ],
-        'lib/features/assets/services/burner_condition_round_service.dart': [
-          'BurnerConditionRoundResult.fromCallableData',
-          'BurnerDirectiveComplianceResult.fromCallableData',
+        'lib/features/assets/providers/burner_condition_round_provider.dart': [
+          'BurnerConditionSubmissionController(',
         ],
         'lib/features/maintenance_workflow/services/workflow_command_gateway.dart':
             ['WorkflowCommandReceipt.fromMap'],
@@ -227,17 +220,16 @@ void main() {
         'lib/features/quality/services/quality_command_service.dart': [
           'QualityCommandResult.fromMap',
         ],
+        'lib/features/quality/providers/quality_monitoring_submission_provider.dart':
+            ['QualityMonitoringSubmissionController('],
       };
-      final discovered =
-          Directory('lib')
-              .listSync(recursive: true)
-              .whereType<File>()
-              .where((file) => file.path.endsWith('.dart'))
-              .where(
-                (file) => file.readAsStringSync().contains('httpsCallable('),
-              )
-              .map((file) => file.path.replaceAll('\\', '/'))
-              .toSet();
+      final discovered = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .where((file) => file.readAsStringSync().contains('httpsCallable('))
+          .map((file) => file.path.replaceAll('\\', '/'))
+          .toSet();
 
       expect(
         discovered,
@@ -251,25 +243,46 @@ void main() {
           expect(source, contains(marker), reason: '${entry.key}: $marker');
         }
       }
+      // These two composition roots pass transport to their exact native
+      // owners. The owners validate the receipt before retaining acceptance;
+      // provider construction alone is not a response validation boundary.
+      final nativeResponseOwners = <String, List<String>>{
+        'lib/features/assets/services/burner_condition_submission_controller.dart':
+            [
+              'BurnerConditionRoundResult.fromCallableData(',
+              'BurnerDirectiveComplianceResult.fromCallableData(',
+              'store.settleAccepted(',
+            ],
+        'lib/features/quality/services/quality_monitoring_submission_controller.dart':
+            [
+              'QualityCommandResult.fromMap(',
+              '_receipt(saved, raw);',
+              'store.settleAccepted(',
+            ],
+      };
+      for (final entry in nativeResponseOwners.entries) {
+        final source = File(entry.key).readAsStringSync();
+        for (final marker in entry.value) {
+          expect(source, contains(marker), reason: '${entry.key}: $marker');
+        }
+      }
     });
 
     test(
       'approved users may recheck a held row without deleting local evidence',
       () {
-        final coordinator =
-            File('lib/core/services/sync_coordinator.dart').readAsStringSync();
-        final push =
-            File(
-              'lib/core/services/sync_service.push_infrastructure.dart',
-            ).readAsStringSync();
-        final knowledge =
-            File(
-              'lib/core/services/sync_service.knowledge_base.dart',
-            ).readAsStringSync();
-        final indicator =
-            File(
-              'lib/core/widgets/sync_status_indicator.dart',
-            ).readAsStringSync();
+        final coordinator = File(
+          'lib/core/services/sync_coordinator.dart',
+        ).readAsStringSync();
+        final push = File(
+          'lib/core/services/sync_service.push_infrastructure.dart',
+        ).readAsStringSync();
+        final knowledge = File(
+          'lib/core/services/sync_service.knowledge_base.dart',
+        ).readAsStringSync();
+        final indicator = File(
+          'lib/core/widgets/sync_status_indicator.dart',
+        ).readAsStringSync();
 
         expect(
           coordinator,
@@ -352,8 +365,9 @@ String _functionBody(String source, String marker) {
   }
 
   final asyncMarker = source.indexOf('async {', markerIndex + marker.length);
-  final openBrace =
-      asyncMarker < 0 ? -1 : source.indexOf('{', asyncMarker + 'async'.length);
+  final openBrace = asyncMarker < 0
+      ? -1
+      : source.indexOf('{', asyncMarker + 'async'.length);
   if (openBrace < 0) {
     throw StateError('Missing function body for: $marker');
   }

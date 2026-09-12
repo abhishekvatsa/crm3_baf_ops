@@ -208,6 +208,14 @@ class MorningReviewCommandIdempotencyStore {
         return records.isEmpty ? null : records.first.value;
       });
 
+  /// Read-only custody import. This never clears or reactivates old requests.
+  Future<List<RetainedRequestBytes>> retainedEvidence(String actorUid) =>
+      _serial(() async {
+        final preferences = await _load();
+        await preferences.reload();
+        return _journal(actorUid).rawEvidence(preferences);
+      });
+
   Future<void> clearIfMatches({
     required String actorUid,
     required String requestId,

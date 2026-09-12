@@ -7,6 +7,8 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
 import '../domain/module_registry_concurrency.dart';
@@ -68,6 +70,7 @@ class ModuleRegistryAuthoringScreen extends ConsumerStatefulWidget {
 class _ModuleRegistryAuthoringScreenState
     extends ConsumerState<ModuleRegistryAuthoringScreen> {
   bool _loading = true;
+  String? _originActorUid;
   bool _busy = false;
   String? _loadedForActorUid;
   String? _loadingForActorUid;
@@ -78,8 +81,14 @@ class _ModuleRegistryAuthoringScreenState
   bool _integrityError = false;
 
   AppUser? get _liveGovernanceActor {
-    final actor = ref.read(currentAppUserProvider).asData?.value;
-    return actor?.canManageTemplateGovernance == true ? actor : null;
+    if (!mounted) return null;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    return actor?.canManageTemplateGovernance == true &&
+            (_originActorUid == null || actor?.uid == _originActorUid)
+        ? actor
+        : null;
   }
 
   bool get _canMutate => _liveGovernanceActor != null && _error == null;
@@ -344,14 +353,19 @@ class _ModuleRegistryAuthoringScreenState
     required String label,
     required String initialValue,
   }) {
+    final actor = _liveGovernanceActor;
+    if (actor == null) return Future.value(null);
     return showDialog<String>(
       context: context,
-      builder:
-          (_) => _RegistryReasonDialog(
-            title: title,
-            label: label,
-            initialValue: initialValue,
-          ),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canManageTemplateGovernance,
+        child: _RegistryReasonDialog(
+          title: title,
+          label: label,
+          initialValue: initialValue,
+        ),
+      ),
     );
   }
 
@@ -390,6 +404,14 @@ class _ModuleRegistryAuthoringScreenState
             'This workspace is available only to approved Admin and SI users.',
       );
     }
+    _originActorUid ??= actor.uid;
+    if (actor.uid != _originActorUid) {
+      return const _RegistryAuthorityState(
+        title: 'Account changed',
+        message:
+            'Return to the account that opened this authoring screen, or go back and reopen it for the current account.',
+      );
+    }
     if (_loadedForActorUid != actor.uid) {
       _scheduleLoad(actor.uid);
       return const _RegistryAuthorityState(
@@ -419,54 +441,51 @@ class _ModuleRegistryAuthoringScreenState
         ],
       ),
       body: SafeArea(
-        child:
-            _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                  padding: const EdgeInsets.all(BafSpacing.lg),
-                  children: [
-                    _GovernanceBanner(actor: actor, canGovern: true),
-                    if (_error != null) ...[
-                      const SizedBox(height: BafSpacing.md),
-                      if (_integrityError)
-                        PersistedDataIntegrityNotice(
-                          title: 'Governance timeline needs repair',
-                          message: _error!,
-                        )
-                      else
-                        _WarningPanel(message: _error!),
-                    ],
-                    const SizedBox(height: BafSpacing.lg),
-                    _CurrentDraftModulePanel(
-                      draftModules: widget.draftModules,
-                      selectedIndex: _selectedDraftModuleIndex,
-                      onSelected:
-                          (index) =>
-                              setState(() => _selectedDraftModuleIndex = index),
-                      onCreateDraft:
-                          _busy || !_canMutate
-                              ? null
-                              : _createDraftFromSelectedModule,
-                    ),
-                    const SizedBox(height: BafSpacing.lg),
-                    _RegistryDraftPanel(
-                      draftRevisions: _draftRevisions,
-                      selectedComposerModule: _selectedComposerModule,
-                      busy: _busy,
-                      canGovern: _canMutate,
-                      onUpdateFromComposer: _updateDraftFromSelectedModule,
-                      onPublish: _publishDraft,
-                    ),
-                    const SizedBox(height: BafSpacing.lg),
-                    _PublishedRegistryPanel(
-                      sources: _publishedSources,
-                      busy: _busy,
-                      canGovern: _canMutate,
-                      onRetireRevision: _retireRevision,
-                      onRetireFamily: _retireFamily,
-                    ),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                children: [
+                  _GovernanceBanner(actor: actor, canGovern: true),
+                  if (_error != null) ...[
+                    const SizedBox(height: BafSpacing.md),
+                    if (_integrityError)
+                      PersistedDataIntegrityNotice(
+                        title: 'Governance timeline needs repair',
+                        message: _error!,
+                      )
+                    else
+                      _WarningPanel(message: _error!),
                   ],
-                ),
+                  const SizedBox(height: BafSpacing.lg),
+                  _CurrentDraftModulePanel(
+                    draftModules: widget.draftModules,
+                    selectedIndex: _selectedDraftModuleIndex,
+                    onSelected: (index) =>
+                        setState(() => _selectedDraftModuleIndex = index),
+                    onCreateDraft: _busy || !_canMutate
+                        ? null
+                        : _createDraftFromSelectedModule,
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  _RegistryDraftPanel(
+                    draftRevisions: _draftRevisions,
+                    selectedComposerModule: _selectedComposerModule,
+                    busy: _busy,
+                    canGovern: _canMutate,
+                    onUpdateFromComposer: _updateDraftFromSelectedModule,
+                    onPublish: _publishDraft,
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  _PublishedRegistryPanel(
+                    sources: _publishedSources,
+                    busy: _busy,
+                    canGovern: _canMutate,
+                    onRetireRevision: _retireRevision,
+                    onRetireFamily: _retireFamily,
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -653,45 +672,41 @@ class _CurrentDraftModulePanel extends StatelessWidget {
           'Pick one current draft module and create a governed registry draft.',
       icon: Icons.note_add_rounded,
       color: BafColors.planned,
-      child:
-          draftModules.isEmpty
-              ? const _EmptyText('No composer draft modules are available yet.')
-              : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedIndex.clamp(
-                      0,
-                      draftModules.length - 1,
-                    ),
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Composer module',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      for (var i = 0; i < draftModules.length; i++)
-                        DropdownMenuItem<int>(
-                          value: i,
-                          child: Text(
-                            '${draftModules[i].moduleCode} — ${draftModules[i].title}',
-                          ),
+      child: draftModules.isEmpty
+          ? const _EmptyText('No composer draft modules are available yet.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<int>(
+                  initialValue: selectedIndex.clamp(0, draftModules.length - 1),
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Composer module',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (var i = 0; i < draftModules.length; i++)
+                      DropdownMenuItem<int>(
+                        value: i,
+                        child: Text(
+                          '${draftModules[i].moduleCode} — ${draftModules[i].title}',
                         ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        onSelected(value);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: BafSpacing.md),
-                  FilledButton.icon(
-                    onPressed: onCreateDraft,
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                    label: const Text('Create registry draft'),
-                  ),
-                ],
-              ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSelected(value);
+                    }
+                  },
+                ),
+                const SizedBox(height: BafSpacing.md),
+                FilledButton.icon(
+                  onPressed: onCreateDraft,
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  label: const Text('Create registry draft'),
+                ),
+              ],
+            ),
     );
   }
 }

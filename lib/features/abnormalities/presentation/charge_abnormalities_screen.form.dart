@@ -2,11 +2,13 @@ part of 'charge_abnormalities_screen.dart';
 
 class _ChargeAbnormalityFormDialog extends ConsumerStatefulWidget {
   final int sourceChargeNo;
+  final String originUid;
   final List<AbnormalityType> activeTypes;
   final ChargeAbnormality? existing;
 
   const _ChargeAbnormalityFormDialog({
     required this.sourceChargeNo,
+    required this.originUid,
     required this.activeTypes,
     required this.existing,
   });
@@ -776,8 +778,10 @@ class _ChargeAbnormalityFormDialogState
       _assetSelectionError = null;
     });
     try {
-      final actor = ref.read(currentAppUserProvider).value;
-      if (actor == null) {
+      final actor = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      ).actor;
+      if (actor == null || actor.uid != widget.originUid) {
         throw StateError('The reporting user could not be verified.');
       }
       final confirmedAt = DateTime.now();
@@ -959,6 +963,16 @@ class _ChargeAbnormalityFormDialogState
   }
 
   void _submit() {
+    if (currentActorActionMessage(
+          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+          originUid: widget.originUid,
+          permission: (actor) => widget.existing == null
+              ? actor.canLogChargeAbnormality
+              : actor.canEditChargeAbnormality,
+        ) !=
+        null) {
+      return;
+        }
     if (!_formKey.currentState!.validate()) return;
 
     if (_affectedAssets.isEmpty) {

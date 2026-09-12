@@ -1,0 +1,1489 @@
+{
+  "provenance": {
+    "generator": "tool/test_support/capture_morning_review_durable_fixtures.cjs",
+    "handlerSha256": "c81687b05bf2ff3fcc68de6392cc0066fcb3168a5b5cca1fecd96cea1f2e98cb",
+    "sourceSha256": "245608c756fe346ff4a3bb1254a62916d47563b3f420215aa98a2dfc938d03c4",
+    "harnessSha256": "c85a412a3be0a53036287fe7c66b2fa96114b7e40ffde574aae2b10b7a1b80a2",
+    "note": "Actual compiled handler with local transaction harness; production never accessed."
+  },
+  "records": [
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000001-1111-4111-8111-111111111111",
+        "operation": "START_MORNING_REVIEW"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000001-1111-4111-8111-111111111111",
+        "operation": "START_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31",
+        "status": "open",
+        "version": 1,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_sessions",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "open",
+        "version": 1,
+        "openedAt": "2026-08-31T03:00:00.000Z",
+        "openedByUid": "admin-1",
+        "openedByName": "Admin One",
+        "facilitatorUid": "admin-1",
+        "facilitatorName": "Admin One",
+        "facilitatorRoleKeys": [
+          "admin"
+        ],
+        "facilitatorHistory": [],
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFactCount": 2,
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "finalizedAt": null,
+        "finalizedByUid": null,
+        "finalizedByName": null,
+        "finalSummary": null,
+        "documentDigest": null,
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000001-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "si-2",
+      "request": {
+        "requestId": "00000002-1111-4111-8111-111111111111",
+        "operation": "JOIN_MORNING_REVIEW",
+        "sessionId": "2026-08-31"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000002-1111-4111-8111-111111111111",
+        "operation": "JOIN_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31_si-2",
+        "status": "joined",
+        "version": 2,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_participants",
+      "subject": {
+        "schemaVersion": 1,
+        "participantId": "2026-08-31_si-2",
+        "sessionId": "2026-08-31",
+        "userUid": "si-2",
+        "userName": "SI Two",
+        "roleKeys": [
+          "si"
+        ],
+        "state": "joined",
+        "joinedAt": "2026-08-31T03:00:00.000Z",
+        "joinedByRequestId": "00000002-1111-4111-8111-111111111111",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000003-1111-4111-8111-111111111111",
+        "operation": "ADD_MORNING_REVIEW_ENTRY",
+        "sessionId": "2026-08-31",
+        "entryDraft": {
+          "section": "plantWide",
+          "kind": "update",
+          "text": "Durable captured contribution",
+          "assetClassId": null,
+          "assetClassName": null,
+          "assetInstanceId": null,
+          "assetNumber": null,
+          "sourceReferences": []
+        }
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000003-1111-4111-8111-111111111111",
+        "operation": "ADD_MORNING_REVIEW_ENTRY",
+        "sessionId": "2026-08-31",
+        "entityId": "00000003-1111-4111-8111-111111111111",
+        "status": "recorded",
+        "version": 3,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_entries",
+      "subject": {
+        "schemaVersion": 1,
+        "entryId": "00000003-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "section": "plantWide",
+        "kind": "update",
+        "text": "Durable captured contribution",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "sourceReferences": [],
+        "authorUid": "admin-1",
+        "authorName": "Admin One",
+        "authorRoleKeys": [
+          "admin"
+        ],
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "addendumReason": null,
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000004-1111-4111-8111-111111111111",
+        "operation": "CREATE_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "actionDraft": {
+          "section": "plantWide",
+          "text": "Inspect captured work",
+          "assigneeUid": "admin-1",
+          "assigneeRole": null,
+          "assetClassId": null,
+          "assetClassName": null,
+          "assetInstanceId": null,
+          "assetNumber": null,
+          "dueAt": null
+        }
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000004-1111-4111-8111-111111111111",
+        "operation": "CREATE_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "entityId": "00000004-1111-4111-8111-111111111111",
+        "status": "open",
+        "version": 1,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_actions",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "open",
+        "version": 1,
+        "acceptedAt": null,
+        "acceptedByUid": null,
+        "acceptedByName": null,
+        "completedAt": null,
+        "completedByUid": null,
+        "completedByName": null,
+        "completionNote": null,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": null,
+        "lastMutationId": "00000004-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000005-1111-4111-8111-111111111111",
+        "operation": "ACCEPT_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "expectedVersion": 1
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000005-1111-4111-8111-111111111111",
+        "operation": "ACCEPT_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "entityId": "00000004-1111-4111-8111-111111111111",
+        "status": "accepted",
+        "version": 2,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_actions",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "accepted",
+        "version": 2,
+        "acceptedAt": "2026-08-31T03:00:00.000Z",
+        "acceptedByUid": "admin-1",
+        "acceptedByName": "Admin One",
+        "completedAt": null,
+        "completedByUid": null,
+        "completedByName": null,
+        "completionNote": null,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": null,
+        "lastMutationId": "00000005-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000006-1111-4111-8111-111111111111",
+        "operation": "COMPLETE_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "expectedVersion": 2,
+        "reason": "Captured completion evidence"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000006-1111-4111-8111-111111111111",
+        "operation": "COMPLETE_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "entityId": "00000004-1111-4111-8111-111111111111",
+        "status": "completed",
+        "version": 3,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_actions",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "completed",
+        "version": 3,
+        "acceptedAt": "2026-08-31T03:00:00.000Z",
+        "acceptedByUid": "admin-1",
+        "acceptedByName": "Admin One",
+        "completedAt": "2026-08-31T03:00:00.000Z",
+        "completedByUid": "admin-1",
+        "completedByName": "Admin One",
+        "completionNote": "Captured completion evidence",
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000006-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000007-1111-4111-8111-111111111111",
+        "operation": "CREATE_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "concernDraft": {
+          "title": "Captured safety concern",
+          "detail": "Review required before close",
+          "criticality": "safety"
+        }
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000007-1111-4111-8111-111111111111",
+        "operation": "CREATE_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "entityId": "00000007-1111-4111-8111-111111111111",
+        "status": "active",
+        "version": 1,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_standing_concerns",
+      "subject": {
+        "schemaVersion": 1,
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "originSessionId": "2026-08-31",
+        "title": "Captured safety concern",
+        "detail": "Review required before close",
+        "criticality": "safety",
+        "status": "active",
+        "version": 1,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "resolvedAt": null,
+        "resolvedByUid": null,
+        "resolvedByName": null,
+        "resolutionReason": null,
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": null,
+        "lastMutationId": "00000007-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000008-1111-4111-8111-111111111111",
+        "operation": "CHECK_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "checkState": "complied",
+        "reason": "Captured check"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000008-1111-4111-8111-111111111111",
+        "operation": "CHECK_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+        "status": "complied",
+        "version": 8,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_concern_checks",
+      "subject": {
+        "schemaVersion": 1,
+        "checkId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "concernTitle": "Captured safety concern",
+        "state": "complied",
+        "note": "Captured check",
+        "checkedAt": "2026-08-31T03:00:00.000Z",
+        "checkedByUid": "admin-1",
+        "checkedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "actorUid": "si-2",
+      "request": {
+        "requestId": "00000009-1111-4111-8111-111111111111",
+        "operation": "TAKE_OVER_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "expectedVersion": 8,
+        "reason": "Captured handover"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000009-1111-4111-8111-111111111111",
+        "operation": "TAKE_OVER_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31",
+        "status": "open",
+        "version": 9,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_sessions",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "open",
+        "version": 9,
+        "openedAt": "2026-08-31T03:00:00.000Z",
+        "openedByUid": "admin-1",
+        "openedByName": "Admin One",
+        "facilitatorUid": "si-2",
+        "facilitatorName": "SI Two",
+        "facilitatorRoleKeys": [
+          "si"
+        ],
+        "facilitatorHistory": [
+          {
+            "previousFacilitatorUid": "admin-1",
+            "previousFacilitatorName": "Admin One",
+            "takenOverAt": "2026-08-31T03:00:00.000Z",
+            "takenOverByUid": "si-2",
+            "takenOverByName": "SI Two",
+            "reason": "Captured handover"
+          }
+        ],
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFactCount": 2,
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "finalizedAt": null,
+        "finalizedByUid": null,
+        "finalizedByName": null,
+        "finalSummary": null,
+        "documentDigest": null,
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "si-2",
+        "updatedByName": "SI Two",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000009-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000010-1111-4111-8111-111111111111",
+        "operation": "RESOLVE_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "expectedVersion": 1,
+        "reason": "Captured resolution"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000010-1111-4111-8111-111111111111",
+        "operation": "RESOLVE_MORNING_REVIEW_STANDING_CONCERN",
+        "sessionId": "2026-08-31",
+        "entityId": "00000007-1111-4111-8111-111111111111",
+        "status": "resolved",
+        "version": 2,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_standing_concerns",
+      "subject": {
+        "schemaVersion": 1,
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "originSessionId": "2026-08-31",
+        "title": "Captured safety concern",
+        "detail": "Review required before close",
+        "criticality": "safety",
+        "status": "resolved",
+        "version": 2,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "resolvedAt": "2026-08-31T03:00:00.000Z",
+        "resolvedByUid": "admin-1",
+        "resolvedByName": "Admin One",
+        "resolutionReason": "Captured resolution",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000010-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000011-1111-4111-8111-111111111111",
+        "operation": "FINALIZE_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "expectedVersion": 10,
+        "summary": "Captured final summary"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000011-1111-4111-8111-111111111111",
+        "operation": "FINALIZE_MORNING_REVIEW",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31",
+        "status": "finalized",
+        "version": 11,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_documents",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "finalized",
+        "title": "BAF Morning Review",
+        "facilitatorUid": "si-2",
+        "facilitatorName": "SI Two",
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "facilitatorHistory": [
+          {
+            "previousFacilitatorUid": "admin-1",
+            "previousFacilitatorName": "Admin One",
+            "takenOverAt": "2026-08-31T03:00:00.000Z",
+            "takenOverByUid": "si-2",
+            "takenOverByName": "SI Two",
+            "reason": "Captured handover"
+          }
+        ],
+        "entries": [
+          {
+            "documentId": "00000003-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "entryId": "00000003-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "plantDay": "2026-08-31",
+            "section": "plantWide",
+            "kind": "update",
+            "text": "Durable captured contribution",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "sourceReferences": [],
+            "authorUid": "admin-1",
+            "authorName": "Admin One",
+            "authorRoleKeys": [
+              "admin"
+            ],
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "addendumReason": null,
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "actions": [
+          {
+            "documentId": "00000004-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "actionId": "00000004-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "originPlantDay": "2026-08-31",
+            "section": "plantWide",
+            "text": "Inspect captured work",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "assigneeUid": "admin-1",
+            "assigneeName": "Admin One",
+            "assigneeRole": null,
+            "dueAt": null,
+            "status": "completed",
+            "version": 3,
+            "acceptedAt": "2026-08-31T03:00:00.000Z",
+            "acceptedByUid": "admin-1",
+            "acceptedByName": "Admin One",
+            "completedAt": "2026-08-31T03:00:00.000Z",
+            "completedByUid": "admin-1",
+            "completedByName": "Admin One",
+            "completionNote": "Captured completion evidence",
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "createdByUid": "admin-1",
+            "createdByName": "Admin One",
+            "updatedAt": "2026-08-31T03:00:00.000Z",
+            "updatedByUid": "admin-1",
+            "updatedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z",
+            "lastMutationId": "00000006-1111-4111-8111-111111111111"
+          }
+        ],
+        "participants": [
+          {
+            "documentId": "2026-08-31_admin-1",
+            "schemaVersion": 1,
+            "participantId": "2026-08-31_admin-1",
+            "sessionId": "2026-08-31",
+            "userUid": "admin-1",
+            "userName": "Admin One",
+            "roleKeys": [
+              "admin"
+            ],
+            "state": "joined",
+            "joinedAt": "2026-08-31T03:00:00.000Z",
+            "joinedByRequestId": "00000001-1111-4111-8111-111111111111",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          },
+          {
+            "documentId": "2026-08-31_si-2",
+            "schemaVersion": 1,
+            "participantId": "2026-08-31_si-2",
+            "sessionId": "2026-08-31",
+            "userUid": "si-2",
+            "userName": "SI Two",
+            "roleKeys": [
+              "si"
+            ],
+            "state": "joined",
+            "joinedAt": "2026-08-31T03:00:00.000Z",
+            "joinedByRequestId": "00000002-1111-4111-8111-111111111111",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "standingConcerns": [
+          {
+            "documentId": "00000007-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "concernId": "00000007-1111-4111-8111-111111111111",
+            "originSessionId": "2026-08-31",
+            "title": "Captured safety concern",
+            "detail": "Review required before close",
+            "criticality": "safety",
+            "status": "resolved",
+            "version": 2,
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "createdByUid": "admin-1",
+            "createdByName": "Admin One",
+            "resolvedAt": "2026-08-31T03:00:00.000Z",
+            "resolvedByUid": "admin-1",
+            "resolvedByName": "Admin One",
+            "resolutionReason": "Captured resolution",
+            "updatedAt": "2026-08-31T03:00:00.000Z",
+            "updatedByUid": "admin-1",
+            "updatedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z",
+            "lastMutationId": "00000010-1111-4111-8111-111111111111"
+          }
+        ],
+        "standingConcernChecks": [
+          {
+            "documentId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "checkId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "concernId": "00000007-1111-4111-8111-111111111111",
+            "concernTitle": "Captured safety concern",
+            "state": "complied",
+            "note": "Captured check",
+            "checkedAt": "2026-08-31T03:00:00.000Z",
+            "checkedByUid": "admin-1",
+            "checkedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "finalSummary": "Captured final summary",
+        "finalizedAt": "2026-08-31T03:00:00.000Z",
+        "finalizedByUid": "admin-1",
+        "finalizedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "documentDigest": "morningreviewdocument1-sha256:7841d837b2fdd619a0a2998e8695c0d0e55b84f50a29eb4f0459f184c333b362"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000012-1111-4111-8111-111111111111",
+        "operation": "ADD_MORNING_REVIEW_ADDENDUM",
+        "sessionId": "2026-08-31",
+        "entryDraft": {
+          "section": "plantWide",
+          "kind": "addendum",
+          "text": "Durable captured contribution",
+          "assetClassId": null,
+          "assetClassName": null,
+          "assetInstanceId": null,
+          "assetNumber": null,
+          "sourceReferences": []
+        },
+        "reason": "Captured clarification"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000012-1111-4111-8111-111111111111",
+        "operation": "ADD_MORNING_REVIEW_ADDENDUM",
+        "sessionId": "2026-08-31",
+        "entityId": "00000012-1111-4111-8111-111111111111",
+        "status": "addendum",
+        "version": 12,
+        "committedAt": "2026-08-31T03:00:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_entries",
+      "subject": {
+        "schemaVersion": 1,
+        "entryId": "00000012-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "section": "plantWide",
+        "kind": "addendum",
+        "text": "Durable captured contribution",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "sourceReferences": [],
+        "authorUid": "admin-1",
+        "authorName": "Admin One",
+        "authorRoleKeys": [
+          "admin"
+        ],
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "addendumReason": "Captured clarification",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "00000013-1111-4111-8111-111111111111",
+        "operation": "RECORD_MORNING_REVIEW_NOT_HELD",
+        "reason": "Captured plant shutdown"
+      },
+      "receipt": {
+        "ok": true,
+        "requestId": "00000013-1111-4111-8111-111111111111",
+        "operation": "RECORD_MORNING_REVIEW_NOT_HELD",
+        "sessionId": "2026-08-31",
+        "entityId": "2026-08-31",
+        "status": "notHeld",
+        "version": 1,
+        "committedAt": "2026-08-31T04:31:00.000Z",
+        "idempotentReplay": false
+      },
+      "collection": "morning_review_sessions",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "notHeld",
+        "version": 1,
+        "openedAt": null,
+        "openedByUid": null,
+        "openedByName": null,
+        "facilitatorUid": "admin-1",
+        "facilitatorName": "Admin One",
+        "facilitatorRoleKeys": [
+          "admin"
+        ],
+        "facilitatorHistory": [],
+        "sourceCapturedAt": null,
+        "sourceCaptureState": "notApplicable",
+        "sourceCollectionsAtLimit": [],
+        "sourceFacts": [],
+        "sourceFactDigest": null,
+        "sourceFactCount": 0,
+        "finalizedAt": "2026-08-31T04:31:00.000Z",
+        "finalizedByUid": "admin-1",
+        "finalizedByName": "Admin One",
+        "finalSummary": "Captured plant shutdown",
+        "documentDigest": null,
+        "updatedAt": "2026-08-31T04:31:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T04:31:00.000Z",
+        "lastMutationId": "00000013-1111-4111-8111-111111111111"
+      }
+    }
+  ],
+  "advancedSubjects": [
+    {
+      "operation": "START_MORNING_REVIEW",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "finalized",
+        "version": 12,
+        "openedAt": "2026-08-31T03:00:00.000Z",
+        "openedByUid": "admin-1",
+        "openedByName": "Admin One",
+        "facilitatorUid": "si-2",
+        "facilitatorName": "SI Two",
+        "facilitatorRoleKeys": [
+          "si"
+        ],
+        "facilitatorHistory": [
+          {
+            "previousFacilitatorUid": "admin-1",
+            "previousFacilitatorName": "Admin One",
+            "takenOverAt": "2026-08-31T03:00:00.000Z",
+            "takenOverByUid": "si-2",
+            "takenOverByName": "SI Two",
+            "reason": "Captured handover"
+          }
+        ],
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFactCount": 2,
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "finalizedAt": "2026-08-31T03:00:00.000Z",
+        "finalizedByUid": "admin-1",
+        "finalizedByName": "Admin One",
+        "finalSummary": "Captured final summary",
+        "documentDigest": "morningreviewdocument1-sha256:7841d837b2fdd619a0a2998e8695c0d0e55b84f50a29eb4f0459f184c333b362",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000012-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "JOIN_MORNING_REVIEW",
+      "subject": {
+        "schemaVersion": 1,
+        "participantId": "2026-08-31_si-2",
+        "sessionId": "2026-08-31",
+        "userUid": "si-2",
+        "userName": "SI Two",
+        "roleKeys": [
+          "si"
+        ],
+        "state": "joined",
+        "joinedAt": "2026-08-31T03:00:00.000Z",
+        "joinedByRequestId": "00000002-1111-4111-8111-111111111111",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "operation": "ADD_MORNING_REVIEW_ENTRY",
+      "subject": {
+        "schemaVersion": 1,
+        "entryId": "00000003-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "section": "plantWide",
+        "kind": "update",
+        "text": "Durable captured contribution",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "sourceReferences": [],
+        "authorUid": "admin-1",
+        "authorName": "Admin One",
+        "authorRoleKeys": [
+          "admin"
+        ],
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "addendumReason": null,
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "operation": "CREATE_MORNING_REVIEW_ACTION",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "completed",
+        "version": 3,
+        "acceptedAt": "2026-08-31T03:00:00.000Z",
+        "acceptedByUid": "admin-1",
+        "acceptedByName": "Admin One",
+        "completedAt": "2026-08-31T03:00:00.000Z",
+        "completedByUid": "admin-1",
+        "completedByName": "Admin One",
+        "completionNote": "Captured completion evidence",
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000006-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "ACCEPT_MORNING_REVIEW_ACTION",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "completed",
+        "version": 3,
+        "acceptedAt": "2026-08-31T03:00:00.000Z",
+        "acceptedByUid": "admin-1",
+        "acceptedByName": "Admin One",
+        "completedAt": "2026-08-31T03:00:00.000Z",
+        "completedByUid": "admin-1",
+        "completedByName": "Admin One",
+        "completionNote": "Captured completion evidence",
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000006-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "COMPLETE_MORNING_REVIEW_ACTION",
+      "subject": {
+        "schemaVersion": 1,
+        "actionId": "00000004-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "originPlantDay": "2026-08-31",
+        "section": "plantWide",
+        "text": "Inspect captured work",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "assigneeUid": "admin-1",
+        "assigneeName": "Admin One",
+        "assigneeRole": null,
+        "dueAt": null,
+        "status": "completed",
+        "version": 3,
+        "acceptedAt": "2026-08-31T03:00:00.000Z",
+        "acceptedByUid": "admin-1",
+        "acceptedByName": "Admin One",
+        "completedAt": "2026-08-31T03:00:00.000Z",
+        "completedByUid": "admin-1",
+        "completedByName": "Admin One",
+        "completionNote": "Captured completion evidence",
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000006-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "CREATE_MORNING_REVIEW_STANDING_CONCERN",
+      "subject": {
+        "schemaVersion": 1,
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "originSessionId": "2026-08-31",
+        "title": "Captured safety concern",
+        "detail": "Review required before close",
+        "criticality": "safety",
+        "status": "resolved",
+        "version": 2,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "resolvedAt": "2026-08-31T03:00:00.000Z",
+        "resolvedByUid": "admin-1",
+        "resolvedByName": "Admin One",
+        "resolutionReason": "Captured resolution",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000010-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "CHECK_MORNING_REVIEW_STANDING_CONCERN",
+      "subject": {
+        "schemaVersion": 1,
+        "checkId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "concernTitle": "Captured safety concern",
+        "state": "complied",
+        "note": "Captured check",
+        "checkedAt": "2026-08-31T03:00:00.000Z",
+        "checkedByUid": "admin-1",
+        "checkedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    },
+    {
+      "operation": "TAKE_OVER_MORNING_REVIEW",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "finalized",
+        "version": 12,
+        "openedAt": "2026-08-31T03:00:00.000Z",
+        "openedByUid": "admin-1",
+        "openedByName": "Admin One",
+        "facilitatorUid": "si-2",
+        "facilitatorName": "SI Two",
+        "facilitatorRoleKeys": [
+          "si"
+        ],
+        "facilitatorHistory": [
+          {
+            "previousFacilitatorUid": "admin-1",
+            "previousFacilitatorName": "Admin One",
+            "takenOverAt": "2026-08-31T03:00:00.000Z",
+            "takenOverByUid": "si-2",
+            "takenOverByName": "SI Two",
+            "reason": "Captured handover"
+          }
+        ],
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFactCount": 2,
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "finalizedAt": "2026-08-31T03:00:00.000Z",
+        "finalizedByUid": "admin-1",
+        "finalizedByName": "Admin One",
+        "finalSummary": "Captured final summary",
+        "documentDigest": "morningreviewdocument1-sha256:7841d837b2fdd619a0a2998e8695c0d0e55b84f50a29eb4f0459f184c333b362",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000012-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "RESOLVE_MORNING_REVIEW_STANDING_CONCERN",
+      "subject": {
+        "schemaVersion": 1,
+        "concernId": "00000007-1111-4111-8111-111111111111",
+        "originSessionId": "2026-08-31",
+        "title": "Captured safety concern",
+        "detail": "Review required before close",
+        "criticality": "safety",
+        "status": "resolved",
+        "version": 2,
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "resolvedAt": "2026-08-31T03:00:00.000Z",
+        "resolvedByUid": "admin-1",
+        "resolvedByName": "Admin One",
+        "resolutionReason": "Captured resolution",
+        "updatedAt": "2026-08-31T03:00:00.000Z",
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "lastMutationId": "00000010-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "operation": "FINALIZE_MORNING_REVIEW",
+      "subject": {
+        "schemaVersion": 1,
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "status": "finalized",
+        "title": "BAF Morning Review",
+        "facilitatorUid": "si-2",
+        "facilitatorName": "SI Two",
+        "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+        "sourceCaptureState": "complete",
+        "sourceCollectionsAtLimit": [],
+        "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+        "sourceFacts": [
+          {
+            "factId": "critical_alarms/alarm-1",
+            "section": "safety",
+            "sourceType": "criticalAlarm",
+            "sourceCollection": "critical_alarms",
+            "sourceDocumentId": "alarm-1",
+            "title": "Fire",
+            "summary": "raised: Fire alarm near the furnace bay.",
+            "status": "raised",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "observedAtIso": "2026-08-30T03:15:00.000Z"
+          },
+          {
+            "factId": "maintenance_records/ticket-1",
+            "section": "furnace",
+            "sourceType": "maintenanceIssue",
+            "sourceCollection": "maintenance_records",
+            "sourceDocumentId": "ticket-1",
+            "title": "Draft seal requires inspection.",
+            "summary": "open",
+            "status": "open",
+            "assetClassId": null,
+            "assetClassName": "Furnace",
+            "assetInstanceId": null,
+            "assetNumber": "12",
+            "observedAtIso": "2026-08-30T06:00:00.000Z"
+          }
+        ],
+        "facilitatorHistory": [
+          {
+            "previousFacilitatorUid": "admin-1",
+            "previousFacilitatorName": "Admin One",
+            "takenOverAt": "2026-08-31T03:00:00.000Z",
+            "takenOverByUid": "si-2",
+            "takenOverByName": "SI Two",
+            "reason": "Captured handover"
+          }
+        ],
+        "entries": [
+          {
+            "documentId": "00000003-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "entryId": "00000003-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "plantDay": "2026-08-31",
+            "section": "plantWide",
+            "kind": "update",
+            "text": "Durable captured contribution",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "sourceReferences": [],
+            "authorUid": "admin-1",
+            "authorName": "Admin One",
+            "authorRoleKeys": [
+              "admin"
+            ],
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "addendumReason": null,
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "actions": [
+          {
+            "documentId": "00000004-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "actionId": "00000004-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "originPlantDay": "2026-08-31",
+            "section": "plantWide",
+            "text": "Inspect captured work",
+            "assetClassId": null,
+            "assetClassName": null,
+            "assetInstanceId": null,
+            "assetNumber": null,
+            "assigneeUid": "admin-1",
+            "assigneeName": "Admin One",
+            "assigneeRole": null,
+            "dueAt": null,
+            "status": "completed",
+            "version": 3,
+            "acceptedAt": "2026-08-31T03:00:00.000Z",
+            "acceptedByUid": "admin-1",
+            "acceptedByName": "Admin One",
+            "completedAt": "2026-08-31T03:00:00.000Z",
+            "completedByUid": "admin-1",
+            "completedByName": "Admin One",
+            "completionNote": "Captured completion evidence",
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "createdByUid": "admin-1",
+            "createdByName": "Admin One",
+            "updatedAt": "2026-08-31T03:00:00.000Z",
+            "updatedByUid": "admin-1",
+            "updatedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z",
+            "lastMutationId": "00000006-1111-4111-8111-111111111111"
+          }
+        ],
+        "participants": [
+          {
+            "documentId": "2026-08-31_admin-1",
+            "schemaVersion": 1,
+            "participantId": "2026-08-31_admin-1",
+            "sessionId": "2026-08-31",
+            "userUid": "admin-1",
+            "userName": "Admin One",
+            "roleKeys": [
+              "admin"
+            ],
+            "state": "joined",
+            "joinedAt": "2026-08-31T03:00:00.000Z",
+            "joinedByRequestId": "00000001-1111-4111-8111-111111111111",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          },
+          {
+            "documentId": "2026-08-31_si-2",
+            "schemaVersion": 1,
+            "participantId": "2026-08-31_si-2",
+            "sessionId": "2026-08-31",
+            "userUid": "si-2",
+            "userName": "SI Two",
+            "roleKeys": [
+              "si"
+            ],
+            "state": "joined",
+            "joinedAt": "2026-08-31T03:00:00.000Z",
+            "joinedByRequestId": "00000002-1111-4111-8111-111111111111",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "standingConcerns": [
+          {
+            "documentId": "00000007-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "concernId": "00000007-1111-4111-8111-111111111111",
+            "originSessionId": "2026-08-31",
+            "title": "Captured safety concern",
+            "detail": "Review required before close",
+            "criticality": "safety",
+            "status": "resolved",
+            "version": 2,
+            "createdAt": "2026-08-31T03:00:00.000Z",
+            "createdByUid": "admin-1",
+            "createdByName": "Admin One",
+            "resolvedAt": "2026-08-31T03:00:00.000Z",
+            "resolvedByUid": "admin-1",
+            "resolvedByName": "Admin One",
+            "resolutionReason": "Captured resolution",
+            "updatedAt": "2026-08-31T03:00:00.000Z",
+            "updatedByUid": "admin-1",
+            "updatedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z",
+            "lastMutationId": "00000010-1111-4111-8111-111111111111"
+          }
+        ],
+        "standingConcernChecks": [
+          {
+            "documentId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+            "schemaVersion": 1,
+            "checkId": "2026-08-31_00000007-1111-4111-8111-111111111111",
+            "sessionId": "2026-08-31",
+            "concernId": "00000007-1111-4111-8111-111111111111",
+            "concernTitle": "Captured safety concern",
+            "state": "complied",
+            "note": "Captured check",
+            "checkedAt": "2026-08-31T03:00:00.000Z",
+            "checkedByUid": "admin-1",
+            "checkedByName": "Admin One",
+            "expiresAt": "2026-09-14T03:00:00.000Z"
+          }
+        ],
+        "finalSummary": "Captured final summary",
+        "finalizedAt": "2026-08-31T03:00:00.000Z",
+        "finalizedByUid": "admin-1",
+        "finalizedByName": "Admin One",
+        "expiresAt": "2026-09-14T03:00:00.000Z",
+        "documentDigest": "morningreviewdocument1-sha256:7841d837b2fdd619a0a2998e8695c0d0e55b84f50a29eb4f0459f184c333b362"
+      }
+    },
+    {
+      "operation": "ADD_MORNING_REVIEW_ADDENDUM",
+      "subject": {
+        "schemaVersion": 1,
+        "entryId": "00000012-1111-4111-8111-111111111111",
+        "sessionId": "2026-08-31",
+        "plantDay": "2026-08-31",
+        "section": "plantWide",
+        "kind": "addendum",
+        "text": "Durable captured contribution",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "sourceReferences": [],
+        "authorUid": "admin-1",
+        "authorName": "Admin One",
+        "authorRoleKeys": [
+          "admin"
+        ],
+        "createdAt": "2026-08-31T03:00:00.000Z",
+        "addendumReason": "Captured clarification",
+        "expiresAt": "2026-09-14T03:00:00.000Z"
+      }
+    }
+  ]
+}

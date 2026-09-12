@@ -142,7 +142,7 @@ def verify_migration() -> None:
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
     identity_repair=(ROOT/'lib/core/services/governed_asset_identity_local_repair.dart').read_text(encoding="utf-8")
     plant_condition_repair=(ROOT/'lib/core/services/maintenance_plant_condition_index_repair.dart').read_text(encoding="utf-8")
-    if 'currentSchemaVersion = 10' not in text: fail('Isar schema version is not v10')
+    if 'currentSchemaVersion = 11' not in text: fail('Isar schema version is not v11')
     if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v4 schema fingerprint missing')
     if "'v5:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v5 schema fingerprint missing')
     if "'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks" not in text: fail('v6 schema fingerprint missing')
@@ -157,6 +157,9 @@ def verify_migration() -> None:
     if '8: _addSyncRejectionOriginatingUid' not in text: fail('v7->v8 migration step missing')
     if '9: _addMaintenancePlantConditionEffect' not in text: fail('v8->v9 migration step missing')
     if '10: _addMaintenancePlantConditionContributionIndex' not in text: fail('v9->v10 migration step missing')
+    if '11: _addDurableSubmissionCollection' not in text: fail('v10->v11 migration step missing')
+    if '10: <String>{v10SchemaFingerprint}' not in text: fail('retained v10 fingerprint missing')
+    if 'DurableSubmissionRecordSchema' not in startup: fail('durable submission collection is not opened')
     if 'repairLegacyOperationalAssuranceRequests(' not in startup:
         fail('v4 operational-assurance post-open repair missing')
     if 'repairLegacyGovernedAssetIdentityProjections(' not in identity_repair:
@@ -229,13 +232,17 @@ def main() -> int:
         source=data/filename
         generated=source.with_suffix('.g.dart')
         verify_binding(source,generated,class_name)
+    submission=ROOT/'lib/core/persistence/durable_submission_record.dart'
+    verify_binding(submission,submission.with_suffix('.g.dart'),'DurableSubmissionRecord')
+    if 'replace: true' in submission.read_text(encoding='utf-8'):
+        fail('durable submission identities must never use replacement indexes')
     verify_existing(); verify_ids(); verify_migration()
     marked=[]
     for path in ROOT.joinpath('lib').rglob('*.g.dart'):
         if MARKER in path.read_text(encoding='utf-8', errors='ignore'): marked.append(path.relative_to(ROOT))
     if args.release and marked:
         fail('Pinned build_runner output required before release; provisional files: '+', '.join(map(str,marked)))
-    print(f"PASS: v10 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
+    print(f"PASS: v11 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
     return 0
 
 if __name__=='__main__':

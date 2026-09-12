@@ -1,11 +1,9 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../data/quality_warning.dart';
-import 'monitoring_creation_store.dart';
 
 const qualityCommandCallableName = 'mutateChargeAbnormality';
 const qualityCommandCallableRegion = 'asia-south1';
@@ -297,58 +295,39 @@ class QualityCommandResult {
   }
 }
 
+abstract interface class QualityMonitoringCreation {
+  Future<Map<String, dynamic>?> pending();
+  Future<QualityCommandResult> create(Map<String, dynamic> payload);
+  Future<QualityCommandResult> retry();
+  Future<void> cancelNeverSent();
+}
+
 class QualityCommandService {
   QualityCommandService({
     FirebaseFunctions? functions,
-    MonitoringCreationStore? monitoringStore,
-    String Function()? monitoringScope,
+    QualityMonitoringCreation? monitoringCreation,
     Future<Map<String, dynamic>> Function(Map<String, dynamic>)? transport,
   }) : _functions = functions,
-       _monitoringStore = monitoringStore ?? MonitoringCreationStore(),
-       _monitoringScope = monitoringScope,
+       _monitoringCreation = monitoringCreation,
        _transport = transport;
 
   final FirebaseFunctions? _functions;
-  final MonitoringCreationStore _monitoringStore;
-  final String Function()? _monitoringScope;
+  final QualityMonitoringCreation? _monitoringCreation;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _transport;
   static const _uuid = Uuid();
 
-  String _scope() {
-    if (_monitoringScope != null) return _monitoringScope();
-    final uid = FirebaseAuth.instanceFor(app: _client.app).currentUser?.uid;
-    if (uid == null) throw StateError('Sign in before creating monitoring.');
-    return '${_client.app.options.projectId}:$uid';
-  }
+  QualityMonitoringCreation get _monitoring =>
+      _monitoringCreation ??
+      (throw const QualityCommandException(
+        'Local recovery storage is unavailable. Monitoring was not sent.',
+        code: 'local-storage-unavailable',
+      ));
 
   Future<Map<String, dynamic>?> pendingMonitoringCreation() =>
-      _monitoringStore.pending(_scope());
-
-  Future<QualityCommandResult> retryMonitoringCreation() async {
-    final scope = _scope();
-    final pending = await _monitoringStore.pending(scope);
-    if (pending == null) throw StateError('No pending monitoring request.');
-    return _sendMonitoringCreation(scope, pending);
-  }
-
-  Future<QualityCommandResult> _sendMonitoringCreation(
-    String scope,
-    Map<String, dynamic> pending,
-  ) async {
-    if (_scope() != scope) throw StateError('The signed-in account changed.');
-    final payload =
-        Map<String, dynamic>.from(pending)
-          ..remove('schemaVersion')
-          ..remove('operation')
-          ..remove('requestId');
-    final result = await _call(
-      QualityCommandOperation.createMonitoringRequest,
-      payload,
-      requestId: pending['requestId'] as String,
-    );
-    await _monitoringStore.complete(scope, result.requestId);
-    return result;
-  }
+      _monitoring.pending();
+  Future<QualityCommandResult> retryMonitoringCreation() => _monitoring.retry();
+  Future<void> cancelNeverSentMonitoringCreation() =>
+      _monitoring.cancelNeverSent();
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -415,8 +394,7 @@ class QualityCommandService {
     required List<int> chargeNumbers,
     required String reason,
   }) async {
-    final scope = _scope();
-    final pending = await _monitoringStore.prepare(scope, <String, dynamic>{
+    return _monitoring.create(<String, dynamic>{
       'reason': reason,
       'baseNumber': baseNumber,
       'baseAssetClassId': baseAssetClassId,
@@ -426,7 +404,6 @@ class QualityCommandService {
       'cycleReference': cycleReference,
       'chargeNumbers': chargeNumbers,
     });
-    return _sendMonitoringCreation(scope, pending);
   }
 
   Future<QualityCommandResult> closeMonitoringRequest({
@@ -453,12 +430,12 @@ class QualityCommandService {
       ...payload,
     };
     try {
-      final data =
-          _transport != null
-              ? await _transport(request)
-              : (await _client
-                  .httpsCallable(qualityCommandCallableName)
-                  .call<Map<String, dynamic>>(request)).data;
+      final data = _transport != null
+          ? await _transport(request)
+          : (await _client
+                    .httpsCallable(qualityCommandCallableName)
+                    .call<Map<String, dynamic>>(request))
+                .data;
       return QualityCommandResult.fromMap(
         data,
         expectedRequestId: requestId,

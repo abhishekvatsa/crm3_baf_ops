@@ -126,7 +126,7 @@ void main() {
           saveRecoveryDraftBody,
           contains('final prefs = await SharedPreferences.getInstance();'),
         );
-        expect(saveRecoveryDraftBody, contains('if (!mounted)'));
+        expect(saveRecoveryDraftBody, contains('if (!mounted || !_hasLiveComposerAuthority())'));
         expect(saveRecoveryDraftBody, contains('return;'));
 
         final checkForRecoverableDraftBody = _functionBody(

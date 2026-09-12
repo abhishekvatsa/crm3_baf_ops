@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,12 @@ class RetainedRequest<T> {
   final String key;
   final T value;
   final int? savedAtMicros;
+}
+
+class RetainedRequestBytes {
+  const RetainedRequestBytes(this.key, this.bytes);
+  final String key;
+  final Uint8List bytes;
 }
 
 /// Immutable request slots prevent independently cached runtimes from replacing
@@ -32,6 +39,33 @@ class RequestIdentityJournal<T> {
       '${sha256.convert(utf8.encode(legacyKey))}::';
 
   Never _fail(String message) => throw failure(message);
+
+  /// Copies the exact persisted UTF-8 strings, even when their old payload
+  /// decoder cannot read them. Importers must never infer dispatch authority.
+  List<RetainedRequestBytes> rawEvidence(SharedPreferences preferences) {
+    final keys =
+        preferences
+            .getKeys()
+            .where((key) => key == legacyKey || key.startsWith(_prefix))
+            .toList()
+          ..sort();
+    return [for (final key in keys) _rawEvidence(preferences, key)];
+  }
+
+  RetainedRequestBytes _rawEvidence(SharedPreferences preferences, String key) {
+    final String? raw;
+    try {
+      raw = preferences.getString(key);
+    } on TypeError {
+      _fail(
+        'Saved retry evidence has an invalid storage type and was preserved.',
+      );
+    }
+    if (raw == null) {
+      _fail('Saved retry evidence disappeared while reading it.');
+    }
+    return RetainedRequestBytes(key, Uint8List.fromList(utf8.encode(raw)));
+  }
 
   RetainedRequest<T>? _read(SharedPreferences preferences, String key) {
     final String? raw;

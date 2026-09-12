@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1",
+  "inventoryDigest": "8F1D606CA2F9D7E1D30C1C13087D02645FA8D4E929D0AB7348582472D79B2510",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -49,6 +49,37 @@
     }
   },
   "surfaces": [
+    {
+      "path": "lib/core/persistence/durable_submission_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/durable_submission_repository_test.dart",
+        "test/inner_cover_acceptance_controller_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/providers/durable_submission_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/inner_cover_lifecycle_screen_test.dart",
+        "test/inspection_campaign_submission_controller_test.dart"
+      ]
+    },
     {
       "path": "lib/core/services/auto_sync_service.dart",
       "profile": "service",
@@ -489,6 +520,20 @@
       ]
     },
     {
+      "path": "lib/features/inspections/repositories/inspection_campaign_creation_reader.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/inspection_campaign_creation_reader_test.dart"
+      ]
+    },
+    {
       "path": "lib/features/inspections/repositories/inspection_repository.dart",
       "profile": "repository",
       "allowedStores": [
@@ -870,6 +915,36 @@
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_plan_model_test.dart",
         "functions/test/maintenanceIntelligence.test.js"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/services/published_template_assignment_durable_adoption.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/published_template_assignment_submission_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/quality/providers/quality_monitoring_submission_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/quality_monitoring_submission_controller_test.dart",
+        "test/quality_warning_lifecycle_test.dart"
       ]
     },
     {

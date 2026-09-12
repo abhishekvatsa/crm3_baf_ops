@@ -22,6 +22,9 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance_workflow/data/compliance_request_record.dart';
 import '../../maintenance_workflow/data/job_lane_record.dart';
 import '../../maintenance_workflow/data/workflow_aggregate_record.dart';
@@ -49,6 +52,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   final _remarksController = TextEditingController();
 
   bool _isSubmitting = false;
+  String? _originActorUid;
   bool _loadingTemplate = true;
   _CompletionPhase _completionPhase = _CompletionPhase.idle;
 
@@ -84,6 +88,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     jobExecutionFirestoreId: widget.execution.firestoreId,
     jobExecutionLocalId: widget.execution.id,
   );
+
+  AppUser _requireCompletionActor(String originUid) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: originUid,
+      permission: (actor) => actor.canCompleteJobExecution,
+    );
+    if (message != null) throw StateError(message);
+    return access.actor!;
+  }
 
   Future<void> _loadTemplate() async {
     if (widget.execution.isTerminal ||
@@ -130,11 +145,21 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       );
       return;
     }
-    final appUser = ref.read(currentAppUserProvider).value;
-    if (appUser == null || !appUser.canCompleteJobExecution) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    _originActorUid ??= access.actor?.uid;
+    final appUser = access.actor;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canCompleteJobExecution,
+    );
+    if (appUser == null || accountMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You are not authorized to complete planned jobs.'),
+        SnackBar(
+          content: Text(
+            accountMessage ??
+                'You are not authorized to complete planned jobs.',
+          ),
           backgroundColor: BafColors.danger,
         ),
       );
@@ -267,6 +292,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       if (!mounted) return;
       await _assertCurrentJobModulesSynced();
       if (!mounted) return;
+      _requireCompletionActor(appUser.uid);
       setState(() => _completionPhase = _CompletionPhase.completing);
 
       if (widget.execution.workflowSchemaVersion == 1) {
@@ -317,6 +343,11 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           if (!mounted) return;
           redAnswers = await showRedExitDialog(
             context,
+            guard: (dialog) => CurrentActorDialogGuard(
+              originUid: appUser.uid,
+              permission: (actor) => actor.canCompleteJobExecution,
+              child: dialog,
+            ),
             askPreparation: WorkflowPolicy.requiresStandPreparationQuestion(
               assetTypeKey,
             ),
@@ -324,6 +355,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           if (!mounted || redAnswers == null) return;
         }
 
+        if (!mounted) return;
+        _requireCompletionActor(appUser.uid);
         final command = WorkflowCommandFactory.create(
           type: WorkflowCommandType.finalizeJob,
           aggregateId: workflowId,
@@ -348,7 +381,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       } else {
         await repository.completeExecution(
           id,
-          actor: appUser,
+          actor: _requireCompletionActor(appUser.uid),
           remarks: remarks,
           teamsInvolved: _teamsInvolved.toList(),
           responses: fieldResponses,
@@ -458,8 +491,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   }
 
   Future<void> _addAction() async {
-    final actor = ref.read(currentAppUserProvider).value;
-    if (actor == null) {
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (actor == null ||
+        actor.uid != _originActorUid ||
+        !actor.canCompleteJobExecution) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
           content: Text('Your approved user identity is not available.'),
@@ -479,16 +516,19 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder:
-          (_) => ActionBottomSheet(
-            performedBy: actor.name,
-            target: GovernedActionContext(
-              assetTypeKey: widget.execution.assetType.name,
-              assetNumber: widget.execution.assetNumber,
-              assetClassId: identity?.assetClassId,
-              assetInstanceId: identity?.assetInstanceId,
-            ),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canCompleteJobExecution,
+        child: ActionBottomSheet(
+          performedBy: actor.name,
+          target: GovernedActionContext(
+            assetTypeKey: widget.execution.assetType.name,
+            assetNumber: widget.execution.assetNumber,
+            assetClassId: identity?.assetClassId,
+            assetInstanceId: identity?.assetInstanceId,
           ),
+        ),
+      ),
     );
 
     if (!mounted || result == null) return;
@@ -798,8 +838,16 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             : _orderedFields(_template!);
     final modulesAsync = ref.watch(jobModulesProvider(_moduleQueryKey));
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(modulesAsync);
-    final appUser = ref.watch(currentAppUserProvider).value;
-    final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    _originActorUid ??= access.actor?.uid;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canCompleteJobExecution,
+    );
+    final hasCompletionAuthority = accountMessage == null;
     final actionRead = widget.execution.actionsReadResult;
     final responseRead = widget.execution.responsesReadResult;
     final innerCoverPositionRead =
@@ -854,6 +902,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             112,
           ),
           children: [
+            if (accountMessage != null)
+              CurrentActorNotice(message: accountMessage),
             _JobContextCard(execution: widget.execution),
             if (!actionRead.isValid) ...[
               const SizedBox(height: BafSpacing.lg),
@@ -905,18 +955,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                         ? 'No checklist was defined for this legacy template.'
                         : 'Complete the required checks before closing the job.',
                 icon: Icons.fact_check_rounded,
-                children:
-                    fields.isEmpty
-                        ? const [
-                          Text(
-                            'No checklist defined for this legacy template.',
-                            style: TextStyle(
-                              color: BafColors.textSecondary,
-                              fontSize: 13,
-                            ),
+                children: fields.isEmpty
+                    ? const [
+                        Text(
+                          'No checklist defined for this legacy template.',
+                          style: TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 13,
                           ),
-                        ]
-                        : fields.map(_buildField).toList(),
+                        ),
+                      ]
+                    : fields.map(_buildField).toList(),
               ),
             ],
             const SizedBox(height: BafSpacing.lg),
@@ -937,7 +986,9 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: actionRead.isValid ? _addAction : null,
+                    onPressed: actionRead.isValid && hasCompletionAuthority
+                        ? _addAction
+                        : null,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: BafColors.planned,
                       side: BorderSide(
@@ -966,31 +1017,27 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children:
-                      _teamKeys.map((team) {
-                        final selected = _teamsInvolved.contains(team);
-                        return FilterChip(
-                          label: Text(_teamLabel(team)),
-                          selected: selected,
-                          selectedColor: BafColors.planned.withValues(
-                            alpha: 0.14,
-                          ),
-                          checkmarkColor: BafColors.planned,
-                          side: BorderSide(
-                            color:
-                                selected
-                                    ? BafColors.planned.withValues(alpha: 0.35)
-                                    : BafColors.border,
-                          ),
-                          onSelected: (value) {
-                            setState(() {
-                              value
-                                  ? _teamsInvolved.add(team)
-                                  : _teamsInvolved.remove(team);
-                            });
-                          },
-                        );
-                      }).toList(),
+                  children: _teamKeys.map((team) {
+                    final selected = _teamsInvolved.contains(team);
+                    return FilterChip(
+                      label: Text(_teamLabel(team)),
+                      selected: selected,
+                      selectedColor: BafColors.planned.withValues(alpha: 0.14),
+                      checkmarkColor: BafColors.planned,
+                      side: BorderSide(
+                        color: selected
+                            ? BafColors.planned.withValues(alpha: 0.35)
+                            : BafColors.border,
+                      ),
+                      onSelected: (value) {
+                        setState(() {
+                          value
+                              ? _teamsInvolved.add(team)
+                              : _teamsInvolved.remove(team);
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 TextFormField(

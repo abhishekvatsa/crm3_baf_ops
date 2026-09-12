@@ -1,3 +1,5 @@
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/audit/providers/audit_provider.dart';
@@ -197,6 +199,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(AppUser(
+            uid: 'admin-1', name: 'Admin One', email: 'admin@example.invalid',
+            roles: const [AppRole.admin], isApproved: true,
+            createdAt: DateTime.utc(2026, 9, 1),
+          ))),
           maintenanceTicketCorrectionAuditProvider.overrideWith((ref, id) {
             expect(id, 'ticket-closed-1');
             return Future<List<AuditEvent>>.value(<AuditEvent>[correction]);

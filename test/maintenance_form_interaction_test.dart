@@ -19,6 +19,58 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'account failure and account switch retain the issue draft but block submit',
+    (tester) async {
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      AppUser actor(String uid) => AppUser(
+        uid: uid,
+        name: uid,
+        email: '$uid@example.invalid',
+        roles: const [AppRole.operations],
+        isApproved: true,
+        createdAt: DateTime.utc(2026, 9, 1),
+      );
+      await _pumpForm(tester, actors: actors.stream);
+      FilledButton submit() => tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Submit Issue'),
+      );
+      expect(submit().onPressed, isNull);
+      actors.addError(StateError('account lookup unavailable'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(submit().onPressed, isNull);
+      actors.add(actor('owner'));
+      await tester.pumpAndSettle();
+      expect(submit().onPressed, isNotNull);
+      final description = find.ancestor(
+        of: find.text('Fault description'),
+        matching: find.byType(TextFormField),
+      );
+      await _scrollTo(tester, description);
+      await tester.enterText(description, 'Retain this investigation');
+      actors.addError(StateError('account refresh unavailable'));
+      await tester.pumpAndSettle();
+      expect(submit().onPressed, isNull);
+      expect(
+        tester.widget<TextFormField>(description).controller!.text,
+        'Retain this investigation',
+      );
+      expect(tester.takeException(), isNull);
+      actors.add(actor('different-user'));
+      await tester.pumpAndSettle();
+      expect(submit().onPressed, isNull);
+      actors.add(actor('owner'));
+      await tester.pumpAndSettle();
+      expect(submit().onPressed, isNotNull);
+      expect(
+        tester.widget<TextFormField>(description).controller!.text,
+        'Retain this investigation',
+      );
+    },
+  );
+
   testWidgets('lockout notes are optional without relaxing ordinary issues', (
     tester,
   ) async {
@@ -352,6 +404,7 @@ Future<void> _pumpForm(
   WidgetTester tester, {
   Stream<List<AbnormalityType>>? types,
   bool appShell = false,
+  Stream<AppUser?>? actors,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -359,16 +412,18 @@ Future<void> _pumpForm(
     ProviderScope(
       overrides: [
         currentAppUserProvider.overrideWith(
-          (ref) => Stream.value(
-            AppUser(
-              uid: 'draft-operator',
-              name: 'Draft Operator',
-              email: 'operator@example.com',
-              roles: const [AppRole.operations],
-              isApproved: true,
-              createdAt: DateTime.utc(2026, 9, 1),
-            ),
-          ),
+          (ref) =>
+              actors ??
+              Stream.value(
+                AppUser(
+                  uid: 'draft-operator',
+                  name: 'Draft Operator',
+                  email: 'operator@example.com',
+                  roles: const [AppRole.operations],
+                  isApproved: true,
+                  createdAt: DateTime.utc(2026, 9, 1),
+                ),
+              ),
         ),
         activeAbnormalityTypesProvider.overrideWith(
           (ref) => types ?? Stream.value([_qualityType()]),
@@ -385,20 +440,19 @@ Future<void> _pumpForm(
         assetInstancesProvider.overrideWith((ref, classId) => Stream.value([])),
         innerCoverAssignmentsProvider.overrideWith((ref) => Stream.value([])),
       ],
-      child:
-          appShell
-              ? CrmBafApp(
-                startupFailure: StartupFailure(
-                  stage: 'firebase_initialize',
-                  error: StateError('Local test shell'),
-                  stackTrace: StackTrace.current,
-                  occurredAt: DateTime.utc(2026, 9, 4),
-                ),
-              )
-              : MaterialApp(
-                theme: BafAppTheme.light,
-                home: const Scaffold(body: Text('Issue list')),
+      child: appShell
+          ? CrmBafApp(
+              startupFailure: StartupFailure(
+                stage: 'firebase_initialize',
+                error: StateError('Local test shell'),
+                stackTrace: StackTrace.current,
+                occurredAt: DateTime.utc(2026, 9, 4),
               ),
+            )
+          : MaterialApp(
+              theme: BafAppTheme.light,
+              home: const Scaffold(body: Text('Issue list')),
+            ),
     ),
   );
   tester

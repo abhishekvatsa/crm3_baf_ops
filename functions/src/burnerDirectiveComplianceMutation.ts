@@ -537,7 +537,7 @@ function currentRoundIdFromProjection(
 function verifyRoundAssetIdentity(round: RoundState, asset: JsonMap): void {
   if (round.data.assetNumber !== asset.assetNumber ||
       round.data.assetClassCode !== asset.assetClassCode ||
-      round.data.assetClassName !== asset.assetClassName ||
+      typeof round.data.assetClassName !== "string" || round.data.assetClassName.trim().length === 0 ||
       round.data.assetName !== asset.name) {
     throw new AssetHierarchyMutationError(
       "data-loss",
@@ -612,12 +612,15 @@ function verifyFurnace(
   const validClass = assetClass.schemaVersion === 1 &&
     assetClass.assetClassId === request.assetClassId &&
     assetClass.status === "active" &&
-    assetClass.legacyAssetTypeKey === "furnace";
+    assetClass.legacyAssetTypeKey === "furnace" &&
+    typeof assetClass.code === "string" && assetClass.code.trim().length > 0 &&
+    typeof assetClass.name === "string" && assetClass.name.trim().length > 0;
   const validAsset = asset.schemaVersion === 1 &&
     asset.assetInstanceId === request.assetInstanceId &&
     asset.assetClassId === request.assetClassId &&
     asset.assetClassCode === assetClass.code &&
-    asset.assetClassName === assetClass.name &&
+    // Preserve historical names while validating the stable class identity.
+    typeof asset.assetClassName === "string" && asset.assetClassName.trim().length > 0 &&
     asset.status === "active" &&
     ["inService", "standby"].includes(asset.serviceState as string) &&
     Number.isSafeInteger(asset.assetNumber) &&

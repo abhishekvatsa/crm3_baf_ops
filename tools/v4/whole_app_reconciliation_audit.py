@@ -130,7 +130,7 @@ def main()->int:
         'CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK' in security and 'default: false' in security
         and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/index.ts')
         and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/maintenanceWorkflow/callable.ts')
-        and len(callable_policy['mutatingCallables']) == 7
+        and len(callable_policy['mutatingCallables']) == 11
         and callable_policy['activationAuthorized'] is False,
         'signed-client readiness remains an explicit production gate')
     add(c,'production release rejects provisional Isar authority',
@@ -145,8 +145,8 @@ def main()->int:
     migration=read('lib/core/services/isar_schema_migration.dart')
     isar_guard=read('lib/core/services/isar_schema_guard_io.dart')
     startup=read('lib/main.dart')
-    add(c,'Isar migration version explicitly advances to v10',
-        'currentSchemaVersion = 10' in migration and '3: _reconcileV4WorkflowPersistence' in migration
+    add(c,'Isar migration version explicitly advances to v11',
+        'currentSchemaVersion = 11' in migration and '3: _reconcileV4WorkflowPersistence' in migration
         and '4: _addOperationalAssuranceRequestFields' in migration
         and '5: _addGovernedAssetIdentityFields' in migration
         and '6: _addOperationalEventIssueLinkProjection' in migration
@@ -154,6 +154,7 @@ def main()->int:
         and '8: _addSyncRejectionOriginatingUid' in migration
         and '9: _addMaintenancePlantConditionEffect' in migration
         and '10: _addMaintenancePlantConditionContributionIndex' in migration
+        and '11: _addDurableSubmissionCollection' in migration
         and 'MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks' in migration
         and 'ReopenEvidence+PlantConditionEffect+PlantConditionContributionIndex' in migration
         and 'ComplianceRequestRecord+OperationalAssurance' in migration

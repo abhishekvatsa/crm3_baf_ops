@@ -263,7 +263,10 @@ test('inspection: missing finding precondition does not silently target the late
   const store = inspectionStore(); const before = store.entries();
   const command = adjudication(); delete command.payload.expectedFindingVersion;
   await assert.rejects(new MaintenanceWorkflowCommandService(store).execute(command, inspectionContext),
-    (error) => error.code === 'invalid-argument');
+    (error) => error.code === 'failed-precondition' &&
+      error.details?.reasonCode === 'inspection-finding-client-update-required' &&
+      error.details?.requiredCapability === 'inspectionFindingExpectedVersion.v1');
+  assert.equal(Object.hasOwn(command.payload, 'expectedFindingVersion'), false);
   assert.deepEqual(store.entries(), before);
 });
 test('inspection: exact accepted replay remains idempotent after finding advances', async () => {

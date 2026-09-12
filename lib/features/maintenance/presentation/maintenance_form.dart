@@ -17,6 +17,8 @@ import '../services/maintenance_issue_create_command.dart';
 import '../services/maintenance_submission_confirmation.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
@@ -64,6 +66,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _formScrollController = ScrollController();
   bool _isExitConfirmationOpen = false;
   bool _isSubmitting = false;
+  String? _originActorUid;
   bool _isCritical = false;
   bool _isBurnerLockout = false;
   _IssueIntakeMode _intakeMode = _IssueIntakeMode.standard;
@@ -861,6 +864,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   Future<void> _submit() async {
     if (_isSubmitting || _isExitConfirmationOpen) return;
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    _originActorUid ??= access.actor?.uid;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+    );
+    if (accountMessage != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(accountMessage)));
+      return;
+    }
     if (!_validateQualityDraft()) return;
     if (!_formKey.currentState!.validate()) return;
     if (_routedLanes.contains(RoutedTo.others) &&
@@ -906,14 +921,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       return;
     }
     if (_isFurnaceStuckup) {
-      final currentAssignment =
-          ref
-              .read(innerCoverAssignmentsProvider)
-              .value
-              ?.where(
-                (item) => item.baseAssetInstanceId == selectedStuckupBase!.id,
-              )
-              .firstOrNull;
+      final currentAssignment = ref
+          .read(innerCoverAssignmentsProvider)
+          .value
+          ?.where((item) => item.baseAssetInstanceId == selectedStuckupBase!.id)
+          .firstOrNull;
       if (_stuckupPhysicalMismatch ||
           currentAssignment == null ||
           currentAssignment.linkageId != _stuckupConfirmedLinkageId) {
@@ -1020,13 +1032,16 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         }
       }
 
-      final appUser = ref.read(currentAppUserProvider).value;
+      final appUser = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      ).actor;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
 
       if (appUser == null ||
           !appUser.isApproved ||
           firebaseUser == null ||
-          firebaseUser.uid != appUser.uid) {
+          firebaseUser.uid != appUser.uid ||
+          appUser.uid != _originActorUid) {
         if (!mounted) return;
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           const SnackBar(
@@ -1188,6 +1203,23 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       late final String completionMessage;
       late final Color completionColor;
 
+      if (!mounted) return;
+      final dispatchAccess = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      );
+      final dispatchMessage = currentActorActionMessage(
+        dispatchAccess,
+        originUid: reporterUid,
+      );
+      if (dispatchMessage != null ||
+          ref.read(firebaseAuthProvider).currentUser?.uid != reporterUid) {
+        _showMessage(
+          dispatchMessage ??
+              'Verify the account that started this form before submitting.',
+          BafColors.warning,
+        );
+        return;
+      }
       if (kIsWeb) {
         final receipt = await ref
             .read(workflowCommandGatewayProvider)
@@ -1279,7 +1311,15 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final account = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    _originActorUid ??= account.actor?.uid;
+    final accountMessage = currentActorActionMessage(
+      account,
+      originUid: _originActorUid,
+    );
+    final appUser = account.actor;
     final frequentIssues = ref.watch(frequentIssueDefinitionsProvider);
     final qualityTypesAsync = ref.watch(activeAbnormalityTypesProvider);
     final applicableQualityTypes = _qualityTypesForCurrentAsset(
@@ -1317,6 +1357,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             112,
           ),
           children: [
+            if (accountMessage != null)
+              CurrentActorNotice(message: accountMessage),
             _IntroCard(appUserName: appUser?.name),
             const SizedBox(height: BafSpacing.lg),
 
@@ -1380,12 +1422,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           ),
                         )
                         .toList(growable: false),
-                    onChanged:
-                        applicableQualityTypes.isEmpty
-                            ? null
-                            : (value) => setState(
-                              () => _qualityAbnormalityTypeId = value,
-                            ),
+                    onChanged: applicableQualityTypes.isEmpty
+                        ? null
+                        : (value) =>
+                              setState(() => _qualityAbnormalityTypeId = value),
                     validator: (_) => _qualityClassificationError(),
                   ),
                   if (_qualityAbnormalityTypeId != null &&
@@ -1725,29 +1765,30 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   const _BaseInnerCoverAvailabilityConditionNotice()
                 else ...[
                   BafHorizontalControlRail(
-                    child: SegmentedButton<
-                      MaintenanceIssuePlantConditionEffect
-                    >(
-                      segments: const [
-                        ButtonSegment(
-                          value: MaintenanceIssuePlantConditionEffect.unfit,
-                          icon: Icon(Icons.gpp_bad_outlined),
-                          label: Text('Unfit'),
+                    child:
+                        SegmentedButton<MaintenanceIssuePlantConditionEffect>(
+                          segments: const [
+                            ButtonSegment(
+                              value: MaintenanceIssuePlantConditionEffect.unfit,
+                              icon: Icon(Icons.gpp_bad_outlined),
+                              label: Text('Unfit'),
+                            ),
+                            ButtonSegment(
+                              value: MaintenanceIssuePlantConditionEffect
+                                  .unavailable,
+                              icon: Icon(Icons.block_outlined),
+                              label: Text('Unavailable'),
+                            ),
+                          ],
+                          selected: <MaintenanceIssuePlantConditionEffect>{
+                            _plantConditionEffect,
+                          },
+                          onSelectionChanged: (selection) {
+                            setState(
+                              () => _plantConditionEffect = selection.first,
+                            );
+                          },
                         ),
-                        ButtonSegment(
-                          value:
-                              MaintenanceIssuePlantConditionEffect.unavailable,
-                          icon: Icon(Icons.block_outlined),
-                          label: Text('Unavailable'),
-                        ),
-                      ],
-                      selected: <MaintenanceIssuePlantConditionEffect>{
-                        _plantConditionEffect,
-                      },
-                      onSelectionChanged: (selection) {
-                        setState(() => _plantConditionEffect = selection.first);
-                      },
-                    ),
                   ),
                   const SizedBox(height: BafSpacing.xs),
                   Text(
@@ -1922,7 +1963,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             _isCritical ||
             _isFurnaceStuckup ||
             _redHotBurnerPositions.isNotEmpty,
-        onSubmit: _isSubmitting ? null : _submit,
+        onSubmit: _isSubmitting || accountMessage != null ? null : _submit,
       ),
     );
   }

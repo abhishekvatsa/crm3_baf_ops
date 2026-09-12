@@ -4,6 +4,51 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'app_logger.dart';
+import 'crash_report_sanitizer.dart';
+
+enum CrashReportingStartupStatus { notAttempted, ready, unavailable }
+
+class CrashReportingStartupHealth {
+  const CrashReportingStartupHealth(this.status, {this.errorType});
+
+  final CrashReportingStartupStatus status;
+  final String? errorType;
+
+  Map<String, Object?> toMap() => {
+    'status': status.name,
+    if (errorType != null) 'errorType': errorType,
+  };
+}
+
+CrashReportingStartupHealth _startupHealth = const CrashReportingStartupHealth(
+  CrashReportingStartupStatus.notAttempted,
+);
+
+CrashReportingStartupHealth get crashReportingStartupHealth => _startupHealth;
+
+/// Only optional reporting belongs inside this boundary. Firebase, authority,
+/// App Check and local database integrity retain their required startup gates.
+Future<void> initializeOptionalCrashReporting({
+  required Future<void> Function() initialize,
+  void Function() installHandlers = installGlobalCrashReportingHandlers,
+}) async {
+  try {
+    // AppLogger's handlers also report locally when collection is unavailable.
+    installHandlers();
+    await initialize();
+    _startupHealth = const CrashReportingStartupHealth(
+      CrashReportingStartupStatus.ready,
+    );
+  } catch (error) {
+    _startupHealth = CrashReportingStartupHealth(
+      CrashReportingStartupStatus.unavailable,
+      errorType: CrashReportSanitizer.error(error).errorType,
+    );
+    debugPrint(
+      'Optional crash reporting is unavailable (${_startupHealth.errorType}).',
+    );
+  }
+}
 
 /// Installs global error handlers for Flutter framework, platform-dispatcher,
 /// and root-zone failures.
@@ -17,8 +62,5 @@ void installGlobalCrashReportingHandlers() {
 }
 
 void runCrashReportingZoned(Future<void> Function() body) {
-  runZonedGuarded<Future<void>>(
-    body,
-    AppLogger.recordZoneError,
-  );
+  runZonedGuarded<Future<void>>(body, AppLogger.recordZoneError);
 }

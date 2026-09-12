@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/burner_condition_round_screen.dart';
@@ -37,23 +38,20 @@ void main() {
         ],
         child: MaterialApp(
           home: Builder(
-            builder:
-                (context) => Scaffold(
-                  body: Center(
-                    child: FilledButton(
-                      onPressed:
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder:
-                                  (_) => const BurnerConditionRoundScreen(
-                                    initialAssetInstanceId: 'furnace-2',
-                                  ),
-                            ),
-                          ),
-                      child: const Text('Open round'),
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BurnerConditionRoundScreen(
+                        initialAssetInstanceId: 'furnace-2',
+                      ),
                     ),
                   ),
+                  child: const Text('Open round'),
                 ),
+              ),
+            ),
           ),
         ),
       ),
@@ -123,6 +121,9 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
   final List<List<BurnerConditionObservation>> calls = [];
 
   @override
+  Future<List<DurableSubmission>> pending() async => [];
+
+  @override
   Future<BurnerConditionRoundResult> record({
     required AssetInstanceRecord furnace,
     required List<BurnerConditionObservation> observations,
@@ -136,10 +137,9 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
     return BurnerConditionRoundResult(
       roundId: 'round-1',
       assetInstanceId: furnace.id,
-      directiveId:
-          observations.any((item) => item.redHotObserved)
-              ? 'burner_round_red_hot_round-1'
-              : null,
+      directiveId: observations.any((item) => item.redHotObserved)
+          ? 'burner_round_red_hot_round-1'
+          : null,
       committedAt: now,
       idempotentReplay: false,
     );

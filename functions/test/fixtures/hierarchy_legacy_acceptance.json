@@ -1,0 +1,120 @@
+{
+  "provenance": {
+    "sourceCommit": "2ae7cbb45720fe61566b70a38d1bf9a1519e05ca",
+    "compiledHandlerSha256": "c060b4a2696704288f1f7e79457a2706a82de68318881bda3c246d910d344157",
+    "description": "Actual pre-upgrade compiled mutation, no rebased receipt or fingerprint."
+  },
+  "request": {
+    "requestId": "00000010-1111-4111-8111-111111111111",
+    "operation": "CREATE_CLASS",
+    "assetClassId": "00000001-1111-4111-8111-111111111111",
+    "reason": "Create the reviewed operational class.",
+    "classDraft": {
+      "code": "FURNACE",
+      "name": "Furnace",
+      "majorArea": "BAF",
+      "shortDescription": null,
+      "longDescription": null,
+      "legacyAssetTypeKey": "furnace"
+    }
+  },
+  "documents": [
+    [
+      "users/admin-1",
+      {
+        "isApproved": true,
+        "roles": [
+          "admin"
+        ],
+        "name": "Admin One"
+      }
+    ],
+    [
+      "users/admin-2",
+      {
+        "isApproved": true,
+        "roles": [
+          "admin"
+        ],
+        "name": "Admin Two"
+      }
+    ],
+    [
+      "asset_classes/00000001-1111-4111-8111-111111111111",
+      {
+        "schemaVersion": 1,
+        "assetClassId": "00000001-1111-4111-8111-111111111111",
+        "code": "FURNACE",
+        "name": "Furnace",
+        "majorArea": "BAF",
+        "shortDescription": null,
+        "longDescription": null,
+        "legacyAssetTypeKey": "furnace",
+        "status": "active",
+        "version": 1,
+        "createdAt": {
+          "fixtureTimestampIso": "2026-09-12T12:00:00.000Z"
+        },
+        "createdByUid": "admin-1",
+        "createdByName": "Admin One",
+        "updatedAt": {
+          "fixtureTimestampIso": "2026-09-12T12:00:00.000Z"
+        },
+        "updatedByUid": "admin-1",
+        "updatedByName": "Admin One",
+        "lastMutationId": "00000010-1111-4111-8111-111111111111"
+      }
+    ],
+    [
+      "asset_class_codes/furnace",
+      {
+        "schemaVersion": 1,
+        "code": "FURNACE",
+        "assetClassId": "00000001-1111-4111-8111-111111111111",
+        "createdAt": {
+          "fixtureTimestampIso": "2026-09-12T12:00:00.000Z"
+        },
+        "createdByUid": "admin-1"
+      }
+    ],
+    [
+      "asset_hierarchy_audits/asset_hierarchy_00000010-1111-4111-8111-111111111111",
+      {
+        "schemaVersion": 1,
+        "auditId": "asset_hierarchy_00000010-1111-4111-8111-111111111111",
+        "entityType": "asset_class",
+        "entityId": "00000001-1111-4111-8111-111111111111",
+        "assetClassId": "00000001-1111-4111-8111-111111111111",
+        "action": "create",
+        "reason": "Create the reviewed operational class.",
+        "beforeJson": null,
+        "afterJson": "{\"schemaVersion\":1,\"assetClassId\":\"00000001-1111-4111-8111-111111111111\",\"code\":\"FURNACE\",\"name\":\"Furnace\",\"majorArea\":\"BAF\",\"shortDescription\":null,\"longDescription\":null,\"legacyAssetTypeKey\":\"furnace\",\"status\":\"active\",\"version\":1,\"createdByUid\":\"admin-1\",\"createdByName\":\"Admin One\",\"updatedByUid\":\"admin-1\",\"updatedByName\":\"Admin One\",\"lastMutationId\":\"00000010-1111-4111-8111-111111111111\"}",
+        "performedByUid": "admin-1",
+        "performedByName": "Admin One",
+        "performedAt": {
+          "fixtureTimestampIso": "2026-09-12T12:00:00.000Z"
+        },
+        "requestId": "00000010-1111-4111-8111-111111111111",
+        "tagTransferApproved": false
+      }
+    ],
+    [
+      "asset_hierarchy_mutation_receipts/00000010-1111-4111-8111-111111111111",
+      {
+        "schemaVersion": 1,
+        "requestId": "00000010-1111-4111-8111-111111111111",
+        "actorUid": "admin-1",
+        "fingerprint": "assetreq1-sha256:512da6d20894c0897a399e9ad7716c8dc881ecf85df7fb683b748b3720360509",
+        "operation": "CREATE_CLASS",
+        "assetClassId": "00000001-1111-4111-8111-111111111111",
+        "nodeId": null,
+        "version": 1,
+        "auditId": "asset_hierarchy_00000010-1111-4111-8111-111111111111",
+        "committedAt": {
+          "fixtureTimestampIso": "2026-09-12T12:00:00.000Z"
+        },
+        "committedAtIso": "2026-09-12T12:00:00.000Z"
+      }
+    ]
+  ]
+}

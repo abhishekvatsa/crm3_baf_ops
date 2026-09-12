@@ -201,7 +201,9 @@ check(
 )
 check(
     "Pull requires authenticated actor and committed P-06 generation before cursor use",
-    "FirebaseAuth.instance.currentUser?.uid" in pull_shell
+    "_authentication.currentUser?.uid" in pull_shell
+    and "FirebaseAuth get _authentication =>" in pull_shell
+    and "_auth ?? FirebaseAuth.instance" in pull_shell
     and "IsarSchemaMigrator.readCommittedMarker(" in pull_shell
     and "_authorityReader.beginRun(expectedUid: actorUid)" in pull_shell
     and "databaseGenerationId: provenance.databaseGenerationId" in pull_shell,
@@ -304,7 +306,9 @@ check(
     and function_fleet_policy.get("declarationStatus")
         == "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING"
     and function_fleet_policy.get("deploymentPendingFunctionBindings")
-        == ["mutateAssetHierarchy"]
+        == sorted(["mutateAssetHierarchy", "executeMaintenanceWorkflowCommandV2",
+                   "mutateAssetHierarchyV2", "mutateChargeAbnormalityV2",
+                   "assignPublishedTemplateVersionV2"])
     and function_fleet_policy.get("productionProjectId")
         == runtime_identity_policy.get("productionProjectId")
     and function_fleet_policy.get("functionBindings", {})

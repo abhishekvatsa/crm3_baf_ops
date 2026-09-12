@@ -7,6 +7,10 @@ build/
 .pub-cache/
 .pub/
 
+# Python inventory tool caches
+__pycache__/
+*.pyc
+
 # IDE
 .idea/
 *.iml

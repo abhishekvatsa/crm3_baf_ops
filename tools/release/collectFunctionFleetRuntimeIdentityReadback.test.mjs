@@ -139,8 +139,26 @@ test("final phase proves exact fleet, IAM, scheduler and safe callable probes", 
     result.evidence.decision,
     "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
   );
-  assert.equal(result.evidence.posture.expectedFunctionCount, 15);
-  assert.equal(result.evidence.outputs.callableProbes.length, 9);
+  assert.equal(result.evidence.posture.expectedFunctionCount, 19);
+  assert.equal(result.evidence.outputs.callableProbes.length, 13);
+  assert.deepEqual(policy.runtimeIdentityAliases, {
+    assignPublishedTemplateVersionV2: "assignPublishedTemplateVersion",
+    executeMaintenanceWorkflowCommandV2: "executeMaintenanceWorkflowCommand",
+    mutateAssetHierarchyV2: "mutateAssetHierarchy",
+    mutateChargeAbnormalityV2: "mutateChargeAbnormality",
+  });
+  assert.equal(new Set(Object.values(policy.functionBindings).map(
+    (binding) => binding.runtimeServiceAccountId,
+  )).size, 15);
+  for (const [wrapper, original] of Object.entries(policy.runtimeIdentityAliases)) {
+    assert.equal(
+      policy.functionBindings[wrapper].runtimeServiceAccountId,
+      policy.functionBindings[original].runtimeServiceAccountId,
+    );
+    assert.ok(result.evidence.outputs.callableProbes.some(
+      (record) => record.name === wrapper,
+    ));
+  }
   assert.ok(
     result.evidence.outputs.callableProbes.some(
       (record) => record.name === "mutateAssetHierarchy",

@@ -357,6 +357,9 @@ abstract class MaintenanceRepository {
   Future<MaintenanceRecord?> getByFirestoreId(String firestoreId);
 
   /// Reads exact command state from the server; local stores cannot prove it.
+  /// Null means an authoritative absent document at the time of this read.
+  /// Cached or pending-write snapshots and unavailable reads must throw. This
+  /// does not prove that an in-flight creation can never commit afterward.
   Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
     String firestoreId,
   );

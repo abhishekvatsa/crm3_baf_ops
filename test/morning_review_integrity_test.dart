@@ -197,8 +197,9 @@ void main() {
   group('Morning Review source boundaries', () {
     test('routes the workspace and keeps all client writes denied', () {
       final home = File('lib/home_screen.dart').readAsStringSync();
-      final homeCommands =
-          File('lib/home_insight_widgets.dart').readAsStringSync();
+      final homeCommands = File(
+        'lib/home_insight_widgets.dart',
+      ).readAsStringSync();
       final rules = File('firestore.rules').readAsStringSync();
 
       expect(home, contains("title: 'Morning Review'"));
@@ -273,8 +274,15 @@ void main() {
         providers,
         contains('_morningReviewCommandServiceByActorProvider'),
       );
-      expect(commandService, contains('payloadFingerprint'));
-      expect(commandService, contains('_idempotencyStore.resolve'));
+      final durableCommands = File(
+        'lib/features/morning_review/services/morning_review_command_service.durable.dart',
+      ).readAsStringSync();
+      expect(commandService, contains('morningReviewV2CallableName'));
+      expect(commandService, isNot(contains('_idempotencyStore.resolve')));
+      expect(durableCommands, contains('_store.claim('));
+      expect(durableCommands, contains('_store.settleAccepted('));
+      expect(durableCommands, contains('_store.markReconciled('));
+      expect(durableCommands, contains('_idempotencyStore.retainedEvidence('));
       expect(commandService, isNot(contains('_pendingRequestIds')));
       expect(idempotencyStore, contains('PENDING_MORNING_REVIEW_COMMAND::'));
       expect(

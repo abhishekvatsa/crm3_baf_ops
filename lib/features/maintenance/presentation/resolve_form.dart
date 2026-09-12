@@ -11,6 +11,8 @@ import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../planned_maintenance/widgets/action_bottom_sheet.dart';
 import '../../planned_maintenance/widgets/action_mini_card.dart';
@@ -37,6 +39,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   final _formKey = GlobalKey<FormState>();
   final _remarksController = TextEditingController();
   bool _isSubmitting = false;
+  String? _originActorUid;
   DateTime _endTime = DateTime.now();
 
   final Set<String> _teamsInvolved = {};
@@ -222,8 +225,10 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   }
 
   Future<void> _addAction() async {
-    final actor = ref.read(currentAppUserProvider).value;
-    if (actor == null) {
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (actor == null || actor.uid != _originActorUid) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
           content: Text('Your approved user identity is not available.'),
@@ -243,17 +248,22 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder:
-          (_) => ActionBottomSheet(
-            performedAt: _endTime,
-            performedBy: actor.name,
-            target: GovernedActionContext(
-              assetTypeKey: widget.ticket.assetType.name,
-              assetNumber: widget.ticket.assetNumber,
-              assetClassId: reference?.assetClassId,
-              assetInstanceId: reference?.assetInstanceId,
-            ),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (user) => user.canFinalizeMaintenanceIssue(
+          (widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName),
+        ),
+        child: ActionBottomSheet(
+          performedAt: _endTime,
+          performedBy: actor.name,
+          target: GovernedActionContext(
+            assetTypeKey: widget.ticket.assetType.name,
+            assetNumber: widget.ticket.assetNumber,
+            assetClassId: reference?.assetClassId,
+            assetInstanceId: reference?.assetInstanceId,
           ),
+        ),
+      ),
     );
     if (!mounted || result == null) return;
     setState(() {
@@ -297,6 +307,21 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    _originActorUid ??= access.actor?.uid;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canFinalizeMaintenanceIssue(
+        (widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName),
+      ),
+    );
+    if (accountMessage != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(accountMessage)));
+      return;
+    }
     if (!widget.ticket.actionsReadResult.isValid) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
@@ -422,7 +447,9 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     setState(() => _isSubmitting = true);
 
     try {
-      final appUser = ref.read(currentAppUserProvider).value;
+      final appUser = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      ).actor;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
       final assignedRoutes = widget.ticket.issueLanePlan.assignedLanes.map(
         RoutedTo.values.byName,
@@ -430,6 +457,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       if (appUser == null ||
           firebaseUser == null ||
           firebaseUser.uid != appUser.uid ||
+          appUser.uid != _originActorUid ||
           !appUser.canFinalizeMaintenanceIssue(assignedRoutes)) {
         throw StateError(
           'You are not authorized to close maintenance tickets.',
@@ -540,7 +568,18 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final account = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    _originActorUid ??= account.actor?.uid;
+    final accountMessage = currentActorActionMessage(
+      account,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canFinalizeMaintenanceIssue(
+        (widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName),
+      ),
+    );
+    final appUser = account.actor;
     final actingAsName = appUser?.name;
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
     final historyRead = widget.ticket.resolutionHistoryReadResult;
@@ -567,6 +606,8 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
             124,
           ),
           children: [
+            if (accountMessage != null)
+              CurrentActorNotice(message: accountMessage),
             _TicketSummaryCard(ticket: widget.ticket, fmt: fmt),
             const SizedBox(height: BafSpacing.lg),
             if (!historyRead.isValid) ...[
@@ -735,7 +776,9 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                   ..._actions.map((action) => ActionMiniCard(action: action)),
                 const SizedBox(height: BafSpacing.md),
                 OutlinedButton.icon(
-                  onPressed: actionRead.isValid ? _addAction : null,
+                  onPressed: actionRead.isValid && accountMessage == null
+                      ? _addAction
+                      : null,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(
                     'Add repair / replacement / inspection action',
@@ -858,7 +901,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       bottomNavigationBar: _ResolveBottomBar(
         isSubmitting: _isSubmitting,
         actingAsName: actingAsName,
-        onSubmit: _isSubmitting ? null : _submit,
+        onSubmit: _isSubmitting || accountMessage != null ? null : _submit,
       ),
     );
   }
@@ -1353,95 +1396,89 @@ class _HistorySection extends StatelessWidget {
       title: 'Previous resolutions',
       subtitle: 'Read-only history from earlier closures/reopens.',
       icon: Icons.history_rounded,
-      children:
-          history.map((history) {
-            final resolvedAt =
-                history.resolvedAt == null
-                    ? 'Unknown'
-                    : DateFormat(
-                      'dd MMM yyyy, HH:mm',
-                    ).format(history.resolvedAt!);
+      children: history.map((history) {
+        final resolvedAt = history.resolvedAt == null
+            ? 'Unknown'
+            : DateFormat('dd MMM yyyy, HH:mm').format(history.resolvedAt!);
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: BafSpacing.md),
-              padding: const EdgeInsets.all(BafSpacing.md),
-              decoration: BoxDecoration(
-                color: BafColors.background,
-                borderRadius: BorderRadius.circular(BafRadius.medium),
-                border: Border.all(color: BafColors.border),
+        return Container(
+          margin: const EdgeInsets.only(bottom: BafSpacing.md),
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: BafColors.background,
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            border: Border.all(color: BafColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MetaLine(
+                icon: Icons.history_rounded,
+                text: 'Resolved: $resolvedAt',
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MetaLine(
-                    icon: Icons.history_rounded,
-                    text: 'Resolved: $resolvedAt',
+              if (history.resolvedByName != null) ...[
+                const SizedBox(height: BafSpacing.xs),
+                _MetaLine(
+                  icon: Icons.person_outline_rounded,
+                  text: 'By: ${history.resolvedByName}',
+                ),
+              ],
+              if (history.remarks != null && history.remarks!.isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Text(
+                  history.remarks!,
+                  style: const TextStyle(
+                    color: BafColors.textPrimary,
+                    fontSize: 12,
+                    height: 1.3,
+                    fontStyle: FontStyle.italic,
                   ),
-                  if (history.resolvedByName != null) ...[
-                    const SizedBox(height: BafSpacing.xs),
-                    _MetaLine(
-                      icon: Icons.person_outline_rounded,
-                      text: 'By: ${history.resolvedByName}',
-                    ),
-                  ],
-                  if (history.remarks != null &&
-                      history.remarks!.isNotEmpty) ...[
-                    const SizedBox(height: BafSpacing.sm),
-                    Text(
-                      history.remarks!,
-                      style: const TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 12,
-                        height: 1.3,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                  if (history.downtimeHours != null) ...[
-                    const SizedBox(height: BafSpacing.sm),
-                    StatusBadge(
-                      label:
-                          '${history.downtimeHours!.toStringAsFixed(2)} h downtime',
-                      color: BafColors.audit,
-                      icon: Icons.timer_outlined,
-                    ),
-                  ],
-                  if (history.teamsInvolved.isNotEmpty) ...[
-                    const SizedBox(height: BafSpacing.sm),
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children:
-                          history.teamsInvolved
-                              .map(
-                                (team) => StatusBadge(
-                                  label: team.toUpperCase(),
-                                  color: BafColors.charges,
-                                ),
-                              )
-                              .toList(),
-                    ),
-                  ],
-                  if (history.actionsJson != null &&
-                      history.actionsJson != '[]') ...[
-                    const SizedBox(height: BafSpacing.sm),
-                    const Text(
-                      'Actions taken',
-                      style: TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    ...ComponentAction.decode(
-                      history.actionsJson!,
-                    ).map((action) => ActionMiniCard(action: action)),
-                  ],
-                ],
-              ),
-            );
-          }).toList(),
+                ),
+              ],
+              if (history.downtimeHours != null) ...[
+                const SizedBox(height: BafSpacing.sm),
+                StatusBadge(
+                  label:
+                      '${history.downtimeHours!.toStringAsFixed(2)} h downtime',
+                  color: BafColors.audit,
+                  icon: Icons.timer_outlined,
+                ),
+              ],
+              if (history.teamsInvolved.isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 5,
+                  children: history.teamsInvolved
+                      .map(
+                        (team) => StatusBadge(
+                          label: team.toUpperCase(),
+                          color: BafColors.charges,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (history.actionsJson != null &&
+                  history.actionsJson != '[]') ...[
+                const SizedBox(height: BafSpacing.sm),
+                const Text(
+                  'Actions taken',
+                  style: TextStyle(
+                    color: BafColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.xs),
+                ...ComponentAction.decode(
+                  history.actionsJson!,
+                ).map((action) => ActionMiniCard(action: action)),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

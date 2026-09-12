@@ -12,6 +12,9 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+
+
 import '../providers/abnormality_provider.dart';
 import 'abnormality_reports_screen.dart';
 import 'abnormality_types_screen.dart';
@@ -122,7 +125,9 @@ class _AbnormalitiesHomeScreenState
   }
 
   Future<void> _seedDefaults() async {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
     if (actor == null || !actor.canManageAbnormalityTypes) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
@@ -179,7 +184,9 @@ class _AbnormalitiesHomeScreenState
   }
 
   void _openMasterData() {
-    final actor = ref.read(currentAppUserProvider).value;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
     if (actor == null || !actor.canManageAbnormalityTypes) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(

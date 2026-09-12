@@ -1,0 +1,123 @@
+# R04 — explicit command capabilities and rollback evidence
+
+Status: implemented source and bounded local evidence on the September 12 system-assessment remediation branch. This is not a production deployment, live runtime readback, client release, or device acceptance record. Bind the final release evidence to the final reviewed commit and artifacts.
+
+### Subsequent R01 endpoint extension
+
+The later R01 quality-monitoring and published-assignment work extends the same wrapper pattern to two further endpoints. The wrapper addition itself preserves the V1 inner request and fingerprint; the subsequent monitoring creation repair changes its receipt proof as described separately below:
+
+* `mutateChargeAbnormalityV2`: strict `{protocolVersion:2, originActorUid, request}`; capabilities `chargeAbnormality.v2`, `qualityMonitoring.v1`; revision `chargeAbnormality.v2.20260912`.
+* `assignPublishedTemplateVersionV2`: the same strict request envelope; capability `publishedTemplateAssignment.v2`; revision `publishedTemplateAssignment.v2.20260912`.
+
+Both use the same probe format and original V1 principal/quota. This supersedes the two-wrapper inventory counts below: **19 total exported endpoints / 15 principals**, with four exact V2-to-V1 aliases; **13 callable exports / 11 mutating / 2 read-only**. The later full Functions build and runtime source policy passed (`origin-v2-four-build.txt`, `origin-v2-four-runtime.txt`). Expanded protocol/quota/compatibility host tests passed **81 tests / 3 suites**, and actual demo Firestore tests passed **13/13**, adding approved/revoked zero-write probes, wrong-origin zero-write refusals, quality V1-to-V2 replay, and assignment V2-to-V1 replay with original receipt and shared quota (`origin-v2-four-host.txt`, `origin-v2-four-emulator.txt`). The independent sibling source review found no concrete defect in the four-wrapper origin propagation. No production action followed these tests.
+
+### R01 monitoring creation replay and Burner/UV custody
+
+The subsequent monitoring repair closes a backend gap: creation A could be accepted, its reply lost, and a legitimate closure B could previously prevent retrying A. The current creation-only replay path verifies the immutable original audit and receipt, returns the original version-1 active creation entity, and leaves the later closed/archived target untouched. The client separately checks current server state; the creation receipt does not assert that monitoring is still active now. A same-version contradictory current readback remains a client reconciliation refusal.
+
+New `CREATE_QUALITY_MONITORING_REQUEST` receipts use `qualitycreate2-sha256:` with the unchanged canonical request digest and an original-audit evidence digest. Historic `qualityreq1-sha256:` creation receipts use their explicit complete original-audit proof; the actual `c00` source-graph fixture is `functions/test/fixtures/quality_monitoring_legacy_creation.json`. Other quality lifecycle operations retain their prior fingerprints and replay behavior. **Any rollback after these new creations must retain the `qualitycreate2` reader and its original-audit checks**, alongside the previously listed `innercover3`, `assetreg4`, and `assetreq2` compatibility readers. Never re-prefix a new receipt as a historic one or remove its evidence fields. The focused historical/new creation and existing quality host suites passed 70 tests with one intentional capture generator skipped (`quality-creation-host.txt`); the Functions build at that stage passed (`quality-creation-build.txt`).
+
+Burner rounds and red-hot directive compliance now retain full native V2 envelopes, original origin, evidence entries and versions before dispatch, with one unresolved Furnace resource shared by both operations. They use the existing asset-hierarchy V2 endpoint and require a fresh capability check before claim. Validated round receipts confirm acceptance; there is no claim of a separate server round readback. Directive compliance retains `acceptedPendingAdoption` until its existing device-adoption check succeeds. Saved entries are explicitly reviewed and retried without rebuilding them from the latest round or changing the request identity. Historical preference entries contain only request IDs/hashes: their exact bytes are retained as non-dispatchable `needsReview` records with no invented command origin, and unknown-Furnace entries require review before a replacement round is created. Native restart/lost-response/origin/receipt/concurrency/legacy tests plus existing model/screen/store tests passed 32; the saved-entry panel's two UI tests passed separately, and the scoped 12-file analyzer was clean. These are local checks, not physical-device or production evidence.
+
+The earlier V2 demo Firestore run, before the memory alignment documented below, passed **14/14** (`quality-creation-v2-emulator.txt`). It additionally proves modern V1 creation followed by later closure and V2 replay, genuine historical `c00` creation followed by later closure and V2 replay, unchanged business documents, and a persisted 1,000-nanosecond audit-time alteration read back before rejection. All four origin-bound endpoints' probes, origin refusals, original quota sharing and sibling replay controls remain in that run. The emulator was stopped afterward.
+
+## Decision
+
+Keep the existing V1 callable contracts and accepted receipts. Add explicitly origin-bound V2 endpoints for newly saved durable submissions, with a fresh authenticated capability probe on the same endpoint before dispatch. An old unaccepted inspection adjudication must request an app update and a new operator review; the server cannot manufacture the finding version the operator originally saw.
+
+This resolves compatibility by making unsupported operations explicit. It does not make every old client feature work against every server version. In particular, old Build 21/27 adjudication requires a client upgrade for a new submission. Pending accepted requests retain their original identity and payload for reconciliation.
+
+## Compared source identities
+
+* Recorded deployed backend: `c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56`, from the existing deployment and fleet-readback custody cited in `BUILD28_CLIENT_BACKEND_COMPATIBILITY_2026_09_12.md`. No fresh production read was made for this work.
+* Verified Build 21 lineage: `e5ad4ab09418b2a1e8b7721f32ba16e0a61ea25d` (`1.0.0-rc.11+21`). Verified Build 27 lineage: `c933ca0a8399f9e69d9c900a50a365cd4f75c994` (`1.0.0-rc.17+27`). This does not establish which APK is currently installed on every phone.
+* Current candidate: system-assessment remediation working source based on `2ae7cbb4`; final commit and artifact identity remain release-gate inputs. This advisory adds to, and updates the new-export/capability portion of, the earlier Build 28 compatibility advisory. That earlier document records an earlier candidate scope and is retained as history.
+
+Both old client UIs submit finding adjudication with `findingId`, `status`, `reason`, and the campaign version. Neither records `expectedFindingVersion`. The recorded old backend rejects that new field through its exact-key check. The candidate requires the field for new adjudication, after original accepted-receipt lookup.
+
+## Executable endpoint contracts
+
+| Endpoint | Strict business envelope | Advertised capabilities |
+| --- | --- | --- |
+| `mutateAssetHierarchyV2` | `{protocolVersion: 2, originActorUid, request: <unchanged V1 request>}` | `assetHierarchy.v2`, `innerCoverAcceptance.v1` |
+| `executeMaintenanceWorkflowCommandV2` | `{protocolVersion: 2, originActorUid, command: <unchanged V1 command>}` | `maintenanceWorkflow.v2`, `inspectionFindingExpectedVersion.v1`, `inspectionCampaignReopen.v1`, `maintenancePlanRevalidation.v1` |
+| `mutateChargeAbnormalityV2` | `{protocolVersion: 2, originActorUid, request: <unchanged V1 request>}` | `chargeAbnormality.v2`, `qualityMonitoring.v1` |
+| `assignPublishedTemplateVersionV2` | `{protocolVersion: 2, originActorUid, request: <unchanged V1 request>}` | `publishedTemplateAssignment.v2` |
+
+The strict read-only probe is `{protocolVersion: 2, originActorUid, probe: "capabilities"}` on that same endpoint. Mixed probe/business envelopes are invalid. The response has exactly `schemaVersion: 1`, `callableName`, `protocolVersion: 2`, `capabilityRevision`, and `capabilities`. Code-defined revisions are `assetHierarchy.v2.20260912`, `maintenanceWorkflow.v2.20260912`, `chargeAbnormality.v2.20260912`, and `publishedTemplateAssignment.v2.20260912`.
+
+The authenticated outer UID must match the saved origin exactly before account reads, quota admission, or mutation. A probe then reads canonical account approval and returns without admission or business writes. The V2 business path delegates to the same bundle's existing V1 callable `.run` implementation using the unchanged authenticated outer request and only replacing its data with the unchanged inner request. This is an in-process call, not a network request to a separately deployed V1 endpoint. The original handler remains responsible for current authority, quota, command validation, fingerprint, mutation, and replay.
+
+The source capability service performs a fresh probe for every requested check, validates the exact response endpoint/protocol/capabilities, and checks the origin both before and after awaiting the response. It does not cache success, infer a saved origin, rewrite the inner request, or fall back to V1. Callers must recheck the origin at dispatch and keep already-known receipt reconciliation separate from a new capability/network requirement. Durable UI integrations and broad client checks belong to the final integrated gate; the five standalone service tests alone do not establish all UI behavior.
+
+## Compatibility matrix
+
+| Request / server combination | Candidate behavior and required handling |
+| --- | --- |
+| Old Build 21/27 V1 request for an otherwise unchanged operation | Existing V1 route remains available. Existing authority, business, and strengthened integrity checks still apply. No wrapper fields are added automatically. |
+| Old unaccepted adjudication without a finding version → candidate V1 or V2 | Exact known old shape gets `failed-precondition` with `inspection-finding-client-update-required` and required capability `inspectionFindingExpectedVersion.v1`. Zero business writes. Other malformed shapes retain shape errors. Operator must upgrade, read current evidence, and explicitly create a fresh reviewed command; do not replace the saved command automatically. |
+| Original accepted old adjudication → candidate V1 or V2 | Receipt-first same-actor replay precedes the new version gate. A captured acceptance produced by the actual `c00` dispatcher replays unchanged after later finding evidence. Wrong actor and altered payload are rejected. |
+| New adjudication against recorded old backend | Old exact-key validation cannot accept its finding-version field. New V2 endpoint/probe is absent there, so the capability-aware path stops before sending a business request and preserves the pending submission. |
+| New durable V2 submission → candidate backend | Exact origin gate plus ordinary V1 handler, quota, and fingerprints. Wrapper does not create a second command ID or a new receipt fingerprint. |
+| Saved V2 submission after account change | Local capability gate refuses mismatched origin. Server also refuses a mismatch before quota or business writes. Login change cannot rebind it to another actor. |
+| Saved V2 submission after endpoint removal / incompatible rollback | Fresh probe fails or required capability is absent: keep pending. No cached positive result and no V1 fallback. A previously received valid acceptance may be reconciled locally without resending the command. |
+| Old hierarchy accepted receipt after later hierarchy change | Candidate validates immutable original receipt/audit, including original actor and identity; live tip equality is no longer required. New hierarchy evidence uses `assetreq2`; actual captured `assetreq1` acceptance is verified through its explicit legacy path. Missing/corrupt proof remains a refusal, not fabricated acceptance. |
+
+“Old accepted” here means a supported verifiable receipt, not every historic format. Workflow's existing schema-2/full-envelope receipt path remains; older unsupported short `payloadHash` receipts still require reconciliation. No historic receipt or frozen payload is rewritten to satisfy a new reader.
+
+## Deployment and rollback requirements
+
+1. Finish integrated source, client, canonical-governance, contract, and emulator gates, then bind their results to one exact candidate commit. Preserve the existing recorded production readbacks as historical evidence.
+2. Review the final deployment dependency scope. The current candidate adds four executable V2 exports: **19 total endpoints using 15 runtime principals; 13 callable exports, comprising 11 mutating and two read-only**. The four exact aliases are `mutateAssetHierarchyV2 → mutateAssetHierarchy`, `executeMaintenanceWorkflowCommandV2 → executeMaintenanceWorkflowCommand`, `mutateChargeAbnormalityV2 → mutateChargeAbnormality`, and `assignPublishedTemplateVersionV2 → assignPublishedTemplateVersion`. Role sets, project binding, security options, and existing quota namespaces remain exact. No new IAM principal is created by these wrappers. The earlier 17-endpoint/two-alias count describes only the initial implementation and is not the current deployment scope.
+3. Before any activation, retain a rollback artifact that understands the new accepted receipt evidence, hierarchy replay proof, campaign history invariants, and all four V2 envelopes. A raw restoration of `c00` is not a receipt-compatible rollback after `innercover3`, `assetreg4`, `assetreq2`, or `qualitycreate2` outcomes have been committed. Preserve the `qualitycreate2-sha256:` reader and its original-audit digest checks as well as the explicit historic `qualityreq1-sha256:` creation reader; do not re-prefix receipts or remove evidence to make an older reader accept them. Preserve all these readers and invariants in a tested rollback or forward repair.
+4. After a separately governed deployment, collect exact exported-endpoint source hashes, runtime identities, and approved same-endpoint capability probes. Composite release metadata alone does not prove the command implementation. Physical-device and representative business acceptance still belong to release/pilot gates.
+5. Retain V1 availability for installed clients while introducing V2 clients. Deploying only the new workflow V2 endpoint does **not** repair the old V1 adjudication implementation: old clients would continue to reach the old unfenced V1 handler. The inspected current V1 guard must be included in the intended old-client safety rollout. Because V2 `.run` executes the V1 implementation bundled inside V2, an unplanned partial deployment can otherwise leave different behavior under the two endpoint names.
+6. During rollback, preserve pending envelopes, original origins, IDs, and receipts. If a compatible V2 endpoint cannot remain available, stop new dispatch through the fresh capability gate and reconcile known acceptances; do not switch pending commands to V1, invent finding versions, erase local submissions, or relabel new receipts as legacy. Account approval and ordinary business authority still apply to any server replay.
+
+This work does not activate capabilities in production or authorize a mixed endpoint fleet. It also does not add an explicit correction workflow for already incorrect burner/UV current projections: ordinary events now retain the latest physical installation, historical backdated events remain history, and a separate explicit correction route remains a bounded follow-up.
+
+## Final host pipeline after resource-option alignment
+
+The final complete `npm test` pipeline passed after correcting one unintended deployment-option difference: `mutateChargeAbnormalityV2` specified `512MiB` while its V1 endpoint specified `256MiB`. V2 now also uses `256MiB`. No handler, payload, receipt, quota, authority or origin-check behavior changed. Comparing all 97 TypeScript sources with the earlier full emulator ledger found only this one-line `functions/src/index.ts` change; the other 96 sources are unchanged.
+
+The earlier index SHA-256 was `E6FB665E0EF0E23382FD5F77C5EBF6B5FD18AC07413C8F791191A5DC018ACD2E`; the final index SHA-256 is **`45E8733B93533EC79F819A3E3D532DB1A3803901FD29932B860DB39F3F90D1D4`**. `build/review-20260912/functions-full-resource-parity-final.txt` records the final TypeScript build, emitted-output custody (**97 sources / 194 files**), callable inventory (**13 exports / 11 mutating / two read-only**), unchanged four notification triggers, and all checks below. This is working-source evidence; the final release still needs an exact reviewed commit and artifact binding.
+
+* The five Node test groups passed **75/75**: emitted custody 4, callable inventory 10, notification inventory 7, compiled asset master 10, and corrective regressions 44.
+* Jest passed **1,375 tests in 59 suites**, with zero failures. It skipped **130 tests**: 126 cases in 14 emulator-gated suites because no Firestore emulator was attached, and four opt-in historical fixture generators (registry, hierarchy, adjudication and monitoring creation). Those skipped cases are not passing host evidence.
+* Four new regression cases compare every V2 alias's complete option declaration against V1, including security spreads and override order, and compare the actual Firebase SDK endpoint/trigger metadata. They preserve the intentionally different origin-bound handlers. Before the correction, the check failed only on the quality wrapper's memory value; the other three aliases passed. All four pass on the final source.
+* The earlier full host run passed **1,371 Jest tests** on the earlier index hash and is preserved in `functions-full-final.txt`. Its corrected legacy-client regression expects the exact client-update `failed-precondition`, reason and required capability, unchanged input and zero store writes. That safety assertion remains in the final run; none was weakened.
+
+The final host run's emulator cases are still skips in that command. The complete earlier emulator run below executed those 126 cases on the earlier index hash; a final 14-case actual-wrapper run separately verifies the corrected index. These records do not assert that all 392 earlier emulator-backed checks were rerun on the final hash.
+
+## Full governed emulator evidence before resource-option alignment
+
+The release-equivalent governed sequence passed with index SHA-256 **`E6FB665E0EF0E23382FD5F77C5EBF6B5FD18AC07413C8F791191A5DC018ACD2E`**, before the subsequent memory-only alignment. It used the repository's locked Firebase CLI on isolated demo projects; the CLI lock hash matched the release workflow. All Firestore and Auth clients used localhost emulators; no production writes, deployment or device actions occurred.
+
+* Root Rules: **262/262**, three suites, using the actual current `firestore.rules`.
+* Governed asset-identity projection reconciliation: **3/3**.
+* Existing `functions` `test:emulator:governed` list: **106/106**, 12 suites.
+* The two newer suites omitted by that older explicit list—master-data integrity and actual origin-bound V2 callable wrappers—passed **20/20**. Together the Functions emulator runs execute all **126** emulator-gated cases skipped by the host job.
+* The separate CI Gate 1B authority classifier passed **21/21 host cases**. Its actual CLI Firestore/Auth join passed **1/1** on `demo-gate1b`.
+
+This is **392 emulator-backed checks**, plus the 21 classifier host cases, with zero failures and zero skips in these runs. The four optional historical fixture generators were not executed. The CI Rules-expression check found no `maximum of 1000 expressions` warning in the preserved governed Firestore log. The emulator ports were confirmed closed afterward.
+
+`build/review-20260912/governed-emulator-full-final-summary.json` records the log hashes, all 97 backend source-file hashes, current Rules/index hashes and CLI lock hash. Full logs are `governed-emulator-full-final.txt`, `governed-emulator-firestore-final.log`, `gate1b-host-final.txt`, `gate1b-emulator-final.txt` and `gate1b-firestore-final.log` in the same directory. No runtime or test source repair was needed for this emulator gate. These are actual local handler transactions and client Rules/read-path checks; they do not prove production deployment, Android process termination, physical-device upgrade or release-artifact identity.
+
+## Final actual-wrapper emulator proof
+
+After the memory alignment and final full host pipeline, all **14/14 actual V2 wrapper emulator checks** passed on index SHA-256 **`45E8733B93533EC79F819A3E3D532DB1A3803901FD29932B860DB39F3F90D1D4`**, with zero failures or skips. This covers all four same-endpoint probes, origin refusals before writes, shared quota, original receipt replay, historical hierarchy/adjudication/quality evidence and published-assignment replay. The demo Firestore emulator was stopped and its ports were confirmed closed.
+
+`build/review-20260912/v2-resource-parity-final-summary.json` binds the final host and emulator logs, final source and compiled-index hashes, regression-test hash and before/after source delta. The exact files are `v2-option-parity-before.txt`, `functions-full-resource-parity-final.txt`, `v2-resource-parity-emulator-final.txt`, `v2-resource-parity-firestore-final.log` and `v2-resource-parity-source-diff.json` in the same directory. Resource-option parity is verified from source and deployment metadata; the emulator does not measure actual deployed Cloud Run memory. The earlier full 392-check record remains evidence for its earlier hash, with unchanged handler bodies and a documented one-line memory allocation difference. No production deployment or device acceptance is claimed.
+
+## Historical initial two-wrapper local evidence
+
+The following logs record the initial implementation before the quality and published-assignment aliases and the later monitoring replay repair. Their 11-callable/two-wrapper inventory and earlier focused test counts are preserved as history; they are not proof of the complete current working source.
+
+* Functions build passed: 97 TypeScript sources, 194 emitted files; callable inventory 11 exports / 9 mutating / 2 read-only; notification inventory unchanged at four triggers. Log: `build/review-20260912/origin-v2-build.txt`.
+* Five host suites passed 105 tests, with two intentional historical-fixture capture generators skipped: V2 protocol, old-client workflow compatibility, shared abuse controls, hierarchy integrity, exact runtime aliases. Log: `build/review-20260912/origin-v2-host.txt`.
+* Callable inventory scanner tests passed 10/10, including refusal of no guard, wrong delegation target, changed auth/data, forged approval lookup, and a local fake guard. Log: `build/review-20260912/origin-v2-callable-audit-tests.txt`.
+* Actual exported callable `.run` tests against isolated demo Firestore passed 7/7: approved/revoked probes with zero writes, origin mismatch with zero writes, real V2 mutation, V1/V2 shared quota, captured `assetreq1` replay, captured actual `c00` adjudication replay, and never-accepted old-shape refusal. Log: `build/review-20260912/origin-v2-emulator-final.txt`.
+* Companion hierarchy integrity, workflow, and quota emulator suites passed 23 tests in the preceding combined run. Its only failure was first-suite cold-emulator setup exceeding Jest's default five seconds; the new V2 suite was rerun successfully with a 30-second bound. Original log retained: `build/review-20260912/origin-v2-emulator.txt`.
+* Standalone Dart capability service tests passed 5/5: probe-only payload, zero calls on wrong account, account switch while awaiting probe, malformed/missing capabilities, no fallback, and fresh checks across rollback. These tests do not establish production network, Android packaging, or all durable screen integrations.
+
+Historical workflow fixture provenance is recorded in `functions/test/fixtures/finding_adjudication_legacy_receipt.json`. Its opt-in generator evaluates the actual historical TypeScript module graph from Git in memory and records each source hash; it does not rewrite shared compiled output or recalculate an old receipt using the current handler.
