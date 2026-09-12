@@ -647,6 +647,18 @@ class OperationsReportSelection {
 
   final String? assetClassId;
   final String? assetInstanceId;
+
+  static const innerCoverPrefix = 'inner_cover_profiles/';
+
+  OperationsReportSubjectKind get subjectKind =>
+      assetInstanceId?.startsWith(innerCoverPrefix) == true
+      ? OperationsReportSubjectKind.innerCover
+      : OperationsReportSubjectKind.numberedAsset;
+
+  String? get nativeAssetId =>
+      subjectKind == OperationsReportSubjectKind.innerCover
+      ? assetInstanceId!.substring(innerCoverPrefix.length)
+      : assetInstanceId;
 }
 
 OperationsReportSelection reconcileOperationsReportSelection({
@@ -654,6 +666,7 @@ OperationsReportSelection reconcileOperationsReportSelection({
   required String? assetInstanceId,
   required List<AssetClassRecord> classes,
   required List<AssetInstanceRecord> assets,
+  List<InnerCoverProfile> innerCovers = const [],
 }) {
   final activeClassIds = {
     for (final item in classes)
@@ -663,6 +676,28 @@ OperationsReportSelection reconcileOperationsReportSelection({
       assetClassId != null && activeClassIds.contains(assetClassId)
       ? assetClassId
       : null;
+  final selection = OperationsReportSelection(
+    assetClassId: resolvedClassId,
+    assetInstanceId: assetInstanceId,
+  );
+  if (selection.subjectKind == OperationsReportSubjectKind.innerCover) {
+    final cover = innerCovers
+        .where((item) => item.id == selection.nativeAssetId)
+        .firstOrNull;
+    final valid =
+        cover != null &&
+        activeClassIds.contains(cover.assetClassId) &&
+        classes.any(
+          (item) =>
+              item.id == cover.assetClassId &&
+              item.legacyAssetTypeKey == 'innerCover',
+        ) &&
+        (resolvedClassId == null || cover.assetClassId == resolvedClassId);
+    return OperationsReportSelection(
+      assetClassId: resolvedClassId,
+      assetInstanceId: valid ? assetInstanceId : null,
+    );
+  }
   final selectedAsset = assetInstanceId == null
       ? null
       : assets.where((item) => item.id == assetInstanceId).firstOrNull;

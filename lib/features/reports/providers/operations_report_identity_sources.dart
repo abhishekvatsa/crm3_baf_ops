@@ -51,20 +51,47 @@ class _ReportAssetIdentityMatcher {
     OperationsReportFilter filter,
     List<AssetClassRecord> assetClasses,
     this.assetInstances,
+    List<InnerCoverProfile> innerCoverProfiles,
   ) : assetInstanceId = filter.assetInstanceId,
-      assetsById = {for (final asset in assetInstances) asset.id: asset} {
+      assetsById = {for (final asset in assetInstances) asset.id: asset},
+      innerCoversById = {
+        for (final cover in innerCoverProfiles) cover.id: cover,
+      } {
     final selectedAsset = assetsById[assetInstanceId];
-    if (assetInstanceId != null && selectedAsset == null) {
-      throw StateError('The selected physical asset is no longer available.');
+    final selectedCover = innerCoversById[assetInstanceId];
+    final serialSubject =
+        filter.subjectKind == OperationsReportSubjectKind.innerCover;
+    if (assetInstanceId != null &&
+        selectedAsset != null &&
+        selectedCover != null) {
+      throw StateError(
+        'The selected subject has conflicting asset identities.',
+      );
+    }
+    if (assetInstanceId != null &&
+        (serialSubject ? selectedCover == null : selectedAsset == null)) {
+      throw StateError('The selected report subject could not be verified.');
+    }
+    final selectedClassId = serialSubject
+        ? selectedCover?.assetClassId
+        : selectedAsset?.assetClassId;
+    if (selectedCover != null &&
+        serialSubject &&
+        !assetClasses.any(
+          (item) =>
+              item.id == selectedClassId &&
+              item.legacyAssetTypeKey == 'innerCover',
+        )) {
+      throw StateError('The selected serial cover has an invalid asset class.');
     }
     if (filter.assetClassId != null &&
-        selectedAsset != null &&
-        selectedAsset.assetClassId != filter.assetClassId) {
+        selectedClassId != null &&
+        selectedClassId != filter.assetClassId) {
       throw StateError(
         'The selected physical asset is outside the asset class.',
       );
     }
-    effectiveClassId = filter.assetClassId ?? selectedAsset?.assetClassId;
+    effectiveClassId = filter.assetClassId ?? selectedClassId;
     final candidates = <String, List<AssetClassRecord>>{};
     for (final item in assetClasses) {
       final key = item.legacyAssetTypeKey;
@@ -80,6 +107,7 @@ class _ReportAssetIdentityMatcher {
   final String? assetInstanceId;
   final List<AssetInstanceRecord> assetInstances;
   final Map<String, AssetInstanceRecord> assetsById;
+  final Map<String, InnerCoverProfile> innerCoversById;
   final legacyClasses = <String, AssetClassRecord>{};
   late final String? effectiveClassId;
 

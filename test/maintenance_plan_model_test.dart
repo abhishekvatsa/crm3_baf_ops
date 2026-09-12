@@ -1,5 +1,8 @@
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/presentation/maintenance_intelligence_screen.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> planMap() => <String, dynamic>{
@@ -62,6 +65,109 @@ Map<String, dynamic> completionEventMap() => <String, dynamic>{
 };
 
 void main() {
+  final subject = InnerCoverProfile(
+    id: 'inner-cover-gr26',
+    assetClassId: 'class-inner-cover',
+    assetClassCode: 'INNER_COVER',
+    assetClassName: 'Inner Cover',
+    serialNumber: 'GR26',
+    normalizedSerialNumber: 'GR26',
+    sourceType: InnerCoverSourceType.legacyExisting,
+    lifecycleState: InnerCoverLifecycleState.underRepair,
+    traceabilityGrade: InnerCoverTraceabilityGrade.t0,
+    version: 5,
+    createdAt: DateTime.utc(2026, 8, 1),
+    updatedAt: DateTime.utc(2026, 8, 21),
+    lastMutationId: 'review-fixture',
+  );
+
+  test(
+    'additive subject review fields retain a strictly decoded original baseline',
+    () {
+      final data = planMap()
+        ..['assetInstanceVersion'] = 5
+        ..['originalAssetInstanceVersion'] = 4
+        ..['subjectReview'] = <String, Object?>{
+          'schemaVersion': 1,
+          'reviewedByUid': 'supervisor-1',
+          'auditId': 'review-1',
+          'reason': 'Reviewed the same physical subject',
+        };
+      final plan = MaintenancePlan.fromMap(data, 'plan-furnace-7');
+      expect(plan.originalAssetInstanceVersion, 4);
+      expect(plan.assetInstanceVersion, 5);
+      for (final malformed in <Object>[0, 6, '4']) {
+        data['originalAssetInstanceVersion'] = malformed;
+        expect(
+          () => MaintenancePlan.fromMap(data, 'plan-furnace-7'),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+    },
+  );
+
+  test('subject review request binds the exact displayed subject snapshot', () {
+    expect(
+      maintenancePlanSubjectReviewPayload(subject, ' Reviewed after removal. '),
+      {
+        'status': 'ready',
+        'executionId': null,
+        'reason': 'Reviewed after removal.',
+        'revalidation': {
+          'assetClassId': 'class-inner-cover',
+          'assetInstanceId': 'inner-cover-gr26',
+          'assetInstanceVersion': 5,
+          'serialNumber': 'GR26',
+          'lifecycleState': 'underRepair',
+          'currentBaseAssetInstanceId': null,
+          'currentBaseAssetNumber': null,
+        },
+      },
+    );
+  });
+
+  testWidgets(
+    'ready-plan subject review requires an explicit reason and confirmation',
+    (tester) async {
+      String? result;
+      final plan = MaintenancePlan.fromMap(planMap(), 'plan-furnace-7');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await showMaintenancePlanSubjectReview(
+                    context,
+                    plan: plan,
+                    subject: subject,
+                  );
+                },
+                child: const Text('Open review'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open review'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Current cover revision: 5'), findsOneWidget);
+      expect(find.textContaining('State: Under repair'), findsOneWidget);
+      expect(result, isNull);
+      await tester.tap(find.text('Record subject review'));
+      await tester.pumpAndSettle();
+      expect(find.text('Explain why this plan still applies.'), findsOneWidget);
+      expect(result, isNull);
+      await tester.enterText(
+        find.byType(TextFormField),
+        'Same cover, removed for cleaning.',
+      );
+      await tester.tap(find.text('Record subject review'));
+      await tester.pumpAndSettle();
+      expect(result, 'Same cover, removed for cleaning.');
+    },
+  );
+
   test('decodes exact governed asset maintenance plan', () {
     final plan = MaintenancePlan.fromMap(planMap(), 'plan-furnace-7');
 
@@ -86,22 +192,19 @@ void main() {
   test(
     'decodes a serial-based Inner Cover plan without a fake asset number',
     () {
-      final serialPlan =
-          planMap()
-            ..['assetIdentityKey'] = 'class-inner-cover:inner-cover-gr26'
-            ..['assetTypeKey'] = 'innerCover'
-            ..['assetNumber'] = null
-            ..['assetClassId'] = 'class-inner-cover'
-            ..['assetInstanceId'] = 'inner-cover-gr26'
-            ..['assetInstanceName'] = 'Inner Cover GR26'
-            ..['maintenanceClass'] = <String, dynamic>{
-              ...Map<String, dynamic>.from(
-                planMap()['maintenanceClass'] as Map,
-              ),
-              'code': 'INNER_COVER_CLEANING',
-              'title': 'Inner Cover Cleaning',
-              'assetTypeKeys': <String>['innerCover'],
-            };
+      final serialPlan = planMap()
+        ..['assetIdentityKey'] = 'class-inner-cover:inner-cover-gr26'
+        ..['assetTypeKey'] = 'innerCover'
+        ..['assetNumber'] = null
+        ..['assetClassId'] = 'class-inner-cover'
+        ..['assetInstanceId'] = 'inner-cover-gr26'
+        ..['assetInstanceName'] = 'Inner Cover GR26'
+        ..['maintenanceClass'] = <String, dynamic>{
+          ...Map<String, dynamic>.from(planMap()['maintenanceClass'] as Map),
+          'code': 'INNER_COVER_CLEANING',
+          'title': 'Inner Cover Cleaning',
+          'assetTypeKeys': <String>['innerCover'],
+        };
 
       final plan = MaintenancePlan.fromMap(serialPlan, 'plan-furnace-7');
 

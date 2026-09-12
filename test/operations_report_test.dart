@@ -5,7 +5,9 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
+import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -22,6 +24,7 @@ import 'package:crm3_baf_ops/features/reports/providers/operations_report_provid
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 AssetClassRecord assetClass(
   String id,
@@ -334,6 +337,44 @@ ComplianceRequestRecord complianceRequest({
   ..updatedAt = createdAt;
 
 void main() {
+  testWidgets('report dropdown selects a native serial cover subject', (tester) async {
+    final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+    final cover = innerCoverProfile('serial-gr4', covers,
+        InnerCoverLifecycleState.installed);
+    final other = innerCoverProfile('serial-gr19', covers,
+        InnerCoverLifecycleState.available);
+    final actor = AppUser(uid: 'report-manager', name: 'Report manager',
+      email: 'reports@example.com', roles: const [AppRole.admin],
+      isApproved: true, createdAt: DateTime.utc(2026));
+    final observed = <OperationsReportFilter>[];
+    await tester.pumpWidget(ProviderScope(overrides: [
+      currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+      assetClassesProvider.overrideWith((ref) => Stream.value([covers])),
+      allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
+      innerCoverProfilesProvider.overrideWith((ref) => Stream.value([cover, other])),
+      operationsReportProvider.overrideWith((ref, scope) {
+        observed.add(scope.filter);
+        return AsyncData(buildOperationsReport(filter: scope.filter,
+          tickets: const [], executions: const [], events: const [],
+          assetClasses: [covers], assetInstances: const [],
+          innerCoverProfiles: [cover, other],
+          overview: const PlantAssetOverview(classes: [], assets: [])));
+      }),
+    ], child: const MaterialApp(home: FleetStatusScreen())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Scope and period'));
+    await tester.pumpAndSettle();
+    final assetSelector = find.byType(DropdownButtonFormField<String?>).at(1);
+    await tester.ensureVisible(assetSelector);
+    await tester.tap(assetSelector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inner Cover SERIAL-GR4').last);
+    await tester.pumpAndSettle();
+    expect(observed.last.assetInstanceId, cover.id);
+    expect(observed.last.subjectKind, OperationsReportSubjectKind.innerCover);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ranked report labels remain fully visible on narrow screens', (
     tester,
   ) async {
@@ -576,6 +617,153 @@ void main() {
       <String>['G97', 'GR19', 'GR4', 'N16'],
     );
   });
+
+  test('serial cover scope retains its own assurance and inventory', () {
+    final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+    final asOf = DateTime.utc(2026, 8, 21, 12);
+    for (final state in [
+      InnerCoverLifecycleState.installed,
+      InnerCoverLifecycleState.fullyConsumedAsDonor,
+    ]) {
+      final selected = innerCoverProfile('serial-gr4', covers, state);
+      final other = innerCoverProfile(
+        'serial-gr19',
+        covers,
+        InnerCoverLifecycleState.available,
+      );
+      final report = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8),
+          endDate: DateTime.utc(2026, 8, 21),
+          assetInstanceId: selected.id,
+          subjectKind: OperationsReportSubjectKind.innerCover,
+        ),
+        tickets: const [],
+        executions: const [],
+        events: const [],
+        assetClasses: [covers],
+        assetInstances: const [],
+        innerCoverProfiles: [selected, other],
+        overview: const PlantAssetOverview(classes: [], assets: []),
+        asOf: asOf,
+        dueStates: [
+          for (final cover in [selected, other])
+            MaintenanceDueState(
+              id: 'due-${cover.id}',
+              assetIdentityKey: 'innerCover:${cover.id}',
+              assetTypeKey: 'innerCover',
+              assetNumber: 0,
+              assetClassId: covers.id,
+              assetInstanceId: cover.id,
+              assetDisplayName: cover.serialNumber,
+              counterKey: 'routine',
+              counterLabel: 'Routine maintenance',
+              thresholdDays: 30,
+              lastCompletionAt: DateTime.utc(2026, 7, 1),
+              nextDueAt: DateTime.utc(2026, 8, 1),
+              lastMaintenanceClassCode: 'RM',
+              classificationPending: false,
+            ),
+        ],
+        inspectionFindings: [
+          for (final cover in [selected, other])
+            finding(
+              id: 'finding-${cover.id}',
+              assetClassId: covers.id,
+              assetInstanceId: cover.id,
+              status: InspectionFindingStatus.open,
+              observedAt: DateTime.utc(2026, 8, 10),
+            ),
+        ],
+      );
+      expect(report.assetCount, selected.countsAsAssetInventory ? 1 : 0);
+      expect(report.assetStates, isEmpty);
+      expect(report.overdueMaintenanceCount, 1);
+      expect(report.activeInspectionFindingCount, 1);
+      expect(report.classSummaries.single.assetClassId, covers.id);
+      expect(report.classSummaries.single.overdueMaintenanceCount, 1);
+      expect(report.classSummaries.single.activeInspectionFindingCount, 1);
+    }
+  });
+
+  test(
+    'serial subject rejects unknown, wrong-class and ambiguous identity',
+    () {
+      final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+      final furnace = assetClass('furnaces', 'Furnace', 'furnace');
+      final cover = innerCoverProfile(
+        'serial-gr4',
+        covers,
+        InnerCoverLifecycleState.installed,
+      );
+      OperationsReport attempt({
+        String? classId,
+        String? subjectId,
+        List<AssetInstanceRecord> numbered = const [],
+        OperationsReportSubjectKind kind =
+            OperationsReportSubjectKind.innerCover,
+      }) => buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8),
+          endDate: DateTime.utc(2026, 8, 21),
+          assetClassId: classId,
+          assetInstanceId: subjectId ?? cover.id,
+          subjectKind: kind,
+        ),
+        tickets: const [],
+        executions: const [],
+        events: const [],
+        assetClasses: [covers, furnace],
+        assetInstances: numbered,
+        innerCoverProfiles: [cover],
+        overview: const PlantAssetOverview(classes: [], assets: []),
+      );
+      expect(() => attempt(subjectId: 'missing'), throwsStateError);
+      expect(() => attempt(classId: furnace.id), throwsStateError);
+      expect(
+        () => attempt(numbered: [asset(cover.id, furnace, 7)]),
+        throwsStateError,
+      );
+      expect(
+        () => attempt(kind: OperationsReportSubjectKind.numberedAsset),
+        throwsStateError,
+      );
+    },
+  );
+
+  test(
+    'serial report selection and PDF scope preserve retired cover identity',
+    () {
+      final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+      final cover = innerCoverProfile(
+        'serial-gr4',
+        covers,
+        InnerCoverLifecycleState.fullyConsumedAsDonor,
+      );
+      final selection = reconcileOperationsReportSelection(
+        assetClassId: covers.id,
+        assetInstanceId:
+            '${OperationsReportSelection.innerCoverPrefix}${cover.id}',
+        classes: [covers],
+        assets: const [],
+        innerCovers: [cover],
+      );
+      expect(selection.nativeAssetId, cover.id);
+      expect(selection.subjectKind, OperationsReportSubjectKind.innerCover);
+      expect(
+        operationsReportAssetScopeLabel(const [], [cover], selection),
+        'Inner Cover SERIAL-GR4',
+      );
+      final stale = reconcileOperationsReportSelection(
+        assetClassId: covers.id,
+        assetInstanceId: selection.assetInstanceId,
+        classes: [covers],
+        assets: const [],
+        innerCovers: const [],
+      );
+      expect(stale.assetInstanceId, isNull);
+    },
+  );
 
   test('administrative closures remain distinct from technical repairs', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');

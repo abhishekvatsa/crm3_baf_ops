@@ -187,6 +187,7 @@ final operationsReportProvider = Provider.autoDispose
             filter,
             classes.requireValue,
             assets.requireValue,
+            innerCovers.requireValue,
           );
           for (final warning in qualityWarnings.requireValue.where(
             (warning) => _needsAbnormalityIdentity(warning, filter, identity),
@@ -366,6 +367,7 @@ OperationsReport buildOperationsReport({
     filter,
     assetClasses,
     assetInstances,
+    innerCoverProfiles,
   );
   final assetsById = identityMatcher.assetsById;
   final effectiveClassId = identityMatcher.effectiveClassId;
@@ -819,16 +821,18 @@ OperationsReport buildOperationsReport({
           filter.assetInstanceId,
         );
       }
-      final selectedAsset = assetsById[filter.assetInstanceId];
-      return selectedAsset != null &&
-          occurrence.affectedAssetClassIds.contains(selectedAsset.assetClassId);
+      return effectiveClassId != null &&
+          occurrence.affectedAssetClassIds.contains(effectiveClassId);
     }
     if (effectiveClassId != null) {
       if (occurrence.affectedAssetClassIds.contains(effectiveClassId)) {
         return true;
       }
       return occurrence.affectedAssetInstanceIds.any(
-        (id) => assetsById[id]?.assetClassId == effectiveClassId,
+        (id) =>
+            (assetsById[id]?.assetClassId ??
+                identityMatcher.innerCoversById[id]?.assetClassId) ==
+            effectiveClassId,
       );
     }
     return true;
@@ -872,6 +876,7 @@ OperationsReport buildOperationsReport({
     innerCoverProfiles: innerCoverProfiles,
     selectedAssetClassId: effectiveClassId,
     selectedAssetInstanceId: filter.assetInstanceId,
+    selectedSubjectKind: filter.subjectKind,
   );
 
   List<CountedReportLabel> rank(
@@ -979,7 +984,10 @@ OperationsReport buildOperationsReport({
       occurrence.scope == OperationalEventScope.plantWide ||
       occurrence.affectedAssetClassIds.contains(classId) ||
       occurrence.affectedAssetInstanceIds.any(
-        (id) => assetsById[id]?.assetClassId == classId,
+        (id) =>
+            (assetsById[id]?.assetClassId ??
+                identityMatcher.innerCoversById[id]?.assetClassId) ==
+            classId,
       );
 
   bool occurrenceMatchesClassSummary(

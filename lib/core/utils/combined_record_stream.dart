@@ -43,7 +43,11 @@ Stream<List<T>> combineLatestUniqueRecordStreams<T>({
               latest[index] = records;
               emitIfReady();
             },
-            onError: controller.addError,
+            onError: (Object error, StackTrace stackTrace) {
+              // A later update from another source cannot re-certify this one.
+              latest[index] = null;
+              if (!controller.isClosed) controller.addError(error, stackTrace);
+            },
             onDone: () {
               done[index] = true;
               closeIfDone();

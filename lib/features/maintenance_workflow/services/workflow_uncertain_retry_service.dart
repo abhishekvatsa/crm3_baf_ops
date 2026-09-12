@@ -8,6 +8,7 @@ import '../domain/workflow_error.dart';
 import '../domain/workflow_types.dart';
 import '../repositories/workflow_repository.dart';
 import 'workflow_online_executor.dart';
+import 'workflow_retry_claim_guard.dart';
 
 /// What one retry run actually did.
 ///
@@ -132,20 +133,33 @@ class WorkflowUncertainRetryService {
             .applyRetryTransitionUnlessAccepted(
               commandId: row.commandId,
               build: (current) {
-                final target = current ?? row;
-                return target
+                if (current == null ||
+                    !mayRecordWorkflowAttemptOutcome(
+                      currentState: current.stateKey,
+                      currentClaimedAt: current.lastAttemptAt,
+                      expectedClaimedAt: claimedAt,
+                    )) {
+                  return null;
+                }
+                return current
                   ..stateKey = 'manualReview'
                   ..nextRetryAt = null
                   ..lastErrorCode = 'malformedLocalCommand'
                   ..lastErrorMessage = error.toString();
               },
             );
-        if (!transition.wasAlreadyAccepted) manualReview.add(row.commandId);
+        if (transition.wasRecorded) {
+          manualReview.add(row.commandId);
+        } else if (!transition.wasAlreadyAccepted) {
+          // Another claimant or disposition won. This caller made no write.
+          // Do not misreport its malformed-payload decision as recorded.
+          failedVerification.add(row.commandId);
+        }
         continue;
       }
 
       try {
-        await executor.execute(command);
+        await executor.execute(command, claimedAt: claimedAt);
         applied.add(row.commandId);
       } on WorkflowException {
         // The executor has already classified this failure and written the

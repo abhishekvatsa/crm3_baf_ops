@@ -104,13 +104,24 @@ export const readExistingReceipt = async (
   if (data.payloadFingerprint !== expected) {
     throw new WorkflowError("command-idempotency-conflict", "Command ID was reused with a different payload.");
   }
-  if (typeof data.resultKey !== "string" ||
+  // Match the client's accepted-receipt contract. Presence/type alone is
+  // not sufficient evidence: NaN/negative versions or an invalid instant must
+  // not be replayed as a successful result.
+  const appliedAtMillis = typeof data.appliedAt === "string" ?
+    Date.parse(data.appliedAt) : Number.NaN;
+  const canonicalAppliedAt = Number.isFinite(appliedAtMillis) &&
+    new Date(appliedAtMillis).toISOString() === data.appliedAt;
+  const zeroVersionTerminalReplay = new Set([
+    "workflow-already-cancelled", "workflow-already-finalized",
+  ]);
+  if (typeof data.resultKey !== "string" || data.resultKey.trim().length === 0 ||
       typeof data.aggregateVersion !== "number" ||
-      !Number.isSafeInteger(data.aggregateVersion) ||
+      !Number.isSafeInteger(data.aggregateVersion) || data.aggregateVersion < 0 ||
+      (data.aggregateVersion === 0 && !zeroVersionTerminalReplay.has(data.resultKey)) ||
       data.result == null ||
       typeof data.result !== "object" ||
       Array.isArray(data.result) ||
-      typeof data.appliedAt !== "string") {
+      typeof data.appliedAt !== "string" || !canonicalAppliedAt) {
     throw new WorkflowError(
       "failed-precondition",
       "The workflow receipt result is malformed.",

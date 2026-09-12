@@ -622,11 +622,17 @@ final knowledgeRowsViewProvider = StreamProvider<KnowledgeRowsView>((ref) {
   final rowsSub = repository.watchAllKnowledgeRows().listen((rows) {
     latestRows = rows;
     emitIfReady();
-  }, onError: controller.addError);
+  }, onError: (Object error, StackTrace stackTrace) {
+    latestRows = null;
+    if (!controller.isClosed) controller.addError(error, stackTrace);
+  });
   final metaSub = repository.watchMatrixMeta().listen((meta) {
     latestMeta = meta;
     emitIfReady();
-  }, onError: controller.addError);
+  }, onError: (Object error, StackTrace stackTrace) {
+    latestMeta = null;
+    if (!controller.isClosed) controller.addError(error, stackTrace);
+  });
 
   ref.onDispose(() async {
     await rowsSub.cancel();

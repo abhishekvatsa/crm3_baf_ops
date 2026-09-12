@@ -142,6 +142,25 @@ class SyncService {
   final MaintenanceRepository _firestoreMaintenance;
   final WorkflowCommandGateway _maintenanceCommands;
 
+  /// The signed-in actor, resolved on every read rather than captured once.
+  ///
+  /// The ticket path authorises against the account that is signed in *now*,
+  /// so this must never be cached at construction: an account change between
+  /// sync runs has to be seen. Injectable only so tests can drive the real
+  /// path; production resolves the actual Firebase session, and the
+  /// authorisation rules themselves are unchanged. This mirrors
+  /// [GlobalPullService], which already takes its `FirebaseAuth` this way.
+  ///
+  /// Not to be confused with [_rejectionOwnerUidLookup], which records who
+  /// owns a rejection and carries no execution authority.
+  final FirebaseAuth? _auth;
+  FirebaseAuth get _authentication => _auth ?? FirebaseAuth.instance;
+
+  /// Wall clock, injectable so time-dependent behaviour can be exercised
+  /// without sleeping. Business timestamps already stored on records are not
+  /// affected by this.
+  final DateTime Function() _now;
+
   final PlannedMaintenanceRepository _plannedRepo;
   final PlannedMaintenanceRepository _firestorePlanned;
   final PlannedJobServerCompletionService _serverCompletion;
@@ -201,10 +220,14 @@ class SyncService {
     required BafKnowledgeRepository knowledgeRepo,
     required AuditRepository auditRepository,
     String? Function()? rejectionOwnerUidLookup,
+    FirebaseAuth? auth,
+    DateTime Function()? now,
   }) : _maintenanceRepo = maintenanceRepo,
        _firestoreMaintenance = firestoreMaintenance,
        _maintenanceCommands =
            maintenanceCommandGateway ?? const FirebaseWorkflowCommandGateway(),
+       _auth = auth,
+       _now = now ?? DateTime.now,
        _plannedRepo = plannedRepo,
        _firestorePlanned = firestorePlanned,
        _serverCompletion = serverCompletion,
@@ -225,6 +248,12 @@ class SyncService {
        _rejectionOwnerUidLookup =
            rejectionOwnerUidLookup ??
            (() => FirebaseAuth.instance.currentUser?.uid.trim());
+
+  /// Runs the real ticket sync, so tests can exercise the production path
+  /// rather than a copy of it. Delegates to the same private implementation
+  /// `syncAll` uses; it adds no behaviour of its own.
+  @visibleForTesting
+  Future<void> syncTicketsForTest() => _syncTickets();
 
   @visibleForTesting
   Future<void> syncJobModulesForTest({
@@ -298,7 +327,7 @@ class SyncService {
     lastConflictKeys.clear();
     lastFailureDetails.clear();
 
-    final start = DateTime.now();
+    final start = _now();
 
     try {
       await _syncTickets();
@@ -378,9 +407,9 @@ class SyncService {
       _isSyncing = false;
       _recheckPermanentRejections = false;
       _permanentRejectionIdsUnderRecheck.clear();
-      lastSyncTime = DateTime.now();
+      lastSyncTime = _now();
 
-      final duration = DateTime.now().difference(start).inMilliseconds;
+      final duration = _now().difference(start).inMilliseconds;
 
       debugPrint(
         '📊 Sync complete → $lastSuccessCount success, $lastFailureCount failed (${duration}ms)',

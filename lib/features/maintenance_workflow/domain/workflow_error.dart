@@ -24,6 +24,7 @@ enum WorkflowErrorCode {
   deadlineExceeded,
   aborted,
   internal,
+  resourceExhausted,
 }
 
 class WorkflowException implements Exception {

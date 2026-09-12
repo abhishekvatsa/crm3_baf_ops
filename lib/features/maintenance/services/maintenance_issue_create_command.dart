@@ -5,6 +5,21 @@ import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/issue_lane_plan.dart';
 
+/// The identity a governed creation command will carry for [record].
+///
+/// Derived from the ticket's remote id, so it is the same string on every
+/// attempt. Exposed because callers need to find a stored retry deadline for a
+/// command before they build and submit it. Returns null when the ticket has no
+/// remote identity yet, in which case no command can be built either.
+String maintenanceIssueCreateCommandIdForTicket(String ticketId) =>
+    'createMaintenanceTicket_$ticketId';
+
+String? maintenanceIssueCreateCommandId(MaintenanceRecord record) {
+  final ticketId = record.firestoreId?.trim();
+  if (ticketId == null || ticketId.isEmpty) return null;
+  return maintenanceIssueCreateCommandIdForTicket(ticketId);
+}
+
 WorkflowCommand buildMaintenanceIssueCreateCommand(
   MaintenanceRecord record, {
   required int createVersion,
@@ -68,7 +83,7 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
       'frequentIssueSelection': frequentIssueSelection.toCommandMap(),
   };
   return WorkflowCommand(
-    commandId: 'createMaintenanceTicket_$ticketId',
+    commandId: maintenanceIssueCreateCommandId(record)!,
     type: WorkflowCommandType.createMaintenanceTicket,
     aggregateId: ticketId,
     expectedVersion: 0,

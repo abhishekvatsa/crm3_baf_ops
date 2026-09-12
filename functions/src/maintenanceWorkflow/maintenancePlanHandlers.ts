@@ -1,5 +1,5 @@
 import {WorkflowError} from "./errors";
-import {CommandHandler} from "./handlerTypes";
+import {CommandHandler, HandlerArgs, HandlerResult} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
   assertMaintenanceClassApplies,
@@ -282,7 +282,9 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
 };
 
 export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, context}) => {
-  exactKeys(command.payload, ["status", "reason", "executionId"], "payload");
+  const revalidating = Object.prototype.hasOwnProperty.call(command.payload, "revalidation");
+  exactKeys(command.payload, ["status", "reason", "executionId",
+    ...(revalidating ? ["revalidation"] : [])], "payload");
   const planId = documentId(command.aggregateId, "aggregateId");
   const target = cleanText(command.payload.status, "status");
   if (target === "released") {
@@ -311,6 +313,12 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
   }
   if (current.data.version !== command.expectedVersion) {
     throw new WorkflowError("aborted", "The maintenance plan changed before this request.");
+  }
+  if (revalidating) {
+    if (target !== "ready" || current.data.status !== "ready") {
+      throw new WorkflowError("failed-precondition", "Only a ready plan can have its subject revalidated.");
+    }
+    return revalidateReadyPlanSubject({tx, command, context}, current.data, reason);
   }
   const transitions: Readonly<Record<string, readonly string[]>> = {
     proposed: ["scheduled", "cancelled"],
@@ -361,6 +369,116 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
     aggregateVersion: nextVersion,
     result: {planId, status: target, executionId},
   };
+};
+
+// Explicit review of the same physical subject, not an automatic relaxation of
+// completion's version fence. This variant inherits maintenancePlan.manage
+// authority and the dispatcher fingerprints its complete reviewed payload.
+const revalidateReadyPlanSubject = async (
+  {tx, command, context}: HandlerArgs,
+  current: JsonMap,
+  reason: string,
+): Promise<HandlerResult> => {
+  const raw = command.payload.revalidation;
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new WorkflowError("invalid-argument", "revalidation must be an exact subject snapshot.");
+  }
+  const reviewed = raw as JsonMap;
+  exactKeys(reviewed, ["assetClassId", "assetInstanceId", "assetInstanceVersion",
+    "serialNumber", "lifecycleState", "currentBaseAssetInstanceId",
+    "currentBaseAssetNumber"], "revalidation");
+  if (current.schemaVersion !== 2 || current.assetTypeKey !== "innerCover" ||
+      current.assetNumber != null || current.releasedExecutionId != null ||
+      !Number.isSafeInteger(current.assetInstanceVersion) ||
+      (current.assetInstanceVersion as number) < 1 ||
+      reviewed.assetClassId !== current.assetClassId ||
+      reviewed.assetInstanceId !== current.assetInstanceId ||
+      !Number.isSafeInteger(reviewed.assetInstanceVersion) ||
+      (reviewed.assetInstanceVersion as number) <= (current.assetInstanceVersion as number)) {
+    throw new WorkflowError("failed-precondition",
+      "Review must bind a newer revision of the same serial Inner Cover.",
+      {reasonCode: "maintenance-plan-subject-revalidation-invalid"});
+  }
+  const serial = cleanText(reviewed.serialNumber, "revalidation.serialNumber");
+  const state = cleanText(reviewed.lifecycleState, "revalidation.lifecycleState");
+  const baseId = optionalDocumentId(reviewed.currentBaseAssetInstanceId,
+    "revalidation.currentBaseAssetInstanceId");
+  const baseNumber = reviewed.currentBaseAssetNumber;
+  if (baseNumber != null && (!Number.isSafeInteger(baseNumber) || (baseNumber as number) < 1)) {
+    throw new WorkflowError("invalid-argument", "revalidation.currentBaseAssetNumber is invalid.");
+  }
+  // Older schema-2 plans froze this exact canonical display identity at creation.
+  // Preserve it; revalidation cannot turn an existing plan into a different serial.
+  if (current.assetInstanceName !== `Inner Cover ${serial}` ||
+      !maintainableInnerCoverStates.has(state)) {
+    throw new WorkflowError("failed-precondition", "The reviewed serial or maintainable state is invalid.");
+  }
+  const [assetClass, profile, audit] = await Promise.all([
+    tx.get(`asset_classes/${current.assetClassId}`),
+    tx.get(`inner_cover_profiles/${current.assetInstanceId}`),
+    tx.get(auditPath(command.commandId)),
+  ]);
+  if (audit.exists) {
+    throw new WorkflowError("failed-precondition", "Maintenance-plan audit evidence is orphaned.");
+  }
+  if (!assetClass.exists || assetClass.data == null ||
+      assetClass.data.assetClassId !== current.assetClassId ||
+      assetClass.data.status !== "active" || assetClass.data.isDeleted === true ||
+      assetClass.data.legacyAssetTypeKey !== "innerCover") {
+    throw new WorkflowError("failed-precondition", "The Inner Cover asset class is no longer valid.");
+  }
+  const subject = profile.data;
+  if (!profile.exists || subject == null || subject.schemaVersion !== 1 ||
+      subject.innerCoverId !== current.assetInstanceId ||
+      subject.assetClassId !== current.assetClassId ||
+      subject.version !== reviewed.assetInstanceVersion ||
+      subject.serialNumber !== serial || subject.lifecycleState !== state ||
+      (subject.currentBaseAssetInstanceId ?? null) !== baseId ||
+      (subject.currentBaseAssetNumber ?? null) !== baseNumber) {
+    throw new WorkflowError("aborted", "The Inner Cover changed after the reviewed snapshot. Review it again.",
+      {reasonCode: "maintenance-plan-reviewed-subject-changed"});
+  }
+  const baseline = current.originalAssetInstanceVersion ?? current.assetInstanceVersion;
+  if (!Number.isSafeInteger(baseline) || (baseline as number) < 1 ||
+      (baseline as number) > (current.assetInstanceVersion as number)) {
+    throw new WorkflowError("failed-precondition", "The original plan subject baseline is malformed.");
+  }
+  const classification = parseFrozenMaintenanceClass(current.maintenanceClass);
+  assertMaintenanceClassApplies(classification, {
+    assetIdentityKey: current.assetIdentityKey as string,
+    assetTypeKey: "innerCover", assetNumber: null,
+    assetClassId: current.assetClassId as string,
+    assetInstanceId: current.assetInstanceId as string,
+  });
+  const at = iso(context.serverNow);
+  const nextVersion = command.expectedVersion + 1;
+  const update: JsonMap = {
+    assetInstanceVersion: reviewed.assetInstanceVersion,
+    originalAssetInstanceVersion: baseline,
+    version: nextVersion,
+    subjectReview: {
+      schemaVersion: 1,
+      ...reviewed,
+      previousAssetInstanceVersion: current.assetInstanceVersion,
+      reviewedByUid: context.actor.uid,
+      reviewedByName: context.actor.name,
+      reviewedAt: at,
+      reason,
+      auditId: command.commandId,
+    },
+    updatedAt: at,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+  };
+  tx.update(planPath(command.aggregateId), update);
+  writeAudit({tx, commandId: command.commandId, planId: command.aggregateId,
+    operation: "revalidate-subject", actorUid: context.actor.uid,
+    actorName: context.actor.name, at, reason, before: current,
+    after: {...current, ...update}});
+  return {resultKey: "maintenance-plan-subject-revalidated", aggregateVersion: nextVersion,
+    result: {planId: command.aggregateId, status: "ready",
+      assetInstanceVersion: reviewed.assetInstanceVersion,
+      originalAssetInstanceVersion: baseline, auditId: command.commandId}};
 };
 
 export const completeMaintenancePlan: CommandHandler = async ({tx, command, context}) => {

@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-08-BUILD27",
   "asOfDate": "2026-09-08",
-  "status": "BUILD27_FINALIZED_BACKEND_READY_DEVICE_ACCEPTED_STAGED_PILOT_AUTHORIZED_AWAITING_MUTATING_FLOW_AND_HANDOUT_RECEIPTS",
+  "status": "BUILD27_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -13,7 +13,7 @@
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
+      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "823877B9B03F8D4E2687532615F5037A9742F3AA224AE209BC2C7A866F845E04",
@@ -54,7 +54,7 @@
       "rulesAndIndexesSourceCommit": "c00c77e2a04a0a79a2bfab6d711e5ad2b59e6d56",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },

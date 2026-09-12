@@ -4,6 +4,7 @@ import {
 } from "./commandAuthority";
 import {payloadFingerprint, iso} from "./utils";
 import {WorkflowError} from "./errors";
+import {assertWorkflowCommandEnvelope} from "./commandEnvelope";
 import {
   Actor,
   CommandContext,
@@ -172,12 +173,9 @@ export class MaintenanceWorkflowCommandService {
     command: WorkflowCommand,
     context: CommandInvocationContext,
   ): Promise<WorkflowCommandReceipt> {
-    if (command.commandId.trim().length === 0) throw new WorkflowError("invalid-argument", "commandId is required.");
-    if (command.aggregateId.trim().length === 0) throw new WorkflowError("invalid-argument", "aggregateId is required.");
-    if (!Number.isSafeInteger(command.expectedVersion) || command.expectedVersion < 0) {
-      throw new WorkflowError("invalid-argument", "expectedVersion must be a non-negative integer.");
-    }
-    const handler = handlers[command.commandType];
+    assertWorkflowCommandEnvelope(command);
+    const handler = isSupportedWorkflowCommandType(command.commandType) ?
+      handlers[command.commandType] : null;
     if (!handler) throw new WorkflowError("unsupported-workflow-command", `Unsupported command ${command.commandType}.`);
     return this.store.runTransaction(async (tx) => {
       const actorSnapshot = await tx.get(`users/${context.actor.uid}`);

@@ -367,7 +367,7 @@ Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
   List<QualityMonitoringRequest>? latestLegacy;
 
   void emitWhenReady() {
-    if (latestCurrent == null || latestLegacy == null) return;
+    if (latestCurrent == null || latestLegacy == null || controller.isClosed) return;
     final now = DateTime.now().toUtc();
     final merged = mergeQualityMonitoringWindows(
       latestCurrent!,
@@ -404,11 +404,23 @@ Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
       currentSubscription = current.listen((value) {
         latestCurrent = value;
         emitWhenReady();
-      }, onError: controller.addError);
+      }, onError: (Object error, StackTrace stackTrace) {
+        latestCurrent = null;
+        // Expiry must not turn stale monitoring evidence back into success.
+        expiryTimer?.cancel();
+        expiryTimer = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      });
       legacySubscription = legacy.listen((value) {
         latestLegacy = value;
         emitWhenReady();
-      }, onError: controller.addError);
+      }, onError: (Object error, StackTrace stackTrace) {
+        latestLegacy = null;
+        // Expiry must not turn stale monitoring evidence back into success.
+        expiryTimer?.cancel();
+        expiryTimer = null;
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      });
     },
     onCancel: () async {
       expiryTimer?.cancel();

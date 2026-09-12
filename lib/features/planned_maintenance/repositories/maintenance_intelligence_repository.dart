@@ -9,6 +9,15 @@ class MaintenanceIntelligenceRepository {
 
   final FirebaseFirestore _firestore;
 
+  Future<MaintenancePlan> readPlanFromServer(String planId) async {
+    final snapshot = await _firestore.collection('maintenance_plans')
+        .doc(planId).get(const GetOptions(source: Source.server));
+    if (!snapshot.exists || snapshot.data() == null || snapshot.metadata.isFromCache) {
+      throw StateError('The current maintenance plan could not be verified with the server.');
+    }
+    return MaintenancePlan.fromMap(snapshot.data()!, snapshot.id);
+  }
+
   Stream<List<MaintenanceClassDefinition>> watchClasses() => _firestore
       .collection('maintenance_class_definitions')
       .snapshots()

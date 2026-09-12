@@ -850,6 +850,69 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   });
 
+  test.each([
+    ['new', require('./fixtures/component_replacement_dart_request.json')],
+    ['installed', require('./fixtures/component_replacement_legacy_dart_request.json')],
+  ])('%s Dart component timestamp crosses Firestore and replays after a later edit', async (_, request) => {
+    await invoke(classRequest());
+    await invoke(createNodeRequest({requestId: IDS.firstNodeRequest,
+      nodeId: IDS.firstNode, name: 'Pressure transmitter', tag: null, allowTagTransfer: false}));
+    await invokeRegistry(assetRequest({requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset, assetNumber: 1, name: 'Furnace 1'}));
+    const original = componentRequest({requestId: IDS.firstComponentRequest,
+      assetInstanceId: IDS.firstAsset, componentInstanceId: IDS.firstComponent,
+      tag: null, allowTagTransfer: false});
+    await invokeRegistry(original);
+    const send = (data) => mutateAssetRegistryWithDb({db, authUid: 'admin-1', data,
+      now: () => new Date('2026-09-12T10:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate});
+    const accepted = await send(request);
+    const receiptRef = db.collection('asset_hierarchy_mutation_receipts').doc(request.requestId);
+    const receipt = (await receiptRef.get()).data();
+    expect(receipt.fingerprint).toMatch(/^assetreg4-sha256:/);
+    expect(receipt.timestampInstants).toEqual({installedOn: request.componentDraft.installedOn});
+    const primaryAudit = (await db.collection('asset_hierarchy_audits').doc(accepted.auditId).get()).data();
+    expect(primaryAudit.timestampInstants).toEqual(receipt.timestampInstants);
+    expect((await db.collection('asset_component_instances').doc(request.replacementComponentInstanceId).get())
+      .data().installedOn.toMillis()).toBe(Date.parse('2026-09-12T08:30:00.123Z'));
+    await send({requestId: IDS.componentUpdateRequest, operation: 'UPDATE_COMPONENT_INSTANCE',
+      assetClassId: request.assetClassId, assetInstanceId: request.assetInstanceId,
+      componentInstanceId: request.replacementComponentInstanceId, expectedVersion: 1,
+      reason: 'Review replacement details after installation.',
+      componentDraft: {...request.componentDraft, manufacturer: 'Reviewed Works',
+        installedOn: '2026-09-12T09:00:00.000Z'}});
+    const watched = ['asset_instances', 'asset_component_instances', 'asset_hierarchy_audits',
+      'asset_hierarchy_mutation_receipts', 'asset_tag_claims'];
+    const beforeReplay = await Promise.all(watched.map(collectionEvidence));
+    expect(await send(request)).toEqual({...accepted, idempotentReplay: true});
+    expect(await Promise.all(watched.map(collectionEvidence))).toEqual(beforeReplay);
+    expect((await db.collection('asset_component_instances').get()).size).toBe(2);
+    await expect(send({...request, componentDraft: {...request.componentDraft,
+      installedOn: '2026-09-12T08:30:00.123457Z'}})).rejects.toMatchObject({code: 'data-loss'});
+    expect(await Promise.all(watched.map(collectionEvidence))).toEqual(beforeReplay);
+    for (const [evidenceRef, field] of [
+      [receiptRef, 'committedAt'],
+      [db.collection('asset_hierarchy_audits').doc(accepted.auditId), 'performedAt'],
+      [db.collection('asset_hierarchy_audits').doc(`${accepted.auditId}_replacement_source`), 'performedAt'],
+    ]) {
+      const originalTime = (await evidenceRef.get()).data()[field];
+      // Firestore stores microseconds, so a one-nanosecond change would be
+      // discarded before the handler could inspect it. Prove the smallest
+      // persisted drift exists before testing its rejection.
+      await evidenceRef.update({[field]: new admin.firestore.Timestamp(
+        originalTime.seconds, originalTime.nanoseconds + 1000)});
+      const storedTime = (await evidenceRef.get()).data()[field];
+      expect(storedTime.seconds).toBe(originalTime.seconds);
+      expect(storedTime.nanoseconds).toBe(originalTime.nanoseconds + 1000);
+      expect(storedTime.toDate().toISOString()).toBe(originalTime.toDate().toISOString());
+      const beforeRefusal = await Promise.all(watched.map(collectionEvidence));
+      await expect(send(request)).rejects.toMatchObject({code: 'data-loss'});
+      expect(await Promise.all(watched.map(collectionEvidence))).toEqual(beforeRefusal);
+      await evidenceRef.update({[field]: originalTime});
+      expect(await send(request)).toEqual({...accepted, idempotentReplay: true});
+    }
+  });
+
   test('component replacement preserves lineage, count, tag custody, and replay evidence', async () => {
     await invoke(classRequest());
     await invoke(createNodeRequest({
@@ -1084,7 +1147,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         completedByUid: 'admin-1',
       });
     }
-    expect(receipt.fingerprint).toMatch(/^assetreg3-sha256:/);
+    expect(receipt.fingerprint).toMatch(/^assetreg4-sha256:/);
     await db.collection('asset_hierarchy_audits')
       .doc(`asset_registry_${IDS.replacementRequest}`)
       .update({acceptedEvidenceSnapshotJson: '{"sourceId":"tampered"}'});

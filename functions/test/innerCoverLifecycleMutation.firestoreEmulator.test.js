@@ -29,6 +29,11 @@ const IDS = {
 describeWithEmulator('Inner Cover lifecycle transaction', () => {
   let app;
   let db;
+  let rulesEnvironment;
+  let clientApi;
+  let assertRulesFail;
+  let secondClient;
+  let unapprovedClient;
 
   async function clearFirestore() {
     const response = await fetch(
@@ -49,9 +54,25 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
   }
 
   beforeAll(async () => {
+    // Root Rules-test dependencies are needed only for an emulator run. Host
+    // Functions jobs skip this hook and do not need the root node_modules.
+    const {initializeTestEnvironment, assertFails} = require('@firebase/rules-unit-testing');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    clientApi = require('firebase/firestore');
+    assertRulesFail = assertFails;
+    const endpoint = new URL(`http://${emulatorHost}`);
+    rulesEnvironment = await initializeTestEnvironment({
+      projectId,
+      firestore: {
+        host: endpoint.hostname,
+        port: Number(endpoint.port),
+        rules: fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8'),
+      },
+    });
     app = admin.initializeApp({projectId}, appName);
     db = admin.firestore(app);
-  });
+  }, 120000);
 
   beforeEach(async () => {
     await clearFirestore();
@@ -63,6 +84,18 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
       roles: ['admin'],
       createdAt: new Date('2026-08-15T00:00:00.000Z'),
     });
+    for (const [uid, isApproved] of [
+      ['pool-reader-2', true],
+      ['pool-reader-unapproved', false],
+    ]) {
+      batch.set(db.collection('users').doc(uid), {
+        name: uid,
+        email: `${uid}@test.local`,
+        isApproved,
+        roles: ['operations'],
+        createdAt: new Date('2026-08-15T00:00:00.000Z'),
+      });
+    }
     batch.set(db.collection('asset_classes').doc(IDS.innerClass), {
       schemaVersion: 1,
       assetClassId: IDS.innerClass,
@@ -112,10 +145,120 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
       lastMutationId: 'seed',
     });
     await batch.commit();
+    secondClient = rulesEnvironment.authenticatedContext('pool-reader-2').firestore();
+    unapprovedClient = rulesEnvironment.authenticatedContext('pool-reader-unapproved').firestore();
   });
 
   afterAll(async () => {
-    if (app) await app.delete();
+    try {
+      if (rulesEnvironment) await rulesEnvironment.cleanup();
+    } finally {
+      if (app) await app.delete();
+    }
+  });
+
+  async function readSecondClientProfiles() {
+    // The Flutter repository reads this collection before applying pool filters.
+    // Force the client read to the emulator server so a cached snapshot cannot
+    // satisfy the cross-client visibility assertions.
+    const snapshot = await clientApi.getDocsFromServer(
+      clientApi.collection(secondClient, 'inner_cover_profiles'),
+    );
+    expect(snapshot.metadata.fromCache).toBe(false);
+    return snapshot.docs.map((document) => ({id: document.id, ...document.data()}));
+  }
+
+  test.each([
+    ['inner_cover_acceptance_dart_request.json', '2026-09-12T08:30:00.123Z'],
+    ['inner_cover_acceptance_legacy_dart_request.json', '2026-09-12T08:30:00.123456Z'],
+  ])('actual Dart wire fixture %s reaches a second authorized client pool and stays replayable after installation', async (file, instant) => {
+    const request = require(`./fixtures/${file}`);
+    const send = (data) => mutateInnerCoverLifecycleWithDb({
+      db, authUid: 'admin-1', data,
+      now: () => new Date('2026-09-12T08:30:01.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+    // The shared fixture uses this id. Replace the unrelated donor seed for
+    // this test with an actual governed registration of the same serial.
+    await db.collection('inner_cover_profiles').doc(request.innerCoverId).delete();
+    await send({
+      requestId: IDS.register, operation: 'REGISTER_INNER_COVER',
+      innerCoverId: request.innerCoverId, innerCoverAssetClassId: IDS.innerClass,
+      reason: 'Register the acceptance regression cover.',
+      registrationDraft: {
+        serialNumber: 'MICRO-30', sourceType: 'purchased',
+        originClassification: 'documentedPurchase', supplierOrFabricator: 'Test supplier',
+        receivedOrCompletedOn: '2026-09-11T00:00:00.000Z',
+        incorporatedOn: '2026-09-11T12:00:00.000Z', drawingReference: 'IC-30',
+        materialGrade: 'SS 321', notes: null, fabricationSections: [],
+      },
+    });
+    const awaitingProfiles = await readSecondClientProfiles();
+    expect(awaitingProfiles.find((profile) => profile.id === request.innerCoverId))
+      .toMatchObject({serialNumber: 'MICRO-30', lifecycleState: 'awaitingInspection', version: 1});
+    expect(awaitingProfiles.filter((profile) => profile.lifecycleState === 'available'))
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({id: request.innerCoverId})]));
+    await assertRulesFail(clientApi.getDocsFromServer(
+      clientApi.collection(unapprovedClient, 'inner_cover_profiles'),
+    ));
+    expect(request.acceptanceDraft.inspectedOn).toBe(instant);
+    const accepted = await send(request);
+    const profileRef = db.collection('inner_cover_profiles').doc(request.innerCoverId);
+    const acceptedProfile = (await profileRef.get()).data();
+    expect(acceptedProfile).toMatchObject({
+      serialNumber: 'MICRO-30', version: 2, lifecycleState: 'available',
+      acceptedByUid: 'admin-1', acceptanceReference: request.acceptanceDraft.acceptanceReference,
+    });
+    expect(acceptedProfile.acceptedAt.toDate().toISOString())
+      .toBe('2026-09-12T08:30:00.123Z');
+    const acceptedProfiles = await readSecondClientProfiles();
+    expect(acceptedProfiles.filter((profile) => profile.lifecycleState === 'available'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({
+        id: request.innerCoverId, innerCoverId: request.innerCoverId,
+        serialNumber: 'MICRO-30', normalizedSerialNumber: 'MICRO30',
+        lifecycleState: 'available', version: 2,
+        currentBaseAssetInstanceId: null,
+      })]));
+    const receipt = (await db.collection('inner_cover_lifecycle_receipts')
+      .doc(request.requestId).get()).data();
+    const audit = (await db.collection('inner_cover_lifecycle_audits')
+      .doc(accepted.auditId).get()).data();
+    expect(receipt.timestampInstants).toEqual({inspectedOn: instant});
+    expect(audit.timestampInstants).toEqual(receipt.timestampInstants);
+    const linked = await send({
+      requestId: 'aaaaaaaa-1234-4234-8234-123456789abc',
+      operation: 'LINK_INNER_COVER', innerCoverId: request.innerCoverId,
+      expectedVersion: 2, targetBaseAssetInstanceId: IDS.base,
+      reason: 'Install the exactly accepted regression cover.',
+    });
+    expect(linked.version).toBe(3);
+    const installedProfiles = await readSecondClientProfiles();
+    expect(installedProfiles.find((profile) => profile.id === request.innerCoverId))
+      .toMatchObject({
+        serialNumber: 'MICRO-30', lifecycleState: 'installed', version: 3,
+        currentBaseAssetInstanceId: IDS.base, currentBaseAssetNumber: 201,
+      });
+    for (const pool of [
+      installedProfiles.filter((profile) => profile.lifecycleState === 'available'),
+      installedProfiles.filter((profile) => profile.lifecycleState !== 'installed'),
+    ]) {
+      expect(pool)
+        .not.toEqual(expect.arrayContaining([expect.objectContaining({id: request.innerCoverId})]));
+    }
+    await assertRulesFail(clientApi.getDocsFromServer(
+      clientApi.collection(unapprovedClient, 'inner_cover_profiles'),
+    ));
+    const beforeReplay = await profileRef.get();
+    expect(await send(request)).toEqual({...accepted, idempotentReplay: true});
+    const afterReplay = await profileRef.get();
+    expect(afterReplay.updateTime.isEqual(beforeReplay.updateTime)).toBe(true);
+    expect(afterReplay.data()).toMatchObject({
+      lifecycleState: 'installed', currentBaseAssetInstanceId: IDS.base, version: 3,
+    });
+    expect((await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).data())
+      .toMatchObject({innerCoverId: request.innerCoverId});
+    expect((await db.collection('inner_cover_lifecycle_receipts').get()).size).toBe(3);
+    expect((await db.collection('inner_cover_lifecycle_audits').get()).size).toBe(3);
   });
 
   test('fabrication, acceptance, installation and removal preserve exact custody', async () => {

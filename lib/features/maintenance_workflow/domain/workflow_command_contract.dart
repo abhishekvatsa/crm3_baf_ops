@@ -1,3 +1,5 @@
+import 'dart:convert' show utf8;
+
 import '../../../core/serialization/persisted_data_reader.dart';
 import 'workflow_error.dart';
 import 'workflow_types.dart';
@@ -23,12 +25,19 @@ class WorkflowCommand {
   }) : commandId = commandId.trim(),
        aggregateId = aggregateId.trim(),
        payload = Map.unmodifiable(payload) {
-    if (this.commandId.isEmpty ||
-        this.aggregateId.isEmpty ||
+    bool validDocumentId(String value) =>
+        value.isNotEmpty &&
+        value != '.' &&
+        value != '..' &&
+        !value.contains('/') &&
+        !RegExp(r'[\x00-\x1f\x7f]').hasMatch(value) &&
+        utf8.encode(value).length <= 1500;
+    if (!validDocumentId(this.commandId) ||
+        !validDocumentId(this.aggregateId) ||
         expectedVersion < 0) {
       throw const WorkflowException(
         WorkflowErrorCode.invalidArgument,
-        'Command ID, aggregate ID and non-negative version are required.',
+        'Single-segment command and aggregate IDs and a non-negative version are required.',
       );
     }
   }

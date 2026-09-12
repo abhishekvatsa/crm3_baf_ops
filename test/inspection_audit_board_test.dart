@@ -17,6 +17,83 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'closed campaign reopening requires a reason and preserves its identity',
+    (tester) async {
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+        status: InspectionCampaignStatus.closed,
+      );
+      WorkflowCommand? submitted;
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          executeCommand: (command) async {
+            submitted = command;
+            return WorkflowCommandReceipt(
+              commandId: command.commandId,
+              resultKey: 'inspection-campaign-open',
+              aggregateVersion: campaign.version + 1,
+              result: {'campaignId': campaign.id, 'status': 'open'},
+              appliedAt: DateTime.utc(2026, 9, 12, 12),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reopen for verification'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('original closure'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Reopen campaign'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Reason'),
+        'Verify the completed corrective maintenance.',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Reopen campaign'));
+      await tester.pumpAndSettle();
+      expect(submitted?.type, WorkflowCommandType.setInspectionCampaignStatus);
+      expect(submitted?.aggregateId, campaign.id);
+      expect(submitted?.expectedVersion, campaign.version);
+      expect(submitted?.payload, {
+        'status': 'open',
+        'reason': 'Verify the completed corrective maintenance.',
+      });
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a cached closed campaign cannot request reopening', (
+    tester,
+  ) async {
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+      status: InspectionCampaignStatus.closed,
+    );
+    await tester.pumpWidget(_testApp(campaign, campaignServerVerified: false));
+    await tester.pumpAndSettle();
+    final action = tester.widget<IconButton>(
+      find.byKey(const ValueKey('reopen-inspection-campaign-action')),
+    );
+    expect(action.onPressed, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   test('report evidence revision detects an observation-set change', () {
     final observedAt = DateTime.utc(2026, 9, 5, 10);
     final campaign = _assetCampaign(
@@ -767,6 +844,7 @@ InspectionCampaign _innerCoverCampaign() {
 }
 
 InspectionCampaign _assetCampaign({
+  InspectionCampaignStatus status = InspectionCampaignStatus.open,
   required String assetTypeKey,
   required String assetClassId,
   required String assetInstanceId,
@@ -808,7 +886,7 @@ InspectionCampaign _assetCampaign({
   return InspectionCampaign(
     id: 'campaign-$assetInstanceId',
     version: 1,
-    status: InspectionCampaignStatus.open,
+    status: status,
     definition: FrozenInspectionDefinition(
       id: 'definition-$assetTypeKey',
       version: 1,

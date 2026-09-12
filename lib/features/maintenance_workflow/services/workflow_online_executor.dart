@@ -10,6 +10,7 @@ import '../domain/workflow_error.dart';
 import '../repositories/workflow_repository.dart';
 import 'workflow_command_gateway.dart';
 import 'workflow_outbox_policy.dart';
+import 'workflow_retry_claim_guard.dart';
 
 /// Executes lifecycle commands online. A local row is retained only when the
 /// request may have reached the server but its receipt was lost.
@@ -57,7 +58,10 @@ class WorkflowOnlineExecutor {
   /// Short, because the block usually lifts the moment the app is opened.
   static const Duration platformBlockHold = Duration(minutes: 1);
 
-  Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
+  Future<WorkflowCommandReceipt> execute(
+    WorkflowCommand command, {
+    DateTime? claimedAt,
+  }) async {
     final connectivityResult =
         await (checkConnectivity?.call() ?? connectivity.checkConnectivity());
     if (connectivityResult.every((value) => value == ConnectivityResult.none)) {
@@ -98,7 +102,7 @@ class WorkflowOnlineExecutor {
 
       final existing = await repository.getRetryCommand(command.commandId);
       final hold =
-          existing == null ? null : await _holdWithoutAttempt(existing);
+          existing == null ? null : await _holdWithoutAttempt(existing, claimedAt);
       // Acceptance landing during the hold is still acceptance.
       final acceptedDuringHold = hold?.receipt;
       if (hold != null && hold.wasAlreadyAccepted && acceptedDuringHold != null) {
@@ -116,6 +120,9 @@ class WorkflowOnlineExecutor {
         held
             ? 'Android has paused network access for this app. This action is '
                 'saved and will be sent when the app is opened.'
+            : existing?.stateKey == 'sending'
+            ? 'Android has paused network access for this app. Another attempt '
+                'is already checking this request; no additional attempt was made.'
             : existing != null
             ? 'Android has paused network access for this app. The earlier '
                 'request is preserved but needs review before it is sent '
@@ -148,7 +155,7 @@ class WorkflowOnlineExecutor {
     } on WorkflowException catch (error) {
       WorkflowRetryTransition? transition;
       try {
-        transition = await _recordFailure(command, error);
+        transition = await _recordFailure(command, error, claimedAt);
       } catch (recordError, stackTrace) {
         debugPrint(
           'Workflow command ${command.commandId} failed and its local retry '
@@ -226,6 +233,7 @@ class WorkflowOnlineExecutor {
   /// can say so truthfully rather than assuming it.
   Future<WorkflowRetryTransition> _holdWithoutAttempt(
     WorkflowCommandRecord record,
+    DateTime? claimedAt,
   ) async {
     if (record.stateKey == 'rejected' || record.stateKey == 'manualReview') {
       return const WorkflowRetryTransition(
@@ -237,12 +245,15 @@ class WorkflowOnlineExecutor {
     final transition = await repository.applyRetryTransitionUnlessAccepted(
       commandId: record.commandId,
       build: (current) {
-        final target = current ?? record;
-        if (target.stateKey == 'rejected' ||
-            target.stateKey == 'manualReview') {
+        if (current == null ||
+            !mayRecordWorkflowAttemptOutcome(
+              currentState: current.stateKey,
+              currentClaimedAt: current.lastAttemptAt,
+              expectedClaimedAt: claimedAt,
+            )) {
           return null;
         }
-        return target
+        return current
           ..stateKey = 'uncertainOutcome'
           ..nextRetryAt = now().toUtc().add(platformBlockHold)
           ..lastErrorCode = 'networkBlockedByPlatform'
@@ -265,22 +276,45 @@ class WorkflowOnlineExecutor {
   Future<WorkflowRetryTransition> _recordFailure(
     WorkflowCommand command,
     WorkflowException error,
+    DateTime? claimedAt,
   ) {
     final disposition = retryPolicy.classify(error);
     return repository.applyRetryTransitionUnlessAccepted(
       commandId: command.commandId,
       build: (existing) {
+        if (!mayRecordWorkflowAttemptOutcome(
+          currentState: existing?.stateKey,
+          currentClaimedAt: existing?.lastAttemptAt,
+          expectedClaimedAt: claimedAt,
+        )) {
+          return null;
+        }
         if (existing == null &&
             disposition != WorkflowRetryDisposition.retryUncertain) {
           return null;
         }
 
         final attemptedAt = now().toUtc();
-        final attempts = (existing?.attemptCount ?? 0) + 1;
+        // A temporary quota refusal is not another uncertain dispatch.
+        // Preserve the request identity and automatic-attempt budget while
+        // honoring the server's retry window.
+        final quotaRefused = error.code == WorkflowErrorCode.resourceExhausted;
+        final attempts = (existing?.attemptCount ?? 0) + (quotaRefused ? 0 : 1);
+        // Exempting quota refusals from the attempt budget has to be bounded
+        // by something, or a server that keeps refusing defers the same
+        // request indefinitely and it never reaches anyone who could act.
+        final quotaExhausted =
+            quotaRefused &&
+            retryPolicy.quotaDeferralExhausted(
+              firstAcceptedLocallyAt:
+                  existing?.createdLocallyAt ?? attemptedAt,
+              now: attemptedAt,
+            );
         final terminal =
             disposition == WorkflowRetryDisposition.reject ||
             disposition == WorkflowRetryDisposition.manualReview ||
-            attempts >= WorkflowRetryPolicy.maxAutomaticAttempts;
+            quotaExhausted ||
+            (!quotaRefused && attempts >= WorkflowRetryPolicy.maxAutomaticAttempts);
         final state =
             terminal
                 ? (disposition == WorkflowRetryDisposition.reject
@@ -301,7 +335,7 @@ class WorkflowOnlineExecutor {
           ..nextRetryAt =
               terminal
                   ? null
-                  : attemptedAt.add(retryPolicy.delayForAttempt(attempts))
+                  : attemptedAt.add(retryPolicy.delayForFailure(error, attempts))
           ..lastErrorCode = error.code.name
           ..lastErrorMessage = error.message;
       },

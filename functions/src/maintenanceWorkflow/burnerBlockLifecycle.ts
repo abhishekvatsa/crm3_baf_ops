@@ -453,12 +453,17 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     readonly row: ActionRow;
     readonly sourceModuleId: string | null;
     readonly sourceActionIndex: number;
+    readonly sourceIndex: number;
     readonly mechanicalWorkContext: boolean;
   }> = [];
-  const changeDecisions: BurnerBlockChangeDecision[] = [];
-  for (const source of args.actionSources) {
+  const changeDecisions: Array<BurnerBlockChangeDecision & {
+    readonly sourceIndex: number;
+  }> = [];
+  for (const [sourceIndex, source] of args.actionSources.entries()) {
     const changeDecision = moduleBurnerBlockChangeDecision(source);
-    if (changeDecision != null) changeDecisions.push(changeDecision);
+    if (changeDecision != null) {
+      changeDecisions.push({...changeDecision, sourceIndex});
+    }
     let payload;
     try {
       payload = readComponentActionPayload(source.actionsJson, {
@@ -485,6 +490,7 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
           row,
           sourceModuleId: source.sourceModuleId,
           sourceActionIndex: index,
+          sourceIndex,
           mechanicalWorkContext: source.discipline == null ?
             args.executionLevelMechanicalEvidence === true :
             normalizedKey(source.discipline) === "mechanical",
@@ -493,10 +499,23 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     });
   }
   for (const decision of changeDecisions) {
-    const matchingCandidates = decision.burnerPosition == null ?
-      candidates : candidates.filter((candidate) =>
+    // A declaration belongs to its module. Another MODULE's action must
+    // neither satisfy a missing replacement nor veto an honest "unchanged"
+    // answer, even when both refer to the same burner position.
+    //
+    // Execution-level actions are deliberately still in scope. The operator
+    // can record component work either inside the module or on the job
+    // completion screen, and `executionLevelMechanicalEvidence` exists so the
+    // latter can support a module declaration. Excluding it would both force
+    // the same repair to be entered twice and stop an execution-level
+    // replacement from contradicting an "unchanged" answer, which is the
+    // check that catches a misdeclaration.
+    const matchingCandidates = candidates.filter((candidate) =>
+      (candidate.sourceIndex === decision.sourceIndex ||
+        candidate.sourceModuleId == null) &&
+      (decision.burnerPosition == null ||
         burnerPositionFromResponse(candidate.row.burnerPosition) ===
-          decision.burnerPosition);
+          decision.burnerPosition));
     if (decision.state === "changed" && matchingCandidates.length === 0) {
       throw new WorkflowError(
         "failed-precondition",

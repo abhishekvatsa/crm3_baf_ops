@@ -71,6 +71,17 @@ class _CoverDetailsSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: BafSpacing.lg),
+            if (const {
+              InnerCoverLifecycleState.awaitingInspection,
+              InnerCoverLifecycleState.underInspection,
+            }.contains(cover.lifecycleState)) ...[
+              Text(
+                canManage
+                    ? 'This cover is registered but cannot be assigned yet. Record the actual inspection and acceptance below.'
+                    : 'This cover is registered but cannot be assigned yet. An approved Admin must record its inspection and acceptance.',
+              ),
+              const SizedBox(height: BafSpacing.md),
+            ],
             _DetailRow(
               label: 'Origin',
               value: cover.originClassification.label,
@@ -176,9 +187,7 @@ class _CoverDetailsSheet extends ConsumerWidget {
             fabrication.when(
               loading: () => const LinearProgressIndicator(),
               error: (error, _) => _InlineError(message: '$error'),
-              data:
-                  (dossier) =>
-                      dossier == null
+              data: (dossier) => dossier == null
                           ? const SizedBox.shrink()
                           : _FabricationSection(dossier: dossier),
             ),
@@ -238,16 +247,13 @@ class _CoverDetailsSheet extends ConsumerWidget {
             history.when(
               loading: () => const LinearProgressIndicator(),
               error: (error, _) => _InlineError(message: '$error'),
-              data:
-                  (items) =>
-                      items.isEmpty
+              data: (items) => items.isEmpty
                           ? const Text(
                             'This cover has not yet been linked to a Base.',
                             style: TextStyle(color: BafColors.textSecondary),
                           )
                           : Column(
-                            children:
-                                items
+                      children: items
                                     .map(
                                       (item) => ListTile(
                                         contentPadding: EdgeInsets.zero,
@@ -255,8 +261,7 @@ class _CoverDetailsSheet extends ConsumerWidget {
                                           item.active
                                               ? Icons.link_rounded
                                               : Icons.history_rounded,
-                                          color:
-                                              item.active
+                                color: item.active
                                                   ? BafColors.success
                                                   : BafColors.textSecondary,
                                         ),
@@ -322,12 +327,10 @@ class _BaseHistorySheet extends ConsumerWidget {
               const SizedBox(height: BafSpacing.lg),
               Expanded(
                 child: history.when(
-                  loading:
-                      () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (error, _) => _InlineError(message: '$error'),
-                  data:
-                      (items) =>
-                          items.isEmpty
+                  data: (items) => items.isEmpty
                               ? const _EmptyState(
                                 icon: Icons.history_rounded,
                                 message:
@@ -335,8 +338,7 @@ class _BaseHistorySheet extends ConsumerWidget {
                               )
                               : ListView.separated(
                                 itemCount: items.length,
-                                separatorBuilder:
-                                    (_, _) => const Divider(height: 1),
+                          separatorBuilder: (_, _) => const Divider(height: 1),
                                 itemBuilder: (context, index) {
                                   final item = items[index];
                                   return ListTile(
@@ -345,8 +347,7 @@ class _BaseHistorySheet extends ConsumerWidget {
                                       item.active
                                           ? Icons.link_rounded
                                           : Icons.history_rounded,
-                                      color:
-                                          item.active
+                                color: item.active
                                               ? BafColors.success
                                               : BafColors.textSecondary,
                                     ),

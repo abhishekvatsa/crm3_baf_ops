@@ -285,3 +285,27 @@ surface, which already declares read and mutating modes. Presentation
 persistence remains zero and the surface count is unchanged at 61. The frozen
 source-implemented closure receipt of 484 operations and 1,548 sites stands
 unaltered.
+
+## Exact subject-read inventory review, 2026-09-12
+
+The current reviewed working tree contains 566 operations across 1,973
+persistence sites and the same 61 classified surfaces. Its measured digest is
+`D5E75992F5E0C8F37510BCF7F864C3FED1110749F271D94A4CD2C3F7980C12A1`.
+
+The two additional operations are repository reads. The asset hierarchy
+repository reads one exact Inner Cover from the server, rejecting missing,
+cached, pending-write, wrong-identity or insufficient-version observations.
+The maintenance-intelligence repository reads one exact plan from the server
+after explicit subject revalidation and strictly decodes it before the caller
+checks the confirmed identity and revision. These add one `get()` site and
+one `collection()` plus `get()` pair respectively. Both remain inside existing
+Firestore/read repository declarations. Rules still require an approved user
+for reads and deny direct client writes to both collections.
+
+No database access moved into presentation and no new transaction owner was
+admitted. The existing sync service now blocks eligibility when its local hold
+collection cannot be read; that changes an existing operation's failure outcome,
+not the number of database sites. Its regression proves a persisted contradiction
+hold survives reopening and a missing hold collection does not authorize a send.
+The historical closure evidence and CI receipts remain unaltered; this review
+does not claim a new admitted CI run, deployment or device result.

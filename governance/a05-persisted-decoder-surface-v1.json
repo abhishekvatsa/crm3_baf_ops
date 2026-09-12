@@ -1206,12 +1206,12 @@
       ],
       "classification": "REMOTE_COMMAND_RECEIPT",
       "owner": "synchronization",
-      "authorityBoundary": "exact Firestore maintenance lifecycle replay readback",
-      "malformedDisposition": "fail closed and leave the local maintenance row pending",
-      "compatibility": "none; a synchronized replay requires an exact version and updatedAt receipt",
-      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
-      "reArmCondition": "readback becomes optional, receipt fields default, or a stale local row is marked synchronized",
-      "riskFingerprint": "8e4bacc01597443501cb3d304c5cf6b3a6c2ddda7bcd0201b6c5fcc9841a9662"
+      "authorityBoundary": "exact Firestore lifecycle replay readback and creation-recovery admission before generic ticket writes",
+      "malformedDisposition": "retain local work and block the affected ticket after contradictory or unavailable creation acceptance evidence; a contradiction uses the existing permanent sync hold",
+      "compatibility": "a synchronized replay requires an exact version and updatedAt receipt; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
+      "reArmCondition": "uncertain or contradictory recovery falls through to a generic write, hold-read failure authorizes sending, readback becomes optional, receipt fields default, or a stale local row is marked synchronized",
+      "riskFingerprint": "44349e864a4d200ca1558f1085d1509a5642170af6df5d3765ebcd98bf78b3bd"
     },
     {
       "id": "asset-hierarchy-command-receipt",
@@ -1225,9 +1225,9 @@
       "authorityBoundary": "governed hierarchy, registry, Inner Cover, and asset-condition mutation result",
       "malformedDisposition": "translate invalid callable evidence to a blocking hierarchy error and never report command success",
       "compatibility": "none for request identity, operation, entity identity, versions, audit identity, canonical commit time, or replay status",
-      "regression": "test/asset_hierarchy_command_receipt_test.dart",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart; test/inner_cover_acceptance_repository_test.dart; test/inner_cover_lifecycle_screen_test.dart",
       "reArmCondition": "any hierarchy callable response field is defaulted, coerced, or accepted without request binding",
-      "riskFingerprint": "f6a8618078db9edb73fa9644ef2cf459e86a070647e49548d3d8e8220fcb5c69"
+      "riskFingerprint": "9940e4feb73c8f0cdf0589608303fbef73d8c1591d743963d462a57de097df7b"
     },
     {
       "id": "workflow-command-receipt",
@@ -1397,15 +1397,15 @@
     {
       "id": "asset-hierarchy-command-receipt-translation",
       "file": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
-      "siteFingerprint": "a24f6f14f0d5f1039b5684a2835a4ed666838c15db0f1b143af0480658799a36",
+      "siteFingerprint": "3e1baafb33229ab98848342c2e428383e4e45a458df31d6e3cc04624b9663cdb",
       "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
-      "purpose": "translate malformed hierarchy callable evidence into a blocking feature error",
+      "purpose": "translate malformed hierarchy callable evidence into a blocking feature error and distinguish known preacceptance refusals from uncertain or historically accepted outcomes",
       "authorityBoundary": "server asset-hierarchy command receipt",
       "mutability": "the remote command may already be committed; no local success state is manufactured",
       "dataScope": "hierarchy, registry, Inner Cover, and asset-condition callable responses",
-      "malformedDisposition": "throw AssetHierarchyException and require authoritative refresh before further mutation",
-      "regression": "test/asset_hierarchy_command_receipt_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "malformed receipt becomes a successful hierarchy mutation"
+      "malformedDisposition": "throw AssetHierarchyException without manufacturing success; only ACCEPT_INNER_COVER with the exact known code/reason pairs invalid-argument/invalid-inner-cover-lifecycle-request, aborted/inner-cover-version-mismatch, or failed-precondition/inner-cover-not-awaiting-acceptance produces AssetHierarchyCommandRefused; unknown or missing reasons, malformed evidence, replay conflicts, legacy reconciliation and uncertain transport retain the pending command identity",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart; test/inner_cover_acceptance_repository_test.dart; test/inner_cover_lifecycle_screen_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed receipt becomes a successful hierarchy mutation, a historical receipt/reconciliation error releases a frozen command, or uncertainty is treated as proof that a new command may replace the pending one"
     },
     {
       "id": "workflow-cursor-repair-error",
