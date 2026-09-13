@@ -11,7 +11,7 @@ conflated:
 
 - **Current source:** the latest admitted application, Rules, Functions,
   tests, governance and documentation on `main`.
-- **Current staged pilot artifact:** the exact signed Build 27 package, source,
+- **Preserved staged pilot artifact:** the exact signed Build 27 package, source,
   certificate, backend, device-acceptance and promotion evidence recorded by
   the release policy. The earlier Build 11 authority remains historical.
 
@@ -31,8 +31,17 @@ physical in-place upgrade and the reviewed read-side interactions passed. The
 first handout stage is limited to two approved users on two named devices;
 mutating business-flow convergence must be gathered there before expansion.
 Every handout requires a privacy-safe receipt. Build 27 is consumed and cannot
-be reused. Build 28 is the next eligible build number and requires fresh
-governed approval.
+be reused. Its artifact, device acceptance and pilot approval remain historical.
+
+Build 28 (`1.0.0-rc.18+28`) has fresh source authorization based on
+merged source `d0daccfc`, its successful five-job main gate and
+canonical audit. The current 19-Function backend and reviewed Firestore Rules
+were deployed from `fc0ac09f` and passed exact-source readback.
+This decision permits one protected signed construction, verified local and
+private-cloud custody, a Downloads copy and an in-place owner-phone evaluation.
+Signing, independent finalization, exact-device and business-flow validation
+remain pending. Build 28 requires its own exact-package pilot decision before
+any pilot handout or wider distribution.
 
 Authoritative status sources:
 

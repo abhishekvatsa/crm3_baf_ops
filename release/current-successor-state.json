@@ -1,15 +1,15 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-13-BUILD27-CURRENT-BACKEND-VERIFIED",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-13-BUILD28",
   "asOfDate": "2026-09-13",
-  "status": "BUILD27_FINALIZED_BACKEND_READY_DEVICE_ACCEPTED_STAGED_PILOT_AUTHORIZED_AWAITING_MUTATING_FLOW_AND_HANDOUT_RECEIPTS",
+  "status": "BUILD28_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.17+27",
-      "relationshipToLatestFinalizedArtifact": "BUILD27_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD27",
+      "packageVersion": "1.0.0-rc.18+28",
+      "relationshipToLatestFinalizedArtifact": "BUILD28_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD27",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -80,7 +80,8 @@
       "appliesToBuild24": false,
       "appliesToBuild25": false,
       "appliesToBuild26": false,
-      "appliesToBuild27": true
+      "appliesToBuild27": true,
+      "appliesToBuild28": false
     },
     "historicalControlledPilot": {
       "buildNumber": 11,
@@ -91,10 +92,12 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 28,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD28_APPROVAL",
-      "constructionRequiresFreshGovernedApproval": true,
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD28_CONSTRUCTION",
+      "constructionRequiresFreshGovernedApproval": false,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true
+      "pilotPromotionRequiresSeparateDecision": true,
+      "versionApprovalFile": "release/approvals/build-number-28-successor-approval.json",
+      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-28.json"
     }
   },
   "localStore": {
@@ -179,7 +182,10 @@
     "release/evidence/build28-current-source-backend-deployment-closure.json",
     "release/evidence/build28-current-source-function-fleet-runtime-identity-readback.json",
     "release/evidence/build28-current-source-functions-iam-dependencies-readback.json",
-    "release/evidence/build28-current-source-firestore-rules-indexes-live-readback.json"
+    "release/evidence/build28-current-source-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build-number-28-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-28.json",
+    "release/approvals/build28-private-cloud-custody-approval.json"
   ],
   "historicalDeployedBackendAuthorities": [
     {
@@ -195,6 +201,21 @@
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "productionBackendRuntimeAuthorized": true
+    },
+    {
+      "deploymentApprovalFile": "release/approvals/build28-current-source-backend-deployment-approval.json",
+      "deploymentApprovalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+      "functionFleetEvidenceFile": "release/evidence/build28-current-source-backend-deployment-closure.json",
+      "functionFleetEvidenceSha256": "896881106FD5FE2058F116BFEE72CC7CFCC8F063218B178D8B75F4B817001167",
+      "functionFleetSourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build28-current-source-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesEvidenceSha256": "2C3C6928B56BDD9641312C8B6CBCB144E077C79CF46EC8FEA06C38EA68D28A60",
+      "rulesAndIndexesSourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     }
   ]
