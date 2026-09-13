@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "receiptType": "version-and-build-policy",
-  "reference": "BAF-REF-003-C26",
-  "sourceDocumentFile": "release/approvals/build-number-27-successor-approval.json",
-  "sourceDocumentSha256": "E6E05741A48874C2671F5A53DDA5C36833F9C4E3DBF7A1A867978A7E6CAD52A3",
-  "recordedAtUtc": "2026-09-08T01:53:20.768Z",
-  "sourceDocumentNotCommitted": false,
-  "remoteReservationTag": "crm3-build-reserved/27",
-  "buildNumber": 27,
-  "remoteBuiltTag": "crm3-build-built/27",
-  "reservationId": "crm3-baf-ops-successor-2ab554d-b27-27",
+  "reference": "BAF-REF-003-C27",
+  "sourceDocumentFile": "release/approvals/build-number-28-successor-approval.json",
+  "sourceDocumentSha256": "AE713F3878AC259B72FBD1D64C080B485FB5BB4FDF295BB2618D0CD4843A70B3",
+  "recordedAtUtc": "2026-09-13T15:20:53.043Z",
+  "remoteReservationTag": "crm3-build-reserved/28",
+  "buildNumber": 28,
+  "remoteBuiltTag": "crm3-build-built/28",
+  "reservationId": "crm3-baf-ops-successor-d0daccf-b28-28",
   "policy": "strictly-monotonic-never-reuse",
-  "versionName": "1.0.0-rc.17"
+  "versionName": "1.0.0-rc.18",
+  "sourceDocumentCustody": "commit this source decision and pointer together before dispatch"
 }
