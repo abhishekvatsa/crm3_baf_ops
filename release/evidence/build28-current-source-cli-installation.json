@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "reviewed-rules-cli-clean-install",
+  "source": {
+    "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+    "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+    "cliPackageSha256": "16940F4216247B450C4942DA33678BE56EEBA46E4DC4513847BCB1543451C252",
+    "cliLockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+    "npmrcSha256": "0ED44E7D606CD7A9EBA915A10F13A13A09EA85E4B2BB4415BB0C481DBDCDED51",
+    "executionRootSha256": "C5486CE31C8A214E09793A0ED7093310F1695944BF255B7F330DA8AAA40A181D"
+  },
+  "startedAtUtc": "2026-09-13T08:33:39.094Z",
+  "completedAtUtc": "2026-09-13T08:33:48.041Z",
+  "command": {
+    "nodeArguments": [
+      "--no-global-search-paths"
+    ],
+    "arguments": [
+      "--prefix",
+      "tooling/firebase-cli",
+      "ci",
+      "--ignore-scripts",
+      "--install-links=true",
+      "--no-audit",
+      "--no-fund",
+      "--json",
+      "--global=false"
+    ],
+    "node": {
+      "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+      "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+      "byteCount": 84456080,
+      "version": "v22.15.0"
+    },
+    "npm": {
+      "pathSha256": "48A7695329560A47FCEA73F90EBB4B9138DCC403A32D68EA02A58E7DB55E5F29",
+      "version": "10.9.2",
+      "treeScope": "installation-node-modules",
+      "treeRootPathSha256": "59FBDC80D899C3C588008E4B5EDFDB8C6207318CD9E53970641D880704E06244",
+      "tree": {
+        "sha256": "30F89855C33D38558D57CB7C6955E276A2A50B4A3A34611235C61D9A8B65E394",
+        "fileCount": 2434,
+        "byteCount": 13058856,
+        "symlinkCount": 0
+      }
+    }
+  },
+  "inputObservation": {
+    "source": {
+      "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+      "cliPackageSha256": "16940F4216247B450C4942DA33678BE56EEBA46E4DC4513847BCB1543451C252",
+      "cliLockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+      "npmrcSha256": "0ED44E7D606CD7A9EBA915A10F13A13A09EA85E4B2BB4415BB0C481DBDCDED51",
+      "executionRootSha256": "C5486CE31C8A214E09793A0ED7093310F1695944BF255B7F330DA8AAA40A181D"
+    },
+    "checkout": {
+      "branch": "main",
+      "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+      "originMain": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "nodeModulesAbsent": true,
+    "untrackedInputsAbsent": true,
+    "collectionStartedAtUtc": "2026-09-13T08:33:36.955Z",
+    "capturedAtUtc": "2026-09-13T08:33:38.216Z"
+  },
+  "installerBefore": {
+    "schemaVersion": 1,
+    "collectionStartedAtUtc": "2026-09-13T08:33:38.217Z",
+    "capturedAtUtc": "2026-09-13T08:33:39.087Z",
+    "node": {
+      "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+      "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+      "byteCount": 84456080,
+      "version": "v22.15.0"
+    },
+    "npm": {
+      "pathSha256": "48A7695329560A47FCEA73F90EBB4B9138DCC403A32D68EA02A58E7DB55E5F29",
+      "version": "10.9.2",
+      "treeScope": "installation-node-modules",
+      "treeRootPathSha256": "59FBDC80D899C3C588008E4B5EDFDB8C6207318CD9E53970641D880704E06244",
+      "tree": {
+        "sha256": "30F89855C33D38558D57CB7C6955E276A2A50B4A3A34611235C61D9A8B65E394",
+        "fileCount": 2434,
+        "byteCount": 13058856,
+        "symlinkCount": 0
+      }
+    }
+  },
+  "sourceAfter": {
+    "branch": "main",
+    "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+    "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+    "originMain": "fc0ac09fc51b370bee419909ad510b044765b540",
+    "governedWorktreeClean": true,
+    "materialChangeCount": 0,
+    "materialPathSha256": []
+  },
+  "exitCode": 0,
+  "stdout": {
+    "file": "release/evidence/build28-current-source-cli-installation-output.json",
+    "physicalSha256": "0EA29BA74EC062485D0F2D0B2858718496DBDCA628075C78EFD119504C931152"
+  },
+  "installedRuntime": {
+    "schemaVersion": 1,
+    "collectionStartedAtUtc": "2026-09-13T08:33:48.042Z",
+    "capturedAtUtc": "2026-09-13T08:33:56.310Z",
+    "identity": {
+      "source": {
+        "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+        "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+        "cliPackageSha256": "16940F4216247B450C4942DA33678BE56EEBA46E4DC4513847BCB1543451C252",
+        "cliLockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+        "npmrcSha256": "0ED44E7D606CD7A9EBA915A10F13A13A09EA85E4B2BB4415BB0C481DBDCDED51",
+        "executionRootSha256": "C5486CE31C8A214E09793A0ED7093310F1695944BF255B7F330DA8AAA40A181D"
+      },
+      "node": {
+        "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+        "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+        "byteCount": 84456080,
+        "version": "v22.15.0"
+      },
+      "npm": {
+        "pathSha256": "48A7695329560A47FCEA73F90EBB4B9138DCC403A32D68EA02A58E7DB55E5F29",
+        "version": "10.9.2",
+        "treeScope": "installation-node-modules",
+        "treeRootPathSha256": "59FBDC80D899C3C588008E4B5EDFDB8C6207318CD9E53970641D880704E06244",
+        "tree": {
+          "sha256": "30F89855C33D38558D57CB7C6955E276A2A50B4A3A34611235C61D9A8B65E394",
+          "fileCount": 2434,
+          "byteCount": 13058856,
+          "symlinkCount": 0
+        }
+      },
+      "installedTree": {
+        "sha256": "72E347B46D24A16D1156D935F929E5602E358ACC40050B1F0A5A69F3348A498A",
+        "fileCount": 18805,
+        "byteCount": 197099944,
+        "symlinkCount": 0
+      },
+      "ancestorNodeModulesAbsent": true,
+      "nodeOptionsAbsent": true,
+      "nodePathAbsent": true
+    }
+  },
+  "receiptSha256": "d7072dd32c3dea11855dd97e8a6e1b508fa221aeb9b713e54159269961203481"
+}

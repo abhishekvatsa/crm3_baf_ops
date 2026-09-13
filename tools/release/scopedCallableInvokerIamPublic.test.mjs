@@ -8,6 +8,7 @@ import guard from "./scopedCallableInvokerIam.js";
 import publication from "./scopedCallableInvokerIamPublic.js";
 import controls from "./reviewedBackendControls.js";
 import seals from "./collectProductionGlobalPullBackend.js";
+import verifier from "./reviewedBackendVerifierAuthority.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCommit = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "HEAD"], {encoding: "utf8"}).trim();
@@ -232,4 +233,136 @@ test("actual public CLI rederives evidence, refuses overwrite and never prints p
     for (const secret of canaries) assert.equal(`${failed.stdout}${failed.stderr}`.includes(secret), false);
     assert.deepEqual(fs.readFileSync(file("public.json")), original);
   } finally { assert.ok(directory.startsWith(base + path.sep)); fs.rmSync(directory, {recursive: true}); }
+});
+
+function verificationFixture() {
+  const base = path.join(repoRoot, "build");
+  const directory = fs.mkdtempSync(path.join(base, "public-observed-authority-"));
+  const git = (args, options = {}) => execFileSync("git", ["--no-replace-objects", "-C", directory, ...args],
+    {encoding: "utf8", windowsHide: true, ...options}).trim();
+  git(["init", "--quiet"]);
+  const objectPath = path.resolve(repoRoot, execFileSync("git", ["-C", repoRoot, "rev-parse", "--git-path", "objects"], {encoding: "utf8"}).trim());
+  fs.writeFileSync(path.join(directory, ".git/objects/info/alternates"), `${objectPath.replaceAll("\\", "/")}\n`);
+  git(["read-tree", sourceCommit]);
+  const verifierFiles = verifier.VERIFIER_FILES.map((file) => {
+    const bytes = fs.readFileSync(path.join(repoRoot, file));
+    fs.mkdirSync(path.dirname(path.join(directory, file)), {recursive: true});fs.writeFileSync(path.join(directory, file), bytes);
+    // Preserve actual module bytes in the fixture object, independently of the
+    // workstation's attributes. Production generation must load exact Git bytes.
+    const blob = git(["hash-object", "-w", "--stdin"], {input: bytes});
+    git(["update-index", "--add", "--cacheinfo", `100644,${blob},${file}`]);
+    return {file, sha256: guard.hash(bytes)};
+  });
+  const epoch = Math.floor(Date.now() / 1000) - 5;
+  const commit = (tree, parent, seconds) => git(["commit-tree", tree, "-p", parent], {input: "Synthetic local verifier test fixture only\n",
+    env: {...process.env, GIT_AUTHOR_NAME: "Test fixture", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_COMMITTER_NAME: "Test fixture",
+      GIT_COMMITTER_EMAIL: "fixture@example.invalid", GIT_AUTHOR_DATE: `${seconds} +0000`, GIT_COMMITTER_DATE: `${seconds} +0000`}});
+  const verifierCommit = commit(git(["write-tree"]), sourceCommit, epoch);
+  const decision = {schemaVersion: 1, evidenceType: "reviewed-backend-verifier-authorization", approved: true,
+    profile: verifier.PROFILE, sourceCommit, deploymentApprovalSha256: context.approvalSha256, verifierCommit, verifierFiles,
+    decidedAtUtc: new Date((epoch + 1) * 1000).toISOString(), authorizationBasis: "Synthetic isolated test decision; no operational authority.", cloudMutationAuthorized: false};
+  const decisionFile = "release/approvals/synthetic-observed-verifier.json", bytes = Buffer.from(JSON.stringify(decision));
+  fs.mkdirSync(path.dirname(path.join(directory, decisionFile)), {recursive: true});fs.writeFileSync(path.join(directory, decisionFile), bytes);
+  git(["add", "--", decisionFile]);const decisionCommit = commit(git(["write-tree"]), verifierCommit, epoch + 2);
+  fs.mkdirSync(path.join(directory, "functions"), {recursive: true});
+  fs.symlinkSync(path.join(repoRoot, "functions/node_modules"), path.join(directory, "functions/node_modules"), process.platform === "win32" ? "junction" : "dir");
+  const custodyFile = good.privateCustody.approval.file;
+  fs.copyFileSync(path.join(repoRoot, custodyFile), path.join(directory, custodyFile));
+  return {directory, context: {...context, repoRoot: directory, controlMode: controls.OBSERVED_CONTROL_MODE,
+    verificationAuthority: {schemaVersion: 1, profile: verifier.PROFILE, verifierCommit, verifierFiles,
+      decision: {commit: decisionCommit, file: decisionFile, sha256: guard.hash(bytes)}}},
+  observedAtUtc: new Date((epoch + 3) * 1000).toISOString(), cleanup() {
+    fs.unlinkSync(path.join(directory, "functions/node_modules"));
+    assert.ok(directory.startsWith(base + path.sep));fs.rmSync(directory, {recursive: true});
+  }};
+}
+function observedInputs(f, mutateAfter = () => {}) {
+  const a = fixture("before"), b = fixture("after");
+  const changed = ["beginGlobalPullRun", "completePlannedJobExecution"];
+  change(a.functions[0], (body) => { for (const row of body.functions) if (changed.some((name) => row.name.endsWith(`/${name}`))) delete row.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE; });
+  change(b.functions[0], (body) => { for (const row of body.functions) {
+    const name = row.buildConfig.entryPoint;
+    if (additions.includes(name)) delete row.serviceConfig.maxInstanceCount;
+    if ([additions[0], additions[3]].includes(name)) delete row.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE;
+    row.serviceConfig.revision = `${name.toLowerCase()}-00001-abc`;
+  }});
+  const functions = JSON.parse(b.functions[0].bodyText).functions;
+  for (const raw of [a, b]) change(raw.runInventories[0].pages[0], (body) => {
+    for (const [index, row] of body.services.entries()) {
+      // Stable actual-shaped infrastructure IDs across both observations.
+      row.uid = `00000000-0000-4000-8000-${String(Object.keys(policy.functionBindings).findIndex((n) => service(n) === row.name)).padStart(12, "0")}`;
+      if (raw !== b) continue;
+      const fn = functions.find((f) => f.serviceConfig.service === row.name), name = fn.buildConfig.entryPoint;
+      if (!additions.includes(name) && !changed.includes(name)) continue;
+      row.generation = "1";row.observedGeneration = "1";row.terminalCondition = {type: "Ready", state: "CONDITION_SUCCEEDED"};
+      row.latestCreatedRevision = `${row.name}/revisions/${fn.serviceConfig.revision}`;row.latestReadyRevision = row.latestCreatedRevision;
+      row.traffic = [{type: "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", percent: 100}];row.trafficStatuses = structuredClone(row.traffic);
+      row.scaling = {maxInstanceCount: 20};row.ingress = "INGRESS_TRAFFIC_ALL";
+      row.template = {revision: fn.serviceConfig.revision, serviceAccount: fn.serviceConfig.serviceAccountEmail,
+        annotations: {"cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER"},
+        containers: [{env: Object.entries(fn.serviceConfig.environmentVariables).map(([name, value]) => ({name, value}))}]};
+    }
+  });
+  mutateAfter(b);
+  const raw = guard.createProof(f.context, guard.createCapture(f.context, a, "before"), guard.createCapture(f.context, b, "after"));
+  const rawProofBytes = Buffer.from(`${JSON.stringify(raw)}\n`);
+  return {...f.context, rawProofBytes, privateCustody: privateResult(rawProofBytes), observedAtUtc: f.observedAtUtc};
+}
+test("actual new generation binds immutable verifier authority and measured Run20 while preserving legacy proof", () => {
+  const f = verificationFixture();
+  try {
+    const input = observedInputs(f);
+    // The deployed source checkout is data/input authority, not the selected
+    // verifier implementation. Its alternate local modules must not execute.
+    for (const name of ["scopedCallableInvokerIam", "collectProductionGlobalPullBackend"])
+      fs.writeFileSync(path.join(f.directory, `tools/release/${name}.js`), "throw new Error('Wrong execution-checkout verifier loaded');\n");
+    const comparison = controls.compareReviewedBackendControls({...input, proof: JSON.parse(input.rawProofBytes)});
+    assert.equal(comparison.schemaVersion, 2);
+    const proof = publication.createPublicProof(input);
+    assert.equal(proof.schemaVersion, 3);assert.equal(publication.validatePublicProof({...f.context, proof}).ok, true);
+    assert.equal(Object.hasOwn(proof.controls, "existingFunctionEnvironmentVariablesUnchanged"), false);
+    assert.equal(proof.controls.existingProjectEnvironmentVariablesUnchanged, true);
+    assert.equal(proof.controls.newFunctionEffectiveInstanceCaps.every((row) => row.cloudFunctionsMaxInstanceCount === null && row.effectiveMaxInstanceCount === 20), true);
+    assert.equal(proof.controls.reservedHttpSignatureObservations.filter((row) => row.disposition === "platform-http-added").length, 2);
+    for (const secret of [...canaries, "PRIVATE_SECRET", "bodyText", "environmentVariables"]) assert.equal(JSON.stringify(proof).includes(secret), false);
+    assert.equal(publication.validatePublicProof({...context, proof: good}).ok, true);
+    // Offline historical validation must not need current Windows modules/deps.
+    fs.unlinkSync(path.join(f.directory, "functions/node_modules"));fs.rmdirSync(path.join(f.directory, "functions"));
+    fs.writeFileSync(path.join(f.directory, "tools/release/reviewedBackendControls.js"), "changed after historical publication\n");
+    assert.equal(publication.validatePublicProof({...f.context, proof}).ok, true);
+    const proofBytes = Buffer.from(JSON.stringify(proof));fs.writeFileSync(path.join(f.directory, "public-proof.json"), proofBytes);
+    const receipt = {sourceAuthority: {commit: sourceCommit}, approvalAuthority: {sha256: context.approvalSha256}, controlBoundary: {iamMutated: true},
+      deployment: {startedAtUtc: "2026-09-12T01:05:00.000Z", lastDeploymentCommandCompletedAtUtc: "2026-09-12T01:59:59.999999999Z",
+        newCallableInvokerIamEvidence: {file: "public-proof.json", physicalSha256: guard.hash(proofBytes), canonicalReceiptSha256: proof.receiptSha256}}};
+    assert.equal(guard.validateDeploymentIamBoundary({...f.context, receipt}).ok, true);
+    fs.mkdirSync(path.join(f.directory, "functions"));fs.symlinkSync(path.join(repoRoot, "functions/node_modules"), path.join(f.directory, "functions/node_modules"), process.platform === "win32" ? "junction" : "dir");
+    for (const [label, mutate] of [
+      ["legacy-schema downgrade", (p) => { p.schemaVersion = 2; }],
+      ["untrue full-environment claim", (p) => { p.controls.existingFunctionEnvironmentVariablesUnchanged = true; }],
+      ["missing measured cap", (p) => { p.controls.newFunctionEffectiveInstanceCaps[0].runServiceMaxInstanceCount = null; }],
+      ["excessive measured cap", (p) => { p.controls.newFunctionEffectiveInstanceCaps[0].runServiceMaxInstanceCount = 101; }],
+      ["wrong service", (p) => { p.controls.newFunctionEffectiveInstanceCaps[0].serviceResource += "-other"; }],
+      ["wrong serving revision", (p) => { p.controls.newFunctionEffectiveInstanceCaps[0].revision = "other-00001-abc"; }],
+      ["fabricated omitted GCF value", (p) => { p.controls.newFunctionEffectiveInstanceCaps[0].cloudFunctionsMaxInstanceCount = 100; }],
+      ["missing HTTP observations", (p) => { p.controls.reservedHttpSignatureObservations = []; }],
+      ["HTTP metadata attributed to event source", (p) => { p.controls.reservedHttpSignatureObservations.find((row) => row.name === "beginGlobalPullRun").name = "onTicketCreated";p.controls.reservedHttpSignatureObservations.sort((a,b) => a.name.localeCompare(b.name)); }],
+      ["missing authority", (p) => { delete p.verificationAuthority; }],
+      ["changed verifier bytes", (p) => { p.verificationAuthority.verifierFiles[0].sha256 = "0".repeat(64); }],
+    ]) { const bad = structuredClone(proof);mutate(bad);assert.throws(() => publication.validatePublicProof({...f.context, proof: reseal(bad)}), undefined, label); }
+    const missing = {...input};delete missing.verificationAuthority;
+    assert.throws(() => publication.createPublicProof(missing), /verification failed/);
+  } finally { f.cleanup(); }
+});
+test("new public generation refuses coherently sealed serving-control drift without exposing raw values", () => {
+  const f = verificationFixture();
+  try {
+    assert.equal(publication.createPublicProof(observedInputs(f)).schemaVersion, 3);
+    for (const mutate of [
+      (raw) => change(raw.runInventories[0].pages[0], (b) => { b.services.find((r) => r.name === service(additions[0])).scaling.maxInstanceCount = 101; }),
+      (raw) => change(raw.runInventories[0].pages[0], (b) => { b.services.find((r) => r.name === service(additions[0])).trafficStatuses[0].percent = 50; }),
+      (raw) => change(raw.functions[0], (b) => { b.functions.find((r) => r.name.endsWith(`/${additions[0]}`)).serviceConfig.environmentVariables.PRIVATE_SECRET = canaries[1]; }),
+    ]) assert.throws(() => publication.createPublicProof(observedInputs(f, mutate)), (error) => {
+      assert.match(error.message, /verification failed/);for (const secret of canaries) assert.equal(error.message.includes(secret), false);return true;
+    });
+  } finally { f.cleanup(); }
 });

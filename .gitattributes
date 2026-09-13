@@ -16,3 +16,5 @@ release/evidence/build28-deployed-code-byte-comparison.json -text whitespace=bla
 release/evidence/build28-backend-callables-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/evidence/build28-backend-events-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/evidence/build28-backend-fleet-command.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build28-current-source-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build28-current-source-source-verification-build.log -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

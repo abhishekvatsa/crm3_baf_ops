@@ -213,7 +213,295 @@ String _firestoreDeploymentStatus({
       : 'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 }
 
+/// Exercises the existing source, scoped-IAM and Rules validators with actual
+/// retained records. Negative cases alter only an in-memory copy in the child;
+/// neither production receipts nor repository files are rewritten.
+Map<String, dynamic> _backendEvidenceProbe(
+  String receiptFile, {
+  String mutation = 'none',
+}) {
+  final result = Process.runSync('node', <String>[
+    '-e',
+    r'''
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const root=process.argv[1],input=JSON.parse(process.argv[2]);
+const load=file=>JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
+const receipt=load(input.receiptFile),approval=load(receipt.approvalAuthority.file);
+const fleetTool=require(path.join(root,'tools/release/deploymentFleetContract.js'));
+const seals=require(path.join(root,'tools/release/collectProductionGlobalPullBackend.js'));
+const fleet=fleetTool.readDeploymentFleetContract(root,receipt.sourceAuthority.commit);
+const bound=ref=>{const bytes=fs.readFileSync(path.join(root,ref.file));assert.equal(crypto.createHash('sha256').update(bytes).digest('hex').toUpperCase(),ref.physicalSha256);return JSON.parse(bytes);};
+let stage='fixture';
+try {
+ if(input.mutation==='count')receipt.deployment.functionCount++;
+ if(input.mutation==='hidden-iam')receipt.controlBoundary.iamMutated=false;
+ if(input.mutation==='unapproved-iam')delete approval.approvedDeployment.newCallableInvokerPolicies;
+ if(input.mutation==='legacy-iam-write')receipt.controlBoundary.iamMutated=true;
+ if(input.mutation==='iam-proof-hash')receipt.deployment.newCallableInvokerIamEvidence.physicalSha256='A'.repeat(64);
+ if(input.mutation==='unapproved-rules')approval.approvedDeployment.firestoreRulesMutationAuthorized=false;
+ if(input.mutation==='hidden-rules')receipt.controlBoundary.securityRulesMutated=false;
+ stage='fleet-counts';
+ assert.equal(fleetTool.deploymentCountsMatch(fleet,receipt.deployment),true,'Deployment counts differ from exact source policy');
+ for(const kind of ['functionFleet','iamDependencies']){
+  const child=bound(receipt.cleanMainLiveReadbacks[kind]);
+  const records=child.outputs.functions;
+  if(input.mutation==='names'&&kind==='functionFleet')records[0].name='unexpectedSameCountFunction';
+  stage=`${kind}-names`;
+  assert.equal(fleetTool.measuredFunctionNamesMatch(fleet,records),true,'Measured names differ from exact source policy');
+ }
+ stage='iam';
+ const iam=require(path.join(root,'tools/release/scopedCallableInvokerIam.js')).validateDeploymentIamBoundary({repoRoot:root,approval,approvalSha256:receipt.approvalAuthority.sha256,receipt});
+ stage='rules-approval';
+ const successorDecision=approval.approvedDeployment.firestoreRulesMutationAuthorized===true
+  ?require(path.join(root,'tools/release/stagedPromotionSourceAuthority.js')).verifySuccessorDelegatedDecision({repoRoot:root,approval,approvalAuthority:receipt.approvalAuthority,sourceAuthority:receipt.sourceAuthority}):null;
+ stage='rules';
+ const rules=require(path.join(root,'tools/release/reviewedFirestoreRulesDeployment.js')).validateRulesDeploymentBoundary({repoRoot:root,approval,receipt,successorDecision});
+ stage='linked-controls';
+ let publicSchema=null,controlSchema=null;
+ if(receipt.deployment.newCallableInvokerIamEvidence){
+  const publication=bound(receipt.deployment.newCallableInvokerIamEvidence),controls=bound(receipt.deployment.controlComparison);
+  seals.verifyReceiptSeal(controls,'linked backend controls');
+  assert.equal(publication.controls.receiptSha256,controls.receiptSha256);
+  assert.equal(controls.sourceCommit,receipt.sourceAuthority.commit);
+  assert.equal(controls.approvalSha256,receipt.approvalAuthority.sha256);
+  if(publication.schemaVersion===3){
+   assert.equal(controls.schemaVersion,2);assert.equal(controls.controlMode,'observed-cloud-run-http-controls-v1');
+   assert.equal(controls.observedAtUtc,publication.observedAtUtc);
+   assert.deepEqual(controls.verificationAuthority,publication.verificationAuthority);
+   assert.equal(Object.hasOwn(controls,'existingFunctionEnvironmentVariablesUnchanged'),false);
+   for(const field of ['existingProjectEnvironmentVariablesUnchanged','reservedHttpSignatureMetadataValidated','newFunctionEffectiveInstanceCapsValidated'])assert.equal(controls[field],true);
+  }else{assert.equal(publication.schemaVersion,2);assert.equal(controls.schemaVersion,1);assert.equal(controls.existingFunctionEnvironmentVariablesUnchanged,true);}
+  publicSchema=publication.schemaVersion;controlSchema=controls.schemaVersion;
+ }
+ process.stdout.write(JSON.stringify({ok:true,fleet,iamDecision:iam.decision,rulesDecision:rules.decision,publicSchema,controlSchema}));
+}catch(error){process.stdout.write(JSON.stringify({ok:false,stage,reason:error.message}));}
+''',
+    Directory.current.path,
+    jsonEncode(<String, String>{
+      'receiptFile': receiptFile,
+      'mutation': mutation,
+    }),
+  ]);
+  if (result.exitCode != 0) {
+    throw StateError('Backend evidence verifier failed: ${result.stderr}');
+  }
+  return (jsonDecode(result.stdout as String) as Map).cast<String, dynamic>();
+}
+
+String _backendExecutionEvidenceShape(Map<String, dynamic> closure) {
+  final deployment = (closure['deployment'] as Map).cast<String, dynamic>();
+  final external = closure['privacySafeExternalEvidence'];
+  final current = deployment['newCallableInvokerIamEvidence'] is Map;
+  if (external is Map && !current) {
+    final enumerated = external.containsKey('receipts');
+    final bound = external.containsKey('byteComparisonLog');
+    if (enumerated != bound) return enumerated ? 'enumerated' : 'bound';
+  } else if (!closure.containsKey('privacySafeExternalEvidence') &&
+      current &&
+      deployment['cohorts'] is List &&
+      deployment['controlComparison'] is Map &&
+      deployment['deployedCodeByteComparison'] is Map &&
+      (closure['firestoreDeployment'] as Map?)?['rulesDeploymentEvidence']
+          is Map) {
+    return 'current-scoped';
+  }
+  throw StateError(
+    'Expected exactly one complete historical or current backend evidence layout.',
+  );
+}
+
+void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
+  final deployment = (closure['deployment'] as Map).cast<String, dynamic>();
+  final shape = _backendExecutionEvidenceShape(closure);
+  final external = (closure['privacySafeExternalEvidence'] as Map?)
+      ?.cast<String, dynamic>();
+  if (external != null) expect(external['folderName'], isA<String>());
+  if (shape == 'enumerated') {
+    final receipts = _objects(
+      external!['receipts'],
+      field: 'privacySafeExternalEvidence.receipts',
+    );
+    final files = receipts.map((row) => row['file']);
+    expect(files.toSet().length, receipts.length);
+    expect(
+      files,
+      containsAll(<String>[
+        '01-preflight.json',
+        '02-provisioned.json',
+        '03-callables.json',
+        '04-events.json',
+        '05-scheduler-preflight.json',
+        '06-fleet.json',
+        '07-lr03-lr06-prefinal.json',
+        '08-final.json',
+        '09-lr03-lr06-final.json',
+      ]),
+    );
+    for (final receipt in receipts) {
+      expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+    }
+    return;
+  }
+  if (shape == 'bound') {
+    for (final name in <String>[
+      'byteComparisonLog',
+      'expectedBuiltSourceInventory',
+      'executionAid',
+    ]) {
+      final item = (external![name] as Map).cast<String, dynamic>();
+      expect(item['file'], isNotEmpty);
+      expect(item['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+    }
+  }
+  final cohorts = _objects(deployment['cohorts'], field: 'deployment.cohorts');
+  expect(
+    cohorts.map((row) => row['phase']),
+    unorderedEquals(<String>['callables', 'events', 'fleet']),
+  );
+  final controls = (deployment['controlComparison'] as Map)
+      .cast<String, dynamic>();
+  final code = (deployment['deployedCodeByteComparison'] as Map)
+      .cast<String, dynamic>();
+  final links = <Map<String, dynamic>>[...cohorts, controls, code];
+  if (shape == 'current-scoped') {
+    links.add(
+      (deployment['newCallableInvokerIamEvidence'] as Map)
+          .cast<String, dynamic>(),
+    );
+    links.add(
+      ((closure['firestoreDeployment'] as Map)['rulesDeploymentEvidence']
+              as Map)
+          .cast<String, dynamic>(),
+    );
+    links.add(
+      (code['expectedBuiltSourceInventory'] as Map).cast<String, dynamic>(),
+    );
+    links.add(
+      (code['localSourceVerificationBuild'] as Map).cast<String, dynamic>(),
+    );
+  }
+  for (final linked in links) {
+    final file = linked['file'] as String;
+    expect(
+      File(file).existsSync(),
+      isTrue,
+      reason: '$file is referenced but absent.',
+    );
+    expect(
+      _sha256(file),
+      linked['physicalSha256'],
+      reason: '$file hash differs.',
+    );
+  }
+  expect(controls['decision'], 'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON');
+  expect(code['decision'], 'PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE');
+  expect(code['allArchiveMembersMatchExactBuiltSource'], isTrue);
+  expect(code['functionCount'], deployment['functionCount']);
+}
+
 void main() {
+  test(
+    'historical 15-function closure layouts retain their original controls',
+    () {
+      for (final entry in <String, String>{
+        'release/evidence/build27-backend-deployment-closure.json':
+            'enumerated',
+        'release/evidence/build28-backend-deployment-closure.json': 'bound',
+      }.entries) {
+        final closure = _readObject(entry.key);
+        final proof = _backendEvidenceProbe(entry.key);
+        expect(proof['ok'], isTrue, reason: proof['reason'] as String?);
+        expect(proof['fleet']['functionCount'], 15);
+        expect(proof['iamDecision'], 'PASS_NO_IAM_MUTATION');
+        expect(proof['rulesDecision'], 'PASS_NO_RULES_MUTATION');
+        expect(_backendExecutionEvidenceShape(closure), entry.value);
+        _expectBackendExecutionEvidence(closure);
+      }
+    },
+  );
+  const currentClosure =
+      'release/evidence/build28-current-source-backend-deployment-closure.json';
+  test('current 19-function closure proves scoped IAM and reviewed Rules', () {
+    final proof = _backendEvidenceProbe(currentClosure);
+    expect(proof['ok'], isTrue, reason: proof['reason'] as String?);
+    expect(proof['fleet']['functionCount'], 19);
+    expect(proof['iamDecision'], 'PASS_NEW_CALLABLE_INVOKER_IAM_ONLY');
+    expect(proof['rulesDecision'], 'PASS_REVIEWED_RULES_ONLY_DEPLOYMENT');
+    expect(proof['publicSchema'], 3);
+    expect(proof['controlSchema'], 2);
+    final closure = _readObject(currentClosure);
+    expect(_backendExecutionEvidenceShape(closure), 'current-scoped');
+    _expectBackendExecutionEvidence(closure);
+  });
+  for (final entry in <String, (String, String)>{
+    'count': (
+      'fleet-counts',
+      'Deployment counts differ from exact source policy',
+    ),
+    'names': (
+      'functionFleet-names',
+      'Measured names differ from exact source policy',
+    ),
+    'hidden-iam': (
+      'iam',
+      'new IAM creation must be explicitly declared and approved',
+    ),
+    'unapproved-iam': (
+      'iam',
+      'new IAM creation must be explicitly declared and approved',
+    ),
+    'iam-proof-hash': ('iam', 'proof physical digest differs'),
+    'unapproved-rules': (
+      'rules',
+      'unchanged Rules path cannot hide a mutation/proof',
+    ),
+    'hidden-rules': (
+      'rules',
+      'only an explicitly approved successor Rules-only mutation is admitted',
+    ),
+  }.entries) {
+    final mutation = entry.key;
+    final (expectedStage, expectedReason) = entry.value;
+    test(
+      'shared backend proof refuses $mutation without changing receipts',
+      () {
+        final before = _sha256(currentClosure);
+        final verdict = _backendEvidenceProbe(
+          currentClosure,
+          mutation: mutation,
+        );
+        expect(verdict['ok'], isFalse);
+        expect(verdict['stage'], expectedStage);
+        expect(verdict['reason'], contains(expectedReason));
+        expect(_sha256(currentClosure), before);
+      },
+    );
+  }
+  test('historical closure cannot acquire unscoped IAM mutation authority', () {
+    final verdict = _backendEvidenceProbe(
+      'release/evidence/build28-backend-deployment-closure.json',
+      mutation: 'legacy-iam-write',
+    );
+    expect(verdict['ok'], isFalse);
+    expect(verdict['stage'], 'iam');
+    expect(verdict['reason'], contains('unscoped IAM mutation is prohibited'));
+  });
+  test('missing or mixed external evidence layouts fail closed', () {
+    final current = _readObject(currentClosure);
+    (current['deployment'] as Map).remove('newCallableInvokerIamEvidence');
+    expect(() => _backendExecutionEvidenceShape(current), throwsStateError);
+    final mixed = _readObject(currentClosure);
+    mixed['privacySafeExternalEvidence'] = <String, dynamic>{
+      'receipts': <dynamic>[],
+    };
+    expect(() => _backendExecutionEvidenceShape(mixed), throwsStateError);
+    final legacy = _readObject(
+      'release/evidence/build27-backend-deployment-closure.json',
+    );
+    (legacy['privacySafeExternalEvidence'] as Map)['byteComparisonLog'] =
+        <String, dynamic>{};
+    expect(() => _backendExecutionEvidenceShape(legacy), throwsStateError);
+  });
   test('backend source-drift expectations cover every parity branch', () {
     expect(
       _functionDeploymentStatus('a' * 40, 'a' * 40),
@@ -741,138 +1029,52 @@ void main() {
       (deploymentApproval['sourceAuthority'] as Map)['commit'],
       backendAuthority['commit'],
     );
-    expect(backendDeployment['functionCount'], 15);
-    expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
-    expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
-    expect(backendBoundary['iamMutated'], isFalse);
-    expect(backendBoundary['productionBusinessDataMutated'], isFalse);
-    expect(backendBoundary['distributionPerformed'], isFalse);
-    // The deployment closure carries its external execution evidence in one of
-    // two governed shapes:
-    //
-    //   enumerated  a named receipt chain, each step recorded by file and hash;
-    //   bound       hash-bound workspace artifacts plus first-class sibling
-    //               receipts, which additionally prove the deployed archives
-    //               byte-match the built source rather than only that a step
-    //               was recorded.
-    //
-    // The shape is detected structurally rather than by schemaVersion, because
-    // a recorded receipt is hash-bound by the byte proofs taken when it was
-    // produced and must never be amended afterwards to relabel itself. Both
-    // shapes remain authoritative for the builds that used them, so both are
-    // validated. A closure carrying neither must fail rather than pass
-    // unchecked, and a closure carrying both is equally a contract error.
-    final privacySafeEvidence =
-        (liveBackend['privacySafeExternalEvidence'] as Map)
-            .cast<String, dynamic>();
-    final hasEnumeratedReceipts = privacySafeEvidence.containsKey('receipts');
-    final hasBoundArtifacts = privacySafeEvidence.containsKey(
-      'byteComparisonLog',
+    final backendProof = _backendEvidenceProbe(
+      deployed['functionFleetEvidenceFile'] as String,
     );
     expect(
-      hasEnumeratedReceipts != hasBoundArtifacts,
+      backendProof['ok'],
       isTrue,
-      reason:
-          'The backend deployment closure must declare exactly one external '
-          'evidence shape: an enumerated receipt chain or hash-bound '
-          'artifacts. Found receipts=$hasEnumeratedReceipts, '
-          'byteComparisonLog=$hasBoundArtifacts.',
+      reason: backendProof['reason'] as String?,
     );
-    expect(privacySafeEvidence['folderName'], isA<String>());
-
-    if (hasEnumeratedReceipts) {
-      final campaignReceipts = _objects(
-        privacySafeEvidence['receipts'],
-        field: 'privacySafeExternalEvidence.receipts',
-      );
-      final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
-      expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
-      expect(
-        campaignReceiptFiles,
-        containsAll(<String>[
-          '01-preflight.json',
-          '02-provisioned.json',
-          '03-callables.json',
-          '04-events.json',
-          '05-scheduler-preflight.json',
-          '06-fleet.json',
-          '07-lr03-lr06-prefinal.json',
-          '08-final.json',
-          '09-lr03-lr06-final.json',
-        ]),
-      );
-      for (final receipt in campaignReceipts) {
-        expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
-      }
-    } else {
-      // Workspace artifacts stay outside the repository, so the closure must
-      // bind each one by hash for it to carry any authority at all.
-      for (final artifact in const <String>[
-        'byteComparisonLog',
-        'expectedBuiltSourceInventory',
-        'executionAid',
-      ]) {
-        final binding = (privacySafeEvidence[artifact] as Map)
-            .cast<String, dynamic>();
-        expect(binding['file'], isNotEmpty, reason: '$artifact has no file.');
-        expect(
-          binding['sha256'],
-          matches(RegExp(r'^[0-9A-F]{64}$')),
-          reason: '$artifact is not bound by hash.',
-        );
-      }
-
-      // The receipt chain became first-class sibling evidence. Every referenced
-      // file must exist and match the hash the closure recorded for it, so the
-      // chain is no weaker than the enumerated one it replaced.
-      final deploymentCohorts = _objects(
-        backendDeployment['cohorts'],
-        field: 'deployment.cohorts',
-      );
-      expect(deploymentCohorts, hasLength(3));
-      expect(
-        deploymentCohorts.map((cohort) => cohort['phase']),
-        containsAll(<String>['callables', 'events', 'fleet']),
-      );
-
-      final controlComparison = (backendDeployment['controlComparison'] as Map)
-          .cast<String, dynamic>();
-      final byteComparison =
-          (backendDeployment['deployedCodeByteComparison'] as Map)
-              .cast<String, dynamic>();
-
-      for (final linked in <Map<String, dynamic>>[
-        ...deploymentCohorts,
-        controlComparison,
-        byteComparison,
-      ]) {
-        final linkedFile = linked['file'] as String;
-        expect(
-          File(linkedFile).existsSync(),
-          isTrue,
-          reason: '$linkedFile is referenced by the closure but absent.',
-        );
-        expect(
-          _sha256(linkedFile),
-          linked['physicalSha256'],
-          reason: '$linkedFile does not match its recorded hash.',
-        );
-      }
-
-      expect(
-        controlComparison['decision'],
-        'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON',
-      );
-      expect(
-        byteComparison['decision'],
-        'PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE',
-      );
-      expect(byteComparison['allArchiveMembersMatchExactBuiltSource'], isTrue);
-      expect(
-        byteComparison['functionCount'],
-        backendDeployment['functionCount'],
-      );
+    final fleet = (backendProof['fleet'] as Map).cast<String, dynamic>();
+    for (final field in <String>[
+      'functionCount',
+      'callableCount',
+      'eventAndProtocolTriggerCount',
+      'schedulerCount',
+    ]) {
+      expect(backendDeployment[field], fleet[field]);
     }
+    for (final readback in <Map<String, dynamic>>[
+      functionReadback,
+      iamReadback,
+    ]) {
+      final names = _objects(
+        (readback['outputs'] as Map)['functions'],
+      ).map((row) => row['name']);
+      expect(names, unorderedEquals(_strings(fleet['functionNames'])));
+    }
+    // Re-adjudicate all live approval, immutable custody, scoped IAM, Rules and
+    // readback evidence using the existing shared authority verifier.
+    final authorityCheck = Process.runSync('node', <String>[
+      'tools/release/stagedPromotionSourceAuthority.js',
+      Directory.current.path,
+      'release/production-release-policy.json',
+    ]);
+    expect(authorityCheck.exitCode, 0, reason: authorityCheck.stderr as String);
+    expect((jsonDecode(authorityCheck.stdout as String) as Map)['ok'], isTrue);
+    expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
+    expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
+    expect(
+      backendProof['iamDecision'],
+      backendBoundary['iamMutated'] == true
+          ? 'PASS_NEW_CALLABLE_INVOKER_IAM_ONLY'
+          : 'PASS_NO_IAM_MUTATION',
+    );
+    expect(backendBoundary['productionBusinessDataMutated'], isFalse);
+    expect(backendBoundary['distributionPerformed'], isFalse);
+    _expectBackendExecutionEvidence(liveBackend);
     expect(
       _sha256(functionReadbackAuthority['file'] as String),
       functionReadbackAuthority['physicalSha256'],

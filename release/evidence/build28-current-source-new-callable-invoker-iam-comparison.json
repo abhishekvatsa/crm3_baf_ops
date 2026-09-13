@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 3,
+  "evidenceType": "scoped-callable-invoker-iam-public-comparison",
+  "decision": "PASS_NEW_CALLABLE_INVOKER_IAM_ONLY",
+  "projectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+  "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+  "observedAtUtc": "2026-09-13T10:01:02.441Z",
+  "verificationAuthority": {
+    "schemaVersion": 1,
+    "profile": "observed-cloud-run-http-controls-v1",
+    "verifierCommit": "2e8482ba7fa32f77d9384f72791abfe35dacefcf",
+    "verifierFiles": [
+      {
+        "file": "tools/release/collectProductionGlobalPullBackend.js",
+        "sha256": "98DD50B9793A5205DACE342907B7A990351023F4B06BE62E1CA5CDC716F704B6"
+      },
+      {
+        "file": "tools/release/deploymentFleetContract.js",
+        "sha256": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06"
+      },
+      {
+        "file": "tools/release/reviewedBackendControls.js",
+        "sha256": "F4B82F5DE49A4BF5EA75AADA5E08A6BE87AC98D77825E7B86F7C584D35100FC7"
+      },
+      {
+        "file": "tools/release/reviewedBackendVerifierAuthority.js",
+        "sha256": "263E063AEFC880F29F679D2151B24F3FFBBF2B087A63D5A5D6A80DBA42A38137"
+      },
+      {
+        "file": "tools/release/scopedCallableInvokerIam.js",
+        "sha256": "0CCF35EE2AE349377A262CD7079553AA0E3FDA82A4FC738D4B6D32DB74548822"
+      },
+      {
+        "file": "tools/release/scopedCallableInvokerIamPublic.js",
+        "sha256": "3C6D6F17C0AF3525B0BAC2186AE785EEEC90AAE91C7C77BA056141CF9ED6A596"
+      }
+    ],
+    "decision": {
+      "commit": "a97ed5d1002aee0569495d8c7a9430e50fe33ef6",
+      "file": "release/approvals/build28-observed-backend-verifier-approval.json",
+      "sha256": "9A229D7641C97C291C4675DFE0E57F253F6A630CCC85BB7838F114CC2D8AF050"
+    }
+  },
+  "before": {
+    "startedAtUtc": "2026-09-13T09:05:13.013Z",
+    "completedAtUtc": "2026-09-13T09:05:47.024Z",
+    "captureReceiptSha256": "492ca5e1e6cee82f285fbb03ae698ad650aefbcfcdec7e4082a3aa153bd963af",
+    "rawMeasurementSha256": "E53127AE4B2038E4187B02991C9BA8097B0B358DA6F6DCE6A9EB80BE167CE764",
+    "inventory": {
+      "functionCount": 15,
+      "runServiceCount": 15,
+      "serviceAccountCount": 18
+    },
+    "commitments": {
+      "functionsSha256": "79B90B16C158A5DC1A44F84D6D832F3641590CB2C161472857767949C54FC72E",
+      "runServicesSha256": "34E08562F726A2C57792BDF042470EE2FE32379E4019C0493774502A1510E522",
+      "serviceAccountsSha256": "11A24C224193A0A13498923C2290168002D526546801534B5E81338E378C73FD",
+      "projectIamSha256": "9EB0C041A1556FA9C3F6E567C05BE8244209BF38C5DECEAAD3E674A545EFC121",
+      "preservedFunctionsSha256": "79B90B16C158A5DC1A44F84D6D832F3641590CB2C161472857767949C54FC72E",
+      "preservedRunServicesSha256": "34E08562F726A2C57792BDF042470EE2FE32379E4019C0493774502A1510E522"
+    }
+  },
+  "after": {
+    "startedAtUtc": "2026-09-13T09:19:53.356Z",
+    "completedAtUtc": "2026-09-13T09:20:26.653Z",
+    "captureReceiptSha256": "1ede089c9762a3397d0ff5a064cce5dcbc3978955350e4e3c6d3bdd1dde9205e",
+    "rawMeasurementSha256": "BB5BF523BF31F404009F8B6CDDE7315E9A7C9D3EA12415A5862976027336137E",
+    "inventory": {
+      "functionCount": 19,
+      "runServiceCount": 19,
+      "serviceAccountCount": 18
+    },
+    "commitments": {
+      "functionsSha256": "655D52A72326D1452BEE1FC92A49025CE2976EE9847C7CEA429E72DFB4656F68",
+      "runServicesSha256": "53E73594DFA8DDB5DD231288E904D63DA1A4319731DB2085BBFFE2EDD337B926",
+      "serviceAccountsSha256": "11A24C224193A0A13498923C2290168002D526546801534B5E81338E378C73FD",
+      "projectIamSha256": "9EB0C041A1556FA9C3F6E567C05BE8244209BF38C5DECEAAD3E674A545EFC121",
+      "preservedFunctionsSha256": "79B90B16C158A5DC1A44F84D6D832F3641590CB2C161472857767949C54FC72E",
+      "preservedRunServicesSha256": "34E08562F726A2C57792BDF042470EE2FE32379E4019C0493774502A1510E522"
+    }
+  },
+  "unavailableRunRegions": [
+    {
+      "location": "me-central2",
+      "reason": "LOCATION_POLICY_VIOLATED",
+      "domain": "googleapis.com",
+      "consumer": "projects/894346496105"
+    }
+  ],
+  "newInvokerPolicies": [
+    {
+      "functionName": "assignPublishedTemplateVersionV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignpublishedtemplateversionv2",
+      "role": "roles/run.invoker",
+      "members": [
+        "allUsers"
+      ]
+    },
+    {
+      "functionName": "executeMaintenanceWorkflowCommandV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executemaintenanceworkflowcommandv2",
+      "role": "roles/run.invoker",
+      "members": [
+        "allUsers"
+      ]
+    },
+    {
+      "functionName": "mutateAssetHierarchyV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateassethierarchyv2",
+      "role": "roles/run.invoker",
+      "members": [
+        "allUsers"
+      ]
+    },
+    {
+      "functionName": "mutateChargeAbnormalityV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutatechargeabnormalityv2",
+      "role": "roles/run.invoker",
+      "members": [
+        "allUsers"
+      ]
+    }
+  ],
+  "controls": {
+    "receiptSha256": "1309827424a46358545020e7c849daafa07de433d488a64adfd85ccc0db833f5",
+    "functionCount": 19,
+    "existingFunctionCount": 15,
+    "newFunctionCount": 4,
+    "allFunctionMutatingAppCheckParametersFalse": true,
+    "allMutatingCallableAppCheckEnforcementFalse": true,
+    "existingBackendIdentityAppCheckEnforcementTruePreserved": true,
+    "existingRuntimeAndTriggerServiceAccountsUnchanged": true,
+    "existingIngressSettingsUnchanged": true,
+    "allFunctionsMatchSourceRuntimeIdentities": true,
+    "allFunctionsActiveGen2": true,
+    "newFunctionsMatchApprovedSourceOptions": true,
+    "projectIamBindingsSemanticallyUnchanged": true,
+    "existingProjectEnvironmentVariablesUnchanged": true,
+    "reservedHttpSignatureMetadataValidated": true,
+    "newFunctionEffectiveInstanceCapsValidated": true,
+    "controlMode": "observed-cloud-run-http-controls-v1",
+    "reservedHttpSignatureObservations": [
+      {
+        "name": "assignPublishedTemplateVersionV2",
+        "before": null,
+        "after": null,
+        "disposition": "new-http-callable"
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "before": null,
+        "after": "http",
+        "disposition": "platform-http-added"
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "before": null,
+        "after": "http",
+        "disposition": "platform-http-added"
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommandV2",
+        "before": null,
+        "after": "http",
+        "disposition": "new-http-callable"
+      },
+      {
+        "name": "mutateAssetHierarchyV2",
+        "before": null,
+        "after": "http",
+        "disposition": "new-http-callable"
+      },
+      {
+        "name": "mutateChargeAbnormalityV2",
+        "before": null,
+        "after": null,
+        "disposition": "new-http-callable"
+      }
+    ],
+    "newFunctionEffectiveInstanceCaps": [
+      {
+        "name": "assignPublishedTemplateVersionV2",
+        "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignpublishedtemplateversionv2",
+        "serviceUid": "736347fa-070d-4161-a05a-1570744dadda",
+        "revision": "assignpublishedtemplateversionv2-00001-peq",
+        "observedGeneration": "1",
+        "cloudFunctionsMaxInstanceCount": null,
+        "runServiceMaxInstanceCount": 20,
+        "runRevisionMaxInstanceCount": null,
+        "effectiveMaxInstanceCount": 20,
+        "maximumApprovedBound": 100
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommandV2",
+        "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executemaintenanceworkflowcommandv2",
+        "serviceUid": "676e0541-6df1-44af-a342-b63a32e7e02c",
+        "revision": "executemaintenanceworkflowcommandv2-00001-hox",
+        "observedGeneration": "1",
+        "cloudFunctionsMaxInstanceCount": null,
+        "runServiceMaxInstanceCount": 20,
+        "runRevisionMaxInstanceCount": null,
+        "effectiveMaxInstanceCount": 20,
+        "maximumApprovedBound": 100
+      },
+      {
+        "name": "mutateAssetHierarchyV2",
+        "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateassethierarchyv2",
+        "serviceUid": "90e8c649-c267-4e09-a037-c0e6aeea650c",
+        "revision": "mutateassethierarchyv2-00001-cic",
+        "observedGeneration": "1",
+        "cloudFunctionsMaxInstanceCount": null,
+        "runServiceMaxInstanceCount": 20,
+        "runRevisionMaxInstanceCount": null,
+        "effectiveMaxInstanceCount": 20,
+        "maximumApprovedBound": 100
+      },
+      {
+        "name": "mutateChargeAbnormalityV2",
+        "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutatechargeabnormalityv2",
+        "serviceUid": "c6fbe026-2e55-4836-8ffd-0cf1bcb8ad5c",
+        "revision": "mutatechargeabnormalityv2-00001-bet",
+        "observedGeneration": "1",
+        "cloudFunctionsMaxInstanceCount": null,
+        "runServiceMaxInstanceCount": 20,
+        "runRevisionMaxInstanceCount": null,
+        "effectiveMaxInstanceCount": 20,
+        "maximumApprovedBound": 100
+      }
+    ],
+    "sourceOptionsSha256": "AC4EF2194DBB664C9D71A1E54A9F1B2B490D5F3D4A1330A12A7A0A676AD54878",
+    "sourceOptionsFiles": [
+      {
+        "file": "functions/package-lock.json",
+        "sha256": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D"
+      },
+      {
+        "file": "functions/package.json",
+        "sha256": "0844967B979C2559F54D2D0CD178B1F3A334CE16E23ACF6536146D28FA72788D"
+      },
+      {
+        "file": "functions/src/callableSecurityConfig.ts",
+        "sha256": "76C5A7A1A9C430D3E02B5106333D679D1FFF4AC3721241DA5096872496809E46"
+      },
+      {
+        "file": "functions/src/index.ts",
+        "sha256": "B4A9E92B1B7C6A8E996CC8E1058BF49B993AB3CBD6F9F3EF3FB3F5070C5CEE2E"
+      },
+      {
+        "file": "functions/src/maintenanceWorkflow/callable.ts",
+        "sha256": "FB4BD9B98D6BAC768249001D8994916B797B7AD97D79DA659A9AF78EFD87539A"
+      },
+      {
+        "file": "functions/src/stage2dSecurityConfig.ts",
+        "sha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F"
+      },
+      {
+        "file": "release/function-fleet-runtime-identity-policy.json",
+        "sha256": "F08BB9B62EC6162DA6249F3F92058A4914DF0EB878739D79B622B273C94477BA"
+      }
+    ]
+  },
+  "privateProofReceiptSha256": "bfe3939f84a1f5dfd5cc604482bbd5fc73c429c604eb79666f5ae54864caf3d7",
+  "privateCustody": {
+    "schemaVersion": 1,
+    "provider": "gcs",
+    "purpose": "custodyRecord",
+    "buildNumber": 28,
+    "bucket": "crm3-baf-ops-b8638-firestore-restore",
+    "prefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/fc0ac09f-backend-20260913",
+    "objectName": "release-custody/build-28/fc0ac09f-backend-20260913/scoped-iam-comparison.json",
+    "objectUri": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/fc0ac09f-backend-20260913/scoped-iam-comparison.json",
+    "generation": "1789292984678381",
+    "generationUri": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/fc0ac09f-backend-20260913/scoped-iam-comparison.json#1789292984678381",
+    "bytes": 536403,
+    "sha256": "6968E68F59F4C3293BB133549706683ED2606DEE68A34E202B890261F2DD1CF0",
+    "downloadedBytes": 536403,
+    "downloadedSha256": "6968E68F59F4C3293BB133549706683ED2606DEE68A34E202B890261F2DD1CF0",
+    "createOnly": true,
+    "generationPinnedReadback": true,
+    "verified": true,
+    "verifiedAtUtc": "2026-09-13T09:49:57.3718720Z",
+    "approval": {
+      "commit": "e1db8eaa4b34c26254d3fd2a4cfc533747e187a4",
+      "file": "release/approvals/build28-private-cloud-custody-approval.json",
+      "sha256": "3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88"
+    },
+    "bucketControls": {
+      "bucket": "crm3-baf-ops-b8638-firestore-restore",
+      "location": "ASIA-SOUTH1",
+      "publicAccessPrevention": "enforced",
+      "uniformBucketLevelAccess": true,
+      "versioningEnabled": true,
+      "publicIamPrincipalsAbsent": true,
+      "retentionSeconds": 7776000,
+      "softDeleteSeconds": 604800,
+      "checkedAtUtc": "2026-09-13T09:49:39.2934152Z"
+    }
+  },
+  "qualification": "Publication projection generated only after full private IAM and backend-control revalidation and generation-pinned private custody verification. Offline CI validates source, approved scope, chronology, commitment equality and custody attestation; it does not re-read hidden raw responses or independently verify the cloud upload. Hash seals prove integrity, not observation authenticity. Private raw evidence remains available for authorized revalidation. Before/after observations do not exclude transient intervening changes.",
+  "coverage": "Project IAM, all project service-account identity/IAM, and every service in successfully observed Run regions are committed in full. Listed unavailable regions are excluded: no absence or unchanged IAM is claimed there. New policy authorization remains limited to the four source-bound services in asia-south1.",
+  "mutationBoundary": {
+    "iamMutated": false,
+    "cloudResourcesMutated": false
+  },
+  "receiptSha256": "b7aa6705d609e9d6ef9b446ec027b8912d0b6eb219ed640cf46cebd457a85940"
+}
