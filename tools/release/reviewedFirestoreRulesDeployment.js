@@ -9,9 +9,11 @@ const {execFileSync} = require("node:child_process");
 const {isDeepStrictEqual} = require("node:util");
 const {verifyReceiptSeal} = require("./collectProductionGlobalPullBackend.js");
 const collector = require("./collectFirestoreRulesIndexesReadback.js");
+const runtimeProof = require("./reviewedRulesRuntime.js");
 const PROJECT = "crm3-baf-ops-b8638";
 const RELEASE = `projects/${PROJECT}/releases/cloud.firestore`;
 const RULES_COMMAND = Object.freeze([
+  "--no-global-search-paths",
   "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js",
   "deploy", "--only", "firestore:rules", "--project", PROJECT,
   "--non-interactive", "--json",
@@ -82,7 +84,7 @@ function readBound(root, pointer, sealed = true) {
 }
 function declareRules({repoRoot, sourceCommit, sourceTree, declaration}) {
   keys(declaration, ["schemaVersion", "target", "projectId", "databaseId", "releaseName", "priorRulesetName",
-    "priorRulesSha256", "rulesSha256", "indexes", "preflight", "commandEvidenceFile", "executionRootSha256"], "approval declaration shape");
+    "priorRulesSha256", "rulesSha256", "indexes", "preflight", "commandEvidenceFile", "executionRootSha256", "runtimeAuthority"], "approval declaration shape");
   const source = sourceRulesScope(repoRoot, sourceCommit, sourceTree);
   need(declaration.schemaVersion === 1 && declaration.target === "firestore:rules" && declaration.projectId === PROJECT &&
     declaration.databaseId === "(default)" && declaration.releaseName === RELEASE &&
@@ -153,13 +155,17 @@ function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, app
   need(successorDecision.sourceCommit === sourceCommit && successorDecision.sourceTree === sourceTree, "successor CI/source authority differs");
   const source = declareRules({repoRoot, sourceCommit, sourceTree, declaration});
   need(sameHash(scope.firestoreRulesSha256, source.rulesSha256) && sameHash(deployed.rulesSha256, source.rulesSha256), "parent Rules hashes differ");
+  const install = readBound(evidenceRoot, declaration.runtimeAuthority);
+  const runtimeAuthority = runtimeProof.validateCleanInstall({repoRoot, sourceCommit, sourceTree,
+    executionRootSha256:declaration.executionRootSha256, proof:install,
+    readBound:(pointer,sealed) => readBound(evidenceRoot,pointer,sealed), decisionAtUtc:successorDecision.decisionAtUtc});
   const preflight = readBound(evidenceRoot, declaration.preflight);
   const beforeApproval = validateObservation(preflight, {sourceCommit, sourceTree, declaration, source, before: true});
   need(beforeApproval.end <= instant(successorDecision.decisionAtUtc), "preflight postdates approval");
   need(pointer?.file === declaration.commandEvidenceFile, "unapproved command evidence path");
   const command = readBound(evidenceRoot, pointer);
   keys(command, ["schemaVersion", "evidenceType", "decision", "projectId", "source", "approvalAuthority", "ciAuthority",
-    "target", "startedAtUtc", "completedAtUtc", "command", "executionSource", "exitCode", "cliResult", "beforeReadback", "receiptSha256"], "command evidence shape");
+    "target", "startedAtUtc", "completedAtUtc", "command", "executionSource", "runtime", "exitCode", "cliResult", "beforeReadback", "receiptSha256"], "command evidence shape");
   need(command.schemaVersion === 1 && command.evidenceType === "reviewed-firestore-rules-deployment" &&
     command.decision === "PASS_EXACT_SOURCE_RULES_ONLY_DEPLOYED" && command.projectId === PROJECT &&
     command.target === "firestore:rules" && command.exitCode === 0, "unsuccessful/ambiguous command evidence");
@@ -169,7 +175,8 @@ function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, app
     command.approvalAuthority.commit === successorDecision.approvalCommit, "command immutable approval differs");
   exact(command.ciAuthority, {file: successorDecision.ciFile, sha256: successorDecision.ciSha256,
     commit: successorDecision.approvalCommit}, "command CI custody differs");
-  exact(command.command, {executable: "node", arguments: RULES_COMMAND}, "command must deploy only reviewed Rules");
+  exact(command.command, {executable: "node", arguments: RULES_COMMAND,
+    resolvedNode:runtimeAuthority.identity.node}, "command must use the reviewed resolved Node and only reviewed Rules");
   keys(command.executionSource, ["rootSha256", "before", "after"], "command checkout observation shape");
   need(sameHash(command.executionSource.rootSha256, declaration.executionRootSha256), "command checkout path differs from approval");
   for (const point of [command.executionSource.before, command.executionSource.after]) {
@@ -182,6 +189,9 @@ function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, app
   exact(readBound(evidenceRoot, command.cliResult, false), {status: "success", result: {}}, "actual CLI result is not unambiguous Rules-only success");
   const before = readBound(evidenceRoot, command.beforeReadback);
   const beforeWindow = validateObservation(before, {sourceCommit, sourceTree, declaration, source, before: true});
+  runtimeProof.validateCommandRuntime({runtime:command.runtime, approved:runtimeAuthority,
+    startedAtUtc:command.startedAtUtc, completedAtUtc:command.completedAtUtc,
+    notBeforeUtc:before.capturedAtUtc, closureAtUtc:receipt.recordedAtUtc});
   const started = instant(command.startedAtUtc), completed = instant(command.completedAtUtc);
   need(instant(successorDecision.recordedAtUtc) <= beforeWindow.start &&
     instant(successorDecision.custodyCommitTimeUtc) <= beforeWindow.start &&
