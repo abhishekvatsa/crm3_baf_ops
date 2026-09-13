@@ -3846,7 +3846,9 @@ check(
 )
 check(
     "R1.13 contract tests follow current governed semantics",
-    r"RegExp(r'reopenModule\(\s*_transitionId\(\),')" in async_guard
+    r"r'reopenModule\(\s*_transitionId\(\),'" in async_guard
+    and "extracted module reopen guards every confirmed UI adoption" in async_guard
+    and "expect(guardedConfirmedAdoptions, confirmedAdoptions)" in async_guard
     and "_expectWorkflowCommandAssignmentContract" in async_guard
     and "_functionBodyStartingAtIndex" in lifecycle_guard
     and "(?:read,\\s*)?create" in rules_guard
