@@ -35,6 +35,70 @@ bool _currentCandidatePilotApplies({
           finalizedBuild['completionReceiptSha256'];
 }
 
+Map<String, dynamic> _completedBuildInChain(
+  Map<String, dynamic> policy,
+  int buildNumber,
+) {
+  var entry = policy['finalization'] as Map<String, dynamic>;
+  var entryBuild = (policy['release'] as Map)['buildNumber'];
+  while (true) {
+    if (entryBuild == buildNumber &&
+        entry['status'] == 'completed-non-distributable' &&
+        entry['completionReceiptFile'] ==
+            'release/evidence/build-$buildNumber-finalization-closure.json') {
+      return entry;
+    }
+    entry = entry['priorCompletedBuild'] as Map<String, dynamic>;
+    entryBuild = entry['buildNumber'];
+  }
+}
+
+// Bind release labels to exact device evidence. The production PowerShell
+// verifier separately enforces the complete health and installation contract.
+bool _runtimeAcceptanceApplies({
+  required int buildNumber,
+  required Map<String, dynamic> finalizedBuild,
+  required Map<String, dynamic> completion,
+  required Map<String, dynamic>? device,
+  required String? deviceSha256,
+}) {
+  if (device == null || deviceSha256 == null) return false;
+  final release = completion['release'] as Map;
+  final source = completion['sourceAuthority'] as Map;
+  final package = completion['governedPackage'] as Map;
+  final acceptedRelease = device['release'] as Map;
+  final adjudication = device['adjudication'] as Map;
+  final expectedStatus =
+      'passed-exact-build$buildNumber-physical-in-place-authenticated-read-only-surfaces';
+  final deviceFile =
+      'release/evidence/build-$buildNumber-device-acceptance.json';
+  return release['buildNumber'] == buildNumber &&
+      device['evidenceType'] == 'production-build-device-acceptance' &&
+      device['status'] == expectedStatus &&
+      finalizedBuild['deviceAcceptanceReceiptFile'] == deviceFile &&
+      finalizedBuild['physicalInstallationReceiptFile'] == deviceFile &&
+      finalizedBuild['deviceAcceptanceReceiptSha256'] == deviceSha256 &&
+      finalizedBuild['physicalInstallationReceiptSha256'] == deviceSha256 &&
+      acceptedRelease['buildNumber'] == buildNumber &&
+      acceptedRelease['releaseId'] == release['releaseId'] &&
+      acceptedRelease['versionName'] == release['versionName'] &&
+      acceptedRelease['applicationId'] == release['applicationId'] &&
+      acceptedRelease['sourceCommit'] == source['commit'] &&
+      acceptedRelease['sourceTree'] == source['tree'] &&
+      acceptedRelease['governedPackageSha256'] == package['sha256'] &&
+      acceptedRelease['apkSha256'] == package['apkSha256'] &&
+      acceptedRelease['certificateSha256'] == package['certificateSha256'] &&
+      acceptedRelease['finalizationReceiptFile'] ==
+          finalizedBuild['completionReceiptFile'] &&
+      acceptedRelease['finalizationReceiptSha256'] ==
+          finalizedBuild['completionReceiptSha256'] &&
+      adjudication['physicalInPlaceMigrationPassed'] == true &&
+      adjudication['authenticatedReadOnlySurfaceValidationCompleted'] == true &&
+      adjudication['runtimeValidationPassed'] == true &&
+      adjudication['mutatingBusinessFlowValidationCompleted'] == false &&
+      adjudication['fullBusinessFlowValidationCompleted'] == false;
+}
+
 void main() {
   group('O-01 to O-05 governed production-release contracts', () {
     test('Build 27 pilot proof never authorizes a pending successor', () {
@@ -1689,22 +1753,84 @@ void main() {
           _sha256(finalizedBuild['completionReceiptFile'] as String),
           finalizedBuild['completionReceiptSha256'],
         );
-        expect(finalizedBuild['physicalInstallationConditionPassed'], isTrue);
-        expect(finalizedBuild['runtimeValidationPassed'], isTrue);
+        final historicalBuild27 = _completedBuildInChain(policy, 27);
         expect(
-          finalizedBuild['runtimeDisposition'],
+          _sha256(historicalBuild27['completionReceiptFile'] as String),
+          historicalBuild27['completionReceiptSha256'],
+        );
+        expect(
+          historicalBuild27['physicalInstallationConditionPassed'],
+          isTrue,
+        );
+        expect(historicalBuild27['runtimeValidationPassed'], isTrue);
+        expect(
+          historicalBuild27['runtimeDisposition'],
           'passed-exact-build27-physical-in-place-authenticated-read-only-surfaces',
         );
         expect(
-          finalizedBuild['physicalInstallationReceiptFile'],
+          historicalBuild27['physicalInstallationReceiptFile'],
           'release/evidence/build-27-device-acceptance.json',
         );
         expect(
-          _sha256(finalizedBuild['physicalInstallationReceiptFile'] as String),
-          finalizedBuild['physicalInstallationReceiptSha256'],
+          _sha256(
+            historicalBuild27['physicalInstallationReceiptFile'] as String,
+          ),
+          historicalBuild27['physicalInstallationReceiptSha256'],
+        );
+        expect(
+          historicalBuild27['fullBusinessFlowValidationCompleted'],
+          isFalse,
+        );
+        expect(historicalBuild27['controlledPilotApproved'], isTrue);
+        expect(historicalBuild27['unrestrictedPlantReleaseApproved'], isFalse);
+
+        final currentCompletion =
+            jsonDecode(read(finalizedBuild['completionReceiptFile'] as String))
+                as Map<String, dynamic>;
+        final deviceFile =
+            finalizedBuild['deviceAcceptanceReceiptFile'] as String?;
+        final devicePresent =
+            deviceFile != null && File(deviceFile).existsSync();
+        final runtimeAccepted = _runtimeAcceptanceApplies(
+          buildNumber: finalizedBuildNumber,
+          finalizedBuild: finalizedBuild,
+          completion: currentCompletion,
+          device: devicePresent
+              ? jsonDecode(read(deviceFile)) as Map<String, dynamic>
+              : null,
+          deviceSha256: devicePresent ? _sha256(deviceFile) : null,
+        );
+        expect(
+          finalizedBuild['physicalInstallationConditionPassed'],
+          runtimeAccepted,
+        );
+        expect(finalizedBuild['runtimeValidationPassed'], runtimeAccepted);
+        expect(
+          finalizedBuild['runtimeDisposition'],
+          runtimeAccepted
+              ? 'passed-exact-build$finalizedBuildNumber-physical-in-place-authenticated-read-only-surfaces'
+              : (currentCompletion['runtimeAdjudication'] as Map)['status'],
         );
         expect(finalizedBuild['fullBusinessFlowValidationCompleted'], isFalse);
-        expect(finalizedBuild['controlledPilotApproved'], isTrue);
+        final finalizedPromotion = policy['distribution'] as Map;
+        final finalizedPromotionFile =
+            finalizedPromotion['promotionReceiptFile'] as String;
+        expect(
+          _sha256(finalizedPromotionFile),
+          finalizedPromotion['promotionReceiptSha256'],
+        );
+        expect(
+          finalizedBuild['controlledPilotApproved'],
+          _currentCandidatePilotApplies(
+            candidateBuildNumber: finalizedBuildNumber,
+            finalizationStatus: 'completed-non-distributable',
+            finalizedBuildNumber: finalizedBuildNumber,
+            finalizedBuild: finalizedBuild,
+            pilotAuthorization:
+                jsonDecode(read(finalizedPromotionFile))
+                    as Map<String, dynamic>,
+          ),
+        );
         expect(finalizedBuild['unrestrictedPlantReleaseApproved'], isFalse);
         expect(build22Receipt['schemaVersion'], 1);
         expect(build22Receipt['status'], 'passed-non-distributable');

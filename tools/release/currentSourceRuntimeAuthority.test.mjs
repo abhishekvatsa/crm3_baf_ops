@@ -241,52 +241,95 @@ print(json.dumps(rows))
 
 // Execute the production classifiers against real Git trees without running
 // the complete release gate or changing the application's repository.
-test("canonical pending Build 28 preserves measured Build 27 labels without inheriting them", () => {
+test("canonical pending and completed Build 28 preserve Build 27 promotion without inheriting it", (t) => {
   const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), "utf8"));
   const policy = readFinalizedBuild27Fixture("release/production-release-policy.json");
   const historical = {...policy.finalization, buildNumber: 27};
   const state = readFinalizedBuild27Fixture("release/current-successor-state.json").authorityPlanes;
   const device = read("release/evidence/build-27-device-acceptance.json");
   const promotion = read("release/evidence/build-27-staged-controlled-pilot-authorization.json");
-  const base = {pending: true, build: 28, latest: 27, finalization: historical,
-    policy: {...policy, finalization: {runtimeValidationPassed: false, controlledPilotApproved: false},
-      distribution: {...policy.distribution, preservedHistoricalAuthority: true, appliesToCurrentCandidate: false}},
-    state, device, promotion, accepted: true};
+  const pendingPolicy = structuredClone(policy);
+  Object.assign(pendingPolicy.release, {buildNumber: 28, versionName: "1.0.0-rc.18"});
+  Object.assign(pendingPolicy.versionPolicy, {buildNumber: 28, versionName: "1.0.0-rc.18"});
+  pendingPolicy.finalization = {status: "pending-source-authorized", dualCustodyCompleted: false,
+    physicalInstallationConditionPassed: false, runtimeValidationPassed: false,
+    controlledPilotApproved: false, priorCompletedBuild: historical};
+  Object.assign(pendingPolicy.distribution, {preservedHistoricalAuthority: true, appliesToCurrentCandidate: false});
+  const base = {pending: true, build: 28, latest: 27, policy: pendingPolicy,
+    state, device, promotion, finalizationReceipt: read("release/evidence/build-27-finalization-closure.json"), accepted: true};
   const cases = [{...structuredClone(base), label: "pending28 retains proved27"},
     {...structuredClone(base), label: "completed27 unchanged", pending: false, build: 27, policy}];
-  const change = (label, mutate) => {
-    const row = structuredClone(base);
+  const change = (label, mutate, from = base) => {
+    const row = structuredClone(from);
     Object.assign(row, {label, accepted: false});
     mutate(row);
     cases.push(row);
   };
   change("pending candidate cannot erase prior validation", (row) => { row.state.latestFinalizedArtifact.runtimeValidation = "NOT_ADJUDICATED_FOR_EXACT_BUILD27"; });
   change("pending candidate cannot erase prior pilot", (row) => { row.state.latestFinalizedArtifact.pilotPromotion = "NOT_AUTHORIZED"; });
-  change("prior finalization runtime admission required", (row) => { row.finalization.runtimeValidationPassed = false; });
-  change("prior finalization pilot admission required", (row) => { row.finalization.controlledPilotApproved = false; });
+  change("prior finalization runtime admission required", (row) => { row.policy.finalization.priorCompletedBuild.runtimeValidationPassed = false; });
+  change("prior finalization pilot admission required", (row) => { row.policy.finalization.priorCompletedBuild.controlledPilotApproved = false; });
   change("prior device must name same APK", (row) => { row.device.release.apkSha256 = "0".repeat(64); });
   change("prior device must name same build", (row) => { row.device.release.buildNumber = 28; });
   change("prior promotion must name same build", (row) => { row.promotion.admittedEvidence.governedBuild.buildNumber = 28; });
-  change("prior runtime cannot use another acceptance hash", (row) => { row.finalization.deviceAcceptanceReceiptSha256 = "0".repeat(64); });
+  change("prior runtime cannot use another acceptance hash", (row) => { row.policy.finalization.priorCompletedBuild.deviceAcceptanceReceiptSha256 = "0".repeat(64); });
   change("pending candidate cannot claim pilot approval", (row) => { row.policy.finalization.controlledPilotApproved = true; });
   change("prior distribution must remain historical", (row) => { row.policy.distribution.preservedHistoricalAuthority = false; });
   change("prior distribution cannot apply to pending candidate", (row) => { row.policy.distribution.appliesToCurrentCandidate = true; });
   change("pending candidate cannot copy approved build identity", (row) => { row.policy.distribution.approvedBuildNumber = 28; });
   change("pending candidate cannot copy pilot authority name", (row) => { row.policy.distribution.authority = "exact-build28-staged-controlled-pilot"; });
   const completed = structuredClone(base);
-  Object.assign(completed, {label: "completed28 does not inherit27", pending: false, latest: 28, accepted: false});
-  completed.state.latestFinalizedArtifact.runtimeValidation = "NOT_ADJUDICATED_FOR_EXACT_BUILD28";
-  completed.state.latestFinalizedArtifact.pilotPromotion = "NOT_AUTHORIZED";
+  Object.assign(completed, {label: "completed28 retains27 but has no pilot", pending: false, latest: 28, accepted: true});
+  Object.assign(completed.policy.finalization, {status: "completed-non-distributable", dualCustodyCompleted: true});
+  // This classifier projection represents completed28, with the real27 record
+  // retained underneath. It does not fabricate a future28 artifact receipt.
+  completed.state.latestFinalizedArtifact = {buildNumber: 28,
+    runtimeValidation: "NOT_ADJUDICATED_FOR_EXACT_BUILD28", pilotPromotion: "NOT_AUTHORIZED"};
   cases.push(completed);
+  for (const from of [base, completed]) {
+    const suffix = from.pending ? "pending28" : "completed28";
+    change(`${suffix} requires retained27 completion hash`, (row) => {
+      row.policy.finalization.priorCompletedBuild.completionReceiptSha256 = "0".repeat(64);
+    }, from);
+    change(`${suffix} requires retained27 proof`, (row) => {
+      delete row.policy.finalization.priorCompletedBuild;
+    }, from);
+    change(`${suffix} cannot use unbound27 promotion hash`, (row) => {
+      row.policy.postBuildPromotion.promotionReceiptSha256 = "0".repeat(64);
+      row.policy.distribution.promotionReceiptSha256 = "0".repeat(64);
+    }, from);
+    change(`${suffix} cannot copy promotion identity to28`, (row) => {
+      row.policy.postBuildPromotion.buildNumber = 28;
+      row.policy.distribution.approvedBuildNumber = 28;
+      row.policy.distribution.authority = "exact-build28-staged-controlled-pilot";
+    }, from);
+    change(`${suffix} cannot claim current pilot`, (row) => {
+      row.policy.finalization.controlledPilotApproved = true;
+    }, from);
+  }
+  change("completed28 cannot retain a27 latest artifact label", (row) => {
+    row.state.latestFinalizedArtifact.pilotPromotion = "AUTHORIZED_STAGED_EXACT_BUILD27_UP_TO_25";
+  }, completed);
+  change("completed28 cannot invent a28 pilot label", (row) => {
+    row.state.latestFinalizedArtifact.pilotPromotion = "AUTHORIZED_STAGED_EXACT_BUILD28_UP_TO_25";
+  }, completed);
+  change("completed28 cannot make historical promotion current", (row) => {
+    row.policy.distribution.preservedHistoricalAuthority = false;
+    row.policy.distribution.appliesToCurrentCandidate = true;
+  }, completed);
   const script = String.raw`
 import ast, hashlib, json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 source = root / "tools/v4/v4_2_r1_canonical_audit.py"
 tree = ast.parse(source.read_text(encoding="utf-8"))
-names = {"candidate_runtime_accepted", "candidate_controlled_pilot_approved", "latest_finalized_runtime_accepted", "latest_finalized_controlled_pilot_approved"}
+names = {"prior_completed_build", "candidate_finalization", "latest_completed_finalization",
+    "candidate_runtime_accepted", "candidate_controlled_pilot_approved", "latest_finalized_runtime_accepted",
+    "latest_finalized_controlled_pilot_approved", "promoted_build_number", "promoted_finalization",
+    "retained_promoted_pilot_approved"}
 nodes = [node for node in tree.body if (
     isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)
-) or (isinstance(node, ast.If) and any(isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in child.targets) for child in node.body))]
+) or (isinstance(node, ast.If) and any(isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in child.targets) for child in node.body))
+or (isinstance(node, ast.FunctionDef) and node.name == "completed_finalization_for")]
 comparisons = [node for node in ast.walk(tree) if isinstance(node, ast.Compare) and
     "current_successor_planes.get('latestFinalizedArtifact'" in ast.unparse(node.left) and
     any(".get('" + field + "')" in ast.unparse(node.left) for field in ["runtimeValidation", "pilotPromotion"])]
@@ -300,23 +343,30 @@ pilot_fields = {"combined_policy.get('finalization', {}).get('controlledPilotApp
     ["preservedHistoricalAuthority", "appliesToCurrentCandidate", "approvedBuildNumber", "authority"]}
 pilot_guards = [node for node in target.args[1].values if
     (isinstance(node, ast.Compare) and ast.unparse(node.left) in pilot_fields) or
-    (isinstance(node, ast.Name) and node.id == "latest_finalized_controlled_pilot_approved")]
+    (isinstance(node, ast.Name) and node.id == "retained_promoted_pilot_approved")]
 assert len(pilot_guards) == 6
 rows = []
 for case in json.load(sys.stdin):
-    scope = dict(candidate_pending=case["pending"], candidate_build_number=case["build"],
-        latest_finalized_build_number=case["latest"], latest_completed_finalization=case["finalization"],
+    assert case["policy"]["release"]["buildNumber"] == case["build"]
+    assert case["policy"]["versionPolicy"]["buildNumber"] == case["build"]
+    assert (case["policy"]["finalization"]["status"] == "pending-source-authorized") == case["pending"]
+    scope = dict(ROOT=root, candidate_pending=case["pending"], candidate_build_number=case["build"],
+        latest_finalized_build_number=case["latest"],
         combined_policy=case["policy"], current_successor_planes=case["state"],
         build27_device_acceptance=case["device"], build27_pilot_promotion=case["promotion"],
+        build27_finalization=case["finalizationReceipt"],
         build27_device_acceptance_path=root / "release/evidence/build-27-device-acceptance.json",
         build27_pilot_promotion_path=root / "release/evidence/build-27-staged-controlled-pilot-authorization.json",
         sha=lambda path: hashlib.sha256(path.read_bytes()).hexdigest().upper())
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), scope)
     accepted = all(eval(compile(ast.Expression(body=node), str(source), "eval"), scope) for node in comparisons + pilot_guards)
     rows.append(dict(label=case["label"], accepted=accepted, expected=case["accepted"]))
-    if case["pending"]:
+    if case["build"] == 28:
         assert scope["candidate_runtime_accepted"] is False
         assert scope["candidate_controlled_pilot_approved"] is False
+        if not case["pending"]:
+            assert scope["latest_completed_finalization"]["buildNumber"] == 28
+            assert scope["latest_finalized_controlled_pilot_approved"] is False
 print(json.dumps(rows))
 `;
   const rows = JSON.parse(execFileSync(process.platform === "win32" ? "python" : "python3", ["-c", script, repositoryRoot], {
@@ -324,6 +374,7 @@ print(json.dumps(rows))
   }));
   assert.equal(rows.length, cases.length);
   assert.deepEqual(rows.filter((row) => row.accepted !== row.expected), []);
+  t.diagnostic(`${rows.length} actual canonical pilot-boundary cases; completed28 stays unpromoted`);
 });
 
 test("source authority follows shipped inputs and backend parity, not governance commits", () => {

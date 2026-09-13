@@ -5370,6 +5370,63 @@ candidate_controlled_pilot_approved = (
 )
 latest_finalized_runtime_accepted = candidate_runtime_accepted
 latest_finalized_controlled_pilot_approved = candidate_controlled_pilot_approved
+promoted_build_number = combined_policy.get("postBuildPromotion", {}).get(
+    "buildNumber"
+)
+promoted_finalization = (
+    completed_finalization_for(promoted_build_number)
+    if isinstance(promoted_build_number, int)
+    else {}
+)
+# Promotion belongs to its exact completed artifact. A completed Build 28 can
+# remain unpromoted while retaining the separately proved Build 27 authority.
+retained_promoted_pilot_approved = (
+    promoted_build_number == 27
+    and promoted_finalization.get("buildNumber") == 27
+    and promoted_finalization.get("status") == "completed-non-distributable"
+    and promoted_finalization.get("completionReceiptFile")
+        == "release/evidence/build-27-finalization-closure.json"
+    and promoted_finalization.get("completionReceiptSha256")
+        == sha(ROOT / "release/evidence/build-27-finalization-closure.json")
+        == "8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6"
+    and promoted_finalization.get("sourceCommit")
+        == build27_finalization.get("sourceAuthority", {}).get("commit")
+    and promoted_finalization.get("runtimeValidationPassed") is True
+    and promoted_finalization.get("controlledPilotApproved") is True
+    and promoted_finalization.get("deviceAcceptanceReceiptFile")
+        == "release/evidence/build-27-device-acceptance.json"
+    and promoted_finalization.get("deviceAcceptanceReceiptSha256")
+        == sha(build27_device_acceptance_path)
+        == "0827A937CC7B57CB0822AA36C5DE2C0008ED138E01FBB7032D4CE90F1F07A028"
+    and build27_device_acceptance.get("release", {}).get("buildNumber") == 27
+    and build27_device_acceptance.get("release", {}).get("apkSha256")
+        == "00846ABFD6342C938C7228601B528664C2FBC3B265B9BF74EF53607D3092AD6C"
+    and build27_device_acceptance.get("adjudication", {}).get(
+        "runtimeValidationPassed"
+    ) is True
+    and combined_policy.get("postBuildPromotion", {}).get(
+        "controlledPilotApproved"
+    ) is True
+    and combined_policy.get("postBuildPromotion", {}).get("promotionReceiptFile")
+        == "release/evidence/build-27-staged-controlled-pilot-authorization.json"
+    and combined_policy.get("postBuildPromotion", {}).get("promotionReceiptSha256")
+        == sha(build27_pilot_promotion_path)
+        == "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B"
+    and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 27
+    and combined_policy.get("distribution", {}).get("promotionReceiptFile")
+        == combined_policy.get("postBuildPromotion", {}).get("promotionReceiptFile")
+    and combined_policy.get("distribution", {}).get("promotionReceiptSha256")
+        == combined_policy.get("postBuildPromotion", {}).get("promotionReceiptSha256")
+    and build27_pilot_promotion.get("admittedEvidence", {}).get(
+        "governedBuild", {}
+    ).get("buildNumber") == 27
+    and build27_pilot_promotion.get("admittedEvidence", {}).get(
+        "governedBuild", {}
+    ).get("finalizationReceiptSha256")
+        == promoted_finalization.get("completionReceiptSha256")
+    and build27_pilot_promotion.get("decision")
+        == "PASS_BUILD27_STAGED_CONTROLLED_PILOT_AUTHORIZED"
+)
 if candidate_pending:
     # A pending Build 28 cannot erase, or inherit, the fixed Build 27 device
     # acceptance and pilot decision retained with its completed predecessor.
@@ -5916,9 +5973,9 @@ check(
         "controlledPilotApproved"
     )
         is candidate_controlled_pilot_approved
-    # The completed predecessor keeps its exact pilot evidence while a new
-    # source-authorized candidate remains ineligible for distribution.
-    and latest_finalized_controlled_pilot_approved
+    # Retaining the promoted predecessor never grants the newer candidate or
+    # requires that the latest finalized artifact has already been promoted.
+    and retained_promoted_pilot_approved
     and combined_policy.get("finalization", {}).get(
         "unrestrictedPlantReleaseApproved"
     )
@@ -5926,14 +5983,14 @@ check(
     and combined_policy.get("distribution", {}).get("approved") is True
     and combined_policy.get("distribution", {}).get(
         "preservedHistoricalAuthority"
-    ) is candidate_pending
+    ) is (promoted_build_number < candidate_build_number)
     and combined_policy.get("distribution", {}).get(
         "appliesToCurrentCandidate"
-    ) is (not candidate_pending)
+    ) is (promoted_build_number == candidate_build_number)
     and combined_policy.get("distribution", {}).get("approvedBuildNumber")
-        == latest_finalized_build_number
+        == promoted_build_number
     and combined_policy.get("distribution", {}).get("authority")
-        == f"exact-build{latest_finalized_build_number}-staged-controlled-pilot"
+        == f"exact-build{promoted_build_number}-staged-controlled-pilot"
     and combined_policy.get("distribution", {}).get("maximumApprovedUsers")
         == 25
     and combined_policy.get("distribution", {}).get("canaryUserCeiling") == 2
