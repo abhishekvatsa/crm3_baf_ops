@@ -9,6 +9,14 @@ import {fileURLToPath} from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+// Historical positive controls must not become pending candidates when the
+// live release policy advances to the next build.
+function readFinalizedBuild27Fixture(file) {
+  assert.ok(["release/production-release-policy.json", "release/current-successor-state.json"].includes(file));
+  return JSON.parse(execFileSync("git", ["--no-replace-objects", "-C", repositoryRoot, "show",
+    `821d50cbd257ae9e9cd04aad989045bbc50a5036:${file}`], {encoding: "utf8", windowsHide: true}));
+}
+
 test("schema 12 exact-source approval preserves historical 11 and refuses a declared downgrade", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-schema12-authority-"));
   const git = (...args) => execFileSync("git", ["--no-replace-objects", "-C", directory, ...args],
@@ -235,13 +243,14 @@ print(json.dumps(rows))
 // the complete release gate or changing the application's repository.
 test("canonical pending Build 28 preserves measured Build 27 labels without inheriting them", () => {
   const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), "utf8"));
-  const policy = read("release/production-release-policy.json");
+  const policy = readFinalizedBuild27Fixture("release/production-release-policy.json");
   const historical = {...policy.finalization, buildNumber: 27};
-  const state = read("release/current-successor-state.json").authorityPlanes;
+  const state = readFinalizedBuild27Fixture("release/current-successor-state.json").authorityPlanes;
   const device = read("release/evidence/build-27-device-acceptance.json");
   const promotion = read("release/evidence/build-27-staged-controlled-pilot-authorization.json");
   const base = {pending: true, build: 28, latest: 27, finalization: historical,
-    policy: {...policy, finalization: {runtimeValidationPassed: false, controlledPilotApproved: false}},
+    policy: {...policy, finalization: {runtimeValidationPassed: false, controlledPilotApproved: false},
+      distribution: {...policy.distribution, preservedHistoricalAuthority: true, appliesToCurrentCandidate: false}},
     state, device, promotion, accepted: true};
   const cases = [{...structuredClone(base), label: "pending28 retains proved27"},
     {...structuredClone(base), label: "completed27 unchanged", pending: false, build: 27, policy}];
@@ -259,8 +268,13 @@ test("canonical pending Build 28 preserves measured Build 27 labels without inhe
   change("prior device must name same build", (row) => { row.device.release.buildNumber = 28; });
   change("prior promotion must name same build", (row) => { row.promotion.admittedEvidence.governedBuild.buildNumber = 28; });
   change("prior runtime cannot use another acceptance hash", (row) => { row.finalization.deviceAcceptanceReceiptSha256 = "0".repeat(64); });
+  change("pending candidate cannot claim pilot approval", (row) => { row.policy.finalization.controlledPilotApproved = true; });
+  change("prior distribution must remain historical", (row) => { row.policy.distribution.preservedHistoricalAuthority = false; });
+  change("prior distribution cannot apply to pending candidate", (row) => { row.policy.distribution.appliesToCurrentCandidate = true; });
+  change("pending candidate cannot copy approved build identity", (row) => { row.policy.distribution.approvedBuildNumber = 28; });
+  change("pending candidate cannot copy pilot authority name", (row) => { row.policy.distribution.authority = "exact-build28-staged-controlled-pilot"; });
   const completed = structuredClone(base);
-  Object.assign(completed, {label: "completed28 does not inherit27", pending: false, latest: 28});
+  Object.assign(completed, {label: "completed28 does not inherit27", pending: false, latest: 28, accepted: false});
   completed.state.latestFinalizedArtifact.runtimeValidation = "NOT_ADJUDICATED_FOR_EXACT_BUILD28";
   completed.state.latestFinalizedArtifact.pilotPromotion = "NOT_AUTHORIZED";
   cases.push(completed);
@@ -277,6 +291,17 @@ comparisons = [node for node in ast.walk(tree) if isinstance(node, ast.Compare) 
     "current_successor_planes.get('latestFinalizedArtifact'" in ast.unparse(node.left) and
     any(".get('" + field + "')" in ast.unparse(node.left) for field in ["runtimeValidation", "pilotPromotion"])]
 assert len(comparisons) == 2
+target = next(node.value for node in tree.body if isinstance(node, ast.Expr) and
+    isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == "check" and
+    node.value.args and isinstance(node.value.args[0], ast.Constant) and
+    node.value.args[0].value == "Historical builds are preserved and current candidate authority is exact")
+pilot_fields = {"combined_policy.get('finalization', {}).get('controlledPilotApproved')"} | {
+    "combined_policy.get('distribution', {}).get('" + field + "')" for field in
+    ["preservedHistoricalAuthority", "appliesToCurrentCandidate", "approvedBuildNumber", "authority"]}
+pilot_guards = [node for node in target.args[1].values if
+    (isinstance(node, ast.Compare) and ast.unparse(node.left) in pilot_fields) or
+    (isinstance(node, ast.Name) and node.id == "latest_finalized_controlled_pilot_approved")]
+assert len(pilot_guards) == 6
 rows = []
 for case in json.load(sys.stdin):
     scope = dict(candidate_pending=case["pending"], candidate_build_number=case["build"],
@@ -287,7 +312,7 @@ for case in json.load(sys.stdin):
         build27_pilot_promotion_path=root / "release/evidence/build-27-staged-controlled-pilot-authorization.json",
         sha=lambda path: hashlib.sha256(path.read_bytes()).hexdigest().upper())
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), scope)
-    accepted = all(eval(compile(ast.Expression(body=node), str(source), "eval"), scope) for node in comparisons)
+    accepted = all(eval(compile(ast.Expression(body=node), str(source), "eval"), scope) for node in comparisons + pilot_guards)
     rows.append(dict(label=case["label"], accepted=accepted, expected=case["accepted"]))
     if case["pending"]:
         assert scope["candidate_runtime_accepted"] is False
@@ -421,7 +446,7 @@ test("Build 28 cloud custody consumes all six generation proofs and preserves hi
     sha256: "3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88",
   };
   const completion = read("release/evidence/build-27-finalization-closure.json");
-  const policy = read("release/production-release-policy.json");
+  const policy = readFinalizedBuild27Fixture("release/production-release-policy.json");
   const historical = {label: "historical27", completion: structuredClone(completion), policy: structuredClone(policy), accepted: true};
   Object.assign(completion.release, {buildNumber: 28, versionName: "1.0.0-rc.18", releaseId: "crm3-baf-ops-1.0.0-rc.18-b28"});
   const bucket = "crm3-baf-ops-b8638-firestore-restore";

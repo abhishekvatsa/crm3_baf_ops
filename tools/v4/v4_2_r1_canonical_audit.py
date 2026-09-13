@@ -5915,7 +5915,10 @@ check(
     and combined_policy.get("finalization", {}).get(
         "controlledPilotApproved"
     )
-        is True
+        is candidate_controlled_pilot_approved
+    # The completed predecessor keeps its exact pilot evidence while a new
+    # source-authorized candidate remains ineligible for distribution.
+    and latest_finalized_controlled_pilot_approved
     and combined_policy.get("finalization", {}).get(
         "unrestrictedPlantReleaseApproved"
     )
@@ -5923,14 +5926,14 @@ check(
     and combined_policy.get("distribution", {}).get("approved") is True
     and combined_policy.get("distribution", {}).get(
         "preservedHistoricalAuthority"
-    ) is False
+    ) is candidate_pending
     and combined_policy.get("distribution", {}).get(
         "appliesToCurrentCandidate"
-    ) is True
+    ) is (not candidate_pending)
     and combined_policy.get("distribution", {}).get("approvedBuildNumber")
-        == candidate_build_number
+        == latest_finalized_build_number
     and combined_policy.get("distribution", {}).get("authority")
-        == f"exact-build{candidate_build_number}-staged-controlled-pilot"
+        == f"exact-build{latest_finalized_build_number}-staged-controlled-pilot"
     and combined_policy.get("distribution", {}).get("maximumApprovedUsers")
         == 25
     and combined_policy.get("distribution", {}).get("canaryUserCeiling") == 2
