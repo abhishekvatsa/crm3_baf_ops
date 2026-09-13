@@ -14,6 +14,26 @@ List<Map<String, dynamic>> _objects(dynamic value) => (value as List<dynamic>)
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
+// Build 27 keeps its measured runtime and pilot authority while a later build
+// is pending or signed but unpromoted, so resolve it through the completed
+// chain instead of assuming it is the current finalization.
+Map<String, dynamic> _build27Finalization(Map<String, dynamic> policy) {
+  var entry = (policy['finalization'] as Map).cast<String, dynamic>();
+  Object? buildNumber = (policy['release'] as Map)['buildNumber'];
+  while (buildNumber != 27) {
+    final prior = entry['priorCompletedBuild'];
+    expect(
+      prior,
+      isA<Map>(),
+      reason: 'Build 27 must remain in the completed finalization chain.',
+    );
+    entry = (prior as Map).cast<String, dynamic>();
+    buildNumber = entry['buildNumber'];
+  }
+  expect(entry['status'], 'completed-non-distributable');
+  return entry;
+}
+
 void main() {
   const deviceEvidencePath = 'release/evidence/build-27-device-acceptance.json';
   const ownerApprovalPath =
@@ -262,8 +282,10 @@ void main() {
 
   test('current policy projects Build 27 and preserves Build 11 history', () {
     final policy = _readObject('release/production-release-policy.json');
-    final finalization = (policy['finalization'] as Map)
+    final currentFinalization = (policy['finalization'] as Map)
         .cast<String, dynamic>();
+    final build27IsCurrent = (policy['release'] as Map)['buildNumber'] == 27;
+    final finalization = _build27Finalization(policy);
     final promotion = (policy['postBuildPromotion'] as Map)
         .cast<String, dynamic>();
     final distribution = (policy['distribution'] as Map)
@@ -302,12 +324,21 @@ void main() {
     expect(distribution['pilotHandoutPerformed'], isFalse);
     expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
     expect(
-      policy['knownOpenGates'],
+      build27IsCurrent
+          ? policy['knownOpenGates']
+          : finalization['knownOpenGates'],
       containsAll(<String>[
         'BUILD27_MUTATING_BUSINESS_FLOW_VALIDATION',
         'BUILD27_STAGED_PILOT_HANDOUT_EXECUTION_RECEIPTS',
       ]),
     );
+    if (!build27IsCurrent) {
+      // A later pending or signed build keeps Build 27 as the only pilot
+      // authority until its own promotion is separately recorded.
+      expect(currentFinalization['controlledPilotApproved'], isFalse);
+      expect(distribution['preservedHistoricalAuthority'], isTrue);
+      expect(distribution['appliesToCurrentCandidate'], isFalse);
+    }
 
     final build11Promotion = historicalPromotions.singleWhere(
       (entry) => entry['buildNumber'] == 11,
@@ -349,15 +380,14 @@ void main() {
 
   test('pending successor preserves Build 27 runtime and pilot history', () {
     final policy = _readObject('release/production-release-policy.json');
-    final currentFinalization = (policy['finalization'] as Map)
-        .cast<String, dynamic>();
+    final build27Finalization = _build27Finalization(policy);
     final currentDistribution = (policy['distribution'] as Map)
         .cast<String, dynamic>();
     final pendingFinalization = <String, dynamic>{
       'status': 'pending-source-authorized',
       'controlledPilotApproved': false,
       'priorCompletedBuild': <String, dynamic>{
-        ...currentFinalization,
+        ...build27Finalization,
         'buildNumber': 27,
       },
     };
@@ -443,8 +473,14 @@ void main() {
     final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
     final historicalPilot = (planes['historicalControlledPilot'] as Map)
         .cast<String, dynamic>();
-    expect(artifact['buildNumber'], 27);
-    expect(artifact['pilotPromotionReceiptSha256'], promotionSha);
+    if (artifact['buildNumber'] == 27) {
+      expect(artifact['pilotPromotionReceiptSha256'], promotionSha);
+    } else {
+      // A later signed build is recorded before any pilot decision for it.
+      expect(artifact['buildNumber'], greaterThan(27));
+      expect(artifact['pilotPromotion'], 'NOT_AUTHORIZED');
+      expect(artifact['pilotPromotionReceiptSha256'], isNull);
+    }
     expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
     expect(pilot['buildNumber'], 27);
     expect(pilot['handoutPerformed'], isFalse);
@@ -461,5 +497,48 @@ void main() {
     );
     expect(historicalPilot['buildNumber'], 11);
     expect(historicalPilot['appliesToCurrentSource'], isFalse);
+  });
+
+  test('later pending or signed builds retain Build 27 through the chain', () {
+    final policy = _readObject('release/production-release-policy.json');
+    final build27 = <String, dynamic>{
+      ..._build27Finalization(policy),
+      'buildNumber': 27,
+    };
+    for (final status in <String>[
+      'pending-source-authorized',
+      'completed-non-distributable',
+    ]) {
+      final later = <String, dynamic>{
+        ...policy,
+        'release': <String, dynamic>{
+          ...(policy['release'] as Map).cast<String, dynamic>(),
+          'buildNumber': 28,
+        },
+        'finalization': <String, dynamic>{
+          'status': status,
+          'controlledPilotApproved': false,
+          'priorCompletedBuild': build27,
+        },
+      };
+      final retained = _build27Finalization(later);
+      expect(retained['runtimeValidationPassed'], isTrue, reason: status);
+      expect(retained['controlledPilotApproved'], isTrue, reason: status);
+      expect(
+        retained['physicalInstallationReceiptSha256'],
+        deviceEvidenceSha,
+        reason: status,
+      );
+    }
+    expect(
+      () => _build27Finalization(<String, dynamic>{
+        'release': <String, dynamic>{'buildNumber': 28},
+        'finalization': <String, dynamic>{
+          'status': 'completed-non-distributable',
+          'controlledPilotApproved': false,
+        },
+      }),
+      throwsA(isA<TestFailure>()),
+    );
   });
 }
