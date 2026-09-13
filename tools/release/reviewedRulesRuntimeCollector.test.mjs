@@ -306,3 +306,20 @@ test('runtime rechecks exact checkout after all measurements', t => {
   f.state.onCheckout = count => { if (count === 2) f.state.checkout.materialChangeCount = 1; };
   assert.throws(() => f.load().measureRulesRuntime(f.args), /exact clean main/);
 });
+for (const phase of ['second installer', 'final source observation']) {
+  test(`runtime rejects installed CLI changed during ${phase}`, t => {
+    const f = fixture(t), directory = f.installTree();
+    const cliFile = path.join(directory, 'firebase-tools', 'lib', 'bin', 'firebase.js');
+    const before = actual.measureByteTree(directory);
+    let changed = false, versionCalls = 0;
+    const mutate = () => { write(cliFile, 'altered CLI after initial installed-tree measurement'); changed = true; };
+    if (phase === 'second installer') {
+      f.state.onExec = executable => { if (executable !== 'git' && ++versionCalls === 2) mutate(); };
+    } else {
+      f.state.onCheckout = count => { if (count === 2) mutate(); };
+    }
+    assert.throws(() => f.load().measureRulesRuntime(f.args), /installed tree changed during runtime measurement/);
+    assert.equal(changed, true);
+    assert.notEqual(actual.measureByteTree(directory).sha256, before.sha256);
+  });
+}

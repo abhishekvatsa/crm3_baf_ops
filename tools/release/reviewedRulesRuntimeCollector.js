@@ -211,8 +211,13 @@ function measureRulesRuntime({repoRoot, sourceCommit, sourceTree, nodeExecutable
   sourceIdentity(repoRoot, sourceCommit, sourceTree, true);
   exactCheckout(collectSourceBinding(repoRoot), source);
   requireCleanEnvironment(); requireAbsentAncestors(repoRoot);
+  const executionRootSha256 = pathDigest(repoRoot);
+  // Later installer/source observations must not leave an earlier CLI digest
+  // authoritative after its actual installed files have changed.
+  same(measureByteTree(path.join(repoRoot, CLI, "node_modules")), installedTree,
+    "installed tree changed during runtime measurement");
   return {schemaVersion: 1, collectionStartedAtUtc, capturedAtUtc: new Date().toISOString(), identity: {
-    source: {...source, executionRootSha256: pathDigest(repoRoot)}, ...installer, installedTree,
+    source: {...source, executionRootSha256}, ...installer, installedTree,
     ancestorNodeModulesAbsent: true, nodeOptionsAbsent: true, nodePathAbsent: true,
   }};
 }
