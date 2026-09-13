@@ -134,7 +134,7 @@ function firebaseJson(repositoryRoot, args) {
     "firebase.js",
   );
   const parsed = JSON.parse(
-    runText(process.execPath, [firebaseBin, ...args, "--json"], {
+    runText(process.execPath, ["--no-global-search-paths", firebaseBin, ...args, "--json"], {
       cwd: repositoryRoot,
     }),
   );
@@ -494,6 +494,7 @@ module.exports = {
   adjudicateReadback,
   collectSourceBinding,
   collectReadbackEvidence,
+  firebaseJson,
   isPathInside,
   listCompositeIndexes,
   normalizedIndexSet,
