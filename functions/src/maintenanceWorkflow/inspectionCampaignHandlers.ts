@@ -5,7 +5,8 @@ import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
 import {requireInspectionContextReview} from "./inspectionTargetContextHandlers";
 import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
 import {activeInspectionFindings, assertInspectionFindingActivation,
-  effectiveInspectionHistory, inspectionEpisodeProjection,
+  assertInspectionEvidenceWithinEpisode, effectiveInspectionHistory, inspectionEpisodeProjection,
+  terminalInspectionEvidenceOwner,
   touchInspectionFindingPopulation} from "./inspectionFindingIntegrity";
 import {
   Actor,
@@ -1514,16 +1515,23 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     }) : targetPopulation;
   let findingId: string | null = null;
   const activeFinding = activeFindings[0] ?? null;
-  const episode = inspectionEpisodeProjection(history, activeFinding?.data ?? null);
-  const episodeChanged = activeFinding?.data != null && Object.entries(episode)
+  const reviewedFinding = superseded?.data == null ? null :
+    terminalInspectionEvidenceOwner(findingRows, history, String(superseded.data.observationId));
+  const existingFinding = reviewedFinding ?? activeFinding;
+  const retainedDecision = existingFinding == null ?
+    terminalInspectionEvidenceOwner(findingRows, history, effectiveId) : null;
+  const episode = inspectionEpisodeProjection(history, existingFinding?.data ?? null);
+  const episodeChanged = existingFinding?.data != null && Object.entries(episode)
     .some(([key, value]) => key === "firstObservedAt" ?
-      persistedInstantText(activeFinding.data![key]) !== persistedInstantText(value) :
-      (activeFinding.data![key] ?? null) !== value);
-  if ((advancesCurrentEvidence || episodeChanged) && (effective.outOfRange === true || activeFinding != null)) {
-    findingId = typeof activeFinding?.data?.findingId === "string" ?
-      activeFinding.data.findingId : `inspection-finding-${effectiveId}`;
+      persistedInstantText(existingFinding.data![key]) !== persistedInstantText(value) :
+      (existingFinding.data![key] ?? null) !== value);
+  if (retainedDecision == null && (advancesCurrentEvidence || episodeChanged) &&
+      (effective.outOfRange === true || existingFinding != null)) {
+    findingId = typeof existingFinding?.data?.findingId === "string" ?
+      existingFinding.data.findingId : `inspection-finding-${effectiveId}`;
     assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history);
-    const previous = activeFinding?.data ?? null;
+    const previous = existingFinding?.data ?? null;
+    if (previous != null) assertInspectionEvidenceWithinEpisode(history, previous);
     const findingVersion = previous == null ? 1 : Number(previous.version ?? 0) + 1;
     const finding: JsonMap = {
       schemaVersion: 1,
@@ -1550,19 +1558,23 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       updatedByUid: context.actor.uid,
       updatedByName: context.actor.name,
     };
-    if (activeFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
-    else tx.update(activeFinding.path, finding);
+    if (existingFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
+    else tx.update(existingFinding.path, finding);
     touchInspectionFindingPopulation(tx, campaignId, campaign.data);
     tx.create(`inspection_finding_events/${command.commandId}`, {
       schemaVersion: 1,
       eventId: command.commandId,
       findingId,
       campaignId,
-      operation: previous == null ? "create" : "record-follow-up-observation",
+      operation: reviewedFinding != null ? "reopen-after-observation-correction" :
+        previous == null ? "create" : "record-follow-up-observation",
+      previousFindingVersion: previous?.version ?? null,
+      resultingFindingVersion: findingVersion,
       previousStatus: previous?.status ?? null,
       resultingStatus: finding.status,
       observationId,
       effectiveObservationId: effectiveId,
+      supersededObservationId: observation.supersedesObservationId,
       performedAt: now,
       performedByUid: context.actor.uid,
       performedByName: context.actor.name,

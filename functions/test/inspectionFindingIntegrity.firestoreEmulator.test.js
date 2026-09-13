@@ -109,4 +109,68 @@ describeLocal('inspection effective history and shared finding activation on rea
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
     expect((await campaign()).status === 'closed' && (await active()).length > 0).toBe(false);
   });
+
+  test.each(['verifiedResolved', 'acceptedCondition', 'invalidated'])(
+    'terminal %s follow-up correction reuses the original episode on real Firestore instead of create collision', async (status) => {
+    await record('first', '05:10', 1.8); await record('healthy', '05:20', 3);
+    if (status === 'verifiedResolved') await run({commandId: 'verify-original', commandType: 'verifyInspectionFinding', aggregateId: campaignId,
+      expectedVersion: (await campaign()).version, payload: {findingId: 'inspection-finding-first',
+        expectedFindingVersion: (await finding()).version, observationId: 'healthy', outcome: 'resolved',
+        reason: 'Certify the original current healthy reading.'}});
+    else await run(await adjudication('verify-original', 'inspection-finding-first', status));
+    const prior = await finding(), original = await read('inspection_observations/healthy');
+    const decision = await read('inspection_finding_events/verify-original');
+    expect(decision).toMatchObject({eventId: 'verify-original', findingId: prior.findingId,
+      resultingStatus: status, operation: status === 'verifiedResolved' ? 'verify' : 'adjudicate'});
+    const verification = status === 'verifiedResolved' ? await read('inspection_verifications/verify-original') : null;
+    if (status === 'verifiedResolved') expect(verification).toMatchObject({findingId: prior.findingId,
+      observationId: 'healthy', outcome: 'resolved'});
+    const correction = await record('corrected-healthy', '05:00', 3, 'healthy');
+    expect(correction.result).toMatchObject({findingId: prior.findingId, effectiveObservationId: 'first'});
+    expect(await finding()).toMatchObject({findingId: prior.findingId, version: prior.version + 1,
+      episodeOriginObservationId: 'first', currentObservationId: 'first', status: 'open',
+      createdAt: prior.createdAt, verificationCount: prior.verificationCount});
+    expect(await read('inspection_observations/healthy')).toEqual(original);
+    expect(await read('inspection_finding_events/verify-original')).toEqual(decision);
+    if (status === 'verifiedResolved') expect(await read('inspection_verifications/verify-original')).toEqual(verification);
+    expect(await active()).toHaveLength(1);
+  });
+
+  test('correcting an unowned reading does not undo a prior terminal decision on stored Timestamp evidence', async () => {
+    await record('first', '05:10', 1.8); await run(await adjudication('accept', 'inspection-finding-first', 'acceptedCondition'));
+    const prior = await finding(); await record('unowned', '05:20', 3);
+    const result = await record('corrected-unowned', '05:00', 3, 'unowned');
+    expect(result.result).toMatchObject({findingId: null, effectiveObservationId: 'first'});
+    expect(await finding()).toEqual(prior); expect(await active()).toHaveLength(0);
+    expect((await campaign()).targetPopulation[0].lastObservationId).toBe('first');
+  });
+
+  test.each([0, 1, 2])('terminal correction versus a new adverse episode commits one history without collision, run%s', async () => {
+    await record('first', '05:10', 1.8); await record('healthy', '05:20', 3);
+    await run(await adjudication('accept', 'inspection-finding-first', 'acceptedCondition'));
+    const version = (await campaign()).version;
+    const correction = observation({commandId: 'corrected', observationId: 'corrected', expectedVersion: version,
+      observedAt: '2026-08-21T05:00:00.000Z', numericValue: 3});
+    correction.payload.supersedesObservationId = 'healthy';
+    const recurrence = observation({commandId: 'new-adverse', observationId: 'new-adverse', expectedVersion: version,
+      observedAt: '2026-08-21T05:30:00.000Z', numericValue: 1.7});
+    const results = await Promise.allSettled([run(correction), run(recurrence, secondActor)]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const refusal = results.find(result => result.status === 'rejected').reason;
+    // The local emulator can exhaust a contending native transaction before
+    // retrying our version guard. Admit only its exact closed-transaction error;
+    // an unchanged retry below must still prove the actual domain refusal.
+    if (refusal.code !== 'aborted') expect({code: refusal.code, details: refusal.details})
+      .toEqual({code: 3, details: 'Transaction is invalid or closed.'});
+    const live = await active(); expect(live).toHaveLength(1);
+    expect(['inspection-finding-first', 'inspection-finding-new-adverse']).toContain(live[0].findingId);
+    const winner = results[0].status === 'fulfilled' ? [correction, actor] : [recurrence, secondActor];
+    const loser = results[0].status === 'fulfilled' ? [recurrence, secondActor] : [correction, actor];
+    const priorCampaign = await campaign(), priorFinding = await finding(live[0].findingId);
+    await expect(run(...winner)).resolves.toEqual(results.find(result => result.status === 'fulfilled').value);
+    await expect(run(...loser)).rejects.toMatchObject({code: 'aborted'});
+    expect(await campaign()).toEqual(priorCampaign); expect(await finding(live[0].findingId)).toEqual(priorFinding);
+    const loserId = results[0].status === 'fulfilled' ? 'new-adverse' : 'corrected';
+    expect((await db.doc(`inspection_observations/${loserId}`).get()).exists).toBe(false);
+  });
 });

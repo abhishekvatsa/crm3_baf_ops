@@ -189,6 +189,109 @@ test('a backdated new input cannot recreate a finding from already adjudicated c
   expect(f.campaign().targetPopulation[0].lastObservationId).toBe('first');
 });
 
+test.each(['verifiedResolved', 'acceptedCondition', 'invalidated'])(
+  'correcting terminal %s follow-up preserves and reopens its original episode instead of recreating its ID', async (status) => {
+    const f = await setup(); await f.read('first', '05:10', 1.8); await f.read('healthy', '05:20', 3);
+    if (status === 'verifiedResolved') await f.verify('terminal-decision', 'healthy');
+    else await f.adjudicate('terminal-decision', 'inspection-finding-first', status);
+    const prior = f.finding(), original = f.store.read('inspection_observations/healthy');
+    const decision = f.store.read('inspection_finding_events/terminal-decision');
+    const correction = await f.read('corrected-healthy', '05:00', 3, 'healthy');
+    expect(correction.result).toMatchObject({findingId: prior.findingId, effectiveObservationId: 'first'});
+    expect(f.finding()).toMatchObject({findingId: prior.findingId, version: prior.version + 1,
+      episodeOriginObservationId: 'first', currentObservationId: 'first', status: 'open',
+      createdAt: prior.createdAt, createdByUid: prior.createdByUid, verificationCount: prior.verificationCount});
+    expect(f.store.read('inspection_observations/healthy')).toEqual(original);
+    expect(f.store.read('inspection_finding_events/terminal-decision')).toEqual(decision);
+    expect(f.store.read('inspection_finding_events/corrected-healthy')).toMatchObject({
+      operation: 'reopen-after-observation-correction', previousStatus: status, resultingStatus: 'open',
+      previousFindingVersion: prior.version, resultingFindingVersion: prior.version + 1,
+      supersededObservationId: 'healthy', effectiveObservationId: 'first'});
+    for (const key of ['adjudicationReason', 'adjudicatedAt', 'adjudicatedByUid',
+      'lastVerificationId', 'lastVerifiedObservationId', 'lastVerificationOutcome']) {
+      expect(f.finding()[key]).toEqual(prior[key]);
+    }
+    expect(f.store.entries().filter(([path]) => path.startsWith('inspection_findings/'))).toHaveLength(1);
+    expect(f.campaign().targetPopulation[0].lastObservationId).toBe('first');
+  });
+
+test('terminal correction uses the reviewed episode even when its surviving adverse reading never had a finding ID', async () => {
+  const f = await setup(); await f.read('first', '05:00', 1.8); await f.read('later-adverse', '05:10', 1.7);
+  await f.read('healthy', '05:20', 3); await f.verify('terminal', 'healthy');
+  await f.read('corrected-healthy', '05:05', 3, 'healthy');
+  expect(f.finding()).toMatchObject({status: 'open', episodeOriginObservationId: 'first',
+    currentObservationId: 'later-adverse', recurrenceCount: 2, effectiveAdverseObservationCount: 2});
+  expect(f.finding('inspection-finding-later-adverse')).toBeNull();
+});
+
+test('correcting a later unowned reading restores terminal evidence without undoing its adjudication', async () => {
+  const f = await setup(); await f.read('first', '05:10', 1.8);
+  await f.adjudicate('terminal', 'inspection-finding-first', 'acceptedCondition');
+  const prior = f.finding(); await f.read('later-unowned', '05:20', 3);
+  const result = await f.read('corrected-unowned', '05:00', 3, 'later-unowned');
+  expect(result.result).toMatchObject({findingId: null, effectiveObservationId: 'first', currentEvidenceAdvanced: true});
+  expect(f.finding()).toEqual(prior);
+  expect(f.campaign().targetPopulation[0].lastObservationId).toBe('first');
+  expect(f.store.read('inspection_finding_events/corrected-unowned')).toBeNull();
+  await f.read('new-adverse', '05:30', 1.7);
+  expect(f.finding('inspection-finding-new-adverse')).toMatchObject({status: 'open',
+    episodeOriginObservationId: 'new-adverse', recurrenceCount: 1});
+  expect(f.finding()).toEqual(prior);
+});
+
+test('correcting terminal adverse evidence to normal retains its zero-basis explicit review hold', async () => {
+  const f = await setup(); await f.read('first', '05:10', 1.8);
+  await f.adjudicate('terminal', 'inspection-finding-first', 'acceptedCondition');
+  await f.read('corrected-first', '05:20', 3, 'first');
+  expect(f.finding()).toMatchObject({status: 'awaitingVerification', recurrenceCount: 1,
+    effectiveAdverseObservationCount: 0, evidenceReviewRequired: true,
+    evidenceReviewReason: 'inspection-episode-adverse-basis-corrected', currentObservationId: 'corrected-first'});
+  const before = f.store.entries();
+  await expect(f.verify('invalid-technical-resolution', 'corrected-first')).rejects.toMatchObject({details: {
+    reasonCode: 'inspection-finding-effective-evidence-review-required'}});
+  expect(f.store.entries()).toEqual(before);
+  await f.adjudicate('explicit-new-review', 'inspection-finding-first', 'invalidated');
+});
+
+test.each(['open', 'acceptedCondition'])(
+  'a correction cannot merge earlier terminal evidence into a newer %s episode', async (status) => {
+    const f = await setup(); await f.read('first', '05:10', 1.8);
+    await f.adjudicate('terminal-first', 'inspection-finding-first', 'acceptedCondition');
+    await f.read('second', '05:20', 1.7);
+    if (status !== 'open') await f.adjudicate('terminal-second', 'inspection-finding-second', status);
+    const before = f.store.entries();
+    await expect(f.read('exposes-earlier', '05:00', 3, 'second')).rejects.toMatchObject({details: {
+      reasonCode: 'inspection-correction-earlier-episode-review', findingId: 'inspection-finding-second'}});
+    expect(f.store.entries()).toEqual(before);
+  });
+
+test('terminal history keeps the current-only correction contract and ambiguous ownership fails closed', async () => {
+  const f = await setup(); await f.read('first', '05:10', 1.8); await f.read('healthy', '05:20', 3);
+  await f.verify('terminal', 'healthy');
+  const before = f.store.entries();
+  await expect(f.read('non-current-basis', '05:30', 3, 'first')).rejects.toMatchObject({details: {
+    reasonCode: 'inspection-correction-not-current'}});
+  expect(f.store.entries()).toEqual(before);
+  f.store.seed('inspection_findings/ambiguous', {...f.finding(), findingId: 'ambiguous'});
+  const ambiguous = f.store.entries();
+  await expect(f.read('ambiguous-correction', '05:00', 3, 'healthy')).rejects.toMatchObject({details: {
+    reasonCode: 'inspection-observation-history-invalid'}});
+  expect(f.store.entries()).toEqual(ambiguous);
+});
+
+test('accepted terminal correction replays its original receipt after a later follow-up without duplicate history', async () => {
+  const f = await setup(); await f.read('first', '05:10', 1.8); await f.read('healthy', '05:20', 3);
+  await f.verify('terminal', 'healthy');
+  const command = observation({commandId: 'correction', observationId: 'correction', expectedVersion: f.campaign().version,
+    observedAt: '2026-08-21T05:00:00.000Z', numericValue: 3});
+  command.payload.supersedesObservationId = 'healthy';
+  const receipt = await f.run(command); await f.read('next-healthy', '05:30', 3);
+  const before = f.store.entries();
+  await expect(f.run(command)).resolves.toEqual(receipt);
+  await expect(f.run({...command, payload: {...command.payload, note: 'Altered intent'}})).rejects.toMatchObject({code: 'command-idempotency-conflict'});
+  expect(f.store.entries()).toEqual(before);
+});
+
 test.each(['missing-parent', 'cycle', 'branched-correction', 'wrong-physical-subject', 'wrong-current-projection'])(
   'malformed %s history cannot support verification', async (kind) => {
     const f = await setup(); await f.read('first', '04:50', 1.8); await f.read('healthy', '05:10', 3);

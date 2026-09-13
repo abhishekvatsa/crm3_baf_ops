@@ -130,6 +130,44 @@ export function activeInspectionFindings(rows: readonly DocSnapshot[], targetKey
   return rows.filter((row) => !terminal.has(String(row.data!.status)));
 }
 
+function originalReadingVersion(history: InspectionHistory, observationId: unknown): number {
+  let reading = history.all.get(id(observationId));
+  if (reading == null) historyRefusal();
+  while (reading.supersedesObservationId != null) reading = history.all.get(id(reading.supersedesObservationId))!;
+  const version = reading.campaignVersionAtObservation;
+  if (!Number.isSafeInteger(version) || (version as number) < 1) historyRefusal();
+  return version as number;
+}
+
+/** A terminal decision covers only the episode's original recording boundary
+ * through its saved reviewed reading. Later unowned readings do not silently
+ * become part of that decision. Correction chains retain their original order.
+ * Ambiguous historical ownership must be reviewed rather than guessed. */
+export function terminalInspectionEvidenceOwner(
+  rows: readonly DocSnapshot[], history: InspectionHistory, observationId: string,
+): DocSnapshot | null {
+  const version = originalReadingVersion(history, observationId);
+  const owners = rows.filter((row) => {
+    if (!terminal.has(String(row.data?.status))) return false;
+    const first = originalReadingVersion(history, row.data!.episodeOriginObservationId ?? row.data!.firstObservationId);
+    const reviewed = originalReadingVersion(history, row.data!.currentObservationId);
+    if (reviewed < first) historyRefusal();
+    return first <= version && version <= reviewed;
+  });
+  if (owners.length > 1) historyRefusal();
+  return owners[0] ?? null;
+}
+
+export function assertInspectionEvidenceWithinEpisode(history: InspectionHistory, finding: JsonMap): void {
+  if (originalReadingVersion(history, history.current.observationId) <
+      originalReadingVersion(history, finding.episodeOriginObservationId ?? finding.firstObservationId)) {
+    throw new WorkflowError("failed-precondition",
+      "This correction exposes earlier episode evidence. Review the separate finding histories before changing this decision.",
+      {reasonCode: "inspection-correction-earlier-episode-review", findingId: finding.findingId,
+        effectiveObservationId: history.current.observationId});
+  }
+}
+
 /** Older terminal episodes remain separate history. Reopening one after a
  * later episode exists would otherwise absorb that episode's adjudicated
  * observations through a lower-bound-only recurrence projection. */
