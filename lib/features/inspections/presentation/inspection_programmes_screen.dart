@@ -1561,6 +1561,8 @@ class _FindingCard extends StatelessWidget {
                     _findingStatusLabel(finding.status),
                     style: TextStyle(color: color, fontWeight: FontWeight.w800),
                   ),
+                  if (finding.evidenceReviewMessage != null)
+                    Text(finding.evidenceReviewMessage!),
                   if (finding.physicalPosition != null)
                     Text(
                       finding.physicalPosition!,
@@ -1574,7 +1576,7 @@ class _FindingCard extends StatelessWidget {
                       _InfoChip(
                         icon: Icons.replay_rounded,
                         text:
-                            '${finding.recurrenceCount} abnormal reading${finding.recurrenceCount == 1 ? '' : 's'}',
+                            '${finding.effectiveAbnormalReadingCount} effective abnormal reading${finding.effectiveAbnormalReadingCount == 1 ? '' : 's'}',
                       ),
                       if (finding.linkedTicketId != null)
                         const _InfoChip(
@@ -1600,7 +1602,8 @@ class _FindingCard extends StatelessWidget {
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'verify',
-                    enabled: hasLaterObservation,
+                    enabled:
+                        hasLaterObservation && !finding.evidenceReviewRequired,
                     child: const ListTile(
                       leading: Icon(Icons.verified_outlined),
                       title: Text('Verify from later reading'),

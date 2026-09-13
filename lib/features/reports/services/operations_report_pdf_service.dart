@@ -1217,7 +1217,7 @@ class OperationsReportPdfService {
           'Component / position',
           'Status',
           'First / latest observation',
-          'Recurrence',
+          'Effective abnormal readings',
           'Corrective / verification evidence',
         ],
         rows: report.inspectionFindings
@@ -1229,10 +1229,11 @@ class OperationsReportPdfService {
                 _reportLabel(finding.status.name),
                 '${_dateTime.format(finding.firstObservedAt.toLocal())}\n'
                     '${_dateTime.format(finding.latestObservedAt.toLocal())}',
-                '${finding.recurrenceCount}',
+                '${finding.effectiveAbnormalReadingCount}',
                 '${finding.linkedTicketId == null ? 'No linked issue' : 'Issue ${finding.linkedTicketId}'}\n'
                     '${finding.verificationCount} verification(s)'
-                    '${finding.lastVerificationOutcome == null ? '' : '; ${_reportLabel(finding.lastVerificationOutcome!.name)}'}',
+                    '${finding.lastVerificationOutcome == null ? '' : '; ${_reportLabel(finding.lastVerificationOutcome!.name)}'}'
+                    '${finding.evidenceReviewMessage == null ? '' : '\n${finding.evidenceReviewMessage}'}',
               ],
             )
             .toList(growable: false),

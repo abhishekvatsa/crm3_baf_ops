@@ -1136,6 +1136,9 @@ class InspectionFinding {
     required this.firstObservedAt,
     required this.latestObservedAt,
     required this.recurrenceCount,
+    this.effectiveAdverseObservationCount,
+    this.evidenceReviewRequired = false,
+    this.evidenceReviewReason,
     required this.linkedTicketId,
     required this.verificationCount,
     required this.lastVerificationOutcome,
@@ -1161,17 +1164,38 @@ class InspectionFinding {
   final DateTime firstObservedAt;
   final DateTime latestObservedAt;
   final int recurrenceCount;
+  final int? effectiveAdverseObservationCount;
+  final bool evidenceReviewRequired;
+  final String? evidenceReviewReason;
   final String? linkedTicketId;
   final int verificationCount;
   final InspectionComparisonOutcome? lastVerificationOutcome;
   final DateTime updatedAt;
 
-  bool get blocksCampaignClosure => !{
-    InspectionFindingStatus.correctiveActionLinked,
-    InspectionFindingStatus.verifiedResolved,
-    InspectionFindingStatus.acceptedCondition,
-    InspectionFindingStatus.invalidated,
-  }.contains(status);
+  int get effectiveAbnormalReadingCount =>
+      effectiveAdverseObservationCount ?? recurrenceCount;
+
+  bool get needsEvidenceAdjudication =>
+      evidenceReviewRequired &&
+      !{
+        InspectionFindingStatus.acceptedCondition,
+        InspectionFindingStatus.invalidated,
+      }.contains(status);
+
+  String? get evidenceReviewMessage => evidenceReviewRequired
+      ? needsEvidenceAdjudication
+            ? 'The abnormal evidence was corrected. Review this finding and record a decision before closing it.'
+            : 'The abnormal evidence was corrected and this finding was explicitly reviewed.'
+      : null;
+
+  bool get blocksCampaignClosure =>
+      needsEvidenceAdjudication ||
+      !{
+        InspectionFindingStatus.correctiveActionLinked,
+        InspectionFindingStatus.verifiedResolved,
+        InspectionFindingStatus.acceptedCondition,
+        InspectionFindingStatus.invalidated,
+      }.contains(status);
 
   String get rowLabel => hostAssetNumber != null && subjectSerialNumber != null
       ? 'Base $hostAssetNumber ($subjectSerialNumber)'
@@ -1297,6 +1321,24 @@ class InspectionFinding {
         source: source,
         minimum: 1,
       ),
+      effectiveAdverseObservationCount: readOptionalPersistedInt(
+        map['effectiveAdverseObservationCount'],
+        field: 'effectiveAdverseObservationCount',
+        source: source,
+        minimum: 0,
+      ),
+      evidenceReviewRequired:
+          readOptionalPersistedBool(
+            map['evidenceReviewRequired'],
+            field: 'evidenceReviewRequired',
+            source: source,
+          ) ??
+          false,
+      evidenceReviewReason: readOptionalPersistedString(
+        map['evidenceReviewReason'],
+        field: 'evidenceReviewReason',
+        source: source,
+      ),
       linkedTicketId: readOptionalPersistedString(
         map['linkedTicketId'],
         field: 'linkedTicketId',
@@ -1329,6 +1371,27 @@ class InspectionFinding {
         field: 'findingProjection',
         source: source,
         detail: 'installed Inner Cover identity is inconsistent',
+      );
+    }
+    final hasEvidenceProjection =
+        map.containsKey('effectiveAdverseObservationCount') ||
+        map.containsKey('evidenceReviewRequired') ||
+        map.containsKey('evidenceReviewReason');
+    if (hasEvidenceProjection &&
+        (finding.effectiveAdverseObservationCount == null ||
+            map['evidenceReviewRequired'] is! bool ||
+            !map.containsKey('evidenceReviewReason') ||
+            finding.evidenceReviewRequired !=
+                (finding.effectiveAdverseObservationCount == 0) ||
+            (finding.evidenceReviewRequired
+                ? finding.evidenceReviewReason !=
+                      'inspection-episode-adverse-basis-corrected'
+                : finding.evidenceReviewReason != null))) {
+      throw PersistedDataFormatException(
+        field: 'findingEvidenceProjection',
+        source: source,
+        detail:
+            'effective adverse count and evidence-review state are inconsistent',
       );
     }
     return finding;

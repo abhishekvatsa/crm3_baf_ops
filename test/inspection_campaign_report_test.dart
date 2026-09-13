@@ -101,6 +101,9 @@ void main() {
       firstObservedAt: first.observedAt,
       latestObservedAt: correction.observedAt,
       recurrenceCount: 1,
+      effectiveAdverseObservationCount: 0,
+      evidenceReviewRequired: true,
+      evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
       linkedTicketId: 'ticket-44',
       verificationCount: 0,
       lastVerificationOutcome: null,
@@ -124,6 +127,11 @@ void main() {
     expect(
       report.sections[3].tables.single.rows.single.last,
       contains('Issue ticket-44'),
+    );
+    expect(report.sections[3].tables.single.rows.single[4], '0');
+    expect(
+      report.sections[3].tables.single.rows.single.last,
+      contains('record a decision'),
     );
 
     final bytes = await StructuredReportPdfService.build(report);

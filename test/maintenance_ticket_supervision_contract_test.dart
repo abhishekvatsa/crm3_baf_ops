@@ -31,7 +31,9 @@ void main() {
     final backend = File(
       'functions/src/maintenanceWorkflow/ticketHandlers.ts',
     ).readAsStringSync();
-    final rules = File('firestore.rules').readAsStringSync();
+    final rules = File(
+      'firestore.rules',
+    ).readAsStringSync().replaceAll('\r\n', '\n');
 
     expect(types, contains('acknowledgeMaintenanceTicket'));
     expect(types, contains('completeMaintenanceTicketLane'));
@@ -102,7 +104,8 @@ void main() {
     expect(
       rules,
       contains(
-        "allow create: if !docId.matches('^server_.*') && validAuditCreate();",
+        "allow create: if !docId.matches('^server_.*')\n"
+        "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();",
       ),
     );
     expect(rules, contains('validMaintenanceIssueLaneProjection'));

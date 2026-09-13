@@ -1,5 +1,9 @@
 # Build 28 — release preparation after the system assessment repairs
 
+> **Current applicability — 13 September 2026:** This document preserves the earlier preparation snapshot. Its schema-11 instructions and device observation below are historical. The current runtime compatibility floor is **schema 12**; use the [R04 schema-12 addendum](SYSTEM_ASSESSMENT_R04_COMPATIBILITY_AND_ROLLBACK_2026_09_12.md#local-schema-12-addendum--source-changes-on-13-september-not-release-evidence) for the source-bound approval, compatible repair binary and retained-data upgrade requirements. Startup and subsequent cold-start evidence must establish schema 12 for the exact future signed artifact, using actual device observations rather than copied source expectations. This note does not assert a completed deployment, signed build, device upgrade or distribution.
+
+> **Pre-build repair update:** The [13 September pre-build response](PREBUILD_AUDIT_REMEDIATION_2026_09_13.md) supersedes this snapshot's instruction to preserve unchanged Rules. The new reopen adoption path needs its reviewed, narrowly scoped audit read rule deployed and read back together with the corrected source. Historical deployment approvals and green CI do not certify these later changes.
+
 Status: preparation only. PR #362 merged as `c6038fe7ff3200645ab6a55bbe033eb726f1dfc1` on 12 September 2026. No new backend deployment, build-number reservation, production artifact, device installation or distribution is recorded here.
 
 ## Source and completed verification

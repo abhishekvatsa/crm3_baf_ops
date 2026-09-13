@@ -14,7 +14,6 @@ void main() {
         RegExp(r'submitModule\(\s*_transitionId\(\),'),
         RegExp(r'acceptModule\(\s*_transitionId\(\),'),
         RegExp(r'markModuleNotApplicable\(\s*_transitionId\(\),'),
-        RegExp(r'reopenModule\(\s*_transitionId\(\),'),
       ]) {
         final section = _windowAfterPattern(source, marker, 700);
         expect(
@@ -40,6 +39,80 @@ void main() {
         adoptions,
         reason:
             'Every local module adoption needs a mounted guard; a synchronous actor recheck may follow that guard.',
+      );
+    });
+
+    test('extracted module reopen guards every confirmed UI adoption', () {
+      final source = _read(
+        'lib/features/planned_maintenance/presentation/job_module_detail_screen.dart',
+      );
+      final reopen = _read(
+        'lib/features/planned_maintenance/presentation/job_module_detail_screen.workflow_reopen.dart',
+      );
+      expect(
+        source,
+        contains("part 'job_module_detail_screen.workflow_reopen.dart';"),
+      );
+      expect(reopen, contains("part of 'job_module_detail_screen.dart';"));
+
+      final originGuard = _bodyStartingAt(
+        reopen,
+        'void _requireReopenOrigin(AppUser origin)',
+      );
+      _expectBefore(
+        originGuard,
+        'if (!mounted) {',
+        'ref.read(currentAppUserProvider)',
+      );
+      expect(originGuard, contains('throw StateError('));
+      expect(originGuard, contains('originUid: origin.uid,'));
+      expect(
+        originGuard,
+        contains('permission: (actor) => actor.canReopenJobModule,'),
+      );
+      expect(
+        originGuard,
+        contains('if (message != null) throw StateError(message);'),
+      );
+      expect(originGuard, isNot(contains('await ')));
+
+      // Both restored and newly submitted workflow requests must pass the live
+      // mounted/origin/permission gate immediately before adopting their result.
+      final confirmedAdoptions = RegExp(
+        r'_showConfirmedWorkflowModule\(confirmed\);',
+      ).allMatches(reopen).length;
+      final guardedConfirmedAdoptions = RegExp(
+        r'_requireReopenOrigin\(actor\);\s*'
+        r'_showConfirmedWorkflowModule\(confirmed\);',
+      ).allMatches(reopen).length;
+      expect(confirmedAdoptions, 2);
+      expect(guardedConfirmedAdoptions, confirmedAdoptions);
+
+      final reopenBody = _bodyStartingAt(
+        reopen,
+        'Future<void> _reopenModule()',
+      );
+      final nativeCall = RegExp(
+        r'reopenModule\(\s*_transitionId\(\),',
+      ).firstMatch(reopenBody);
+      expect(nativeCall, isNotNull);
+      final nativeContinuation = reopenBody.substring(nativeCall!.start);
+      const gate = '_requireReopenOrigin(actor);';
+      const adoption = '_showConfirmedWorkflowModule(current);';
+      _expectBefore(nativeContinuation, gate, adoption);
+      expect(
+        nativeContinuation.substring(
+          nativeContinuation.indexOf(gate) + gate.length,
+          nativeContinuation.indexOf(adoption),
+        ),
+        isNot(contains('await ')),
+      );
+      expect(
+        _bodyStartingAt(
+          source,
+          'void _showConfirmedWorkflowModule(JobModuleInstance current)',
+        ),
+        contains('setState(() => _module = current);'),
       );
     });
 

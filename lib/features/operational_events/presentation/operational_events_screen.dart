@@ -1012,7 +1012,7 @@ class _EventDialogState extends State<_EventDialog> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_startedAt),
     );
-    if (time == null) return;
+    if (!mounted || time == null) return;
     setState(() {
       _startedAt = DateTime(
         date.year,

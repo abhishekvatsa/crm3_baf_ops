@@ -224,7 +224,7 @@ StructuredReportDocument buildInspectionCampaignReport({
                 'Component / position',
                 'Status',
                 'First / latest',
-                'Recurrence',
+                'Effective abnormal readings',
                 'Corrective and verification evidence',
               ],
               rows: orderedFindings.map(_findingRow).toList(growable: false),
@@ -314,10 +314,11 @@ List<String> _findingRow(InspectionFinding finding) => <String>[
   ),
   _enumLabel(finding.status.name),
   '${_dateTime(finding.firstObservedAt)}\n${_dateTime(finding.latestObservedAt)}',
-  '${finding.recurrenceCount}',
+  '${finding.effectiveAbnormalReadingCount}',
   '${finding.linkedTicketId == null ? 'No linked maintenance issue' : 'Issue ${finding.linkedTicketId}'}'
       '\n${finding.verificationCount} verification(s)'
       '${finding.lastVerificationOutcome == null ? '' : '\nLast: ${_enumLabel(finding.lastVerificationOutcome!.name)}'}'
+      '${finding.evidenceReviewMessage == null ? '' : '\n${finding.evidenceReviewMessage}'}'
       '\nUpdated ${_dateTime(finding.updatedAt)}',
 ];
 
