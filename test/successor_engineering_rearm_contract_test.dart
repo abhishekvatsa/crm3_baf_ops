@@ -169,6 +169,50 @@ bool _currentSourceRuntimeAuthority({
     backendMatchesDeployed &&
     applicationMatchesPromotedArtifact;
 
+({bool candidate, bool finalized}) _pilotApplicability(
+  Map<String, dynamic> policy,
+) {
+  final candidateBuild = (policy['release'] as Map)['buildNumber'];
+  final finalization = policy['finalization'] as Map;
+  final pending = finalization['status'] == 'pending-source-authorized';
+  final finalized = pending
+      ? finalization['priorCompletedBuild'] as Map
+      : finalization;
+  final finalizedBuild = finalized['buildNumber'] ?? candidateBuild;
+  final promotion = policy['postBuildPromotion'] as Map;
+  final distribution = policy['distribution'] as Map;
+  final promotionFile = promotion['promotionReceiptFile'] as String;
+  final proof = _readObject(promotionFile);
+  final granted = proof['promotion'] as Map;
+  final admitted = (proof['admittedEvidence'] as Map)['governedBuild'] as Map;
+  final finalizedApproved =
+      finalized['controlledPilotApproved'] == true &&
+      promotion['controlledPilotApproved'] == true &&
+      promotion['buildNumber'] == finalizedBuild &&
+      distribution['approved'] == true &&
+      distribution['approvedBuildNumber'] == finalizedBuild &&
+      distribution['promotionReceiptFile'] == promotionFile &&
+      distribution['promotionReceiptSha256'] ==
+          promotion['promotionReceiptSha256'] &&
+      _sha256(promotionFile) == promotion['promotionReceiptSha256'] &&
+      granted['pilotHandoutAuthorized'] == true &&
+      granted['authorizedBuildNumber'] == finalizedBuild &&
+      admitted['buildNumber'] == finalizedBuild &&
+      admitted['finalizationReceipt'] == finalized['completionReceiptFile'] &&
+      admitted['finalizationReceiptSha256'] ==
+          finalized['completionReceiptSha256'] &&
+      _sha256(finalized['completionReceiptFile'] as String) ==
+          finalized['completionReceiptSha256'];
+  return (
+    candidate:
+        !pending &&
+        finalizedApproved &&
+        candidateBuild == finalizedBuild &&
+        distribution['appliesToCurrentCandidate'] == true,
+    finalized: finalizedApproved,
+  );
+}
+
 bool _artifactConstructionAuthority({
   required bool pendingSourceAuthorization,
   required bool backendMatchesDeployed,
@@ -400,6 +444,54 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
 }
 
 void main() {
+  test(
+    'pending successor keeps prior pilot proof in its own release plane',
+    () {
+      final historicalPolicy =
+          jsonDecode(
+                _gitFileText(
+                  '1e6c7c2c34d0e127dfd18d247b05ee752b4895a3',
+                  'release/production-release-policy.json',
+                ),
+              )
+              as Map<String, dynamic>;
+      expect((historicalPolicy['release'] as Map)['buildNumber'], 27);
+      expect(_pilotApplicability(historicalPolicy), (
+        candidate: true,
+        finalized: true,
+      ));
+      final pendingPolicy =
+          jsonDecode(jsonEncode(historicalPolicy)) as Map<String, dynamic>;
+      (pendingPolicy['release'] as Map)['buildNumber'] = 28;
+      pendingPolicy['finalization'] = <String, dynamic>{
+        'status': 'pending-source-authorized',
+        'controlledPilotApproved': false,
+        'priorCompletedBuild': <String, dynamic>{
+          ...(historicalPolicy['finalization'] as Map).cast<String, dynamic>(),
+          'buildNumber': 27,
+        },
+      };
+      (pendingPolicy['distribution'] as Map)['appliesToCurrentCandidate'] =
+          false;
+      expect(_pilotApplicability(pendingPolicy), (
+        candidate: false,
+        finalized: true,
+      ));
+      // Neither a wrongly copied candidate flag nor an unrelated promotion can
+      // move the retained Build 27 authority to the new candidate.
+      (pendingPolicy['finalization'] as Map)['controlledPilotApproved'] = true;
+      expect(_pilotApplicability(pendingPolicy), (
+        candidate: false,
+        finalized: true,
+      ));
+      (pendingPolicy['postBuildPromotion'] as Map)['buildNumber'] = 28;
+      expect(_pilotApplicability(pendingPolicy), (
+        candidate: false,
+        finalized: false,
+      ));
+    },
+  );
+
   test(
     'historical 15-function closure layouts retain their original controls',
     () {
@@ -655,14 +747,9 @@ void main() {
         .cast<String, dynamic>();
     final distribution = (policy['distribution'] as Map)
         .cast<String, dynamic>();
-    final controlledPilotApproved =
-        !pendingConstruction &&
-        finalization['controlledPilotApproved'] == true &&
-        promotion['controlledPilotApproved'] == true &&
-        promotion['buildNumber'] == candidateBuildNumber &&
-        distribution['approved'] == true &&
-        distribution['approvedBuildNumber'] == candidateBuildNumber &&
-        distribution['appliesToCurrentCandidate'] == true;
+    final pilotApplicability = _pilotApplicability(policy);
+    final controlledPilotApproved = pilotApplicability.candidate;
+    final finalizedPilotApproved = pilotApplicability.finalized;
     final ledger = _readObject('release/build-number-ledger.json');
     final ledgerEntries = _objects(ledger['entries']);
     final latestLedgerEntry = ledgerEntries.last;
@@ -914,7 +1001,7 @@ void main() {
     );
     expect(
       artifact['status'],
-      controlledPilotApproved
+      finalizedPilotApproved
           ? 'COMPLETED_STAGED_CONTROLLED_PILOT_AUTHORIZED'
           : 'COMPLETED_NON_DISTRIBUTABLE',
     );
@@ -957,11 +1044,11 @@ void main() {
     }
     expect(
       artifact['pilotPromotion'],
-      controlledPilotApproved
+      finalizedPilotApproved
           ? 'AUTHORIZED_STAGED_EXACT_BUILD${finalizedBuildNumber}_UP_TO_25'
           : 'NOT_AUTHORIZED',
     );
-    if (controlledPilotApproved) {
+    if (finalizedPilotApproved) {
       expect(
         artifact['pilotPromotionReceiptFile'],
         promotion['promotionReceiptFile'],

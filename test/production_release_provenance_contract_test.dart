@@ -9,8 +9,92 @@ String read(String path) => File(path).readAsStringSync();
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
+// Applicability of retained pilot proof; the shared release verifier validates
+// its authority. A successor cannot inherit a predecessor's promotion.
+bool _currentCandidatePilotApplies({
+  required int candidateBuildNumber,
+  required String finalizationStatus,
+  required int finalizedBuildNumber,
+  required Map<String, dynamic> finalizedBuild,
+  required Map<String, dynamic> pilotAuthorization,
+}) {
+  final promotion = pilotAuthorization['promotion'] as Map<String, dynamic>;
+  final admitted =
+      (pilotAuthorization['admittedEvidence']
+              as Map<String, dynamic>)['governedBuild']
+          as Map<String, dynamic>;
+  return finalizationStatus == 'completed-non-distributable' &&
+      candidateBuildNumber == finalizedBuildNumber &&
+      candidateBuildNumber == admitted['buildNumber'] &&
+      candidateBuildNumber == promotion['authorizedBuildNumber'] &&
+      promotion['status'] == 'STAGED_CONTROLLED_PILOT_AUTHORIZED' &&
+      promotion['pilotHandoutAuthorized'] == true &&
+      admitted['finalizationReceipt'] ==
+          finalizedBuild['completionReceiptFile'] &&
+      admitted['finalizationReceiptSha256'] ==
+          finalizedBuild['completionReceiptSha256'];
+}
+
 void main() {
   group('O-01 to O-05 governed production-release contracts', () {
+    test('Build 27 pilot proof never authorizes a pending successor', () {
+      const pilotFile =
+          'release/evidence/build-27-staged-controlled-pilot-authorization.json';
+      expect(
+        _sha256(pilotFile),
+        '4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B',
+      );
+      final pilot = jsonDecode(read(pilotFile)) as Map<String, dynamic>;
+      final admitted =
+          (pilot['admittedEvidence'] as Map<String, dynamic>)['governedBuild']
+              as Map<String, dynamic>;
+      final completionFile = admitted['finalizationReceipt'] as String;
+      final completionSha = admitted['finalizationReceiptSha256'] as String;
+      expect(_sha256(completionFile), completionSha);
+      final completion =
+          jsonDecode(read(completionFile)) as Map<String, dynamic>;
+      final historicalBuild =
+          (completion['release'] as Map<String, dynamic>)['buildNumber'] as int;
+      expect(historicalBuild, 27);
+      final completed = <String, dynamic>{
+        'completionReceiptFile': completionFile,
+        'completionReceiptSha256': completionSha,
+      };
+      for (final scenario in <(int, String, int, bool)>[
+        (27, 'completed-non-distributable', 27, true),
+        (28, 'pending-source-authorized', 27, false),
+        (27, 'pending-source-authorized', 27, false),
+        (28, 'completed-non-distributable', 27, false),
+        (28, 'completed-non-distributable', 28, false),
+      ]) {
+        expect(
+          _currentCandidatePilotApplies(
+            candidateBuildNumber: scenario.$1,
+            finalizationStatus: scenario.$2,
+            finalizedBuildNumber: scenario.$3,
+            finalizedBuild: completed,
+            pilotAuthorization: pilot,
+          ),
+          scenario.$4,
+          reason: 'Build ${scenario.$1} in ${scenario.$2}',
+        );
+      }
+      expect(
+        _currentCandidatePilotApplies(
+          candidateBuildNumber: historicalBuild,
+          finalizationStatus: 'completed-non-distributable',
+          finalizedBuildNumber: historicalBuild,
+          finalizedBuild: <String, dynamic>{
+            ...completed,
+            'completionReceiptSha256': '0' * 64,
+          },
+          pilotAuthorization: pilot,
+        ),
+        isFalse,
+        reason: 'A changed finalization digest cannot inherit pilot authority',
+      );
+    });
+
     test('O-01 authority binds corrected 70I-C parity evidence', () {
       final authority =
           jsonDecode(read('release/backend-authority.prod.json'))
@@ -1870,7 +1954,20 @@ void main() {
         expect(build15Finalization['buildNumber'], 15);
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
-        expect(finalization['controlledPilotApproved'], isTrue);
+        final distribution = policy['distribution'] as Map<String, dynamic>;
+        final pilotFile = distribution['promotionReceiptFile'] as String;
+        expect(_sha256(pilotFile), distribution['promotionReceiptSha256']);
+        expect(
+          finalization['controlledPilotApproved'],
+          _currentCandidatePilotApplies(
+            candidateBuildNumber: candidateBuildNumber,
+            finalizationStatus: finalization['status'] as String,
+            finalizedBuildNumber: finalizedBuildNumber,
+            finalizedBuild: finalizedBuild,
+            pilotAuthorization:
+                jsonDecode(read(pilotFile)) as Map<String, dynamic>,
+          ),
+        );
         expect(finalization['unrestrictedPlantReleaseApproved'], isFalse);
         final failedAttempt = (finalization['historicalFailedAttempts'] as List)
             .cast<Map<String, dynamic>>()
