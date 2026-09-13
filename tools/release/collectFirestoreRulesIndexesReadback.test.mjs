@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const {
   PRODUCTION_PROJECT_ID,
   adjudicateReadback,
+  collectReadbackEvidence,
   listCompositeIndexes,
   sourceIndexSetBinding,
   summarizeIndexes,
@@ -98,6 +99,31 @@ test("strict readback passes only exact Rules, index and main-source parity", ()
   assert.equal(result.evidence.decision, "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK");
   assert.equal(result.evidence.outputs.indexes.apiReadyCount, 1);
   assert.equal(result.evidence.mutationBoundary.firestoreDocumentsRead, false);
+});
+
+test("actual collector records its start before source/network reads and its end after them", async () => {
+  const calls = [];
+  const times = ["2026-09-13T01:00:00.000Z", "2026-09-13T01:00:01.123Z"];
+  const readback = await collectReadbackEvidence({repositoryRoot: ".", projectId: PRODUCTION_PROJECT_ID, observe: false}, {
+    now: () => { calls.push("clock"); return times.shift(); },
+    sourceBinding: () => { calls.push("source"); return sourceBinding(); },
+    readLive: async () => { calls.push("live"); return {rules: rulesSummary(), indexes: indexSummary()}; },
+  });
+  assert.deepEqual(calls, ["clock", "source", "live", "source", "clock"]);
+  assert.equal(readback.collectionStartedAtUtc, "2026-09-13T01:00:00.000Z");
+  assert.equal(readback.capturedAtUtc, "2026-09-13T01:00:01.123Z");
+  assert.equal(readback.decision, "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK");
+  require("./collectProductionGlobalPullBackend.js").verifyReceiptSeal(readback, "actual collector");
+});
+
+test("a failed actual collection cannot emit a successful completion receipt", async () => {
+  let clocks = 0;
+  await assert.rejects(collectReadbackEvidence({repositoryRoot: ".", projectId: PRODUCTION_PROJECT_ID, observe: false}, {
+    now: () => { clocks++; return "2026-09-13T01:00:00.000Z"; },
+    sourceBinding,
+    readLive: async () => { throw new Error("read interrupted"); },
+  }), /read interrupted/);
+  assert.equal(clocks, 1);
 });
 
 test("Rules byte drift fails closed without retaining Rules content", () => {

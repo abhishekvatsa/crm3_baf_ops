@@ -155,7 +155,7 @@ test("canonical backend authority consumes the real delegated proof and retains 
       backend.approvalAuthority.file, historical.approvalAuthority.file,
       ...Object.values(backend.cleanMainLiveReadbacks).map((value) => value.file),
       ...Object.values(historical.cleanMainLiveReadbacks).map((value) => value.file),
-      ...["stagedPromotionSourceAuthority", "scopedCallableInvokerIam", "scopedCallableInvokerIamPublic", "reviewedBackendControls", "deploymentFleetContract", "collectProductionGlobalPullBackend",
+      ...["stagedPromotionSourceAuthority", "reviewedFirestoreRulesDeployment", "scopedCallableInvokerIam", "scopedCallableInvokerIamPublic", "reviewedBackendControls", "deploymentFleetContract", "collectProductionGlobalPullBackend",
         "collectFunctionFleetRuntimeIdentityReadback", "collectFunctionsIamDependenciesReadback",
         "collectFirestoreRulesIndexesReadback"].map((name) => `tools/release/${name}.js`)]) copy(file);
     const policy = {firebaseProjectId: "crm3-baf-ops-b8638", versionPolicy: {buildNumber: 27,
