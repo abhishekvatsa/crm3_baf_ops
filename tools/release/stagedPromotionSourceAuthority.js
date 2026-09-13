@@ -12,6 +12,7 @@ const firestoreReadback = require("./collectFirestoreRulesIndexesReadback.js");
 const {readDeploymentFleetContract, deploymentCountsMatch, measuredFunctionNamesMatch} =
   require("./deploymentFleetContract.js");
 const {validateDeploymentIamBoundary} = require("./scopedCallableInvokerIam.js");
+const {validateRulesDeploymentBoundary} = require("./reviewedFirestoreRulesDeployment.js");
 
 const PROJECT = "crm3-baf-ops-b8638";
 const DEPLOYED = "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK";
@@ -265,6 +266,7 @@ function verifyApproval(repoRoot, receipt, approval) {
   const latest = explicitUtcInstant(chronology?.latestFunctionUpdateTime);
   const execution = approval.deploymentExecutionAuthority;
   const historicalDelegated = source.commit === BUILD28_BACKEND_APPROVAL.sourceCommit;
+  const successorRulesChange = delegated && !historicalDelegated && scope?.firestoreRulesMutationAuthorized === true;
   if (delegated && !historicalDelegated) successorDelegatedCustody(repoRoot, receipt, approval);
   const authorityExact = delegated
     ? (historicalDelegated || receipt.approvalAuthority?.file === BUILD28_SUCCESSOR_DELEGATION.approvalFile) &&
@@ -314,9 +316,9 @@ function verifyApproval(repoRoot, receipt, approval) {
     scope.scheduledFunctionDeploymentAuthorized === true && receipt.deployment.schedulerCount === 1 &&
     scope.scheduledFunctionManualInvocationAuthorized === false &&
     receipt.deployment.schedulerSmokeResult?.invoked === false &&
-    scope.firestoreRulesMutationAuthorized === false &&
+    (successorRulesChange || scope.firestoreRulesMutationAuthorized === false) &&
     sameHash(scope.firestoreRulesSha256, receipt.firestoreDeployment?.rulesSha256) &&
-    receipt.firestoreDeployment?.rulesDeploymentPerformed === false &&
+    (successorRulesChange || receipt.firestoreDeployment?.rulesDeploymentPerformed === false) &&
     scope.firestoreIndexMutationAuthorized === false &&
     Number.isSafeInteger(scope.firestoreIndexCount) && scope.firestoreIndexCount > 0 &&
     scope.firestoreIndexCount === receipt.firestoreDeployment?.indexCount &&
@@ -325,9 +327,12 @@ function verifyApproval(repoRoot, receipt, approval) {
     scope.postMergeReleaseGateMustPassBeforeDeployment === true &&
     ["serviceAccountsMutated", "appCheckActivated", "productionBusinessDataMutated",
       "firestoreDocumentsWritten", "schedulerManuallyInvoked", "deviceDataMutated", "artifactConstructed",
-      "pilotPromotionPerformed", "distributionPerformed", "securityRulesMutated", "indexesMutated"]
-      .every((field) => receipt.controlBoundary?.[field] === false),
+      "pilotPromotionPerformed", "distributionPerformed", "indexesMutated"]
+      .every((field) => receipt.controlBoundary?.[field] === false) &&
+    (successorRulesChange || receipt.controlBoundary?.securityRulesMutated === false),
   "Backend approval: source, owner authorization, schedule or deployment scope differs from measured authority.");
+  validateRulesDeploymentBoundary({repoRoot, approval, receipt, successorDecision: successorRulesChange
+    ? verifySuccessorDelegatedDecision({repoRoot, approval, approvalAuthority: receipt.approvalAuthority, sourceAuthority: source}) : null});
   validateDeploymentIamBoundary({repoRoot, approval, approvalSha256: receipt.approvalAuthority.sha256, receipt});
 }
 

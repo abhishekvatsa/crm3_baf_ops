@@ -436,6 +436,22 @@ async function collectLiveState(options) {
   };
 }
 
+// Record the start before source reads or network collection. Completion-only
+// timestamps cannot establish that a post-deployment observation began later.
+async function collectReadbackEvidence(options, {
+  sourceBinding = collectSourceBinding, readLive = collectLiveState,
+  now = () => new Date().toISOString(),
+} = {}) {
+  const collectionStartedAtUtc = now();
+  const sourceBefore = sourceBinding(options.repositoryRoot);
+  const live = await readLive(options);
+  const sourceAfter = sourceBinding(options.repositoryRoot);
+  const result = adjudicateReadback({projectId: options.projectId,
+    sourceBefore, sourceAfter, rules: live.rules, indexes: live.indexes,
+    observe: options.observe});
+  return sealReceipt({...result.evidence, collectionStartedAtUtc, capturedAtUtc: now()});
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   if (argv[0] === "--source-index-set") {
@@ -456,21 +472,7 @@ async function main() {
   if (fs.existsSync(options.outputPath)) {
     fail(`Output already exists: ${options.outputPath}`);
   }
-  const sourceBefore = collectSourceBinding(options.repositoryRoot);
-  const live = await collectLiveState(options);
-  const sourceAfter = collectSourceBinding(options.repositoryRoot);
-  const result = adjudicateReadback({
-    projectId: options.projectId,
-    sourceBefore,
-    sourceAfter,
-    rules: live.rules,
-    indexes: live.indexes,
-    observe: options.observe,
-  });
-  const receipt = sealReceipt({
-    ...result.evidence,
-    capturedAtUtc: new Date().toISOString(),
-  });
+  const receipt = await collectReadbackEvidence(options);
   fs.mkdirSync(path.dirname(options.outputPath), {recursive: true});
   fs.writeFileSync(options.outputPath, `${JSON.stringify(receipt, null, 2)}\n`, {
     encoding: "utf8",
@@ -484,13 +486,14 @@ async function main() {
       failedChecks: receipt.failedChecks,
     })}\n`,
   );
-  if (!options.observe && result.failedChecks.length > 0) process.exitCode = 1;
+  if (!options.observe && receipt.failedChecks.length > 0) process.exitCode = 1;
 }
 
 module.exports = {
   PRODUCTION_PROJECT_ID,
   adjudicateReadback,
   collectSourceBinding,
+  collectReadbackEvidence,
   isPathInside,
   listCompositeIndexes,
   normalizedIndexSet,
