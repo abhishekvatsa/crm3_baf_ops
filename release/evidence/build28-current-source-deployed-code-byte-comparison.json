@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "decision": "PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE",
+  "observedAtUtc": "2026-09-13T10:03:11.6225867Z",
+  "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+  "functionCount": 19,
+  "uniqueArchiveCount": 3,
+  "expectedFileCount": 426,
+  "archives": [
+    {
+      "archiveSha256": "C290BC6766942F7E39FB2E4F8782F2633115B37ABDA2C00EA8936D1CCF04A23D",
+      "bytes": 2007790,
+      "functionNames": [
+        "onJobAssigned",
+        "onMaintenanceWorkflowEventCreated",
+        "onTicketCreated",
+        "onTicketResolved",
+        "stampGlobalPullServerClock"
+      ],
+      "sourceGeneration": "1789290686228333",
+      "fileCount": 426,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "C7E9F53870D6EF265A60E5A8D221259C37C829DD553018C0B6E39B530178A5A2",
+      "bytes": 2007790,
+      "functionNames": [
+        "maintenanceWorkflowEscalationSweep"
+      ],
+      "sourceGeneration": "1789290792092205",
+      "fileCount": 426,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "DBB18ED0FD05B3967B876500929E49C0F197CC6F50504A6A4B57D9C50CFDFF77",
+      "bytes": 2007790,
+      "functionNames": [
+        "assignPublishedTemplateVersion",
+        "assignPublishedTemplateVersionV2",
+        "beginGlobalPullRun",
+        "completePlannedJobExecution",
+        "executeMaintenanceWorkflowCommand",
+        "executeMaintenanceWorkflowCommandV2",
+        "getBackendReleaseIdentity",
+        "mutateAssetHierarchy",
+        "mutateAssetHierarchyV2",
+        "mutateChargeAbnormality",
+        "mutateChargeAbnormalityV2",
+        "mutateRuntimeJobModulePopulation",
+        "mutateUserAuthority"
+      ],
+      "sourceGeneration": "1789290499670986",
+      "fileCount": 426,
+      "allFileBytesMatchExactBuiltSource": true
+    }
+  ],
+  "productionBusinessDataRead": false,
+  "productionMutationPerformed": false,
+  "localSourceVerificationBuild": {
+    "sha256": "E2BB980A7F121005B9801148A1725866A40F1F9731891D2D635A3835C8E2C858",
+    "file": "source-archive-verification-build.txt",
+    "functionsTree": "0ebe788e9c260dfb95cc07544660ed03f5cdec6b",
+    "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+    "exitCode": 0
+  }
+}

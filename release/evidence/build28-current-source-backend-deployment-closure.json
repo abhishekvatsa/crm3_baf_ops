@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-current-source-backend-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-09-13T10:04:50.793Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "approvalAuthority": {
+    "commit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426",
+    "file": "release/approvals/build28-current-source-backend-deployment-approval.json",
+    "sha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8"
+  },
+  "authorityChronology": {
+    "delegatedDecisionAtUtc": "2026-09-13T09:03:44.235Z",
+    "earliestFunctionUpdateTime": "2026-09-13T09:08:12.437955174Z",
+    "latestFunctionUpdateTime": "2026-09-13T09:14:00.999142468Z",
+    "allObservedFunctionUpdatesPostdateDelegatedDecision": true,
+    "deploymentWasRetroactivelyAuthorized": false,
+    "evidenceSource": "Committed new approval, preserved cohort commands and sealed deployment update times; no user-message timestamp is invented."
+  },
+  "sourceAuthority": {
+    "commit": "fc0ac09fc51b370bee419909ad510b044765b540",
+    "tree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+    "functionsGitObjectId": "0ebe788e9c260dfb95cc07544660ed03f5cdec6b",
+    "pullRequestNumber": 367,
+    "postMergeReleaseGateRunId": 34747839612,
+    "postMergeReleaseGateConclusion": "success",
+    "postMergeReleaseGateEvidence": {
+      "file": "release/evidence/build28-current-source-backend-ci.json",
+      "physicalSha256": "C9845205BF6B0E12CC74F52D5A6F270836DE8BB58373AC8335EF476F3DC46BB2",
+      "custodyCommit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426"
+    }
+  },
+  "deployment": {
+    "campaign": "reviewed-current-source-backend",
+    "functionCount": 19,
+    "callableCount": 13,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "runtimePrincipalCount": 15,
+    "sourceRuntimeHash": "710d3b7f7750f75ebc776287f09c3a0d1934fae3",
+    "sourceRuntimeHashes": [
+      "710d3b7f7750f75ebc776287f09c3a0d1934fae3"
+    ],
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true,
+    "schedulerBacklogZeroVerified": true,
+    "existingIamPreservationEnforced": true,
+    "iamVerificationScope": "Complete observed IAM and environment evidence is privately revalidated; private raw observations may contain sensitive environment/IAM values. Only approved new invoker bindings and sanitized control observations are public. Unavailable regions listed in the proof are excluded; no unchanged or absence claim is made there.",
+    "appCheckEnforcement": false,
+    "finalizationMethod": "separate-read-only-collectors-without-manual-scheduler-invocation",
+    "legacyMutatingFinalizeWrapperExecuted": false,
+    "startedAtUtc": "2026-09-13T09:07:06.0525436Z",
+    "lastDeploymentCommandCompletedAtUtc": "2026-09-13T09:14:07.1922406Z",
+    "cohorts": [
+      {
+        "file": "release/evidence/build28-current-source-backend-callables-command.json",
+        "physicalSha256": "EE8B53503F330BD1B5984E03D9050C0E13FB1B745106DEF522B03C33307592D5",
+        "phase": "callables",
+        "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+        "approvalCommit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426",
+        "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+        "functions": [
+          "assignPublishedTemplateVersion",
+          "assignPublishedTemplateVersionV2",
+          "beginGlobalPullRun",
+          "completePlannedJobExecution",
+          "executeMaintenanceWorkflowCommand",
+          "executeMaintenanceWorkflowCommandV2",
+          "getBackendReleaseIdentity",
+          "mutateAssetHierarchy",
+          "mutateAssetHierarchyV2",
+          "mutateChargeAbnormality",
+          "mutateChargeAbnormalityV2",
+          "mutateRuntimeJobModulePopulation",
+          "mutateUserAuthority"
+        ],
+        "deploymentStartedAtUtc": "2026-09-13T09:07:06.0525436Z",
+        "deploymentCommandCompletedAtUtc": "2026-09-13T09:08:41.8202194Z",
+        "schedulerManuallyInvoked": false,
+        "businessProbePerformed": false,
+        "completionRequiresReadback": true,
+        "scopedIamPreflight": {
+          "file": "scoped-iam-before.json",
+          "physicalSha256": "138B7F39328F71420C15CE3206631B13F06F87C5127B53C5BB135BD78D04BAAC",
+          "canonicalReceiptSha256": "492ca5e1e6cee82f285fbb03ae698ad650aefbcfcdec7e4082a3aa153bd963af"
+        },
+        "ciAuthority": {
+          "file": "release/evidence/build28-current-source-backend-ci.json",
+          "sha256": "C9845205BF6B0E12CC74F52D5A6F270836DE8BB58373AC8335EF476F3DC46BB2",
+          "commit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426"
+        }
+      },
+      {
+        "file": "release/evidence/build28-current-source-backend-events-command.json",
+        "physicalSha256": "377A80CBC573EA46AF8346E43A7B5F15E5FFB3A1F31C2FA4C3C46854076F587D",
+        "phase": "events",
+        "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+        "approvalCommit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426",
+        "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+        "functions": [
+          "onJobAssigned",
+          "onMaintenanceWorkflowEventCreated",
+          "onTicketCreated",
+          "onTicketResolved",
+          "stampGlobalPullServerClock"
+        ],
+        "deploymentStartedAtUtc": "2026-09-13T09:10:11.0643455Z",
+        "deploymentCommandCompletedAtUtc": "2026-09-13T09:11:38.9057493Z",
+        "schedulerManuallyInvoked": false,
+        "businessProbePerformed": false,
+        "completionRequiresReadback": true,
+        "scopedIamPreflight": {
+          "file": "scoped-iam-before.json",
+          "physicalSha256": "138B7F39328F71420C15CE3206631B13F06F87C5127B53C5BB135BD78D04BAAC",
+          "canonicalReceiptSha256": "492ca5e1e6cee82f285fbb03ae698ad650aefbcfcdec7e4082a3aa153bd963af"
+        },
+        "ciAuthority": {
+          "file": "release/evidence/build28-current-source-backend-ci.json",
+          "sha256": "C9845205BF6B0E12CC74F52D5A6F270836DE8BB58373AC8335EF476F3DC46BB2",
+          "commit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426"
+        }
+      },
+      {
+        "file": "release/evidence/build28-current-source-backend-fleet-command.json",
+        "physicalSha256": "1BA0B86F8CA2C370F4D6C41651D7F8F7F4CB5ACA9E3AEDCB8742020B231F11B3",
+        "phase": "fleet",
+        "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+        "approvalCommit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426",
+        "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+        "functions": [
+          "maintenanceWorkflowEscalationSweep"
+        ],
+        "deploymentStartedAtUtc": "2026-09-13T09:12:48.7931380Z",
+        "deploymentCommandCompletedAtUtc": "2026-09-13T09:14:07.1922406Z",
+        "schedulerManuallyInvoked": false,
+        "businessProbePerformed": false,
+        "completionRequiresReadback": true,
+        "scopedIamPreflight": {
+          "file": "scoped-iam-before.json",
+          "physicalSha256": "138B7F39328F71420C15CE3206631B13F06F87C5127B53C5BB135BD78D04BAAC",
+          "canonicalReceiptSha256": "492ca5e1e6cee82f285fbb03ae698ad650aefbcfcdec7e4082a3aa153bd963af"
+        },
+        "ciAuthority": {
+          "file": "release/evidence/build28-current-source-backend-ci.json",
+          "sha256": "C9845205BF6B0E12CC74F52D5A6F270836DE8BB58373AC8335EF476F3DC46BB2",
+          "commit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426"
+        }
+      }
+    ],
+    "newCallableInvokerIamEvidence": {
+      "file": "release/evidence/build28-current-source-new-callable-invoker-iam-comparison.json",
+      "physicalSha256": "8229981500340D53E69A0D54E48AD65C4BE988C4AAF3E26FB3FB6464E715DC5C",
+      "canonicalReceiptSha256": "B7AA6705D609E9D6EF9B446EC027B8912D0B6EB219ED640CF46CEBD457A85940"
+    },
+    "schedulerSmokeResult": {
+      "observedAtUtc": "2026-09-13T09:56:29.968Z",
+      "invoked": false,
+      "workflowEscalationCandidateCount": 0,
+      "changed": 0,
+      "changedScope": "Manual scheduler invocations in this campaign only; ordinary scheduled/user activity is not assessed."
+    },
+    "controlComparison": {
+      "file": "release/evidence/build28-current-source-backend-pre-post-control-comparison.json",
+      "physicalSha256": "D966270E83395C503B5C9E328EE77EDE338F10040E1DDE450B6FEF529C61970D",
+      "decision": "PASS_BACKEND_PRE_POST_CONTROL_COMPARISON",
+      "canonicalReceiptSha256": "1309827424A46358545020E7C849DAAFA07DE433D488A64ADFD85CCC0DB833F5",
+      "existingFunctionCount": 15,
+      "newFunctionCount": 4,
+      "appCheckScope": "The shared mutating parameter is false on all function deployments; source-bound mutating callables enforce false. The existing read-only backend identity callable retains its explicit true enforcement. No claim that every endpoint disables App Check.",
+      "controlMode": "observed-cloud-run-http-controls-v1",
+      "verificationAuthority": {
+        "schemaVersion": 1,
+        "profile": "observed-cloud-run-http-controls-v1",
+        "verifierCommit": "2e8482ba7fa32f77d9384f72791abfe35dacefcf",
+        "verifierFiles": [
+          {
+            "file": "tools/release/collectProductionGlobalPullBackend.js",
+            "sha256": "98DD50B9793A5205DACE342907B7A990351023F4B06BE62E1CA5CDC716F704B6"
+          },
+          {
+            "file": "tools/release/deploymentFleetContract.js",
+            "sha256": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06"
+          },
+          {
+            "file": "tools/release/reviewedBackendControls.js",
+            "sha256": "F4B82F5DE49A4BF5EA75AADA5E08A6BE87AC98D77825E7B86F7C584D35100FC7"
+          },
+          {
+            "file": "tools/release/reviewedBackendVerifierAuthority.js",
+            "sha256": "263E063AEFC880F29F679D2151B24F3FFBBF2B087A63D5A5D6A80DBA42A38137"
+          },
+          {
+            "file": "tools/release/scopedCallableInvokerIam.js",
+            "sha256": "0CCF35EE2AE349377A262CD7079553AA0E3FDA82A4FC738D4B6D32DB74548822"
+          },
+          {
+            "file": "tools/release/scopedCallableInvokerIamPublic.js",
+            "sha256": "3C6D6F17C0AF3525B0BAC2186AE785EEEC90AAE91C7C77BA056141CF9ED6A596"
+          }
+        ],
+        "decision": {
+          "commit": "a97ed5d1002aee0569495d8c7a9430e50fe33ef6",
+          "file": "release/approvals/build28-observed-backend-verifier-approval.json",
+          "sha256": "9A229D7641C97C291C4675DFE0E57F253F6A630CCC85BB7838F114CC2D8AF050"
+        }
+      }
+    },
+    "deployedCodeByteComparison": {
+      "file": "release/evidence/build28-current-source-deployed-code-byte-comparison.json",
+      "physicalSha256": "3FA83D3CEB1E6BE622244CD11A71EE4DF5567667FFA0A79B3EF73C37137DF7F0",
+      "decision": "PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE",
+      "functionCount": 19,
+      "uniqueArchiveCount": 3,
+      "expectedFileCount": 426,
+      "allArchiveMembersMatchExactBuiltSource": true,
+      "localSourceVerificationBuild": {
+        "sha256": "E2BB980A7F121005B9801148A1725866A40F1F9731891D2D635A3835C8E2C858",
+        "file": "release/evidence/build28-current-source-source-verification-build.log",
+        "functionsTree": "0ebe788e9c260dfb95cc07544660ed03f5cdec6b",
+        "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+        "exitCode": 0,
+        "physicalSha256": "E2BB980A7F121005B9801148A1725866A40F1F9731891D2D635A3835C8E2C858"
+      },
+      "expectedBuiltSourceInventory": {
+        "file": "release/evidence/build28-current-source-expected-source-files.json",
+        "physicalSha256": "02608752F6E1FD2EBCA4588745B1285FDE9C904221016789BE580F93798C8BE0"
+      },
+      "archiveBinding": "Every function is bound by its sealed generation-pinned archive digest. Each retained distinct archive was re-opened and every member digest, length, name and CRC checked against the fresh source-bound build manifest."
+    }
+  },
+  "firestoreDeployment": {
+    "rulesSha256": "9A64BF17BF0B2B7B5953F845ACE164804A59087C33749F8164B4DD715BC90A13",
+    "rulesActiveByteExact": true,
+    "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/1b2b89ff-75b7-4e88-bfa3-6c8eda07fe93",
+    "rulesetCreateTime": "2026-09-13T09:54:04.085647Z",
+    "indexCount": 66,
+    "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
+    "fieldOverrideCount": 8,
+    "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+    "allIndexesReady": true,
+    "indexesAlreadyExactNoMutationRequired": true,
+    "strictLiveReadbackPassed": true,
+    "rulesAlreadyExactNoMutationRequired": false,
+    "rulesDeploymentPerformed": true,
+    "rulesDeploymentEvidence": {
+      "file": "release/evidence/build28-current-source-rules-command.json",
+      "physicalSha256": "2FBF8085C2D1CE12F0EB376D2D6196AD16DC098BAA127CF4028465B22F37F0EE",
+      "canonicalReceiptSha256": "755e7fb1c284ea7a0a6b32d7d306d69234f5c1a0b8b29b91c9cf994696afcd14"
+    }
+  },
+  "cleanMainLiveReadbacks": {
+    "functionFleet": {
+      "file": "release/evidence/build28-current-source-function-fleet-runtime-identity-readback.json",
+      "physicalSha256": "E7D5466BBF6FCC96AAC3B313320088CE41C439F014E20AC51B34DDA099EB02A7",
+      "canonicalReceiptSha256": "A51D9988DDBFBE4D47188ACA8AA18AC3B3E6ED0B94EFBA7447C469206DB72D0A",
+      "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+      "failedChecks": 0
+    },
+    "iamDependencies": {
+      "file": "release/evidence/build28-current-source-functions-iam-dependencies-readback.json",
+      "physicalSha256": "15EDD5A61C589C7484182AA6231A87B60876727F08BB0678A79C46270E77A044",
+      "canonicalReceiptSha256": "1724AC84D8D7CFF9581D59A2C0A5AB0FBF347D60B1586EE8A5AD30BA72A202C5",
+      "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+      "failedChecks": 0,
+      "postureHolds": 0
+    },
+    "firestoreRulesAndIndexes": {
+      "file": "release/evidence/build28-current-source-firestore-rules-indexes-live-readback.json",
+      "physicalSha256": "2C3C6928B56BDD9641312C8B6CBCB144E077C79CF46EC8FEA06C38EA68D28A60",
+      "canonicalReceiptSha256": "F7AAC44CD00DA6C3B69FD7496FF2C1EB4464D3F382B41F0AFDD1EE92AC003229",
+      "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "failedChecks": 0,
+      "verified": true,
+      "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+      "sourceTree": "a2b57d1fbe81f823c8214dedbd1e3f0fcecae93d",
+      "rulesSha256": "9A64BF17BF0B2B7B5953F845ACE164804A59087C33749F8164B4DD715BC90A13",
+      "indexCount": 66,
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "allIndexesReady": true
+    }
+  },
+  "controlBoundary": {
+    "scope": "Actions attributable to this deployment/verification only; ordinary production activity continued independently.",
+    "serviceAccountsMutated": false,
+    "iamMutated": true,
+    "newCallableInvokerPolicyCreations": 4,
+    "projectIamMutated": false,
+    "existingServiceIamMutated": false,
+    "appCheckActivated": false,
+    "firestoreDocumentsRead": false,
+    "firestoreDocumentsWritten": false,
+    "productionBusinessDataMutated": false,
+    "schedulerManuallyInvoked": false,
+    "deviceDataMutated": false,
+    "artifactConstructed": false,
+    "pilotPromotionPerformed": false,
+    "distributionPerformed": false,
+    "aggregateBacklogQueriesPerformed": true,
+    "schedulerSmokeChangedRecordCount": 0,
+    "functionFleetMutated": true,
+    "securityRulesMutated": true,
+    "indexesMutated": false,
+    "unauthenticatedEmptyRequestCallableRejectionProbesPerformed": true,
+    "authenticatedBusinessOperationAttempted": false,
+    "ordinaryAccessAndErrorLogsMayHaveBeenEmitted": true
+  }
+}

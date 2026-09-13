@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 2,
+  "evidenceType": "reviewed-current-source-backend-control-comparison",
+  "decision": "PASS_BACKEND_PRE_POST_CONTROL_COMPARISON",
+  "observedAtUtc": "2026-09-13T10:01:02.441Z",
+  "verificationAuthority": {
+    "schemaVersion": 1,
+    "profile": "observed-cloud-run-http-controls-v1",
+    "verifierCommit": "2e8482ba7fa32f77d9384f72791abfe35dacefcf",
+    "verifierFiles": [
+      {
+        "file": "tools/release/collectProductionGlobalPullBackend.js",
+        "sha256": "98DD50B9793A5205DACE342907B7A990351023F4B06BE62E1CA5CDC716F704B6"
+      },
+      {
+        "file": "tools/release/deploymentFleetContract.js",
+        "sha256": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06"
+      },
+      {
+        "file": "tools/release/reviewedBackendControls.js",
+        "sha256": "F4B82F5DE49A4BF5EA75AADA5E08A6BE87AC98D77825E7B86F7C584D35100FC7"
+      },
+      {
+        "file": "tools/release/reviewedBackendVerifierAuthority.js",
+        "sha256": "263E063AEFC880F29F679D2151B24F3FFBBF2B087A63D5A5D6A80DBA42A38137"
+      },
+      {
+        "file": "tools/release/scopedCallableInvokerIam.js",
+        "sha256": "0CCF35EE2AE349377A262CD7079553AA0E3FDA82A4FC738D4B6D32DB74548822"
+      },
+      {
+        "file": "tools/release/scopedCallableInvokerIamPublic.js",
+        "sha256": "3C6D6F17C0AF3525B0BAC2186AE785EEEC90AAE91C7C77BA056141CF9ED6A596"
+      }
+    ],
+    "decision": {
+      "commit": "a97ed5d1002aee0569495d8c7a9430e50fe33ef6",
+      "file": "release/approvals/build28-observed-backend-verifier-approval.json",
+      "sha256": "9A229D7641C97C291C4675DFE0E57F253F6A630CCC85BB7838F114CC2D8AF050"
+    }
+  },
+  "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+  "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+  "functionCount": 19,
+  "sourceRuntimeHash": "710d3b7f7750f75ebc776287f09c3a0d1934fae3",
+  "sourceRuntimeHashes": [
+    "710d3b7f7750f75ebc776287f09c3a0d1934fae3"
+  ],
+  "existingFunctionCount": 15,
+  "newFunctionCount": 4,
+  "existingFunctionNames": [
+    "assignPublishedTemplateVersion",
+    "beginGlobalPullRun",
+    "completePlannedJobExecution",
+    "executeMaintenanceWorkflowCommand",
+    "getBackendReleaseIdentity",
+    "maintenanceWorkflowEscalationSweep",
+    "mutateAssetHierarchy",
+    "mutateChargeAbnormality",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority",
+    "onJobAssigned",
+    "onMaintenanceWorkflowEventCreated",
+    "onTicketCreated",
+    "onTicketResolved",
+    "stampGlobalPullServerClock"
+  ],
+  "newFunctionNames": [
+    "assignPublishedTemplateVersionV2",
+    "executeMaintenanceWorkflowCommandV2",
+    "mutateAssetHierarchyV2",
+    "mutateChargeAbnormalityV2"
+  ],
+  "allFunctionMutatingAppCheckParametersFalse": true,
+  "allMutatingCallableAppCheckEnforcementFalse": true,
+  "existingBackendIdentityAppCheckEnforcementTruePreserved": true,
+  "controlMode": "observed-cloud-run-http-controls-v1",
+  "existingProjectEnvironmentVariablesUnchanged": true,
+  "reservedHttpSignatureMetadataValidated": true,
+  "newFunctionEffectiveInstanceCapsValidated": true,
+  "reservedHttpSignatureObservations": [
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "before": null,
+      "after": null,
+      "disposition": "new-http-callable"
+    },
+    {
+      "name": "beginGlobalPullRun",
+      "before": null,
+      "after": "http",
+      "disposition": "platform-http-added"
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "before": null,
+      "after": "http",
+      "disposition": "platform-http-added"
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "before": null,
+      "after": "http",
+      "disposition": "new-http-callable"
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "before": null,
+      "after": "http",
+      "disposition": "new-http-callable"
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "before": null,
+      "after": null,
+      "disposition": "new-http-callable"
+    }
+  ],
+  "newFunctionEffectiveInstanceCaps": [
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignpublishedtemplateversionv2",
+      "serviceUid": "736347fa-070d-4161-a05a-1570744dadda",
+      "revision": "assignpublishedtemplateversionv2-00001-peq",
+      "observedGeneration": "1",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executemaintenanceworkflowcommandv2",
+      "serviceUid": "676e0541-6df1-44af-a342-b63a32e7e02c",
+      "revision": "executemaintenanceworkflowcommandv2-00001-hox",
+      "observedGeneration": "1",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateassethierarchyv2",
+      "serviceUid": "90e8c649-c267-4e09-a037-c0e6aeea650c",
+      "revision": "mutateassethierarchyv2-00001-cic",
+      "observedGeneration": "1",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "serviceResource": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutatechargeabnormalityv2",
+      "serviceUid": "c6fbe026-2e55-4836-8ffd-0cf1bcb8ad5c",
+      "revision": "mutatechargeabnormalityv2-00001-bet",
+      "observedGeneration": "1",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20,
+      "maximumApprovedBound": 100
+    }
+  ],
+  "existingRuntimeAndTriggerServiceAccountsUnchanged": true,
+  "existingIngressSettingsUnchanged": true,
+  "allFunctionsMatchSourceRuntimeIdentities": true,
+  "allFunctionsActiveGen2": true,
+  "newFunctionsMatchApprovedSourceOptions": true,
+  "newFunctionSourceOptions": [
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "alias": "assignPublishedTemplateVersion",
+      "runtime": "nodejs22",
+      "entryPoint": "assignPublishedTemplateVersionV2",
+      "region": "asia-south1",
+      "availableMemory": "512Mi",
+      "timeoutSeconds": 60,
+      "maxInstanceRequestConcurrency": 20,
+      "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "ingressSettings": "ALLOW_ALL",
+      "enforceAppCheck": false,
+      "sourceMaxInstancesOmitted": true,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "alias": "executeMaintenanceWorkflowCommand",
+      "runtime": "nodejs22",
+      "entryPoint": "executeMaintenanceWorkflowCommandV2",
+      "region": "asia-south1",
+      "availableMemory": "512Mi",
+      "timeoutSeconds": 60,
+      "maxInstanceRequestConcurrency": 20,
+      "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "ingressSettings": "ALLOW_ALL",
+      "enforceAppCheck": false,
+      "sourceMaxInstancesOmitted": true,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "alias": "mutateAssetHierarchy",
+      "runtime": "nodejs22",
+      "entryPoint": "mutateAssetHierarchyV2",
+      "region": "asia-south1",
+      "availableMemory": "256Mi",
+      "timeoutSeconds": 60,
+      "maxInstanceRequestConcurrency": 20,
+      "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "ingressSettings": "ALLOW_ALL",
+      "enforceAppCheck": false,
+      "sourceMaxInstancesOmitted": true,
+      "maximumApprovedBound": 100
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "alias": "mutateChargeAbnormality",
+      "runtime": "nodejs22",
+      "entryPoint": "mutateChargeAbnormalityV2",
+      "region": "asia-south1",
+      "availableMemory": "256Mi",
+      "timeoutSeconds": 60,
+      "maxInstanceRequestConcurrency": 20,
+      "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "ingressSettings": "ALLOW_ALL",
+      "enforceAppCheck": false,
+      "sourceMaxInstancesOmitted": true,
+      "maximumApprovedBound": 100
+    }
+  ],
+  "scalingObservations": [
+    {
+      "name": "assignPublishedTemplateVersion",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "beforeMaxInstanceCount": null,
+      "afterMaxInstanceCount": 20,
+      "disposition": "observed-run-service-cap"
+    },
+    {
+      "name": "beginGlobalPullRun",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommand",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "beforeMaxInstanceCount": null,
+      "afterMaxInstanceCount": 20,
+      "disposition": "observed-run-service-cap"
+    },
+    {
+      "name": "getBackendReleaseIdentity",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "maintenanceWorkflowEscalationSweep",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "mutateAssetHierarchy",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "beforeMaxInstanceCount": null,
+      "afterMaxInstanceCount": 20,
+      "disposition": "observed-run-service-cap"
+    },
+    {
+      "name": "mutateChargeAbnormality",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "beforeMaxInstanceCount": null,
+      "afterMaxInstanceCount": 20,
+      "disposition": "observed-run-service-cap"
+    },
+    {
+      "name": "mutateRuntimeJobModulePopulation",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "mutateUserAuthority",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "onJobAssigned",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "onMaintenanceWorkflowEventCreated",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "onTicketCreated",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "onTicketResolved",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    },
+    {
+      "name": "stampGlobalPullServerClock",
+      "beforeMaxInstanceCount": 20,
+      "afterMaxInstanceCount": 20,
+      "disposition": "unchanged"
+    }
+  ],
+  "scalingSourceEvidence": {
+    "version": "7.2.5",
+    "manifestSha256": "98784FE5BB13D6593FCA2B9DC7A3B57C3F22E9F35464A169BDB25AABCF396F46",
+    "maxInstancesResetVerified": true,
+    "sourceMaxInstancesOmitted": true,
+    "sourcePreserveExternalChangesOmitted": true,
+    "sourceGlobalOptionsAbsent": true
+  },
+  "scalingScope": "New callables retain the explicitly measured serving Cloud Run service maximum, bounded by100 with source maxInstances omitted. An absent Cloud Functions field is recorded as absent, never converted to100. Existing measured limits remain unchanged or reset to100 only under explicit approval. Service scaling is a configured limit, not a guarantee about transient platform instance counts.",
+  "projectIamBindingsSemanticallyUnchanged": true,
+  "scopedIamProofReceiptSha256": "bfe3939f84a1f5dfd5cc604482bbd5fc73c429c604eb79666f5ae54864caf3d7",
+  "sourceOptionsFiles": [
+    {
+      "file": "release/function-fleet-runtime-identity-policy.json",
+      "sha256": "F08BB9B62EC6162DA6249F3F92058A4914DF0EB878739D79B622B273C94477BA"
+    },
+    {
+      "file": "functions/package.json",
+      "sha256": "0844967B979C2559F54D2D0CD178B1F3A334CE16E23ACF6536146D28FA72788D"
+    },
+    {
+      "file": "functions/package-lock.json",
+      "sha256": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D"
+    },
+    {
+      "file": "functions/src/callableSecurityConfig.ts",
+      "sha256": "76C5A7A1A9C430D3E02B5106333D679D1FFF4AC3721241DA5096872496809E46"
+    },
+    {
+      "file": "functions/src/stage2dSecurityConfig.ts",
+      "sha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F"
+    },
+    {
+      "file": "functions/src/index.ts",
+      "sha256": "B4A9E92B1B7C6A8E996CC8E1058BF49B993AB3CBD6F9F3EF3FB3F5070C5CEE2E"
+    },
+    {
+      "file": "functions/src/maintenanceWorkflow/callable.ts",
+      "sha256": "FB4BD9B98D6BAC768249001D8994916B797B7AD97D79DA659A9AF78EFD87539A"
+    }
+  ],
+  "appCheckScope": "The shared mutating parameter is false on all function deployments; source-bound mutating callables enforce false. The existing read-only backend identity callable retains its explicit true enforcement. No claim that every endpoint disables App Check.",
+  "controlComparisonScope": "Existing project environment, runtime/trigger identities and ingress are preserved. Only recorded absent-to-http platform signature additions are admitted for bound HTTP callables; full environment byte equality is not claimed. New callables preserve V1 project environment, source options and measured serving Cloud Run caps.",
+  "iamScope": "Complete observed IAM and environment evidence is privately revalidated; private raw observations may contain sensitive environment/IAM values. Only approved new invoker bindings and sanitized control observations are public. Unavailable regions listed in the proof are excluded; no unchanged or absence claim is made there.",
+  "unavailableRunRegions": [
+    {
+      "location": "me-central2",
+      "reason": "LOCATION_POLICY_VIOLATED",
+      "domain": "googleapis.com",
+      "consumer": "projects/894346496105"
+    }
+  ],
+  "controlPlaneMutationPerformedByThisReadback": false,
+  "businessPayloadsRead": false,
+  "receiptSha256": "1309827424a46358545020e7c849daafa07de433d488a64adfd85ccc0db833f5"
+}

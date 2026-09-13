@@ -1,0 +1,28 @@
+{
+  "phase": "events",
+  "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+  "approvalCommit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426",
+  "approvalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+  "functions": [
+    "onJobAssigned",
+    "onMaintenanceWorkflowEventCreated",
+    "onTicketCreated",
+    "onTicketResolved",
+    "stampGlobalPullServerClock"
+  ],
+  "deploymentStartedAtUtc": "2026-09-13T09:10:11.0643455Z",
+  "deploymentCommandCompletedAtUtc": "2026-09-13T09:11:38.9057493Z",
+  "schedulerManuallyInvoked": false,
+  "businessProbePerformed": false,
+  "completionRequiresReadback": true,
+  "scopedIamPreflight": {
+    "file": "scoped-iam-before.json",
+    "physicalSha256": "138B7F39328F71420C15CE3206631B13F06F87C5127B53C5BB135BD78D04BAAC",
+    "canonicalReceiptSha256": "492ca5e1e6cee82f285fbb03ae698ad650aefbcfcdec7e4082a3aa153bd963af"
+  },
+  "ciAuthority": {
+    "file": "release/evidence/build28-current-source-backend-ci.json",
+    "sha256": "C9845205BF6B0E12CC74F52D5A6F270836DE8BB58373AC8335EF476F3DC46BB2",
+    "commit": "63e0607db39cf4a01b44531e585ea6a6e4ca2426"
+  }
+}
