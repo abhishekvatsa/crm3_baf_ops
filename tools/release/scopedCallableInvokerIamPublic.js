@@ -10,7 +10,7 @@ const {execFileSync} = require("node:child_process");
 const {isDeepStrictEqual: same} = require("node:util");
 const guard = require("./scopedCallableInvokerIam.js");
 const {canonicalJson, sealReceipt, verifyReceiptSeal} = require("./collectProductionGlobalPullBackend.js");
-const {compareReviewedBackendControls} = require("./reviewedBackendControls.js");
+const {compareReviewedBackendControls, OBSERVED_CONTROL_MODE} = require("./reviewedBackendControls.js");
 const TYPE = "scoped-callable-invoker-iam-public-comparison";
 const PASS = "PASS_NEW_CALLABLE_INVOKER_IAM_ONLY";
 const BUCKET = "crm3-baf-ops-b8638-firestore-restore";
@@ -22,6 +22,8 @@ const CONTROL_FLAGS = Object.freeze(["allFunctionMutatingAppCheckParametersFalse
   "existingBackendIdentityAppCheckEnforcementTruePreserved", "existingFunctionEnvironmentVariablesUnchanged",
   "existingRuntimeAndTriggerServiceAccountsUnchanged", "existingIngressSettingsUnchanged", "allFunctionsMatchSourceRuntimeIdentities",
   "allFunctionsActiveGen2", "newFunctionsMatchApprovedSourceOptions", "projectIamBindingsSemanticallyUnchanged"]);
+const OBSERVED_CONTROL_FLAGS = Object.freeze([...CONTROL_FLAGS.filter((name) => name !== "existingFunctionEnvironmentVariablesUnchanged"),
+  "existingProjectEnvironmentVariablesUnchanged", "reservedHttpSignatureMetadataValidated", "newFunctionEffectiveInstanceCapsValidated"]);
 const SOURCE_FILES = Object.freeze(["release/function-fleet-runtime-identity-policy.json", "functions/package.json", "functions/package-lock.json",
   "functions/src/callableSecurityConfig.ts", "functions/src/stage2dSecurityConfig.ts", "functions/src/index.ts",
   "functions/src/maintenanceWorkflow/callable.ts"].sort());
@@ -101,7 +103,7 @@ function createVerifiedPublicProof({rawProofBytes, privateCustody, observedAtUtc
   try { raw = JSON.parse(rawProofBytes.toString("utf8")); }
   catch { throw new Error("Public scoped IAM: malformed private proof JSON; inspect the retained file privately."); }
   guard.validateProof({...context, proof: raw});
-  const controls = compareReviewedBackendControls({...context, proof: raw});
+  const controls = compareReviewedBackendControls({...context, observedAtUtc, proof: raw});
   validateCustody(context.repoRoot, privateCustody);
   need(privateCustody.bytes === rawProofBytes.length && hash(privateCustody.sha256) === guard.hash(rawProofBytes),
     "private custody does not retain these exact raw proof bytes.");
@@ -110,14 +112,18 @@ function createVerifiedPublicProof({rawProofBytes, privateCustody, observedAtUtc
   const source = sourceControlCommitment(context.repoRoot, context.sourceCommit);
   need(same([...controls.sourceOptionsFiles].sort((a, b) => a.file.localeCompare(b.file)), source.sourceOptionsFiles),
     "public source commitment omits a file used in private control verification.");
-  const result = sealReceipt({schemaVersion: 2, evidenceType: TYPE, decision: PASS, projectId: guard.PROJECT, region: guard.REGION,
+  const observed = context.controlMode === OBSERVED_CONTROL_MODE;
+  const result = sealReceipt({schemaVersion: observed ? 3 : 2, evidenceType: TYPE, decision: PASS, projectId: guard.PROJECT, region: guard.REGION,
     sourceCommit: context.sourceCommit, approvalSha256: context.approvalSha256.toUpperCase(), observedAtUtc,
+    ...(observed ? {verificationAuthority: context.verificationAuthority} : {}),
     before: captureProjection(raw.before, [], []),
     after: captureProjection(raw.after, additions.map((row) => row.functionName), additions.map((row) => row.serviceResource)),
     unavailableRunRegions: raw.before.measurement.unavailableRunRegions ?? [], newInvokerPolicies: additions,
     controls: {receiptSha256: controls.receiptSha256, functionCount: controls.functionCount,
       existingFunctionCount: controls.existingFunctionCount, newFunctionCount: controls.newFunctionCount,
-      ...Object.fromEntries(CONTROL_FLAGS.map((name) => [name, controls[name]])),
+      ...Object.fromEntries((observed ? OBSERVED_CONTROL_FLAGS : CONTROL_FLAGS).map((name) => [name, controls[name]])),
+      ...(observed ? {controlMode: OBSERVED_CONTROL_MODE, reservedHttpSignatureObservations: controls.reservedHttpSignatureObservations,
+        newFunctionEffectiveInstanceCaps: controls.newFunctionEffectiveInstanceCaps} : {}),
       ...source},
     privateProofReceiptSha256: raw.receiptSha256, privateCustody,
     qualification: QUALIFICATION,
@@ -128,13 +134,14 @@ function createVerifiedPublicProof({rawProofBytes, privateCustody, observedAtUtc
 }
 function validatePublicProof({proof, ...context}) {
   verifyReceiptSeal(proof, "Public scoped IAM comparison");
+  const observed = proof.schemaVersion === 3;
   keys(proof, ["schemaVersion", "evidenceType", "decision", "projectId", "region", "sourceCommit", "approvalSha256", "observedAtUtc",
     "before", "after", "unavailableRunRegions", "newInvokerPolicies", "controls", "privateProofReceiptSha256", "privateCustody",
-    "qualification", "coverage", "mutationBoundary", "receiptSha256"], "publication proof");
-  need(proof.schemaVersion === 2 && proof.evidenceType === TYPE && proof.decision === PASS && proof.projectId === guard.PROJECT &&
+    "qualification", "coverage", "mutationBoundary", "receiptSha256", ...(observed ? ["verificationAuthority"] : [])], "publication proof");
+  need((proof.schemaVersion === 2 || observed) && proof.evidenceType === TYPE && proof.decision === PASS && proof.projectId === guard.PROJECT &&
     proof.region === guard.REGION && proof.sourceCommit === context.sourceCommit && hash(proof.approvalSha256) === hash(context.approvalSha256),
   "publication authority differs.");
-  const {pairs, fleet} = guard.sourceScope(context);
+  const {pairs, fleet, policy} = guard.sourceScope(context);
   need(same(proof.newInvokerPolicies, [...pairs.values()].sort((a, b) => a.functionName.localeCompare(b.functionName))), "new public policies differ from exact approval.");
   for (const [phase, value] of [["before", proof.before], ["after", proof.after]]) {
     keys(value, ["startedAtUtc", "completedAtUtc", "captureReceiptSha256", "rawMeasurementSha256", "inventory", "commitments"], `${phase} observation`);
@@ -162,9 +169,18 @@ function validatePublicProof({proof, ...context}) {
       typeof row.consumer === "string" && /^projects\/[1-9][0-9]*$/.test(row.consumer), "unsupported excluded region/reason.");
   }
   const c = proof.controls;
-  keys(c, ["receiptSha256", "functionCount", "existingFunctionCount", "newFunctionCount", ...CONTROL_FLAGS, "sourceOptionsSha256", "sourceOptionsFiles"], "control commitments");
+  const flags = observed ? OBSERVED_CONTROL_FLAGS : CONTROL_FLAGS;
+  keys(c, ["receiptSha256", "functionCount", "existingFunctionCount", "newFunctionCount", ...flags, "sourceOptionsSha256", "sourceOptionsFiles",
+    ...(observed ? ["controlMode", "reservedHttpSignatureObservations", "newFunctionEffectiveInstanceCaps"] : [])], "control commitments");
   hash(c.receiptSha256);
-  need(c.functionCount === 19 && c.existingFunctionCount === 15 && c.newFunctionCount === 4 && CONTROL_FLAGS.every((name) => c[name] === true), "backend controls did not pass.");
+  need(c.functionCount === 19 && c.existingFunctionCount === 15 && c.newFunctionCount === 4 && flags.every((name) => c[name] === true), "backend controls did not pass.");
+  if (observed) {
+    need(c.controlMode === OBSERVED_CONTROL_MODE, "unsupported observed control profile.");
+    require("./reviewedBackendVerifierAuthority.js").validateVerifierAuthority({repoRoot: context.repoRoot,
+      verificationAuthority: proof.verificationAuthority, sourceCommit: context.sourceCommit,
+      approvalSha256: context.approvalSha256, observedAtUtc: proof.observedAtUtc});
+    validateObservedControlSummary(c, pairs, fleet, policy);
+  }
   const source = sourceControlCommitment(context.repoRoot, context.sourceCommit);
   need(same(c.sourceOptionsFiles, source.sourceOptionsFiles) && c.sourceOptionsSha256 === source.sourceOptionsSha256, "control commitments differ from exact source.");
   hash(proof.privateProofReceiptSha256);
@@ -176,23 +192,56 @@ function validatePublicProof({proof, ...context}) {
     same(proof.mutationBoundary, {iamMutated: false, cloudResourcesMutated: false}), "publication qualification or own-mutation boundary differs.");
   return {ok: true, decision: PASS};
 }
-module.exports = {TYPE, createPublicProof, validatePublicProof, validateCustody};
+function validateObservedControlSummary(c, pairs, fleet, policy) {
+  const names = [...pairs.keys()].sort();
+  need(Array.isArray(c.newFunctionEffectiveInstanceCaps) &&
+    same(c.newFunctionEffectiveInstanceCaps.map((row) => row.name), names), "new serving-cap inventory differs.");
+  for (const row of c.newFunctionEffectiveInstanceCaps) {
+    keys(row, ["name", "serviceResource", "serviceUid", "revision", "observedGeneration", "cloudFunctionsMaxInstanceCount",
+      "runServiceMaxInstanceCount", "runRevisionMaxInstanceCount", "effectiveMaxInstanceCount", "maximumApprovedBound"], "serving cap");
+    need(row.serviceResource === pairs.get(row.name).serviceResource && typeof row.serviceUid === "string" && /^[a-f0-9-]{36}$/.test(row.serviceUid) &&
+      typeof row.revision === "string" && row.revision.startsWith(`${row.name.toLowerCase()}-`) && /^[a-z0-9-]+$/.test(row.revision) &&
+      typeof row.observedGeneration === "string" && /^[1-9][0-9]*$/.test(row.observedGeneration), "serving identity is not bound.");
+    need(Number.isSafeInteger(row.runServiceMaxInstanceCount) && row.runServiceMaxInstanceCount > 0 && row.runServiceMaxInstanceCount <= 100 &&
+      row.effectiveMaxInstanceCount === row.runServiceMaxInstanceCount && row.maximumApprovedBound === 100 && row.runRevisionMaxInstanceCount === null &&
+      (row.cloudFunctionsMaxInstanceCount === null || row.cloudFunctionsMaxInstanceCount === row.runServiceMaxInstanceCount), "serving cap is absent or contradictory.");
+  }
+  const observations = c.reservedHttpSignatureObservations;
+  need(Array.isArray(observations) && observations.length >= 4 && observations.length <= 19 &&
+    same(observations.map((row) => row.name), [...new Set(observations.map((row) => row.name))].sort()), "HTTP metadata inventory differs.");
+  const newObserved = [];
+  for (const row of observations) {
+    keys(row, ["name", "before", "after", "disposition"], "HTTP metadata observation");
+    need(row.before === null && (row.after === null || row.after === "http"), "HTTP metadata observation is invalid.");
+    if (pairs.has(row.name)) {
+      need(row.disposition === "new-http-callable", "new HTTP observation disposition differs.");newObserved.push(row.name);
+    } else {
+      need(fleet.functionNames.includes(row.name) && /^(?:APP_CHECKED_)?CALLABLE_/.test(policy.functionBindings[row.name].workloadClass) &&
+        row.after === "http" && row.disposition === "platform-http-added", "existing HTTP observation is invalid.");
+    }
+  }
+  need(same(newObserved, names), "new HTTP observation coverage is incomplete.");
+}
+module.exports = {TYPE, createPublicProof, validatePublicProof, validateCustody, OBSERVED_CONTROL_MODE};
 
 if (require.main === module) {
   try {
     const options = {};
     const argv = process.argv.slice(2);
-    const allowed = ["--repository-root", "--approval", "--approval-sha256", "--source-commit", "--private-proof", "--private-custody", "--observed-at-utc", "--output"];
+    const required = ["--repository-root", "--approval", "--approval-sha256", "--source-commit", "--private-proof", "--private-custody", "--observed-at-utc", "--output"];
+    const allowed = [...required, "--control-mode", "--verification-authority"];
     for (let i = 0; i < argv.length; i += 2) {
       need(allowed.includes(argv[i]) && typeof argv[i + 1] === "string" && !Object.hasOwn(options, argv[i]), "invalid/duplicate argument.");
       options[argv[i]] = argv[i + 1];
     }
-    need(same(Object.keys(options).sort(), allowed.sort()), "all publication inputs are required.");
+    need(required.every((name) => Object.hasOwn(options, name)) &&
+      (Object.hasOwn(options, "--control-mode") === Object.hasOwn(options, "--verification-authority")), "all publication inputs are required.");
     const approvalBytes = fs.readFileSync(options["--approval"]);
     need(guard.hash(approvalBytes) === hash(options["--approval-sha256"]), "approval physical hash differs.");
     const result = createPublicProof({repoRoot: path.resolve(options["--repository-root"]), approval: JSON.parse(approvalBytes),
       approvalSha256: options["--approval-sha256"], sourceCommit: options["--source-commit"],
       rawProofBytes: fs.readFileSync(options["--private-proof"]), privateCustody: JSON.parse(fs.readFileSync(options["--private-custody"], "utf8")),
+      ...(options["--control-mode"] ? {controlMode: options["--control-mode"], verificationAuthority: JSON.parse(fs.readFileSync(options["--verification-authority"], "utf8"))} : {}),
       observedAtUtc: options["--observed-at-utc"]});
     fs.writeFileSync(options["--output"], `${JSON.stringify(result, null, 2)}\n`, {flag: "wx"});
     process.stdout.write(`${TYPE}: ${result.decision}; ${result.receiptSha256}\n`);
