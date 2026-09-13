@@ -100,6 +100,7 @@ class DurableSubmission {
     required this.lastErrorMessage,
     required this.legacySourceKey,
     required this.legacySourceBase64,
+    this.reviewHistoryJson,
   });
   final String submissionId;
   final String? actorUid;
@@ -125,6 +126,10 @@ class DurableSubmission {
   final String? lastErrorMessage;
   final String? legacySourceKey;
   final String? legacySourceBase64;
+
+  /// Original administrative decisions retained beside a subsequently confirmed
+  /// business receipt. This does not alter the frozen submission/evidence hash.
+  final String? reviewHistoryJson;
   bool get isLegacy => legacySourceKey != null;
   String get envelopeSha256 => durableSubmissionSha256(envelopeJson);
 

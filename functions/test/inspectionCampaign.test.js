@@ -421,7 +421,7 @@ describe('cross-asset inspection campaigns', () => {
     });
   });
 
-  test('corrections are immutable, target-bound and preserve the latest timestamp', async () => {
+  test('corrections are immutable, target-bound and project the latest effective timestamp', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);
     const admin = seedActor(store, 'admin-1', ['admin']);
@@ -460,7 +460,7 @@ describe('cross-asset inspection campaigns', () => {
     });
     expect(store.read('inspection_campaigns/campaign-furnace-pt-august')).toMatchObject({
       observationCount: 2,
-      latestObservationAt: '2026-08-21T05:00:00.000Z',
+      latestObservationAt: '2026-08-21T04:50:00.000Z',
     });
 
     await expect(service.execute(observation({
@@ -981,12 +981,11 @@ describe('cross-asset inspection campaigns', () => {
       latestObservedAt: persistedTimestamp(finding.latestObservedAt),
     });
     await service.execute(observation({
-      commandId: 'correction-1',
-      observationId: 'correction-1',
+      commandId: 'followup-1',
+      observationId: 'followup-1',
       expectedVersion: 2,
       numericValue: 2.8,
       observedAt: '2026-08-21T05:30:00.000Z',
-      supersedesObservationId: 'observation-1',
     }), {actor: observer, serverNow: at('2026-08-21T05:40:00Z')});
 
     await expect(service.execute({
@@ -996,10 +995,10 @@ describe('cross-asset inspection campaigns', () => {
       expectedVersion: 3,
       payload: {
         findingId: 'inspection-finding-observation-1',
-        observationId: 'correction-1',
+        observationId: 'followup-1',
         expectedFindingVersion: 2,
         outcome: 'resolved',
-        reason: 'The corrected setting was rechecked at the same governed test point.',
+        reason: 'A new reading rechecked the repaired setting at the same governed test point.',
       },
     }, {actor: observer, serverNow: at('2026-08-21T05:45:00Z')}))
       .resolves.toMatchObject({
@@ -1010,9 +1009,9 @@ describe('cross-asset inspection campaigns', () => {
       .toMatchObject({
         version: 3,
         status: 'verifiedResolved',
-        currentObservationId: 'correction-1',
+        currentObservationId: 'followup-1',
         verificationCount: 1,
-        lastVerifiedObservationId: 'correction-1',
+        lastVerifiedObservationId: 'followup-1',
       });
 
     await expect(service.execute({
@@ -1022,7 +1021,7 @@ describe('cross-asset inspection campaigns', () => {
       expectedVersion: 3,
       payload: {
         findingId: 'inspection-finding-observation-1',
-        observationId: 'correction-1',
+        observationId: 'followup-1',
         expectedFindingVersion: 2,
         outcome: 'improved',
         reason: 'A stale finding version cannot append a second verification decision.',
@@ -1037,7 +1036,7 @@ describe('cross-asset inspection campaigns', () => {
       expectedVersion: 3,
       payload: {
         findingId: 'inspection-finding-observation-1',
-        observationId: 'correction-1',
+        observationId: 'followup-1',
         expectedFindingVersion: 3,
         outcome: 'improved',
         reason: 'Even a current client cannot reverse the decision without a later observation.',
@@ -1051,7 +1050,7 @@ describe('cross-asset inspection campaigns', () => {
         status: 'verifiedResolved',
         verificationCount: 1,
         lastVerificationId: 'verify-1',
-        lastVerifiedObservationId: 'correction-1',
+        lastVerifiedObservationId: 'followup-1',
       });
     expect(store.read('inspection_verifications/verify-stale-finding-version'))
       .toBeNull();

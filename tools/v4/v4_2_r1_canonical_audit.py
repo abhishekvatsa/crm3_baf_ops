@@ -3481,6 +3481,7 @@ module_provider = "\n".join(
         "lib/features/planned_maintenance/providers/job_module_provider.dart",
         "lib/features/planned_maintenance/providers/job_module_provider.local.dart",
         "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+        "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
     )
 )
 retry_test = text("test/maintenance_workflow/workflow_retry_policy_test.dart")
@@ -3493,7 +3494,11 @@ check(
     and compliance_dialog.count("initialValue:") >= 6
     and "_gatingLaneId = value ?? ''" in compliance_dialog
     and "..isOpenForWork = true" not in module_provider
-    and "..isDeleted = false" in module_provider
+    and "_adoptWorkflowModuleReopen(this, remote, actor, expectedLocal)" in module_provider
+    and "expectedLocal.matches(current)" in module_provider
+    and "candidate.version <= current.version" in module_provider
+    and "..id = current.id" in module_provider
+    and "..version += 1" not in text("lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart")
     and "policy.classify(" in retry_test
     and "WorkflowException(WorkflowErrorCode.unavailable" in retry_test
     and "classifyError(" not in retry_test
@@ -3841,7 +3846,9 @@ check(
 )
 check(
     "R1.13 contract tests follow current governed semantics",
-    r"RegExp(r'reopenModule\(\s*_transitionId\(\),')" in async_guard
+    r"r'reopenModule\(\s*_transitionId\(\),'" in async_guard
+    and "extracted module reopen guards every confirmed UI adoption" in async_guard
+    and "expect(guardedConfirmedAdoptions, confirmedAdoptions)" in async_guard
     and "_expectWorkflowCommandAssignmentContract" in async_guard
     and "_functionBodyStartingAtIndex" in lifecycle_guard
     and "(?:read,\\s*)?create" in rules_guard
@@ -10700,8 +10707,10 @@ check(
     "match /charge_abnormalities/{docId}" in rules_source
     and "match /charge_abnormality_mutation_receipts/{docId}"
         in rules_source
-    and "allow create: if !docId.matches('^server_.*') && validAuditCreate();"
-        in rules_source
+    and (
+        "allow create: if !docId.matches('^server_.*')\n"
+        "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();"
+    ) in rules_source
     and "chargeAbnormalityCommandServiceProvider" in s07_screen
     and "repository.updateAbnormality(" not in s07_screen
     and "repository.softDeleteAbnormality(" not in s07_screen
@@ -12867,16 +12876,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 593
-    and a03_inventory_report.get("siteCount") == 2073
+    and a03_inventory_report.get("operationCount") == 594
+    and a03_inventory_report.get("siteCount") == 2076
     and a03_inventory_report.get("inventoryDigest")
-        == "71E5D054C25F0657CAACACDD28D740EC0E9040F12EC9D35CAB7BCA9DDEF6B763"
+        == "D23545897AC627ECB6F3D8A7DC3CC615519D833D77BB80234E8A5FB4A82B8D96"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 68
-    and len({surface.get("path") for surface in a03_surfaces}) == 68
+    and len(a03_surfaces) == 70
+    and len({surface.get("path") for surface in a03_surfaces}) == 70
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -12921,9 +12930,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 92
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 98
     and a04_inventory_report.get("inventoryDigest")
-        == "12968CD72F7DED7C2E034C04C91925107DC2FD127DD1FE51924A055D5EA2557E"
+        == "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12931,8 +12940,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 92
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 92
+    and len(a04_inherited_decoders) == 98
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 98
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13206,10 +13215,10 @@ check(
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 35
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 37
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 13
+    ) == 15
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13221,7 +13230,7 @@ check(
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 13
+    ) == 15
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13242,16 +13251,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 92
+    and a05_decoder_inventory_report.get("surfaceCount") == 98
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 57
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 47
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 449
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 48
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 458
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 92
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 98
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -13569,7 +13578,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 35
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 37
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13596,7 +13605,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 35
+    ) == 37
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

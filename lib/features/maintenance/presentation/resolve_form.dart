@@ -170,7 +170,6 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
   Future<void> _pickEndTime() async {
     final now = DateTime.now();
-
     final episodeStartedAt = widget.ticket.currentWorkEpisodeStartedAt;
     if (episodeStartedAt.isAfter(now)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -204,7 +203,6 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       time.hour,
       time.minute,
     );
-
     if (picked.isAfter(now)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('End time cannot be in the future')),
@@ -252,6 +250,8 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           (widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName),
         ),
         child: ActionBottomSheet(
+          originActorUid: actor.uid,
+          originPermission: (current) => current.canFinalizeMaintenanceIssue((widget.ticket.issueLanePlanReadResult.value?.assignedLanes ?? const <String>[]).map(RoutedTo.values.byName)),
           workStartedAt: widget.ticket.currentWorkEpisodeStartedAt,
           workCompletedAt: _endTime,
           performedAt: _endTime,

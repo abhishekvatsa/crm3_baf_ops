@@ -100,3 +100,28 @@ repair.
 This tranche does not mutate production documents, deploy Firebase Rules or
 Functions, operate a phone, close a programme gate, close `A-05`, or authorize
 pilot handout.
+
+## Prebuild repair inventory addendum, 2026-09-13
+
+The tranche status and operational requirements above are retained as historical
+evidence. This addendum records the latest local working-source inventory, not a
+new historical CI admission or production reconciliation result.
+
+The exact current inventory passes with 98 decoder surfaces, 57 strict-reader
+files, 48 raw-JSON files, 53 structurally discovered decoder catches and 458
+classified risk candidates. Its inherited timestamp inventory contains 96
+readers and 232 direct calls; 37 direct timestamp parser candidates are covered
+by 15 classification groups. No discovered reader, candidate, or decoder catch
+is unclassified, duplicate, or stale.
+
+The newly explicit boundaries cover the retained review/acceptance capsule and
+its native owner, workflow-module server adoption and frozen preimage, reopen
+confirmation, and exact native/serialized timestamp decoding. Callback and
+wrapper-only decoders are declared even when direct-call discovery does not
+detect them. Existing scanner thresholds and historical closure records are
+unchanged. Supported timestamp microseconds remain exact; submicrosecond data,
+malformed maps and invalid calendars refuse adoption instead of being rounded.
+
+These measurements and their source regressions require the current combined
+release checks and exact-source CI. They do not assert production deployment,
+recovery activation, worker drainage, phone validation or distribution authority.

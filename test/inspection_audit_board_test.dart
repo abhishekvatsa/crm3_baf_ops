@@ -20,9 +20,64 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
 import 'inspection_campaign_model_test.dart'
-    show innerCoverCampaignMap, observationMap;
+    show innerCoverCampaignMap, observationMap, findingMap;
 
 void main() {
+  testWidgets(
+    'corrected-away finding shows review decision and disables technical verification',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final (campaign, observation) = _relocatedCorrectionFixture();
+      final finding = InspectionFinding.fromMap({
+        ...findingMap(),
+        'campaignId': campaign.id,
+        'targetKey': observation.targetKey,
+        'assetTypeKey': observation.assetTypeKey,
+        'assetClassId': observation.assetClassId,
+        'assetInstanceId': observation.assetInstanceId,
+        'assetNumber': observation.assetNumber,
+        'hostAssetNumber': observation.hostAssetNumber,
+        'subjectSerialNumber': observation.subjectSerialNumber,
+        'componentNodeId': observation.componentNodeId,
+        'componentName': observation.componentName,
+        'physicalPosition': observation.physicalPosition,
+        'currentObservationId': observation.id,
+        'latestObservedAt': observation.observedAt.toUtc().toIso8601String(),
+        'firstObservedAt': observation.observedAt
+            .subtract(const Duration(hours: 1))
+            .toUtc()
+            .toIso8601String(),
+        'effectiveAdverseObservationCount': 0,
+        'evidenceReviewRequired': true,
+        'evidenceReviewReason': 'inspection-episode-adverse-basis-corrected',
+      }, 'finding-1');
+      await tester.pumpWidget(
+        _testApp(campaign, observations: [observation], findings: [finding]),
+      );
+      await tester.pumpAndSettle();
+      final actions = find.byTooltip('Finding actions');
+      await tester.scrollUntilVisible(
+        actions,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('0 effective abnormal readings'), findsOneWidget);
+      expect(
+        find.textContaining('record a decision before closing'),
+        findsOneWidget,
+      );
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      final verify = find.widgetWithText(
+        PopupMenuItem<String>,
+        'Verify from later reading',
+      );
+      expect(tester.widget<PopupMenuItem<String>>(verify).enabled, isFalse);
+      expect(find.text('Invalidate with reason'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final currentComponentAvailable in [true, false]) {
     testWidgets(
       'correction retains historical location, time and component with live component $currentComponentAvailable',
@@ -1046,6 +1101,7 @@ Widget _testApp(
   InspectionCampaign campaign, {
   double textScale = 1,
   List<InspectionObservation> observations = const <InspectionObservation>[],
+  List<InspectionFinding> findings = const <InspectionFinding>[],
   bool campaignServerVerified = true,
   bool observationsServerVerified = true,
   bool findingsServerVerified = true,
@@ -1085,7 +1141,7 @@ Widget _testApp(
     inspectionFindingsProvider(campaign.id).overrideWith(
       (_) => Stream.value(
         InspectionEvidenceSnapshot<InspectionFinding>(
-          records: const <InspectionFinding>[],
+          records: findings,
           isServerVerified: findingsServerVerified,
         ),
       ),
@@ -1096,7 +1152,7 @@ Widget _testApp(
         InspectionCampaignReportEvidence(
           campaign: campaign,
           observations: observations,
-          findings: const <InspectionFinding>[],
+          findings: findings,
         ),
       );
     }),

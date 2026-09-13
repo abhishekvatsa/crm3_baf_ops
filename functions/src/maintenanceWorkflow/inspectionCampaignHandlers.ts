@@ -4,6 +4,10 @@ import {CommandHandler} from "./handlerTypes";
 import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
 import {requireInspectionContextReview} from "./inspectionTargetContextHandlers";
 import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
+import {activeInspectionFindings, assertInspectionFindingActivation,
+  assertInspectionEvidenceWithinEpisode, effectiveInspectionHistory, inspectionEpisodeProjection,
+  terminalInspectionEvidenceOwner,
+  touchInspectionFindingPopulation} from "./inspectionFindingIntegrity";
 import {
   Actor,
   JsonMap,
@@ -743,8 +747,10 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
       );
     }
     const blockingFindings = findings.filter((finding) => finding.data != null &&
-      !["correctiveActionLinked", "verifiedResolved", "acceptedCondition", "invalidated"]
-        .includes(String(finding.data.status)));
+      ((finding.data.evidenceReviewRequired === true &&
+        !["acceptedCondition", "invalidated"].includes(String(finding.data.status))) ||
+       !["correctiveActionLinked", "verifiedResolved", "acceptedCondition", "invalidated"]
+         .includes(String(finding.data.status))));
     if (blockingFindings.length > 0) {
       throw new WorkflowError(
         "failed-precondition",
@@ -1353,13 +1359,17 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   const nextVersion = command.expectedVersion + 1;
   const baselineCampaignId = typeof campaign.data.baselineCampaignId === "string" ?
     campaign.data.baselineCampaignId : null;
-  const [baselineRows, findingRows] = await Promise.all([
+  const [baselineRows, findingRows, historyRows] = await Promise.all([
     baselineCampaignId == null ? Promise.resolve([]) :
       tx.query("inspection_observations", [
         {field: "campaignId", op: "==", value: baselineCampaignId},
         {field: "targetKey", op: "==", value: targetKey},
       ]),
     tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+      {field: "targetKey", op: "==", value: targetKey},
+    ]),
+    tx.query("inspection_observations", [
       {field: "campaignId", op: "==", value: campaignId},
       {field: "targetKey", op: "==", value: targetKey},
     ]),
@@ -1426,9 +1436,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   const baselineObservation = baselineCandidates[0]?.data ?? null;
   const comparisonOutcome = baselineObservation == null ? null :
     compareInspectionObservation(value, baselineObservation, definition);
-  const activeFindings = findingRows.filter((row) => row.data != null &&
-    !["verifiedResolved", "acceptedCondition", "invalidated"]
-      .includes(String(row.data.status)));
+  const activeFindings = activeInspectionFindings(findingRows, targetKey);
   if (activeFindings.length > 1) {
     throw new WorkflowError(
       "failed-precondition",
@@ -1491,29 +1499,39 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     comparisonOutcome,
     recordedAt: now,
   };
-  tx.create(observationPath(observationId), observation);
-  const currentObservedAt = governedTarget.lastObservedAt;
-  const currentObservationId = governedTarget.lastObservationId;
-  const advancesCurrentEvidence = superseded?.data != null ||
-    currentObservedAt == null ||
-    observedAt > currentObservedAt ||
-    (observedAt === currentObservedAt &&
-      observationId.localeCompare(currentObservationId ?? "") > 0);
+  const history = effectiveInspectionHistory(historyRows, campaignId, targetKey, observation);
+  const effective = history.current;
+  const effectiveId = String(effective.observationId);
+  const effectiveAt = persistedInstantText(effective.observedAt)!;
+  const advancesCurrentEvidence = effectiveId !== governedTarget.lastObservationId;
   const observedPopulation = advancesCurrentEvidence ?
     markInspectionTargetObserved({
       targets: targetPopulation,
       targetKey,
-      observationId,
-      observedAt,
-      actorUid: context.actor.uid,
-      actorName: context.actor.name,
+      observationId: effectiveId,
+      observedAt: effectiveAt,
+      actorUid: String(effective.observerUid),
+      actorName: String(effective.observerName),
     }) : targetPopulation;
   let findingId: string | null = null;
   const activeFinding = activeFindings[0] ?? null;
-  if (advancesCurrentEvidence && (outOfRange || activeFinding != null)) {
-    findingId = typeof activeFinding?.data?.findingId === "string" ?
-      activeFinding.data.findingId : `inspection-finding-${observationId}`;
-    const previous = activeFinding?.data ?? null;
+  const reviewedFinding = superseded?.data == null ? null :
+    terminalInspectionEvidenceOwner(findingRows, history, String(superseded.data.observationId));
+  const existingFinding = reviewedFinding ?? activeFinding;
+  const retainedDecision = existingFinding == null ?
+    terminalInspectionEvidenceOwner(findingRows, history, effectiveId) : null;
+  const episode = inspectionEpisodeProjection(history, existingFinding?.data ?? null);
+  const episodeChanged = existingFinding?.data != null && Object.entries(episode)
+    .some(([key, value]) => key === "firstObservedAt" ?
+      persistedInstantText(existingFinding.data![key]) !== persistedInstantText(value) :
+      (existingFinding.data![key] ?? null) !== value);
+  if (retainedDecision == null && (advancesCurrentEvidence || episodeChanged) &&
+      (effective.outOfRange === true || existingFinding != null)) {
+    findingId = typeof existingFinding?.data?.findingId === "string" ?
+      existingFinding.data.findingId : `inspection-finding-${effectiveId}`;
+    assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history);
+    const previous = existingFinding?.data ?? null;
+    if (previous != null) assertInspectionEvidenceWithinEpisode(history, previous);
     const findingVersion = previous == null ? 1 : Number(previous.version ?? 0) + 1;
     const finding: JsonMap = {
       schemaVersion: 1,
@@ -1523,25 +1541,14 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       definitionId: campaign.data.definitionId,
       definitionVersion: campaign.data.definitionVersion,
       targetKey,
-      assetTypeKey,
-      assetNumber: governedTarget.assetNumber,
-      assetClassId,
-      assetInstanceId,
-      hostAssetClassId: governedTarget.hostAssetClassId,
-      hostAssetInstanceId: governedTarget.hostAssetInstanceId,
-      hostAssetNumber: governedTarget.hostAssetNumber,
-      hostAssetInstanceName: governedTarget.hostAssetInstanceName,
-      subjectSerialNumber: governedTarget.subjectSerialNumber,
-      linkageId: governedTarget.linkageId,
-      componentNodeId,
-      componentName,
-      physicalPosition,
-      status: outOfRange ? "open" : "awaitingVerification",
-      firstObservationId: previous?.firstObservationId ?? observationId,
-      currentObservationId: observationId,
-      firstObservedAt: previous?.firstObservedAt ?? observedAt,
-      latestObservedAt: observedAt,
-      recurrenceCount: Number(previous?.recurrenceCount ?? 0) + (outOfRange ? 1 : 0),
+      ...Object.fromEntries(["assetTypeKey", "assetNumber", "assetClassId", "assetInstanceId",
+        "hostAssetClassId", "hostAssetInstanceId", "hostAssetNumber", "hostAssetInstanceName",
+        "subjectSerialNumber", "linkageId", "componentNodeId", "componentName", "physicalPosition"]
+        .map((key) => [key, effective[key] ?? null])),
+      status: effective.outOfRange === true ? "open" : "awaitingVerification",
+      ...episode,
+      currentObservationId: effectiveId,
+      latestObservedAt: effectiveAt,
       linkedTicketId: previous?.linkedTicketId ?? null,
       verificationCount: Number(previous?.verificationCount ?? 0),
       createdAt: previous?.createdAt ?? now,
@@ -1551,22 +1558,29 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       updatedByUid: context.actor.uid,
       updatedByName: context.actor.name,
     };
-    if (activeFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
-    else tx.update(activeFinding.path, finding);
+    if (existingFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
+    else tx.update(existingFinding.path, finding);
+    touchInspectionFindingPopulation(tx, campaignId, campaign.data);
     tx.create(`inspection_finding_events/${command.commandId}`, {
       schemaVersion: 1,
       eventId: command.commandId,
       findingId,
       campaignId,
-      operation: previous == null ? "create" : "record-follow-up-observation",
+      operation: reviewedFinding != null ? "reopen-after-observation-correction" :
+        previous == null ? "create" : "record-follow-up-observation",
+      previousFindingVersion: previous?.version ?? null,
+      resultingFindingVersion: findingVersion,
       previousStatus: previous?.status ?? null,
       resultingStatus: finding.status,
       observationId,
+      effectiveObservationId: effectiveId,
+      supersededObservationId: observation.supersedesObservationId,
       performedAt: now,
       performedByUid: context.actor.uid,
       performedByName: context.actor.name,
     });
   }
+  tx.create(observationPath(observationId), observation);
   const priorLatest = persistedInstantText(campaign.data.latestObservationAt);
   tx.update(campaignPath(campaignId), {
     version: nextVersion,
@@ -1574,8 +1588,9 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     distinctTargetKeys: distinct,
     targetPopulation: inspectionTargetPopulationJson(observedPopulation),
     targetDispositionCounts: inspectionPopulationCounts(observedPopulation),
-    latestObservationAt: priorLatest == null || observedAt > priorLatest ?
-      observedAt : priorLatest,
+    latestObservationAt: observedPopulation.reduce<string | null>((latest, target) =>
+      target.lastObservedAt != null && (latest == null || target.lastObservedAt > latest) ?
+        target.lastObservedAt : latest, null) ?? priorLatest,
     updatedAt: now,
     updatedByUid: context.actor.uid,
     updatedByName: context.actor.name,
@@ -1590,7 +1605,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       targetKey,
       outOfRange,
       currentEvidenceAdvanced: advancesCurrentEvidence,
-      issueRecommended: outOfRange && advancesCurrentEvidence,
+      effectiveObservationId: effectiveId,
+      issueRecommended: effectiveId === observationId && outOfRange && advancesCurrentEvidence,
       findingId,
       comparisonOutcome,
       observationCount: Number(campaign.data.observationCount ?? 0) + 1,
@@ -1638,9 +1654,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     {field: "campaignId", op: "==", value: campaignId},
     {field: "targetKey", op: "==", value: observation.data.targetKey},
   ]);
-  const activeFindings = findingRows.filter((row) => row.data != null &&
-    !["verifiedResolved", "acceptedCondition", "invalidated"]
-      .includes(String(row.data.status)));
+  const activeFindings = activeInspectionFindings(findingRows, String(observation.data.targetKey));
   if (activeFindings.length > 1) {
     throw new WorkflowError(
       "failed-precondition",
@@ -1649,6 +1663,10 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     );
   }
   const finding = activeFindings[0] ?? null;
+  const findingHistory = finding == null ? null : effectiveInspectionHistory(await tx.query("inspection_observations", [
+    {field: "campaignId", op: "==", value: campaignId},
+    {field: "targetKey", op: "==", value: observation.data.targetKey},
+  ]), campaignId, String(observation.data.targetKey));
   if (finding?.data != null && typeof finding.data.linkedTicketId === "string" &&
       finding.data.linkedTicketId !== ticketId) {
     throw new WorkflowError(
@@ -1674,6 +1692,8 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
   });
   if (finding?.data != null) {
     const findingId = documentId(finding.data.findingId, "findingId");
+    assertInspectionFindingActivation(findingRows, findingId, String(observation.data.targetKey), campaign.data, findingHistory!);
+    touchInspectionFindingPopulation(tx, campaignId, campaign.data);
     tx.update(finding.path, {
       version: Number(finding.data.version ?? 0) + 1,
       status: "correctiveActionLinked",

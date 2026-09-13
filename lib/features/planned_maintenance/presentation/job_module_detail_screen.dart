@@ -22,11 +22,15 @@ import '../data/job_template_model.dart';
 import '../domain/runtime_module_lineage.dart';
 import '../models/component_action_model.dart';
 import '../providers/job_module_provider.dart';
+import '../providers/workflow_module_reopen_provider.dart';
+import '../services/workflow_module_reopen_controller.dart';
 import '../widgets/action_bottom_sheet.dart';
 import '../widgets/action_mini_card.dart';
 import 'widgets/job_module_response_form.dart';
 import 'widgets/job_module_response_summary.dart';
 import 'widgets/job_module_draft_recovery.dart';
+
+part 'job_module_detail_screen.workflow_reopen.dart';
 
 /// Detail workspace for a single process module inside a planned job.
 ///
@@ -105,22 +109,21 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     }
 
     final wasNotStarted = _module.status == JobModuleStatus.notStarted;
-    final nextStatus =
-        wasNotStarted ? JobModuleStatus.draftSaved : _module.status;
+    final nextStatus = wasNotStarted
+        ? JobModuleStatus.draftSaved
+        : _module.status;
 
-    final updated =
-        _editableCopy()
-          ..responses = responses
-          ..status = nextStatus
-          ..updatedByUid = actor.uid
-          ..updatedByName = actor.name
-          ..updatedAt = DateTime.now();
+    final updated = _editableCopy()
+      ..responses = responses
+      ..status = nextStatus
+      ..updatedByUid = actor.uid
+      ..updatedByName = actor.name
+      ..updatedAt = DateTime.now();
 
     await _runBusyAction(
-      successMessage:
-          wasNotStarted
-              ? 'Structured responses saved as draft'
-              : 'Structured module responses saved',
+      successMessage: wasNotStarted
+          ? 'Structured responses saved as draft'
+          : 'Structured module responses saved',
       action: () async {
         await ref
             .read(jobModuleRepositoryProvider)
@@ -131,10 +134,9 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               auditContext: AuditContext(
                 performedByUid: actor.uid,
                 performedByName: actor.name,
-                summary:
-                    wasNotStarted
-                        ? 'Saved structured process-module responses as draft'
-                        : 'Saved structured process-module responses',
+                summary: wasNotStarted
+                    ? 'Saved structured process-module responses as draft'
+                    : 'Saved structured process-module responses',
               ),
             );
         if (!mounted) return;
@@ -177,15 +179,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
 
     if (!mounted || draft == null) return;
 
-    final updated =
-        _editableCopy()
-          ..status = draft.status
-          ..draftNote = draft.draftNote
-          ..pendingIssue = draft.pendingIssue
-          ..requiresFollowUp = draft.requiresFollowUp
-          ..updatedByUid = actor.uid
-          ..updatedByName = actor.name
-          ..updatedAt = DateTime.now();
+    final updated = _editableCopy()
+      ..status = draft.status
+      ..draftNote = draft.draftNote
+      ..pendingIssue = draft.pendingIssue
+      ..requiresFollowUp = draft.requiresFollowUp
+      ..updatedByUid = actor.uid
+      ..updatedByName = actor.name
+      ..updatedAt = DateTime.now();
 
     await _runBusyAction(
       successMessage: 'Module progress saved',
@@ -246,6 +247,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         permission: (current) =>
             current.canSaveJobModuleWorkFor(_module.discipline.name),
         child: ActionBottomSheet(
+          originActorUid: actor.uid,
+          originPermission: (current) => current.canSaveJobModuleWorkFor(_module.discipline.name),
           workStartedAt: widget.execution.createdAt,
           workCompletedAt: widget.execution.completedAt,
           target: GovernedActionContext(
@@ -493,97 +496,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     );
   }
 
-  Future<void> _reopenModule() async {
-    final actor = await _readActor();
-    if (!mounted) return;
-
-    if (actor == null || !actor.canReopenJobModule) {
-      _showSnack(
-        'You are not authorized to reopen this module.',
-        isError: true,
-      );
-      return;
-    }
-
-    final reason = await _openReasonSheet(
-      title: 'Reopen module',
-      description:
-          'Reopening makes the module editable again and records an audit reason.',
-      label: 'Reopen reason',
-      required: true,
-      actionLabel: 'Reopen Module',
-      actionColor: BafColors.danger,
-    );
-
-    if (!mounted || reason == null) return;
-
-    await _runBusyAction(
-      successMessage: 'Module reopened',
-      action: () async {
-        final appliedAt = DateTime.now().toUtc();
-        final executionId = _cleanOptionalString(widget.execution.firestoreId);
-        final moduleId = _cleanOptionalString(_module.firestoreId);
-        if (widget.execution.workflowSchemaVersion == 1) {
-          if (executionId == null || moduleId == null) {
-            throw StateError(
-              'Workflow identity is incomplete. Sync this job before reopening.',
-            );
-          }
-          final repository = ref.read(workflowRepositoryProvider);
-          final workflow = await repository.getWorkflow(executionId);
-          if (workflow == null) {
-            throw StateError(
-              'Maintenance workflow is not available locally. Sync and retry.',
-            );
-          }
-          final command = WorkflowCommandFactory.create(
-            type: WorkflowCommandType.reopenWorkflowModule,
-            aggregateId: executionId,
-            expectedVersion: workflow.version,
-            payload: <String, Object?>{
-              'moduleFirestoreId': moduleId,
-              'reason': reason,
-            },
-          );
-          await ref
-              .read(workflowCommandControllerProvider.notifier)
-              .execute(command);
-          await ref
-              .read(jobModuleRepositoryProvider)
-              .applyWorkflowModuleReopenProjection(
-                moduleId,
-                actor: actor,
-                reason: reason,
-                appliedAt: appliedAt,
-              );
-        } else {
-          await ref
-              .read(jobModuleRepositoryProvider)
-              .reopenModule(
-                _transitionId(),
-                actor: actor,
-                reopenReason: reason,
-                auditContext: AuditContext(
-                  performedByUid: actor.uid,
-                  performedByName: actor.name,
-                  summary: 'Reopened process module',
-                ),
-              );
-        }
-        if (!mounted) return;
-        setState(() {
-          _module
-            ..status = JobModuleStatus.reopened
-            ..reopenedByUid = actor.uid
-            ..reopenedByName = actor.name
-            ..reopenedAt = appliedAt
-            ..reopenReason = reason
-            ..updatedByUid = actor.uid
-            ..updatedByName = actor.name
-            ..isSynced = kIsWeb;
-        });
-      },
-    );
+  void _showConfirmedWorkflowModule(JobModuleInstance current) {
+    setState(() => _module = current);
   }
 
   Future<String?> _openReasonSheet({
@@ -593,6 +507,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     required bool required,
     required String actionLabel,
     required Color actionColor,
+    String? originUid,
   }) {
     return showModalBottomSheet<String>(
       context: context,
@@ -604,15 +519,23 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           top: Radius.circular(BafRadius.large),
         ),
       ),
-      builder:
-          (_) => _ReasonSheet(
-            title: title,
-            description: description,
-            label: label,
-            required: required,
-            actionLabel: actionLabel,
-            actionColor: actionColor,
-          ),
+      builder: (_) {
+        final form = _ReasonSheet(
+          title: title,
+          description: description,
+          label: label,
+          required: required,
+          actionLabel: actionLabel,
+          actionColor: actionColor,
+        );
+        return originUid == null
+            ? form
+            : CurrentActorDialogGuard(
+                originUid: originUid,
+                permission: (actor) => actor.canReopenJobModule,
+                child: form,
+              );
+      },
     );
   }
 
@@ -803,10 +726,9 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
               _InfoRow(
                 label: 'Sync state',
-                value:
-                    module.isSynced || kIsWeb
-                        ? 'Remote-backed / synced'
-                        : 'Saved locally · pending sync',
+                value: module.isSynced || kIsWeb
+                    ? 'Remote-backed / synced'
+                    : 'Saved locally · pending sync',
               ),
             ],
           ),
@@ -950,10 +872,9 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed:
-                        canSaveWork && actionRead.isValid && !_isBusy
-                            ? _addComponentAction
-                            : null,
+                    onPressed: canSaveWork && actionRead.isValid && !_isBusy
+                        ? _addComponentAction
+                        : null,
                     icon: const Icon(Icons.add_task_rounded),
                     label: const Text('Add component work'),
                   ),
@@ -965,10 +886,9 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             const SizedBox(height: BafSpacing.lg),
             _ModuleSectionCard(
               title: 'Structured module responses',
-              subtitle:
-                  module.status == JobModuleStatus.notStarted
-                      ? 'Saving these fields will create a draft module response.'
-                      : 'Dynamic fields rendered from the module snapshot and saved into responsesJson.',
+              subtitle: module.status == JobModuleStatus.notStarted
+                  ? 'Saving these fields will create a draft module response.'
+                  : 'Dynamic fields rendered from the module snapshot and saved into responsesJson.',
               icon: Icons.dynamic_form_rounded,
               children: [
                 if (!fieldRead.isValid || !responseRead.isValid)
@@ -983,10 +903,9 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                     initialResponses: responses,
                     isEditable: canSaveWork,
                     isBusy: _isBusy,
-                    saveButtonLabel:
-                        module.status == JobModuleStatus.notStarted
-                            ? 'Save Responses as Draft'
-                            : 'Save Structured Responses',
+                    saveButtonLabel: module.status == JobModuleStatus.notStarted
+                        ? 'Save Responses as Draft'
+                        : 'Save Structured Responses',
                     onSave: _saveStructuredResponses,
                   ),
               ],
@@ -1036,21 +955,27 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 ),
               _InfoRow(
                 label: 'Response count',
-                value:
-                    responseRead.isValid
-                        ? responseRead.entries.length.toString()
-                        : 'Needs repair',
+                value: responseRead.isValid
+                    ? responseRead.entries.length.toString()
+                    : 'Needs repair',
               ),
               _InfoRow(
                 label: 'Action count',
-                value:
-                    actionRead.isValid
-                        ? actionRead.entries.length.toString()
-                        : 'Needs repair',
+                value: actionRead.isValid
+                    ? actionRead.entries.length.toString()
+                    : 'Needs repair',
               ),
             ],
           ),
           const SizedBox(height: BafSpacing.lg),
+          if (!kIsWeb &&
+              widget.execution.workflowSchemaVersion == 1 &&
+              module.firestoreId != null)
+            _SavedWorkflowModuleReopen(
+              moduleId: module.firestoreId!,
+              isBusy: _isBusy,
+              onCheck: _checkSavedWorkflowReopen,
+            ),
           _ModuleLifecycleCard(
             module: module,
             parentJobTerminal: parentJobTerminal,
@@ -1290,10 +1215,9 @@ class _ModuleLifecycleCard extends StatelessWidget {
 
     return _ModuleSectionCard(
       title: 'Lifecycle actions',
-      subtitle:
-          parentJobTerminal
-              ? 'Parent job is closed. Module lifecycle actions are locked.'
-              : 'Save progress, submit, accept, bypass with reason, or reopen when permitted.',
+      subtitle: parentJobTerminal
+          ? 'Parent job is closed. Module lifecycle actions are locked.'
+          : 'Save progress, submit, accept, bypass with reason, or reopen when permitted.',
       icon: Icons.published_with_changes_rounded,
       children: [
         if (parentJobTerminal)
@@ -1457,11 +1381,10 @@ class _StringListBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cleaned =
-        values
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toList();
+    final cleaned = values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1488,13 +1411,11 @@ class _StringListBlock extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children:
-                cleaned
-                    .map(
-                      (value) =>
-                          StatusBadge(label: value, color: BafColors.admin),
-                    )
-                    .toList(),
+            children: cleaned
+                .map(
+                  (value) => StatusBadge(label: value, color: BafColors.admin),
+                )
+                .toList(),
           ),
       ],
     );
@@ -1644,14 +1565,13 @@ class _ModuleProgressSheetState extends State<_ModuleProgressSheet> {
   void initState() {
     super.initState();
     final current = widget.module.status;
-    _status =
-        current == JobModuleStatus.notStarted
-            ? JobModuleStatus.inProgress
-            : current == JobModuleStatus.submitted ||
-                current == JobModuleStatus.accepted ||
-                current == JobModuleStatus.notApplicable
-            ? JobModuleStatus.draftSaved
-            : current;
+    _status = current == JobModuleStatus.notStarted
+        ? JobModuleStatus.inProgress
+        : current == JobModuleStatus.submitted ||
+              current == JobModuleStatus.accepted ||
+              current == JobModuleStatus.notApplicable
+        ? JobModuleStatus.draftSaved
+        : current;
     _draftController = TextEditingController(
       text: widget.module.draftNote ?? '',
     );
@@ -1738,8 +1658,8 @@ class _ModuleProgressSheetState extends State<_ModuleProgressSheet> {
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: _requiresFollowUp,
-              onChanged:
-                  (value) => setState(() => _requiresFollowUp = value ?? false),
+              onChanged: (value) =>
+                  setState(() => _requiresFollowUp = value ?? false),
               title: const Text(
                 'Requires follow-up',
                 style: TextStyle(

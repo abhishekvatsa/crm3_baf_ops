@@ -30,6 +30,8 @@ import '../../../core/serialization/tolerant_snapshot_decode.dart';
 part 'job_module_provider.local.dart';
 part 'job_module_provider.remote.dart';
 part 'job_module_provider.edit_conflicts.dart';
+part 'job_module_provider.save_baseline.dart';
+part 'job_module_provider.workflow_adoption.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -50,7 +52,29 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
 bool jobModuleClientSnapshotsEquivalentForSync(
   JobModuleInstance local,
   JobModuleInstance remote,
-) => jsonEncode(local.toMap()) == jsonEncode(remote.toMap());
+) =>
+    jsonEncode(_moduleComparableServerMap(local)) ==
+    jsonEncode(_moduleComparableServerMap(remote));
+
+Map<String, dynamic> _moduleComparableServerMap(JobModuleInstance module) {
+  final data = module.toMap();
+  // Isar reloads instants in the device zone; compare their UTC meaning without
+  // changing any stored command or business payload bytes.
+  final native = jobModuleLocalSnapshot(module);
+  for (final field in const [
+    'createdAt',
+    'updatedAt',
+    'addedAt',
+    'submittedAt',
+    'acceptedAt',
+    'reopenedAt',
+    'notApplicableAt',
+    'deletedAt',
+  ]) {
+    data[field] = native[field];
+  }
+  return data;
+}
 
 // ─────────────────────────────────────────────────────────────
 // NORMALIZATION HELPERS
@@ -534,11 +558,10 @@ abstract class JobModuleRepository {
     AuditContext? auditContext,
   });
 
-  Future<void> applyWorkflowModuleReopenProjection(
-    String firestoreId, {
+  Future<JobModuleInstance> applyWorkflowModuleReopenProjection(
+    JobModuleInstance remote, {
     required AppUser actor,
-    required String reason,
-    required DateTime appliedAt,
+    required JobModuleSaveBaseline expectedLocal,
   });
 
   Future<void> markModuleNotApplicable(

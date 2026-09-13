@@ -1,4 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
+import 'package:crm3_baf_ops/features/auth/presentation/current_actor_gate.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -19,7 +24,104 @@ final _older = DateTime.utc(2026, 9, 10, 4, 45);
 final _newer = DateTime.utc(2026, 9, 12, 6, 5);
 final _captured = <String, dynamic>{};
 
+AppUser _timeActor({
+  String uid = 'maintainer',
+  bool approved = true,
+  List<AppRole> roles = const [AppRole.admin],
+}) => AppUser(
+  uid: uid,
+  name: uid,
+  email: 'time@example.test',
+  roles: roles,
+  isApproved: approved,
+  createdAt: DateTime.utc(2026),
+);
+
 void main() {
+  for (final route in ['date', 'time', 'seconds']) {
+    testWidgets(
+      'nested $route picker hides on account loss and rejects a late result',
+      (tester) async {
+        final accounts = StreamController<AppUser?>.broadcast();
+        final original = _older.add(
+          const Duration(seconds: 12, microseconds: 345678),
+        );
+        await _open(
+          tester,
+          initial: original,
+          accounts: accounts,
+          receive: (_) {},
+        );
+        if (route == 'seconds') {
+          await _tap(
+            tester,
+            find.byKey(const ValueKey('edit-action-performed-seconds')),
+          );
+          await tester.enterText(
+            find.byKey(const ValueKey('action-performed-seconds')),
+            '14.25',
+          );
+        } else {
+          await _tap(
+            tester,
+            find.byKey(const ValueKey('action-performed-time')),
+          );
+          if (route == 'time') await _tap(tester, find.text('OK').last);
+        }
+        Finder currentDialog() => route == 'seconds'
+            ? find.byKey(const ValueKey('action-performed-seconds'))
+            : route == 'date'
+            ? find.byType(DatePickerDialog)
+            : find.byType(TimePickerDialog);
+        final routeContext = tester.element(currentDialog());
+        for (final mode in ['other', 'unapproved', 'role lost', 'error']) {
+          switch (mode) {
+            case 'other':
+              accounts.add(_timeActor(uid: 'other'));
+            case 'unapproved':
+              accounts.add(_timeActor(approved: false));
+            case 'role lost':
+              accounts.add(_timeActor(roles: [AppRole.operations]));
+            case 'error':
+              accounts.addError(StateError('Account refresh failed'));
+          }
+          await tester.pumpAndSettle();
+          expect(currentDialog(), findsNothing);
+          expect(find.text('Account verification required'), findsWidgets);
+          accounts.add(_timeActor());
+          await tester.pumpAndSettle();
+          expect(currentDialog(), findsOneWidget);
+          if (route == 'seconds') {
+            expect(
+              tester.widget<TextField>(currentDialog()).controller!.text,
+              '14.25',
+            );
+          }
+        }
+        accounts.add(_timeActor(uid: 'other'));
+        await tester.pumpAndSettle();
+        Navigator.of(routeContext).pop(
+          route == 'time'
+              ? const TimeOfDay(hour: 9, minute: 20)
+              : original.add(const Duration(seconds: 2)),
+        );
+        await tester.pumpAndSettle();
+        accounts.add(_timeActor());
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<ActionPerformedTimeField>(
+                find.byType(ActionPerformedTimeField),
+              )
+              .value,
+          original,
+        );
+        expect(find.byType(TimePickerDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final component in ['burner', 'uv']) {
     for (final instant in {'older': _older, 'newer': _newer}.entries) {
       testWidgets(
@@ -140,6 +242,155 @@ void main() {
     expect(result!.createdAt, original);
   });
 
+  for (final window in [
+    (
+      name: 'seconds',
+      start: DateTime(2026, 9, 10, 10, 30, 45),
+      selected: DateTime(2026, 9, 10, 10, 30, 50),
+      end: DateTime(2026, 9, 10, 10, 30, 55),
+    ),
+    (
+      name: 'fractions of a second',
+      start: DateTime(2026, 9, 10, 10, 30, 45, 123, 456),
+      selected: DateTime(2026, 9, 10, 10, 30, 45, 123, 700),
+      end: DateTime(2026, 9, 10, 10, 30, 45, 123, 999),
+    ),
+  ]) {
+    testWidgets('short work interval accepts explicit ${window.name} exactly', (
+      tester,
+    ) async {
+      ComponentAction? result;
+      await _open(
+        tester,
+        start: window.start,
+        end: window.end,
+        receive: (value) => result = value,
+      );
+      await _chooseTargetAndReplacement(tester, 'uv');
+      expect(_saveButton(tester).onPressed, isNull);
+      await _pick(tester, window.selected);
+      expect(
+        tester
+            .widget<ActionPerformedTimeField>(
+              find.byType(ActionPerformedTimeField),
+            )
+            .value,
+        window.selected,
+      );
+      await _tap(tester, find.text('Save Action'));
+      expect(result!.createdAt, window.selected);
+      expect(
+        result!.toMap()['createdAt'],
+        window.selected.toUtc().toIso8601String(),
+      );
+      final execution = JobExecution()..actions = [result!];
+      expect(
+        (jsonDecode(execution.actionsJson) as List).single['createdAt'],
+        window.selected.toUtc().toIso8601String(),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'reselecting the same minute preserves supplied fractional time',
+    (tester) async {
+      final original = _older.add(
+        const Duration(seconds: 12, microseconds: 345678),
+      );
+      await _open(tester, initial: original, receive: (_) {});
+      await _pick(tester, original, adjustSeconds: false);
+      expect(
+        tester
+            .widget<ActionPerformedTimeField>(
+              find.byType(ActionPerformedTimeField),
+            )
+            .value,
+        original.toLocal(),
+      );
+      expect(find.textContaining('12.345678'), findsOneWidget);
+    },
+  );
+
+  testWidgets('invalid seconds cannot save and cancelling keeps the old time', (
+    tester,
+  ) async {
+    final start = DateTime(2026, 9, 10, 10, 30, 45);
+    final original = DateTime(2026, 9, 10, 10, 30, 50);
+    await _open(
+      tester,
+      start: start,
+      end: DateTime(2026, 9, 10, 10, 30, 55),
+      initial: original,
+      receive: (_) {},
+    );
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('edit-action-performed-seconds')),
+    );
+    for (final seconds in ['44', '56', '60', '-1', '50.1234567', '']) {
+      await tester.enterText(
+        find.byKey(const ValueKey('action-performed-seconds')),
+        seconds,
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('confirm-action-performed-seconds')),
+            )
+            .onPressed,
+        isNull,
+        reason: 'Invalid physical time must remain unsavable: $seconds',
+      );
+    }
+    await _tap(tester, find.text('Cancel').last);
+    expect(
+      tester
+          .widget<ActionPerformedTimeField>(
+            find.byType(ActionPerformedTimeField),
+          )
+          .value,
+      original,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('cancelling required seconds confirmation never guesses a time', (
+    tester,
+  ) async {
+    final start = DateTime(2026, 9, 10, 10, 30, 45);
+    await _open(
+      tester,
+      start: start,
+      end: DateTime(2026, 9, 10, 10, 30, 55),
+      receive: (_) {},
+    );
+    await _pick(tester, start, confirmSeconds: false);
+    expect(
+      find.byKey(const ValueKey('action-performed-seconds')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ActionPerformedTimeField>(
+            find.byType(ActionPerformedTimeField),
+          )
+          .value,
+      isNull,
+    );
+    await _tap(tester, find.text('Cancel').last);
+    expect(
+      tester
+          .widget<ActionPerformedTimeField>(
+            find.byType(ActionPerformedTimeField),
+          )
+          .value,
+      isNull,
+    );
+    expect(_saveButton(tester).onPressed, isNull);
+  });
+
   test(
     'future or contradictory job bounds fail closed; real endpoints are inclusive',
     () {
@@ -203,8 +454,10 @@ Future<void> _open(
   WidgetTester tester, {
   String component = 'uv',
   DateTime? initial,
+  DateTime? start,
   DateTime? end,
   required void Function(ComponentAction?) receive,
+  StreamController<AppUser?>? accounts,
 }) async {
   tester.view.physicalSize = const Size(1000, 1500);
   tester.view.devicePixelRatio = 1;
@@ -213,6 +466,11 @@ Future<void> _open(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (accounts != null)
+          currentAppUserProvider.overrideWith((ref) async* {
+            yield _timeActor();
+            yield* accounts.stream;
+          }),
         assetHierarchyRepositoryProvider.overrideWithValue(
           _Hierarchy(component),
         ),
@@ -229,19 +487,32 @@ Future<void> _open(
                 await showModalBottomSheet<ComponentAction>(
                   context: context,
                   isScrollControlled: true,
-                  builder: (_) => ActionBottomSheet(
-                    target: const GovernedActionContext(
-                      assetTypeKey: 'furnace',
-                      assetNumber: 7,
-                    ),
-                    workStartedAt: _start,
-                    workCompletedAt: end,
-                    performedAt: initial,
-                    performedBy: 'Maintainer',
-                    workDiscipline: component == 'uv'
-                        ? 'instrumentation'
-                        : 'mechanical',
-                  ),
+                  builder: (_) {
+                    final form = ActionBottomSheet(
+                      originActorUid: accounts == null ? null : 'maintainer',
+                      originPermission: (actor) =>
+                          actor.canSaveJobModuleWorkFor('instrumentation'),
+                      target: const GovernedActionContext(
+                        assetTypeKey: 'furnace',
+                        assetNumber: 7,
+                      ),
+                      workStartedAt: start ?? _start,
+                      workCompletedAt: end,
+                      performedAt: initial,
+                      performedBy: 'Maintainer',
+                      workDiscipline: component == 'uv'
+                          ? 'instrumentation'
+                          : 'mechanical',
+                    );
+                    return accounts == null
+                        ? form
+                        : CurrentActorDialogGuard(
+                            originUid: 'maintainer',
+                            permission: (actor) => actor
+                                .canSaveJobModuleWorkFor('instrumentation'),
+                            child: form,
+                          );
+                  },
                 ),
               ),
               child: const Text('Open action'),
@@ -251,6 +522,14 @@ Future<void> _open(
       ),
     ),
   );
+  if (accounts != null) {
+    accounts.add(_timeActor());
+    await tester.pumpAndSettle();
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await accounts.close();
+    });
+  }
   await _tap(tester, find.text('Open action'));
 }
 
@@ -278,7 +557,12 @@ Future<void> _chooseTargetAndReplacement(
   }
 }
 
-Future<void> _pick(WidgetTester tester, DateTime instant) async {
+Future<void> _pick(
+  WidgetTester tester,
+  DateTime instant, {
+  bool adjustSeconds = true,
+  bool confirmSeconds = true,
+}) async {
   final local = instant.toLocal();
   await _tap(tester, find.byKey(const ValueKey('action-performed-time')));
   final dateContext = tester.element(find.byType(DatePickerDialog));
@@ -308,6 +592,28 @@ Future<void> _pick(WidgetTester tester, DateTime instant) async {
   await tester.enterText(fields.at(0), '${local.hour}');
   await tester.enterText(fields.at(1), '${local.minute}');
   await _tap(tester, find.text('OK').last);
+  if (!confirmSeconds) return;
+  final seconds = find.byKey(const ValueKey('action-performed-seconds'));
+  if (adjustSeconds &&
+      seconds.evaluate().isEmpty &&
+      (local.second != 0 || local.millisecond != 0 || local.microsecond != 0)) {
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('edit-action-performed-seconds')),
+    );
+  }
+  if (seconds.evaluate().isNotEmpty) {
+    final fraction = local.millisecond * 1000 + local.microsecond;
+    await tester.enterText(
+      seconds,
+      '${local.second}${fraction == 0 ? '' : '.${fraction.toString().padLeft(6, '0')}'}',
+    );
+    await tester.pump();
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('confirm-action-performed-seconds')),
+    );
+  }
 }
 
 class _Hierarchy extends Fake implements AssetHierarchyRepository {

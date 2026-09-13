@@ -177,11 +177,10 @@ Map<String, dynamic> findingMap() => <String, dynamic>{
 };
 
 Map<String, dynamic> innerCoverCampaignMap() {
-  final definition =
-      frozenDefinition()
-        ..['assetTypeKeys'] = <String>['innerCover']
-        ..['assetClassIds'] = <String>['class-inner-cover']
-        ..['componentNodeIds'] = <String>['inner-cover-shell'];
+  final definition = frozenDefinition()
+    ..['assetTypeKeys'] = <String>['innerCover']
+    ..['assetClassIds'] = <String>['class-inner-cover']
+    ..['componentNodeIds'] = <String>['inner-cover-shell'];
   final target = <String, dynamic>{
     'schemaVersion': 1,
     'targetKey':
@@ -382,10 +381,9 @@ void main() {
         (campaign['targetPopulation'] as List<Map<String, dynamic>>).first;
     target['targetKey'] =
         'class-furnace:furnace-1|pressure-transmitter|Other position';
-    final observation =
-        observationMap()
-          ..['targetKey'] =
-              'class-furnace:furnace-1|pressure-transmitter|Other position';
+    final observation = observationMap()
+      ..['targetKey'] =
+          'class-furnace:furnace-1|pressure-transmitter|Other position';
 
     expect(
       () => InspectionCampaign.fromMap(campaign, 'campaign-1'),
@@ -399,8 +397,8 @@ void main() {
 
   test('observation requires paired asset and component identities', () {
     final missingAssetInstance = observationMap()..['assetInstanceId'] = null;
-    final missingComponentVersion =
-        observationMap()..['componentNodeVersion'] = null;
+    final missingComponentVersion = observationMap()
+      ..['componentNodeVersion'] = null;
 
     for (final malformed in [missingAssetInstance, missingComponentVersion]) {
       expect(
@@ -438,35 +436,33 @@ void main() {
   });
 
   test('Inner Cover observation and finding use the Base-facing row label', () {
-    final observationData =
-        observationMap()
-          ..['definition'] = (innerCoverCampaignMap()['definition'] as Map)
-          ..['assetTypeKey'] = 'innerCover'
-          ..['assetNumber'] = 205
-          ..['assetClassId'] = 'class-inner-cover'
-          ..['assetInstanceId'] = 'inner-cover-n4'
-          ..['hostAssetClassId'] = 'class-base'
-          ..['hostAssetInstanceId'] = 'base-205'
-          ..['hostAssetInstanceVersion'] = 3
-          ..['hostAssetNumber'] = 205
-          ..['hostAssetInstanceName'] = 'Base 205'
-          ..['subjectSerialNumber'] = 'N4'
-          ..['linkageId'] = 'link-n4-base-205'
-          ..['linkageVersion'] = 1
-          ..['linkedAt'] = '2026-08-21T04:00:00.000Z'
-          ..['componentNodeId'] = 'inner-cover-shell'
-          ..['componentName'] = 'Inner Cover shell'
-          ..['physicalPosition'] = 'Shell'
-          ..['targetKey'] =
-              'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205';
-    final findingData =
-        findingMap()
-          ..['assetTypeKey'] = 'innerCover'
-          ..['assetNumber'] = 205
-          ..['assetClassId'] = 'class-inner-cover'
-          ..['assetInstanceId'] = 'inner-cover-n4'
-          ..['hostAssetNumber'] = 205
-          ..['subjectSerialNumber'] = 'N4';
+    final observationData = observationMap()
+      ..['definition'] = (innerCoverCampaignMap()['definition'] as Map)
+      ..['assetTypeKey'] = 'innerCover'
+      ..['assetNumber'] = 205
+      ..['assetClassId'] = 'class-inner-cover'
+      ..['assetInstanceId'] = 'inner-cover-n4'
+      ..['hostAssetClassId'] = 'class-base'
+      ..['hostAssetInstanceId'] = 'base-205'
+      ..['hostAssetInstanceVersion'] = 3
+      ..['hostAssetNumber'] = 205
+      ..['hostAssetInstanceName'] = 'Base 205'
+      ..['subjectSerialNumber'] = 'N4'
+      ..['linkageId'] = 'link-n4-base-205'
+      ..['linkageVersion'] = 1
+      ..['linkedAt'] = '2026-08-21T04:00:00.000Z'
+      ..['componentNodeId'] = 'inner-cover-shell'
+      ..['componentName'] = 'Inner Cover shell'
+      ..['physicalPosition'] = 'Shell'
+      ..['targetKey'] =
+          'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205';
+    final findingData = findingMap()
+      ..['assetTypeKey'] = 'innerCover'
+      ..['assetNumber'] = 205
+      ..['assetClassId'] = 'class-inner-cover'
+      ..['assetInstanceId'] = 'inner-cover-n4'
+      ..['hostAssetNumber'] = 205
+      ..['subjectSerialNumber'] = 'N4';
 
     final observation = InspectionObservation.fromMap(
       observationData,
@@ -483,5 +479,66 @@ void main() {
     expect(finding.blocksCampaignClosure, isTrue);
     expect(finding.linkedTicketId, 'ticket-1');
     expect(finding.status, InspectionFindingStatus.awaitingVerification);
+    expect(finding.effectiveAbnormalReadingCount, 1);
+    expect(finding.evidenceReviewMessage, isNull);
   });
+
+  test(
+    'corrected-away abnormal basis is displayed as zero and requires review',
+    () {
+      final data = findingMap()
+        ..['effectiveAdverseObservationCount'] = 0
+        ..['evidenceReviewRequired'] = true
+        ..['evidenceReviewReason'] =
+            'inspection-episode-adverse-basis-corrected';
+      final finding = InspectionFinding.fromMap(data, 'finding-1');
+      expect(finding.recurrenceCount, 1);
+      expect(finding.effectiveAbnormalReadingCount, 0);
+      expect(finding.needsEvidenceAdjudication, isTrue);
+      expect(finding.evidenceReviewMessage, contains('record a decision'));
+      data['status'] = 'correctiveActionLinked';
+      expect(
+        InspectionFinding.fromMap(data, 'finding-1').blocksCampaignClosure,
+        isTrue,
+      );
+      data['status'] = 'invalidated';
+      final reviewed = InspectionFinding.fromMap(data, 'finding-1');
+      expect(reviewed.needsEvidenceAdjudication, isFalse);
+      expect(reviewed.blocksCampaignClosure, isFalse);
+      expect(reviewed.evidenceReviewMessage, contains('explicitly reviewed'));
+    },
+  );
+
+  test(
+    'partial or contradictory effective evidence projection is rejected',
+    () {
+      final valid = findingMap()
+        ..['effectiveAdverseObservationCount'] = 0
+        ..['evidenceReviewRequired'] = true
+        ..['evidenceReviewReason'] =
+            'inspection-episode-adverse-basis-corrected';
+      for (final key in [
+        'effectiveAdverseObservationCount',
+        'evidenceReviewRequired',
+        'evidenceReviewReason',
+      ]) {
+        expect(
+          () => InspectionFinding.fromMap({...valid}..remove(key), 'finding-1'),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+      for (final change in <Map<String, dynamic>>[
+        {'effectiveAdverseObservationCount': -1},
+        {'effectiveAdverseObservationCount': 1},
+        {'evidenceReviewRequired': false},
+        {'evidenceReviewRequired': 'true'},
+        {'evidenceReviewReason': 'unknown'},
+      ]) {
+        expect(
+          () => InspectionFinding.fromMap({...valid, ...change}, 'finding-1'),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+    },
+  );
 }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../auth/data/user_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -37,6 +38,8 @@ class ActionBottomSheet extends ConsumerStatefulWidget {
     this.performedAt,
     this.performedBy,
     this.workDiscipline,
+    this.originActorUid,
+    this.originPermission,
   });
 
   final GovernedActionContext target;
@@ -45,6 +48,8 @@ class ActionBottomSheet extends ConsumerStatefulWidget {
   final DateTime? performedAt;
   final String? performedBy;
   final String? workDiscipline;
+  final String? originActorUid;
+  final bool Function(AppUser)? originPermission;
 
   @override
   ConsumerState<ActionBottomSheet> createState() => _ActionBottomSheetState();
@@ -105,10 +110,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final classes = await repository.watchAssetClasses().first;
       final explicitClassId = widget.target.assetClassId?.trim();
-      final expectedLegacyType =
-          widget.target.assetTypeKey == 'innerCover'
-              ? 'base'
-              : widget.target.assetTypeKey;
+      final expectedLegacyType = widget.target.assetTypeKey == 'innerCover'
+          ? 'base'
+          : widget.target.assetTypeKey;
       final matchingClasses = classes
           .where(
             (item) =>
@@ -124,16 +128,14 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         );
       }
       final assetClass = matchingClasses.single;
-      final hierarchyClass =
-          widget.target.assetTypeKey == 'innerCover'
-              ? classes
-                  .where(
-                    (item) =>
-                        item.isActive &&
-                        item.legacyAssetTypeKey == 'innerCover',
-                  )
-                  .singleOrNull
-              : assetClass;
+      final hierarchyClass = widget.target.assetTypeKey == 'innerCover'
+          ? classes
+                .where(
+                  (item) =>
+                      item.isActive && item.legacyAssetTypeKey == 'innerCover',
+                )
+                .singleOrNull
+          : assetClass;
       if (hierarchyClass == null) {
         throw const AssetHierarchyException(
           'The active Inner Cover hierarchy is unavailable or ambiguous.',
@@ -171,10 +173,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       if (!mounted) return;
       setState(() {
         _loadingTarget = false;
-        _targetLoadError =
-            error is AssetHierarchyException
-                ? '$error'
-                : 'The governed asset hierarchy could not be loaded.';
+        _targetLoadError = error is AssetHierarchyException
+            ? '$error'
+            : 'The governed asset hierarchy could not be loaded.';
       });
     }
   }
@@ -207,10 +208,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       hierarchyReference = reference;
       asset = reference.assetInstanceName;
       system = reference.assetClassName;
-      subsystem =
-          reference.hierarchyPath.length > 1
-              ? reference.hierarchyPath[reference.hierarchyPath.length - 2]
-              : null;
+      subsystem = reference.hierarchyPath.length > 1
+          ? reference.hierarchyPath[reference.hierarchyPath.length - 2]
+          : null;
       path = List<String>.from(reference.hierarchyPath);
       ownership = <String>[
         reference.ownershipStatus.label,
@@ -246,10 +246,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
 
     if (tag.isEmpty) {
       final targetAsset = _assetRecord;
-      final selectedNode =
-          _hierarchyNodes
-              .where((node) => node.id == _selectedNodeId)
-              .singleOrNull;
+      final selectedNode = _hierarchyNodes
+          .where((node) => node.id == _selectedNodeId)
+          .singleOrNull;
       if (targetAsset != null &&
           selectedNode != null &&
           hierarchyReference?.scope ==
@@ -333,10 +332,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       setState(() {
         asset = component.assetInstanceName;
         system = component.assetClassName;
-        subsystem =
-            component.hierarchyPath.length > 1
-                ? component.hierarchyPath[component.hierarchyPath.length - 2]
-                : null;
+        subsystem = component.hierarchyPath.length > 1
+            ? component.hierarchyPath[component.hierarchyPath.length - 2]
+            : null;
         path = List<String>.from(component.hierarchyPath);
         hierarchyReference = reference;
         ownership = [
@@ -445,20 +443,24 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       hierarchyPath: path,
       assetHierarchyRef: hierarchyReference,
       actionType: _actionType,
-      replacement:
-          _actionType == ActionType.replacement ? _replacementType : null,
+      replacement: _actionType == ActionType.replacement
+          ? _replacementType
+          : null,
       status: _status,
       issue: _issueController.text.trim(),
       isAutoResolved: _isAutoResolved,
       createdAt: _performedAt!,
       performedBy: widget.performedBy,
       burnerPosition: _usesNumberedBurnerPosition ? _burnerPosition : null,
-      burnerBlockSupplyMode:
-          _isBurnerBlockReplacement ? _burnerBlockSupplyMode : null,
-      burnerBlockSupplierName:
-          _isPurchasedBurnerBlock ? _supplierController.text.trim() : null,
-      burnerBlockPurchaseOrderNumber:
-          _isPurchasedBurnerBlock ? _purchaseOrderController.text.trim() : null,
+      burnerBlockSupplyMode: _isBurnerBlockReplacement
+          ? _burnerBlockSupplyMode
+          : null,
+      burnerBlockSupplierName: _isPurchasedBurnerBlock
+          ? _supplierController.text.trim()
+          : null,
+      burnerBlockPurchaseOrderNumber: _isPurchasedBurnerBlock
+          ? _purchaseOrderController.text.trim()
+          : null,
     );
 
     Navigator.pop(context, action);
@@ -538,6 +540,8 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
               ),
               const SizedBox(height: 18),
               ActionPerformedTimeField(
+                originActorUid: widget.originActorUid,
+                originPermission: widget.originPermission,
                 value: _performedAt,
                 workStartedAt: widget.workStartedAt,
                 workCompletedAt: widget.workCompletedAt,
@@ -579,23 +583,25 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
               TextField(
                 controller: _tagController,
                 enabled: !_loadingTarget && _targetLoadError == null,
-                decoration: _inputDecoration(
-                  'Instrument tag (optional)',
-                  hint: 'Use only when the tag is known',
-                  icon: Icons.sell_rounded,
-                ).copyWith(
-                  errorText: _tagError,
-                  suffixIcon:
-                      _resolvingTag
+                decoration:
+                    _inputDecoration(
+                      'Instrument tag (optional)',
+                      hint: 'Use only when the tag is known',
+                      icon: Icons.sell_rounded,
+                    ).copyWith(
+                      errorText: _tagError,
+                      suffixIcon: _resolvingTag
                           ? const Padding(
-                            padding: EdgeInsets.all(14),
-                            child: SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
+                              padding: EdgeInsets.all(14),
+                              child: SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
                           : null,
-                ),
+                    ),
                 textCapitalization: TextCapitalization.characters,
                 onChanged: _resolveTag,
               ),
@@ -617,16 +623,15 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                   'Action type',
                   icon: Icons.handyman_rounded,
                 ),
-                items:
-                    ActionType.values.map((type) {
-                      return DropdownMenuItem<ActionType>(
-                        value: type,
-                        child: Text(
-                          _actionTypeLabel(type),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
+                items: ActionType.values.map((type) {
+                  return DropdownMenuItem<ActionType>(
+                    value: type,
+                    child: Text(
+                      _actionTypeLabel(type),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
                 onChanged: (val) {
                   if (val == null) return;
                   setState(() {
@@ -654,15 +659,14 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                     icon: Icons.swap_horiz_rounded,
                   ),
                   hint: const Text('Select new, repaired or revised part'),
-                  items:
-                      ReplacementType.values
-                          .map(
-                            (type) => DropdownMenuItem<ReplacementType>(
-                              value: type,
-                              child: Text(_replacementTypeLabel(type)),
-                            ),
-                          )
-                          .toList(),
+                  items: ReplacementType.values
+                      .map(
+                        (type) => DropdownMenuItem<ReplacementType>(
+                          value: type,
+                          child: Text(_replacementTypeLabel(type)),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) {
                     setState(() => _replacementType = value);
                   },
@@ -812,16 +816,15 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                   'Status',
                   icon: Icons.flag_rounded,
                 ),
-                items:
-                    ActionStatus.values.map((status) {
-                      return DropdownMenuItem<ActionStatus>(
-                        value: status,
-                        child: Text(
-                          _statusLabel(status),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
+                items: ActionStatus.values.map((status) {
+                  return DropdownMenuItem<ActionStatus>(
+                    value: status,
+                    child: Text(
+                      _statusLabel(status),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
                 onChanged: (val) {
                   if (val == null) return;
                   setState(() => _status = val);
@@ -988,11 +991,10 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     }
     final reference = hierarchyReference;
     if (reference == null) return false;
-    final identity =
-        <String>[
-          reference.nodeName,
-          ...reference.hierarchyPath,
-        ].join(' ').toLowerCase();
+    final identity = <String>[
+      reference.nodeName,
+      ...reference.hierarchyPath,
+    ].join(' ').toLowerCase();
     return identity.contains('burner block') ||
         identity.contains('firing tube');
   }
@@ -1025,11 +1027,10 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     }
     final reference = hierarchyReference;
     if (reference == null) return false;
-    final identity =
-        <String>[
-          reference.nodeName,
-          ...reference.hierarchyPath,
-        ].join(' ').toLowerCase();
+    final identity = <String>[
+      reference.nodeName,
+      ...reference.hierarchyPath,
+    ].join(' ').toLowerCase();
     return (identity.contains('uv') &&
             const <String>[
               'detector',
@@ -1073,8 +1074,9 @@ class _ResolvedTagPanel extends StatelessWidget {
           StatusBadge(
             label: governed ? 'Governed component' : 'Tag resolved',
             color: BafColors.sync,
-            icon:
-                governed ? Icons.verified_outlined : Icons.auto_awesome_rounded,
+            icon: governed
+                ? Icons.verified_outlined
+                : Icons.auto_awesome_rounded,
           ),
           const SizedBox(height: 8),
           if (asset != null && asset!.trim().isNotEmpty)

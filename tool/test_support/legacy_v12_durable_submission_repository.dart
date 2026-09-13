@@ -1,22 +1,23 @@
+// Frozen actual repository from 30330c72; only class/import names adapted for compatibility execution.
+// Current row/type definitions have the same v12 fields and state meanings.
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:isar_community/isar.dart';
 import 'package:uuid/uuid.dart';
 
-import 'durable_submission.dart';
-import 'durable_submission_record.dart';
-import 'durable_submission_review.dart';
-import 'durable_submission_review_acceptance.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_record.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_review.dart';
 
-export 'durable_submission.dart';
-export 'durable_submission_record.dart' show DurableSubmissionRecordSchema;
+export 'package:crm3_baf_ops/core/persistence/durable_submission.dart';
+export 'package:crm3_baf_ops/core/persistence/durable_submission_record.dart' show DurableSubmissionRecordSchema;
 
 /// Owns native submission transactions, never network dispatch. Controllers
 /// must check mayDispatch and use exactly submission.envelopeJson under its
 /// authenticated-origin protocol. No unavailable-store fallback is supported.
-class DurableSubmissionRepository {
-  DurableSubmissionRepository(
+class LegacyV12DurableSubmissionRepository {
+  LegacyV12DurableSubmissionRepository(
     this.isar, {
     DateTime Function()? now,
     String Function()? newClaimToken,
@@ -102,13 +103,13 @@ class DurableSubmissionRepository {
     String resourceKey,
   ) async {
     final rows = await _unresolvedForResource(resourceKey);
-    if (rows.length > 1 && !_hasReviewedPredecessor(rows)) {
+    if (rows.length > 1) {
       _fail(
         'resource-conflict',
         'More than one saved submission claims this item. Evidence needs review.',
       );
     }
-    return rows.isEmpty ? null : rows.first;
+    return rows.isEmpty ? null : rows.single;
   }
 
   Future<DurableSubmission?> findUnresolved({
@@ -258,7 +259,7 @@ class DurableSubmissionRepository {
         );
       }
       if (view.state.isAccepted) {
-        if (view.receiptJson != receiptJson) {
+        if (row.receiptJson != receiptJson) {
           _fail(
             'acceptance-conflict',
             'A different acceptance is already retained. Both outcomes need review.',
@@ -266,7 +267,6 @@ class DurableSubmissionRepository {
         }
         return view;
       }
-      Map<String, dynamic>? retainedReview;
       if (view.state == DurableSubmissionState.reviewResolved ||
           view.state == DurableSubmissionState.reviewConflict) {
         // Never erase a reviewed decision when a valid delayed reply arrives.
@@ -276,47 +276,23 @@ class DurableSubmissionRepository {
         if (!late.any((item) => jsonEncode(item) == receiptJson)) {
           late.add(receipt);
         }
-        final updatedHistory = {...history, 'lateAcceptances': late};
-        bool retainedReceiptsValid() {
-          try {
-            return late.every(
-              (item) => validateReceipt(view, item as Map<String, dynamic>),
-            );
-          } catch (_) {
-            // Previously retained evidence is not discarded when the current
-            // domain validator rejects it. Preserve this valid reply beside it.
-            return false;
-          }
-        }
-
-        if (confirmsReviewedAcceptance(view, updatedHistory, receipt) &&
-            retainedReceiptsValid()) {
-          retainedReview = updatedHistory;
-        } else {
-          final raw = jsonEncode(updatedHistory);
-          row
-            ..stateKey = DurableSubmissionState.reviewConflict.name
-            ..receiptJson = raw
-            ..receiptSha256 = durableSubmissionSha256(raw)
-            ..updatedAt = _time
-            ..lastErrorCode = 'acceptance-after-review'
-            ..lastErrorMessage =
-                'A late acceptance differs from retained review evidence. Both outcomes are retained; review this item before continuing.';
-          await _rows.put(row);
-          return _view(row);
-        }
+        final raw = jsonEncode({...history, 'lateAcceptances': late});
+        row
+          ..stateKey = DurableSubmissionState.reviewConflict.name
+          ..receiptJson = raw
+          ..receiptSha256 = durableSubmissionSha256(raw)
+          ..updatedAt = _time
+          ..lastErrorCode = 'acceptance-after-review'
+          ..lastErrorMessage =
+              'A late acceptance arrived after review. Both outcomes are retained; review this item before continuing.';
+        await _rows.put(row);
+        return _view(row);
       }
       final at = _time;
-      final storedReceipt = retainedReview == null
-          ? receiptJson
-          : reviewedAcceptanceCapsule(
-              history: retainedReview,
-              acceptanceJson: receiptJson,
-            );
       row
         ..stateKey = DurableSubmissionState.acceptedPendingAdoption.name
-        ..receiptJson = storedReceipt
-        ..receiptSha256 = durableSubmissionSha256(storedReceipt)
+        ..receiptJson = receiptJson
+        ..receiptSha256 = durableSubmissionSha256(receiptJson)
         ..acceptedAt = at
         ..claimToken = null
         ..claimExpiresAt = null
@@ -346,16 +322,6 @@ class DurableSubmissionRepository {
           continue;
         }
         if (!otherView.state.isUnresolved) continue;
-        // A reviewedExisting release already admitted later native work. Its
-        // matching delayed reply adds adoption work, not a second dispatch.
-        // Preserve the later owner's token/state, including an in-flight reply.
-        if (!otherView.isLegacy &&
-            row.id > 0 &&
-            other.id > 0 &&
-            ((retainedReview != null && row.id < other.id) ||
-                (otherView.reviewHistoryJson != null && other.id < row.id))) {
-          continue;
-        }
         const message =
             'Acceptance is saved, but another submission for this item needs review. No further automatic action is permitted.';
         row
@@ -393,7 +359,7 @@ class DurableSubmissionRepository {
       final row = await _required(submissionId);
       final view = _view(row);
       _sameEnvelope(view, envelopeSha256);
-      if (!view.state.isAccepted || view.receiptSha256 != receiptSha256) {
+      if (!view.state.isAccepted || row.receiptSha256 != receiptSha256) {
         _fail(
           'unconfirmed-acceptance',
           'Confirm the retained acceptance before reconciliation.',
@@ -587,41 +553,14 @@ class DurableSubmissionRepository {
     });
   }
 
-  Future<List<DurableSubmission>> _unresolvedForResource(String key) async {
-    final rows = await _rows.where().resourceKeyEqualTo(key).findAll();
-    rows.sort((left, right) => left.id.compareTo(right.id));
-    if (rows.any((row) => row.id <= 0)) {
-      _fail(
-        'resource-evidence-invalid',
-        'Saved work has invalid local ordering. Nothing was sent.',
-      );
-    }
-    return rows.map(_view).where((row) => row.state.isUnresolved).toList();
-  }
-
-  // prepare allocates native auto-increment IDs inside its sole-owner write
-  // transaction. No production path deletes, reinserts, imports nonlegacy rows,
-  // or changes IDs. A nonlegacy reviewed row can only release ownership through
-  // reviewResolved: settleReview refuses rejected/cancelled/reconciled rows, and
-  // terminal claims cannot rearm. With exclusively matching reviewedExisting
-  // history, later nonlegacy IDs therefore follow that reviewed release. The
-  // receipt capsule needs exact domain adoption first; later work remains intact.
-  // Imported legacy evidence has no such admission proof and never qualifies.
-  bool _hasReviewedPredecessor(List<DurableSubmission> owners) =>
-      owners.isNotEmpty &&
-      owners.first.reviewHistoryJson != null &&
-      owners.every((row) => !row.isLegacy);
+  Future<List<DurableSubmission>> _unresolvedForResource(String key) async =>
+      (await _rows.where().resourceKeyEqualTo(key).findAll())
+          .map(_view)
+          .where((row) => row.state.isUnresolved)
+          .toList();
 
   Future<void> _assertSoleOwner(DurableSubmission view) async {
     final owners = await _unresolvedForResource(view.resourceKey);
-    if (_hasReviewedPredecessor(owners)) {
-      if (owners.first.submissionId == view.submissionId) return;
-      _fail(
-        'prior-acceptance-pending',
-        'Earlier confirmed work needs its local refresh first. Your newer entries are retained.',
-        submissionId: owners.first.submissionId,
-      );
-    }
     if (owners.length != 1 || owners.single.submissionId != view.submissionId) {
       _fail(
         'resource-conflict',
@@ -925,10 +864,6 @@ class DurableSubmissionRepository {
       }
       durableSubmissionJsonObject(row.receiptJson!);
     }
-    final capsule = state.isAccepted && row.receiptJson != null
-        ? readReviewedAcceptanceCapsule(row.receiptJson!)
-        : null;
-    final exposedReceipt = capsule?.acceptanceJson ?? row.receiptJson;
     final view = DurableSubmission(
       submissionId: row.submissionId,
       actorUid: row.actorUid,
@@ -945,31 +880,17 @@ class DurableSubmissionRepository {
       claimToken: row.claimToken,
       claimExpiresAt: row.claimExpiresAt?.toUtc(),
       nextRetryAt: row.nextRetryAt?.toUtc(),
-      receiptJson: exposedReceipt,
-      receiptSha256: capsule == null
-          ? row.receiptSha256
-          : durableSubmissionSha256(exposedReceipt!),
+      receiptJson: row.receiptJson,
+      receiptSha256: row.receiptSha256,
       lastErrorCode: row.lastErrorCode,
       lastErrorMessage: row.lastErrorMessage,
       legacySourceKey: legacy,
       legacySourceBase64: data['legacySourceBase64'] as String?,
-      reviewHistoryJson: capsule == null ? null : jsonEncode(capsule.history),
     );
     if (reviewed) {
       validateDurableSubmissionReviewHistory(
         view,
         durableSubmissionJsonObject(row.receiptJson!),
-      );
-    }
-    if (capsule != null &&
-        !confirmsReviewedAcceptance(
-          view,
-          capsule.history,
-          durableSubmissionJsonObject(capsule.acceptanceJson),
-        )) {
-      _fail(
-        'invalid-review-acceptance',
-        'The saved acceptance and review disagree. Both remain retained for investigation.',
       );
     }
     return view;

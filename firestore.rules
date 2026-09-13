@@ -3702,6 +3702,33 @@ service cloud.firestore {
         );
     }
 
+    // The original current supervisor may confirm one immutable server reopen
+    // audit by document ID; this grants no collection/list access.
+    function canGetOwnWorkflowModuleReopenAudit(docId) {
+      let data = resource.data;
+      return isApprovedUser()
+        && rolesAreModuleLifecycleModerator(userDoc().data.roles)
+        && docId.matches('^workflow_module_reopen_.+_[1-9][0-9]*$')
+        && data.keys().hasOnly(['entityType', 'entityId', 'action',
+          'performedByUid', 'performedByName', 'timestamp', 'reason',
+          'reasonNotes', 'summary', 'severity', 'beforeJson', 'afterJson',
+          'workflowAggregateId', 'laneKey'])
+        && data.get('entityType', null) == 'jobModule'
+        && data.get('action', null) == 'reopen'
+        && data.get('reason', null) == 'workflowModuleReopened'
+        && data.get('performedByUid', null) == request.auth.uid
+        && data.get('entityId', null) is string && data.entityId.size() > 0
+        && data.get('workflowAggregateId', null) is string && data.workflowAggregateId.size() > 0
+        && data.get('performedByName', null) is string
+        && data.get('timestamp', null) is timestamp
+        && data.get('reasonNotes', null) is string && data.reasonNotes.size() > 0
+        && data.get('summary', null) is string
+        && data.get('severity', null) == 'medium'
+        && data.get('beforeJson', null) is string
+        && data.get('afterJson', null) is string
+        && data.get('laneKey', null) in ['mech', 'elec', 'inst', 'oprn', 'emd', 'red', 'shared'];
+    }
+
     function canReadMaintenanceTicketCorrectionAudit() {
       return isApprovedUser()
         && resource.data.get('entityType', null) == 'maintenance'
@@ -4461,9 +4488,11 @@ service cloud.firestore {
 
     match /audit_logs/{docId} {
       allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit();
+      allow get: if canGetOwnWorkflowModuleReopenAudit(docId);
       // Every server-owned audit identity shares this namespace. Keeping the
       // reservation generic also protects future server audit operations.
-      allow create: if !docId.matches('^server_.*') && validAuditCreate();
+      allow create: if !docId.matches('^server_.*')
+        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();
       allow update, delete: if false;
     }
 

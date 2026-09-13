@@ -165,3 +165,27 @@ hash. This is a local source inventory result. The runtime's semantic reader
 floor change is governed separately; this manifest neither performs migration
 nor supplies deployment, production-reconciliation or physical-device evidence.
 The historical closure and reconciliation records above remain unchanged.
+
+## Prebuild repair inventory addendum, 2026-09-13
+
+This addendum supersedes the preceding current-source totals and receipt-field
+description. The current inventory still classifies 55 fields: 49 JSON strings,
+six dynamic values, three bounded extension bags and zero registered extension
+fields. It now inherits 98 explicitly reviewed A-05 decoder surfaces. Its exact
+digest is
+`F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3`.
+
+The six additions explicitly cover the reviewed-acceptance capsule, native
+submission outcome owner, workflow-module adoption, its extracted native
+preimage, reopen confirmation, and the exact reopen timestamp boundary.
+Matching domain-validated acceptance after a consistent administrative review
+retains both histories and waits for current authoritative adoption; cancellation,
+unknown legacy origin, and contradictory evidence remain held. Native columns
+and state meanings are unchanged. The timestamp boundary normalizes typed fields
+on copies after raw audit equality, preserving supported microseconds and refusing
+lossy or malformed evidence.
+
+The current A04 inventory passes and binds the complete current A05 policy.
+Historical closure, CI, reconciliation, and schema migration evidence is retained;
+these local source measurements do not supply admission or operational evidence
+for this repair branch.

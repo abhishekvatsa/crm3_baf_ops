@@ -320,6 +320,38 @@
           "occurrence": 1
         }
       ]
+    },
+    {
+      "id": "durable-reviewed-acceptance-exact-time",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "durable-submission-recovery",
+      "purpose": "compare a domain-validated delayed receipt with the original administrative accepted-result summary",
+      "authorityBoundary": "known original actor and frozen native envelope; exact UTC roundtrip is required and neither time nor native admission ordering is inferred from a repaired timestamp",
+      "regression": "test/saved_submission_late_acceptance_test.dart; test/reviewed_acceptance_summary_test.dart",
+      "reArmCondition": "malformed or noncanonical time is repaired, defaulted or treated as consistent accepted evidence",
+      "sites": [
+        {
+          "file": "lib/core/persistence/durable_submission_review_acceptance.dart",
+          "expression": "DateTime.tryParse(",
+          "occurrence": 1
+        }
+      ]
+    },
+    {
+      "id": "workflow-reopen-exact-timestamp-shapes",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "planned-maintenance",
+      "purpose": "decode original workflow reopen audit and typed module chronology without dropping supported microseconds",
+      "authorityBoundary": "read-only original audit/current module comparison after exact raw before/after equality; raw stored evidence is never rewritten",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart",
+      "reArmCondition": "malformed shapes or calendar values are accepted, submicrosecond precision is truncated, unknown keys are ignored, or chronology defaults overwrite saved evidence",
+      "sites": [
+        {
+          "file": "lib/features/planned_maintenance/services/workflow_module_reopen_timestamps.dart",
+          "expression": "DateTime.fromMicrosecondsSinceEpoch(",
+          "occurrence": 1
+        }
+      ]
     }
   ]
 }

@@ -358,3 +358,21 @@ it reflects operation identities and persistence sites rather than formatting.
 This is classified current-source growth and a passing local inventory. It
 does not replace the historical 484-operation closure, assert an admitted CI
 run for this working tree, or authorize deployment, device testing or release.
+
+## Prebuild repair inventory addendum, 2026-09-13
+
+This addendum supersedes the earlier current-source totals above. The reviewed
+prebuild repair inventory contains 594 operations and 2,076 sites across 70
+classified surfaces, with exact digest
+`D23545897AC627ECB6F3D8A7DC3CC615519D833D77BB80234E8A5FB4A82B8D96`.
+The additional surfaces separate native workflow-module adoption from its
+server-only read provider. Native adoption preserves the server revision and
+requires the unchanged clean local preimage and current moderation authority;
+the provider introduces no presentation-owned persistence. The native saved-work
+repository also retains reviewed acceptance and preserves later admitted owners
+without granting a second dispatch. Its original actor and receipt checks remain.
+
+The AST inventory reports PASS with zero unclassified operations or presentation
+persistence. These are current working-source measurements. The earlier source,
+CI, and closure evidence remains historical and does not admit this repair branch
+or provide deployment, production reconciliation, or physical-device evidence.

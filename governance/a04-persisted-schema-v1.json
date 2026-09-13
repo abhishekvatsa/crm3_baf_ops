@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "12968CD72F7DED7C2E034C04C91925107DC2FD127DD1FE51924A055D5EA2557E",
+  "inventoryDigest": "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "C2AA591C15F182D080234FA6237A2A78FFAF7032218657A82FE33FC978B9B52B",
+  "a05ManifestSha256": "3A95D09C5E952F5FFBBCFEC0F345A5F53B502E77FD482DB09661D1B4F3F8B202",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -30,7 +30,7 @@
       "kind": "JSON_STRING",
       "classification": "SCHEMA_BEARING_PAYLOAD",
       "policy": "durable-submission-receipt-v1",
-      "decoderContract": "A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized. Distinct typed administrative review proof binds the original immutable evidence hash, reviewer, reason and server decision with acceptedAt null; original unknown actor and source bytes remain unchanged. A late acceptance retains both proofs as a blocking review conflict. Malformed or contradictory evidence cannot settle work.",
+      "decoderContract": "A domain validator binds acceptance to the exact frozen operation inside settleAccepted; native hash/state integrity and domain revalidation precede adoption. Only replay-observation flags are canonicalized. Distinct typed administrative review proof binds the original immutable evidence hash, reviewer, reason and server decision with acceptedAt null; original unknown actor and source bytes remain unchanged. A matching validated late acceptance retains both histories in a typed acceptedPendingAdoption capsule; cancellation or contradictory evidence stays reviewConflict. The current view exposes the canonical domain receipt/hash and separate retained review history; older v12 readers preserve accepted/unresolved evidence and refuse unsupported adoption. Current domain readback remains required before reconciliation.",
       "malformedPresentDisposition": "FAIL_CLOSED_PENDING_REPAIR",
       "compatibility": "Documented absent legacy shape only; present malformed or unsupported versions fail closed.",
       "regression": "test/durable_submission_repository_test.dart"
@@ -1032,6 +1032,15 @@
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
+      "id": "durable-reviewed-acceptance-capsule",
+      "file": "lib/core/persistence/durable_submission_review_acceptance.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "bounded typed receipt capsule preserves original administrative decisions and canonical business receipt; exact domain summary, original actor, frozen input and consistent server receipt hashes are compared after the mandatory domain validator",
+      "malformedDisposition": "malformed capsule, unknown legacy origin, cancellation or incompatible retained evidence refuses confirmation or remains reviewConflict; no substitute origin, receipt or timestamp is produced",
+      "compatibility": "current view exposes domain receipt/checksum plus review history; older v12 reader retains accepted/unresolved bytes and refuses domain adoption/redispatch; summary equality never replaces authoritative domain readback",
+      "regression": "test/saved_submission_late_acceptance_test.dart; test/reviewed_acceptance_summary_test.dart"
+    },
+    {
       "id": "durable-submission-json-envelope",
       "file": "lib/core/persistence/durable_submission.dart",
       "classification": "LOCAL_CONTROL_STATE",
@@ -1039,6 +1048,15 @@
       "malformedDisposition": "oversized, malformed or non-object input raises DurableSubmissionException without a fallback map, replacement request or state mutation",
       "compatibility": "legacy source bytes remain separate review-only custody; supported modern envelopes are exact versioned shapes and never inferred from current login",
       "regression": "test/durable_submission_repository_test.dart; test/inner_cover_acceptance_controller_test.dart; test/morning_review_durable_submission_test.dart"
+    },
+    {
+      "id": "durable-submission-native-outcome",
+      "file": "lib/core/persistence/durable_submission_repository.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "native checksum/protocol/actor/identity verification owns receipt settlement and ordered resource admission; a synchronous domain validator precedes settlement and the adoption marker remains in its explicit local transaction",
+      "malformedDisposition": "unreadable neighbours are retained and block ownership; validator failure on an older retained receipt returns false and preserves it beside the new valid receipt as reviewConflict; no decoder exception creates fallback work",
+      "compatibility": "reviewedExisting is administrative evidence, not business adoption; matching late acceptance preserves both histories and precedes later normally admitted nonlegacy owners using retained native allocation order, never timestamp ordering or legacy inference",
+      "regression": "test/durable_submission_repository_test.dart; test/saved_submission_review_test.dart; test/saved_submission_late_acceptance_test.dart"
     },
     {
       "id": "durable-submission-review-decision",
@@ -1203,6 +1221,15 @@
       "regression": "test/a05_planned_work_record_integrity_test.dart"
     },
     {
+      "id": "job-module-native-save-baseline",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.save_baseline.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "immutable complete native edit preimage binds integer local ID/version and all persisted content before an editor or adoption awaits",
+      "malformedDisposition": "wrong types fail at the boundary; missing or changed content cannot match the current full projection and cannot authorize an overwrite",
+      "compatibility": "focused extraction preserves the original complete snapshot/CAS behavior; a saved remote module baseline remains independently domain-decoded before use",
+      "regression": "test/job_module_native_save_conflict_test.dart; test/workflow_module_reopen_adoption_native_test.dart"
+    },
+    {
       "id": "job-module-record",
       "file": "lib/features/planned_maintenance/data/job_module_model.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -1219,6 +1246,15 @@
       "malformedDisposition": "invalid JSON, incomplete or conflicting chunks, checksum mismatch, actor mismatch or changed/closed parent refuses recovery without deleting draft evidence or overwriting current business data",
       "compatibility": "native local identity and server linkage remain distinct; explicit reapplication uses a fresh reviewed baseline and existing save guards",
       "regression": "test/job_module_native_save_conflict_test.dart; test/job_module_retained_edit_test.dart"
+    },
+    {
+      "id": "job-module-workflow-reopen-adoption",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "full expected local preimage and an already server-verified candidate are compared inside the native module write transaction with repeated current moderation-authority checks",
+      "malformedDisposition": "invalid preimage JSON/type, ambiguous local identity, dirty or concurrently changed row, backwards revision/time or malformed responses/actions refuses adoption and retains the accepted command; equal authoritative projection performs no write",
+      "compatibility": "adoption preserves native ID/parent linkage and server version/time; it does not use the local-edit increment path or replace newer local work",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart"
     },
     {
       "id": "job-template-execution-records",
@@ -1579,6 +1615,24 @@
       "malformedDisposition": "quarantine failed record with observed timestamp",
       "compatibility": "explicit absent pre-feature flags and counters only; malformed present values fail",
       "regression": "test/a05_workflow_record_integrity_test.dart; test/maintenance_workflow/compliance_request_mapper_test.dart"
+    },
+    {
+      "id": "workflow-module-reopen-confirmation",
+      "file": "lib/features/planned_maintenance/services/workflow_module_reopen_controller.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "frozen native command/origin/module baseline and strict receipt are bound to the original reopen audit; exact raw before/after equality precedes typed timestamp normalization on copies and current server module readback; local adoption uses a separate full preimage transaction with repeated authority checks",
+      "malformedDisposition": "malformed command/metadata/audit/receipt, lossy timestamps or changed lineage raises an error while acceptance stays retained; transport uncertainty retains the exact owner; only exact structured forward workflow-version conflict is classified as a non-applied refusal",
+      "compatibility": "native Firestore Timestamp and serialized exact two-key timestamp maps are normalized without changing raw audit JSON; replay then adopts later legal server lifecycle as-is without inventing reopened state or incrementing its version; wrapper decoder calls remain explicitly inventoried",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart"
+    },
+    {
+      "id": "workflow-module-reopen-timestamps",
+      "file": "lib/features/planned_maintenance/services/workflow_module_reopen_timestamps.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "read-only exact instant decoder for reopen audit outer Timestamp and original/current module timestamps; typed field copies are normalized only after raw audit equality, without changing any saved JSON or unrelated business value",
+      "malformedDisposition": "rejects mixed or extra timestamp keys, noninteger/out-of-range seconds or nanoseconds, unsupported submicrosecond precision, invalid calendars and unsupported ISO formats; no fallback instant, local-clock replacement or truncation admits adoption",
+      "compatibility": "typed DateTime, native Firestore Timestamp, exact public/private two-key timestamp maps and historically emitted local/UTC whole-second/millisecond/microsecond ISO snapshots; an absent fractional ISO component means exactly zero, while offset formats and finer precision are not guessed",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart"
     },
     {
       "id": "workflow-pull-control",

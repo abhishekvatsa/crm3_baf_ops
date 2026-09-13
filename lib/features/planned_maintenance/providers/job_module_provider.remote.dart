@@ -119,7 +119,8 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     final snap = await query.get();
-    return snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -152,8 +153,11 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobModuleInstance.fromMap, source: 'JobModuleInstance')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobModuleInstance.fromMap,
+        source: 'JobModuleInstance',
+      ).toList(),
     );
   }
 
@@ -246,14 +250,13 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   }
 
   @override
-  Future<void> applyWorkflowModuleReopenProjection(
-    String firestoreId, {
+  Future<JobModuleInstance> applyWorkflowModuleReopenProjection(
+    JobModuleInstance remote, {
     required AppUser actor,
-    required String reason,
-    required DateTime appliedAt,
+    required JobModuleSaveBaseline expectedLocal,
   }) async {
-    // The workflow command has already committed the canonical Firestore
-    // transition. Web views observe that document directly.
+    _requireCanModerateModule(actor, ModuleModerationAction.reopen);
+    return copyJobModuleForEditing(remote);
   }
 
   @override
@@ -458,7 +461,8 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedJobModuleResult(
-      records: snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+      records: snap.docs
+          .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );

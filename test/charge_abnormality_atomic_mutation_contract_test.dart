@@ -359,7 +359,9 @@ void main() {
       final sync = File(
         'lib/core/services/sync_service.directives_abnormalities.dart',
       ).readAsStringSync();
-      final rules = File('firestore.rules').readAsStringSync();
+      final rules = File(
+        'firestore.rules',
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       final functions = File('functions/src/index.ts').readAsStringSync();
 
       expect(screen, contains('chargeAbnormalityCommandServiceProvider'));
@@ -374,7 +376,8 @@ void main() {
       expect(
         rules,
         contains(
-          "allow create: if !docId.matches('^server_.*') && validAuditCreate();",
+          "allow create: if !docId.matches('^server_.*')\n"
+          "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();",
         ),
       );
       expect(functions, contains('export const mutateChargeAbnormality'));

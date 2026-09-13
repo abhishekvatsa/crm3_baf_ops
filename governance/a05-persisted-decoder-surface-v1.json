@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "findingId": "A-05",
-  "scope": "all non-generated Dart files containing direct non-timestamp strict persisted-reader calls or raw JSON decoders, every structurally discovered decoder catch including presentation boundaries, and the inherited exact timestamp inventory",
+  "scope": "all non-generated Dart files containing direct non-timestamp strict persisted-reader calls or raw JSON decoders, every structurally discovered decoder catch including presentation boundaries, and the inherited exact timestamp inventory; explicitly reviewed wrapper-only native control and workflow-adoption decoders are included even when direct-call discovery does not find them",
   "timestampInventory": "governance/a05-persisted-timestamp-surface-v2.json",
   "surfaces": [
     {
@@ -1424,7 +1424,6 @@
       "id": "job-module-retained-edit-conflicts",
       "file": "lib/features/planned_maintenance/providers/job_module_provider.edit_conflicts.dart",
       "markers": [
-        "class JobModuleSaveBaseline",
         "class JobModuleDraftRecovery",
         "Future<void> _saveNativeModuleWithPreimage("
       ],
@@ -1468,6 +1467,101 @@
       "regression": "test/saved_submission_review_test.dart",
       "reArmCondition": "identity, parsing, fallback, actor boundary, retained evidence or successful recovery semantics change",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "durable-reviewed-acceptance-capsule",
+      "file": "lib/core/persistence/durable_submission_review_acceptance.dart",
+      "markers": [
+        "bool confirmsReviewedAcceptance(",
+        "readReviewedAcceptanceCapsule(String raw)"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "durable-submissions",
+      "authorityBoundary": "bounded typed receipt capsule preserves original administrative decisions and canonical business receipt; exact domain summary, original actor, frozen input and consistent server receipt hashes are compared after the mandatory domain validator",
+      "malformedDisposition": "malformed capsule, unknown legacy origin, cancellation or incompatible retained evidence refuses confirmation or remains reviewConflict; no substitute origin, receipt or timestamp is produced",
+      "compatibility": "current view exposes domain receipt/checksum plus review history; older v12 reader retains accepted/unresolved bytes and refuses domain adoption/redispatch; summary equality never replaces authoritative domain readback",
+      "regression": "test/saved_submission_late_acceptance_test.dart; test/reviewed_acceptance_summary_test.dart",
+      "reArmCondition": "identity, parsing, fallback, retained evidence, actor checks, admission ordering or successful adoption semantics change",
+      "riskFingerprint": "e73e1f6a0102d792bc4993b7bfce5ec76d651c9842961e62a2cff1d2861bfdf3"
+    },
+    {
+      "id": "durable-submission-native-outcome",
+      "file": "lib/core/persistence/durable_submission_repository.dart",
+      "markers": [
+        "Future<DurableSubmission> settleAccepted(",
+        "DurableSubmission _view(",
+        "bool _hasReviewedPredecessor("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "durable-submissions",
+      "authorityBoundary": "native checksum/protocol/actor/identity verification owns receipt settlement and ordered resource admission; a synchronous domain validator precedes settlement and the adoption marker remains in its explicit local transaction",
+      "malformedDisposition": "unreadable neighbours are retained and block ownership; validator failure on an older retained receipt returns false and preserves it beside the new valid receipt as reviewConflict; no decoder exception creates fallback work",
+      "compatibility": "reviewedExisting is administrative evidence, not business adoption; matching late acceptance preserves both histories and precedes later normally admitted nonlegacy owners using retained native allocation order, never timestamp ordering or legacy inference",
+      "regression": "test/durable_submission_repository_test.dart; test/saved_submission_review_test.dart; test/saved_submission_late_acceptance_test.dart",
+      "reArmCondition": "identity, parsing, fallback, retained evidence, actor checks, admission ordering or successful adoption semantics change",
+      "riskFingerprint": "533cf333eecd136f97dbdd869336ef4f0108c2fa761ec808259568387255c15c"
+    },
+    {
+      "id": "job-module-workflow-reopen-adoption",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
+      "markers": [
+        "Future<JobModuleInstance> _adoptWorkflowModuleReopen("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "full expected local preimage and an already server-verified candidate are compared inside the native module write transaction with repeated current moderation-authority checks",
+      "malformedDisposition": "invalid preimage JSON/type, ambiguous local identity, dirty or concurrently changed row, backwards revision/time or malformed responses/actions refuses adoption and retains the accepted command; equal authoritative projection performs no write",
+      "compatibility": "adoption preserves native ID/parent linkage and server version/time; it does not use the local-edit increment path or replace newer local work",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart",
+      "reArmCondition": "identity, parsing, fallback, retained evidence, actor checks, admission ordering or successful adoption semantics change",
+      "riskFingerprint": "75203f67a071123f7dd91e8065acf04dabf26e95108ed674d40bbb20f11d3406"
+    },
+    {
+      "id": "job-module-native-save-baseline",
+      "file": "lib/features/planned_maintenance/providers/job_module_provider.save_baseline.dart",
+      "markers": [
+        "class JobModuleSaveBaseline"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "immutable complete native edit preimage binds integer local ID/version and all persisted content before an editor or adoption awaits",
+      "malformedDisposition": "wrong types fail at the boundary; missing or changed content cannot match the current full projection and cannot authorize an overwrite",
+      "compatibility": "focused extraction preserves the original complete snapshot/CAS behavior; a saved remote module baseline remains independently domain-decoded before use",
+      "regression": "test/job_module_native_save_conflict_test.dart; test/workflow_module_reopen_adoption_native_test.dart",
+      "reArmCondition": "identity, parsing, fallback, retained evidence, actor checks, admission ordering or successful adoption semantics change",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "workflow-module-reopen-confirmation",
+      "file": "lib/features/planned_maintenance/services/workflow_module_reopen_controller.dart",
+      "markers": [
+        "Future<JobModuleInstance> readWorkflowReopenedModule({",
+        "class WorkflowModuleReopenController"
+      ],
+      "classification": "REMOTE_AUTHORITY_READ",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "frozen native command/origin/module baseline and strict receipt are bound to the original reopen audit; exact raw before/after equality precedes typed timestamp normalization on copies and current server module readback; local adoption uses a separate full preimage transaction with repeated authority checks",
+      "malformedDisposition": "malformed command/metadata/audit/receipt, lossy timestamps or changed lineage raises an error while acceptance stays retained; transport uncertainty retains the exact owner; only exact structured forward workflow-version conflict is classified as a non-applied refusal",
+      "compatibility": "native Firestore Timestamp and serialized exact two-key timestamp maps are normalized without changing raw audit JSON; replay then adopts later legal server lifecycle as-is without inventing reopened state or incrementing its version; wrapper decoder calls remain explicitly inventoried",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart",
+      "reArmCondition": "identity, parsing, fallback, retained evidence, actor checks, admission ordering or successful adoption semantics change",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
+    },
+    {
+      "id": "workflow-module-reopen-timestamps",
+      "file": "lib/features/planned_maintenance/services/workflow_module_reopen_timestamps.dart",
+      "markers": [
+        "DateTime readWorkflowReopenTimestamp(",
+        "Map<String, dynamic> workflowReopenModuleSnapshot("
+      ],
+      "classification": "REMOTE_AUTHORITY_READ",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "read-only exact instant decoder for reopen audit outer Timestamp and original/current module timestamps; typed field copies are normalized only after raw audit equality, without changing any saved JSON or unrelated business value",
+      "malformedDisposition": "rejects mixed or extra timestamp keys, noninteger/out-of-range seconds or nanoseconds, unsupported submicrosecond precision, invalid calendars and unsupported ISO formats; no fallback instant, local-clock replacement or truncation admits adoption",
+      "compatibility": "typed DateTime, native Firestore Timestamp, exact public/private two-key timestamp maps and historically emitted local/UTC whole-second/millisecond/microsecond ISO snapshots; an absent fractional ISO component means exactly zero, while offset formats and finer precision are not guessed",
+      "regression": "test/workflow_module_reopen_adoption_native_test.dart",
+      "reArmCondition": "timestamp precision, supported shapes, equality order, mutation of original evidence, or error disposition changes",
+      "riskFingerprint": "b176871f4950db80a6ca3f6fc5aca31746bbaa96722e842045d943940b0b0ffc"
     }
   ],
   "catchSites": [

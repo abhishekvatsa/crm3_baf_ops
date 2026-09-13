@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "71E5D054C25F0657CAACACDD28D740EC0E9040F12EC9D35CAB7BCA9DDEF6B763",
+  "inventoryDigest": "D23545897AC627ECB6F3D8A7DC3CC615519D833D77BB80234E8A5FB4A82B8D96",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -49,6 +49,27 @@
     }
   },
   "surfaces": [
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
+      "profile": "repository-adapter",
+      "allowedStores": ["isar"],
+      "allowedModes": ["mutating", "read"],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/workflow_module_reopen_adoption_native_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/workflow_module_reopen_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": ["firestore"],
+      "allowedModes": ["read"],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/workflow_module_reopen_adoption_native_test.dart",
+        "test/workflow_module_reopen_screen_test.dart"
+      ]
+    },
     {
       "path": "lib/core/persistence/durable_submission_repository.dart",
       "profile": "repository",

@@ -518,6 +518,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         originUid: actor.uid,
         permission: (user) => user.canCompleteJobExecution,
         child: ActionBottomSheet(
+          originActorUid: actor.uid,
+          originPermission: (current) => current.canCompleteJobExecution,
           workStartedAt: widget.execution.createdAt,
           workCompletedAt: widget.execution.completedAt,
           performedBy: actor.name,
@@ -690,18 +692,15 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 context: context,
                 initialTime: TimeOfDay.now(),
               );
-              if (!mounted) return;
+              if (!mounted || time == null) return;
 
-              final combined =
-                  time == null
-                      ? date
-                      : DateTime(
-                        date.year,
-                        date.month,
-                        date.day,
-                        time.hour,
-                        time.minute,
-                      );
+              final combined = DateTime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+              );
 
               setState(() {
                 _responses[field.key] = combined.toIso8601String();

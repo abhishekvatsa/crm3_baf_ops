@@ -18,8 +18,12 @@ class IsarJobModuleRepository implements JobModuleRepository {
     JobModuleSaveBaseline? expectedBaseline,
     String? recoveredConflictId,
   }) => _saveNativeModuleWithPreimage(
-    this, module, actor: actor, auditContext: auditContext,
-    expectedBaseline: expectedBaseline, recoveredConflictId: recoveredConflictId,
+    this,
+    module,
+    actor: actor,
+    auditContext: auditContext,
+    expectedBaseline: expectedBaseline,
+    recoveredConflictId: recoveredConflictId,
   );
 
   @override
@@ -202,20 +206,26 @@ class IsarJobModuleRepository implements JobModuleRepository {
 
     controller = StreamController<List<JobModuleInstance>>(
       onListen: () {
-        remoteSubscription = remoteStream.listen((value) {
-          remoteLatest = value;
-          emitIfReady();
-        }, onError: (Object error, StackTrace stackTrace) {
-          remoteLatest = null;
-          if (!controller.isClosed) controller.addError(error, stackTrace);
-        });
-        localSubscription = localStream.listen((value) {
-          localLatest = value;
-          emitIfReady();
-        }, onError: (Object error, StackTrace stackTrace) {
-          localLatest = null;
-          if (!controller.isClosed) controller.addError(error, stackTrace);
-        });
+        remoteSubscription = remoteStream.listen(
+          (value) {
+            remoteLatest = value;
+            emitIfReady();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            remoteLatest = null;
+            if (!controller.isClosed) controller.addError(error, stackTrace);
+          },
+        );
+        localSubscription = localStream.listen(
+          (value) {
+            localLatest = value;
+            emitIfReady();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            localLatest = null;
+            if (!controller.isClosed) controller.addError(error, stackTrace);
+          },
+        );
       },
       onCancel: () async {
         await remoteSubscription?.cancel();
@@ -454,33 +464,11 @@ class IsarJobModuleRepository implements JobModuleRepository {
   }
 
   @override
-  Future<void> applyWorkflowModuleReopenProjection(
-    String firestoreId, {
+  Future<JobModuleInstance> applyWorkflowModuleReopenProjection(
+    JobModuleInstance remote, {
     required AppUser actor,
-    required String reason,
-    required DateTime appliedAt,
-  }) async {
-    final module = await isar.jobModuleInstances
-        .filter()
-        .firestoreIdEqualTo(firestoreId)
-        .findFirst();
-    if (module == null) return;
-    await isar.writeTxn(() async {
-      module
-        ..status = JobModuleStatus.reopened
-        ..isDeleted = false
-        ..reopenedByUid = actor.uid
-        ..reopenedByName = _cleanOptionalText(actor.name)
-        ..reopenedAt = appliedAt
-        ..reopenReason = _cleanOptionalText(reason)
-        ..updatedByUid = actor.uid
-        ..updatedByName = _cleanOptionalText(actor.name)
-        ..updatedAt = appliedAt
-        ..version += 1
-        ..isSynced = true;
-      await isar.jobModuleInstances.put(module);
-    });
-  }
+    required JobModuleSaveBaseline expectedLocal,
+  }) => _adoptWorkflowModuleReopen(this, remote, actor, expectedLocal);
 
   @override
   Future<void> markModuleNotApplicable(
@@ -706,7 +694,9 @@ class IsarJobModuleRepository implements JobModuleRepository {
           local.isDeleted == remote.isDeleted;
       if (sameBoundary) {
         return RemoteRecordApplyResult<JobModuleInstance>(
-          RemoteRecordApplyOutcome.unchanged,
+          jobModuleClientSnapshotsEquivalentForSync(local, remote)
+              ? RemoteRecordApplyOutcome.unchanged
+              : RemoteRecordApplyOutcome.cleanLocalReconciliationRequired,
           localRecord: local,
         );
       }

@@ -1,6 +1,8 @@
 import {WorkflowError} from "./errors";
 import {isCompletedCorrectiveMaintenance} from "./correctiveMaintenanceCompletion";
 import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
+import {assertInspectionFindingActivation, assertInspectionFindingEpisodeCurrent, inspectionEpisodeProjection,
+  readInspectionHistory, touchInspectionFindingPopulation} from "./inspectionFindingIntegrity";
 import {CommandHandler} from "./handlerTypes";
 import {
   buildInspectionTargetPopulation,
@@ -407,6 +409,29 @@ export const verifyInspectionFinding: CommandHandler = async ({
   const latestObservedAt = persistedInstantText(
     finding.data.latestObservedAt,
   );
+  const targetKey = cleanText(finding.data.targetKey, "finding.targetKey");
+  const [history, findingRows] = await Promise.all([
+    readInspectionHistory(tx, campaignId, targetKey),
+    tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+      {field: "targetKey", op: "==", value: targetKey},
+    ]),
+  ]);
+  const target = parseInspectionTargetPopulation(campaign.data.targetPopulation)
+    .find((row) => row.targetKey === targetKey);
+  assertInspectionFindingEpisodeCurrent(findingRows, findingId, history);
+  const episode = inspectionEpisodeProjection(history, finding.data);
+  if (history.current.observationId !== observationId ||
+      target?.lastObservationId !== observationId || target.lastObservedAt !== latestObservedAt ||
+      episode.evidenceReviewRequired === true ||
+      episode.firstObservationId !== finding.data.firstObservationId ||
+      persistedInstantText(episode.firstObservedAt) !== persistedInstantText(finding.data.firstObservedAt) ||
+      ["assetClassId", "assetInstanceId", "subjectSerialNumber", "linkageId", "hostAssetInstanceId", "componentNodeId"]
+        .some((key) => (finding.data![key] ?? null) !== (history.current[key] ?? null))) {
+    throw new WorkflowError("failed-precondition",
+      "The current observation or the finding's adverse-evidence basis changed. Review its history before verification.",
+      {reasonCode: "inspection-finding-effective-evidence-review-required", targetKey});
+  }
   const observedAt = persistedInstantText(observation.data.observedAt);
   const firstObservedAt = persistedInstantText(finding.data.firstObservedAt);
   if (finding.data.targetKey !== observation.data.targetKey ||
@@ -448,7 +473,9 @@ export const verifyInspectionFinding: CommandHandler = async ({
   const now = iso(context.serverNow);
   const status = outcome === "resolved" ? "verifiedResolved" :
     outcome === "notComparable" ? "awaitingVerification" : "open";
+  if (status !== "verifiedResolved") assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history);
   const version = currentFindingVersion + 1;
+  touchInspectionFindingPopulation(tx, campaignId, campaign.data);
   tx.create(`inspection_verifications/${command.commandId}`, {
     schemaVersion: 1,
     verificationId: command.commandId,
@@ -557,8 +584,18 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
       {reasonCode: "inspection-finding-version-conflict", findingId},
     );
   }
+  if (status === "open") {
+    const targetKey = cleanText(finding.data.targetKey, "finding.targetKey");
+    const findingRows = await tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+      {field: "targetKey", op: "==", value: targetKey},
+    ]);
+    const history = await readInspectionHistory(tx, campaignId, targetKey);
+    assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history);
+  }
   const now = iso(context.serverNow);
   const version = currentFindingVersion + 1;
+  touchInspectionFindingPopulation(tx, campaignId, campaign.data);
   tx.create(`inspection_finding_events/${command.commandId}`, {
     schemaVersion: 1,
     eventId: command.commandId,
