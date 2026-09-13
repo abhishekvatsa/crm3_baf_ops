@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "reviewed-backend-verifier-authorization",
+  "approved": true,
+  "profile": "observed-cloud-run-http-controls-v1",
+  "sourceCommit": "fc0ac09fc51b370bee419909ad510b044765b540",
+  "deploymentApprovalSha256": "A4073994A84E1D02926F7A1E4AB90223784795EEAE48B3B8FC06F29836A046A8",
+  "verifierCommit": "2e8482ba7fa32f77d9384f72791abfe35dacefcf",
+  "verifierFiles": [
+    {
+      "file": "tools/release/collectProductionGlobalPullBackend.js",
+      "sha256": "98DD50B9793A5205DACE342907B7A990351023F4B06BE62E1CA5CDC716F704B6"
+    },
+    {
+      "file": "tools/release/deploymentFleetContract.js",
+      "sha256": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06"
+    },
+    {
+      "file": "tools/release/reviewedBackendControls.js",
+      "sha256": "F4B82F5DE49A4BF5EA75AADA5E08A6BE87AC98D77825E7B86F7C584D35100FC7"
+    },
+    {
+      "file": "tools/release/reviewedBackendVerifierAuthority.js",
+      "sha256": "263E063AEFC880F29F679D2151B24F3FFBBF2B087A63D5A5D6A80DBA42A38137"
+    },
+    {
+      "file": "tools/release/scopedCallableInvokerIam.js",
+      "sha256": "0CCF35EE2AE349377A262CD7079553AA0E3FDA82A4FC738D4B6D32DB74548822"
+    },
+    {
+      "file": "tools/release/scopedCallableInvokerIamPublic.js",
+      "sha256": "3C6D6F17C0AF3525B0BAC2186AE785EEEC90AAE91C7C77BA056141CF9ED6A596"
+    }
+  ],
+  "decidedAtUtc": "2026-09-13T10:00:30.052Z",
+  "authorizationBasis": "Actual agent verification decision under the owner delegation to complete release readiness and the current explicit deployment scope. I reviewed this exact additive verifier after independent review and150 passing combined tests plus3 passing final regressions. It distinguishes reserved platform absent-to-http signature additions from preserved project environment, binds all four measured service caps to exact ready/latest100-percent-traffic Run revisions, records omitted GCF caps as absent and retains the approved100 ceiling. Fifteen existing measured caps remain20. Legacy verification semantics remain unchanged. This decision authorizes use of these exact verifier bytes to audit the already approved fc0 source deployment; it does not authorize any cloud mutation, grant any broader deployment scope, or retroactively turn a failed Rules attempt into success. This is the actual agent decision time, not an invented owner-message timestamp. The full release-custody suite remains a required integration check before publication.",
+  "cloudMutationAuthorized": false
+}
