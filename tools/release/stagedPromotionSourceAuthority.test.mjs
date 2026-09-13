@@ -206,9 +206,8 @@ function delegatedCurrentFixture(t) {
 // Synthetic successor deployment, with the actual19-endpoint source graph and
 // real Git approval/CI custody. Every readback is produced by the real pure
 // collector adjudicator. No record here describes a production deployment.
-function successorDelegatedFixture(t) {
+function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b', childDirectory = 'release'} = {}) {
   const f = delegatedCurrentFixture(t);
-  const sourceCommit = 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b';
   const sourceTree = f.git('rev-parse', `${sourceCommit}^{tree}`);
   const functionTree = f.git('rev-parse', `${sourceCommit}:functions`);
   const getSource = (file) => f.git('show', `${sourceCommit}:${file}`) + '\n';
@@ -259,6 +258,14 @@ function successorDelegatedFixture(t) {
     for (const point of ['before','after']) Object.assign(child.source[point],{commit:sourceCommit,tree:sourceTree,originMain:sourceCommit});
     child.capturedAtUtc = at(123);
     if (key === 'firestoreRulesAndIndexes') {
+      const rulesRaw = getSource('firestore.rules');
+      child.outputs.rules = firestoreCollector.summarizeRules({projectId: PROJECT,
+        repositoryRules: rulesRaw, release: {name: child.outputs.rules.releaseName,
+          rulesetName: child.outputs.rules.rulesetName}, ruleset: {
+          createTime: child.outputs.rules.rulesetCreateTime,
+          source: {files: [{name: 'firestore.rules', content: rulesRaw}]}}});
+      approval.approvedDeployment.firestoreRulesSha256 = child.outputs.rules.sourceSha256;
+      receipt.firestoreDeployment.rulesSha256 = child.outputs.rules.sourceSha256;
       const result = firestoreCollector.adjudicateReadback({projectId:PROJECT,sourceBefore:child.source.before,sourceAfter:child.source.after,
         rules:child.outputs.rules,indexes:child.outputs.indexes,observe:false});
       assert.deepEqual(result.failedChecks,[]); Object.assign(child,result.evidence); continue;
@@ -312,7 +319,7 @@ function successorDelegatedFixture(t) {
     f.deployed.deploymentApprovalSha256=f.write(approvalFile,approval);
     receipt.approvalAuthority.sha256=f.deployed.deploymentApprovalSha256;
     for(const [key,child] of Object.entries(f.currentChildren)) {
-      const sealed=sealReceipt(child),file=`release/successor-${key}.json`;
+      const sealed=sealReceipt(child),file=`${childDirectory}/successor-${key}.json`;
       receipt.cleanMainLiveReadbacks[key]={file,physicalSha256:f.write(file,sealed),canonicalReceiptSha256:sealed.receiptSha256};
     }
     f.deployed.functionFleetEvidenceSha256=f.write(f.deployed.functionFleetEvidenceFile,receipt);
@@ -321,6 +328,208 @@ function successorDelegatedFixture(t) {
   commitCustody();
   return {...f,ci,commitCustody};
 }
+
+// Synthetic command observations exercise the production verifier with real
+// immutable Git approval/CI custody. They are never operational evidence.
+function successorRulesFixture(t) {
+  const f = successorDelegatedFixture(t, {sourceCommit: '30330c72ca2a92cb0a485e0ced7e3c21f0479292', childDirectory: 'release/evidence'});
+  const rulesProof = require('./reviewedFirestoreRulesDeployment.js');
+  const rulesCollector = require('./collectFirestoreRulesIndexesReadback.js');
+  const a = f.currentApproval, r = f.currentReceipt;
+  const sourceCommit = r.sourceAuthority.commit, sourceTree = r.sourceAuthority.tree;
+  const at = (seconds) => new Date(Date.parse(a.approvedAtUtc) + (seconds - 60) * 1000).toISOString();
+  const source = rulesProof.sourceRulesScope(f.root, sourceCommit, sourceTree);
+  const rawRules = execFileSync('git', ['-C', f.root, 'show', `${sourceCommit}:firestore.rules`]).toString('utf8');
+  const oldRules = execFileSync('git', ['-C', f.root, 'show', 'f102cbfdcdbfc68ba3cb65d10ddcd3065ebc951f:firestore.rules']).toString('utf8');
+  const final = f.currentChildren.firestoreRulesAndIndexes;
+  function observation(before, start, end) {
+    const original = structuredClone(final);
+    const rules = rulesCollector.summarizeRules({projectId: PROJECT, repositoryRules: rawRules,
+      release: {name: `projects/${PROJECT}/releases/cloud.firestore`, rulesetName: `projects/${PROJECT}/rulesets/${before ? 'prior-rules' : 'reviewed-rules'}`},
+      ruleset: {createTime: before ? at(-100) : at(121.5), source: {files: [{name:'firestore.rules',content:before ? oldRules : rawRules}]}}});
+    return sealReceipt({...rulesCollector.adjudicateReadback({projectId:PROJECT,
+      sourceBefore: original.source.before, sourceAfter: original.source.after,
+      rules, indexes: original.outputs.indexes, observe: before}).evidence,
+    collectionStartedAtUtc:at(start),capturedAtUtc:at(end)});
+  }
+  const preflight = observation(true, 52, 53), before = observation(true, 120, 121);
+  Object.assign(final, observation(false, 122, 123));
+  // These are deliberately synthetic clean-install witnesses. The byte-tree is
+  // genuinely measured from fixture files; no npm install or Node deployment
+  // is represented as having happened. Collector tests independently exercise
+  // actual filesystem bytes and the resolved Node invocation.
+  const runtimeTool = require('./reviewedRulesRuntime.js');
+  const runtimeSource = {...runtimeTool.sourceIdentity(f.root,sourceCommit,sourceTree),
+    executionRootSha256:rulesProof.executionRootSha256(f.root)};
+  const installed = path.join(f.root,'tooling/firebase-cli/node_modules');
+  fs.mkdirSync(path.join(installed,'firebase-tools/lib/bin'),{recursive:true});
+  fs.writeFileSync(path.join(installed,'firebase-tools/lib/bin/firebase.js'),'// Synthetic approved CLI fixture\n');
+  fs.writeFileSync(path.join(installed,'firebase-tools/package.json'),JSON.stringify({name:'firebase-tools',version:'15.22.4'}));
+  const runtimeIdentity = {source:runtimeSource,
+    node:{pathSha256:sha('synthetic-node-path'),sha256:sha('synthetic-node-bytes'),byteCount:4096,version:'v22.15.0'},
+    npm:{pathSha256:sha('synthetic-npm-path'),version:'10.9.2',treeScope:'installation-node-modules',
+      treeRootPathSha256:sha('synthetic-npm-container'),tree:{sha256:sha('synthetic-npm-tree'),fileCount:5,byteCount:512,symlinkCount:0}},
+    installedTree:runtimeTool.measureByteTree(installed),ancestorNodeModulesAbsent:true,nodeOptionsAbsent:true,nodePathAbsent:true};
+  const measurement = (start,end) => ({schemaVersion:1,collectionStartedAtUtc:at(start),capturedAtUtc:at(end),identity:structuredClone(runtimeIdentity)});
+  const install = {schemaVersion:1,evidenceType:'reviewed-rules-cli-clean-install',source:runtimeSource,
+    startedAtUtc:at(12),completedAtUtc:at(20),command:{nodeArguments:['--no-global-search-paths'],arguments:[...runtimeTool.INSTALL_ARGUMENTS],
+      node:structuredClone(runtimeIdentity.node),npm:structuredClone(runtimeIdentity.npm)},
+    inputObservation:{source:runtimeSource,checkout:structuredClone(final.source.before),nodeModulesAbsent:true,
+      untrackedInputsAbsent:true,collectionStartedAtUtc:at(10),capturedAtUtc:at(11)},
+    installerBefore:{schemaVersion:1,collectionStartedAtUtc:at(11.1),capturedAtUtc:at(11.9),
+      node:structuredClone(runtimeIdentity.node),npm:structuredClone(runtimeIdentity.npm)},
+    sourceAfter:structuredClone(final.source.after),exitCode:0,stdout:null,installedRuntime:measurement(21,22)};
+  const npmStdout = {added:2,removed:0,changed:0,audited:0};
+  const declaration = {schemaVersion:1,target:'firestore:rules',projectId:PROJECT,databaseId:'(default)',
+    releaseName:`projects/${PROJECT}/releases/cloud.firestore`,priorRulesetName:preflight.outputs.rules.rulesetName,
+    priorRulesSha256:preflight.outputs.rules.activeSha256,rulesSha256:source.rulesSha256,indexes:source.indexes,
+    preflight:null,commandEvidenceFile:'release/evidence/fixture-rules-command.json',
+    executionRootSha256:rulesProof.executionRootSha256(f.root),runtimeAuthority:null};
+  a.approvedDeployment.firestoreRulesMutationAuthorized = true;
+  a.approvedDeployment.reviewedRulesDeployment = declaration;
+  Object.assign(r.firestoreDeployment,{rulesSha256:source.rulesSha256,
+    rulesAlreadyExactNoMutationRequired:false,rulesDeploymentPerformed:true,
+    rulesetName:final.outputs.rules.rulesetName,rulesetCreateTime:final.outputs.rules.rulesetCreateTime});
+  r.controlBoundary.securityRulesMutated = true;
+  const cliResult = {status:'success',result:{}};
+  const command = {schemaVersion:1,evidenceType:'reviewed-firestore-rules-deployment',
+    decision:'PASS_EXACT_SOURCE_RULES_ONLY_DEPLOYED',projectId:PROJECT,source:{commit:sourceCommit,tree:sourceTree},
+    approvalAuthority:null,ciAuthority:null,target:'firestore:rules',startedAtUtc:at(121.1),completedAtUtc:at(121.9),
+    command:{executable:'node',arguments:[...rulesProof.RULES_COMMAND],resolvedNode:structuredClone(runtimeIdentity.node)},
+    runtime:{before:measurement(121.01,121.09),after:measurement(121.91,121.99)},exitCode:0,cliResult:null,beforeReadback:null,
+    executionSource:{rootSha256:declaration.executionRootSha256,before:structuredClone(final.source.before),after:structuredClone(final.source.after)}};
+  function point(file, value) {
+    const sealed = sealReceipt(value);
+    return {file,physicalSha256:f.write(file,sealed),canonicalReceiptSha256:sealed.receiptSha256};
+  }
+  const persistRules = (commitApproval = false) => {
+    declaration.preflight = point('release/evidence/fixture-rules-preflight.json',preflight);
+    install.stdout = {file:'release/evidence/fixture-npm-ci-stdout.json',
+      physicalSha256:f.write('release/evidence/fixture-npm-ci-stdout.json',npmStdout)};
+    declaration.runtimeAuthority = point('release/evidence/fixture-cli-clean-install.json',install);
+    if (commitApproval) f.commitCustody();
+    command.approvalAuthority = structuredClone(r.approvalAuthority);
+    command.ciAuthority = {file:a.sourceAuthority.requiredPostMergeReleaseGateEvidence.file,
+      sha256:a.sourceAuthority.requiredPostMergeReleaseGateEvidence.sha256,commit:r.approvalAuthority.commit};
+    command.cliResult = {file:'release/evidence/fixture-rules-cli-result.json',
+      physicalSha256:f.write('release/evidence/fixture-rules-cli-result.json',cliResult)};
+    command.beforeReadback = point('release/evidence/fixture-rules-immediate-before.json',before);
+    r.firestoreDeployment.rulesDeploymentEvidence = point(declaration.commandEvidenceFile,command);
+    f.persistCurrent();
+  };
+  persistRules(true);
+  return {...f,at,declaration,preflight,before,final,command,cliResult,persistRules,install,npmStdout,installed};
+}
+
+test('new successor Rules-only proof passes actual shared Git/CI/receipt verification while historical receipts remain unchanged', (t) => {
+  const f = successorRulesFixture(t);
+  assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+  assert.equal(f.receipt.controlBoundary.securityRulesMutated,false);
+  assert.equal(f.receipt.firestoreDeployment.rulesDeploymentPerformed,false);
+});
+
+test('Rules command refuses a coherently retained ignored installed CLI mutation', (t) => {
+  const f = successorRulesFixture(t);
+  assert.equal(f.verify().ok,true,'positive control');
+  const cli = path.join(f.root,'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js');
+  fs.mkdirSync(path.dirname(cli),{recursive:true});
+  fs.writeFileSync(cli,'// Modified ignored executable; tracked source and command text are unchanged.\n');
+  assert.equal(f.verify().ok,true,'completed historical evidence does not depend on today\'s installed runtime');
+  // Model a NEW command's actual measurement, preserving the prior approved
+  // install. A historical completed proof never consults today's local tools.
+  f.command.runtime.before.identity.installedTree = require('./reviewedRulesRuntime.js').measureByteTree(f.installed);
+  f.persistRules();
+  assert.equal(f.verify().ok,false,'an ignored runtime mutation must not retain Rules deployment authority');
+});
+
+const rulesNegatives = [
+  ['missing approval', f => { f.currentApproval.approvedDeployment.firestoreRulesMutationAuthorized = false; }, true],
+  ['missing declaration', f => { delete f.currentApproval.approvedDeployment.reviewedRulesDeployment; }, true],
+  ['wrong prior hash', f => { f.declaration.priorRulesSha256 = '1'.repeat(64); }, true],
+  ['wrong prior ruleset', f => { f.declaration.priorRulesetName = `projects/${PROJECT}/rulesets/unrelated`; }, true],
+  ['wrong new hash', f => { f.declaration.rulesSha256 = '2'.repeat(64); }, true],
+  ['wrong database', f => { f.declaration.databaseId = 'other'; }, true],
+  ['wrong approved index file', f => { f.declaration.indexes.fileSha256 = '3'.repeat(64); }, true],
+  ['wrong approved overrides', f => { f.declaration.indexes.fieldOverrideSetSha256 = '4'.repeat(64); }, true],
+  ['wrong target', f => { f.command.command.arguments[4] = 'firestore'; }],
+  ['extra configuration argument', f => { f.command.command.arguments.push('--config','unreviewed.json'); }],
+  ['wrong project', f => { f.command.projectId = 'other'; }],
+  ['wrong command source', f => { f.command.source.commit = '0'.repeat(40); }],
+  ['wrong command cwd', f => { f.command.executionSource.rootSha256 = '0'.repeat(64); }],
+  ['dirty command checkout', f => { f.command.executionSource.after.governedWorktreeClean = false; }],
+  ['moved command checkout', f => { f.command.executionSource.before.commit = '0'.repeat(40); }],
+  ['failed exit', f => { f.command.exitCode = 1; }],
+  ['missing exit', f => { delete f.command.exitCode; }],
+  ['ambiguous result', f => { f.cliResult.result = {hosting:'unexpected'}; }],
+  ['failed result', f => { f.cliResult.status = 'error'; }],
+  ['missing result', f => { delete f.cliResult.result; }],
+  ['predecision command', f => { f.command.startedAtUtc = f.at(55); }],
+  ['reversed command interval', f => { f.command.completedAtUtc = f.at(120); }],
+  ['future command', f => { f.command.completedAtUtc = '2999-01-01T00:00:00Z'; }],
+  ['pre-custody immediate observation', f => { f.before.collectionStartedAtUtc = f.at(65); }],
+  ['immediate observation overlaps command', f => { f.before.capturedAtUtc = f.at(122); }],
+  ['final observation starts before command ends', f => { f.final.collectionStartedAtUtc = f.at(121); }],
+  ['final observation has no start', f => { delete f.final.collectionStartedAtUtc; }],
+  ['future closure', f => { f.currentReceipt.recordedAtUtc = '2999-01-01T00:00:00Z'; }],
+  ['false performed claim', f => { f.currentReceipt.firestoreDeployment.rulesDeploymentPerformed = false; }],
+  ['false no-mutation claim', f => { f.currentReceipt.firestoreDeployment.rulesAlreadyExactNoMutationRequired = true; }],
+  ['false security mutation claim', f => { f.currentReceipt.controlBoundary.securityRulesMutated = false; }],
+  ['index mutation claim', f => { f.currentReceipt.controlBoundary.indexesMutated = true; }],
+  ['stale pre-existing install', f => { f.install.inputObservation.nodeModulesAbsent=false; }, true],
+  ['untracked local package inputs', f => { f.install.inputObservation.untrackedInputsAbsent=false; }, true],
+  ['enabled install scripts', f => { f.install.command.arguments=f.install.command.arguments.filter(v=>v!=='--ignore-scripts'); }, true],
+  ['installer global lookup enabled', f => { f.install.command.nodeArguments=[]; }, true],
+  ['installer measured only after install', f => { f.install.installerBefore.collectionStartedAtUtc=f.at(20.1); }, true],
+  ['npm changed during install', f => { f.install.installerBefore.npm.tree.sha256='0'.repeat(64); }, true],
+  ['failed install', f => { f.install.exitCode=1; }, true],
+  ['ambiguous install output', f => { f.npmStdout.added=0; }, true],
+  ['install lockfile mismatch', f => { f.install.source.cliLockSha256='0'.repeat(64); }, true],
+  ['install after decision', f => { f.install.installedRuntime.capturedAtUtc=f.at(61); }, true],
+  ['changed resolved Node', f => { f.command.command.resolvedNode.sha256='0'.repeat(64); }],
+  ['Node bytes changed before command', f => { f.command.runtime.before.identity.node.sha256='0'.repeat(64); }],
+  ['Node bytes changed after command', f => { f.command.runtime.after.identity.node.sha256='0'.repeat(64); }],
+  ['npm bytes changed before command', f => { f.command.runtime.before.identity.npm.tree.sha256='0'.repeat(64); }],
+  ['dependency bytes changed after command', f => { f.command.runtime.after.identity.installedTree.sha256='0'.repeat(64); }],
+  ['ancestor module fallback', f => { f.command.runtime.before.identity.ancestorNodeModulesAbsent=false; }],
+  ['Node preload injection', f => { f.command.runtime.before.identity.nodeOptionsAbsent=false; }],
+  ['runtime measurement overlaps command', f => { f.command.runtime.before.capturedAtUtc=f.at(121.5); }],
+  ['runtime measurement before immediate readback', f => { f.command.runtime.before.collectionStartedAtUtc=f.at(120); }],
+  ['runtime final measurement precedes command', f => { f.command.runtime.after.collectionStartedAtUtc=f.at(121.5); }],
+  ['runtime final measurement after closure', f => { f.command.runtime.after.capturedAtUtc=f.at(126); }],
+];
+for (const [label, mutate, recommit] of rulesNegatives) {
+  test(`Rules-only proof refuses ${label}`, (t) => {
+    const f = successorRulesFixture(t);
+    assert.equal(f.verify().ok,true,'positive control');
+    mutate(f);f.persistRules(recommit === true);
+    assert.equal(f.verify().ok,false,label);
+  });
+}
+
+for (const [field, hashField] of [['fieldOverridesMatchSource','cliFieldOverrideSha256'],
+  ['cliMatchesSource','cliSetSha256'], ['apiMatchesSource','apiSetSha256']]) {
+  test(`coherently resealed null ${field} cannot conceal changed before indexes`, (t) => {
+    const f = successorRulesFixture(t);
+    assert.equal(f.verify().ok,true,'positive control');
+    f.before.outputs.indexes[field] = null;
+    f.before.outputs.indexes[hashField] = '7'.repeat(64);
+    // Re-derive the exact defective truthy map; literal-false filtering alone
+    // must not admit null controls in a genuinely sealed observation.
+    const result = require('./collectFirestoreRulesIndexesReadback.js').adjudicateReadback({projectId:PROJECT,
+      sourceBefore:f.before.source.before,sourceAfter:f.before.source.after,
+      rules:f.before.outputs.rules,indexes:f.before.outputs.indexes,observe:true});
+    Object.assign(f.before,result.evidence);f.persistRules();
+    assert.equal(f.verify().ok,false);
+  });
+}
+
+test('historical delegated approval cannot opt into Rules mutation by adding new flags', (t) => {
+  const f = delegatedCurrentFixture(t);
+  f.currentApproval.approvedDeployment.firestoreRulesMutationAuthorized = true;
+  f.currentReceipt.firestoreDeployment.rulesDeploymentPerformed = true;
+  f.currentReceipt.controlBoundary.securityRulesMutated = true;
+  f.persistCurrent();assert.equal(f.verify().ok,false);
+});
 
 test('new source delegated custody verifies real Git, exact five-job CI and the actual19-endpoint readback adjudicators', (t)=>{
   const f=successorDelegatedFixture(t);

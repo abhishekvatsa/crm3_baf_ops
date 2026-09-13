@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import {createRequire} from "node:module";
 import path from "node:path";
 import test from "node:test";
@@ -9,6 +10,8 @@ const require = createRequire(import.meta.url);
 const {
   PRODUCTION_PROJECT_ID,
   adjudicateReadback,
+  collectReadbackEvidence,
+  firebaseJson,
   listCompositeIndexes,
   sourceIndexSetBinding,
   summarizeIndexes,
@@ -98,6 +101,53 @@ test("strict readback passes only exact Rules, index and main-source parity", ()
   assert.equal(result.evidence.decision, "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK");
   assert.equal(result.evidence.outputs.indexes.apiReadyCount, 1);
   assert.equal(result.evidence.mutationBoundary.firestoreDocumentsRead, false);
+});
+
+test("actual Firebase child uses the selected Node with global lookup disabled", (t) => {
+  const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rules-child-runtime-"));
+  t.after(() => {
+    assert.equal(path.dirname(path.resolve(repositoryRoot)), path.resolve(os.tmpdir()));
+    fs.rmSync(repositoryRoot, {recursive: true, force: true});
+  });
+  const firebaseBin = path.join(repositoryRoot, "tooling", "firebase-cli",
+    "node_modules", "firebase-tools", "lib", "bin", "firebase.js");
+  fs.mkdirSync(path.dirname(firebaseBin), {recursive: true});
+  fs.writeFileSync(firebaseBin, `process.stdout.write(JSON.stringify({
+    status: "success", result: {node: process.execPath, flags: process.execArgv,
+      globals: require("node:module").globalPaths, args: process.argv.slice(2),
+      cwd: process.cwd()}}));`);
+  const args = ["firestore:indexes", "--project", PRODUCTION_PROJECT_ID];
+  const result = firebaseJson(repositoryRoot, args);
+  assert.equal(result.node, process.execPath);
+  assert.deepEqual(result.flags, ["--no-global-search-paths"]);
+  assert.deepEqual(result.globals, []);
+  assert.deepEqual(result.args, [...args, "--json"]);
+  assert.equal(fs.realpathSync(result.cwd), fs.realpathSync(repositoryRoot));
+});
+
+test("actual collector records its start before source/network reads and its end after them", async () => {
+  const calls = [];
+  const times = ["2026-09-13T01:00:00.000Z", "2026-09-13T01:00:01.123Z"];
+  const readback = await collectReadbackEvidence({repositoryRoot: ".", projectId: PRODUCTION_PROJECT_ID, observe: false}, {
+    now: () => { calls.push("clock"); return times.shift(); },
+    sourceBinding: () => { calls.push("source"); return sourceBinding(); },
+    readLive: async () => { calls.push("live"); return {rules: rulesSummary(), indexes: indexSummary()}; },
+  });
+  assert.deepEqual(calls, ["clock", "source", "live", "source", "clock"]);
+  assert.equal(readback.collectionStartedAtUtc, "2026-09-13T01:00:00.000Z");
+  assert.equal(readback.capturedAtUtc, "2026-09-13T01:00:01.123Z");
+  assert.equal(readback.decision, "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK");
+  require("./collectProductionGlobalPullBackend.js").verifyReceiptSeal(readback, "actual collector");
+});
+
+test("a failed actual collection cannot emit a successful completion receipt", async () => {
+  let clocks = 0;
+  await assert.rejects(collectReadbackEvidence({repositoryRoot: ".", projectId: PRODUCTION_PROJECT_ID, observe: false}, {
+    now: () => { clocks++; return "2026-09-13T01:00:00.000Z"; },
+    sourceBinding,
+    readLive: async () => { throw new Error("read interrupted"); },
+  }), /read interrupted/);
+  assert.equal(clocks, 1);
 });
 
 test("Rules byte drift fails closed without retaining Rules content", () => {
