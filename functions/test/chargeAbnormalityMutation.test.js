@@ -3,6 +3,7 @@ const {
   parseChargeAbnormalityMutationRequest,
   userCanMutateChargeAbnormality,
 } = require('../lib/chargeAbnormalityMutation');
+const {mutateQualityWithDb} = require('../lib/qualityMutation');
 
 function clone(value) {
   return value == null ? value : structuredClone(value);
@@ -293,6 +294,19 @@ function invoke(db, data, extra = {}) {
       nanoseconds: (date.valueOf() % 1000) * 1000000,
     }),
     ...extra,
+  });
+}
+
+function invokeQuality(db, authUid, data) {
+  return mutateQualityWithDb({
+    db,
+    authUid,
+    data,
+    now: () => new Date('2026-07-26T11:00:00.000Z'),
+    timestampFromDate: (date) => ({
+      seconds: Math.floor(date.valueOf() / 1000),
+      nanoseconds: (date.valueOf() % 1000) * 1000000,
+    }),
   });
 }
 
@@ -1146,25 +1160,290 @@ describe('charge-abnormality admin mutation', () => {
     expect(state.writes).toHaveLength(4);
   });
 
-  test('old replay aborts after a later governed version changes the target', async () => {
+  test('an accepted update is recovered after a later governed update', async () => {
     const state = fakeDb({
       'users/admin-1': admin(),
       ...standaloneCase(),
       'abnormality_types/TYPE_NEW': abnormalityType(),
     });
     const request = updateRequest();
-    await invoke(state.db, request);
-    state.store.set('charge_abnormalities/abn-1', {
-      ...state.store.get('charge_abnormalities/abn-1'),
-      observedReason: 'Later governed correction',
-      updatedAt: '2026-07-26T11:00:00.000Z',
-      version: 6,
+    const first = await invoke(state.db, request);
+    await invoke(state.db, laterUpdate(), {
+      now: () => new Date('2026-07-26T11:00:00.000Z'),
+    });
+    const writesBeforeReplay = state.writes.length;
+
+    const replay = await invoke(state.db, request, {
+      now: () => new Date('2026-07-26T12:00:00.000Z'),
     });
 
-    await expect(invoke(state.db, request)).rejects.toMatchObject({
-      code: 'aborted',
-      details: {reasonCode: 'abnormality-replay-evidence-drift'},
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(replay.abnormality.observedReason).toBe('Revised observation');
+    expect(state.writes).toHaveLength(writesBeforeReplay);
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      observedReason: 'Later governed correction',
+      version: 6,
     });
-    expect(state.writes).toHaveLength(4);
+  });
+
+  test('recovered abnormalities keep full stored timestamp precision', async () => {
+    const record = abnormality({
+      loggedAt: {_seconds: 1784534399, _nanoseconds: 123456789},
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    const request = updateRequest();
+    const first = await invoke(state.db, request);
+    await invoke(state.db, laterUpdate(), {
+      now: () => new Date('2026-07-26T11:00:00.000Z'),
+    });
+
+    const replay = await invoke(state.db, request, {
+      now: () => new Date('2026-07-26T12:00:00.000Z'),
+    });
+
+    expect(first.abnormality.loggedAt).toBe('2026-07-20T07:59:59.123456789Z');
+    expect(replay).toEqual({...first, idempotentReplay: true});
+  });
+
+  test.each([
+    ['an altered accepted snapshot', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      const audit = state.store.get(path);
+      state.store.set(path, {...audit, afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        version: 9,
+      })});
+    }, 'abnormality-replay-evidence-malformed'],
+    ['an unreadable accepted snapshot', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      state.store.set(path, {...state.store.get(path), afterJson: '{'});
+    }, 'abnormality-replay-evidence-malformed'],
+    ['a snapshot of a differently logged case', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      const audit = state.store.get(path);
+      state.store.set(path, {...audit, afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        loggedByUid: 'operator-2',
+      })});
+    }, 'abnormality-replay-evidence-drift'],
+    ['a warning behind the accepted version', (state) => {
+      const path = 'quality_warnings/abnormality_abn-1';
+      state.store.set(path, {...state.store.get(path), version: 1});
+    }, 'abnormality-replay-warning-drift'],
+  ])('recovery still refuses %s', async (_label, tamper, reasonCode) => {
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    const request = updateRequest();
+    const first = await invoke(state.db, request);
+    await invoke(state.db, laterUpdate(), {
+      now: () => new Date('2026-07-26T11:00:00.000Z'),
+    });
+    tamper(state, first.auditId);
+    const writesBeforeReplay = state.writes.length;
+
+    await expect(invoke(state.db, request, {
+      now: () => new Date('2026-07-26T12:00:00.000Z'),
+    })).rejects.toMatchObject({code: 'data-loss', details: {reasonCode}});
+    expect(state.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test.each([
+    ['one affected asset', [{assetType: 'furnace', assetNumber: 7}]],
+    ['two affected assets', [
+      {assetType: 'furnace', assetNumber: 7},
+      {assetType: 'furnace', assetNumber: 8},
+    ]],
+  ])('repeated hierarchy evidence for %s is refused before any creation write', async (_label, affectedAssets) => {
+    const fixture = creationDb();
+
+    await expect(invoke(fixture.db, creation({
+      affectedAssets,
+      affectedAssetHierarchyRefs: [
+        governedAffectedAsset(7),
+        governedAffectedAsset(7),
+      ],
+    }), {authUid: 'operator-1'})).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {
+        reasonCode: 'abnormality-create-payload-invalid',
+        causeReasonCode: 'duplicate-asset-hierarchy-reference',
+        field: 'affectedAssetHierarchyRefs',
+      },
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test('persisted repeated hierarchy evidence is held for review', async () => {
+    const record = abnormality({
+      affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 8},
+      ],
+      affectedAssetHierarchyRefs: [
+        governedAffectedAsset(7),
+        governedAffectedAsset(7),
+      ],
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await expect(invoke(state.db, updateRequest())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'abnormality-record-malformed',
+        causeReasonCode: 'duplicate-asset-hierarchy-reference',
+        field: 'affectedAssetHierarchyRefs',
+      },
+    });
+    expect(state.writes).toHaveLength(0);
+  });
+
+  test('a new case can be adjudicated and its creation still recovered', async () => {
+    const fixture = creationDb();
+    fixture.store.set('users/si-1', admin({roles: ['si'], name: 'SI One'}));
+    const data = creation({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governedAffectedAsset()],
+      reannealingStatus: 'pendingDecision',
+    });
+    const first = await invoke(fixture.db, data, {authUid: 'operator-1'});
+
+    await expect(invokeQuality(fixture.db, 'si-1', {
+      requestId: '99999999-9999-4999-8999-999999999999',
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'abnormality_abn-1',
+      expectedVersion: 1,
+      reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    })).resolves.toMatchObject({version: 2, idempotentReplay: false});
+    const writesBeforeReplay = fixture.writes.length;
+
+    const replay = await invoke(fixture.db, data, {authUid: 'operator-1'});
+
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(fixture.writes).toHaveLength(writesBeforeReplay);
+    expect(fixture.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      reannealingStatus: 'notRequired',
+      version: 2,
+    });
+  });
+
+  test('a new case is recovered after a legitimate closure request', async () => {
+    const fixture = creationDb();
+    const data = creation({reannealingStatus: 'pendingDecision'});
+    const first = await invoke(fixture.db, data, {authUid: 'operator-1'});
+    await invokeQuality(fixture.db, 'operator-1', closureRequest());
+    const writesBeforeReplay = fixture.writes.length;
+
+    const replay = await invoke(fixture.db, data, {authUid: 'operator-1'});
+
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(fixture.writes).toHaveLength(writesBeforeReplay);
+    expect(fixture.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'closureRequested', version: 2});
+  });
+
+  test('a governed re-save repairs a stale standalone warning projection', async () => {
+    const record = abnormality();
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      'users/ops-1': admin({roles: ['operations'], name: 'Operations One'}),
+      ...standaloneCase(record, {
+        sourceSummary: 'Superseded title',
+        warningReason: 'Superseded observation',
+      }),
+    });
+    const request = unchangedUpdate(record);
+
+    await invoke(state.db, request);
+
+    expect(state.store.get('quality_warnings/abnormality_abn-1')).toMatchObject({
+      sourceSummary: 'Old title',
+      warningReason: 'Original observation',
+      sourceVersion: 5,
+      version: 2,
+      lastMutationId: request.requestId,
+    });
+    await expect(invokeQuality(
+      state.db,
+      'ops-1',
+      closureRequest({expectedVersion: 2}),
+    )).resolves.toMatchObject({version: 3, idempotentReplay: false});
+  });
+
+  test('a governed re-save leaves a contradictory creation identity for review', async () => {
+    const record = abnormality();
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      'users/ops-1': admin({roles: ['operations'], name: 'Operations One'}),
+      ...standaloneCase(record, {
+        warningReason: 'Superseded observation',
+        createdByUid: 'operator-2',
+      }),
+    });
+
+    await invoke(state.db, unchangedUpdate(record));
+
+    expect(state.store.get('quality_warnings/abnormality_abn-1')).toMatchObject({
+      warningReason: 'Original observation',
+      createdByUid: 'operator-2',
+    });
+    await expect(invokeQuality(
+      state.db,
+      'ops-1',
+      closureRequest({expectedVersion: 2}),
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-case-malformed',
+        field: 'warningProjection',
+      },
+    });
   });
 });
+
+function laterUpdate() {
+  return updateRequest({
+    requestId: '33333333-3333-4333-8333-333333333333',
+    expectedVersion: 5,
+    observedReason: 'Later governed correction',
+    reason: 'Second Admin correction',
+  });
+}
+
+function closureRequest(overrides = {}) {
+  return {
+    requestId: '88888888-8888-4888-8888-888888888888',
+    operation: 'REQUEST_QUALITY_WARNING_CLOSURE',
+    warningId: 'abnormality_abn-1',
+    expectedVersion: 1,
+    reason: 'Post-warning coil inspection was satisfactory.',
+    ...overrides,
+  };
+}
+
+function unchangedUpdate(record) {
+  return updateRequest({
+    abnormalityTypeId: record.abnormalityTypeId,
+    severity: record.severity,
+    affectedAssets: record.affectedAssets,
+    component: record.component,
+    observedReason: record.observedReason,
+    description: record.description,
+    possibleRootReasonCategory: record.possibleRootReasonCategory,
+    possibleRootReasonNotes: record.possibleRootReasonNotes,
+    reannealingStatus: record.reannealingStatus,
+    reannealedToChargeNo: record.reannealedToChargeNo,
+  });
+}
