@@ -692,9 +692,12 @@ export function validateQualityWarningRecord(
       `affectedAssets[${index}].assetNumber`,
       "quality-warning",
     );
-    if (!affectedAssetIdentities.add(`${assetType}:${assetNumber}`)) {
+    // Set.prototype.add returns the set itself, so test membership first.
+    const identity = `${assetType}:${assetNumber}`;
+    if (affectedAssetIdentities.has(identity)) {
       malformed("quality-warning", "affectedAssets");
     }
+    affectedAssetIdentities.add(identity);
     if (hasHierarchyReference &&
         !isValidAffectedAssetHierarchyReference(
           asset.assetHierarchyRef,
@@ -907,9 +910,10 @@ function validateLinkedAffectedAssets(data: UserAuthorityJsonMap): void {
       `affectedAssets[${index}]`,
       false,
     );
-    if (!identities.add(parsed.identity)) {
+    if (identities.has(parsed.identity)) {
       malformed("charge-quality-abnormality", "affectedAssets");
     }
+    identities.add(parsed.identity);
     if (parsed.hasHierarchy) inlineHierarchy.add(parsed.identity);
   });
 
@@ -927,9 +931,10 @@ function validateLinkedAffectedAssets(data: UserAuthorityJsonMap): void {
     );
     if (!identities.has(parsed.identity) ||
         inlineHierarchy.has(parsed.identity) ||
-        !hierarchyIdentities.add(parsed.identity)) {
+        hierarchyIdentities.has(parsed.identity)) {
       malformed("charge-quality-abnormality", "affectedAssetHierarchyRefs");
     }
+    hierarchyIdentities.add(parsed.identity);
   });
 }
 
@@ -1763,41 +1768,188 @@ function replayResult(args: {
     "linkedAbnormalityVersion",
   );
   if (hasLinkedEvidence &&
-      (receipt.linkedAbnormalityId !== (linkedAbnormality?.id ?? null) ||
-        receipt.linkedAbnormalityVersion !==
-          (linkedAbnormality?.before.version ?? null))) {
-    throw new QualityMutationError(
-      "data-loss",
-      "Linked charge-abnormality replay evidence has drifted.",
-      {reasonCode: "quality-replay-linked-abnormality-drift"},
-    );
+      receipt.linkedAbnormalityId !== (linkedAbnormality?.id ?? null)) {
+    return linkedAbnormalityReplayDrift();
   }
-  if (receipt.resultVersion !== current.version ||
-      current.lastMutationId !== request.requestId ||
-      receipt.schemaVersion !== 1 ||
+  const resultVersion = receipt.resultVersion;
+  if (receipt.schemaVersion !== 1 ||
       receipt.auditId !== auditId ||
       audit.schemaVersion !== 1 ||
       audit.eventType !== "qualityMutation" ||
       audit.requestId !== request.requestId ||
-      audit.entityId !== entityId) {
-    throw new QualityMutationError(
-      "data-loss",
-      "Quality replay evidence is malformed or has drifted.",
-      {reasonCode: "quality-replay-evidence-malformed"},
-    );
+      audit.entityId !== entityId ||
+      !Number.isSafeInteger(resultVersion) ||
+      (current.version as number) < (resultVersion as number)) {
+    return qualityReplayEvidenceMalformed();
   }
+  // The receipt proves what was accepted. Later legitimate work may advance
+  // the warning or its linked case, but neither may fall behind that result.
+  const linkedVersion = receipt.linkedAbnormalityVersion;
+  if (hasLinkedEvidence && linkedAbnormality != null &&
+      (!Number.isSafeInteger(linkedVersion) ||
+        (linkedAbnormality.before.version as number) <
+          (linkedVersion as number))) {
+    return linkedAbnormalityReplayDrift();
+  }
+  const linkedUnchanged = !hasLinkedEvidence || linkedAbnormality == null ||
+    linkedAbnormality.before.version === linkedVersion;
+  if (current.version === resultVersion && linkedUnchanged) {
+    if (current.lastMutationId !== request.requestId) {
+      return qualityReplayEvidenceMalformed();
+    }
+    return {
+      ok: true,
+      requestId: request.requestId,
+      operation: request.operation,
+      entityId,
+      version: current.version as number,
+      auditId,
+      committedAt: receipt.committedAtIso as string,
+      idempotentReplay: true,
+      entity: current,
+      linkedAbnormality: linkedAbnormality?.before ?? null,
+    };
+  }
+  // Monitoring requests keep strict tip evidence; creation is recovered above.
+  if (!("warningId" in request)) {
+    return qualityReplayEvidenceMalformed();
+  }
+  const accepted = acceptedWarningFromAudit({
+    audit,
+    receipt,
+    current,
+    request,
+    actorUid,
+    entityId,
+  });
   return {
     ok: true,
     requestId: request.requestId,
     operation: request.operation,
     entityId,
-    version: current.version as number,
+    version: resultVersion as number,
     auditId,
     committedAt: receipt.committedAtIso as string,
     idempotentReplay: true,
-    entity: current,
-    linkedAbnormality: linkedAbnormality?.before ?? null,
+    entity: accepted,
+    linkedAbnormality: acceptedLinkedAbnormality({
+      audit,
+      receipt,
+      accepted,
+      linkedAbnormality,
+      linkedUnchanged,
+    }),
   };
+}
+
+function qualityReplayEvidenceMalformed(): never {
+  throw new QualityMutationError(
+    "data-loss",
+    "Quality replay evidence is malformed or has drifted.",
+    {reasonCode: "quality-replay-evidence-malformed"},
+  );
+}
+
+function linkedAbnormalityReplayDrift(): never {
+  throw new QualityMutationError(
+    "data-loss",
+    "Linked charge-abnormality replay evidence has drifted.",
+    {reasonCode: "quality-replay-linked-abnormality-drift"},
+  );
+}
+
+function qualityAuditSnapshot(value: unknown): UserAuthorityJsonMap {
+  let snapshot: unknown = null;
+  try {
+    if (typeof value === "string") snapshot = JSON.parse(value);
+  } catch (_) {
+    snapshot = null;
+  }
+  if (snapshot == null || typeof snapshot !== "object" ||
+      Array.isArray(snapshot)) {
+    return qualityReplayEvidenceMalformed();
+  }
+  return snapshot as UserAuthorityJsonMap;
+}
+
+// A retry after later legitimate work returns the warning exactly as this
+// request committed it, taken from the immutable audit rather than the tip.
+function acceptedWarningFromAudit(args: {
+  audit: UserAuthorityJsonMap;
+  receipt: UserAuthorityJsonMap;
+  current: UserAuthorityJsonMap;
+  request: ParsedRequest;
+  actorUid: string;
+  entityId: string;
+}): UserAuthorityJsonMap {
+  const {audit, receipt, current, request, actorUid, entityId} = args;
+  let accepted: UserAuthorityJsonMap;
+  try {
+    accepted = validateQualityWarningRecord(
+      qualityAuditSnapshot(audit.afterJson),
+      entityId,
+    );
+  } catch (error) {
+    if (error instanceof QualityMutationError) {
+      return qualityReplayEvidenceMalformed();
+    }
+    throw error;
+  }
+  const committed = persistedInstantMillis(receipt.committedAtIso);
+  if (audit.operation !== request.operation ||
+      audit.performedByUid !== actorUid ||
+      audit.resultVersion !== receipt.resultVersion ||
+      accepted.version !== receipt.resultVersion ||
+      accepted.lastMutationId !== request.requestId ||
+      accepted.updatedByUid !== actorUid ||
+      !Number.isFinite(committed) ||
+      persistedInstantMillis(accepted.updatedAt) !== committed) {
+    return qualityReplayEvidenceMalformed();
+  }
+  // Later decisions change lifecycle state, never which case this is.
+  if (persistedInstantMillis(accepted.createdAt) !==
+        persistedInstantMillis(current.createdAt) ||
+      ["sourceType", "sourceId", "sourceChargeNo", "createdByUid", "createdByName"]
+        .some((field) => accepted[field] !== current[field])) {
+    return qualityReplayEvidenceMalformed();
+  }
+  return accepted;
+}
+
+function acceptedLinkedAbnormality(args: {
+  audit: UserAuthorityJsonMap;
+  receipt: UserAuthorityJsonMap;
+  accepted: UserAuthorityJsonMap;
+  linkedAbnormality: LinkedAbnormality | null;
+  linkedUnchanged: boolean;
+}): UserAuthorityJsonMap | null {
+  const {audit, receipt, accepted, linkedAbnormality} = args;
+  if (linkedAbnormality == null || receipt.linkedAbnormalityId == null) {
+    return null;
+  }
+  if (typeof audit.linkedAbnormalityAfterJson !== "string") {
+    // Decisions audited before linked snapshots were recorded can return the
+    // linked case only while it is still exactly as that decision left it.
+    return args.linkedUnchanged ? linkedAbnormality.before : null;
+  }
+  let original: UserAuthorityJsonMap;
+  try {
+    original = validateLinkedAbnormality(
+      qualityAuditSnapshot(audit.linkedAbnormalityAfterJson),
+      linkedAbnormality.id,
+      accepted,
+      false,
+    );
+  } catch (error) {
+    if (error instanceof QualityMutationError) {
+      return qualityReplayEvidenceMalformed();
+    }
+    throw error;
+  }
+  if (original.version !== receipt.linkedAbnormalityVersion) {
+    return qualityReplayEvidenceMalformed();
+  }
+  return original;
 }
 
 export async function mutateQualityWithDb(args: {
@@ -1851,8 +2003,10 @@ export async function mutateQualityWithDb(args: {
         db: args.db,
         transaction,
         warning: warningBefore,
+        // A replay may follow a legitimate later deletion of the source case.
         allowDeleted:
-          request.operation === "REOPEN_QUALITY_WARNING" &&
+          (receiptSnapshot.exists ||
+            request.operation === "REOPEN_QUALITY_WARNING") &&
           warningBefore.sourceType === "abnormality",
       });
 
@@ -2326,6 +2480,12 @@ export async function mutateQualityWithDb(args: {
       linkedAbnormalityResultVersion:
         linkedAbnormalityAfter?.version ?? linkedAbnormality?.before.version ?? null,
     };
+    if ("warningId" in request) {
+      // Lets a later retry return the linked case exactly as this decision
+      // left it, even after further work has changed the live case.
+      auditRecord.linkedAbnormalityAfterJson = linkedAbnormality == null ? null :
+        JSON.stringify(linkedAbnormalityAfter ?? linkedAbnormality.before);
+    }
     const creatingMonitoring = request.operation === "CREATE_QUALITY_MONITORING_REQUEST";
     const storedFingerprint = creatingMonitoring ? monitoringCreationFingerprint(request) : request.fingerprint;
     if (creatingMonitoring) Object.assign(auditRecord, {

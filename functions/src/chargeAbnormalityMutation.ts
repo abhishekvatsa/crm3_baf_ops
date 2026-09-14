@@ -454,13 +454,15 @@ function parseAffectedAssetHierarchyRefs(
         "orphan-asset-hierarchy-reference",
       );
     }
-    if (!seen.add(identity)) {
+    // Set.prototype.add returns the set itself, so test membership first.
+    if (seen.has(identity)) {
       return invalidField(
         "affectedAssetHierarchyRefs",
         "Governed hierarchy entries must not contain duplicates.",
         "duplicate-asset-hierarchy-reference",
       );
     }
+    seen.add(identity);
     return {
       assetType: parsed.assetType,
       assetNumber: parsed.assetNumber,
@@ -476,6 +478,23 @@ function identityOnlyAffectedAssets(
     assetType: asset.assetType,
     assetNumber: asset.assetNumber,
   }));
+}
+
+// Quality adjudication compares a standalone warning with its current
+// abnormality, so any difference here would strand the case.
+function standaloneWarningProjectionStale(
+  warning: UserAuthorityJsonMap,
+  abnormality: UserAuthorityJsonMap,
+): boolean {
+  const warningAssets = (warning.affectedAssets as ReadonlyArray<AffectedAsset>)
+    .map(assetIdentity);
+  const abnormalityAssets = existingAssets(abnormality.affectedAssets)
+    .map(assetIdentity);
+  return warning.sourceSummary !== abnormality.abnormalityTypeTitle ||
+    warning.sourceSeverity !== abnormality.severity ||
+    warning.warningReason !== abnormality.observedReason ||
+    warning.component !== abnormality.component ||
+    JSON.stringify(warningAssets) !== JSON.stringify(abnormalityAssets);
 }
 
 function mergeAffectedAssetHierarchyRefs({
@@ -614,7 +633,7 @@ function parseAbnormalityCreation(
   } catch (error) {
     if (error instanceof ChargeAbnormalityMutationError) {
       throw new ChargeAbnormalityMutationError("invalid-argument", error.message,
-        {reasonCode: "abnormality-create-payload-invalid"});
+        {reasonCode: "abnormality-create-payload-invalid", ...refusalCause(error)});
     }
     throw error;
   }
@@ -736,12 +755,19 @@ function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap
   for (const field of ["loggedAt", "updatedAt", "deletedAt", "_globalPullServerUpdatedAt"]) {
     const value = data[field];
     if (value == null || typeof value === "string") continue;
-    const timestamp = value as {seconds?: number; nanoseconds?: number};
-    if (Number.isSafeInteger(timestamp.seconds) &&
-        Number.isSafeInteger(timestamp.nanoseconds)) {
-      const fraction = String(timestamp.nanoseconds).padStart(9, "0")
+    const timestamp = value as {
+      seconds?: number;
+      nanoseconds?: number;
+      _seconds?: number;
+      _nanoseconds?: number;
+    };
+    // Audit snapshots hold a Timestamp in its JSON form (`_seconds`).
+    const seconds = timestamp.seconds ?? timestamp._seconds;
+    const nanoseconds = timestamp.nanoseconds ?? timestamp._nanoseconds;
+    if (Number.isSafeInteger(seconds) && Number.isSafeInteger(nanoseconds)) {
+      const fraction = String(nanoseconds).padStart(9, "0")
         .replace(/(000){1,2}$/, "");
-      result[field] = new Date(timestamp.seconds! * 1000).toISOString()
+      result[field] = new Date((seconds as number) * 1000).toISOString()
         .replace(".000Z", `.${fraction}Z`);
     } else {
       result[field] = new Date(persistedInstantMillis(value)).toISOString();
@@ -750,15 +776,39 @@ function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap
   return result;
 }
 
-function malformedExisting(message: string, field?: string): never {
+function malformedExisting(
+  message: string,
+  field?: string,
+  causeReasonCode?: string,
+): never {
   throw new ChargeAbnormalityMutationError(
     "failed-precondition",
     message,
     {
       reasonCode: "abnormality-record-malformed",
       ...(field == null ? {} : {field}),
+      ...(causeReasonCode == null ? {} : {causeReasonCode}),
     },
   );
+}
+
+// The most specific reason carried by a nested validation refusal, so a
+// wrapped refusal still says why (for example, a duplicated reference).
+function refusalCause(error: ChargeAbnormalityMutationError): {
+  readonly field?: string;
+  readonly causeReasonCode?: string;
+} {
+  const details = (error.details ?? {}) as {
+    readonly reasonCode?: unknown;
+    readonly causeReasonCode?: unknown;
+    readonly field?: unknown;
+  };
+  const cause = typeof details.causeReasonCode === "string" ?
+    details.causeReasonCode : details.reasonCode;
+  return {
+    ...(typeof details.field === "string" ? {field: details.field} : {}),
+    ...(typeof cause === "string" ? {causeReasonCode: cause} : {}),
+  };
 }
 
 function validateExistingAbnormality(
@@ -924,6 +974,7 @@ function existingAssets(value: unknown): ReadonlyArray<AffectedAsset> {
       malformedExisting(
         "The charge-abnormality affectedAssets value is malformed.",
         "affectedAssets",
+        refusalCause(error).causeReasonCode,
       );
     }
     throw error;
@@ -941,6 +992,7 @@ function existingAssetHierarchyRefs(
       malformedExisting(
         "The charge-abnormality affectedAssetHierarchyRefs value is malformed.",
         "affectedAssetHierarchyRefs",
+        refusalCause(error).causeReasonCode,
       );
     }
     throw error;
@@ -1132,15 +1184,12 @@ function warningAfterAbnormalityUpdate(args: {
     beforeAbnormality.reannealingStatus !== afterAbnormality.reannealingStatus ||
     beforeAbnormality.reannealedToChargeNo !==
       afterAbnormality.reannealedToChargeNo;
-  const sourceChanged = linkedTicketId == null && [
-    "abnormalityTypeTitle",
-    "severity",
-    "affectedAssets",
-    "component",
-    "observedReason",
-  ].some((field) => JSON.stringify(beforeAbnormality[field]) !==
-    JSON.stringify(afterAbnormality[field]));
-  if (!raChanged && !sourceChanged) return null;
+  // Refresh from the committed abnormality rather than from this write's diff,
+  // so a projection that drifted earlier is repaired by the next governed
+  // update. Creation actor and time are never rewritten here.
+  const projectionStale = linkedTicketId == null &&
+    standaloneWarningProjectionStale(warning, afterAbnormality);
+  if (!raChanged && !projectionStale) return null;
 
   if (serverTimestampMillis(args.committedAt) <
       serverTimestampMillis(warning.updatedAt)) {
@@ -1267,34 +1316,6 @@ function replayResult(args: {
   );
   const resultVersion = receipt.resultVersion;
   const committedAt = receipt.committedAtIso;
-  const hasWarningEvidence = Object.prototype.hasOwnProperty.call(
-    receipt,
-    "linkedWarningId",
-  ) || Object.prototype.hasOwnProperty.call(
-    receipt,
-    "linkedWarningVersion",
-  );
-  if (hasWarningEvidence) {
-    if (warning == null ||
-        receipt.linkedWarningId !== warningId ||
-        receipt.linkedWarningVersion !== warning.version) {
-      throw new ChargeAbnormalityMutationError(
-        "data-loss",
-        "The linked quality-warning replay evidence has drifted.",
-        {reasonCode: "abnormality-replay-warning-drift"},
-      );
-    }
-  }
-  if (
-    Number.isSafeInteger(resultVersion) &&
-    current.version !== resultVersion
-  ) {
-    throw new ChargeAbnormalityMutationError(
-      "aborted",
-      "The charge abnormality changed after the recorded mutation.",
-      {reasonCode: "abnormality-replay-evidence-drift"},
-    );
-  }
   if (
     receipt.schemaVersion !== 1 ||
     receipt.requestId !== request.requestId ||
@@ -1311,12 +1332,41 @@ function replayResult(args: {
     audit.operation !== request.operation ||
     audit.resultVersion !== resultVersion
   ) {
+    return replayEvidenceMalformed();
+  }
+  // The receipt proves what was accepted. Later legitimate work may advance
+  // the abnormality or its warning, but neither may fall behind that result.
+  const hasWarningEvidence = Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningId",
+  ) || Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningVersion",
+  );
+  if (hasWarningEvidence &&
+      (warning == null ||
+        receipt.linkedWarningId !== warningId ||
+        !Number.isSafeInteger(receipt.linkedWarningVersion) ||
+        (warning.version as number) <
+          (receipt.linkedWarningVersion as number))) {
     throw new ChargeAbnormalityMutationError(
       "data-loss",
-      "The abnormality mutation receipt or audit is malformed.",
-      {reasonCode: "abnormality-replay-evidence-malformed"},
+      "The linked quality-warning replay evidence has drifted.",
+      {reasonCode: "abnormality-replay-warning-drift"},
     );
   }
+  if ((current.version as number) < (resultVersion as number)) {
+    return replayEvidenceDrift();
+  }
+  const accepted = current.version === resultVersion ? current :
+    acceptedAbnormalityFromAudit({
+      audit,
+      current,
+      request,
+      actorUid,
+      resultVersion: resultVersion as number,
+      committedAt: committedAt as string,
+    });
   return {
     ok: true,
     requestId: request.requestId,
@@ -1326,8 +1376,81 @@ function replayResult(args: {
     auditId,
     committedAt: committedAt as string,
     idempotentReplay: true,
-    abnormality: abnormalityForReceipt(current),
+    abnormality: abnormalityForReceipt(accepted),
   };
+}
+
+function replayEvidenceMalformed(): never {
+  throw new ChargeAbnormalityMutationError(
+    "data-loss",
+    "The abnormality mutation receipt or audit is malformed.",
+    {reasonCode: "abnormality-replay-evidence-malformed"},
+  );
+}
+
+function replayEvidenceDrift(): never {
+  throw new ChargeAbnormalityMutationError(
+    "data-loss",
+    "The charge abnormality no longer matches the recorded mutation.",
+    {reasonCode: "abnormality-replay-evidence-drift"},
+  );
+}
+
+// A retry after later legitimate work returns the abnormality exactly as this
+// request committed it, taken from the immutable audit rather than the tip.
+function acceptedAbnormalityFromAudit(args: {
+  audit: UserAuthorityJsonMap;
+  current: UserAuthorityJsonMap;
+  request: ParsedChargeAbnormalityMutationRequest;
+  actorUid: string;
+  resultVersion: number;
+  committedAt: string;
+}): UserAuthorityJsonMap {
+  const {audit, current, request, actorUid, resultVersion, committedAt} = args;
+  let snapshot: unknown = null;
+  try {
+    if (typeof audit.afterJson === "string") {
+      snapshot = JSON.parse(audit.afterJson);
+    }
+  } catch (_) {
+    snapshot = null;
+  }
+  if (snapshot == null || typeof snapshot !== "object" ||
+      Array.isArray(snapshot)) {
+    return replayEvidenceMalformed();
+  }
+  let accepted: UserAuthorityJsonMap;
+  try {
+    accepted = validateExistingAbnormality(
+      snapshot as UserAuthorityJsonMap,
+      request.abnormalityId,
+    );
+  } catch (error) {
+    if (error instanceof ChargeAbnormalityMutationError) {
+      return replayEvidenceMalformed();
+    }
+    throw error;
+  }
+  if (accepted.version !== resultVersion ||
+      accepted.updatedByUid !== actorUid ||
+      accepted.isDeleted !== (request.operation === "SOFT_DELETE") ||
+      persistedInstantMillis(accepted.updatedAt) !==
+        persistedInstantMillis(committedAt)) {
+    return replayEvidenceMalformed();
+  }
+  // Later corrections may change observations, never which case was logged.
+  if (persistedInstantMillis(accepted.loggedAt) !==
+        persistedInstantMillis(current.loggedAt) ||
+      [
+        "sourceChargeNo",
+        "loggedByUid",
+        "loggedByName",
+        "linkedTicketFirestoreId",
+        "linkedExecutionFirestoreId",
+      ].some((field) => accepted[field] !== current[field])) {
+    return replayEvidenceDrift();
+  }
+  return accepted;
 }
 
 export async function mutateChargeAbnormalityWithDb(args: {
