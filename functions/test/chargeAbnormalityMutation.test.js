@@ -1639,3 +1639,181 @@ function unchangedUpdate(record, overrides = {}) {
     ...overrides,
   });
 }
+
+describe('what a closed quality decision was made about', () => {
+  function closedCase(record, warningOverrides = {}) {
+    return {
+      'users/admin-1': admin(),
+      'users/si-1': admin({roles: ['si'], name: 'SI One'}),
+      ...standaloneCase(record, closedWarning(warningOverrides)),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    };
+  }
+
+  function movedComponent(reference) {
+    return {
+      ...reference,
+      assetHierarchyRef: {
+        ...reference.assetHierarchyRef,
+        nodeId: 'recuperator',
+        nodeName: 'Recuperator',
+        hierarchyPath: ['Furnace', 'Heat recovery', 'Recuperator'],
+      },
+    };
+  }
+
+  test('a governed subject moved to another component needs a reopen', async () => {
+    const record = abnormality({
+      reannealingStatus: 'notRequired',
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governedAffectedAsset()],
+    });
+    const state = fakeDb(closedCase(record));
+
+    await expect(invoke(state.db, unchangedUpdate(record, {
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [movedComponent(governedAffectedAsset())],
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-decision-reopen-required',
+        field: 'affectedAssetHierarchyRefs',
+      },
+    });
+    expect(state.writes).toHaveLength(0);
+  });
+
+  test('renaming the same governed subject stays editorial', async () => {
+    const record = abnormality({
+      reannealingStatus: 'notRequired',
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governedAffectedAsset()],
+    });
+    const renamed = governedAffectedAsset();
+    const state = fakeDb(closedCase(record));
+
+    const corrected = await invoke(state.db, unchangedUpdate(record, {
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [{
+        ...renamed,
+        assetHierarchyRef: {
+          ...renamed.assetHierarchyRef,
+          assetInstanceName: 'Furnace 7 (north)',
+          nodeVersion: 3,
+          assetInstanceVersion: 4,
+        },
+      }],
+      possibleRootReasonNotes: 'Inspection note added during the rename',
+    }));
+
+    expect(corrected.version).toBe(5);
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'closed'});
+  });
+
+  test('the same subjects in another order leave the decision intact', async () => {
+    const record = abnormality({
+      reannealingStatus: 'notRequired',
+      affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ],
+    });
+    const state = fakeDb(closedCase(record));
+
+    const corrected = await invoke(state.db, unchangedUpdate(record, {
+      affectedAssets: [
+        {assetType: 'base', assetNumber: 12},
+        {assetType: 'furnace', assetNumber: 7},
+      ],
+      possibleRootReasonNotes: 'Reordered while adding an inspection note',
+    }));
+
+    expect(corrected.version).toBe(5);
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'closed', closureDisposition: 'qualityAdjudication'});
+  });
+
+  test('a genuinely different subject still needs a reopen', async () => {
+    const record = abnormality({reannealingStatus: 'notRequired'});
+    const state = fakeDb(closedCase(record));
+
+    await expect(invoke(state.db, unchangedUpdate(record, {
+      affectedAssets: [{assetType: 'base', assetNumber: 13}],
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-decision-reopen-required',
+        field: 'affectedAssets',
+      },
+    });
+    expect(state.writes).toHaveLength(0);
+  });
+
+  test('a record written before canonical null keys still accepts a note', async () => {
+    const legacy = abnormality({reannealingStatus: 'notRequired'});
+    delete legacy.component;
+    const state = fakeDb(closedCase(legacy, {component: null}));
+
+    const corrected = await invoke(state.db, unchangedUpdate(legacy, {
+      component: null,
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    expect(corrected.version).toBe(5);
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'closed'});
+  });
+
+  test('repairing a drifted closed case returns it for decision', async () => {
+    const record = abnormality({
+      severity: 'critical',
+      reannealingStatus: 'notRequired',
+    });
+    const state = fakeDb(closedCase(record, {sourceSeverity: 'medium'}));
+
+    // The pair already disagrees, so the ordinary reopen cannot run.
+    await expect(invokeQuality(state.db, 'si-1', {
+      requestId: '55555555-5555-4555-8555-555555555555',
+      operation: 'REOPEN_QUALITY_WARNING',
+      warningId: 'abnormality_abn-1',
+      expectedVersion: 1,
+      reason: 'The closed case has to be reviewed again.',
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'charge-quality-case-malformed'},
+    });
+
+    const corrected = await invoke(state.db, unchangedUpdate(record, {
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    expect(corrected.version).toBe(5);
+    const repaired = state.store.get('quality_warnings/abnormality_abn-1');
+    // The repair may not hand the earlier decision a case it never covered.
+    expect(repaired).toMatchObject({
+      sourceSeverity: 'critical',
+      status: 'open',
+      closedAt: null,
+      closureDisposition: null,
+      decisionReason: null,
+    });
+  });
+
+  test('an immaterial refresh leaves a closed decision closed', async () => {
+    const record = abnormality({reannealingStatus: 'notRequired'});
+    const state = fakeDb(closedCase(record, {
+      sourceSummary: 'Title the classification used to carry',
+    }));
+
+    await invoke(state.db, unchangedUpdate(record, {
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({
+        sourceSummary: record.abnormalityTypeTitle,
+        status: 'closed',
+        closureDisposition: 'qualityAdjudication',
+      });
+  });
+});

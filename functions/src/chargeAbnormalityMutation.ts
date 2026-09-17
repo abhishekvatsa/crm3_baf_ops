@@ -4,6 +4,10 @@ import {
   validateQualityCasePostcondition,
   validateQualityWarningRecord,
 } from "./qualityMutation";
+import {
+  decisionBasisChange,
+  warningDecisionBasisStale,
+} from "./qualityDecisionBasis";
 import {isValidAffectedAssetHierarchyReference} from
   "./affectedAssetHierarchyReference";
 import {
@@ -547,26 +551,15 @@ function identityOnlyAffectedAssets(
   }));
 }
 
-const MATERIAL_CASE_FIELDS = [
-  "abnormalityTypeId",
-  "severity",
-  "component",
-  "observedReason",
-];
-
 // A closed quality decision was made about particular evidence. Changing that
-// evidence needs a reopened decision; editorial notes do not.
+// evidence needs a reopened decision; editorial notes, a renamed asset and the
+// same subjects in another order do not. The comparison itself lives in
+// qualityDecisionBasis, so the repair below agrees with it.
 function materialCaseChange(
   before: UserAuthorityJsonMap,
   after: UserAuthorityJsonMap,
 ): string | null {
-  const changed = MATERIAL_CASE_FIELDS.find((field) =>
-    stableJson(before[field]) !== stableJson(after[field]));
-  if (changed != null) return changed;
-  const beforeAssets = existingAssets(before.affectedAssets).map(assetIdentity);
-  const afterAssets = existingAssets(after.affectedAssets).map(assetIdentity);
-  return stableJson(beforeAssets) === stableJson(afterAssets) ?
-    null : "affectedAssets";
+  return decisionBasisChange(before, after);
 }
 
 // Quality adjudication compares a standalone warning with its current
@@ -1305,6 +1298,13 @@ function warningAfterAbnormalityUpdate(args: {
   const after: UserAuthorityJsonMap = {...warning};
   if (linkedTicketId == null) {
     const affectedAssets = existingAssets(afterAbnormality.affectedAssets);
+    // An earlier decision covered the evidence as the warning recorded it. If
+    // repairing that drift changes what the case is about, the decision is
+    // returned for review rather than silently extended to evidence it never
+    // saw. The decision itself stays in the quality audit as history, exactly
+    // as a reopen leaves it.
+    const decisionOutgrown = warning.status !== "open" &&
+      warningDecisionBasisStale(warning, afterAbnormality);
     Object.assign(after, {
       sourceVersion: afterAbnormality.version,
       sourceSummary: afterAbnormality.abnormalityTypeTitle,
@@ -1312,6 +1312,19 @@ function warningAfterAbnormalityUpdate(args: {
       warningReason: afterAbnormality.observedReason,
       affectedAssets: identityOnlyAffectedAssets(affectedAssets),
       component: afterAbnormality.component,
+      ...(decisionOutgrown ? {
+        status: "open",
+        closureRequestReason: null,
+        closureRequestedAt: null,
+        closureRequestedByUid: null,
+        closureRequestedByName: null,
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        decisionReason: null,
+      } : {}),
     });
   }
   if (raChanged) {
