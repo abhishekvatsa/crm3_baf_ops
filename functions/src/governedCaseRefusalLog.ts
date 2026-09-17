@@ -1,3 +1,5 @@
+import {qualityCaseHealth} from "./qualityCaseHealth";
+
 const OPERATION = /^[A-Z][A-Z_]{0,63}$/;
 const DOCUMENT_ID = /^[A-Za-z0-9_.:-]{1,200}$/;
 const REASON_CODE = /^[a-z0-9]+(?:-[a-z0-9]+){0,15}$/;
@@ -31,5 +33,7 @@ export function governedCaseRefusalLogFields(
   keep("reasonCode", details.reasonCode, REASON_CODE);
   keep("causeReasonCode", details.causeReasonCode, REASON_CODE);
   keep("field", details.field, FIELD_PATH);
+  const health = qualityCaseHealth(error.details);
+  if (health != null) fields.caseHealth = health;
   return fields;
 }

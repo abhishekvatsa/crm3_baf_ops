@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const {governedCaseRefusalLogFields} = require('../lib/governedCaseRefusalLog');
 
 describe('governed quality-case refusal log fields', () => {
@@ -21,6 +24,7 @@ describe('governed quality-case refusal log fields', () => {
       warningId: 'abnormality_abn-1',
       reasonCode: 'charge-quality-case-malformed',
       field: 'warningProjection',
+      caseHealth: 'caseAndWarningDisagree',
     });
   });
 
@@ -44,6 +48,7 @@ describe('governed quality-case refusal log fields', () => {
       reasonCode: 'abnormality-create-payload-invalid',
       causeReasonCode: 'duplicate-asset-hierarchy-reference',
       field: 'affectedAssetHierarchyRefs',
+      caseHealth: 'repeatedSubjectReference',
     });
   });
 
@@ -69,5 +74,17 @@ describe('governed quality-case refusal log fields', () => {
   test('tolerates missing request data and details', () => {
     expect(governedCaseRefusalLogFields(undefined, {code: 'data-loss'}))
       .toEqual({code: 'data-loss'});
+  });
+
+  test('the callable logs the refusal and answers with its category', () => {
+    const indexSource = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'index.ts'),
+      'utf8',
+    );
+
+    expect(indexSource).toContain(
+      'governedCaseRefusalLogFields(request.data, error)',
+    );
+    expect(indexSource).toContain('withQualityCaseHealth(error.details)');
   });
 });

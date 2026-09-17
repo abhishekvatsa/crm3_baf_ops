@@ -83,6 +83,7 @@ import type {
   QualityMutationResult,
 } from "./qualityMutation";
 import {governedCaseRefusalLogFields} from "./governedCaseRefusalLog";
+import {withQualityCaseHealth} from "./qualityCaseHealth";
 import {
   AssetHierarchyMutationError,
   mutateAssetHierarchyWithDb,
@@ -596,7 +597,11 @@ export const mutateChargeAbnormality = onCall(
           "Governed quality-case command refused",
           governedCaseRefusalLogFields(request.data, error),
         );
-        throw new HttpsError(error.code, error.message, error.details);
+        throw new HttpsError(
+          error.code,
+          error.message,
+          withQualityCaseHealth(error.details),
+        );
       }
       logger.error("mutateChargeAbnormality failed", error);
       throw new HttpsError(

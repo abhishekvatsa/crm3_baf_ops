@@ -1,6 +1,9 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
-import {validateQualityWarningRecord} from "./qualityMutation";
+import {
+  validateQualityCasePostcondition,
+  validateQualityWarningRecord,
+} from "./qualityMutation";
 import {isValidAffectedAssetHierarchyReference} from
   "./affectedAssetHierarchyReference";
 import {
@@ -247,6 +250,36 @@ function canonicalNullableGaps(
 }
 
 const MAX_AFFECTED_ASSETS = 50;
+
+/**
+ * Runs the shared quality-case postcondition before a standalone case is
+ * committed, and reports a refusal in this handler's own vocabulary while
+ * keeping the underlying reason and field for diagnosis.
+ */
+function assertCreatedCaseIsAdjudicable(plan: {
+  readonly warningId: string;
+  readonly warning: UserAuthorityJsonMap;
+  readonly abnormalityId: string;
+  readonly abnormality: UserAuthorityJsonMap;
+}): void {
+  try {
+    validateQualityCasePostcondition(plan);
+  } catch (error) {
+    const cause = (error as {details?: unknown}).details;
+    const causeDetails = cause != null && typeof cause === "object" ?
+      cause as {reasonCode?: unknown; field?: unknown} : {};
+    throw new ChargeAbnormalityMutationError("failed-precondition",
+      "This abnormality would create a quality case that cannot be decided. " +
+      "Nothing was saved.",
+      {
+        reasonCode: "charge-quality-case-postcondition-failed",
+        ...(typeof causeDetails.reasonCode === "string" ?
+          {causeReasonCode: causeDetails.reasonCode} : {}),
+        ...(typeof causeDetails.field === "string" ?
+          {field: causeDetails.field} : {}),
+      });
+  }
+}
 
 export class ChargeAbnormalityMutationError extends Error {
   readonly code: ChargeAbnormalityMutationHttpsErrorCode;
@@ -1781,6 +1814,10 @@ export async function mutateChargeAbnormalityWithDb(args: {
         updatedAt: committedAt, updatedByUid: actorUid, updatedByName: actor.name,
         version: 1,
       }, warningId);
+      assertCreatedCaseIsAdjudicable({
+        warningId, warning: createdWarning,
+        abnormalityId: request.abnormalityId, abnormality: after,
+      });
       const creationAudit: UserAuthorityJsonMap = {
         schemaVersion: 1, eventType: "chargeAbnormalityMutation",
         entityType: "charge_abnormality", entityId: request.abnormalityId,

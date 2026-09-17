@@ -1216,6 +1216,36 @@ function validateLinkedAbnormality(
   return {...data};
 }
 
+/**
+ * The contract every trusted producer of a quality case owes the adjudication
+ * path: whatever it is about to commit must read back through exactly the
+ * validation a quality decision will apply to it. A case that could not be
+ * adjudicated is refused at the moment it would be created, rather than
+ * becoming a record no operator can close.
+ */
+export function validateQualityCasePostcondition(plan: {
+  readonly warningId: string;
+  readonly warning: UserAuthorityJsonMap;
+  readonly abnormalityId: string | null;
+  readonly abnormality: UserAuthorityJsonMap | null;
+}): void {
+  const warning = validateQualityWarningRecord(plan.warning, plan.warningId);
+  if (plan.abnormality == null || plan.abnormalityId == null) {
+    // A standalone case is its abnormality; an issue-origin case may legitimately
+    // carry none, and then nothing links to validate.
+    if (warning.sourceType === "abnormality") {
+      malformed("charge-quality-case", "linkedAbnormality");
+    }
+    return;
+  }
+  validateLinkedAbnormality(
+    plan.abnormality,
+    plan.abnormalityId,
+    warning,
+    false,
+  );
+}
+
 type LinkedAbnormality = {
   readonly id: string;
   readonly ref: DocumentRefLike;

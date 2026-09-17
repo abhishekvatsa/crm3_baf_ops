@@ -12,6 +12,7 @@ import {WorkflowTransaction} from "./store";
 import {eventPlan} from "./events";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {persistedInstantMillis} from "../persistedInstant";
+import {validateQualityCasePostcondition} from "../qualityMutation";
 import {
   PersistedActionPayloadError,
   readComponentActionPayload,
@@ -1528,6 +1529,44 @@ const qualityAbnormalityAssetFieldsForTicket = (
   };
 };
 
+/**
+ * An issue that reports suspected quality impact creates the same kind of case
+ * a quality decision later has to act on, so it is held to the same
+ * postcondition as the standalone producer: the pair about to be committed must
+ * read back through the adjudication path's own validation.
+ */
+const assertIssueCaseIsAdjudicable = (plan: {
+  warningId: string;
+  warning: JsonMap;
+  abnormalityId: string | null;
+  abnormality: JsonMap | null;
+}): void => {
+  try {
+    validateQualityCasePostcondition({
+      warningId: plan.warningId,
+      warning: plan.warning as {[key: string]: unknown},
+      abnormalityId: plan.abnormalityId,
+      abnormality: plan.abnormality as {[key: string]: unknown} | null,
+    });
+  } catch (error) {
+    const cause = (error as {details?: unknown}).details;
+    const causeDetails = cause != null && typeof cause === "object" ?
+      cause as {reasonCode?: unknown; field?: unknown} : {};
+    throw new WorkflowError(
+      "failed-precondition",
+      "This issue would create a quality case that cannot be decided. " +
+      "Nothing was saved.",
+      {
+        reasonCode: "maintenance-ticket-quality-case-postcondition-failed",
+        ...(typeof causeDetails.reasonCode === "string" ?
+          {causeReasonCode: causeDetails.reasonCode} : {}),
+        ...(typeof causeDetails.field === "string" ?
+          {field: causeDetails.field} : {}),
+      },
+    );
+  }
+};
+
 const qualityWarningProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -2845,7 +2884,15 @@ export const createMaintenanceTicket = async ({
       linkedDefinitionId: null,
     });
   }
-  if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
+  if (warning != null) {
+    assertIssueCaseIsAdjudicable({
+      warningId,
+      warning,
+      abnormalityId: qualityAbnormalityId,
+      abnormality,
+    });
+    tx.create(`quality_warnings/${warningId}`, warning);
+  }
   if (abnormality != null && qualityAbnormalityId != null) {
     tx.create(`charge_abnormalities/${qualityAbnormalityId}`, abnormality);
   }

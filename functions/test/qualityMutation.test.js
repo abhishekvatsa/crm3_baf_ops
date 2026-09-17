@@ -3,9 +3,16 @@ const {
   parseQualityMutationRequest,
   qualityAuditActionForOperation,
   userCanMutateQuality,
+  validateQualityCasePostcondition,
   validateQualityMonitoringRecord,
   validateQualityWarningRecord,
 } = require('../lib/qualityMutation');
+const {
+  MaintenanceWorkflowCommandService,
+} = require('../lib/maintenanceWorkflow/dispatcher');
+const {
+  MemoryWorkflowStore,
+} = require('../lib/maintenanceWorkflow/memoryStore');
 const {
   planQualityMonitoringArchive,
 } = require('../lib/qualityMonitoringRetention');
@@ -1635,5 +1642,155 @@ describe('quality decision recovery and linked-case shape', () => {
       details: {reasonCode: 'quality-replay-evidence-malformed'},
     });
     expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+});
+
+describe('a quality case is only created in a shape decisions can act on', () => {
+  const standalonePair = (overrides = {}) => ({
+    warningId: 'abnormality_abn-1',
+    warning: warning({
+      warningId: 'abnormality_abn-1',
+      sourceType: 'abnormality',
+      sourceId: 'abn-1',
+      sourceSummary: 'Atmosphere deviation',
+      ...(overrides.warning ?? {}),
+    }),
+    abnormalityId: 'abn-1',
+    abnormality: linkedAbnormality({
+      firestoreId: 'abn-1',
+      linkedTicketFirestoreId: null,
+      ...(overrides.abnormality ?? {}),
+    }),
+  });
+
+  test('a consistent pair satisfies the postcondition', () => {
+    expect(() => validateQualityCasePostcondition(standalonePair()))
+      .not.toThrow();
+  });
+
+  test.each([
+    ['a severity the warning does not carry', {
+      abnormality: {severity: 'low'},
+    }, 'charge-quality-case-malformed', 'warningProjection'],
+    ['subjects the warning does not name', {
+      abnormality: {affectedAssets: [{assetType: 'base', assetNumber: 12}]},
+    }, 'charge-quality-case-malformed', 'warningProjection'],
+    ['the same subject listed twice', {
+      warning: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+      abnormality: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+    }, 'quality-warning-malformed', 'affectedAssets'],
+    ['a charge the case does not share', {
+      abnormality: {sourceChargeNo: 12009},
+    }, 'charge-quality-abnormality-malformed', 'sourceChargeNo'],
+  ])('%s is refused before it is written', (
+    _label, overrides, reasonCode, field,
+  ) => {
+    expect(() => validateQualityCasePostcondition(standalonePair(overrides)))
+      .toThrow(expect.objectContaining({
+        code: 'failed-precondition',
+        details: expect.objectContaining({reasonCode, field}),
+      }));
+  });
+
+  test('a standalone warning without its case is refused', () => {
+    const plan = standalonePair();
+    expect(() => validateQualityCasePostcondition({
+      ...plan, abnormalityId: null, abnormality: null,
+    })).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'charge-quality-case-malformed',
+        field: 'linkedAbnormality',
+      }),
+    }));
+  });
+
+  test('an issue warning may legitimately carry no linked case', () => {
+    expect(() => validateQualityCasePostcondition({
+      warningId: 'issue_ticket-1',
+      warning: warning(),
+      abnormalityId: null,
+      abnormality: null,
+    })).not.toThrow();
+  });
+
+  test('a case the maintenance issue handler creates can be decided', async () => {
+    const at = new Date('2026-08-14T08:00:00.000Z');
+    const workflow = new MemoryWorkflowStore();
+    for (const [uid, role] of [
+      ['electrical-1', 'seniorElectrical'], ['si-1', 'si'],
+    ]) {
+      workflow.seed(`users/${uid}`, {
+        isApproved: true, roles: [role], name: uid,
+      });
+    }
+    workflow.seed('asset_classes/class-furnace', {
+      schemaVersion: 1, assetClassId: 'class-furnace', status: 'active',
+      legacyAssetTypeKey: 'furnace', code: 'FR', name: 'Furnace',
+    });
+    workflow.seed('asset_instances/asset-furnace-7', {
+      schemaVersion: 1, assetInstanceId: 'asset-furnace-7',
+      assetClassId: 'class-furnace', assetClassCode: 'FR',
+      assetClassName: 'Furnace', assetNumber: 7, name: 'Furnace 7',
+      status: 'active', version: 4, ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations', accountableRoleKeys: ['operations'],
+    });
+    workflow.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      firestoreId: 'ATMOSPHERE_DEVIATION', code: 'ATMOSPHERE_DEVIATION',
+      title: 'Atmosphere deviation', category: 'process', severity: 'high',
+      applicableAssetTypes: ['furnace'], suggestsReannealing: true,
+      isActive: true, isDeleted: false,
+    });
+    const receipt = await new MaintenanceWorkflowCommandService(workflow)
+      .execute({
+        commandId: 'create-quality-ticket',
+        commandType: 'createMaintenanceTicket',
+        aggregateId: 'quality-ticket',
+        expectedVersion: 0,
+        payload: {
+          ticket: {
+            schemaVersion: 1, version: 1, assetType: 'furnace',
+            assetNumber: 7, component: 'Furnace body', subsystem: null,
+            tag: null, hierarchyPath: ['Untrusted', 'Client path'],
+            assetHierarchyRefJson: JSON.stringify({
+              schemaVersion: 3, scope: 'physicalAsset',
+              assetClassId: 'class-furnace',
+              assetInstanceId: 'asset-furnace-7', assetInstanceVersion: 4,
+            }),
+            maintenanceType: 'breakdown', classification: null,
+            description: 'Furnace shell temperature is above the range.',
+            routedTo: 'mechanical', otherDepartment: null, isCritical: true,
+            startDate: '2026-08-14T07:50:00.000Z', chargeNoAtEvent: 12345,
+            qualityIntentSchemaVersion: 2,
+            qualityImpactAssessment: 'suspected',
+            qualityWarningReason: 'Temperature deviation may affect the coil.',
+            qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+          },
+        },
+      }, {actor: {
+        uid: 'electrical-1', name: 'electrical-1',
+        roles: new Set(['seniorElectrical']),
+      }, serverNow: at});
+
+    // The adjudicator reads exactly what the producer committed.
+    const memory = fakeDb(Object.fromEntries(workflow.entries()));
+    const decision = await invoke(memory, 'si-1', {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: receipt.result.warningId,
+      expectedVersion: 1,
+      reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    });
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    expect(memory.store.get(`quality_warnings/${receipt.result.warningId}`))
+      .toMatchObject({status: 'closed', closedByUid: 'si-1'});
   });
 });
