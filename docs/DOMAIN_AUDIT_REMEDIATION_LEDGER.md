@@ -101,6 +101,16 @@ Chapter SRC-10 of the dossier.
 | D07-03 cancellation, reassignment and correction are not completion | **decision** | |
 | D07-04 inspection uncertainty is lost in the management snapshot | **design** | The same root as D05-02: absence of numeric adverse evidence is presented as conformity, and the management summary inherits it. |
 
+## Domain 08 — Reactive maintenance
+
+Chapter SRC-12 of the dossier.
+
+| Finding | Status | Note |
+|---|---|---|
+| D08-02 repair closure supplies physical completion time as recording time | **repaired** | Closing a reactive repair passed the closure time as both the completion and the recording time of the component-life event, so work finished at 04:00 and entered at 07:00 was recorded as if the evidence had existed at 04:00. The recording time is now the server clock at the write, and the physical completion time is preserved untouched. The planners enforced the equality too: they now require only that a recording cannot precede the completion it records. |
+| D08-01 an audited component or tag correction can contradict the retained subject | **design** | A correction changes the component and tag while the retained governed reference still names the original node, leaving one record describing two subjects. The repair needs the model to say which is canonical and which is a display alias, and a reviewed route for a true subject change; refusing the correction without that route would strand ordinary work. |
+| D08-03 still-relevant administrative closure has no technical follow-through | **decision** | An issue closed administratively but explicitly still relevant cannot be reopened technically or resolved. What continuation means — and how it is recorded without re-labelling yesterday's decision as a repair — is a plant decision. |
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work

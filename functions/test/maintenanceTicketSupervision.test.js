@@ -2500,7 +2500,8 @@ describe('governed maintenance-ticket supervision', () => {
       sourceType: 'maintenanceIssue',
       sourceId: 'ticket-1',
       completedAt: '2026-08-14T16:00:00.000Z',
-      recordedAt: '2026-08-14T16:00:00.000Z',
+      // The repair finished at 16:00 and was entered at 16:30.
+      recordedAt: '2026-08-14T16:30:00.000Z',
     });
   });
 

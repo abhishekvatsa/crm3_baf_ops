@@ -3124,6 +3124,11 @@ export const resolveMaintenanceTicket = async ({
     );
   }
   const lifecycleCompletedAt = endDate.toISOString();
+  // When the work physically finished and when it was entered are different
+  // facts. Recording both as the completion time makes a late entry look like
+  // contemporaneous evidence, which is the one thing a reliability history
+  // cannot be allowed to say.
+  const lifecycleRecordedAt = iso(context.serverNow);
   const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
     tx,
     sourceType: "maintenanceIssue",
@@ -3132,7 +3137,7 @@ export const resolveMaintenanceTicket = async ({
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
     completedAt: lifecycleCompletedAt,
-    recordedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleRecordedAt,
     completedBy: context.actor,
     executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
   });
@@ -3145,7 +3150,7 @@ export const resolveMaintenanceTicket = async ({
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
     completedAt: lifecycleCompletedAt,
-    recordedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleRecordedAt,
     completedBy: context.actor,
     executionLevelInstrumentationEvidence:
       plan.assigned.includes("instrumentation"),

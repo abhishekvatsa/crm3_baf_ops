@@ -190,16 +190,31 @@ describe('UV-detector lifecycle projection', () => {
       entryPath.startsWith('uv_detector_lifecycle_events/'))).toHaveLength(0);
   });
 
-  test('rejects a receipt time that differs from authoritative closure', async () => {
+  test('rejects a receipt time that precedes authoritative closure', async () => {
     const store = seedStore();
 
     await expect(prepare(store, action(), {
-      recordedAt: '2026-08-28T09:01:00.000Z',
+      recordedAt: '2026-08-28T08:59:00.000Z',
     })).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {
         reasonCode: 'uv-detector-lifecycle-closure-time-mismatch',
       },
+    });
+  });
+
+  test('work entered after it finished keeps both times', async () => {
+    const store = seedStore();
+
+    const plan = await prepare(store, action(), {
+      recordedAt: '2026-08-28T12:00:00.000Z',
+    });
+
+    // When the work finished and when it was entered are different facts, and
+    // a late entry must not read as contemporaneous evidence.
+    expect(plan.events[0].data).toMatchObject({
+      completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T12:00:00.000Z',
     });
   });
 

@@ -565,10 +565,14 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
   const assetNumber = positiveInteger(args.assetNumber, "source.assetNumber");
   const completedAt = parseInstant(args.completedAt, "completedAt");
   const recordedAt = parseInstant(args.recordedAt, "recordedAt");
-  if (recordedAt !== completedAt) {
+  // Work is often entered after it finished, and the two are different facts:
+  // the physical completion, and when the electronic record came into being.
+  // A recording cannot precede the completion it records, but it may follow
+  // it, and a late entry must not be dressed as contemporaneous evidence.
+  if (recordedAt < completedAt) {
     throw new WorkflowError(
       "failed-precondition",
-      "Burner-block lifecycle time must match its authoritative closure time.",
+      "Burner-block lifecycle recording time precedes its authoritative closure time.",
       {reasonCode: "burner-block-lifecycle-closure-time-mismatch"},
     );
   }
