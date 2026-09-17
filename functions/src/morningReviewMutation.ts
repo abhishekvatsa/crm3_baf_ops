@@ -2695,6 +2695,61 @@ export async function mutateMorningReviewWithDb(args: {
           );
         }
         const draft = request.actionDraft!;
+        // An action's asset is typed identity, not a label: the agenda groups
+        // by it and people are held to it. Storing what the client sent let an
+        // action name an asset the plant does not have, or name a real
+        // instance under another class, number and label. The register is read
+        // here, and the names it holds are the ones recorded.
+        let assetClassName = draft.assetClassName;
+        let assetNumber = draft.assetNumber;
+        if (draft.assetClassId != null && draft.assetInstanceId != null) {
+          const [classSnapshot, instanceSnapshot] = [
+            asSnapshot(
+              await transaction.get(
+                args.db.collection("asset_classes").doc(draft.assetClassId),
+              ),
+              "Morning Review action asset class lookup",
+            ),
+            asSnapshot(
+              await transaction.get(
+                args.db.collection("asset_instances")
+                  .doc(draft.assetInstanceId),
+              ),
+              "Morning Review action asset instance lookup",
+            ),
+          ];
+          const assetClass = classSnapshot.exists ?
+            classSnapshot.data() ?? null : null;
+          const instance = instanceSnapshot.exists ?
+            instanceSnapshot.data() ?? null : null;
+          if (assetClass == null || instance == null) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "This action names an asset the plant register does not hold.",
+              {
+                reasonCode: "morning-review-action-asset-unknown",
+                assetClassId: draft.assetClassId,
+                assetInstanceId: draft.assetInstanceId,
+              },
+            );
+          }
+          if (instance.assetClassId !== draft.assetClassId) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "This action names an asset that belongs to another class.",
+              {
+                reasonCode: "morning-review-action-asset-mismatch",
+                assetClassId: draft.assetClassId,
+                assetInstanceId: draft.assetInstanceId,
+              },
+            );
+          }
+          assetClassName = typeof assetClass.name === "string" &&
+            assetClass.name.trim().length > 0 ?
+            assetClass.name.trim() : draft.assetClassName;
+          assetNumber = instance.assetNumber == null ?
+            draft.assetNumber : String(instance.assetNumber);
+        }
         let assigneeName: string | null = null;
         if (draft.assigneeUid != null) {
           const target = asSnapshot(
@@ -2724,9 +2779,9 @@ export async function mutateMorningReviewWithDb(args: {
           section: draft.section,
           text: draft.text,
           assetClassId: draft.assetClassId,
-          assetClassName: draft.assetClassName,
+          assetClassName,
           assetInstanceId: draft.assetInstanceId,
-          assetNumber: draft.assetNumber,
+          assetNumber,
           assigneeUid: draft.assigneeUid,
           assigneeName,
           assigneeRole: draft.assigneeRole,

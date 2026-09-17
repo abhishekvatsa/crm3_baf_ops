@@ -165,6 +165,18 @@ function user(role, name = role) {
 
 function baseSeed() {
   return {
+    // An action names a subject from the plant register, so the register has
+    // to hold it.
+    'asset_classes/furnace-class': {
+      schemaVersion: 1, assetClassId: 'furnace-class', code: 'FURNACE',
+      name: 'Furnace', legacyAssetTypeKey: 'furnace', status: 'active',
+    },
+    'asset_instances/furnace-12': {
+      schemaVersion: 1, assetInstanceId: 'furnace-12',
+      assetClassId: 'furnace-class', assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace', assetNumber: 12, name: 'Furnace 12',
+      status: 'active', version: 3,
+    },
     'users/admin-1': user('admin', 'Admin One'),
     'users/si-1': user('si', 'SI One'),
     'users/si-2': user('si', 'SI Two'),
@@ -1459,6 +1471,70 @@ describe('Morning Review governed lifecycle', () => {
     });
     expect(memory.store.get(`morning_review_sessions/${sessionId}`).version)
       .toBe(sessionVersion + 1);
+  });
+
+  test.each([
+    ['an asset the register does not hold', {
+      assetClassId: 'absent-class', assetClassName: 'Furnace',
+      assetInstanceId: 'absent-furnace', assetNumber: '999',
+    }, 'morning-review-action-asset-unknown'],
+    ['a real asset claimed under another class', {
+      assetClassId: 'base-class', assetClassName: 'Base',
+      assetInstanceId: 'furnace-12', assetNumber: '12',
+    }, 'morning-review-action-asset-mismatch'],
+  ])('an action cannot name %s', async (_label, asset, reasonCode) => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'asset_classes/base-class': {
+        schemaVersion: 1, assetClassId: 'base-class', code: 'BASE',
+        name: 'Base', legacyAssetTypeKey: 'base', status: 'active',
+      },
+    });
+    await invoke(memory, 'si-1', startRequest());
+    const writesBefore = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        ...asset,
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({reasonCode}),
+    });
+    expect(memory.writes).toHaveLength(writesBefore);
+  });
+
+  test('an action records the register name, not the label it was sent', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        assetClassId: 'furnace-class',
+        assetClassName: 'Stale label',
+        assetInstanceId: 'furnace-12',
+        assetNumber: '7',
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    });
+
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`))
+      .toMatchObject({assetClassName: 'Furnace', assetNumber: '12'});
   });
 
   test('keeps routed actions usable without converting ownership into attendance', async () => {

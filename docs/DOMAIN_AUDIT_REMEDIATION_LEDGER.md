@@ -90,6 +90,17 @@ Chapter SRC-09 of the dossier.
 | D06-02 correcting occurrence facts strands or invalidates links | **partly repaired**, rest **design** | The half repaired is the contradiction the event itself could commit: linking checks that an issue belongs to the occurrence's governed scope, and correcting that scope afterwards could leave the event listing as current a link its own rule would refuse. A narrowing or moving correction is now held while issues are linked, naming them, and a widening to plant-wide or a correction that leaves the scope alone still commits. The rest is the occurrence identity itself: the link id derives from the editable start time, so correcting the start strands existing links under a prior occurrence. That needs an immutable occurrence id and a migration that does not reassign identities by recomputing timestamps. |
 | D06-03 reopening is not correction of an erroneous closed interval | **decision** | The same family as D03-01, D04-06 and D05-03: what correcting a closed interval means, as distinct from recording a recurrence. |
 
+## Domain 07 — Morning Review and action follow-through
+
+Chapter SRC-10 of the dossier.
+
+| Finding | Status | Note |
+|---|---|---|
+| D07-02 typed asset references can name non-existent or contradictory subjects | **repaired** | An action's asset is typed identity — the agenda groups by it and people are held to it — but the write stored whatever the client sent, so an action could name an asset the register does not hold, or name a real instance under another class, number and label. The register is now read at the write: an unknown asset and an instance that belongs to another class are refused with nothing written, and the class name and asset number recorded are the register's rather than the label supplied. The same shape exists on the minutes-entry path, which this audit did not exercise; it is unfixed. |
+| D07-01 yesterday's unfinished minutes cannot be finalized today | **decision** | Finalisation and facilitator takeover are bound to the current plant day, so a meeting held yesterday and left open cannot be closed truthfully. The repair is a policy first: what a late finalisation or an administratively abandoned session means, what it includes, and who may record it. An old meeting must not be made to look like today's. |
+| D07-03 cancellation, reassignment and correction are not completion | **decision** | |
+| D07-04 inspection uncertainty is lost in the management snapshot | **design** | The same root as D05-02: absence of numeric adverse evidence is presented as conformity, and the management summary inherits it. |
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work
