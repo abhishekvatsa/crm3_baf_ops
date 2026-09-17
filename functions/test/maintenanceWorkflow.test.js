@@ -1396,6 +1396,107 @@ describe('maintenance workflow command integration', () => {
     });
   });
 
+  test('reclassifying a lane the job once had starts a new generation', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-reclass', 'pendingLaneClassification', 0, 'base', 30);
+    store.seed('job_executions/wf-reclass-exec', {version: 1, isCompleted: false});
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'classify-first', commandType: 'finalizeLaneSet',
+      aggregateId: 'wf-reclass', expectedVersion: 0,
+      payload: {laneKeys: ['mech']},
+    }, {actor: admin, serverNow: at('2026-07-20T09:00:00Z')});
+    expect(store.read('job_lanes/wf-reclass_mech_1'))
+      .toMatchObject({status: 'pending', activationGeneration: 1});
+
+    // The last lane turns out not to be needed. Removing it returns the job
+    // for reclassification and keeps generation 1 as removed history.
+    await service.execute({
+      commandId: 'remove-last', commandType: 'removeLane',
+      aggregateId: 'wf-reclass', expectedVersion: 1,
+      payload: {laneKey: 'mech', reason: 'Raised against the wrong agency'},
+    }, {actor: admin, serverNow: at('2026-07-20T09:05:00Z')});
+    expect(store.read('job_lanes/wf-reclass_mech_1').status).toBe('removed');
+    expect(store.read('maintenance_workflows/wf-reclass').status)
+      .toBe('pendingLaneClassification');
+
+    // Reclassifying the same agency must not collide with its own history.
+    const receipt = await service.execute({
+      commandId: 'classify-again', commandType: 'finalizeLaneSet',
+      aggregateId: 'wf-reclass', expectedVersion: 2,
+      payload: {laneKeys: ['mech']},
+    }, {actor: admin, serverNow: at('2026-07-20T09:10:00Z')});
+
+    expect(receipt.resultKey).toBe('lane-set-finalized');
+    expect(store.read('job_lanes/wf-reclass_mech_2'))
+      .toMatchObject({status: 'pending', activationGeneration: 2});
+    expect(store.read('job_lanes/wf-reclass_mech_1').status).toBe('removed');
+  });
+
+  test('a dependency on an ordinary lane can be confirmed and released', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-gate', 'inProgress', 2, 'furnace', 21);
+    store.seed('job_lanes/wf-gate_elec_1', {
+      workflowId: 'wf-gate', laneKey: 'elec', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-gate_mech_1', {
+      workflowId: 'wf-gate', laneKey: 'mech', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-gate_oprn_1', {
+      workflowId: 'wf-gate', laneKey: 'oprn', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/furnace_21', {
+      state: 'underMaintenance', assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-21', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    const service = serviceFor(store);
+
+    // Electrical cannot proceed until Operations confirms; the dependency
+    // gates the mechanical lane, which is what the screen offers.
+    await service.execute({
+      commandId: 'raise-gate', commandType: 'raiseCompliance',
+      aggregateId: 'wf-gate', expectedVersion: 2,
+      payload: {
+        complianceId: 'c-gate', originLaneKey: 'elec', targetLaneKey: 'oprn',
+        gatesLaneFirestoreId: 'wf-gate_mech_1',
+        title: 'Confirm isolation',
+        description: 'Isolation confirmation is required before work proceeds.',
+        conditionTypeKey: 'manual',
+      },
+    }, {actor: electrical, serverNow: at('2026-07-20T15:00:00Z')});
+    await service.execute({
+      commandId: 'ack-gate', commandType: 'acknowledgeCompliance',
+      aggregateId: 'wf-gate', expectedVersion: 3,
+      payload: {complianceId: 'c-gate'},
+    }, {actor: ops, serverNow: at('2026-07-20T15:01:00Z')});
+    await service.execute({
+      commandId: 'comply-gate', commandType: 'markComplianceComplied',
+      aggregateId: 'wf-gate', expectedVersion: 4,
+      payload: {complianceId: 'c-gate', note: 'Isolation confirmed'},
+    }, {actor: ops, serverNow: at('2026-07-20T15:02:00Z')});
+
+    const receipt = await service.execute({
+      commandId: 'confirm-gate', commandType: 'confirmComplianceClosed',
+      aggregateId: 'wf-gate', expectedVersion: 5,
+      payload: {complianceId: 'c-gate'},
+    }, {actor: electrical, serverNow: at('2026-07-20T15:03:00Z')});
+
+    expect(receipt.resultKey).toBe('compliance-confirmed-closed');
+    expect(store.read('compliance_requests/c-gate'))
+      .toMatchObject({status: 'confirmedClosed'});
+    // Releasing an ordinary dependency is not a RED preparation: the plant
+    // is still under maintenance and no RED work has been released.
+    expect(store.read('equipment_status/furnace_21'))
+      .toMatchObject({state: 'underMaintenance', activeRedWorkCount: 0});
+    expect(store.read('maintenance_workflows/wf-gate').activeRedWork)
+      .not.toBe(true);
+  });
+
   test('supervisor coordinates Operations support without impersonating the origin discipline', async () => {
     const store = new MemoryWorkflowStore();
     seedWorkflow(store, 'wf-support', 'inProgress', 2);

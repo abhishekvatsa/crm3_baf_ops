@@ -114,10 +114,25 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
       {moduleCount: moduleRows.length},
     );
   }
+  const existing = await laneDocs(tx, command.aggregateId);
+  if (existing.some((lane) => laneIsActive(lane))) {
+    throw new WorkflowError("failed-precondition", "An active lane set already exists.");
+  }
+  // A corrected lane set is a new generation, not a reuse of the identity a
+  // removed or terminated lane still holds. The separate add-lane path already
+  // allocates this way; finalisation now does too, so reclassifying a lane the
+  // job once had does not collide with its own history.
+  const generationForLane = (key: LaneKey): number => Math.max(
+    0,
+    ...existing
+      .filter((lane) => lane.laneKey === key)
+      .map((lane) => lane.activationGeneration ?? 1),
+  ) + 1;
   const required = new Set<LaneKey>();
   const moduleLaneUpdates: Array<{
     path: string;
     lane: LaneKey;
+    generation: number;
     expectedLaneId: string;
     version: number;
   }> = [];
@@ -125,15 +140,18 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
     if (row.data == null) continue;
     const canonicalLane = laneForModuleDiscipline(row.data.discipline);
     required.add(canonicalLane);
-    const expectedLaneId = `${command.aggregateId}_${canonicalLane}_1`;
+    const generation = generationForLane(canonicalLane);
+    const expectedLaneId =
+      `${command.aggregateId}_${canonicalLane}_${generation}`;
     if (
       row.data.laneKey !== canonicalLane ||
-      row.data.laneActivationGeneration !== 1 ||
+      row.data.laneActivationGeneration !== generation ||
       row.data.workflowLaneFirestoreId !== expectedLaneId
     ) {
       moduleLaneUpdates.push({
         path: row.path,
         lane: canonicalLane,
+        generation,
         expectedLaneId,
         version: typeof row.data.version === "number" ? row.data.version : 0,
       });
@@ -146,26 +164,23 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
       "At least one lane is required; the assigned module population contains no accountable lane.",
     );
   }
-  const existing = await laneDocs(tx, command.aggregateId);
-  if (existing.some((lane) => lane.status !== "removed" && lane.status !== "terminated")) {
-    throw new WorkflowError("failed-precondition", "An active lane set already exists.");
-  }
   const now = iso(context.serverNow);
   const nextVersion = version + 1;
 
   // All reads completed. The lane set and original execution projection are
   // now established together, and every existing module is attached to the
-  // canonical generation-1 lane dictated by its discipline.
+  // current generation of the canonical lane dictated by its discipline.
   for (let index = 0; index < lanes.length; index += 1) {
     const key = lanes[index];
-    tx.create(lanePath(command.aggregateId, key, 1), {
+    const generation = generationForLane(key);
+    tx.create(lanePath(command.aggregateId, key, generation), {
       workflowId: command.aggregateId,
       jobExecutionId: executionId,
       assetTypeKey: equipmentIdentity.assetTypeKey,
       assetNumber: equipmentIdentity.assetNumber,
       laneKey: key,
       status: "pending",
-      activationGeneration: 1,
+      activationGeneration: generation,
       version: 1,
       progressRevision: 0,
       displayOrder: index,
@@ -199,7 +214,7 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
   for (const update of moduleLaneUpdates) {
     tx.update(update.path, {
       laneKey: update.lane,
-      laneActivationGeneration: 1,
+      laneActivationGeneration: update.generation,
       workflowLaneFirestoreId: update.expectedLaneId,
       updatedAt: now,
       updatedByUid: context.actor.uid,
