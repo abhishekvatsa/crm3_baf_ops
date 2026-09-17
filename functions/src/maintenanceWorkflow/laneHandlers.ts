@@ -10,6 +10,7 @@ import {
 import {deriveWorkflowStatus} from "./aggregate";
 import {assertExpectedVersion, activeLanes, openBlockingCompliance, requireMutableWorkflow, requireWorkflow} from "./documents";
 import {WorkflowError} from "./errors";
+import {laneIsActive} from "./laneRecord";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
 import {collectLaneProgressEvidence, hasProtectedProgress} from "./laneProgress";
@@ -34,7 +35,7 @@ const laneDocs = async (tx: Parameters<CommandHandler>[0]["tx"], workflowId: str
 };
 
 const activeLaneProjection = (lanes: readonly LaneDoc[]): readonly LaneDoc[] =>
-  lanes.filter((lane) => lane.status !== "removed" && lane.status !== "terminated");
+  lanes.filter((lane) => laneIsActive(lane));
 
 const assignedAgenciesForLanes = (lanes: readonly LaneDoc[]): readonly string[] => {
   const ordered = [...activeLaneProjection(lanes)].sort((a, b) =>
@@ -250,13 +251,19 @@ export const acknowledgeLane: CommandHandler = async ({tx, command, context}) =>
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   if (workflow.laneSetFinalizedAt == null) throw new WorkflowError("lane-set-not-finalized", "Lane set is not finalised.");
   const lanes = await laneDocs(tx, command.aggregateId);
-  const lane = lanes.find((l) => l.laneKey === key && l.status !== "removed" && l.status !== "terminated");
+  const lane = activeLaneProjection(lanes).find((l) => l.laneKey === key);
   if (!lane) throw new WorkflowError("not-found", `Active lane ${key} was not found.`);
   if (lane.status === "closed") throw new WorkflowError("failed-precondition", "Closed lane cannot be acknowledged again.");
   const laneId = lanePath(command.aggregateId, key, lane.activationGeneration ?? 1);
   const blocking = await openBlockingCompliance(tx, command.aggregateId);
   if (key === "red") {
-    const unfinishedOtherLanes = lanes.filter((candidate) => candidate.laneKey !== "red" && candidate.status !== "closed");
+    // Readiness was decided over the active lane set, so acknowledgment reads
+    // the same set. A lane removed through its authorised no-progress path, or
+    // a generation replaced by a later one, is history: it is not unfinished
+    // work, and it cannot veto work preparation has already released.
+    const unfinishedOtherLanes = activeLaneProjection(lanes)
+      .filter((candidate) =>
+        candidate.laneKey !== "red" && candidate.status !== "closed");
     if (unfinishedOtherLanes.length > 0) {
       throw new WorkflowError("red-lane-not-ready", "All non-RED lanes must close before the RED lane is acknowledged.", {
         openLaneKeys: unfinishedOtherLanes.map((candidate) => candidate.laneKey ?? "unknown"),
@@ -703,7 +710,7 @@ export const closeLane: CommandHandler = async ({tx, command, context}) => {
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   const lanes = await laneDocs(tx, command.aggregateId);
-  const lane = lanes.find((l) => l.laneKey === key && l.status !== "removed" && l.status !== "terminated");
+  const lane = activeLaneProjection(lanes).find((l) => l.laneKey === key);
   if (!lane) throw new WorkflowError("not-found", `Active lane ${key} was not found.`);
   if (lane.status !== "acknowledged") throw new WorkflowError("lane-ack-required", "Lane must be acknowledged before closure.");
   const laneDocumentPath = lanePath(command.aggregateId, key, lane.activationGeneration ?? 1);

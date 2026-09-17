@@ -9,7 +9,7 @@
  * cannot drift apart again.
  */
 
-type LaneRecordLike = {readonly [key: string]: unknown} | null | undefined;
+type LaneRecordLike = {readonly status?: unknown} | null | undefined;
 
 export const LANE_PENDING = "pending";
 export const LANE_ACKNOWLEDGED = "acknowledged";
