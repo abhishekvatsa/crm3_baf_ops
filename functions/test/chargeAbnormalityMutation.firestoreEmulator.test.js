@@ -402,14 +402,14 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
   test('malformed current state rolls back without target, audit, or receipt write', async () => {
     await seed();
     const before = abnormality();
-    delete before.possibleRootReasonNotes;
+    delete before.loggedByUid;
     await db.collection('charge_abnormalities').doc('abn-1').set(before);
 
     await expect(invoke(updateRequest(IDS.malformed))).rejects.toMatchObject({
       code: 'failed-precondition',
       details: expect.objectContaining({
         reasonCode: 'abnormality-record-malformed',
-        field: 'possibleRootReasonNotes',
+        field: 'loggedByUid',
       }),
     });
 
@@ -419,6 +419,30 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     expect(await collectionState('charge_abnormality_mutation_receipts'))
       .toHaveLength(0);
     expect(await collectionState('audit_logs')).toHaveLength(0);
+  });
+
+  test('a record written before canonical null keys is correctable', async () => {
+    await seed();
+    const before = abnormality();
+    delete before.possibleRootReasonNotes;
+    delete before.component;
+    await db.collection('charge_abnormalities').doc('abn-1').set(before);
+
+    const corrected = await invoke(updateRequest(IDS.malformed));
+
+    expect(corrected.version).toBe(5);
+    const stored =
+      (await db.collection('charge_abnormalities').doc('abn-1').get()).data();
+    expect(Object.prototype.hasOwnProperty.call(stored, 'possibleRootReasonNotes'))
+      .toBe(true);
+    const audits = (await collectionState('audit_logs')).filter(({id}) =>
+      id.startsWith('server_charge_abnormality_'),
+    );
+    expect(audits).toHaveLength(1);
+    expect(Object.prototype.hasOwnProperty.call(
+      JSON.parse(audits[0].data.beforeJson),
+      'possibleRootReasonNotes',
+    )).toBe(false);
   });
 
   test('soft delete commits tombstone and evidence in one transaction', async () => {

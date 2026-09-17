@@ -172,6 +172,55 @@ const DISPOSITIONS = new Set([
   "qualityAdjudication",
 ]);
 const WARNING_STATUSES = new Set(["open", "closureRequested", "closed"]);
+
+// Governed records now carry every optional key with an explicit null. Records
+// written before that omitted them, where absence means "no value". It never
+// stands in for a missing actor, charge, time or re-annealing result, so those
+// fields stay required.
+const LEGACY_NULLABLE_WARNING_FIELDS = new Set([
+  "component",
+  "closureRequestReason",
+  "closureRequestedAt",
+  "closureRequestedByUid",
+  "closureRequestedByName",
+  "closedAt",
+  "closedByUid",
+  "closedByName",
+  "closureDisposition",
+  "decisionReason",
+  "createdByName",
+  "updatedByName",
+]);
+
+const LEGACY_NULLABLE_CASE_FIELDS = new Set([
+  "component",
+  "description",
+  "possibleRootReasonNotes",
+  "loggedByName",
+  "updatedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+  "reannealedToChargeNo",
+  "deletedAt",
+  "deletedByUid",
+  "deletedByName",
+  "deleteReason",
+]);
+
+// The canonical null keys a record is missing, so a governed write stores the
+// current representation without inventing evidence or rewriting history.
+function canonicalNullableGaps(
+  record: UserAuthorityJsonMap,
+  fields: ReadonlySet<string>,
+): UserAuthorityJsonMap {
+  const gaps: UserAuthorityJsonMap = {};
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(record, field)) {
+      gaps[field] = null;
+    }
+  }
+  return gaps;
+}
 const REANNEALING_STATUSES = new Set([
   "notApplicable",
   "pendingDecision",
@@ -631,7 +680,8 @@ export function validateQualityWarningRecord(
     if (!WARNING_FIELDS.has(key)) malformed("quality-warning", key);
   }
   for (const field of [...WARNING_FIELDS].filter((value) =>
-    value !== "_globalPullServerUpdatedAt" && value !== "lastMutationId")) {
+    value !== "_globalPullServerUpdatedAt" && value !== "lastMutationId" &&
+      !LEGACY_NULLABLE_WARNING_FIELDS.has(value))) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("quality-warning", field);
     }
@@ -951,7 +1001,8 @@ function validateLinkedAbnormality(
   }
   for (const field of [...LINKED_ABNORMALITY_FIELDS].filter((value) =>
     value !== "_globalPullServerUpdatedAt" &&
-      value !== "affectedAssetHierarchyRefs")) {
+      value !== "affectedAssetHierarchyRefs" &&
+      !LEGACY_NULLABLE_CASE_FIELDS.has(value))) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("charge-quality-abnormality", field);
     }
@@ -1125,23 +1176,27 @@ function validateLinkedAbnormality(
     malformed("charge-quality-abnormality", "linkedTicketFirestoreId");
   }
   if (warning.sourceType === "abnormality") {
+    // Affected assets name a set of physical subjects, and each identity is
+    // already unique, so compare them canonically. Stored order is left
+    // untouched: no command bytes or receipt fingerprints are rewritten.
     const warningAssetIdentities = (warning.affectedAssets as unknown[])
       .map((asset, index) => linkedAffectedAssetEntry(
         asset,
         `warning.affectedAssets[${index}]`,
         false,
-      ).identity);
+      ).identity).sort();
     const abnormalityAssetIdentities = (data.affectedAssets as unknown[])
       .map((asset, index) => linkedAffectedAssetEntry(
         asset,
         `affectedAssets[${index}]`,
         false,
-      ).identity);
+      ).identity).sort();
     if ((warning.sourceVersion as number) > (data.version as number) ||
         warning.sourceSummary !== data.abnormalityTypeTitle ||
         warning.sourceSeverity !== data.severity ||
         warning.warningReason !== data.observedReason ||
-        warning.component !== data.component ||
+        // An absent optional key and an explicit null describe one value.
+        (warning.component ?? null) !== (data.component ?? null) ||
         stableJson(warningAssetIdentities) !==
           stableJson(abnormalityAssetIdentities) ||
         dateMillis(
@@ -1154,7 +1209,7 @@ function validateLinkedAbnormality(
           "charge-quality-abnormality",
         ) ||
         warning.createdByUid !== data.loggedByUid ||
-        warning.createdByName !== data.loggedByName) {
+        (warning.createdByName ?? null) !== (data.loggedByName ?? null)) {
       malformed("charge-quality-case", "warningProjection");
     }
   }
@@ -1945,8 +2000,9 @@ function qualityRecordsMatch(
   const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
   for (const key of keys) {
     if (key === "_globalPullServerUpdatedAt") continue;
-    const left = expected[key];
-    const right = actual[key];
+    // An absent optional key and an explicit null describe the same absence.
+    const left = expected[key] ?? null;
+    const right = actual[key] ?? null;
     if (dateFields.has(key)) {
       if (left == null || right == null) {
         if (left != null || right != null) return false;
@@ -2065,6 +2121,7 @@ function acceptedWarningFromAudit(args: {
     receipt.linkedAbnormalityId != null;
   const expected: UserAuthorityJsonMap = {
     ...before,
+    ...canonicalNullableGaps(before, LEGACY_NULLABLE_WARNING_FIELDS),
     ...commandedWarningLifecycle({
       request,
       accepted,
@@ -2317,7 +2374,10 @@ export async function mutateQualityWithDb(args: {
         "quality-warning",
       );
       resultVersion = request.expectedVersion + 1;
-      after = {...before};
+      after = {
+        ...before,
+        ...canonicalNullableGaps(before, LEGACY_NULLABLE_WARNING_FIELDS),
+      };
       if (request.operation === "REQUEST_QUALITY_WARNING_CLOSURE") {
         if (before.status === "closed") {
           throw new QualityMutationError(
@@ -2534,6 +2594,10 @@ export async function mutateQualityWithDb(args: {
         }
         linkedAbnormalityAfter = {
           ...linkedAbnormality.before,
+          ...canonicalNullableGaps(
+            linkedAbnormality.before,
+            LEGACY_NULLABLE_CASE_FIELDS,
+          ),
           reannealingStatus,
           reannealedToChargeNo,
           ...(request.operation === "REOPEN_QUALITY_WARNING" ? {

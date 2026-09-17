@@ -213,6 +213,39 @@ const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
   (field) => field !== "_globalPullServerUpdatedAt" &&
     field !== "affectedAssetHierarchyRefs",
 );
+// Governed records now carry every optional key with an explicit null. Records
+// written before that omitted them, where absence means "no value". It never
+// stands in for a missing actor, charge, time or re-annealing result, so those
+// fields stay required.
+const LEGACY_NULLABLE_ABNORMALITY_FIELDS = new Set([
+  "component",
+  "description",
+  "possibleRootReasonNotes",
+  "loggedByName",
+  "updatedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+  "reannealedToChargeNo",
+  "deletedAt",
+  "deletedByUid",
+  "deletedByName",
+  "deleteReason",
+]);
+
+// The canonical null keys a record is missing, so a governed write stores the
+// current representation without inventing evidence or rewriting history.
+function canonicalNullableGaps(
+  record: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const gaps: UserAuthorityJsonMap = {};
+  for (const field of LEGACY_NULLABLE_ABNORMALITY_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(record, field)) {
+      gaps[field] = null;
+    }
+  }
+  return gaps;
+}
+
 const MAX_AFFECTED_ASSETS = 50;
 
 export class ChargeAbnormalityMutationError extends Error {
@@ -510,9 +543,9 @@ function standaloneWarningProjectionStale(
   abnormality: UserAuthorityJsonMap,
 ): boolean {
   const warningAssets = (warning.affectedAssets as ReadonlyArray<AffectedAsset>)
-    .map(assetIdentity);
+    .map(assetIdentity).sort();
   const abnormalityAssets = existingAssets(abnormality.affectedAssets)
-    .map(assetIdentity);
+    .map(assetIdentity).sort();
   return warning.sourceSummary !== abnormality.abnormalityTypeTitle ||
     warning.sourceSeverity !== abnormality.severity ||
     warning.warningReason !== abnormality.observedReason ||
@@ -837,6 +870,7 @@ function refusalCause(error: ChargeAbnormalityMutationError): {
 function validateExistingAbnormality(
   data: UserAuthorityJsonMap,
   abnormalityId: string,
+  allowLegacyAbsentOptionalKeys = false,
 ): UserAuthorityJsonMap {
   for (const key of Object.keys(data)) {
     if (!ABNORMALITY_FIELDS.has(key)) {
@@ -847,6 +881,10 @@ function validateExistingAbnormality(
     }
   }
   for (const field of REQUIRED_ABNORMALITY_FIELDS) {
+    if (allowLegacyAbsentOptionalKeys &&
+        LEGACY_NULLABLE_ABNORMALITY_FIELDS.has(field)) {
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       return malformedExisting(
         "The charge-abnormality record is incomplete.",
@@ -1478,8 +1516,9 @@ function abnormalityRecordsMatch(
   const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
   for (const key of keys) {
     if (key === "_globalPullServerUpdatedAt") continue;
-    const left = expected[key];
-    const right = actual[key];
+    // An absent optional key and an explicit null describe the same absence.
+    const left = expected[key] ?? null;
+    const right = actual[key] ?? null;
     if (ABNORMALITY_DATE_FIELDS.has(key)) {
       if (left == null || right == null) {
         if (left != null || right != null) return false;
@@ -1511,6 +1550,7 @@ function auditSnapshotRecord(
     return validateExistingAbnormality(
       snapshot as UserAuthorityJsonMap,
       abnormalityId,
+      true,
     );
   } catch (error) {
     if (error instanceof ChargeAbnormalityMutationError) {
@@ -1529,7 +1569,10 @@ function expectedAcceptedAbnormality(args: {
   actorUid: string;
 }): UserAuthorityJsonMap {
   const {before, accepted, request, actorUid} = args;
-  const expected: UserAuthorityJsonMap = {...before};
+  const expected: UserAuthorityJsonMap = {
+    ...before,
+    ...canonicalNullableGaps(before),
+  };
   const update = request.update;
   if (update != null) {
     const existingRefs = parseAffectedAssetHierarchyRefs(
@@ -1784,6 +1827,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
     const existing = validateExistingAbnormality(
       existingData,
       request.abnormalityId,
+      true,
     );
     const linkedTicketId = typeof existing.linkedTicketFirestoreId === "string" ?
       existing.linkedTicketFirestoreId.trim() : null;
@@ -1925,6 +1969,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
     }
 
     const after: UserAuthorityJsonMap = {...existing};
+    Object.assign(after, canonicalNullableGaps(existing));
     if (request.update != null && type != null) {
       const existingAffectedAssets = existingAssets(existing.affectedAssets);
       const existingHierarchyRefs = parseAffectedAssetHierarchyRefs(

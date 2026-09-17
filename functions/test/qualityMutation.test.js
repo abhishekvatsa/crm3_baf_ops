@@ -1432,6 +1432,87 @@ describe('quality decision recovery and linked-case shape', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('the same affected subjects in another order are one case', async () => {
+    const memory = fakeDb(standaloneSeed({
+      warning: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ]},
+      abnormality: {affectedAssets: [
+        {assetType: 'base', assetNumber: 12},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+    }));
+
+    const decision = await invoke(memory, 'si-1', close());
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    // Stored order is left exactly as each record held it.
+    expect(memory.store.get(`quality_warnings/${warningId}`).affectedAssets)
+      .toEqual([
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ]);
+  });
+
+  test('different affected subjects remain a case disagreement', async () => {
+    const memory = fakeDb(standaloneSeed({
+      warning: {affectedAssets: [{assetType: 'furnace', assetNumber: 7}]},
+      abnormality: {affectedAssets: [{assetType: 'base', assetNumber: 12}]},
+    }));
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-case-malformed',
+        field: 'warningProjection',
+      },
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a case written before canonical null keys still adjudicates', async () => {
+    const seeded = standaloneSeed({abnormality: {component: null}});
+    const legacyWarning = {...seeded[`quality_warnings/${warningId}`]};
+    delete legacyWarning.component;
+    delete legacyWarning.closedAt;
+    const legacyCase = {...seeded['charge_abnormalities/abn-1']};
+    delete legacyCase.possibleRootReasonNotes;
+    delete legacyCase.linkedExecutionFirestoreId;
+    const memory = fakeDb({
+      ...seeded,
+      [`quality_warnings/${warningId}`]: legacyWarning,
+      'charge_abnormalities/abn-1': legacyCase,
+    });
+
+    const decision = await invoke(memory, 'si-1', close());
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    const stored = memory.store.get(`quality_warnings/${warningId}`);
+    expect(Object.prototype.hasOwnProperty.call(stored, 'component')).toBe(true);
+    expect(stored.component).toBeNull();
+  });
+
+  test.each([
+    ['warning', 'sourceChargeNo', 'quality-warning-malformed'],
+    ['warning', 'createdByUid', 'quality-warning-malformed'],
+    ['case', 'loggedByUid', 'charge-quality-abnormality-malformed'],
+    ['case', 'reannealingStatus', 'charge-quality-abnormality-malformed'],
+  ])('a %s missing its %s evidence is still refused', async (record, field, reasonCode) => {
+    const seeded = standaloneSeed();
+    const path = record === 'warning' ?
+      `quality_warnings/${warningId}` : 'charge_abnormalities/abn-1';
+    const damaged = {...seeded[path]};
+    delete damaged[field];
+    const memory = fakeDb({...seeded, [path]: damaged});
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('a warning with repeated affected assets is malformed', () => {
     let thrown;
     try {

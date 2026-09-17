@@ -1021,9 +1021,38 @@ describe('charge-abnormality admin mutation', () => {
     expect(inactive.writes).toHaveLength(0);
   });
 
-  test('incomplete existing records fail closed', async () => {
+  test('a record written before canonical null keys is still correctable', async () => {
+    const legacy = abnormality();
+    delete legacy.possibleRootReasonNotes;
+    delete legacy.component;
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(legacy),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    const corrected = await invoke(state.db, updateRequest());
+
+    expect(corrected.version).toBe(5);
+    const stored = state.store.get('charge_abnormalities/abn-1');
+    expect(Object.prototype.hasOwnProperty.call(stored, 'possibleRootReasonNotes'))
+      .toBe(true);
+    // The correction stores today's representation; the audit keeps the
+    // original record exactly as it was found.
+    const audit = state.store.get(`audit_logs/${corrected.auditId}`);
+    expect(Object.prototype.hasOwnProperty.call(
+      JSON.parse(audit.beforeJson),
+      'possibleRootReasonNotes',
+    )).toBe(false);
+  });
+
+  test.each([
+    ['loggedByUid'],
+    ['sourceChargeNo'],
+    ['reannealingStatus'],
+  ])('incomplete existing records fail closed: missing %s', async (field) => {
     const malformed = abnormality();
-    delete malformed.possibleRootReasonNotes;
+    delete malformed[field];
     const state = fakeDb({
       'users/admin-1': admin(),
       ...standaloneCase(malformed),
@@ -1034,10 +1063,42 @@ describe('charge-abnormality admin mutation', () => {
       code: 'failed-precondition',
       details: expect.objectContaining({
         reasonCode: 'abnormality-record-malformed',
-        field: 'possibleRootReasonNotes',
       }),
     });
     expect(state.writes).toHaveLength(0);
+  });
+
+  test('assets listed in another order leave the warning untouched', async () => {
+    const record = abnormality({
+      affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ],
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      'users/ops-1': admin({roles: ['operations'], name: 'Operations One'}),
+      ...standaloneCase(record, {
+        affectedAssets: [
+          {assetType: 'base', assetNumber: 12},
+          {assetType: 'furnace', assetNumber: 7},
+        ],
+      }),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, unchangedUpdate(record));
+
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({version: 1, affectedAssets: [
+        {assetType: 'base', assetNumber: 12},
+        {assetType: 'furnace', assetNumber: 7},
+      ]});
+    await expect(invokeQuality(
+      state.db,
+      'ops-1',
+      closureRequest(),
+    )).resolves.toMatchObject({version: 2, idempotentReplay: false});
   });
 
   test('malformed global-pull server clock fails closed', async () => {
