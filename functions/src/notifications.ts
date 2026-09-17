@@ -390,7 +390,8 @@ export interface SendOutcome {
   succeeded: number;
   failed: number;
   retryableFailures: number;
-  ambiguousFailures: number;
+  // Rejections that do not establish a dead device.
+  ambiguousFailures?: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }

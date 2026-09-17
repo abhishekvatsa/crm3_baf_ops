@@ -754,6 +754,31 @@ describe('Inner Cover lifecycle mutation', () => {
       });
   });
 
+  test('the record of an acceptance carries the evidence it rested on', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const accepted = await invoke(memory, acceptRequest());
+
+    // A later acceptance replaces these fields on the profile, so unless the
+    // immutable record keeps them, the evidence for a cover's earlier
+    // clearance is gone from the authoritative store.
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({acceptanceReference: 'ACC-26', leakTestReference: 'LT-26'});
+    const audit = memory.store.get(
+      `inner_cover_lifecycle_audits/${accepted.auditId}`,
+    );
+    expect(JSON.parse(audit.beforeJson))
+      .toMatchObject({acceptanceReference: null, acceptedAt: null});
+    expect(JSON.parse(audit.afterJson)).toMatchObject({
+      acceptanceReference: 'ACC-26',
+      leakTestReference: 'LT-26',
+      ndtReference: null,
+      acceptanceNotes: 'Accepted after dimensional and leak inspection.',
+      acceptedByUid: 'admin-1',
+      acceptedAt: '2026-08-02T00:00:00.000Z',
+    });
+  });
+
   test('a removal cannot be recorded before the installation it ends', async () => {
     const memory = fakeDb(seed());
     await invoke(memory, registerRequest());

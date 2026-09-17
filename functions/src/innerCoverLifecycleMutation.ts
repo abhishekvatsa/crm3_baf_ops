@@ -1052,6 +1052,20 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
     currentBaseAssetInstanceId: data.currentBaseAssetInstanceId ?? null,
     currentBaseAssetNumber: data.currentBaseAssetNumber ?? null,
     currentLinkageId: data.currentLinkageId ?? null,
+    // A later acceptance replaces these on the profile. Without them here the
+    // immutable record keeps no readable copy of what an earlier acceptance
+    // rested on, and the evidence for a cover's previous clearance is gone
+    // from the authoritative store.
+    acceptanceReference: data.acceptanceReference ?? null,
+    acceptedAt: optionalTimestampIso(
+      data.acceptedAt,
+      "Inner Cover acceptance time",
+    ),
+    acceptedByUid: data.acceptedByUid ?? null,
+    acceptedByName: data.acceptedByName ?? null,
+    leakTestReference: data.leakTestReference ?? null,
+    ndtReference: data.ndtReference ?? null,
+    acceptanceNotes: data.acceptanceNotes ?? null,
     traceabilityGrade: data.traceabilityGrade,
     version: data.version,
   };
