@@ -4,6 +4,7 @@ import {
   AssetHierarchyMutationError,
   AssetHierarchyMutationFirestoreLike,
 } from "./assetHierarchyMutation";
+import {persistedInstantMillis} from "./persistedInstant";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 import {
@@ -1188,6 +1189,20 @@ function closeLink(
       "failed-precondition",
       "The active linkage history record is malformed.",
       {reasonCode: "inner-cover-linkage-history-malformed"},
+    );
+  }
+  // A cover cannot come off a Base before it went on. A server clock that has
+  // gone backwards, or a record already dated ahead, must not be turned into
+  // an ordinary valid-looking installation interval.
+  const installedMillis = persistedInstantMillis(current.installedAt);
+  const removedMillis = persistedInstantMillis(committedAt);
+  if (Number.isFinite(installedMillis) && Number.isFinite(removedMillis) &&
+      removedMillis < installedMillis) {
+    throw new AssetHierarchyMutationError(
+      "aborted",
+      "This removal time precedes the installation it ends. " +
+      "Retry after the recorded time boundary.",
+      {reasonCode: "inner-cover-linkage-chronology-invalid"},
     );
   }
   return {

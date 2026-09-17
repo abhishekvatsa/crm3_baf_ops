@@ -48,6 +48,7 @@ export interface NotificationDeliveryOutcome {
   succeeded: number;
   failed: number;
   retryableFailures: number;
+  ambiguousFailures: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -515,6 +516,9 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       succeededCount: outcome.succeeded,
       failedCount: outcome.failed,
       retryableFailureCount: outcome.retryableFailures,
+      // Rejections that do not establish a dead device: the message or its
+      // configuration is what needs correcting.
+      ambiguousFailureCount: outcome.ambiguousFailures,
       staleTokensCleared: outcome.staleTokensCleared,
       unknownAgencies: [...outcome.unknownAgencies],
       lastError: null,

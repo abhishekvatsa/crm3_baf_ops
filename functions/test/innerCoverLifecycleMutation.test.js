@@ -4,7 +4,18 @@ const {
 } = require('../lib/innerCoverLifecycleMutation');
 
 function clone(value) {
-  return value == null ? value : structuredClone(value);
+  if (value == null) return value;
+  // structuredClone returns a Date from another realm, so `instanceof Date`
+  // fails on it and stored instants read as unparseable. Rebuild them the way
+  // a real read would hand them back.
+  if (value instanceof Date) return new Date(value.valueOf());
+  if (Array.isArray(value)) return value.map(clone);
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, clone(item)]),
+    );
+  }
+  return structuredClone(value);
 }
 
 function fakeDb(seed = {}) {
@@ -741,6 +752,39 @@ describe('Inner Cover lifecycle mutation', () => {
         traceabilityGrade: 'T1',
         incorporatedOn: new Date('2026-08-01T12:00:00.000Z'),
       });
+  });
+
+  test('a removal cannot be recorded before the installation it ends', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    const writesBefore = memory.writes.length;
+
+    // The server clock has gone backwards between installation and removal.
+    await expect(mutateInnerCoverLifecycleWithDb({
+      db: memory.db,
+      authUid: 'admin-1',
+      data: {
+        requestId: IDS.delink,
+        operation: 'DELINK_INNER_COVER',
+        innerCoverId: IDS.cover,
+        expectedVersion: 3,
+        sourceBaseAssetInstanceId: IDS.base,
+        expectedSourceAssignmentVersion: 1,
+        targetState: 'awaitingInspection',
+        reason: 'Remove the Inner Cover for post-service inspection.',
+      },
+      now: () => new Date('2026-08-14T12:00:00.000Z'),
+      timestampFromDate: (date) => date,
+    })).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'inner-cover-linkage-chronology-invalid'},
+    });
+
+    expect(memory.writes).toHaveLength(writesBefore);
+    expect(memory.store.get(`inner_cover_linkages/link_${IDS.link}`))
+      .toMatchObject({active: true, removedAt: null});
   });
 
   test('registers, accepts, links and delinks with exact history', async () => {

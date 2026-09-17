@@ -365,6 +365,16 @@ export async function getTokenLookupForInstallation(
 export const FCM_DEAD_TOKEN_CODES: ReadonlyArray<string> = [
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
+];
+
+/**
+ * Firebase returns invalid-argument for a rejected registration and for a
+ * rejected message alike, so on its own it does not establish that the
+ * registration is dead. Retiring a device on this code can silently remove a
+ * working recipient when the real fault is in the message we sent. The
+ * registration is kept and the fault is reported instead.
+ */
+export const FCM_AMBIGUOUS_ERROR_CODES: ReadonlyArray<string> = [
   "messaging/invalid-argument",
 ];
 
@@ -380,6 +390,7 @@ export interface SendOutcome {
   succeeded: number;
   failed: number;
   retryableFailures: number;
+  ambiguousFailures: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -429,6 +440,7 @@ export async function sendNotification(args: {
       succeeded: 0,
       failed: 0,
       retryableFailures: 0,
+      ambiguousFailures: 0,
       staleTokensCleared: 0,
       unknownAgencies,
     };
@@ -437,6 +449,7 @@ export async function sendNotification(args: {
   let succeeded = 0;
   let failed = 0;
   let retryableFailures = 0;
+  let ambiguousFailures = 0;
   const staleTokens: string[] = [];
 
   for (let i = 0; i < dedupedTokens.length; i += 500) {
@@ -469,6 +482,11 @@ export async function sendNotification(args: {
       }
       if (code != null && FCM_RETRYABLE_ERROR_CODES.includes(code)) {
         retryableFailures += 1;
+      }
+      // The recipient stays registered; the message or configuration is
+      // what needs correcting, and the count is reported so it can be seen.
+      if (code != null && FCM_AMBIGUOUS_ERROR_CODES.includes(code)) {
+        ambiguousFailures += 1;
       }
     });
   }
@@ -513,6 +531,7 @@ export async function sendNotification(args: {
     succeeded,
     failed,
     retryableFailures,
+    ambiguousFailures,
     staleTokensCleared: cleared,
     unknownAgencies,
   };

@@ -14,6 +14,7 @@ const {
   groupNotificationRecipientsByToken,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
   sendNotification,
+  FCM_AMBIGUOUS_ERROR_CODES,
 } = require('../lib/notifications');
 
 // ─── Test harness: minimal Firestore double with transactions ────────────────
@@ -1095,9 +1096,18 @@ describe('sendNotification', () => {
       expect.arrayContaining([
         'messaging/registration-token-not-registered',
         'messaging/invalid-registration-token',
-        'messaging/invalid-argument',
       ]),
     );
+  });
+
+  test('a rejection that does not prove the device dead retires nothing', () => {
+    // Firebase returns invalid-argument for a rejected message as well as a
+    // rejected registration, so it cannot retire a working recipient.
+    expect(FCM_AMBIGUOUS_ERROR_CODES).toEqual(['messaging/invalid-argument']);
+    expect(FCM_DEAD_TOKEN_CODES)
+      .not.toContain('messaging/invalid-argument');
+    expect(FCM_RETRYABLE_ERROR_CODES)
+      .not.toContain('messaging/invalid-argument');
   });
 
   test('FCM_RETRYABLE_ERROR_CODES contains only known transient classes', () => {

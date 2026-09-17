@@ -1,6 +1,10 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {
+  LANE_ACKNOWLEDGED,
+  persistedLaneStatus,
+} from "./maintenanceWorkflow/laneRecord";
 import {MODULE_DISCIPLINE_SUBMIT_ROLES} from "./maintenanceWorkflow/policy.generated";
 import {
   PersistedActionPayloadError,
@@ -787,14 +791,15 @@ function validateWorkflowLaneForModuleCreate(args: {
       },
     );
   }
-  if (lane.statusKey !== "acknowledged") {
+  const laneStatus = persistedLaneStatus(lane);
+  if (laneStatus !== LANE_ACKNOWLEDGED) {
     throw new RuntimePopulationValidationError(
       "failed-precondition",
       "Runtime module population requires an active acknowledged lane.",
       {
         reasonCode: "workflow-module-lane-not-acknowledged",
         workflowLaneFirestoreId: args.identity.workflowLaneFirestoreId,
-        statusKey: lane.statusKey ?? null,
+        status: laneStatus,
       },
     );
   }
