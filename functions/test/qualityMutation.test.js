@@ -1360,6 +1360,13 @@ describe('quality decision recovery and linked-case shape', () => {
       ...audit,
       afterJson: 'not json',
     }), 'quality-replay-evidence-malformed'],
+    ['a quietly rewritten decision reason', (memory, audit) => ({
+      ...audit,
+      afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        decisionReason: 'Quietly rewritten reason',
+      }),
+    }), 'quality-replay-evidence-malformed'],
     ['an altered accepted linked case', (memory, audit) => ({
       ...audit,
       linkedAbnormalityAfterJson: JSON.stringify({
@@ -1454,5 +1461,98 @@ describe('quality decision recovery and linked-case shape', () => {
       .linkedAbnormalityAfterJson)).toEqual(wire(decision.linkedAbnormality));
     expect(legacy.store.get(`audit_logs/${request.auditId}`))
       .toMatchObject({linkedAbnormalityAfterJson: null});
+  });
+
+  function stripAcceptedEvidence(memory, requestId, auditId) {
+    const receiptPath = `quality_mutation_receipts/${requestId}`;
+    const receipt = {...memory.store.get(receiptPath)};
+    delete receipt.acceptedEvidenceVersion;
+    delete receipt.acceptedAuditSha256;
+    memory.store.set(receiptPath, receipt);
+    const auditPath = `audit_logs/${auditId}`;
+    const audit = {...memory.store.get(auditPath)};
+    delete audit.linkedAbnormalityAfterJson;
+    memory.store.set(auditPath, audit);
+  }
+
+  test('a decision without a recorded linked snapshot still replays while its linked case stands', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    const writesBeforeReplay = memory.writes.length;
+
+    const replay = await invoke(memory, 'si-1', close());
+
+    expect(wire(replay)).toEqual(wire({...first, idempotentReplay: true}));
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test('a decision without a recorded linked snapshot reports acceptance instead of inventing history', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    await invoke(memory, 'si-1', reopen());
+    const writesBeforeReplay = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'quality-replay-accepted-linked-history-unavailable',
+        acceptanceEstablished: true,
+        acceptedVersion: 2,
+        auditId: first.auditId,
+      },
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test('a retry refuses an altered decision even without a bound digest', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    const auditPath = `audit_logs/${first.auditId}`;
+    const audit = memory.store.get(auditPath);
+    memory.store.set(auditPath, {...audit, afterJson: JSON.stringify({
+      ...JSON.parse(audit.afterJson),
+      decisionReason: 'Quietly rewritten reason',
+    })});
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'quality-replay-evidence-malformed'},
+    });
+  });
+
+  test.each([
+    ['an unreadable accepted decision', (audit) => ({
+      ...audit,
+      afterJson: 'not json',
+    })],
+    ['a quietly rewritten decision reason', (audit) => ({
+      ...audit,
+      afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        decisionReason: 'Quietly rewritten reason',
+      }),
+    })],
+    ['an altered accepted linked case', (audit) => ({
+      ...audit,
+      linkedAbnormalityAfterJson: JSON.stringify({
+        ...JSON.parse(audit.linkedAbnormalityAfterJson),
+        reannealingStatus: 'required',
+      }),
+    })],
+  ])('an immediate retry still refuses %s', async (_label, tamper) => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    const auditPath = `audit_logs/${first.auditId}`;
+    memory.store.set(auditPath, tamper(memory.store.get(auditPath)));
+    const writesBeforeReplay = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'quality-replay-evidence-malformed'},
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
   });
 });

@@ -7,6 +7,7 @@ import {
   isValidPersistedInstant,
   persistedInstantMillis,
 } from "./persistedInstant";
+import {stableJson} from "./stableJson";
 
 import {
   canonicalApprovedUserAuthority,
@@ -478,6 +479,28 @@ function identityOnlyAffectedAssets(
     assetType: asset.assetType,
     assetNumber: asset.assetNumber,
   }));
+}
+
+const MATERIAL_CASE_FIELDS = [
+  "abnormalityTypeId",
+  "severity",
+  "component",
+  "observedReason",
+];
+
+// A closed quality decision was made about particular evidence. Changing that
+// evidence needs a reopened decision; editorial notes do not.
+function materialCaseChange(
+  before: UserAuthorityJsonMap,
+  after: UserAuthorityJsonMap,
+): string | null {
+  const changed = MATERIAL_CASE_FIELDS.find((field) =>
+    stableJson(before[field]) !== stableJson(after[field]));
+  if (changed != null) return changed;
+  const beforeAssets = existingAssets(before.affectedAssets).map(assetIdentity);
+  const afterAssets = existingAssets(after.affectedAssets).map(assetIdentity);
+  return stableJson(beforeAssets) === stableJson(afterAssets) ?
+    null : "affectedAssets";
 }
 
 // Quality adjudication compares a standalone warning with its current
@@ -1358,15 +1381,25 @@ function replayResult(args: {
   if ((current.version as number) < (resultVersion as number)) {
     return replayEvidenceDrift();
   }
-  const accepted = current.version === resultVersion ? current :
-    acceptedAbnormalityFromAudit({
-      audit,
-      current,
-      request,
-      actorUid,
-      resultVersion: resultVersion as number,
-      committedAt: committedAt as string,
-    });
+  if (receipt.acceptedEvidenceVersion === 2 &&
+      (typeof receipt.acceptedAuditSha256 !== "string" ||
+        receipt.acceptedAuditSha256 !== acceptedAuditDigest(audit))) {
+    return replayEvidenceMalformed();
+  }
+  // The accepted content is always re-derived from the immutable audit and
+  // bound to this frozen command, whether or not the record has moved on.
+  const accepted = acceptedAbnormalityFromAudit({
+    audit,
+    current,
+    request,
+    actorUid,
+    resultVersion: resultVersion as number,
+    committedAt: committedAt as string,
+  });
+  if (current.version === resultVersion &&
+      !abnormalityRecordsMatch(accepted, current)) {
+    return replayEvidenceDrift();
+  }
   return {
     ok: true,
     requestId: request.requestId,
@@ -1396,8 +1429,157 @@ function replayEvidenceDrift(): never {
   );
 }
 
-// A retry after later legitimate work returns the abnormality exactly as this
-// request committed it, taken from the immutable audit rather than the tip.
+const ABNORMALITY_DATE_FIELDS = new Set([
+  "loggedAt",
+  "updatedAt",
+  "deletedAt",
+]);
+
+const SERVER_AUTHORED_CREATE_FIELDS = new Set([
+  "abnormalityTypeTitle",
+  "abnormalityTypeCode",
+  "category",
+  "updatedAt",
+  "updatedByUid",
+  "updatedByName",
+]);
+
+const ACCEPTED_CASE_IDENTITY_FIELDS = [
+  "sourceChargeNo",
+  "loggedByUid",
+  "loggedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+];
+
+function acceptedAuditDigest(audit: UserAuthorityJsonMap): string {
+  const {timestamp: _timestamp, ...evidence} = audit;
+  return createHash("sha256")
+    .update(stableJson(evidence), "utf8")
+    .digest("hex");
+}
+
+// A stored Firestore timestamp and its audited JSON form name the same moment,
+// but the stored form truncates below the millisecond. Compare at the
+// precision both forms carry.
+function sameInstant(left: unknown, right: unknown): boolean {
+  const first = persistedInstantMillis(left);
+  const second = persistedInstantMillis(right);
+  return Number.isFinite(first) && Number.isFinite(second) &&
+    Math.floor(first) === Math.floor(second);
+}
+
+// Two views of one accepted record. A stored instant and its audited JSON form
+// differ in shape, so instants are compared by the moment they name.
+function abnormalityRecordsMatch(
+  expected: UserAuthorityJsonMap,
+  actual: UserAuthorityJsonMap,
+): boolean {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  for (const key of keys) {
+    if (key === "_globalPullServerUpdatedAt") continue;
+    const left = expected[key];
+    const right = actual[key];
+    if (ABNORMALITY_DATE_FIELDS.has(key)) {
+      if (left == null || right == null) {
+        if (left != null || right != null) return false;
+        continue;
+      }
+      if (!sameInstant(left, right)) return false;
+      continue;
+    }
+    if (stableJson(left) !== stableJson(right)) return false;
+  }
+  return true;
+}
+
+function auditSnapshotRecord(
+  value: unknown,
+  abnormalityId: string,
+): UserAuthorityJsonMap {
+  let snapshot: unknown = null;
+  try {
+    if (typeof value === "string") snapshot = JSON.parse(value);
+  } catch (_) {
+    snapshot = null;
+  }
+  if (snapshot == null || typeof snapshot !== "object" ||
+      Array.isArray(snapshot)) {
+    return replayEvidenceMalformed();
+  }
+  try {
+    return validateExistingAbnormality(
+      snapshot as UserAuthorityJsonMap,
+      abnormalityId,
+    );
+  } catch (error) {
+    if (error instanceof ChargeAbnormalityMutationError) {
+      return replayEvidenceMalformed();
+    }
+    throw error;
+  }
+}
+
+// Recomputes the committed record from the audited pre-image and the frozen
+// command, so only server-authored fields are taken on trust.
+function expectedAcceptedAbnormality(args: {
+  before: UserAuthorityJsonMap;
+  accepted: UserAuthorityJsonMap;
+  request: ParsedChargeAbnormalityMutationRequest;
+  actorUid: string;
+}): UserAuthorityJsonMap {
+  const {before, accepted, request, actorUid} = args;
+  const expected: UserAuthorityJsonMap = {...before};
+  const update = request.update;
+  if (update != null) {
+    const existingRefs = parseAffectedAssetHierarchyRefs(
+      before.affectedAssetHierarchyRefs,
+      existingAssets(before.affectedAssets),
+    ) ?? [];
+    const sameType = update.abnormalityTypeId === before.abnormalityTypeId;
+    Object.assign(expected, {
+      abnormalityTypeId: update.abnormalityTypeId,
+      abnormalityTypeTitle: sameType ?
+        before.abnormalityTypeTitle : accepted.abnormalityTypeTitle,
+      abnormalityTypeCode: sameType ?
+        before.abnormalityTypeCode : accepted.abnormalityTypeCode,
+      category: sameType ? before.category : accepted.category,
+      severity: update.severity,
+      affectedAssets: update.affectedAssets,
+      affectedAssetHierarchyRefs: mergeAffectedAssetHierarchyRefs({
+        affectedAssets: update.affectedAssets,
+        existing: existingRefs,
+        requested: update.affectedAssetHierarchyRefs,
+      }),
+      component: update.component,
+      observedReason: update.observedReason,
+      description: update.description,
+      possibleRootReasonCategory: update.possibleRootReasonCategory,
+      possibleRootReasonNotes: update.possibleRootReasonNotes,
+      reannealingStatus: update.reannealingStatus,
+      reannealedToChargeNo: update.reannealedToChargeNo,
+    });
+  } else {
+    Object.assign(expected, {
+      isDeleted: true,
+      deletedAt: accepted.deletedAt,
+      deletedByUid: actorUid,
+      deletedByName: accepted.deletedByName,
+      deleteReason: request.reason,
+    });
+  }
+  Object.assign(expected, {
+    updatedAt: accepted.updatedAt,
+    updatedByUid: actorUid,
+    updatedByName: accepted.updatedByName,
+    version: request.expectedVersion + 1,
+  });
+  return expected;
+}
+
+// The record this request committed, re-derived from the immutable audit and
+// bound to the frozen command, so altered evidence cannot be returned as the
+// original outcome.
 function acceptedAbnormalityFromAudit(args: {
   audit: UserAuthorityJsonMap;
   current: UserAuthorityJsonMap;
@@ -1407,47 +1589,48 @@ function acceptedAbnormalityFromAudit(args: {
   committedAt: string;
 }): UserAuthorityJsonMap {
   const {audit, current, request, actorUid, resultVersion, committedAt} = args;
-  let snapshot: unknown = null;
-  try {
-    if (typeof audit.afterJson === "string") {
-      snapshot = JSON.parse(audit.afterJson);
-    }
-  } catch (_) {
-    snapshot = null;
-  }
-  if (snapshot == null || typeof snapshot !== "object" ||
-      Array.isArray(snapshot)) {
+  const accepted = auditSnapshotRecord(audit.afterJson, request.abnormalityId);
+  const deleting = request.operation === "SOFT_DELETE";
+  if (resultVersion !== request.expectedVersion + 1 ||
+      accepted.version !== resultVersion ||
+      accepted.updatedByUid !== actorUid ||
+      accepted.updatedByName !== audit.performedByName ||
+      accepted.isDeleted !== deleting ||
+      !sameInstant(accepted.updatedAt, committedAt)) {
     return replayEvidenceMalformed();
   }
-  let accepted: UserAuthorityJsonMap;
-  try {
-    accepted = validateExistingAbnormality(
-      snapshot as UserAuthorityJsonMap,
-      request.abnormalityId,
-    );
-  } catch (error) {
-    if (error instanceof ChargeAbnormalityMutationError) {
+  if (deleting &&
+      (accepted.deletedByUid !== actorUid ||
+        accepted.deletedByName !== audit.performedByName ||
+        accepted.deleteReason !== request.reason ||
+        !sameInstant(accepted.deletedAt, committedAt))) {
+    return replayEvidenceMalformed();
+  }
+  if (request.operation === "CREATE") {
+    const creation = (request.creation ?? {}) as UserAuthorityJsonMap;
+    if (audit.beforeJson !== null ||
+        Object.keys(creation).some((field) =>
+          !SERVER_AUTHORED_CREATE_FIELDS.has(field) &&
+          stableJson(creation[field]) !== stableJson(accepted[field]))) {
       return replayEvidenceMalformed();
     }
-    throw error;
-  }
-  if (accepted.version !== resultVersion ||
-      accepted.updatedByUid !== actorUid ||
-      accepted.isDeleted !== (request.operation === "SOFT_DELETE") ||
-      persistedInstantMillis(accepted.updatedAt) !==
-        persistedInstantMillis(committedAt)) {
-    return replayEvidenceMalformed();
+  } else {
+    const before = auditSnapshotRecord(
+      audit.beforeJson,
+      request.abnormalityId,
+    );
+    if (before.version !== request.expectedVersion ||
+        !abnormalityRecordsMatch(
+          expectedAcceptedAbnormality({before, accepted, request, actorUid}),
+          accepted,
+        )) {
+      return replayEvidenceMalformed();
+    }
   }
   // Later corrections may change observations, never which case was logged.
-  if (persistedInstantMillis(accepted.loggedAt) !==
-        persistedInstantMillis(current.loggedAt) ||
-      [
-        "sourceChargeNo",
-        "loggedByUid",
-        "loggedByName",
-        "linkedTicketFirestoreId",
-        "linkedExecutionFirestoreId",
-      ].some((field) => accepted[field] !== current[field])) {
+  if (!sameInstant(accepted.loggedAt, current.loggedAt) ||
+      ACCEPTED_CASE_IDENTITY_FIELDS
+        .some((field) => accepted[field] !== current[field])) {
     return replayEvidenceDrift();
   }
   return accepted;
@@ -1555,9 +1738,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
         updatedAt: committedAt, updatedByUid: actorUid, updatedByName: actor.name,
         version: 1,
       }, warningId);
-      transaction.set(abnormalityRef, after);
-      transaction.set(warningRef, createdWarning);
-      transaction.set(auditRef, {
+      const creationAudit: UserAuthorityJsonMap = {
         schemaVersion: 1, eventType: "chargeAbnormalityMutation",
         entityType: "charge_abnormality", entityId: request.abnormalityId,
         action: "create", severity: "low", performedByUid: actorUid,
@@ -1566,13 +1747,19 @@ export async function mutateChargeAbnormalityWithDb(args: {
         summary: "Created charge abnormality and quality warning",
         beforeJson: null, afterJson: JSON.stringify(after), operation: request.operation,
         requestId: request.requestId, expectedVersion: 0, resultVersion: 1,
-      });
+      };
+      transaction.set(abnormalityRef, after);
+      transaction.set(warningRef, createdWarning);
+      transaction.set(auditRef, {...creationAudit});
       transaction.set(receiptRef, {
         schemaVersion: 1, requestId: request.requestId, actorUid,
         abnormalityId: request.abnormalityId, operation: request.operation,
         expectedVersion: 0, resultVersion: 1, auditId,
         payloadFingerprint: request.payloadFingerprint, committedAt, committedAtIso,
         linkedWarningId: warningId, linkedWarningVersion: 1,
+        // Binds the accepted evidence, so a later retry detects any change to it.
+        acceptedEvidenceVersion: 2,
+        acceptedAuditSha256: acceptedAuditDigest(creationAudit),
       });
       return {ok: true, requestId: request.requestId,
         abnormalityId: request.abnormalityId, operation: request.operation,
@@ -1801,6 +1988,20 @@ export async function mutateChargeAbnormalityWithDb(args: {
         );
       }
     }
+    if (request.operation === "UPDATE" && warning.status === "closed") {
+      const materialField = materialCaseChange(existing, after);
+      if (materialField != null) {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "Reopen the closed quality decision before correcting this evidence. " +
+          "The description and root-cause notes stay editable while it is closed.",
+          {
+            reasonCode: "charge-quality-decision-reopen-required",
+            field: materialField,
+          },
+        );
+      }
+    }
     const warningAfter = request.operation === "UPDATE" ?
       warningAfterAbnormalityUpdate({
         beforeAbnormality: existing,
@@ -1819,7 +2020,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
       request.operation === "UPDATE" ? "update" : "delete";
     transaction.set(abnormalityRef, after);
     if (warningAfter != null) transaction.set(warningRef, warningAfter);
-    transaction.set(auditRef, {
+    const mutationAudit: UserAuthorityJsonMap = {
       schemaVersion: 1,
       eventType: "chargeAbnormalityMutation",
       entityType: "charge_abnormality",
@@ -1844,7 +2045,8 @@ export async function mutateChargeAbnormalityWithDb(args: {
       linkedWarningId: warningId,
       linkedWarningBeforeVersion: warning.version,
       linkedWarningResultVersion: warningAfter?.version ?? warning.version,
-    });
+    };
+    transaction.set(auditRef, {...mutationAudit});
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -1859,6 +2061,9 @@ export async function mutateChargeAbnormalityWithDb(args: {
       auditId,
       committedAt,
       committedAtIso,
+      // Binds the accepted evidence, so a later retry detects any change to it.
+      acceptedEvidenceVersion: 2,
+      acceptedAuditSha256: acceptedAuditDigest(mutationAudit),
     });
 
     return {

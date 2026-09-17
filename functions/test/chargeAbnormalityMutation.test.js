@@ -821,8 +821,7 @@ describe('charge-abnormality admin mutation', () => {
       'abnormality_types/TYPE_NEW': abnormalityType(),
     });
 
-    await invoke(state.db, updateRequest({
-      reannealingStatus: 'completed',
+    await invoke(state.db, unchangedUpdate(record, {
       reannealedToChargeNo: 12003,
       reason: 'Corrected the resulting charge against the production record.',
     }));
@@ -1222,13 +1221,28 @@ describe('charge-abnormality admin mutation', () => {
       const path = `audit_logs/${auditId}`;
       state.store.set(path, {...state.store.get(path), afterJson: '{'});
     }, 'abnormality-replay-evidence-malformed'],
-    ['a snapshot of a differently logged case', (state, auditId) => {
+    ['a snapshot that contradicts the accepted command', (state, auditId) => {
       const path = `audit_logs/${auditId}`;
       const audit = state.store.get(path);
       state.store.set(path, {...audit, afterJson: JSON.stringify({
         ...JSON.parse(audit.afterJson),
         loggedByUid: 'operator-2',
       })});
+    }, 'abnormality-replay-evidence-malformed'],
+    ['a quietly rewritten accepted observation', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      const audit = state.store.get(path);
+      state.store.set(path, {...audit, afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        observedReason: 'Quietly rewritten observation',
+      })});
+    }, 'abnormality-replay-evidence-malformed'],
+    ['a case whose logged identity no longer matches', (state) => {
+      const path = 'charge_abnormalities/abn-1';
+      state.store.set(path, {
+        ...state.store.get(path),
+        loggedByUid: 'operator-2',
+      });
     }, 'abnormality-replay-evidence-drift'],
     ['a warning behind the accepted version', (state) => {
       const path = 'quality_warnings/abnormality_abn-1';
@@ -1411,6 +1425,122 @@ describe('charge-abnormality admin mutation', () => {
       },
     });
   });
+  test.each([
+    ['an unreadable accepted snapshot', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      state.store.set(path, {...state.store.get(path), afterJson: '{'});
+    }],
+    ['a quietly rewritten accepted observation', (state, auditId) => {
+      const path = `audit_logs/${auditId}`;
+      const audit = state.store.get(path);
+      state.store.set(path, {...audit, afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        observedReason: 'Quietly rewritten observation',
+      })});
+    }],
+  ])('an immediate retry still refuses %s', async (_label, tamper) => {
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    const request = updateRequest();
+    const first = await invoke(state.db, request);
+    tamper(state, first.auditId);
+    const writesBeforeReplay = state.writes.length;
+
+    await expect(invoke(state.db, request)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'abnormality-replay-evidence-malformed'},
+    });
+    expect(state.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test('a retry refuses altered evidence even without a bound digest', async () => {
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    const request = updateRequest();
+    const first = await invoke(state.db, request);
+    const receiptPath =
+      `charge_abnormality_mutation_receipts/${request.requestId}`;
+    const legacyReceipt = {...state.store.get(receiptPath)};
+    delete legacyReceipt.acceptedEvidenceVersion;
+    delete legacyReceipt.acceptedAuditSha256;
+    state.store.set(receiptPath, legacyReceipt);
+    const auditPath = `audit_logs/${first.auditId}`;
+    const audit = state.store.get(auditPath);
+    state.store.set(auditPath, {...audit, afterJson: JSON.stringify({
+      ...JSON.parse(audit.afterJson),
+      observedReason: 'Quietly rewritten observation',
+    })});
+
+    await expect(invoke(state.db, request)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'abnormality-replay-evidence-malformed'},
+    });
+  });
+
+  test('a closed case refuses material correction until it is reopened', async () => {
+    const record = abnormality({reannealingStatus: 'notRequired'});
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      'users/si-1': admin({roles: ['si'], name: 'SI One'}),
+      ...standaloneCase(record, closedWarning()),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await expect(invoke(
+      state.db,
+      unchangedUpdate(record, {severity: 'critical'}),
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-decision-reopen-required',
+        field: 'severity',
+      },
+    });
+    expect(state.writes).toHaveLength(0);
+
+    await invokeQuality(state.db, 'si-1', {
+      requestId: '55555555-5555-4555-8555-555555555555',
+      operation: 'REOPEN_QUALITY_WARNING',
+      warningId: 'abnormality_abn-1',
+      expectedVersion: 1,
+      reason: 'New evidence requires the closed case to be reviewed again.',
+    });
+    const reopened = await invoke(state.db, unchangedUpdate(record, {
+      severity: 'critical',
+      expectedVersion: 5,
+      reannealingStatus: 'pendingDecision',
+      reannealedToChargeNo: null,
+    }), {now: () => new Date('2026-07-26T12:00:00.000Z')});
+
+    expect(reopened.abnormality.severity).toBe('critical');
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'open', sourceSeverity: 'critical'});
+  });
+
+  test('a closed case still accepts editorial correction', async () => {
+    const record = abnormality({reannealingStatus: 'notRequired'});
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record, closedWarning()),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    const corrected = await invoke(state.db, unchangedUpdate(record, {
+      description: 'Added the inspection note recorded after closure.',
+      possibleRootReasonNotes: 'Root-cause review reference RC-114.',
+    }));
+
+    expect(corrected.abnormality.description)
+      .toBe('Added the inspection note recorded after closure.');
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({status: 'closed', version: 1});
+  });
 });
 
 function laterUpdate() {
@@ -1433,7 +1563,7 @@ function closureRequest(overrides = {}) {
   };
 }
 
-function unchangedUpdate(record) {
+function unchangedUpdate(record, overrides = {}) {
   return updateRequest({
     abnormalityTypeId: record.abnormalityTypeId,
     severity: record.severity,
@@ -1445,5 +1575,6 @@ function unchangedUpdate(record) {
     possibleRootReasonNotes: record.possibleRootReasonNotes,
     reannealingStatus: record.reannealingStatus,
     reannealedToChargeNo: record.reannealedToChargeNo,
+    ...overrides,
   });
 }
