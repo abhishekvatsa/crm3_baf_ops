@@ -6,6 +6,7 @@ import {requireInspectionContextReview} from "./inspectionTargetContextHandlers"
 import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
 import {activeInspectionFindings, assertInspectionFindingActivation,
   assertInspectionEvidenceWithinEpisode, effectiveInspectionHistory, inspectionEpisodeProjection,
+  inspectionObservationBelongsToEpisode,
   terminalInspectionEvidenceOwner,
   touchInspectionFindingPopulation} from "./inspectionFindingIntegrity";
 import {
@@ -1667,8 +1668,18 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     {field: "campaignId", op: "==", value: campaignId},
     {field: "targetKey", op: "==", value: observation.data.targetKey},
   ]), campaignId, String(observation.data.targetKey));
-  if (finding?.data != null && typeof finding.data.linkedTicketId === "string" &&
-      finding.data.linkedTicketId !== ticketId) {
+  // Linking a historical observation to the issue that repaired it is a
+  // legitimate record. Treating that repair as the corrective action of a
+  // later episode is not: the newer episode would read as already having a
+  // corrective issue, and the appropriate one could no longer be attached.
+  const findingOwnsObservation = finding?.data != null &&
+    findingHistory != null &&
+    inspectionObservationBelongsToEpisode(
+      findingHistory, finding.data, observationId,
+    );
+  if (findingOwnsObservation &&
+      typeof finding!.data!.linkedTicketId === "string" &&
+      finding!.data!.linkedTicketId !== ticketId) {
     throw new WorkflowError(
       "failed-precondition",
       "This finding is already bound to another corrective maintenance issue.",
@@ -1690,12 +1701,12 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     linkedAt: now,
     reason,
   });
-  if (finding?.data != null) {
-    const findingId = documentId(finding.data.findingId, "findingId");
+  if (findingOwnsObservation) {
+    const findingId = documentId(finding!.data!.findingId, "findingId");
     assertInspectionFindingActivation(findingRows, findingId, String(observation.data.targetKey), campaign.data, findingHistory!);
     touchInspectionFindingPopulation(tx, campaignId, campaign.data);
-    tx.update(finding.path, {
-      version: Number(finding.data.version ?? 0) + 1,
+    tx.update(finding!.path, {
+      version: Number(finding!.data!.version ?? 0) + 1,
       status: "correctiveActionLinked",
       linkedTicketId: ticketId,
       linkedAt: now,
@@ -1711,7 +1722,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
       findingId,
       campaignId,
       operation: "link-corrective-action",
-      previousStatus: finding.data.status,
+      previousStatus: finding!.data!.status,
       resultingStatus: "correctiveActionLinked",
       observationId,
       ticketId,

@@ -192,6 +192,34 @@ export function assertInspectionFindingEpisodeCurrent(
   }
 }
 
+/**
+ * Whether an observation belongs to a finding's own episode.
+ *
+ * A target can have had several episodes: an adverse reading opens one, it is
+ * adjudicated, and a later adverse reading opens another. An observation
+ * belongs to an episode when it is that episode's origin, or a correction of it
+ * through the recorded supersession chain. Anything else is history from a
+ * different episode, and a repair attached to it says nothing about this one.
+ */
+export function inspectionObservationBelongsToEpisode(
+  history: InspectionHistory, finding: JsonMap, observationId: string,
+): boolean {
+  const originId = id(
+    finding.episodeOriginObservationId ?? finding.firstObservationId,
+  );
+  const seen = new Set<string>();
+  let cursor = history.all.get(observationId);
+  while (cursor != null) {
+    const cursorId = id(cursor.observationId);
+    if (cursorId === originId) return true;
+    if (seen.has(cursorId)) return false;
+    seen.add(cursorId);
+    cursor = cursor.supersedesObservationId == null ?
+      undefined : history.all.get(id(cursor.supersedesObservationId));
+  }
+  return false;
+}
+
 export function assertInspectionFindingActivation(rows: readonly DocSnapshot[], findingId: string, targetKey: string,
   campaign: JsonMap, history: InspectionHistory): void {
   if (campaign.status !== "open") {

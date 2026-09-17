@@ -70,6 +70,16 @@ Chapter SRC-07 of the dossier. Triaged and begun in the same pass.
 | D04-05 editing during an in-flight save can lose the newer draft | **client** | |
 | D04-06 an explicit installation correction path is unestablished | **decision** | What a correction of a recorded installation means — and who may make one — is a plant decision before it is an implementation. |
 
+## Domain 05 — Inspection campaigns, findings and corrective verification
+
+Chapter SRC-08 of the dossier.
+
+| Finding | Status | Note |
+|---|---|---|
+| D05-01 correct physical subject, wrong corrective episode | **repaired** | Linking an observation to the maintenance issue that repaired it wrote that issue onto whichever finding was currently active for the target, without establishing that the observation belonged to that episode. A repair carried out for an earlier, already-adjudicated episode therefore became the later episode's corrective action, and the later episode could no longer take the issue that actually belonged to it. An observation now belongs to an episode when it is that episode's origin or a correction of it through the recorded supersession chain; the historical reference is still recorded either way, and only the owning episode is bound. |
+| D05-02 "not numerically out of range" becomes "within defined condition" | **design** and **decision** | Only a numeric limit produces an adverse result, so boolean, choice and text observations are recorded with `outOfRange: false`, and the report prints that as conformity. The repair needs an assessment model that separates recorded, not assessed, conforming, adverse and not comparable, and owner-defined predicates saying which boolean or choice value is adverse — which is a plant decision, not an implementation one. Migrating the existing `false` must not silently give it a new meaning. |
+| D05-03 historical non-current errors have no amendment route | **decision** | The same family as D03-01 and D04-06: what it means to amend a record that is no longer current, and who may do it. |
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work
