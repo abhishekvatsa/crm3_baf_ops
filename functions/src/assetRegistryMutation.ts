@@ -6,6 +6,8 @@ import {
   AssetHierarchyMutationFirestoreLike,
   normalizeAssetHierarchyTag,
 } from "./assetHierarchyMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {activeAssetOperationalConditionForRegistry} from
   "./assetOperationalConditionMutation";
@@ -623,10 +625,21 @@ function conditionTicketTargetsAsset(
     );
   }
   const identity = reference as JsonMap;
-  if ((identity.scope !== "physicalAsset" && identity.scope !== "installedComponent") ||
+  // A governed reference is read by the contract that produced it. Judging it
+  // by a short list of scopes reported the component-on-asset reference the
+  // maintenance producer writes for an ordinary component issue as malformed,
+  // and a retirement was refused for damaged data rather than for the open
+  // condition that actually stands in its way.
+  const governedReference: boolean = Number.isSafeInteger(identity.assetNumber) &&
+    isValidAffectedAssetHierarchyReference(
+      identity, identity.assetNumber as number,
+    );
+  if (!governedReference &&
+      ((identity.scope !== "physicalAsset" &&
+        identity.scope !== "installedComponent") ||
       typeof identity.assetClassId !== "string" ||
       typeof identity.assetInstanceId !== "string" ||
-      !Number.isSafeInteger(identity.assetNumber)) {
+      !Number.isSafeInteger(identity.assetNumber))) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "Reconcile the open condition-changing issue before retiring this asset.",

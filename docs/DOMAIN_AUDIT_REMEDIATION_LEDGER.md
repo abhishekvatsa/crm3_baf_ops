@@ -126,6 +126,31 @@ Chapters SRC-13 and SRC-14. Only D10-01 has been verified against the current so
 
 Chapters SRC-16 and SRC-17 cover domains 11 to 18 together and have not been read.
 
+## A sweep for the recurring class
+
+Three of the repairs above — D02-01, D06-01 and D10-01 — are the same mistake in
+three domains: a consumer written from an assumption about its producer rather
+than from the producer, so the application refuses records it made itself, and
+the test that should have caught it was written against the consumer's imagined
+shape. Because the mistake is mechanical, it can be searched for.
+
+Searching every backend site that judges a governed asset reference by its own
+list of schema versions or scopes, rather than by the contract that produces the
+reference, found one more: retiring an asset read an open condition-changing
+issue's reference through a two-scope list, so an ordinary component issue on
+that asset was reported as damaged data — `asset-instance-open-condition-ticket-malformed`
+— instead of as the open condition that genuinely stands in the way of
+retirement. That is repaired, with an emulator regression that fails without it.
+
+Two sites were examined and deliberately left: replacement evidence in the asset
+registry, and the Inner Cover association rule, both of which restrict scope and
+schema for a stated domain reason rather than by oversight.
+
+A broader sweep for fields read but never written anywhere was attempted and is
+not reported: the heuristic produced too much noise to distinguish a real
+invented field from an ordinary type member, and a noisy list presented as
+findings would be worse than none.
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work

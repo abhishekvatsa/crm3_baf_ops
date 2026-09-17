@@ -618,6 +618,70 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       .toEqual(restoredEvidence);
   });
 
+  test('an open component issue blocks retirement as a condition, not as damage', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    // The reference the maintenance producer writes for an ordinary component
+    // issue on this asset.
+    await db.collection('maintenance_records').doc('open-component-issue').set({
+      firestoreId: 'open-component-issue',
+      assetType: 'furnace',
+      assetNumber: 1,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: IDS.classId,
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        nodeId: 'node-burner-block',
+        nodeVersion: 2,
+        nodeName: 'Burner blocks',
+        assetInstanceId: IDS.firstAsset,
+        assetInstanceVersion: 1,
+        assetNumber: 1,
+        assetInstanceName: 'Furnace 1',
+        componentInstanceId: null,
+        componentInstanceVersion: null,
+        componentTag: null,
+        hierarchyPath: ['Furnace', 'Refractory system', 'Burner blocks'],
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Mechanical',
+        accountableRoleKeys: ['seniorMechanical'],
+        innerCoverAssociation: null,
+      }),
+      plantConditionEffect: 'unfit',
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      createdAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:30:00.000Z'),
+      ),
+    });
+
+    // The retirement is refused because a condition still stands in its way,
+    // not because the issue looks like damaged data.
+    await expect(invokeRegistry({
+      requestId: IDS.assetStatusRequest,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      status: 'retired',
+      reason: 'Retire the physical furnace after controlled verification.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-instance-open-condition-ticket',
+        ticketId: 'open-component-issue',
+      }),
+    });
+  });
+
   test('asset retirement waits for its open condition-changing issue to close', async () => {
     await invoke(classRequest());
     await invokeRegistry(assetRequest({
