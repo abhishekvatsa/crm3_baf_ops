@@ -460,6 +460,38 @@ describe('asset operational condition mutation', () => {
     expect(linked.writes).toHaveLength(0);
   });
 
+  test('a component-on-asset issue is valid condition evidence', async () => {
+    const seed = baseSeed();
+    // The shape the maintenance producer writes for an ordinary component
+    // issue on this very asset.
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: IDS.class,
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      nodeId: 'node-cooling-fan',
+      nodeVersion: 2,
+      nodeName: 'Cooling fan',
+      assetInstanceId: IDS.asset,
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Base 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Base', 'Cooling', 'Cooling fan'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: ['seniorMechanical'],
+      innerCoverAssociation: null,
+    });
+    const linked = fakeDb(seed);
+
+    await expect(invoke(linked, 'ops-1', declareRequest()))
+      .resolves.toMatchObject({ok: true});
+  });
+
   test('schema-3 physical asset issue remains valid condition evidence', async () => {
     const seed = baseSeed();
     seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({

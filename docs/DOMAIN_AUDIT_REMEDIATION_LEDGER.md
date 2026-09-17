@@ -111,6 +111,21 @@ Chapter SRC-12 of the dossier.
 | D08-01 an audited component or tag correction can contradict the retained subject | **design** | A correction changes the component and tag while the retained governed reference still names the original node, leaving one record describing two subjects. The repair needs the model to say which is canonical and which is a display alias, and a reviewed route for a true subject change; refusing the correction without that route would strand ordinary work. |
 | D08-03 still-relevant administrative closure has no technical follow-through | **decision** | An issue closed administratively but explicitly still relevant cannot be reopened technically or resolved. What continuation means — and how it is recorded without re-labelling yesterday's decision as a repair — is a plant decision. |
 
+## Domains 09 and 10 — templates and assignment; equipment condition
+
+Chapters SRC-13 and SRC-14. Only D10-01 has been verified against the current source and repaired; the rest are listed from the dossier and are **not yet checked at HEAD**, which is stated here rather than implied.
+
+| Finding | Status | Note |
+|---|---|---|
+| D10-01 current component-on-asset issues are rejected by the condition linker | **repaired** | The third place this application refused a record it produced itself. Linking a maintenance issue as condition evidence read only the older reference schemas, so the component-on-asset reference the maintenance producer writes for an ordinary component issue looked like a different or malformed asset. The reference is now read by the contract that produced it, and the checks binding it to this very asset — instance, class and number — are unchanged. |
+| D09-01 a fresh legacy-shaped assignment can bypass the physical asset register | listed, unverified | Same family as D07-02: identity accepted without a register lookup. |
+| D09-02 embedded module fields can hide a required reading and still yield closure attestation | listed, unverified | |
+| D09-03 publishing a resumed older draft can create a pointer current Rules reject | listed, unverified | |
+| D10-02 asset retirement overlooks an unresolved concern that still affects Plant Condition | listed, unverified | |
+| D10-03 workflow deployment can say In Service while operational inhibitions remain | listed, unverified | |
+
+Chapters SRC-16 and SRC-17 cover domains 11 to 18 together and have not been read.
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work
