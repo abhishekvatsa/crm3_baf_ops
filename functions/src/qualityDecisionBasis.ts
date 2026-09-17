@@ -136,6 +136,23 @@ export function decisionBasisChange(
 }
 
 /**
+ * The severity a warning records for its case.
+ *
+ * A case raised from a maintenance issue records how the plant was affected —
+ * critical or standard — while the case itself carries the graded severity of
+ * its classification. They are two vocabularies for one judgement, so the
+ * graded value is read in the warning's own terms rather than copied across.
+ */
+export function warningSeverityForCase(
+  warning: JsonMap,
+  abnormality: JsonMap,
+): unknown {
+  return warning.sourceType === "issue" ?
+    (abnormality.severity === "critical" ? "critical" : "standard") :
+    abnormality.severity;
+}
+
+/**
  * Whether a warning's own copy of the evidence differs in meaning from the
  * abnormality it projects. A classification renamed in the master is not a
  * difference in meaning; the severity, the observation, the component or the
@@ -162,7 +179,7 @@ export function warningDecisionBasisStale(
     },
     {
       abnormalityTypeId: abnormality.abnormalityTypeId,
-      severity: abnormality.severity,
+      severity: warningSeverityForCase(warning, abnormality),
       component: abnormality.component,
       observedReason: abnormality.observedReason,
       affectedAssets: subjects(abnormality.affectedAssets),

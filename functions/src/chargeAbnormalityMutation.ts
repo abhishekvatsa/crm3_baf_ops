@@ -7,7 +7,9 @@ import {
 } from "./qualityMutation";
 import {
   decisionBasisChange,
+  decisionSubjects,
   warningDecisionBasisStale,
+  warningSeverityForCase,
 } from "./qualityDecisionBasis";
 import {isValidAffectedAssetHierarchyReference} from
   "./affectedAssetHierarchyReference";
@@ -611,21 +613,74 @@ function materialCaseChange(
   return decisionBasisChange(before, after);
 }
 
-// Quality adjudication compares a standalone warning with its current
-// abnormality, so any difference here would strand the case.
-function standaloneWarningProjectionStale(
+/**
+ * What a warning should say about its case, given the case as it now stands.
+ *
+ * A case that began as a maintenance issue is often only understood later, when
+ * the coils come out wrong and someone documents what actually happened. That
+ * documentation belongs to the same case, so the evidence a decision reads is
+ * refreshed from it. Two fields are not refreshed for such a case: the summary
+ * is the issue as it was reported, and the source version belongs to the issue
+ * that raised it. Both keep their meaning; neither is evidence a decision rests
+ * on.
+ */
+function warningProjectionFromCase(
+  warning: UserAuthorityJsonMap,
+  abnormality: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const issueOrigin = warning.sourceType === "issue";
+  const references = new Map(
+    (parseAffectedAssetHierarchyRefs(
+      abnormality.affectedAssetHierarchyRefs,
+      existingAssets(abnormality.affectedAssets),
+    ) ?? []).map((reference) => [
+      assetIdentity(reference),
+      reference.assetHierarchyRef,
+    ]),
+  );
+  const affectedAssets = existingAssets(abnormality.affectedAssets)
+    .map((asset) => {
+      const identity = {
+        assetType: asset.assetType,
+        assetNumber: asset.assetNumber,
+      };
+      // An issue warning records the governed reference beside the subject, so
+      // repairing it must not drop the component the case points at.
+      const reference = references.get(assetIdentity(asset));
+      return issueOrigin && reference != null ?
+        {...identity, assetHierarchyRef: reference} : identity;
+    });
+  return {
+    ...(issueOrigin ? {} : {
+      sourceVersion: abnormality.version,
+      sourceSummary: abnormality.abnormalityTypeTitle,
+    }),
+    sourceSeverity: warningSeverityForCase(warning, abnormality),
+    warningReason: abnormality.observedReason,
+    affectedAssets,
+    component: abnormality.component ?? null,
+  };
+}
+
+// Quality adjudication compares a warning with its current abnormality, so any
+// difference here would strand the case.
+function warningProjectionStale(
   warning: UserAuthorityJsonMap,
   abnormality: UserAuthorityJsonMap,
 ): boolean {
-  const warningAssets = (warning.affectedAssets as ReadonlyArray<AffectedAsset>)
-    .map(assetIdentity).sort();
-  const abnormalityAssets = existingAssets(abnormality.affectedAssets)
-    .map(assetIdentity).sort();
-  return warning.sourceSummary !== abnormality.abnormalityTypeTitle ||
-    warning.sourceSeverity !== abnormality.severity ||
-    warning.warningReason !== abnormality.observedReason ||
-    warning.component !== abnormality.component ||
-    JSON.stringify(warningAssets) !== JSON.stringify(abnormalityAssets);
+  const projection = warningProjectionFromCase(warning, abnormality);
+  return Object.keys(projection).some((field) => {
+    // The source version follows the case on every write; on its own it is not
+    // a reason to rewrite a warning that already says the same thing.
+    if (field === "sourceVersion") return false;
+    // Subjects name a set, so a warning listing them in another order already
+    // says the same thing and is left exactly as it was written.
+    if (field === "affectedAssets") {
+      return stableJson(decisionSubjects(projection)) !==
+        stableJson(decisionSubjects(warning));
+    }
+    return stableJson(projection[field]) !== stableJson(warning[field] ?? null);
+  });
 }
 
 function mergeAffectedAssetHierarchyRefs({
@@ -1332,8 +1387,7 @@ function warningAfterAbnormalityUpdate(args: {
   // Refresh from the committed abnormality rather than from this write's diff,
   // so a projection that drifted earlier is repaired by the next governed
   // update. Creation actor and time are never rewritten here.
-  const projectionStale = linkedTicketId == null &&
-    standaloneWarningProjectionStale(warning, afterAbnormality);
+  const projectionStale = warningProjectionStale(warning, afterAbnormality);
   if (!raChanged && !projectionStale) return null;
 
   if (serverTimestampMillis(args.committedAt) <
@@ -1353,23 +1407,16 @@ function warningAfterAbnormalityUpdate(args: {
       {reasonCode: "charge-quality-warning-version-overflow"},
     );
   }
+  // An earlier decision covered the evidence as the warning recorded it. If
+  // repairing that drift changes what the case is about, the decision is
+  // returned for review rather than silently extended to evidence it never
+  // saw. The decision itself stays in the quality audit as history, exactly
+  // as a reopen leaves it.
   const after: UserAuthorityJsonMap = {...warning};
-  if (linkedTicketId == null) {
-    const affectedAssets = existingAssets(afterAbnormality.affectedAssets);
-    // An earlier decision covered the evidence as the warning recorded it. If
-    // repairing that drift changes what the case is about, the decision is
-    // returned for review rather than silently extended to evidence it never
-    // saw. The decision itself stays in the quality audit as history, exactly
-    // as a reopen leaves it.
+  if (projectionStale) {
     const decisionOutgrown = warning.status !== "open" &&
       warningDecisionBasisStale(warning, afterAbnormality);
-    Object.assign(after, {
-      sourceVersion: afterAbnormality.version,
-      sourceSummary: afterAbnormality.abnormalityTypeTitle,
-      sourceSeverity: afterAbnormality.severity,
-      warningReason: afterAbnormality.observedReason,
-      affectedAssets: identityOnlyAffectedAssets(affectedAssets),
-      component: afterAbnormality.component,
+    Object.assign(after, warningProjectionFromCase(warning, afterAbnormality), {
       ...(decisionOutgrown ? {
         status: "open",
         closureRequestReason: null,
@@ -1875,7 +1922,7 @@ function reconcileQualityCase(args: {
   if (!args.referencesRepaired &&
       Object.keys(abnormalityGaps).length === 0 &&
       Object.keys(warningGaps).length === 0 &&
-      !standaloneWarningProjectionStale(warning, existing) &&
+      !warningProjectionStale(warning, existing) &&
       !creationDrift &&
       warning.sourceVersion === existing.version) {
     throw new ChargeAbnormalityMutationError(
@@ -1903,13 +1950,7 @@ function reconcileQualityCase(args: {
   const warningAfter: UserAuthorityJsonMap = {
     ...warning,
     ...warningGaps,
-    sourceVersion: resultVersion,
-    sourceSummary: after.abnormalityTypeTitle,
-    sourceSeverity: after.severity,
-    warningReason: after.observedReason,
-    affectedAssets:
-      identityOnlyAffectedAssets(existingAssets(after.affectedAssets)),
-    component: after.component,
+    ...warningProjectionFromCase(warning, after),
     createdAt: args.timestampFromDate(
       new Date(persistedInstantMillis(after.loggedAt)),
     ),

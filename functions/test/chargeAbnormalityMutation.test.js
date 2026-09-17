@@ -2084,3 +2084,156 @@ describe('the reviewed repair of a damaged quality case', () => {
     expect(state.writes).toHaveLength(0);
   });
 });
+
+describe('documenting an issue case after the coils come out wrong', () => {
+  function baseReference() {
+    return {
+      assetType: 'base',
+      assetNumber: 12,
+      assetHierarchyRef: {
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: 'base-class',
+        assetClassCode: 'BASE',
+        assetClassName: 'Base',
+        nodeId: 'base-12',
+        nodeVersion: 2,
+        nodeName: 'Base 12',
+        assetInstanceId: 'base-12',
+        assetInstanceVersion: 3,
+        assetNumber: 12,
+        assetInstanceName: 'Base 12',
+        componentInstanceId: null,
+        componentInstanceVersion: null,
+        componentTag: null,
+        hierarchyPath: ['Base', 'Base 12'],
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Operations',
+        accountableRoleKeys: ['operations'],
+        innerCoverAssociation: null,
+      },
+    };
+  }
+
+  // What the maintenance issue knew when it was raised, which is all the
+  // decision has to go on until someone documents the case.
+  const ISSUE_WORDS = {
+    sourceSummary: 'Furnace shell temperature is above the range',
+    sourceSeverity: 'standard',
+    warningReason: 'Temperature deviation may have affected the coil.',
+    component: null,
+  };
+
+  function issueCase({record: recordOverrides = {}, warning = {}} = {}) {
+    const record = abnormality({
+      firestoreId: 'issue_quality_ticket-1',
+      linkedTicketFirestoreId: 'ticket-1',
+      affectedAssets: [{assetType: 'base', assetNumber: 12}],
+      affectedAssetHierarchyRefs: [baseReference()],
+      observedReason: ISSUE_WORDS.warningReason,
+      reannealingStatus: 'notRequired',
+      ...recordOverrides,
+    });
+    return {
+      record,
+      state: fakeDb({
+        'users/admin-1': admin(),
+        ...linkedIssueCase(record, {
+          ...ISSUE_WORDS,
+          affectedAssets: [baseReference()],
+          ...warning,
+        }),
+        'abnormality_types/TYPE_NEW': abnormalityType(),
+      }),
+    };
+  }
+
+  function documented(record, overrides = {}) {
+    return unchangedUpdate(record, {
+      abnormalityId: 'issue_quality_ticket-1',
+      affectedAssets: [{assetType: 'base', assetNumber: 12}],
+      affectedAssetHierarchyRefs: [baseReference()],
+      ...overrides,
+    });
+  }
+
+  test('what was found later is what the decision reads', async () => {
+    const {record, state} = issueCase();
+
+    await invoke(state.db, documented(record, {
+      observedReason: 'Coil colour varies across the stack.',
+      component: 'Inner cover seal',
+      possibleRootReasonNotes: 'Seal face was found scored on strip-down.',
+    }));
+
+    expect(state.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      warningReason: 'Coil colour varies across the stack.',
+      component: 'Inner cover seal',
+      // The issue as it was reported, and the issue it belongs to, are kept.
+      sourceSummary: ISSUE_WORDS.sourceSummary,
+      sourceType: 'issue',
+      sourceId: 'ticket-1',
+      sourceVersion: 1,
+      version: 2,
+    });
+    // The governed component the case points at survives the refresh.
+    expect(state.store.get('quality_warnings/issue_ticket-1').affectedAssets)
+      .toEqual([baseReference()]);
+  });
+
+  test('the issue keeps its own way of recording severity', async () => {
+    const {record, state} = issueCase();
+
+    await invoke(state.db, documented(record, {severity: 'high'}));
+
+    // A graded classification is still standard plant impact, so nothing about
+    // the warning changed and it was not rewritten.
+    expect(state.store.get('quality_warnings/issue_ticket-1'))
+      .toMatchObject({sourceSeverity: 'standard', version: 1});
+
+    const critical = issueCase();
+    await invoke(critical.state.db, documented(critical.record, {
+      severity: 'critical',
+    }));
+
+    expect(critical.state.store.get('quality_warnings/issue_ticket-1'))
+      .toMatchObject({sourceSeverity: 'critical', version: 2});
+  });
+
+  test('a decided issue case that drifted returns for review', async () => {
+    const {record, state} = issueCase({
+      record: {observedReason: 'Coil colour varies across the stack.'},
+      warning: {
+        ...closedWarning(),
+        warningReason: ISSUE_WORDS.warningReason,
+      },
+    });
+
+    await invoke(state.db, documented(record, {
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    expect(state.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      warningReason: 'Coil colour varies across the stack.',
+      status: 'open',
+      closedAt: null,
+      closureDisposition: null,
+      decisionReason: null,
+    });
+  });
+
+  test('an editorial correction leaves a decided issue case decided', async () => {
+    const {record, state} = issueCase({warning: closedWarning()});
+
+    await invoke(state.db, documented(record, {
+      description: 'Tidied wording',
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    expect(state.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      status: 'closed',
+      closureDisposition: 'qualityAdjudication',
+      version: 1,
+    });
+  });
+});
