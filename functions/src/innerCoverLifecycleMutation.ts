@@ -1196,7 +1196,22 @@ function closeLink(
   committedAt: unknown,
   actorUid: string,
   actorName: string,
+  owner: {profile: JsonMap; baseAssetInstanceId: unknown},
 ): JsonMap {
+  // The history being closed has to be this cover's history on this Base.
+  // Checking only that a record is active and unremoved would let a removal be
+  // stamped on a history belonging to another cover, leaving that cover
+  // installed while its record says it came off.
+  if (current.linkageId !== owner.profile.currentLinkageId ||
+      current.innerCoverId !== owner.profile.innerCoverId ||
+      current.innerCoverSerialNumber !== owner.profile.serialNumber ||
+      current.baseAssetInstanceId !== owner.baseAssetInstanceId) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "This linkage history belongs to another Inner Cover or Base.",
+      {reasonCode: "inner-cover-linkage-identity-mismatch"},
+    );
+  }
   if (current.schemaVersion !== 1 || current.active !== true ||
       current.removedAt != null || !Number.isSafeInteger(current.version)) {
     throw new AssetHierarchyMutationError(
@@ -1960,6 +1975,10 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         transaction.set(displacedLinkRef, closeLink(
           displacedLink, request.operation, request.reason, committedAt,
           actorUid, actorName,
+          {
+            profile: displaced,
+            baseAssetInstanceId: request.targetBaseAssetInstanceId,
+          },
         ));
         const linkId = `link_${request.requestId}`;
         const link = linkRecord({
@@ -2018,6 +2037,10 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           transaction.set(oldLinkRef, closeLink(
             oldLink, request.operation, request.reason, committedAt, actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           nextVersion = currentVersion + 1;
           after = uninstalledProfile(
@@ -2052,6 +2075,10 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           transaction.set(oldLinkRef, closeLink(
             oldLink, request.operation, request.reason, committedAt, actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           transaction.set(profileRef, after);
           transaction.delete(sourceAssignmentRef!);
@@ -2092,10 +2119,18 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           transaction.set(oldLinkRef, closeLink(
             oldLink, request.operation, request.reason, committedAt, actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           transaction.set(displacedLinkRef, closeLink(
             displacedLink, request.operation, request.reason, committedAt,
             actorUid, actorName,
+            {
+              profile: displaced,
+              baseAssetInstanceId: request.targetBaseAssetInstanceId,
+            },
           ));
           const primaryLink = linkRecord({
             linkId: `link_${request.requestId}_primary`,

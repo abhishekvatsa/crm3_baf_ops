@@ -779,6 +779,42 @@ describe('Inner Cover lifecycle mutation', () => {
     });
   });
 
+  test('a removal cannot be stamped on another cover history', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    const linkagePath = `inner_cover_linkages/link_${IDS.link}`;
+    // The linkage record is damaged so that it names a different cover on a
+    // different Base, while staying well typed and active.
+    memory.store.set(linkagePath, {
+      ...memory.store.get(linkagePath),
+      innerCoverId: '44444444-4444-4444-8444-444444444444',
+      innerCoverSerialNumber: 'GR99',
+      baseAssetInstanceId: '66666666-6666-4666-8666-666666666666',
+      baseAssetNumber: 202,
+    });
+    const writesBefore = memory.writes.length;
+
+    await expect(invoke(memory, {
+      requestId: IDS.delink,
+      operation: 'DELINK_INNER_COVER',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      sourceBaseAssetInstanceId: IDS.base,
+      expectedSourceAssignmentVersion: 1,
+      targetState: 'awaitingInspection',
+      reason: 'Remove the Inner Cover for post-service inspection.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-linkage-identity-mismatch'},
+    });
+
+    expect(memory.writes).toHaveLength(writesBefore);
+    expect(memory.store.get(linkagePath))
+      .toMatchObject({active: true, removedAt: null});
+  });
+
   test('a removal cannot be recorded before the installation it ends', async () => {
     const memory = fakeDb(seed());
     await invoke(memory, registerRequest());
