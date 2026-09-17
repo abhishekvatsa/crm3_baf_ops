@@ -184,6 +184,63 @@ describe('operational event issue-link mutation', () => {
     expect(userCanLinkOperationalEventIssue(user('mechanical'))).toBe(false);
   });
 
+  function componentOnAssetReference() {
+    // What the maintenance producer writes for an ordinary component issue.
+    return JSON.stringify({
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: IDS.assetClass,
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'node-control-panel',
+      nodeVersion: 2,
+      nodeName: 'Control panel',
+      assetInstanceId: IDS.asset,
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Furnace', 'Power distribution', 'Control panel'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Electrical',
+      accountableRoleKeys: ['seniorElectrical'],
+      innerCoverAssociation: null,
+    });
+  }
+
+  test('an issue recorded against a governed component can be linked', async () => {
+    const memory = fakeDb(baseSeed({
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({
+        assetHierarchyRefJson: componentOnAssetReference(),
+      }),
+    }));
+
+    await expect(invoke(memory)).resolves.toMatchObject({ok: true});
+  });
+
+  test('an issue closed administratively is known, not malformed', async () => {
+    const memory = fakeDb(baseSeed({
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({
+        status: 'closedWithoutResolution',
+        isResolved: true,
+      }),
+    }));
+
+    const result = await invoke(memory);
+
+    expect(result).toMatchObject({ok: true});
+    // The link records what the issue actually is; nothing reads a closure
+    // without resolution as a technical repair.
+    expect(memory.store.get(
+      `operational_event_issue_links/${result.linkId}`,
+    )).toMatchObject({
+      issueStatusAtLink: 'closedWithoutResolution',
+      issueResolvedAtLink: true,
+    });
+  });
+
   test('atomically writes projections, immutable link, audit, and receipt', async () => {
     const memory = fakeDb(baseSeed());
     const result = await invoke(memory);

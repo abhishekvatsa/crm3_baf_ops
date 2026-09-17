@@ -80,6 +80,16 @@ Chapter SRC-08 of the dossier.
 | D05-02 "not numerically out of range" becomes "within defined condition" | **design** and **decision** | Only a numeric limit produces an adverse result, so boolean, choice and text observations are recorded with `outOfRange: false`, and the report prints that as conformity. The repair needs an assessment model that separates recorded, not assessed, conforming, adverse and not comparable, and owner-defined predicates saying which boolean or choice value is adverse — which is a plant decision, not an implementation one. Migrating the existing `false` must not silently give it a new meaning. |
 | D05-03 historical non-current errors have no amendment route | **decision** | The same family as D03-01 and D04-06: what it means to amend a record that is no longer current, and who may do it. |
 
+## Domain 06 — Operational disruptions and occurrence identity
+
+Chapter SRC-09 of the dossier.
+
+| Finding | Status | Note |
+|---|---|---|
+| D06-01 the linker calls current, producer-valid tickets malformed | **repaired** | Two shapes this application produces itself were read as corrupt data. A governed reference is now read by the contract that produced it, which knows each scope's schema version and checks that the reference names this very asset — so an ordinary component-on-asset issue links instead of being refused as malformed evidence; older shapes are still read as before. An issue closed administratively is likewise a state this application records, not malformed data: it is recognised, and the link keeps the real status and resolution, so nothing counts a closure without resolution as a technical repair. |
+| D06-02 correcting occurrence facts strands or invalidates links | **partly repaired**, rest **design** | The half repaired is the contradiction the event itself could commit: linking checks that an issue belongs to the occurrence's governed scope, and correcting that scope afterwards could leave the event listing as current a link its own rule would refuse. A narrowing or moving correction is now held while issues are linked, naming them, and a widening to plant-wide or a correction that leaves the scope alone still commits. The rest is the occurrence identity itself: the link id derives from the editable start time, so correcting the start strands existing links under a prior occurrence. That needs an immutable occurrence id and a migration that does not reassign identities by recomputing timestamps. |
+| D06-03 reopening is not correction of an erroneous closed interval | **decision** | The same family as D03-01, D04-06 and D05-03: what correcting a closed interval means, as distinct from recording a recurrence. |
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work

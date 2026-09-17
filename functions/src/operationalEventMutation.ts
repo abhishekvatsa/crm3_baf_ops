@@ -1018,6 +1018,37 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-resolved-at-future"},
       );
     }
+    // Linking an issue to an occurrence checks that the issue belongs to the
+    // occurrence's governed scope. Correcting the scope afterwards can make
+    // that untrue, and the event would then list as current a link its own
+    // rule would refuse. A widening to plant-wide keeps every link valid; any
+    // other change is held until the links have been reviewed.
+    if (draft != null && current != null) {
+      const currentScope = stableJson({
+        scope: current.scope ?? null,
+        classes: [...(current.affectedAssetClassIds as unknown[] ?? [])].sort(),
+        instances:
+          [...(current.affectedAssetInstanceIds as unknown[] ?? [])].sort(),
+      });
+      const draftScope = stableJson({
+        scope: draft.scope,
+        classes: [...draft.affectedAssetClassIds].sort(),
+        instances: [...draft.affectedAssetInstanceIds].sort(),
+      });
+      const links = (current.issueLinkIds as unknown[] ?? []);
+      if (currentScope !== draftScope && draft.scope !== "plantWide" &&
+          links.length > 0) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "scope. Review those links before narrowing or moving the scope.",
+          {
+            reasonCode: "operational-event-scope-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
+    }
     const version = currentVersion + 1;
     let next: JsonMap;
     if (draft != null) {

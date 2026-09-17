@@ -681,6 +681,58 @@ describe('operational event mutation', () => {
     },
   );
 
+  test('narrowing scope is held while issues are linked under the present one', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the affected scope after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset],
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'operational-event-scope-change-linked-issues',
+      }),
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a correction that leaves the scope alone still commits', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the description after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        description: 'Incoming supply was lost across the annealing shop line.',
+      },
+    })).resolves.toMatchObject({ok: true});
+  });
+
   test('audit snapshots preserve every corrected operational field', async () => {
     const memory = fakeDb({
       ...baseSeed(),
