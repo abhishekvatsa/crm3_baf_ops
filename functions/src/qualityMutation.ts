@@ -221,6 +221,16 @@ function canonicalNullableGaps(
   }
   return gaps;
 }
+/**
+ * The canonical null keys a stored warning is missing, so a reviewed repair can
+ * store today's representation without inventing evidence.
+ */
+export function canonicalQualityWarningGaps(
+  record: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  return canonicalNullableGaps(record, LEGACY_NULLABLE_WARNING_FIELDS);
+}
+
 const REANNEALING_STATUSES = new Set([
   "notApplicable",
   "pendingDecision",
