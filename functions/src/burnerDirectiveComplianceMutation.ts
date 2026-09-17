@@ -83,6 +83,8 @@ type DirectiveBinding = {
 type RoundState = {
   data: JsonMap;
   roundId: string;
+  /** Whether the round itself carried UV and draft-seal evidence. */
+  extendedEvidenceRecorded: boolean;
   observations: ReadonlyArray<BurnerObservation>;
   uvObservations: ReadonlyArray<UvObservation>;
   draftSealRedHotObserved: boolean;
@@ -467,6 +469,7 @@ function roundState(snapshot: SnapshotLike, request: ParsedRequest): RoundState 
     throwRoundMalformed("identity");
   }
   const observations = data.observations.map(parseStoredObservation);
+  const extendedEvidenceRecorded = data.schemaVersion === 2;
   let uvObservations: ReadonlyArray<UvObservation>;
   let draftSealRedHotObserved = false;
   let hotAirAtDraftSealObserved = false;
@@ -489,6 +492,7 @@ function roundState(snapshot: SnapshotLike, request: ParsedRequest): RoundState 
   return {
     data,
     roundId,
+    extendedEvidenceRecorded,
     observations,
     uvObservations,
     draftSealRedHotObserved,
@@ -1133,6 +1137,23 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
     verifyRoundAssetIdentity(current, asset);
     verifyRoundAssetIdentity(source, asset);
     verifySourceRound(source, binding, request.directiveId);
+    // A round recorded before UV and draft-seal evidence existed carries none.
+    // Compliance would have to supply values for every position it did not
+    // direct, and reading those as "serviceable" would turn a position nobody
+    // examined into one examined and found normal, timed and attributed to the
+    // complying actor. Record a current condition round first instead.
+    if (!current.extendedEvidenceRecorded) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This condition round was recorded before UV and draft-seal evidence " +
+        "was captured. Record a current condition round for this furnace, " +
+        "then complete the directive.",
+        {
+          reasonCode: "burner-directive-compliance-round-evidence-unavailable",
+          currentRoundId: current.roundId,
+        },
+      );
+    }
     const projection = projectCompliance(current, request, binding);
     const redHotPositions = positionsWhere(
       projection.observations,

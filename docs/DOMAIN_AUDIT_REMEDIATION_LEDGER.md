@@ -57,6 +57,19 @@ Status values:
 | D03-05 invalid fabrication numbers become plausible evidence | **client** | `double.tryParse` and `int.tryParse(...) ?? 1` run before validation, so `1,200` becomes "not specified" and `1.5` becomes one cut. Validate the raw input and keep the operator's text. |
 | D03-06 native durable recovery covers acceptance only | **client** | Registration, state, link, delink, transfer, replace and swap generate fresh identities per invocation and do not carry the original actor, so a lost response leaves no recoverable original intent. The acceptance path already has the machinery to extend. |
 
+## Domain 04 — Burner blocks, UV detectors and condition rounds
+
+Chapter SRC-07 of the dossier. Triaged and begun in the same pass.
+
+| Finding | Status | Note |
+|---|---|---|
+| D04-04 one physical action referenced twice becomes two replacement events | **repaired** | A closure supplies actions at execution scope and again at module scope, and the lifecycle event identity includes where the reference came from, so one physical replacement was written into the asset's history twice while the current projection showed one. Both planners, burner block and UV detector, now collapse identical claims about one physical action to the first, and refuse two claims that describe it differently, which only a person can settle. |
+| D04-02 directive completion makes inherited observations look fresh | **partly repaired**, rest **design** | Compliance copies the values at positions it did not direct into a new round under a new time and actor. The half repaired is the worst of it: a round recorded before UV and draft-seal evidence existed carried none, and compliance read every position as serviceable, turning eight positions nobody examined into positions examined and found normal, timed and attributed to the complying actor. That is now refused, with the available route named — record a current condition round, then complete the directive. Carrying an observation forward with its own time, observer and evidence episode still needs a sparse compliance event or field-level provenance. |
+| D04-01 the client selects the wrong installation after a late historical entry | **client** | Both backend planners order by action time, then recording time, then event identity; the Dart projection reverses the first two, so a replacement entered late but performed earlier is chosen as current, and cleared red-hot or melted-UV evidence can reappear. The backend is the correct side. |
+| D04-03 a stale partial matrix edit overwrites a newer observation | **design** | The matrix submits a whole eight-position snapshot carrying the asset version, not the current round or a per-field pre-image, so an older draft can clear a newer operator's observation. The intentional complete survey must stay possible, so the protocol has to distinguish a full witnessed round from a sparse edit before this can be refused. |
+| D04-05 editing during an in-flight save can lose the newer draft | **client** | |
+| D04-06 an explicit installation correction path is unestablished | **decision** | What a correction of a recorded installation means — and who may make one — is a plant decision before it is an implementation. |
+
 ## What a repair here has to keep
 
 Every item above sits behind the same constraints the quality-case work

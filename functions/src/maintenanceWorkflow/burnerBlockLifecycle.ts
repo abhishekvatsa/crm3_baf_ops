@@ -10,6 +10,7 @@ import {
   readFieldResponsePayload,
 } from "../persistedWorkPayload";
 import {WorkflowError} from "./errors";
+import {stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
 import {Actor, JsonMap} from "./types";
 
@@ -406,6 +407,35 @@ const eventId = (parts: readonly string[]): string =>
   `bbl_${createHash("sha256").update(parts.join("|"), "utf8")
     .digest("hex").slice(0, 40)}`;
 
+/**
+ * One physical action, referenced twice, is still one installation.
+ *
+ * A closure supplies actions at execution scope and again at module scope, and
+ * the same physical action can appear in both. The event identity includes
+ * where the reference came from, so each reference became its own installation
+ * in the asset's history while the current projection showed one. Identical
+ * claims about one action collapse to the first; two claims that describe it
+ * differently are a contradiction only a person can settle.
+ */
+const physicalActionKey = (data: JsonMap): string | null =>
+  data.sourceActionId == null ? null : stableJson({
+    sourceActionId: data.sourceActionId,
+    assetInstanceId: data.assetInstanceId ?? null,
+    burnerPosition: data.burnerPosition ?? null,
+    actionPerformedAt: data.actionPerformedAt ?? null,
+  });
+
+const sameLifecycleClaim = (left: JsonMap, right: JsonMap): boolean => {
+  const comparable = (data: JsonMap): string => stableJson(
+    Object.fromEntries(
+      Object.entries(data).filter(([key]) =>
+        key !== "eventId" && key !== "sourceModuleId" &&
+        key !== "sourceActionIndex"),
+    ),
+  );
+  return comparable(left) === comparable(right);
+};
+
 const currentStateId = (assetInstanceId: string, burnerPosition: number): string =>
   `bblc_${createHash("sha256")
     .update(`${assetInstanceId}|${burnerPosition}`, "utf8")
@@ -551,6 +581,7 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
   }
 
   const events: Array<{path: string; data: JsonMap}> = [];
+  const physicalActions = new Map<string, {path: string; data: JsonMap}>();
   for (const candidate of candidates) {
     const row = candidate.row;
     if (!candidate.mechanicalWorkContext) {
@@ -612,9 +643,7 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
       String(row.id ?? ""),
       performedAt,
     ]);
-    events.push({
-      path: `burner_block_lifecycle_events/${id}`,
-      data: {
+    const data: JsonMap = {
         schemaVersion: 1,
         eventId: id,
         eventType: "replacement",
@@ -647,8 +676,23 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
         recordedAt,
         version: 1,
         isDeleted: false,
-      },
-    });
+    };
+    const planned = {path: `burner_block_lifecycle_events/${id}`, data};
+    const physicalKey = physicalActionKey(data);
+    const alreadyPlanned = physicalKey == null ?
+      undefined : physicalActions.get(physicalKey);
+    if (alreadyPlanned != null) {
+      if (!sameLifecycleClaim(alreadyPlanned.data, data)) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "One burner-block replacement action is described two different ways in this closure.",
+          {reasonCode: "burner-block-lifecycle-action-conflict"},
+        );
+      }
+      continue;
+    }
+    if (physicalKey != null) physicalActions.set(physicalKey, planned);
+    events.push(planned);
   }
   const proposedCurrent = new Map<string, {path: string; data: JsonMap}>();
   for (const event of events) {

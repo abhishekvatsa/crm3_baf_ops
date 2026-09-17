@@ -496,6 +496,72 @@ describe('burner-block lifecycle projection', () => {
     expect(plan.events).toEqual([]);
   });
 
+  test('one physical action referenced twice is one installation', async () => {
+    const store = seedStore();
+    const row = action();
+
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-1',
+        assetType: 'furnace',
+        assetNumber: 7,
+        // The closure carries the same physical action at execution scope and
+        // again under the module that recorded it.
+        actionSources: [
+          {
+            sourceModuleId: null,
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([row]),
+          },
+          {
+            sourceModuleId: 'module-1',
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([row]),
+          },
+        ],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }));
+
+    expect(plan.events).toHaveLength(1);
+    expect(plan.events[0].data).toMatchObject({sourceActionId: 'action-1'});
+    expect(plan.currentStates).toHaveLength(1);
+  });
+
+  test('one action described two ways in one closure is refused', async () => {
+    const store = seedStore();
+
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-1',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [
+          {
+            sourceModuleId: null,
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([action()]),
+          },
+          {
+            sourceModuleId: 'module-1',
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([action({replacement: 'repaired'})]),
+          },
+        ],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'burner-block-lifecycle-action-conflict'},
+    });
+  });
+
   test('planned maintenance without a burner-block change leaves lifecycle untouched', async () => {
     const store = seedStore();
     const plan = await store.runTransaction((tx) =>
