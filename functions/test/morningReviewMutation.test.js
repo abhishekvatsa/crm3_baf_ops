@@ -1774,6 +1774,100 @@ describe('Morning Review governed lifecycle', () => {
       .toHaveLength(accepted);
   });
 
+  test('a meeting held yesterday can have its minutes closed today', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(session.status).toBe('open');
+
+    // The meeting was held. Leaving its minutes open forever is a worse record
+    // than closing them late and saying they were closed late.
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      summary: 'Closed the following morning; the meeting was held as recorded.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(finalized).toMatchObject({status: 'finalized', plantDay: priorDay});
+    // No new field records the lateness, because the record already carries
+    // it: the meeting's intended day is untouched and the finalization time is
+    // the real one, so the two together say it was closed the next day.
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .not.toBe(finalized.plantDay);
+    expect(memory.store.get(`morning_review_documents/${priorDay}`))
+      .toMatchObject({sessionId: priorDay});
+  });
+
+  test('closing on the day it was held reads as the same day', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId,
+      expectedVersion: session.version,
+      summary: 'Closed on the day it was held.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${sessionId}`);
+    expect(finalized.status).toBe('finalized');
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .toBe(finalized.plantDay);
+  });
+
+  test('an older meeting can be taken over so it can be closed', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+
+    // The facilitator is not here today; somebody has to be able to close it.
+    await invoke(memory, 'admin-1', {
+      requestId: IDS.takeover,
+      operation: 'TAKE_OVER_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      reason: 'The facilitator is on leave and the minutes are still open.',
+    });
+
+    expect(memory.store.get(`morning_review_sessions/${priorDay}`))
+      .toMatchObject({facilitatorUid: 'admin-1', plantDay: priorDay});
+  });
+
+  test('a meeting that was held is not recorded as not held afterwards', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+
+    // Late finalization is a way to close a meeting truthfully, not a way to
+    // say it never happened.
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.notHeld,
+      operation: 'RECORD_MORNING_REVIEW_NOT_HELD',
+      sessionId: priorDay,
+      reason: 'Claiming the meeting never happened.',
+    })).rejects.toThrow();
+  });
+
+  test('an older day still cannot be opened as a new meeting', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+
+    await expect(invoke(memory, 'si-1', {
+      ...startRequest(),
+      sessionId: priorDay,
+    })).rejects.toThrow();
+  });
+
   test('full review byte budget cannot veto prior-day action acceptance or completion', async () => {
     const priorDay = '2026-08-30';
     const memory = fakeDb(baseSeed());

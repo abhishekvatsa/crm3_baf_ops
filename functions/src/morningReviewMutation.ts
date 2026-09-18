@@ -2506,8 +2506,24 @@ export async function mutateMorningReviewWithDb(args: {
         }
       }
 
+      // A meeting that was held must be able to have its minutes closed, even
+      // if nobody got to it before midnight: leaving them open for ever is a
+      // worse record than closing them late. Finalizing an existing open
+      // session, and the facilitator takeover that lets somebody else do it
+      // when the original facilitator is away, are therefore allowed on an
+      // older day. Nothing else is: an old meeting never pretends to be
+      // today's, a held meeting is never recorded as not held, and opening a
+      // new session for a past day is still refused.
+      //
+      // The lateness needs no new field. The session already carries the day
+      // it was held and the time it was finalized, and those two together say
+      // it was closed afterwards.
+      const closingAnOlderMeeting =
+        (request.operation === "FINALIZE_MORNING_REVIEW" ||
+          request.operation === "TAKE_OVER_MORNING_REVIEW") &&
+        status === "open";
       if (request.operation !== "ADD_MORNING_REVIEW_ADDENDUM" &&
-          !actionLifecycleOperation) {
+          !actionLifecycleOperation && !closingAnOlderMeeting) {
         ensureSessionDay(sessionId, clock.plantDay);
       }
       const participantRef = participants.doc(`${sessionId}_${actorUid}`);
@@ -2887,7 +2903,14 @@ export async function mutateMorningReviewWithDb(args: {
             "You already facilitate this Morning Review.",
           );
         }
-        ensureJoined(participantSnapshot, sessionId, actorUid);
+        // Taking over a meeting still under way means stepping into it, so
+        // the actor has to be in it. Taking over one left open on an earlier
+        // day is an administrative act: an Admin closing an abandoned meeting
+        // is not claiming to have attended it, and joining it today would be
+        // the false record. Who did it and why is recorded either way.
+        if (sessionId === clock.plantDay || !isAdmin) {
+          ensureJoined(participantSnapshot, sessionId, actorUid);
+        }
         const previousHistory = Array.isArray(session.facilitatorHistory) ?
           session.facilitatorHistory : [];
         if (previousHistory.length >= 20) {
