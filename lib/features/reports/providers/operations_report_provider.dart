@@ -306,7 +306,9 @@ final operationsReportProvider = Provider.autoDispose
             identityWorkflows: identityWorkflows,
             identityAbnormalities: identityAbnormalities,
             events: events.requireValue,
-            dueStates: dueStates.requireValue,
+            dueStates: dueStates.requireValue.records,
+            unreadableDueStateCount:
+                dueStates.requireValue.rejectedDocumentIds.length,
             inspectionFindings: inspectionFindings.requireValue,
             qualityWarnings: qualityWarnings.requireValue,
             qualityMonitoringRequests: qualityMonitoring.requireValue,
@@ -344,6 +346,7 @@ OperationsReport buildOperationsReport({
   Map<String, ChargeAbnormality?> identityAbnormalities = const {},
   required List<OperationalEvent> events,
   List<MaintenanceDueState> dueStates = const [],
+  int unreadableDueStateCount = 0,
   List<InspectionFinding> inspectionFindings = const [],
   List<QualityWarning> qualityWarnings = const [],
   List<QualityMonitoringRequest> qualityMonitoringRequests = const [],
@@ -1072,6 +1075,7 @@ OperationsReport buildOperationsReport({
       filteredOccurrences,
     ),
     dueStates: List<MaintenanceDueState>.unmodifiable(filteredDueStates),
+    unreadableDueStateCount: unreadableDueStateCount,
     inspectionFindings: List<InspectionFinding>.unmodifiable(
       filteredInspectionFindings,
     ),

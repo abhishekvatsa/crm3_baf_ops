@@ -30,18 +30,29 @@ class MaintenanceIntelligenceRepository {
         return List.unmodifiable(rows);
       });
 
-  Stream<List<MaintenanceDueState>> watchDueStates() => _firestore
-      .collection('maintenance_due_states')
-      .snapshots()
-      .map((snapshot) {
-        final rows = decodeSnapshotDocuments(snapshot, MaintenanceDueState.fromMap, source: 'MaintenanceDueState')
-          .toList(growable: false)..sort((a, b) {
+  /// Due state is read as a batch, not a plain list. The screen and the
+  /// operations report turn this into headline counts, and "nothing is
+  /// overdue" is a statement about the plant rather than about what happened
+  /// to decode. A row that could not be read has to travel with the count.
+  Stream<DecodedSnapshotBatch<MaintenanceDueState>> watchDueStates() =>
+      _firestore.collection('maintenance_due_states').snapshots().map((
+        snapshot,
+      ) {
+        final batch = decodeSnapshotBatch(
+          snapshot,
+          MaintenanceDueState.fromMap,
+          source: 'MaintenanceDueState',
+        );
+        final rows = batch.records.toList(growable: false)..sort((a, b) {
           if (a.isOverdue != b.isOverdue) return a.isOverdue ? -1 : 1;
           final aDue = a.nextDueAt ?? DateTime(9999);
           final bDue = b.nextDueAt ?? DateTime(9999);
           return aDue.compareTo(bDue);
         });
-        return List.unmodifiable(rows);
+        return DecodedSnapshotBatch<MaintenanceDueState>(
+          records: List.unmodifiable(rows),
+          rejectedDocumentIds: batch.rejectedDocumentIds,
+        );
       });
 
   Stream<List<MaintenanceCompletionEvent>> watchCompletionEvents() => _firestore

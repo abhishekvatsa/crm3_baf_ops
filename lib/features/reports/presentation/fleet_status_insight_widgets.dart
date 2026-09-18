@@ -482,6 +482,10 @@ class OperationsDecisionBrief extends StatelessWidget {
           onOperationalEvents,
         OperationsManagementSignalType.overdueMaintenance =>
           onMaintenanceRhythm,
+        // Incomplete due-state evidence is read where the cadence it
+        // qualifies is read.
+        OperationsManagementSignalType.incompleteDueStateEvidence =>
+          onMaintenanceRhythm,
         OperationsManagementSignalType.inspectionFindings => onInspections,
         OperationsManagementSignalType.qualityWarnings => onQuality,
         OperationsManagementSignalType.workflowObligations => onWorkflow,
@@ -557,6 +561,8 @@ class _DecisionSignalRow extends StatelessWidget {
           Icons.crisis_alert_outlined,
         OperationsManagementSignalType.overdueMaintenance =>
           Icons.event_busy_outlined,
+        OperationsManagementSignalType.incompleteDueStateEvidence =>
+          Icons.report_gmailerrorred_outlined,
         OperationsManagementSignalType.inspectionFindings =>
           Icons.fact_check_outlined,
         OperationsManagementSignalType.qualityWarnings =>

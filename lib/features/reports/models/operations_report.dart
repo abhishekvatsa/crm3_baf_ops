@@ -71,6 +71,7 @@ enum OperationsManagementSignalType {
   criticalIssues,
   operationalDisruptions,
   overdueMaintenance,
+  incompleteDueStateEvidence,
   inspectionFindings,
   qualityWarnings,
   workflowObligations,
@@ -158,6 +159,7 @@ class OperationsReport {
     required this.events,
     required this.eventOccurrences,
     required this.dueStates,
+    this.unreadableDueStateCount = 0,
     required this.inspectionFindings,
     required this.assetStates,
     this.innerCoverProfiles = const [],
@@ -200,6 +202,14 @@ class OperationsReport {
   final List<OperationalEvent> events;
   final List<OperationalEventReportOccurrence> eventOccurrences;
   final List<MaintenanceDueState> dueStates;
+
+  /// How many due-state records in this population could not be read.
+  ///
+  /// The overdue and due-soon counts below describe the records that decoded.
+  /// A record that could not be read may carry an outstanding obligation, so
+  /// while this is above zero, none of those counts is a statement about the
+  /// whole population.
+  final int unreadableDueStateCount;
   final List<InspectionFinding> inspectionFindings;
   final List<PlantAssetState> assetStates;
   final List<InnerCoverProfile> innerCoverProfiles;
@@ -635,6 +645,24 @@ class OperationsReport {
               '${overdueMaintenanceCount == 1 ? 'counter is' : 'counters are'} overdue',
           detail: 'Review cadence exposure and planned intervention.',
           count: overdueMaintenanceCount,
+        ),
+      // Raised whatever the overdue count says, including when it is zero. A
+      // due-state record that could not be read may carry an outstanding
+      // obligation, so nothing here may be read as an all-clear while any
+      // record in the population is unreadable.
+      if (unreadableDueStateCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.incompleteDueStateEvidence,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$unreadableDueStateCount maintenance due-state '
+              '${unreadableDueStateCount == 1 ? 'record' : 'records'} could '
+              'not be read',
+          detail:
+              'The overdue and due-soon counts cover the records that could '
+              'be read. Repair the remaining records before treating this '
+              'population as complete.',
+          count: unreadableDueStateCount,
         ),
       if (workflowObligationCount > 0)
         OperationsManagementSignal(

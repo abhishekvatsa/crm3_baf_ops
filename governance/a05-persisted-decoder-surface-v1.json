@@ -559,6 +559,21 @@
       "riskFingerprint": "ef03914213f7231d318a67c0fb0abd9bd5d53d6544bf82a23b2c67df80892daf"
     },
     {
+      "id": "job-diary-write-precondition",
+      "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "markers": [
+        "readRequiredPersistedInt(data['version'], field: 'version')"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "stored job diary revision read inside the transaction that writes over it",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none; a diary entry without a readable version is not written over",
+      "regression": "test/job_diary_save_precondition_test.dart",
+      "reArmCondition": "the stored revision is read outside the writing transaction, or a malformed version is treated as absent rather than refused",
+      "riskFingerprint": "4ebbb4ff68d001a06413a94031d7512b4d5758abb58cada9a42300b30255f322"
+    },
+    {
       "id": "knowledge-import",
       "file": "lib/features/planned_maintenance/domain/knowledge_governance_export.dart",
       "markers": [

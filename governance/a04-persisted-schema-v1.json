@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3",
+  "inventoryDigest": "38A05C240002D13AF804C384C6CACB48B1B9A35ADA91A64860BD41DE8E977DB4",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "3A95D09C5E952F5FFBBCFEC0F345A5F53B502E77FD482DB09661D1B4F3F8B202",
+  "a05ManifestSha256": "C029CB350CDA1717362BB0B26C5234CC718C7CA56569517519B5BA9DFFC5C83A",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1219,6 +1219,15 @@
       "malformedDisposition": "fail closed",
       "compatibility": "documented absent pre-feature kind, discipline, severity, and flags only",
       "regression": "test/a05_planned_work_record_integrity_test.dart"
+    },
+    {
+      "id": "job-diary-write-precondition",
+      "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "stored job diary revision read inside the transaction that writes over it",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none; a diary entry without a readable version is not written over",
+      "regression": "test/job_diary_save_precondition_test.dart"
     },
     {
       "id": "job-module-native-save-baseline",

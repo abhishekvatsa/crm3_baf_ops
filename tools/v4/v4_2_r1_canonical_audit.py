@@ -12937,9 +12937,9 @@ check(
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
     and a03_inventory_report.get("operationCount") == 594
-    and a03_inventory_report.get("siteCount") == 2076
+    and a03_inventory_report.get("siteCount") == 2077
     and a03_inventory_report.get("inventoryDigest")
-        == "D23545897AC627ECB6F3D8A7DC3CC615519D833D77BB80234E8A5FB4A82B8D96"
+        == "BA30E9304C3BF523ED99DC58603C86724CEC5D515F6C9D5758CC0F697755FBAE"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12990,9 +12990,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 98
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 99
     and a04_inventory_report.get("inventoryDigest")
-        == "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3"
+        == "38A05C240002D13AF804C384C6CACB48B1B9A35ADA91A64860BD41DE8E977DB4"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13000,8 +13000,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 98
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 98
+    and len(a04_inherited_decoders) == 99
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 99
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13311,16 +13311,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 98
+    and a05_decoder_inventory_report.get("surfaceCount") == 99
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 57
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 58
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 48
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 458
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 459
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 98
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 99
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
