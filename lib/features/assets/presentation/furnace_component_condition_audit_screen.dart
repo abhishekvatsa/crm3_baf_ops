@@ -14,6 +14,7 @@ import '../../maintenance/providers/maintenance_provider.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/burner_block_condition_projection.dart';
+import '../domain/furnace_audit_draft.dart';
 import '../data/burner_block_lifecycle_event.dart';
 import '../data/burner_condition_round.dart';
 import '../data/uv_detector_lifecycle_event.dart';
@@ -36,7 +37,7 @@ class FurnaceComponentConditionAuditScreen extends ConsumerStatefulWidget {
 
 class _FurnaceComponentConditionAuditScreenState
     extends ConsumerState<FurnaceComponentConditionAuditScreen> {
-  final Map<String, _FurnaceAuditDraft> _drafts = {};
+  final Map<String, FurnaceAuditDraft> _drafts = {};
   bool _saving = false;
 
   @override
@@ -217,9 +218,8 @@ class _FurnaceComponentConditionAuditScreenState
         );
         final current = _drafts[furnace.id];
         if (current == null ||
-            (!current.dirty &&
-                current.sourceKey != conditionProjection.sourceKey)) {
-          _drafts[furnace.id] = _FurnaceAuditDraft.fromSources(
+            current.shouldAdoptSnapshot(conditionProjection.sourceKey)) {
+          _drafts[furnace.id] = FurnaceAuditDraft.fromSources(
             round: round,
             conditionProjection: conditionProjection,
           );
@@ -366,12 +366,12 @@ class _FurnaceComponentConditionAuditScreenState
     body: body,
   );
 
-  void _markChanged(String assetId, void Function(_FurnaceAuditDraft) change) {
+  void _markChanged(String assetId, void Function(FurnaceAuditDraft) change) {
     final draft = _drafts[assetId];
     if (draft == null) return;
     setState(() {
       change(draft);
-      draft.dirty = true;
+      draft.markEdited();
     });
   }
 
@@ -383,6 +383,7 @@ class _FurnaceComponentConditionAuditScreenState
     setState(() => _saving = true);
     var saved = 0;
     var directives = 0;
+    var stillPending = 0;
     try {
       final service = ref.read(burnerConditionRoundServiceProvider);
       for (final furnace in changed) {
@@ -393,18 +394,32 @@ class _FurnaceComponentConditionAuditScreenState
           );
         }
         final draft = _drafts[furnace.id]!;
+        // What is being recorded is this revision of the draft, read before
+        // the request goes out. The controls stay live while it is in flight.
+        final submittedRevision = draft.revision;
+        final submittedObservations = List<BurnerConditionObservation>.of(
+          draft.burnerObservations,
+        );
+        final submittedUvObservations = List<BurnerUvObservation>.of(
+          draft.uvObservations,
+        );
+        final submittedDraftSealRedHot = draft.draftSealRedHotObserved;
+        final submittedHotAirAtDraftSeal = draft.hotAirAtDraftSealObserved;
         final result = await service.record(
           furnace: furnace,
-          observations: draft.burnerObservations,
-          draftSealRedHotObserved: draft.draftSealRedHotObserved,
-          hotAirAtDraftSealObserved: draft.hotAirAtDraftSealObserved,
-          uvObservations: draft.uvObservations,
+          observations: submittedObservations,
+          draftSealRedHotObserved: submittedDraftSealRedHot,
+          hotAirAtDraftSealObserved: submittedHotAirAtDraftSeal,
+          uvObservations: submittedUvObservations,
           actor: actor,
           roundNote: 'Cross-furnace component condition audit.',
         );
         saved++;
         if (result.directiveId != null) directives++;
-        draft.dirty = false;
+        // An observation recorded while this was in flight was not in the
+        // envelope, so the draft stays pending and carries it into the next
+        // save instead of being marked recorded and then replaced.
+        if (!draft.settleSave(submittedRevision)) stillPending++;
       }
       ref.invalidate(latestBurnerConditionRoundsProvider);
       if (!mounted) return;
@@ -412,7 +427,11 @@ class _FurnaceComponentConditionAuditScreenState
         SnackBar(
           content: Text(
             '$saved furnace audit${saved == 1 ? '' : 's'} recorded. '
-            '$directives I&A directive${directives == 1 ? '' : 's'} created.',
+            '$directives I&A directive${directives == 1 ? '' : 's'} created.'
+            '${stillPending == 0 ? '' : ' $stillPending furnace'
+                '${stillPending == 1 ? '' : 's'} changed while this was '
+                'being recorded and ${stillPending == 1 ? 'is' : 'are'} '
+                'still pending.'}',
           ),
           backgroundColor: BafColors.success,
         ),
@@ -431,104 +450,6 @@ class _FurnaceComponentConditionAuditScreenState
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-}
-
-class _FurnaceAuditDraft {
-  _FurnaceAuditDraft({
-    required this.sourceKey,
-    required this.sourceAt,
-    required this.redHotPositions,
-    required this.draftSealRedHotObserved,
-    required this.hotAirAtDraftSealObserved,
-    required this.uvByPosition,
-    required this.burnerObservations,
-    required this.replacementsByPosition,
-    required this.uvReplacementsByPosition,
-  });
-
-  factory _FurnaceAuditDraft.fromSources({
-    required BurnerConditionRound? round,
-    required BurnerBlockConditionProjection conditionProjection,
-  }) {
-    final redHot = conditionProjection.redHotPositions;
-    final uv = Map<int, BurnerUvCondition>.of(
-      conditionProjection.uvConditionsByPosition,
-    );
-    final prior = round?.observations;
-    return _FurnaceAuditDraft(
-      sourceKey: conditionProjection.sourceKey,
-      sourceAt: conditionProjection.latestEvidenceAt,
-      redHotPositions: Set<int>.of(redHot),
-      draftSealRedHotObserved: round?.draftSealRedHotObserved ?? false,
-      hotAirAtDraftSealObserved: round?.hotAirAtDraftSealObserved ?? false,
-      uvByPosition: uv,
-      burnerObservations: <BurnerConditionObservation>[
-        for (var position = 1; position <= 8; position++)
-          BurnerConditionObservation(
-            position: position,
-            flameObservation:
-                prior == null
-                    ? BurnerRoundFlameObservation.notChecked
-                    : prior[position - 1].flameObservation,
-            redHotObserved: redHot.contains(position),
-            microampReading:
-                prior == null ? null : prior[position - 1].microampReading,
-            remarks:
-                prior == null
-                    ? 'Condition matrix audit did not assess flame signal.'
-                    : prior[position - 1].remarks,
-          ),
-      ],
-      replacementsByPosition: Map<int, BurnerBlockLifecycleEvent>.unmodifiable(
-        conditionProjection.replacementsByPosition,
-      ),
-      uvReplacementsByPosition: Map<int, UvDetectorLifecycleEvent>.unmodifiable(
-        <int, UvDetectorLifecycleEvent>{
-          for (final entry
-              in conditionProjection.uvReplacementsByPosition.entries)
-            if (round == null ||
-                entry.value.actionPerformedAt.isAfter(round.observedAt))
-              entry.key: entry.value,
-        },
-      ),
-    );
-  }
-
-  final String sourceKey;
-  final DateTime? sourceAt;
-  final Set<int> redHotPositions;
-  bool draftSealRedHotObserved;
-  bool hotAirAtDraftSealObserved;
-  final Map<int, BurnerUvCondition> uvByPosition;
-  List<BurnerConditionObservation> burnerObservations;
-  final Map<int, BurnerBlockLifecycleEvent> replacementsByPosition;
-  final Map<int, UvDetectorLifecycleEvent> uvReplacementsByPosition;
-  bool dirty = false;
-
-  List<BurnerUvObservation> get uvObservations => <BurnerUvObservation>[
-    for (var position = 1; position <= 8; position++)
-      BurnerUvObservation(
-        position: position,
-        condition: uvByPosition[position]!,
-      ),
-  ];
-
-  void setRedHot(int position, bool value) {
-    value ? redHotPositions.add(position) : redHotPositions.remove(position);
-    burnerObservations = <BurnerConditionObservation>[
-      for (final observation in burnerObservations)
-        BurnerConditionObservation(
-          position: observation.position,
-          flameObservation: observation.flameObservation,
-          redHotObserved:
-              observation.position == position
-                  ? value
-                  : observation.redHotObserved,
-          microampReading: observation.microampReading,
-          remarks: observation.remarks,
-        ),
-    ];
   }
 }
 
@@ -601,7 +522,7 @@ class _AuditStatusBand extends StatelessWidget {
 }
 
 typedef _DraftChange =
-    void Function(String assetId, void Function(_FurnaceAuditDraft) change);
+    void Function(String assetId, void Function(FurnaceAuditDraft) change);
 
 class _BurnerBlockLifecycleList extends StatelessWidget {
   const _BurnerBlockLifecycleList({required this.events});
@@ -755,7 +676,7 @@ class _BurnerBlockMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _DraftChange onChanged;
 
   @override
@@ -799,7 +720,7 @@ class _DraftSealMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _DraftChange onChanged;
 
   @override
@@ -843,7 +764,7 @@ class _UvConditionMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final BurnerUvCondition condition;
   final _DraftChange onChanged;
 
@@ -894,7 +815,7 @@ class _UvConditionMatrix extends StatelessWidget {
 typedef _MatrixCellBuilder =
     Widget Function(
       AssetInstanceRecord furnace,
-      _FurnaceAuditDraft draft,
+      FurnaceAuditDraft draft,
       int position,
     );
 
@@ -910,7 +831,7 @@ class _MatrixFrame extends StatefulWidget {
 
   final List<String> headers;
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _MatrixCellBuilder cellBuilder;
   final ValueChanged<AssetInstanceRecord> onConfirm;
   final double cellWidth;
@@ -1102,7 +1023,7 @@ class _MatrixFrameState extends State<_MatrixFrame> {
 
   Widget _buildFurnaceIdentityRow({
     required AssetInstanceRecord furnace,
-    required _FurnaceAuditDraft draft,
+    required FurnaceAuditDraft draft,
     required double rowHeight,
   }) {
     return Container(
@@ -1169,7 +1090,7 @@ class _MatrixFrameState extends State<_MatrixFrame> {
 
   Widget _buildConditionRow({
     required AssetInstanceRecord furnace,
-    required _FurnaceAuditDraft draft,
+    required FurnaceAuditDraft draft,
     required double rowHeight,
   }) {
     return Container(
