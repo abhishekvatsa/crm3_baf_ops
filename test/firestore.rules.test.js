@@ -3832,6 +3832,107 @@ describe("directives", () => {
     );
   });
 
+  test("acknowledging a directive cannot change the instruction it acknowledges", async () => {
+    await seedDoc("directives/dirAckEdit", {
+      ...directiveBase,
+      firestoreId: "dirAckEdit",
+    });
+
+    const db = dbAs("ops1");
+
+    // The recipient is entitled to acknowledge. The instruction they were
+    // given is the issuer's, and acknowledging it is not an occasion to
+    // change what it says.
+    await assertFails(
+      updateDoc(doc(db, "directives/dirAckEdit"), {
+        status: "acknowledged",
+        isActive: true,
+        acknowledgedByUid: "ops1",
+        acknowledgedByName: "Operations One",
+        acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
+        description: "Purge check was not required after all.",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("acknowledging a directive cannot redirect or re-prioritise it", async () => {
+    await seedDoc("directives/dirAckRedirect", {
+      ...directiveBase,
+      firestoreId: "dirAckRedirect",
+      priority: "routine",
+    });
+
+    const db = dbAs("ops1");
+
+    await assertFails(
+      updateDoc(doc(db, "directives/dirAckRedirect"), {
+        status: "acknowledged",
+        isActive: true,
+        acknowledgedByUid: "ops1",
+        acknowledgedByName: "Operations One",
+        acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
+        priority: "urgent",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("closing a directive cannot change the instruction it closes", async () => {
+    await seedDoc("directives/dirCloseEdit", {
+      ...directiveBase,
+      firestoreId: "dirCloseEdit",
+    });
+
+    const db = dbAs("supervisor1");
+
+    await assertFails(
+      updateDoc(doc(db, "directives/dirCloseEdit"), {
+        status: "closed",
+        closedByUid: "supervisor1",
+        closedAt: Timestamp.now(),
+        title: "Something else entirely",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("closing a directive still records the remark that closed it", async () => {
+    await seedDoc("directives/dirCloseRemark", {
+      ...directiveBase,
+      firestoreId: "dirCloseRemark",
+    });
+
+    const db = dbAs("supervisor1");
+
+    // Closing is where the outcome is written down, so the remark is part of
+    // the operation rather than a change to the instruction.
+    await assertSucceeds(
+      updateDoc(doc(db, "directives/dirCloseRemark"), {
+        status: "closed",
+        isActive: false,
+        closedByUid: "supervisor1",
+        closedByName: "Supervisor One",
+        closedAt: Timestamp.now(),
+        closedWithoutAcknowledgement: true,
+        remarks: "Purge permissive confirmed on the panel.",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
   test("issuer can close own open directive", async () => {
     await seedDoc("directives/dirClose", {
       ...directiveBase,

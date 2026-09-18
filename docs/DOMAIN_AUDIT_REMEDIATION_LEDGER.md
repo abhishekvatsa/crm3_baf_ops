@@ -124,7 +124,25 @@ Chapters SRC-13 and SRC-14. Every finding in these two domains has now been chec
 | D10-02 asset retirement overlooks a concern that still affects Plant Condition | **repaired** | An issue closed administratively while explicitly still relevant is resolved in the lifecycle sense and not in the plant's: Plant Condition keeps counting it, but the retirement guard asked only whether the issue was unresolved, so the asset could be retired underneath it and the retained concern was left pointing at an asset no longer in the active population. Both sides read the same rule now — a concern still applies while it is open, or while its administrative closure says it remains relevant — and the query was widened to return those records at all, since a still-relevant closure is marked resolved. Ending the concern's relevance remains the supported way through, and the regression walks that route. |
 | D10-03 workflow deployment can say In Service while operational inhibitions remain | **partly repaired** | Two parts of this were repairable without an owner's decision. Deploying equipment whose register entry is administratively out of service is refused, matching the rule that already refuses an operational condition declaration on such an asset; only an explicit out-of-service entry refuses, so a missing or differently shaped asset row never turns a deployment into a failure for an unrelated record's sake. And the board no longer announces a return to service it did not adjudicate: the confirmation says the equipment is marked In Service on this board and that condition declarations and open issues are recorded separately and are not cleared by it. What remains is in the next section. |
 
-Chapters SRC-16 and SRC-17 cover domains 11 to 18 together and have not been read.
+## Domains 11 to 18 — the remaining business functions
+
+Chapters SRC-16 and SRC-17, which cover these eight domains together and number
+their findings R-01 to R-10 rather than by domain. All ten are listed here; only
+the rows marked otherwise have been checked against the current source.
+
+| Finding | Status | Note |
+|---|---|---|
+| R-01 an acknowledgement capability can change unrelated directive content (13, directives) | **repaired** | The burner directive rule limited which fields an acknowledgement may touch; the ordinary one did not, so a recipient could change what the instruction said in the same write that acknowledged it, and the record went on attributing the changed instruction to its issuer. Closing had the same gap. Both now carry the list of what the operation is allowed to touch, taken from what the client actually writes: acknowledging records the acknowledgement, closing records the outcome including the remark that closes it, and changing the instruction remains an Admin correction with its own authority. The audit could only model this; the three refusals and the legitimate closure are now proven against the Rules engine itself. |
+| R-02 a later valid authority change blocks recovery of an earlier accepted one (14, user administration) | listed, unverified | |
+| R-03 permanent pilot removal leaves active completion and due-state effects (17 and 11) | listed, unverified | |
+| R-04 rejected due-state records disappear from the list used for headline counts (11 and 18) | listed, unverified | |
+| R-05 a plan can claim a nonexistent due-state source and reach Ready (11) | listed, unverified | |
+| R-06 retired subjects and definitions lack a historical-entry or amendment route (11) | listed, unverified | Reads as the same family as the correction question below. |
+| R-07 a deliberately empty active catalogue can return embedded suggestions again (16, knowledge) | listed, unverified | |
+| R-08 an accepted knowledge update can fail before its audit is recorded (16) | listed, unverified | |
+| R-09 a stale local diary draft can replace a newer stored revision (16, job diary) | listed, unverified | Reads as the same family as D04-05, now repaired. |
+| R-10 recovery of an existing review proof is coupled to its original reviewer (17) | listed, unverified | |
+
 
 ## Left for a decision: what a workflow deployment means
 
