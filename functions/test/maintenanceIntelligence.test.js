@@ -613,6 +613,108 @@ describe('classified maintenance completion and planning', () => {
       .toMatchObject({sourceDueStateId: null});
   });
 
+  async function historyOn(store, assetOverrides = {}, classOverrides = {}) {
+    seedFurnaceClass(store);
+    store.seed('asset_instances/furnace-7', {
+      schemaVersion: 1,
+      assetInstanceId: 'furnace-7',
+      assetClassId: 'class-furnace',
+      assetNumber: 7,
+      name: 'Furnace 07',
+      version: 3,
+      status: 'active',
+      isDeleted: false,
+      ...assetOverrides,
+    });
+    if (Object.keys(classOverrides).length > 0) {
+      store.seed('asset_classes/class-furnace', {
+        schemaVersion: 1,
+        assetClassId: 'class-furnace',
+        status: 'active',
+        legacyAssetTypeKey: 'furnace',
+        ...classOverrides,
+      });
+    }
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    return {service, admin};
+  }
+
+  test('maintenance done before a furnace was retired can still be recorded',
+    async () => {
+      const store = new MemoryWorkflowStore();
+      const {service, admin} = await historyOn(store, {status: 'retired'});
+
+      // The work happened while the furnace was in service. Refusing to record
+      // it does not make it untrue; it pushes whoever holds the register
+      // towards un-retiring a furnace to write down a fact.
+      const receipt = await service.execute(
+        historicalMaintenanceCommand(),
+        {actor: admin, serverNow: now},
+      );
+
+      expect(receipt.resultKey).toBe('historical-maintenance-recorded');
+      const events = store.entries().filter(([path]) =>
+        path.startsWith('maintenance_completion_events/'));
+      expect(events).toHaveLength(1);
+    });
+
+  test('recording that history does not put a retired furnace back on cadence',
+    async () => {
+      const store = new MemoryWorkflowStore();
+      const {service, admin} = await historyOn(store, {status: 'retired'});
+
+      await service.execute(
+        historicalMaintenanceCommand(),
+        {actor: admin, serverNow: now},
+      );
+
+      // A retired furnace has no next service. Writing one would make the
+      // schedule claim work on something the plant no longer operates.
+      expect(store.entries().filter(([path]) =>
+        path.startsWith('maintenance_due_states/'))).toHaveLength(0);
+    });
+
+  test('an active furnace still gets its due state from recorded history',
+    async () => {
+      const store = new MemoryWorkflowStore();
+      const {service, admin} = await historyOn(store);
+
+      await service.execute(
+        historicalMaintenanceCommand(),
+        {actor: admin, serverNow: now},
+      );
+
+      expect(store.entries().filter(([path]) =>
+        path.startsWith('maintenance_due_states/')).length)
+        .toBeGreaterThan(0);
+    });
+
+  test('a deleted furnace is still refused', async () => {
+    const store = new MemoryWorkflowStore();
+    const {service, admin} = await historyOn(store, {isDeleted: true});
+
+    await expect(service.execute(
+      historicalMaintenanceCommand(),
+      {actor: admin, serverNow: now},
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'historical-maintenance-asset-changed'},
+    });
+  });
+
+  test('a furnace whose identity moved on is still refused', async () => {
+    const store = new MemoryWorkflowStore();
+    const {service, admin} = await historyOn(store, {version: 4});
+
+    await expect(service.execute(
+      historicalMaintenanceCommand(),
+      {actor: admin, serverNow: now},
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'historical-maintenance-asset-changed'},
+    });
+  });
+
   test('generic plan status cannot bypass governed template assignment', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceClass(store);
