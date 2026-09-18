@@ -148,6 +148,7 @@ const CREATE_TICKET_FIELDS = [
   "qualityWarningReason",
 ] as const;
 const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
+const CONTINUES_ISSUE_FIELD = "continuesIssueId";
 const PLANT_CONDITION_EFFECT_FIELD = "plantConditionEffect";
 const LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD =
   "issueLaneCompletionEvidence";
@@ -2120,6 +2121,75 @@ const writeAudit = (args: {
   return id;
 };
 
+/**
+ * A concern closed administratively while it explicitly remains relevant is a
+ * true record of a decision that was made, and it stays that way. When the work
+ * finally becomes practical, the plant needs somewhere to do it: this is that
+ * route. A new issue continues the concern, carries its own dates, assignee and
+ * technical resolution, and names what it continues so the two read as one
+ * story.
+ *
+ * What it deliberately does not do: reopen the closed record, relabel an
+ * administrative closure as a repair, or end the original's relevance. That
+ * last is the original's own decision, taken through its own administrative
+ * route when whoever owns it is satisfied.
+ */
+async function assertContinuesRetainedConcern(args: {
+  readonly tx: WorkflowTransaction;
+  readonly continuesIssueId: string;
+  readonly assetType: unknown;
+  readonly assetNumber: unknown;
+}): Promise<void> {
+  const {tx, continuesIssueId} = args;
+  const original = await tx.get(maintenancePath(continuesIssueId));
+  const data = original.data ?? {};
+  if (!original.exists || data.isDeleted === true ||
+      data.status !== "closedWithoutResolution" ||
+      data.issueClosureSchemaVersion !== 1 ||
+      data.issueClosureDisposition !== "stillRelevant") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an issue closed administratively while it remains relevant can be continued.",
+      {
+        reasonCode: "maintenance-ticket-continuation-not-retained",
+        continuesIssueId,
+      },
+    );
+  }
+  // The continuation is about the same physical thing, or it is separate work
+  // and should be raised as such.
+  if (data.assetType !== args.assetType ||
+      data.assetNumber !== args.assetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A continuation must be about the same physical subject as the concern it continues.",
+      {
+        reasonCode: "maintenance-ticket-continuation-subject-changed",
+        continuesIssueId,
+      },
+    );
+  }
+  // One open continuation at a time, so the same retained concern cannot be
+  // worked twice over.
+  const existing = await tx.query("maintenance_records", [
+    {field: CONTINUES_ISSUE_FIELD, op: "==", value: continuesIssueId},
+  ]);
+  const open = existing.find((row) => {
+    const rowData = row.data ?? {};
+    return rowData.isDeleted !== true && rowData.isResolved !== true;
+  });
+  if (open != null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This concern already has work open against it.",
+      {
+        reasonCode: "maintenance-ticket-successor-already-open",
+        continuesIssueId,
+      },
+    );
+  }
+}
+
 export const createMaintenanceTicket = async ({
   tx,
   command,
@@ -2151,6 +2221,10 @@ export const createMaintenanceTicket = async ({
     input,
     PLANT_CONDITION_EFFECT_FIELD,
   );
+  const hasContinuedIssue = Object.prototype.hasOwnProperty.call(
+    input,
+    CONTINUES_ISSUE_FIELD,
+  );
   const hasLegacyEmptyCompletionEvidence =
     hasLegacyEmptyLaneCompletionEvidence(input);
   exactKeys(
@@ -2158,6 +2232,7 @@ export const createMaintenanceTicket = async ({
     burner ? [...CREATE_TICKET_FIELDS,
       ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
       ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
       ...CREATE_BURNER_FIELDS,
       ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
       ...(hasLegacyEmptyCompletionEvidence ?
@@ -2166,6 +2241,7 @@ export const createMaintenanceTicket = async ({
       stuckup ? [...CREATE_TICKET_FIELDS,
         ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
         ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
         ...CREATE_STUCKUP_FIELDS,
         ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
         ...(hasLegacyEmptyCompletionEvidence ?
@@ -2174,6 +2250,7 @@ export const createMaintenanceTicket = async ({
         [...CREATE_TICKET_FIELDS,
           ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
           ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
           ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
           ...(hasLegacyEmptyCompletionEvidence ?
             [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
@@ -2584,6 +2661,14 @@ export const createMaintenanceTicket = async ({
     qualityImpactAssessment: input.qualityImpactAssessment as string,
     qualityWarningReason,
     ...(hasQualityAbnormalityType ? {qualityAbnormalityTypeId} : {}),
+    // Named only when this issue continues a retained concern, so an ordinary
+    // issue keeps exactly the shape it has always had.
+    ...(hasContinuedIssue ? {
+      [CONTINUES_ISSUE_FIELD]: cleanText(
+        input[CONTINUES_ISSUE_FIELD],
+        CONTINUES_ISSUE_FIELD,
+      ),
+    } : {}),
     qualityAbnormalityId,
     qualityWarningId: suspected ? warningId : null,
     chargeQualityCaseId: suspected ? `issue_${command.aggregateId}` : null,
@@ -2650,6 +2735,17 @@ export const createMaintenanceTicket = async ({
     );
   }
   await requireVacantAudit(tx, command.commandId);
+  if (hasContinuedIssue) {
+    await assertContinuesRetainedConcern({
+      tx,
+      continuesIssueId: cleanText(
+        input[CONTINUES_ISSUE_FIELD],
+        CONTINUES_ISSUE_FIELD,
+      ),
+      assetType: input.assetType,
+      assetNumber: input.assetNumber,
+    });
+  }
   let stuckupCaseId: string | null = null;
   if (stuckup) {
     stuckupCaseId = command.aggregateId;
