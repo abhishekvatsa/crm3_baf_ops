@@ -1254,12 +1254,72 @@ function sameEquipmentIdentity(
     left.assetInstanceVersion === right.assetInstanceVersion;
 }
 
+/**
+ * The physical subject a legacy-shaped assignment names.
+ *
+ * An older request carries only an asset type and number. Admitting a fresh one
+ * without resolving that pair against the register let new work be assigned to
+ * an asset the plant does not have, or one already retired, while the same
+ * request carrying explicit governed identity was refused. Accepted requests
+ * are unaffected: a replay is answered from its receipt before this runs.
+ */
+async function requireLegacyAssignmentTarget(
+  db: AssignmentFirestoreLike,
+  request: ParsedAssignmentRequest,
+): Promise<void> {
+  const legacyKey = expectedPhysicalLegacyClassKey(request);
+  if (legacyKey == null) return;
+  const activeRows = (
+    snapshot: AssignmentQuerySnapshotLike,
+  ): AssignmentDocumentSnapshotLike[] => queryDocs(snapshot).filter((row) => {
+    const data = row.data() ?? {};
+    return data.status === "active" && data.isDeleted !== true;
+  });
+  const classRows = activeRows(
+    await db.collection("asset_classes")
+      .where("legacyAssetTypeKey", "==", legacyKey).get(),
+  );
+  if (classRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "No single active governed asset class matches this assignment type.",
+      {
+        reasonCode: "assignment-legacy-asset-class-unresolved",
+        legacyAssetTypeKey: legacyKey,
+      },
+    );
+  }
+  const assetClassId = assertDocumentId(
+    classRows[0].id,
+    "asset class document ID",
+  );
+  const instanceRows = activeRows(
+    await db.collection("asset_instances")
+      .where("assetClassId", "==", assetClassId)
+      .where("assetNumber", "==", request.assetNumber)
+      .get(),
+  );
+  if (instanceRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "This asset is not a single active entry in the plant register. " +
+      "Select the asset again so the assignment carries its governed identity.",
+      {
+        reasonCode: "assignment-legacy-asset-not-registered",
+        legacyAssetTypeKey: legacyKey,
+        assetNumber: request.assetNumber,
+      },
+    );
+  }
+}
+
 async function resolveAssignmentEquipmentIdentity(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
 ): Promise<AssignmentEquipmentIdentity> {
   const hasRequestedGovernedIdentity = request.assetClassId != null;
   if (!hasRequestedGovernedIdentity && request.assetType !== "governedCustom") {
+    await requireLegacyAssignmentTarget(db, request);
     return legacyAssignmentEquipmentIdentity(request);
   }
   const versionSnapshot = await db

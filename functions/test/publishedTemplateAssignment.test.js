@@ -171,6 +171,34 @@ function assetInstanceFixture(overrides = {}) {
   };
 }
 
+// A legacy-shaped assignment names an asset type and number, and the register
+// has to hold that asset for the work to be admitted.
+function baseClassFixture(overrides = {}) {
+  return {
+    assetClassId: "base-class",
+    code: "BASE",
+    name: "Base",
+    legacyAssetTypeKey: "base",
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
+function baseInstanceFixture(overrides = {}) {
+  return {
+    assetInstanceId: "base-101",
+    assetClassId: "base-class",
+    assetNumber: 101,
+    name: "Base 101",
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
 function assetClassFixture(overrides = {}) {
   return {
     assetClassId: "annealing-car-class",
@@ -211,8 +239,8 @@ function fakeAssignmentDb({
   audits = [auditFixture()],
   equipmentData = null,
   workflows = [],
-  assetClasses = [assetClassFixture()],
-  assetInstances = [assetInstanceFixture()],
+  assetClasses = [assetClassFixture(), baseClassFixture()],
+  assetInstances = [assetInstanceFixture(), baseInstanceFixture()],
   innerCoverAssignments = [],
   innerCoverProfiles = [],
   maintenancePlans = [],
@@ -461,6 +489,37 @@ describe("published TemplateVersion server assignment", () => {
         reasonCode: 'assignment-source-plan-identity-incomplete',
       }),
     }));
+  });
+
+  test.each([
+    ["an asset the register does not hold", []],
+    ["an asset the register has retired", [
+      baseInstanceFixture({status: "retired"}),
+    ]],
+  ])("a fresh legacy-shaped assignment is refused for %s", async (
+    _label, baseInstances,
+  ) => {
+    const {db, writes} = fakeAssignmentDb({
+      assetInstances: [assetInstanceFixture(), ...baseInstances],
+    });
+
+    // The older request shape carries only an asset type and number. The same
+    // request with explicit governed identity is already refused; admitting it
+    // without resolving the register let new work be assigned to an asset the
+    // plant does not have.
+    await expect(assignPublishedTemplateVersionWithDb({
+      db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    })).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: expect.objectContaining({
+        reasonCode: "assignment-legacy-asset-not-registered",
+        assetNumber: 101,
+      }),
+    });
+    expect(writes).toHaveLength(0);
   });
 
   test("creates canonical execution, frozen module, and idempotency receipt atomically", async () => {
