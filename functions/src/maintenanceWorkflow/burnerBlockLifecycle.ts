@@ -422,9 +422,14 @@ const physicalActionKey = (data: JsonMap): string | null =>
     sourceActionId: data.sourceActionId,
     assetInstanceId: data.assetInstanceId ?? null,
     burnerPosition: data.burnerPosition ?? null,
-    actionPerformedAt: data.actionPerformedAt ?? null,
   });
 
+/**
+ * The claim two references make about one physical action. The time it was
+ * performed is evidence about the action, not part of its name: keeping it in
+ * the identity meant a reference that contradicted the time was filed as a
+ * second action instead of being caught as a contradiction.
+ */
 const sameLifecycleClaim = (left: JsonMap, right: JsonMap): boolean => {
   const comparable = (data: JsonMap): string => stableJson(
     Object.fromEntries(

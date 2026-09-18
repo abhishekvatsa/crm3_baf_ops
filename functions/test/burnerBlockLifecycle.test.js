@@ -546,6 +546,42 @@ describe('burner-block lifecycle projection', () => {
     expect(plan.currentStates).toHaveLength(1);
   });
 
+  test('one action claimed at two different times is a contradiction', async () => {
+    const store = seedStore();
+
+    // The time an action was performed is evidence about it, not part of its
+    // name, so a second reference claiming a different time contradicts the
+    // first rather than describing another installation.
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-1',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [
+          {
+            sourceModuleId: null,
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([action()]),
+          },
+          {
+            sourceModuleId: 'module-1',
+            discipline: 'mechanical',
+            actionsJson: JSON.stringify([
+              action({createdAt: '2026-08-28T07:15:00.000Z'}),
+            ]),
+          },
+        ],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'burner-block-lifecycle-action-conflict'},
+    });
+  });
+
   test('one action described two ways in one closure is refused', async () => {
     const store = seedStore();
 
