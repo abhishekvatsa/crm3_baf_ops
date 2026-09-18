@@ -161,20 +161,6 @@ export interface MorningReviewSourceFact {
   readonly assetInstanceId: string | null;
   readonly assetNumber: string | null;
   readonly observedAtIso: string | null;
-  /**
-   * Whether the source module says its evidence has to be reviewed before
-   * anything else settles it. An inspection finding whose only adverse
-   * reading was later corrected keeps this marker: technical verification
-   * cannot substitute for reviewing the corrected basis. Facts from other
-   * sources carry false and null.
-   */
-  readonly evidenceReviewRequired: boolean;
-  readonly evidenceReviewReason: string | null;
-  /**
-   * How many adverse observations survive in the episode, as distinct from
-   * the historical recurrence counter that schema-1 clients still read.
-   */
-  readonly effectiveAdverseObservationCount: number | null;
 }
 
 export interface MorningReviewSourceCapture {
@@ -1160,14 +1146,12 @@ function sourceFact(args: {
     assetInstanceId: identity.assetInstanceId,
     assetNumber: identity.assetNumber,
     observedAtIso: observedAt?.toISOString() ?? null,
-    // Carried, not re-derived. The originating module decided this, and a
-    // management snapshot that drops it turns a finding needing adjudication
-    // into an ordinary item awaiting verification.
-    evidenceReviewRequired: data.evidenceReviewRequired === true,
-    evidenceReviewReason: boundedDisplay(data.evidenceReviewReason, 120),
-    effectiveAdverseObservationCount:
-      typeof data.effectiveAdverseObservationCount === "number" ?
-        data.effectiveAdverseObservationCount : null,
+    // The qualifier reaches the manager through the summary above rather than
+    // as its own fields. The installed client reads a source fact with an
+    // exact field set and refuses any Morning Review schema but 1, so an
+    // additive field here would stop it reading the very session that carries
+    // the finding. Carrying it as structured data waits for a client that can
+    // read it; the reader that tolerates it is already in this branch.
   };
 }
 

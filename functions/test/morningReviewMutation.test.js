@@ -926,30 +926,32 @@ describe('Morning Review governed lifecycle', () => {
 
     const corrected = capture.facts.find((fact) =>
       fact.factId === 'inspection_findings/finding-corrected');
-    expect(corrected).toMatchObject({
-      status: 'awaitingVerification',
-      evidenceReviewRequired: true,
-      evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
-      effectiveAdverseObservationCount: 0,
-    });
-    // It must also read as different from an ordinary awaiting-verification
-    // item in the frozen prose, because that is what a manager reads.
+    expect(corrected).toMatchObject({status: 'awaitingVerification'});
+    // It reads as different from an ordinary awaiting-verification item in the
+    // frozen prose, which is what a manager reads, and the recurrence counter
+    // a correction leaves standing at one is not offered as evidence.
     expect(corrected.summary).toContain('Evidence review required');
     expect(corrected.summary).not.toContain('Observed 1 times');
 
     const standing = capture.facts.find((fact) =>
       fact.factId === 'inspection_findings/finding-standing');
-    expect(standing).toMatchObject({
-      evidenceReviewRequired: false,
-      evidenceReviewReason: null,
-      effectiveAdverseObservationCount: 2,
-    });
     expect(standing.summary).toContain('Observed 2 times');
     expect(standing.summary).not.toContain('Evidence review required');
   });
 
-  test('a fact from another source carries no inspection qualifier', async () => {
-    const memory = fakeDb(baseSeed());
+  test('the frozen fact keeps the shape the installed client reads', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+    });
 
     const capture = await collectMorningReviewSourceFacts({
       db: memory.db,
@@ -957,12 +959,16 @@ describe('Morning Review governed lifecycle', () => {
       capturedAt: meetingTime,
     });
 
-    const other = capture.facts.find((fact) =>
-      fact.sourceCollection !== 'inspection_findings');
-    expect(other).toBeDefined();
-    expect(other.evidenceReviewRequired).toBe(false);
-    expect(other.evidenceReviewReason).toBeNull();
-    expect(other.effectiveAdverseObservationCount).toBeNull();
+    // The installed client reads a source fact with an exact field set and
+    // refuses any Morning Review schema but 1. An additive field here would
+    // stop it reading the very session that carries this finding.
+    for (const fact of capture.facts) {
+      expect(Object.keys(fact).sort()).toEqual([
+        'assetClassId', 'assetClassName', 'assetInstanceId', 'assetNumber',
+        'factId', 'observedAtIso', 'section', 'sourceCollection',
+        'sourceDocumentId', 'sourceType', 'status', 'summary', 'title',
+      ]);
+    }
   });
 
   test('bounds incomplete-source markers for existing client readers', async () => {
