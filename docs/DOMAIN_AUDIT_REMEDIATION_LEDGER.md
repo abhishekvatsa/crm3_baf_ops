@@ -140,7 +140,7 @@ the rows marked otherwise have been checked against the current source.
 | R-06 retired subjects and definitions lack a historical-entry or amendment route (11) | listed, unverified | Reads as the same family as the correction question below. |
 | R-07 a deliberately empty active catalogue can return embedded suggestions again (16, knowledge) | listed, unverified | |
 | R-08 an accepted knowledge update can fail before its audit is recorded (16) | listed, unverified | |
-| R-09 a stale local diary draft can replace a newer stored revision (16, job diary) | listed, unverified | Reads as the same family as D04-05, now repaired. |
+| R-09 a stale local diary draft can replace a newer stored revision (16, job diary) | **repaired** (client) | The writer read the stored entry only to take an audit snapshot, then put the whole object over it with the version already advanced, so an edit opened against an older revision was written back under a newer number and the work it never saw was gone without a word. The read is now the precondition for the write, inside the transaction that writes: a save advances the entry only if the store still holds the revision it was opened against, and otherwise is refused with a message that says the note is still on screen. A removed or withdrawn entry is not recreated by a save. The web writer had the same shape and is corrected through a transaction. Same family as D04-05. |
 | R-10 recovery of an existing review proof is coupled to its original reviewer (17) | listed, unverified | |
 
 
