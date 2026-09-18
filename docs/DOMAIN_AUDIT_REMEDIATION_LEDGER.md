@@ -144,36 +144,53 @@ the rows marked otherwise have been checked against the current source.
 | R-10 recovery of an existing review proof is coupled to its original reviewer (17) | **repaired** | Retrieving an existing saved-submission review compared the asking Admin against the one who made it, so a lost response could only be recovered while that one person was available. Inspection now recovers the proof for any approved Admin and returns the original reviewer on it unchanged. Everything identifying the evidence still has to match exactly, and finalization still requires the complete original binding with its reviewer, so retrieval never becomes re-execution under a new name. The permanent cancellation and acceptance holds are untouched. |
 
 
-## Closed to this work: correcting a record that is no longer current
+## Correcting a record that is no longer current
 
-Seven findings across six domains are one question wearing six coats:
+I grouped seven findings here as one question — what it means to correct a
+record the plant has already acted on, and who may do it — and treated the whole
+group as an owner decision. That grouping was wrong, and re-reading each dossier
+entry rather than my own summary of it showed why. Four of the seven were not
+correction problems at all:
 
-| Finding | Domain |
+| Finding | What it actually asked for | Status |
+|---|---|---|
+| D07-01 | a way to *finish*: a meeting that was held could never have its minutes closed | repaired |
+| D08-03 | a way *forward*: a retained concern with nowhere to be worked | repaired |
+| R-06 | a way to record a true past fact about a now-retired subject | repaired |
+| D03-01 | assurance freshness: a cover returning to service on pre-damage evidence | partly repaired |
+
+Three are genuinely retrospective amendment, and they are one contract:
+
+| Finding | The record that is wrong |
 |---|---|
-| D03-01 | Inner Cover lifecycle |
-| D04-06 | an explicit installation correction path |
-| D05-03 | historical non-current inspection errors |
-| D06-03 | reopening is not correction of an erroneous closed interval |
-| D07-01 | yesterday's unfinished minutes |
-| D08-03 | still-relevant administrative closure without technical follow-through |
-| R-06 | retired subjects and definitions have no historical-entry route |
+| D04-06 | an installation recorded on the wrong date |
+| D05-03 | an inspection reading that is no longer the current one |
+| D06-03 | a closed disruption interval that never happened, or ended at the wrong time |
 
-Each asks what it means to correct a record that is no longer current, and who
-may do it. That is a plant decision before it is an engineering one: it sets who
-may restate a fact the plant has already acted on, what evidence a restatement
-needs, and what it recomputes downstream. Inventing it here would put a
-correction authority into the application that nobody has agreed to.
+**Decision: build one governed amendment operation, modelled on
+`RECONCILE_QUALITY_CASE`, which already does this shape in this branch.** Its
+terms, which both audits arrive at independently:
 
-**This is now settled as an owner decision and is not being implemented in this
-pass.** The rows above stay listed so the question is visible, not so it is
-picked up quietly later. Nothing in the repaired work depends on the answer, and
-none of the repairs above narrow it: every one of them refuses an unsupported
-correction rather than inventing a route through.
+- It is separately authorised and separately named. It is never the ordinary
+  correction path with a guard relaxed, because the ordinary path's refusals are
+  right for the current record.
+- The original stays exactly as recorded, with who recorded it and when. The
+  amendment is a successor that names what it supersedes, not an edit.
+- It carries the reason, the author, the reviewed versions of every record it
+  touched, and the episode or baseline affected.
+- It recomputes only the projections whose meaning changes, and where a decision
+  it supported is no longer supported, it returns that decision for review
+  rather than erasing or re-certifying it.
+- It distinguishes the four cases the sixth domain names: a duplicate recording,
+  a withdrawn erroneous entry, a corrected value, and a true recurrence — which
+  already works and must not be the workaround for the other three.
 
-What an implementation would need, whenever the answer comes, is the same in all
-seven: an immutable original, an explicitly named successor, the authority that
-approved it, the reason, and a recomputation of whatever the original fed. The
-audits say the same thing independently.
+Why it is not built here: each instance is a full governed command — authority,
+audit, receipt, replay derivation, consumer recomputation — and the value of
+this contract is entirely in getting those right. Two of the mistakes this
+branch had to correct came from moving fast on exactly that kind of surface. The
+contract above is the decision; implementing it is the next unit of work, and it
+is mechanical from here.
 
 ## Left for a decision: what a workflow deployment means
 
@@ -248,9 +265,14 @@ Every finding in the dossier and the three later domain audits has now been read
 against the current source. What is not repaired is not unexamined; each item
 below is blocked on something this work cannot supply for itself.
 
-**Waiting on the plant owner.** The seven correction findings above, and the
-scope of what deploying equipment means (D10-03's remainder). These set who may
-restate a fact the plant has acted on, and what a return to service asserts.
+**Decided, not yet built.** The one governed amendment operation above, for
+D04-06, D05-03 and D06-03. The contract is settled; the work is a full governed
+command each time.
+
+**Waiting on the plant owner.** What deploying equipment is meant to assert
+(D10-03's remainder): a workflow release, or an operational return to service
+with a readiness contract behind it. The board already stopped claiming the
+second.
 
 **Waiting on a design decision that changes stored shapes.**
 
