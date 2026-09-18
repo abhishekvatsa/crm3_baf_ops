@@ -755,6 +755,123 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
   return {events, currentStates};
 };
 
+/**
+ * Correcting an installation time that was written down wrong.
+ *
+ * An ordinary replacement recorded with the wrong date cannot be put right by
+ * recording another replacement: a later entry is another physical event, and
+ * correct ordering leaves the mistaken date current while the truth sits in
+ * history. Using the "revised" disposition for this is the same thing wearing
+ * a different label - it is another replacement, not a correction, and the
+ * commissioning brief asks for the two to stay apart.
+ *
+ * So a correction is its own event. It names the event it replaces and says
+ * why, the original stays exactly as it was recorded, and what is installed
+ * now is rebuilt from the evidence that survives. That rebuild is the reason
+ * this cannot reuse the ordinary write plan: the ordinary plan only ever moves
+ * the projection forward, and a corrected date can move it back - to an
+ * earlier replacement that was the true one all along.
+ */
+export const prepareBurnerBlockInstallationCorrection = async (args: {
+  readonly tx: WorkflowTransaction;
+  readonly eventId: string;
+  readonly actionPerformedAt: unknown;
+  readonly reason: unknown;
+  readonly correctedBy: {readonly uid: string | null; readonly name: string};
+  readonly recordedAt: unknown;
+  readonly correctionId: string;
+}): Promise<BurnerBlockLifecycleWritePlan> => {
+  const reason = requiredText(args.reason, "reason");
+  const correctedAt = parseInstant(
+    args.actionPerformedAt,
+    "actionPerformedAt",
+  );
+  const recordedAt = parseInstant(args.recordedAt, "recordedAt");
+  const original = await args.tx.get(
+    `burner_block_lifecycle_events/${args.eventId}`,
+  );
+  if (!original.exists || original.data == null ||
+      original.data.isDeleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "That burner-block lifecycle event was not found.",
+      {reasonCode: "burner-block-lifecycle-event-unknown", eventId: args.eventId},
+    );
+  }
+  const assetInstanceId = requiredText(
+    original.data.assetInstanceId,
+    "current.assetInstanceId",
+  );
+  const burnerPosition = positiveInteger(
+    original.data.burnerPosition,
+    "current.burnerPosition",
+  );
+  const siblings = await args.tx.query("burner_block_lifecycle_events", [
+    {field: "assetInstanceId", op: "==", value: assetInstanceId},
+    {field: "burnerPosition", op: "==", value: burnerPosition},
+  ]);
+  const surviving = siblings
+    .map((row) => row.data)
+    .filter((data): data is JsonMap => data != null && data.isDeleted !== true);
+  if (surviving.some((data) => data.correctsEventId === args.eventId)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "That event has already been corrected. Correct the correction instead.",
+      {
+        reasonCode: "burner-block-lifecycle-already-corrected",
+        eventId: args.eventId,
+      },
+    );
+  }
+  const correction: JsonMap = {
+    ...original.data,
+    eventId: args.correctionId,
+    correctsEventId: args.eventId,
+    correctionReason: reason,
+    actionPerformedAt: correctedAt,
+    recordedAt,
+    completedByUid: args.correctedBy.uid,
+    completedByName: args.correctedBy.name,
+    version: 1,
+  };
+  const events = [{
+    path: `burner_block_lifecycle_events/${args.correctionId}`,
+    data: correction,
+  }];
+  // Rebuilt from every surviving event for this position, the correction
+  // included, so the answer does not depend on which way the date moved.
+  const supersededIds = new Set(
+    [...surviving, correction]
+      .map((data) => data.correctsEventId)
+      .filter((value): value is string => typeof value === "string"),
+  );
+  let winner: JsonMap | null = null;
+  for (const data of [...surviving, correction]) {
+    if (supersededIds.has(String(data.eventId))) continue;
+    if (winner == null || isLaterLifecycleData(data, winner)) winner = data;
+  }
+  if (winner == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Correcting this event would leave the position with no installation.",
+      {reasonCode: "burner-block-lifecycle-correction-empties-position"},
+    );
+  }
+  const projectionId = currentStateId(assetInstanceId, burnerPosition);
+  return {
+    events,
+    currentStates: [{
+      path: `burner_block_lifecycle_current/${projectionId}`,
+      data: {
+        ...winner,
+        projectionSchemaVersion: 1,
+        projectionId,
+        currentEventId: winner.eventId,
+      },
+    }],
+  };
+};
+
 export const applyBurnerBlockLifecycleWritePlan = (
   tx: WorkflowTransaction,
   plan: BurnerBlockLifecycleWritePlan,

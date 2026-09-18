@@ -2,6 +2,7 @@
 
 const {
   applyBurnerBlockLifecycleWritePlan,
+  prepareBurnerBlockInstallationCorrection,
   prepareBurnerBlockLifecycleWritePlan,
 } = require('../lib/maintenanceWorkflow/burnerBlockLifecycle');
 const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
@@ -927,5 +928,130 @@ describe('burner-block lifecycle projection', () => {
       code: 'failed-precondition',
       details: {reasonCode: 'burner-block-lifecycle-mechanical-work-required'},
     });
+  });
+});
+
+describe('correcting a mistaken installation time', () => {
+  function currentOf(store) {
+    const entry = store.entries().find(([entryPath]) =>
+      entryPath.startsWith('burner_block_lifecycle_current/'));
+    return entry == null ? null : entry[1];
+  }
+
+  function eventsOf(store) {
+    return store.entries()
+      .filter(([entryPath]) =>
+        entryPath.startsWith('burner_block_lifecycle_events/'))
+      .map(([, data]) => data);
+  }
+
+  async function correct(store, overrides = {}) {
+    const events = eventsOf(store);
+    return store.runTransaction(async (tx) => {
+      const plan = await prepareBurnerBlockInstallationCorrection({
+        tx,
+        eventId: events[0].eventId,
+        actionPerformedAt: '2026-08-10T08:00:00.000Z',
+        reason: 'The register shows the block was fitted on the 10th, not the 12th.',
+        correctedBy: actor,
+        recordedAt: '2026-08-29T09:00:00.000Z',
+        correctionId: 'correction-1',
+        ...overrides,
+      });
+      applyBurnerBlockLifecycleWritePlan(tx, plan);
+      return plan;
+    });
+  }
+
+  test('the corrected time becomes current and the original is kept', async () => {
+    const store = seedStore();
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    const original = eventsOf(store)[0];
+
+    await correct(store);
+
+    // The original event is exactly as it was recorded. It is what somebody
+    // entered, and the correction does not pretend otherwise.
+    const kept = eventsOf(store).find((data) =>
+      data.eventId === original.eventId);
+    expect(kept).toMatchObject({
+      actionPerformedAt: '2026-08-12T08:00:00.000Z',
+      isDeleted: false,
+    });
+
+    // The correction names what it replaces and carries its reason.
+    const correction = eventsOf(store).find((data) =>
+      data.correctsEventId === original.eventId);
+    expect(correction).toMatchObject({
+      actionPerformedAt: '2026-08-10T08:00:00.000Z',
+      correctionReason:
+        'The register shows the block was fitted on the 10th, not the 12th.',
+      burnerPosition: original.burnerPosition,
+    });
+
+    // What is installed now is rebuilt from the surviving evidence, and a
+    // correction that moves the date earlier still wins over what it replaced.
+    expect(currentOf(store)).toMatchObject({
+      currentEventId: correction.eventId,
+      actionPerformedAt: '2026-08-10T08:00:00.000Z',
+    });
+  });
+
+  test('a correction restores an earlier installation as current', async () => {
+    const store = seedStore();
+    // Two replacements at the same position. The later one was entered with
+    // the wrong date and is actually the earlier work.
+    await prepare(store, action({id: 'a', createdAt: '2026-08-10T08:00:00.000Z'}));
+    await prepare(store, action({id: 'b', createdAt: '2026-08-12T08:00:00.000Z'}), {
+      sourceId: 'execution-2',
+      completedAt: '2026-08-12T09:00:00.000Z',
+      recordedAt: '2026-08-12T09:00:00.000Z',
+    });
+    const later = eventsOf(store).find((data) =>
+      data.actionPerformedAt === '2026-08-12T08:00:00.000Z');
+    expect(currentOf(store).currentEventId).toBe(later.eventId);
+
+    await correct(store, {
+      eventId: later.eventId,
+      actionPerformedAt: '2026-08-08T08:00:00.000Z',
+    });
+
+    // With the mistaken date corrected backwards, the block fitted on the 10th
+    // is what is installed now. The projection has to be able to go back.
+    expect(currentOf(store)).toMatchObject({
+      actionPerformedAt: '2026-08-10T08:00:00.000Z',
+    });
+  });
+
+  test('a correction needs its reason', async () => {
+    const store = seedStore();
+    await prepare(store);
+    const before = store.entries();
+
+    await expect(correct(store, {reason: '   '})).rejects.toThrow();
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('an event that was already corrected is not corrected again', async () => {
+    const store = seedStore();
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    const original = eventsOf(store)[0];
+    await correct(store);
+
+    await expect(correct(store, {correctionId: 'correction-2'}))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'burner-block-lifecycle-already-corrected'},
+      });
+    expect(original.eventId).toBeDefined();
+  });
+
+  test('an unknown event cannot be corrected', async () => {
+    const store = seedStore();
+    await prepare(store);
+
+    await expect(correct(store, {eventId: 'no-such-event'}))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'burner-block-lifecycle-event-unknown'},
+      });
   });
 });
