@@ -161,6 +161,20 @@ export interface MorningReviewSourceFact {
   readonly assetInstanceId: string | null;
   readonly assetNumber: string | null;
   readonly observedAtIso: string | null;
+  /**
+   * Whether the source module says its evidence has to be reviewed before
+   * anything else settles it. An inspection finding whose only adverse
+   * reading was later corrected keeps this marker: technical verification
+   * cannot substitute for reviewing the corrected basis. Facts from other
+   * sources carry false and null.
+   */
+  readonly evidenceReviewRequired: boolean;
+  readonly evidenceReviewReason: string | null;
+  /**
+   * How many adverse observations survive in the episode, as distinct from
+   * the historical recurrence counter that schema-1 clients still read.
+   */
+  readonly effectiveAdverseObservationCount: number | null;
 }
 
 export interface MorningReviewSourceCapture {
@@ -930,12 +944,22 @@ function inspectionFindingSourceProjection(
     });
   const component = boundedDisplay(data.componentName, 120) ??
     boundedDisplay(data.physicalPosition, 120);
+  // The effective count describes the evidence that survives; the legacy
+  // recurrence counter stays readable for schema-1 clients but is not what a
+  // manager should be told, because a corrected adverse basis leaves it
+  // standing at 1 while nothing adverse remains.
+  const effectiveAdverse =
+    typeof data.effectiveAdverseObservationCount === "number" ?
+      data.effectiveAdverseObservationCount :
+      (data.recurrenceCount as number);
+  const evidenceReviewRequired = data.evidenceReviewRequired === true;
   const details = [
     identityLabel,
     data.physicalPosition == null ? null :
       `Position: ${boundedDisplay(data.physicalPosition, 100)}`,
-    (data.recurrenceCount as number) > 1 ?
-      `Observed ${data.recurrenceCount} times` : null,
+    evidenceReviewRequired ?
+      "Evidence review required before verification" :
+      effectiveAdverse > 1 ? `Observed ${effectiveAdverse} times` : null,
     data.linkedTicketId == null ? null :
       `Corrective ticket: ${boundedDisplay(data.linkedTicketId, 100)}`,
   ].filter((value): value is string => value != null);
@@ -1136,6 +1160,14 @@ function sourceFact(args: {
     assetInstanceId: identity.assetInstanceId,
     assetNumber: identity.assetNumber,
     observedAtIso: observedAt?.toISOString() ?? null,
+    // Carried, not re-derived. The originating module decided this, and a
+    // management snapshot that drops it turns a finding needing adjudication
+    // into an ordinary item awaiting verification.
+    evidenceReviewRequired: data.evidenceReviewRequired === true,
+    evidenceReviewReason: boundedDisplay(data.evidenceReviewReason, 120),
+    effectiveAdverseObservationCount:
+      typeof data.effectiveAdverseObservationCount === "number" ?
+        data.effectiveAdverseObservationCount : null,
   };
 }
 

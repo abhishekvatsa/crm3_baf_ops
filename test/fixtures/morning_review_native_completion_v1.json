@@ -12,7 +12,10 @@
     "assetClassName": "Furnace",
     "assetInstanceId": "furnace-7",
     "assetNumber": "7",
-    "observedAtIso": "2026-08-30T03:00:00.000Z"
+    "observedAtIso": "2026-08-30T03:00:00.000Z",
+    "evidenceReviewRequired": false,
+    "evidenceReviewReason": null,
+    "effectiveAdverseObservationCount": null
   },
   "entry": {
     "schemaVersion": 1,

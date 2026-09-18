@@ -889,6 +889,82 @@ describe('Morning Review governed lifecycle', () => {
     expect(capture.sourceCollectionsAtLimit).toContain('inspection_findings');
   });
 
+  test('a corrected adverse basis survives into the morning snapshot', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      // The inspection module raised this finding and its only adverse
+      // reading was then corrected to an in-range value. The module keeps
+      // saying that technical verification cannot substitute for reviewing
+      // the corrected basis; the manager reading the minutes has to see it.
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 1,
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+      'inspection_findings/finding-standing': inspectionFinding(
+        'finding-standing',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 2,
+          effectiveAdverseObservationCount: 2,
+          evidenceReviewRequired: false,
+          evidenceReviewReason: null,
+        },
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    const corrected = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-corrected');
+    expect(corrected).toMatchObject({
+      status: 'awaitingVerification',
+      evidenceReviewRequired: true,
+      evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+      effectiveAdverseObservationCount: 0,
+    });
+    // It must also read as different from an ordinary awaiting-verification
+    // item in the frozen prose, because that is what a manager reads.
+    expect(corrected.summary).toContain('Evidence review required');
+    expect(corrected.summary).not.toContain('Observed 1 times');
+
+    const standing = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-standing');
+    expect(standing).toMatchObject({
+      evidenceReviewRequired: false,
+      evidenceReviewReason: null,
+      effectiveAdverseObservationCount: 2,
+    });
+    expect(standing.summary).toContain('Observed 2 times');
+    expect(standing.summary).not.toContain('Evidence review required');
+  });
+
+  test('a fact from another source carries no inspection qualifier', async () => {
+    const memory = fakeDb(baseSeed());
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    const other = capture.facts.find((fact) =>
+      fact.sourceCollection !== 'inspection_findings');
+    expect(other).toBeDefined();
+    expect(other.evidenceReviewRequired).toBe(false);
+    expect(other.evidenceReviewReason).toBeNull();
+    expect(other.effectiveAdverseObservationCount).toBeNull();
+  });
+
   test('bounds incomplete-source markers for existing client readers', async () => {
     const seed = baseSeed();
     const longId = 'x'.repeat(241);
