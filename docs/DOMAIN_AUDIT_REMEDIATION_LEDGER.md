@@ -144,6 +144,37 @@ the rows marked otherwise have been checked against the current source.
 | R-10 recovery of an existing review proof is coupled to its original reviewer (17) | listed, unverified | |
 
 
+## Closed to this work: correcting a record that is no longer current
+
+Seven findings across six domains are one question wearing six coats:
+
+| Finding | Domain |
+|---|---|
+| D03-01 | Inner Cover lifecycle |
+| D04-06 | an explicit installation correction path |
+| D05-03 | historical non-current inspection errors |
+| D06-03 | reopening is not correction of an erroneous closed interval |
+| D07-01 | yesterday's unfinished minutes |
+| D08-03 | still-relevant administrative closure without technical follow-through |
+| R-06 | retired subjects and definitions have no historical-entry route |
+
+Each asks what it means to correct a record that is no longer current, and who
+may do it. That is a plant decision before it is an engineering one: it sets who
+may restate a fact the plant has already acted on, what evidence a restatement
+needs, and what it recomputes downstream. Inventing it here would put a
+correction authority into the application that nobody has agreed to.
+
+**This is now settled as an owner decision and is not being implemented in this
+pass.** The rows above stay listed so the question is visible, not so it is
+picked up quietly later. Nothing in the repaired work depends on the answer, and
+none of the repairs above narrow it: every one of them refuses an unsupported
+correction rather than inventing a route through.
+
+What an implementation would need, whenever the answer comes, is the same in all
+seven: an immutable original, an explicitly named successor, the authority that
+approved it, the reason, and a recomputation of whatever the original fed. The
+audits say the same thing independently.
+
 ## Left for a decision: what a workflow deployment means
 
 D10-03's remaining part is not a defect with a correct repair, it is a question
