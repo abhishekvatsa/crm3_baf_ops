@@ -1073,7 +1073,9 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     "componentName", "hierarchyPath", "physicalPosition", "observedAt", "value",
     "unit", "operatingConditions", "chargeNo", "note", "evidenceUrls",
     "supersedesObservationId",
-  ], ["targetKey", "targetContextRevision"], "payload");
+  ], [
+    "targetKey", "targetContextRevision", "historicalAmendmentReason",
+  ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const [campaign, existingObservation, superseded] = await Promise.all([
@@ -1336,12 +1338,41 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       "A correction must retain the original inspected target and definition.",
     );
   }
-  if (superseded?.data != null &&
-      governedTarget.lastObservationId !== superseded.data.observationId) {
+  // Correcting the reading that currently certifies a target is ordinary work
+  // and keeps every guard that belongs to it. A reading that is no longer
+  // current is a different thing: leaving a known error in it with no way out
+  // is what the ordinary refusal used to do, and inventing a fresh physical
+  // reading to get around that is worse. An amendment says explicitly that it
+  // is one, and says why, and is otherwise held to the same rules - including
+  // the safeguard that stops a correction reaching into an earlier terminal
+  // episode, which is applied further down and is not relaxed here.
+  const amendmentReason = command.payload.historicalAmendmentReason == null ?
+    null : cleanText(
+      command.payload.historicalAmendmentReason,
+      "historicalAmendmentReason",
+    );
+  const correctsCurrentReading = superseded?.data != null &&
+    governedTarget.lastObservationId === superseded.data.observationId;
+  if (superseded?.data != null && amendmentReason == null &&
+      !correctsCurrentReading) {
     throw new WorkflowError(
       "failed-precondition",
-      "Only the current certified reading can be corrected.",
+      "Only the current certified reading can be corrected. Amending an earlier reading needs a stated reason.",
       {reasonCode: "inspection-correction-not-current", targetKey},
+    );
+  }
+  if (amendmentReason != null && correctsCurrentReading) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This reading is the current one, so correct it through the ordinary route rather than as an amendment.",
+      {reasonCode: "inspection-amendment-reading-is-current", targetKey},
+    );
+  }
+  if (amendmentReason != null && superseded?.data == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "An amendment must name the earlier reading it replaces.",
+      {reasonCode: "inspection-amendment-without-original", targetKey},
     );
   }
   const distinct = Array.isArray(campaign.data.distinctTargetKeys) ?
@@ -1495,6 +1526,11 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     evidenceUrls: stringList(command.payload.evidenceUrls, "evidenceUrls", 20, 1000),
     supersedesObservationId: superseded?.data == null ? null :
       documentId(command.payload.supersedesObservationId, "supersedesObservationId"),
+    // Present only on an amendment, so an ordinary reading and an ordinary
+    // correction keep exactly the shape they have always had.
+    ...(amendmentReason == null ? {} : {
+      historicalAmendmentReason: amendmentReason,
+    }),
     baselineCampaignId,
     baselineObservationId: baselineObservation?.observationId ?? null,
     comparisonOutcome,

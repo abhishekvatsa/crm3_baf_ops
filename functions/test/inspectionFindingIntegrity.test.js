@@ -15,6 +15,13 @@ async function setup() {
     if (replaces) command.payload.supersedesObservationId = replaces;
     return run(command, who);
   };
+  const amend = (id, minute, value, replaces, reason, who = actor) => {
+    const command = observation({commandId: id, observationId: id, expectedVersion: campaign().version,
+      observedAt: `2026-08-21T${minute}:00.000Z`, numericValue: value});
+    command.payload.supersedesObservationId = replaces;
+    command.payload.historicalAmendmentReason = reason;
+    return run(command, who);
+  };
   const finding = (id = 'inspection-finding-first') => store.read(`inspection_findings/${id}`);
   const adjudicate = (id, findingId, status, who = actor) => run({commandId: id,
     commandType: 'adjudicateInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
@@ -23,7 +30,7 @@ async function setup() {
     commandType: 'verifyInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
     payload: {findingId, expectedFindingVersion: finding(findingId).version, observationId, outcome,
       reason: 'Certify only effective surviving physical evidence.'}});
-  return {store, run, campaign, read, finding, adjudicate, verify, secondActor};
+  return {store, run, campaign, read, amend, finding, adjudicate, verify, secondActor};
 }
 
 test('PBA01: earlier correction preserves later adverse current evidence and refuses false resolution', async () => {
@@ -347,3 +354,67 @@ test.each(['missing-parent', 'cycle', 'branched-correction', 'wrong-physical-sub
     await expect(f.verify('refuse-corrupt-history', 'healthy')).rejects.toMatchObject({code: 'failed-precondition'});
     expect(f.store.entries()).toEqual(before);
   });
+
+test('a reading that is no longer current can be amended with a stated reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+
+  // The first reading was written down wrong. It is not the current one, so
+  // the ordinary correction path refuses it - and refusing it leaves a known
+  // error in the record with no way out.
+  await expect(f.read('ordinary-attempt', '05:20', 3, 'first')).rejects.toMatchObject({
+    details: {reasonCode: 'inspection-correction-not-current'}});
+
+  await f.amend('amendment', '04:50', 3, 'first',
+    'The 04:50 reading was transcribed from the wrong gauge.');
+
+  // The original stays exactly as it was recorded.
+  expect(f.store.read('inspection_observations/first')).toMatchObject({
+    observationId: 'first', numericValue: 1.8});
+  expect(f.store.read('inspection_observations/amendment')).toMatchObject({
+    supersedesObservationId: 'first',
+    historicalAmendmentReason: 'The 04:50 reading was transcribed from the wrong gauge.',
+    numericValue: 3,
+  });
+});
+
+test('an amendment still needs its reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+  const before = f.store.entries();
+
+  await expect(f.amend('unexplained', '04:50', 3, 'first', '   '))
+    .rejects.toMatchObject({code: 'invalid-argument'});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('amending the current reading is the ordinary correction, not an amendment', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  const before = f.store.entries();
+
+  // The ordinary path already handles this, and it carries the guards that
+  // belong to a current reading. An amendment must not be a way around them.
+  await expect(f.amend('wrong-route', '04:50', 3, 'first', 'Mistyped the value.'))
+    .rejects.toMatchObject({
+      details: {reasonCode: 'inspection-amendment-reading-is-current'}});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('an amendment cannot reach into an earlier terminal episode', async () => {
+  const f = await setup();
+  await f.read('first', '05:10', 1.8);
+  await f.adjudicate('terminal-first', 'inspection-finding-first', 'acceptedCondition');
+  await f.read('second', '05:20', 1.7);
+  await f.read('third', '05:30', 1.6);
+  const before = f.store.entries();
+
+  // 'first' belongs to a terminal episode and is no longer current, so this is
+  // an amendment by every test. The safeguard that stops a correction merging
+  // histories is not relaxed by stating a reason.
+  await expect(f.amend('reaches-back', '05:00', 3, 'first', 'Wrong gauge.'))
+    .rejects.toMatchObject({code: 'failed-precondition'});
+  expect(f.store.entries()).toEqual(before);
+});
