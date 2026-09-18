@@ -15,7 +15,7 @@ export type PersistedObjectListPayload = {
   readonly rows: readonly Record<string, unknown>[];
 };
 
-const FIELD_KEY_ALIASES = [
+export const FIELD_KEY_ALIASES = [
   "key",
   "fieldKey",
   "fieldId",

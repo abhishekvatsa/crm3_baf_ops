@@ -1990,6 +1990,134 @@ describe("published TemplateVersion server assignment", () => {
     });
     expect(duplicateFieldDb.writes).toHaveLength(0);
 
+    // A module that carries its own field list and is also named by a global
+    // required reading describes the same module twice. The materialiser took
+    // the embedded list and the reading disappeared, so the job could be
+    // closed and attested without it.
+    const shadowedRequiredVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {key: "notes", label: "Notes", type: "text", isRequired: false},
+          ],
+        },
+      ]),
+    });
+    shadowedRequiredVersion.contentHash = computeTemplateVersionContentHash(
+      shadowedRequiredVersion,
+    );
+    const shadowedRequiredDb = fakeAssignmentDb({
+      versionData: shadowedRequiredVersion,
+      audits: [auditFixture({afterHash: shadowedRequiredVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: shadowedRequiredDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: shadowedRequiredVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(shadowedRequiredDb.writes).toHaveLength(0);
+
+    // The same two representations agreeing is not a conflict: the embedded
+    // list carries the reading, and may add fields of its own.
+    const agreeingEmbeddedVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              moduleCode: "M-01",
+              type: "number",
+              isRequired: true,
+            },
+            {key: "notes", label: "Notes", type: "text", isRequired: false},
+          ],
+        },
+      ]),
+    });
+    agreeingEmbeddedVersion.contentHash = computeTemplateVersionContentHash(
+      agreeingEmbeddedVersion,
+    );
+    const agreeingEmbeddedDb = fakeAssignmentDb({
+      versionData: agreeingEmbeddedVersion,
+      audits: [auditFixture({afterHash: agreeingEmbeddedVersion.contentHash})],
+    });
+    const agreed = await assignPublishedTemplateVersionWithDb({
+      db: agreeingEmbeddedDb.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: agreeingEmbeddedVersion.contentHash,
+      }),
+    });
+    expect(agreed.modules[0].fieldDefinitionsJson).toContain("vibration");
+
+    // A reading the embedded list keeps but downgrades is the same hazard
+    // wearing different clothes.
+    const downgradedRequiredVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              moduleCode: "M-01",
+              type: "number",
+              isRequired: false,
+            },
+          ],
+        },
+      ]),
+    });
+    downgradedRequiredVersion.contentHash = computeTemplateVersionContentHash(
+      downgradedRequiredVersion,
+    );
+    const downgradedRequiredDb = fakeAssignmentDb({
+      versionData: downgradedRequiredVersion,
+      audits: [
+        auditFixture({afterHash: downgradedRequiredVersion.contentHash}),
+      ],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: downgradedRequiredDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: downgradedRequiredVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(downgradedRequiredDb.writes).toHaveLength(0);
+
     const invalidFieldTypeVersion = versionFixture({
       fieldDefinitionsJson: JSON.stringify([
         {

@@ -4,6 +4,7 @@ import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {
   PersistedWorkPayloadError,
+  FIELD_KEY_ALIASES,
   readFieldDefinitionPayload,
 } from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
@@ -1597,6 +1598,76 @@ function fieldModuleCode(field: AssignmentJsonMap): string | null {
   ]);
 }
 
+/**
+ * Whether a field has to be answered, read exactly as the closure validator
+ * reads it: explicitly true, never by default.
+ */
+function fieldIsRequired(field: AssignmentJsonMap): boolean {
+  return field.required === true || field.isRequired === true;
+}
+
+function globalFieldsLinkedToModule(
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+): AssignmentJsonMap[] {
+  if (code == null || code.trim().length === 0) return [];
+  const normalizedCode = normalizeKey(code);
+  return bundle.fieldDefinitions.filter(
+    (field) => normalizeKey(fieldModuleCode(field)) === normalizedCode,
+  );
+}
+
+/**
+ * A published template can describe one module's fields in two places: a list
+ * embedded in the module, and the template's own field definitions linked back
+ * by module code. Both are the same template's account of the same module, so
+ * where they disagree the template does not say what has to be recorded.
+ *
+ * Taking the embedded list alone dropped a required global reading, and the
+ * job then closed and issued a closure attestation without it. Nothing is
+ * merged here to repair that: a module's two lists can legitimately describe
+ * alternative modes, and a union would materialise a module nobody published.
+ * Agreeing accounts are materialised exactly as before; a disagreement is
+ * refused before it takes effect, naming the field it is about.
+ */
+function assertEmbeddedFieldsAgree(
+  embedded: readonly AssignmentJsonMap[],
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+  source: string,
+): void {
+  const conflict = (field: string, message: string): never => {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `Module ${code ?? "unknown"} describes ${field} twice and the two ` +
+      `descriptions disagree: ${message}. Republish the template with one ` +
+      "account of this module's fields.",
+      {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: code ?? null,
+        field,
+        source,
+      },
+    );
+  };
+  for (const linked of globalFieldsLinkedToModule(bundle, code)) {
+    const key = stringFrom(linked, FIELD_KEY_ALIASES);
+    if (key == null) continue;
+    const normalizedKey = normalizeKey(key);
+    const embeddedField = embedded.find((entry) =>
+      normalizeKey(stringFrom(entry, FIELD_KEY_ALIASES)) === normalizedKey);
+    if (embeddedField == null) {
+      conflict(key, `the module's own ${source} omits it`);
+    } else if (fieldIsRequired(embeddedField) !== fieldIsRequired(linked)) {
+      conflict(
+        key,
+        `the module's own ${source} and the template disagree about ` +
+        "whether it has to be answered",
+      );
+    }
+  }
+}
+
 function fieldsForModule(
   bundle: ParsedSnapshotBundle,
   module: AssignmentJsonMap,
@@ -1615,7 +1686,10 @@ function fieldsForModule(
         `embedded ${key} for module ${code ?? "unknown"}`,
         true,
       );
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        return parsed;
+      }
     }
     if (Array.isArray(value)) {
       const parsed = value.map((entry, index) => {
@@ -1634,7 +1708,10 @@ function fieldsForModule(
         }
         return {...(entry as AssignmentJsonMap)};
       });
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        return parsed;
+      }
     }
   }
 
