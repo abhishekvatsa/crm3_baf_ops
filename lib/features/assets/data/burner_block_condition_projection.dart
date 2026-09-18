@@ -112,18 +112,25 @@ BurnerBlockConditionProjection projectBurnerBlockCondition({
   );
 }
 
+// What is installed now is what was installed last, physically. A report
+// entered late about earlier work is history, not a correction of what came
+// after it, and reading it as current brought back red-hot and melted-UV
+// evidence a later replacement had cleared. This is the order the backend uses
+// to decide the same thing, and the current state it stores is authoritative:
+// physical action time, then the time the work was recorded, then the event's
+// own identity so the answer never depends on delivery order.
 bool _isLaterReplacement(
   BurnerBlockLifecycleEvent candidate,
   BurnerBlockLifecycleEvent current,
 ) {
-  final recordedComparison = candidate.recordedAt.compareTo(
-    current.recordedAt,
-  );
-  if (recordedComparison != 0) return recordedComparison > 0;
   final performedComparison = candidate.actionPerformedAt.compareTo(
     current.actionPerformedAt,
   );
   if (performedComparison != 0) return performedComparison > 0;
+  final recordedComparison = candidate.recordedAt.compareTo(
+    current.recordedAt,
+  );
+  if (recordedComparison != 0) return recordedComparison > 0;
   return candidate.eventId.compareTo(current.eventId) > 0;
 }
 
@@ -131,13 +138,13 @@ bool _isLaterUvReplacement(
   UvDetectorLifecycleEvent candidate,
   UvDetectorLifecycleEvent current,
 ) {
-  final recordedComparison = candidate.recordedAt.compareTo(
-    current.recordedAt,
-  );
-  if (recordedComparison != 0) return recordedComparison > 0;
   final performedComparison = candidate.actionPerformedAt.compareTo(
     current.actionPerformedAt,
   );
   if (performedComparison != 0) return performedComparison > 0;
+  final recordedComparison = candidate.recordedAt.compareTo(
+    current.recordedAt,
+  );
+  if (recordedComparison != 0) return recordedComparison > 0;
   return candidate.eventId.compareTo(current.eventId) > 0;
 }
