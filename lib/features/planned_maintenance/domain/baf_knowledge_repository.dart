@@ -25,6 +25,40 @@ import '../../../core/serialization/tolerant_snapshot_decode.dart';
 /// that is short-lived screen state rather than governed plant knowledge.
 enum BafKnowledgeSource { cloud, isarCache, staticFallback }
 
+/// What an empty active knowledge catalogue actually means.
+///
+/// "No active rows" is two different situations, and the embedded safety
+/// baseline is the right answer to one of them and the wrong answer to the
+/// other. A device that has never been given a catalogue needs the baseline to
+/// have anything at all. A catalogue whose rows the plant has withdrawn is
+/// empty on purpose, and substituting the baseline there would put a withdrawn
+/// rule back in front of someone as current guidance.
+enum BafKnowledgeCatalogueState {
+  /// No rows of any status: this device has never held a catalogue.
+  neverInitialised,
+
+  /// Rows exist and none is active: the catalogue was emptied deliberately.
+  governedEmpty,
+
+  /// At least one active row.
+  populated,
+}
+
+/// Which of those situations the local store is in.
+///
+/// [storedRowCount] counts rows of every status, including retired, archived
+/// and deleted ones, because their existence is what says a catalogue was ever
+/// here. [activeRowCount] counts only the rows that are current guidance.
+BafKnowledgeCatalogueState bafKnowledgeCatalogueState({
+  required int storedRowCount,
+  required int activeRowCount,
+}) {
+  if (activeRowCount > 0) return BafKnowledgeCatalogueState.populated;
+  return storedRowCount > 0
+      ? BafKnowledgeCatalogueState.governedEmpty
+      : BafKnowledgeCatalogueState.neverInitialised;
+}
+
 class BafKnowledgeMatrixMeta {
   final String matrixVersion;
   final String sourceLabel;
@@ -69,6 +103,24 @@ class BafKnowledgeMatrixMeta {
       note: cloudUnavailable
           ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
           : 'Using embedded safety baseline.',
+    );
+  }
+
+  /// Every governed row has been withdrawn. That is a decision the plant
+  /// made, not a source that failed, so it is described as itself rather than
+  /// as a fallback, and it carries no rows.
+  factory BafKnowledgeMatrixMeta.governedEmpty() {
+    return const BafKnowledgeMatrixMeta(
+      matrixVersion: BafKnowledgeLayer.matrixVersion,
+      sourceLabel: BafKnowledgeLayer.sourceLabel,
+      source: 'isarCache',
+      knowledgeRowCount: 0,
+      tagRowCount: 0,
+      isStaticFallback: false,
+      note:
+          'Every knowledge row has been withdrawn by governance. The embedded '
+          'baseline is not substituted for a catalogue that was deliberately '
+          'emptied.',
     );
   }
 
@@ -184,17 +236,33 @@ class BafKnowledgeRepository {
     var local = await _loadFromIsar();
     if (local.entries.isNotEmpty) return local;
 
+    // Seeding is first-use only - the seed itself refuses to run over an
+    // existing catalogue - so after it, an empty active set still has to be
+    // read for what it is.
     await seedStaticFallbackIntoLocal();
     local = await _loadFromIsar();
-    if (local.entries.isNotEmpty) return local;
-
-    return BafKnowledgeBundle(
-      entries: BafKnowledgeLayer.entries,
-      meta: BafKnowledgeMatrixMeta.staticFallback(
-        cloudUnavailable: preferCloud,
-      ),
-      source: BafKnowledgeSource.staticFallback,
+    final state = bafKnowledgeCatalogueState(
+      storedRowCount: await _rows!.count(),
+      activeRowCount: local.entries.length,
     );
+    switch (state) {
+      case BafKnowledgeCatalogueState.populated:
+        return local;
+      case BafKnowledgeCatalogueState.governedEmpty:
+        return BafKnowledgeBundle(
+          entries: const <BafKnowledgeEntry>[],
+          meta: BafKnowledgeMatrixMeta.governedEmpty(),
+          source: BafKnowledgeSource.isarCache,
+        );
+      case BafKnowledgeCatalogueState.neverInitialised:
+        return BafKnowledgeBundle(
+          entries: BafKnowledgeLayer.entries,
+          meta: BafKnowledgeMatrixMeta.staticFallback(
+            cloudUnavailable: preferCloud,
+          ),
+          source: BafKnowledgeSource.staticFallback,
+        );
+    }
   }
 
   Stream<List<BafKnowledgeEntry>> watchKnowledgeRows() {
@@ -212,12 +280,21 @@ class BafKnowledgeRepository {
               .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
               .toList()
             ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
-      if (activeRows.isEmpty) {
-        await seedStaticFallbackIntoLocal();
-        final seeded = await _rows!.where().findAll();
-        return _entriesFromRows(seeded);
+      final state = bafKnowledgeCatalogueState(
+        storedRowCount: rows.length,
+        activeRowCount: activeRows.length,
+      );
+      switch (state) {
+        case BafKnowledgeCatalogueState.populated:
+          return _entriesFromRows(activeRows);
+        case BafKnowledgeCatalogueState.governedEmpty:
+          // Withdrawn rows are not guidance, and the baseline is not a
+          // substitute for a catalogue somebody emptied on purpose.
+          return const <BafKnowledgeEntry>[];
+        case BafKnowledgeCatalogueState.neverInitialised:
+          await seedStaticFallbackIntoLocal();
+          return _entriesFromRows(await _rows!.where().findAll());
       }
-      return _entriesFromRows(activeRows);
     });
   }
 
