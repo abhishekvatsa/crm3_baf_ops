@@ -230,7 +230,8 @@ describe("notification event receipts", () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
     // The interrupted send is reported once when it is detected, and again
     // when it is seen still unresolved. Nobody has established whether the
-    // alert reached anyone, so a later observation must not pass quietly.
+    // alert reached anyone, so a later observation must not pass quietly, and
+    // both reports name the attempt that actually owned the dispatch.
     expect(reportDeliveryUncertain).toHaveBeenCalledTimes(2);
     expect(reportDeliveryUncertain).toHaveBeenNthCalledWith(1, {
       receiptId: notificationEventReceiptId(
@@ -247,7 +248,7 @@ describe("notification event receipts", () => {
         identity.cloudEventId,
       ),
       ...identity,
-      attemptId: "attempt-2",
+      attemptId: "attempt-1",
       phase: "prior-dispatch-unresolved",
     });
     const receipt = h.get(

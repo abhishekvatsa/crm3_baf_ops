@@ -285,10 +285,13 @@ async function acquireReceipt(
       }
       if (existing.status === "dispatching" ||
           existing.status === "deliveryUncertain") {
+        // The unresolved dispatch belongs to the attempt that committed it.
+        // Naming this observation's fresh attempt would point the signal at
+        // an attempt that never owned or performed the send.
         return {
           kind: "skipped",
           receiptId,
-          attemptId,
+          attemptId: existing.attemptId,
           reason: "delivery-uncertain",
         };
       }
