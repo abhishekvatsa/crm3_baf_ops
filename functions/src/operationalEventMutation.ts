@@ -1048,6 +1048,28 @@ export async function mutateOperationalEventWithDb(args: {
           },
         );
       }
+      // A link's identity is derived from the occurrence start, so correcting
+      // the start leaves every existing link stored under an identity nothing
+      // can reach again: the association is neither current nor relinkable,
+      // and the event goes on listing it. The correction is held while links
+      // exist, naming them, so nobody strands one by correcting a time. The
+      // route through is to review those links first. A durable occurrence
+      // identity that survives a corrected start is the larger repair and is
+      // recorded as still open.
+      const storedStart = timestampDate(current.startedAt);
+      if (links.length > 0 &&
+          (storedStart == null ||
+            storedStart.getTime() !== Date.parse(draft.startedAtIso))) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "start time. Review those links before correcting the start.",
+          {
+            reasonCode: "operational-event-start-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
     }
     const version = currentVersion + 1;
     let next: JsonMap;

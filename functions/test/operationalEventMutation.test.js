@@ -711,6 +711,59 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('correcting the start is held while issues are linked', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    // A link's identity is derived from the occurrence start. Correcting the
+    // start would leave every existing link stored under an identity nothing
+    // can reach again, so the association is neither current nor relinkable.
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the start time after reviewing the log.',
+      eventDraft: {
+        ...request().eventDraft,
+        startedAt: '2026-08-14T11:15:00.000Z',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'operational-event-start-change-linked-issues',
+      }),
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('correcting the start commits when nothing is linked', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: [],
+        linkedIssueIds: [],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the start time after reviewing the log.',
+      eventDraft: {
+        ...request().eventDraft,
+        startedAt: '2026-08-14T11:15:00.000Z',
+      },
+    })).resolves.toMatchObject({ok: true});
+  });
+
   test('a correction that leaves the scope alone still commits', async () => {
     const memory = fakeDb({
       ...baseSeed(),
@@ -731,14 +784,22 @@ describe('operational event mutation', () => {
         description: 'Incoming supply was lost across the annealing shop line.',
       },
     })).resolves.toMatchObject({ok: true});
+    // A correction that touches neither the scope nor the start leaves every
+    // link exactly as it was.
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      issueLinkIds: ['event_issue_existing'],
+      linkedIssueIds: ['maintenance_issue_existing'],
+    });
   });
 
   test('audit snapshots preserve every corrected operational field', async () => {
+    // No links: correcting a start is held while any exist, because a link's
+    // identity is derived from it. The subject here is the audit snapshot.
     const memory = fakeDb({
       ...baseSeed(),
       [`operational_events/${IDS.event}`]: persistedEvent({
-        issueLinkIds: ['event_issue_existing'],
-        linkedIssueIds: ['maintenance_issue_existing'],
+        issueLinkIds: [],
+        linkedIssueIds: [],
       }),
     });
     await invoke(memory, 'ops-1', {
@@ -764,10 +825,6 @@ describe('operational event mutation', () => {
         description: 'Incoming power remained unstable across the BAF shop.',
         startedAt: new Date('2026-08-14T09:45:00.000Z'),
       },
-    });
-    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
-      issueLinkIds: ['event_issue_existing'],
-      linkedIssueIds: ['maintenance_issue_existing'],
     });
   });
 
