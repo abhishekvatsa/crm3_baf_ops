@@ -321,14 +321,26 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       final repo = ref.read(templateGovernanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       final package = await _ensurePackageSaved(repo, actor);
-      final nextVersionNumber =
-          _workingDraft == null
-              ? await _nextAvailableVersionNumber(repo, package)
-              : null;
+      final nextVersionNumber = await _nextAvailableVersionNumber(
+        repo,
+        package,
+      );
       final version = _buildDraftVersion(
         package,
         versionNumberOverride: nextVersionNumber,
       );
+      // A draft keeps its own number while it is a draft. Publishing makes it
+      // the package's active version, and the governed store requires a
+      // package's active version to be its latest one, so a draft resumed
+      // after another version was published takes a new number here rather
+      // than one that would leave a package no synchronization can accept.
+      final numbering = templatePublicationNumbering(
+        draftVersionNumber: version.versionNumber,
+        latestPublishedVersionNumber: package.latestVersionNumber,
+        nextAvailableVersionNumber: nextVersionNumber,
+      );
+      final resumedVersionNumber = version.versionNumber;
+      version.versionNumber = numbering.versionNumber;
 
       await repo.publishVersion(
         version,
@@ -345,23 +357,32 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
               );
 
       if (!mounted) return;
-      if (version.versionNumber > package.latestVersionNumber) {
-        package.latestVersionNumber = version.versionNumber;
-      }
+      package.latestVersionNumber = numbering.latestVersionNumber;
       package.activeVersionFirestoreId = version.firestoreId;
       _selectedPackage = package;
       _selectedPackageId = package.firestoreId;
+      final renumbered =
+          numbering.renumbered
+              ? ' The resumed v$resumedVersionNumber draft was published as '
+                  'v${version.versionNumber}: a package is published forwards, '
+                  'and v$resumedVersionNumber is behind its history.'
+              : '';
       final (message, color) = switch (syncOutcome) {
         SyncRequestOutcome.succeeded => (
-          'Published and synchronized ${package.packageCode} v${version.versionNumber}.',
+          'Published and synchronized ${package.packageCode} '
+          'v${version.versionNumber}.$renumbered',
           BafColors.sync,
         ),
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-          '${package.packageCode} v${version.versionNumber} is saved as published on this device; governed synchronization is queued.',
+          '${package.packageCode} v${version.versionNumber} is saved as '
+          'published on this device; governed synchronization is '
+          'queued.$renumbered',
           BafColors.warning,
         ),
         SyncRequestOutcome.failed => (
-          '${package.packageCode} v${version.versionNumber} is saved as published on this device, but governed cloud synchronization needs attention.',
+          '${package.packageCode} v${version.versionNumber} is saved as '
+          'published on this device, but governed cloud synchronization '
+          'needs attention.$renumbered',
           BafColors.danger,
         ),
       };

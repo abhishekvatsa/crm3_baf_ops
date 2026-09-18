@@ -113,18 +113,36 @@ Chapter SRC-12 of the dossier.
 
 ## Domains 09 and 10 — templates and assignment; equipment condition
 
-Chapters SRC-13 and SRC-14. Only D10-01 has been verified against the current source and repaired; the rest are listed from the dossier and are **not yet checked at HEAD**, which is stated here rather than implied.
+Chapters SRC-13 and SRC-14. Every finding in these two domains has now been checked against the current source; each row says what was found and what was done about it.
 
 | Finding | Status | Note |
 |---|---|---|
 | D10-01 current component-on-asset issues are rejected by the condition linker | **repaired** | The third place this application refused a record it produced itself. Linking a maintenance issue as condition evidence read only the older reference schemas, so the component-on-asset reference the maintenance producer writes for an ordinary component issue looked like a different or malformed asset. The reference is now read by the contract that produced it, and the checks binding it to this very asset — instance, class and number — are unchanged. |
 | D09-01 a fresh legacy-shaped assignment can bypass the physical asset register | **repaired** | An older request shape carries only an asset type and number, and admitting a fresh one skipped the register lookup the governed path performs, so new work could be assigned to an asset the plant does not have or one already retired — while the same request carrying explicit identity was refused. A fresh legacy-shaped request now resolves that pair to a single active register entry or is refused with an actionable compatibility reason. Replays are untouched: an accepted request is answered from its receipt before this runs, and the shipped client always sends governed identity, so this path serves only older submissions. The unit and emulator fixtures that assigned to an unregistered asset were corrected rather than the rule weakened. |
-| D09-02 embedded module fields can hide a required reading and still yield closure attestation | listed, unverified | |
-| D09-03 publishing a resumed older draft can create a pointer current Rules reject | listed, unverified | |
+| D09-02 embedded module fields can hide a required reading and still yield closure attestation | **repaired** | A published template can describe one module's fields twice: embedded in the module, and in the template's own definitions linked back by module code. Materialisation took any non-empty embedded list and stopped, so a module whose embedded list held only optional text dropped the required reading linked to it, and the job closed and issued a closure attestation without it. Nothing is merged to fix this — a module's two lists can legitimately describe alternative modes, and a union would materialise a module nobody published. Agreeing accounts materialise exactly as before; a disagreement, whether the reading is missing or its required flag differs, is refused at assignment, naming the field. The required flag is read as the closure validator reads it, and the field key through the producer's own alias contract rather than a second copy of it. |
+| D09-03 publishing a resumed older draft can create a pointer current Rules reject | **repaired** (client) | The governed store requires a package's active version to be its latest one. A draft resumed after another version was published kept its own older number, and publishing it left the package active on that older version while the counter stayed where it was — a package the store refuses, so the publication could never synchronize while the device went on showing it as published. Publication is now monotonic: a draft not already beyond the published history is published under the next free number, and the package counter follows the version it points at. Nothing already published is renumbered, rewritten or deactivated, the draft keeps its own number while it is a draft, and the operator is told when a resumed draft was published under a new number. The rule is a small domain function with its own tests rather than arithmetic inside a screen, so the store's invariant is asserted directly. |
 | D10-02 asset retirement overlooks a concern that still affects Plant Condition | **repaired** | An issue closed administratively while explicitly still relevant is resolved in the lifecycle sense and not in the plant's: Plant Condition keeps counting it, but the retirement guard asked only whether the issue was unresolved, so the asset could be retired underneath it and the retained concern was left pointing at an asset no longer in the active population. Both sides read the same rule now — a concern still applies while it is open, or while its administrative closure says it remains relevant — and the query was widened to return those records at all, since a still-relevant closure is marked resolved. Ending the concern's relevance remains the supported way through, and the regression walks that route. |
-| D10-03 workflow deployment can say In Service while operational inhibitions remain | listed, unverified | |
+| D10-03 workflow deployment can say In Service while operational inhibitions remain | **partly repaired** | Two parts of this were repairable without an owner's decision. Deploying equipment whose register entry is administratively out of service is refused, matching the rule that already refuses an operational condition declaration on such an asset; only an explicit out-of-service entry refuses, so a missing or differently shaped asset row never turns a deployment into a failure for an unrelated record's sake. And the board no longer announces a return to service it did not adjudicate: the confirmation says the equipment is marked In Service on this board and that condition declarations and open issues are recorded separately and are not cleared by it. What remains is in the next section. |
 
 Chapters SRC-16 and SRC-17 cover domains 11 to 18 together and have not been read.
+
+## Left for a decision: what a workflow deployment means
+
+D10-03's remaining part is not a defect with a correct repair, it is a question
+about scope that belongs to the business and Safety owner, and the audit says so
+too. Deploying equipment either releases it from the maintenance workflow, or it
+is an operational return-to-service decision. If it is the first, the board
+should show the inhibitions that still stand beside the equipment so nobody
+reads the row as fitness. If it is the second, it needs a transactional,
+identity-bound readiness contract over the condition declarations, the register
+and the applicable issues, and the authority to make that call.
+
+Two things were deliberately not done while that is open. The equipment board
+was not wired to the composite plant state: that is a new data dependency on a
+live operator screen, and which inhibitions to show depends on which of the two
+meanings is chosen. And reconciliation was not changed to drop an existing
+In Service projection when an asset later goes out of service; nothing in the
+audit asks for it, and it would move a state rather than refuse a new one.
 
 ## A review of the repairs themselves
 
