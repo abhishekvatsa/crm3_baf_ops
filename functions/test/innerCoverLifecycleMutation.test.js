@@ -158,7 +158,11 @@ function registerRequest(overrides = {}) {
   };
 }
 
-function acceptRequest(innerCoverId = IDS.cover, expectedVersion = 1) {
+function acceptRequest(
+  innerCoverId = IDS.cover,
+  expectedVersion = 1,
+  inspectedOn = '2026-08-02T00:00:00.000Z',
+) {
   return {
     requestId: IDS.accept,
     operation: 'ACCEPT_INNER_COVER',
@@ -166,7 +170,7 @@ function acceptRequest(innerCoverId = IDS.cover, expectedVersion = 1) {
     expectedVersion,
     reason: 'Inspection and leak-test evidence are acceptable for service.',
     acceptanceDraft: {
-      inspectedOn: '2026-08-02T00:00:00.000Z',
+      inspectedOn,
       acceptanceReference: 'ACC-26',
       leakTestReference: 'LT-26',
       ndtReference: null,
@@ -174,6 +178,83 @@ function acceptRequest(innerCoverId = IDS.cover, expectedVersion = 1) {
     },
   };
 }
+
+describe('what a re-acceptance is allowed to rely on', () => {
+  function returnedForInspection(overrides = {}) {
+    return profile(IDS.cover, 'GR26', 'awaitingInspection', 4, {
+      // It was accepted on 2 August, went into service, and has since been
+      // through the event that brought it back for inspection.
+      acceptanceReference: 'ACC-GR26',
+      acceptedAt: new Date('2026-08-02T00:00:00.000Z'),
+      acceptedByUid: 'admin-1',
+      acceptedByName: 'Admin One',
+      ...overrides,
+    });
+  }
+
+  function acceptWith(inspectedOn, expectedVersion = 4) {
+    return {
+      ...acceptRequest(IDS.cover, expectedVersion),
+      acceptanceDraft: {
+        ...acceptRequest().acceptanceDraft,
+        inspectedOn,
+      },
+    };
+  }
+
+  test('an inspection from before the last acceptance cannot qualify it again',
+    async () => {
+      const memory = fakeDb({...seed(),
+        [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection()});
+
+      // The cover was repaired or found bulged after 2 August. An inspection
+      // dated 2 August saw none of that, so it cannot be what returns the
+      // cover to service.
+      await expect(invoke(memory, acceptWith('2026-08-02T00:00:00.000Z')))
+        .rejects.toMatchObject({
+          details: {reasonCode: 'inner-cover-acceptance-evidence-stale'},
+        });
+      expect(memory.writes).toHaveLength(0);
+    });
+
+  test('an inspection older still is refused for the same reason', async () => {
+    const memory = fakeDb({...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection()});
+
+    await expect(invoke(memory, acceptWith('2026-08-01T12:00:00.000Z')))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'inner-cover-acceptance-evidence-stale'},
+      });
+  });
+
+  test('a fresh inspection returns the cover to service', async () => {
+    const memory = fakeDb({...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection()});
+
+    await invoke(memory, acceptWith('2026-08-14T00:00:00.000Z'));
+
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        lifecycleState: 'available',
+        acceptedAt: new Date('2026-08-14T00:00:00.000Z'),
+      });
+  });
+
+  test('a cover that was never accepted is unaffected', async () => {
+    const memory = fakeDb({...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection({
+        acceptanceReference: null,
+        acceptedAt: null,
+        acceptedByUid: null,
+        acceptedByName: null,
+      })});
+
+    await invoke(memory, acceptWith('2026-08-02T00:00:00.000Z'));
+
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({lifecycleState: 'available'});
+  });
+});
 
 function linkRequest(innerCoverId = IDS.cover, expectedVersion = 2) {
   return {
@@ -488,7 +569,12 @@ describe('Inner Cover lifecycle mutation', () => {
     expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`)).toMatchObject({
       version: 4, lifecycleState: 'awaitingInspection', currentBaseAssetInstanceId: null,
     });
-    await invoke(memory, {...acceptRequest(IDS.cover, 4), requestId: IDS.replace});
+    await invoke(memory, {
+      // Re-accepted after the cover came back, on the inspection carried out
+      // for that return rather than the one that first qualified it.
+      ...acceptRequest(IDS.cover, 4, '2026-08-14T00:00:00.000Z'),
+      requestId: IDS.replace,
+    });
     await expect(invoke(memory, {
       ...linkRequest(IDS.cover, 5), requestId: IDS.donorSection,
     })).rejects.toMatchObject({details: {reasonCode: 'inner-cover-base-unavailable'}});
@@ -614,7 +700,10 @@ describe('Inner Cover lifecycle mutation', () => {
         code: 'failed-precondition',
         details: {reasonCode: 'inner-cover-not-available'},
       });
-    await invoke(memory, acceptRequest(IDS.cover, 4));
+    // The cover was retired as bulged and returned for a fresh fitness check.
+    // That check is what puts it back into service, so its inspection is dated
+    // after the bulging, not before it.
+    await invoke(memory, acceptRequest(IDS.cover, 4, '2026-08-14T00:00:00.000Z'));
     await invoke(memory, linkRequest(IDS.cover, 5));
     expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
       .toMatchObject({

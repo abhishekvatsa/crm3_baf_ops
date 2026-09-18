@@ -1793,6 +1793,27 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             "cannot predate receipt or fabrication completion",
           );
         }
+        // A cover comes back for acceptance because something happened to it:
+        // it was repaired, or found bulged and returned. The inspection that
+        // puts it back into service has to have seen that. Evidence from the
+        // acceptance it is replacing saw none of it, so re-accepting on the
+        // same or older inspection certifies nothing new - and the cover goes
+        // back under a Base qualified by a reading taken before the damage.
+        //
+        // The comparison is between two physical inspection dates, never
+        // recording times, so evidence entered late is unaffected.
+        const previouslyAcceptedAt = timestampMillis(current.acceptedAt);
+        if (previouslyAcceptedAt != null &&
+            acceptance.inspectedOn.getTime() <= previouslyAcceptedAt) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Inner Cover was already accepted on that evidence. A new acceptance needs an inspection carried out after the last one.",
+            {
+              reasonCode: "inner-cover-acceptance-evidence-stale",
+              previouslyAcceptedAt: new Date(previouslyAcceptedAt).toISOString(),
+            },
+          );
+        }
         const fabricationRef = fabrications.doc(request.innerCoverId);
         const fabrication = await transaction.get(fabricationRef);
         nextVersion = currentVersion + 1;
