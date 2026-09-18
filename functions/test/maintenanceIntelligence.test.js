@@ -484,6 +484,135 @@ describe('classified maintenance completion and planning', () => {
     });
   });
 
+  function planWithSource(sourceDueStateId, commandId = 'plan-source-1') {
+    return {
+      commandId,
+      commandType: 'upsertMaintenancePlan',
+      aggregateId: 'plan-furnace-7',
+      expectedVersion: 0,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 7,
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-7',
+        assetInstanceVersion: 3,
+        maintenanceClassDefinitionId: 'maintenance-class-furnace-mid',
+        maintenanceClassDefinitionVersion: 1,
+        targetWindowStart: '2026-08-25T02:00:00.000Z',
+        targetWindowEnd: '2026-08-25T10:00:00.000Z',
+        sourceDueStateId,
+        templatePackageId: null,
+        templateVersionId: null,
+        templateContentHash: null,
+        planningNotes: 'Planned against the counter that is due.',
+        reason: 'Plan from a due counter.',
+      },
+    };
+  }
+
+  async function plannedStore() {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const supervisor = seedActor(store, 'supervisor-1', ['shiftSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    return {store, service, supervisor};
+  }
+
+  test('a plan cannot name a due-state source that does not exist', async () => {
+    const {store, service, supervisor} = await plannedStore();
+
+    // The provenance a plan claims is read by whoever reviews the cadence
+    // later. An id nobody can resolve is not provenance.
+    await expect(service.execute(
+      planWithSource('mds_0000000000000000000000000000000000000000'),
+      {actor: supervisor, serverNow: now},
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'maintenance-plan-source-due-state-unknown'},
+    });
+    expect(store.read('maintenance_plans/plan-furnace-7')).toBeNull();
+  });
+
+  test('a plan cannot claim a counter its own class does not reset', async () => {
+    const {store, service, supervisor} = await plannedStore();
+    const {dueStatePath} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
+    const foreign = dueStatePath('class-furnace:furnace-7', 'SOME_OTHER_COUNTER');
+    store.seed(foreign, {
+      schemaVersion: 1,
+      dueStateId: foreign.split('/').at(-1),
+      assetIdentityKey: 'class-furnace:furnace-7',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-7',
+      counterKey: 'SOME_OTHER_COUNTER',
+    });
+
+    await expect(service.execute(
+      planWithSource(foreign.split('/').at(-1)),
+      {actor: supervisor, serverNow: now},
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'maintenance-plan-source-due-state-unknown'},
+    });
+  });
+
+  test('a plan cannot claim another asset\'s due counter', async () => {
+    const {store, service, supervisor} = await plannedStore();
+    const {dueStatePath} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
+    const otherAsset = dueStatePath('class-furnace:furnace-9', 'FURNACE_MID');
+    store.seed(otherAsset, {
+      schemaVersion: 1,
+      dueStateId: otherAsset.split('/').at(-1),
+      assetIdentityKey: 'class-furnace:furnace-9',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-9',
+      counterKey: 'FURNACE_MID',
+    });
+
+    await expect(service.execute(
+      planWithSource(otherAsset.split('/').at(-1)),
+      {actor: supervisor, serverNow: now},
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'maintenance-plan-source-due-state-unknown'},
+    });
+  });
+
+  test('a plan records the due counter it was actually raised from', async () => {
+    const {store, service, supervisor} = await plannedStore();
+    const {dueStatePath} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
+    const own = dueStatePath('class-furnace:furnace-7', 'FURNACE_MID');
+    store.seed(own, {
+      schemaVersion: 1,
+      dueStateId: own.split('/').at(-1),
+      assetIdentityKey: 'class-furnace:furnace-7',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-7',
+      counterKey: 'FURNACE_MID',
+      nextDueAt: '2026-08-20T00:00:00.000Z',
+    });
+
+    const receipt = await service.execute(
+      planWithSource(own.split('/').at(-1)),
+      {actor: supervisor, serverNow: now},
+    );
+
+    expect(receipt.resultKey).toBe('maintenance-plan-created');
+    expect(store.read('maintenance_plans/plan-furnace-7'))
+      .toMatchObject({sourceDueStateId: own.split('/').at(-1)});
+  });
+
+  test('a standalone plan still needs no due counter', async () => {
+    const {store, service, supervisor} = await plannedStore();
+
+    const receipt = await service.execute(
+      planWithSource(null),
+      {actor: supervisor, serverNow: now},
+    );
+
+    expect(receipt.resultKey).toBe('maintenance-plan-created');
+    expect(store.read('maintenance_plans/plan-furnace-7'))
+      .toMatchObject({sourceDueStateId: null});
+  });
+
   test('generic plan status cannot bypass governed template assignment', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceClass(store);

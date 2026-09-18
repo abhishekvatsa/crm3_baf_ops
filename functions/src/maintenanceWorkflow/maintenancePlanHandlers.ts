@@ -3,6 +3,7 @@ import {CommandHandler, HandlerArgs, HandlerResult} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
   assertMaintenanceClassApplies,
+  dueStatePath,
   parseFrozenMaintenanceClass,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
@@ -227,6 +228,32 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
     assetClassId: identity.assetClassId as string | null,
     assetInstanceId: identity.assetInstanceId as string | null,
   });
+  // A plan may say it was raised from a due counter. Whoever reviews the
+  // cadence later reads that as provenance, so it has to name a counter this
+  // asset actually has: one of the counters this plan's own maintenance class
+  // resets, on this plan's own asset, and one that exists. Planning without a
+  // source stays supported - not every plan comes from an overdue counter.
+  const sourceDueStateId = optionalDocumentId(
+    command.payload.sourceDueStateId,
+    "sourceDueStateId",
+  );
+  if (sourceDueStateId != null) {
+    const claimedPath = `maintenance_due_states/${sourceDueStateId}`;
+    const ownCounterPaths = classification.resetCounters.map((counter) =>
+      dueStatePath(identity.assetIdentityKey as string, counter.key));
+    const source = ownCounterPaths.includes(claimedPath) ?
+      await tx.get(claimedPath) : null;
+    if (source == null || !source.exists) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The named due-state source is not a counter this asset and maintenance class has. Plan without a source, or name the counter that is actually due.",
+        {
+          reasonCode: "maintenance-plan-source-due-state-unknown",
+          sourceDueStateId,
+        },
+      );
+    }
+  }
   const now = iso(context.serverNow);
   const nextVersion = currentVersion + 1;
   const after: JsonMap = {
@@ -245,7 +272,7 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
     maintenanceClassTitle: classification.title,
     targetWindowStart,
     targetWindowEnd,
-    sourceDueStateId: optionalDocumentId(command.payload.sourceDueStateId, "sourceDueStateId"),
+    sourceDueStateId,
     templatePackageId: packageId,
     templateVersionId: versionId,
     templateContentHash: contentHash,
