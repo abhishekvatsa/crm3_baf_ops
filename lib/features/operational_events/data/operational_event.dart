@@ -181,6 +181,7 @@ class OperationalEvent {
     required this.updatedByUid,
     required this.updatedByName,
     required this.lastMutationId,
+    this.isWithdrawn = false,
   });
 
   final String eventId;
@@ -208,6 +209,13 @@ class OperationalEvent {
   final String updatedByUid;
   final String updatedByName;
   final String lastMutationId;
+
+  /// Whether this entry was withdrawn as recorded in error - the same
+  /// disruption written down twice, or one that never happened. The interval
+  /// stays exactly as it was recorded, because it is evidence of what somebody
+  /// entered; what changes is that it no longer counts as a disruption.
+  /// Absent on every record written before the withdrawal route existed.
+  final bool isWithdrawn;
 
   bool get isOpen => status == OperationalEventStatus.open;
 
@@ -680,6 +688,16 @@ class OperationalEvent {
         field: 'lastMutationId',
         source: source,
       ),
+      // Absent on every record written before the withdrawal route existed,
+      // which reads as what it means: this entry was not withdrawn. A value
+      // that is present and not a boolean is a producer fault and fails closed.
+      isWithdrawn: map.containsKey('isWithdrawn')
+          ? readRequiredPersistedBool(
+            map['isWithdrawn'],
+            field: 'isWithdrawn',
+            source: source,
+          )
+          : false,
     );
   }
 }

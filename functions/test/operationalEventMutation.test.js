@@ -711,6 +711,133 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  function resolvedEvent(overrides = {}) {
+    return persistedEvent({
+      status: 'resolved',
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One',
+      resolutionNote: 'Supply restored.',
+      ...overrides,
+    });
+  }
+
+  function withdrawRequest(overrides = {}) {
+    return {
+      requestId: IDS.update,
+      operation: 'WITHDRAW_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Recorded twice by two shifts; this copy never happened.',
+      ...overrides,
+    };
+  }
+
+  test('an entry recorded by mistake is withdrawn without editing it', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    const result = await invoke(memory, 'ops-1', withdrawRequest());
+
+    expect(result).toMatchObject({ok: true});
+    const event = memory.store.get(`operational_events/${IDS.event}`);
+    // The interval is evidence of what was recorded and is not touched. What
+    // changes is whether it counts.
+    expect(event).toMatchObject({
+      status: 'resolved',
+      startedAt: new Date('2026-08-14T10:00:00.000Z'),
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      isWithdrawn: true,
+      withdrawalReason: 'Recorded twice by two shifts; this copy never happened.',
+      withdrawnByUid: 'ops-1',
+    });
+  });
+
+  test('a withdrawal is audited like any other governed change', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    await invoke(memory, 'ops-1', withdrawRequest());
+
+    const audit = memory.store.get(
+      `operational_event_audits/operational_event_${IDS.update}`,
+    );
+    expect(audit).toMatchObject({
+      reason: 'Recorded twice by two shifts; this copy never happened.',
+    });
+    // An event that was never withdrawn carries no withdrawal field at all,
+    // so its shape is exactly what it has always been.
+    expect(audit.before.isWithdrawn).toBeUndefined();
+    expect(audit.after).toMatchObject({isWithdrawn: true});
+  });
+
+  test('a withdrawn entry is not withdrawn twice', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'Already withdrawn once.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        withdrawnByName: 'Operations One',
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', withdrawRequest({
+      requestId: IDS.resolve,
+    }))).rejects.toMatchObject({
+      details: {reasonCode: 'operational-event-already-withdrawn'},
+    });
+  });
+
+  test('a withdrawn entry is not edited, resolved or reopened afterwards',
+    async () => {
+      const memory = fakeDb({
+        ...baseSeed(),
+        [`operational_events/${IDS.event}`]: resolvedEvent({
+          isWithdrawn: true,
+          withdrawalReason: 'Recorded twice.',
+          withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+          withdrawnByUid: 'ops-1',
+          withdrawnByName: 'Operations One',
+        }),
+      });
+
+      // Withdrawing says this entry does not describe anything. Reopening it
+      // would be the fake recurrence the whole route exists to avoid.
+      await expect(invoke(memory, 'ops-1', {
+        requestId: IDS.reopen,
+        operation: 'REOPEN_OPERATIONAL_EVENT',
+        eventId: IDS.event,
+        expectedVersion: 1,
+        reason: 'Trying to work a withdrawn entry.',
+      })).rejects.toMatchObject({
+        details: {reasonCode: 'operational-event-withdrawn'},
+      });
+    });
+
+  test('an ordinary event carries no withdrawal', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    await invoke(memory, 'ops-1', {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'It genuinely happened again.',
+    });
+
+    expect(memory.store.get(`operational_events/${IDS.event}`).isWithdrawn)
+      .toBeUndefined();
+  });
+
   test('correcting the start is held while issues are linked', async () => {
     const memory = fakeDb({
       ...baseSeed(),

@@ -28,7 +28,8 @@ export type OperationalEventOperation =
   | "CREATE_OPERATIONAL_EVENT"
   | "UPDATE_OPERATIONAL_EVENT"
   | "RESOLVE_OPERATIONAL_EVENT"
-  | "REOPEN_OPERATIONAL_EVENT";
+  | "REOPEN_OPERATIONAL_EVENT"
+  | "WITHDRAW_OPERATIONAL_EVENT";
 
 type EventType =
   | "water"
@@ -103,6 +104,7 @@ const OPERATIONS = new Set<OperationalEventOperation>([
   "UPDATE_OPERATIONAL_EVENT",
   "RESOLVE_OPERATIONAL_EVENT",
   "REOPEN_OPERATIONAL_EVENT",
+  "WITHDRAW_OPERATIONAL_EVENT",
 ]);
 const EVENT_TYPES = new Set<EventType>([
   "water", "nitrogen", "mixedGas", "hydrogen", "powerTrip", "crane",
@@ -629,6 +631,16 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     updatedAt: data.updatedAt,
     updatedByUid: data.updatedByUid,
     updatedByName: data.updatedByName,
+    // Present only once an entry has been withdrawn, so an event that never
+    // was keeps exactly the snapshot shape it has always had - and the audit
+    // of a withdrawal shows the one thing that changed.
+    ...(data.isWithdrawn === true ? {
+      isWithdrawn: true,
+      withdrawalReason: data.withdrawalReason,
+      withdrawnAt: data.withdrawnAt,
+      withdrawnByUid: data.withdrawnByUid,
+      withdrawnByName: data.withdrawnByName,
+    } : {}),
     version: data.version,
     lastMutationId: data.lastMutationId,
   };
@@ -911,6 +923,29 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-not-resolved"},
       );
     }
+    // An entry recorded by mistake - the same disruption written down twice,
+    // or one that never happened - is withdrawn rather than edited. The
+    // interval stays exactly as it was recorded, because it is evidence of
+    // what somebody entered; what changes is whether it counts as a
+    // disruption. Nothing further happens to it afterwards: reopening a
+    // withdrawn entry would be the fabricated recurrence this route exists to
+    // make unnecessary.
+    if (current?.isWithdrawn === true &&
+        request.operation !== "WITHDRAW_OPERATIONAL_EVENT") {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry was withdrawn as recorded in error. Record a new event instead.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
+    if (request.operation === "WITHDRAW_OPERATIONAL_EVENT" &&
+        current?.isWithdrawn === true) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry has already been withdrawn.",
+        {reasonCode: "operational-event-already-withdrawn"},
+      );
+    }
     if (request.operation === "REOPEN_OPERATIONAL_EVENT" &&
         (current?.completedIntervals as unknown[]).length >= MAX_COMPLETED_INTERVALS) {
       throw new AssetHierarchyMutationError(
@@ -1096,6 +1131,22 @@ export async function mutateOperationalEventWithDb(args: {
         resolvedByUid: current?.resolvedByUid ?? null,
         resolvedByName: current?.resolvedByName ?? null,
         resolutionNote: current?.resolutionNote ?? null,
+        version,
+        updatedAt: committedAt,
+        updatedByUid: actorUid,
+        updatedByName: actorName(actorData),
+        lastMutationId: request.requestId,
+      };
+    } else if (request.operation === "WITHDRAW_OPERATIONAL_EVENT") {
+      // Only these four fields change. The interval, its status and every
+      // recorded time stay as they are.
+      next = {
+        ...current!,
+        isWithdrawn: true,
+        withdrawalReason: request.reason,
+        withdrawnAt: committedAt,
+        withdrawnByUid: actorUid,
+        withdrawnByName: actorName(actorData),
         version,
         updatedAt: committedAt,
         updatedByUid: actorUid,

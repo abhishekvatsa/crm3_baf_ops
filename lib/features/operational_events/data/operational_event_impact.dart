@@ -50,6 +50,10 @@ OperationalEventImpactSummary summarizeOperationalEventImpact({
   var cumulativeDuration = Duration.zero;
 
   for (final event in events) {
+    // An entry withdrawn as recorded in error is not a disruption. It stays
+    // readable as the record of what somebody entered, and it stops counting
+    // towards cumulative time, occurrence counts and the leading topic.
+    if (event.isWithdrawn) continue;
     for (final occurrence in event.occurrencesUntil(asOf)) {
       if (topic != null && occurrence.eventType != topic) continue;
       if (!occurrence.overlaps(startInclusive, endExclusive)) continue;
