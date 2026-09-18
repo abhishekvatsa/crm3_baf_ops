@@ -77,5 +77,24 @@ void main() {
     test('an untouched draft is replaced when the evidence moves on', () {
       expect(_draft().shouldAdoptSnapshot('round-2'), isTrue);
     });
+
+    test('a draft names the round it was composed against', () {
+      // The source key leads with the round, which is what lets a submission
+      // say what its eight positions were witnessed against.
+      expect(
+        FurnaceAuditDraft.fromSources(
+          round: null,
+          conditionProjection: _projection('round-7|red:1:2026-09-01'),
+        ).composedAgainstRoundId,
+        'round-7',
+      );
+      expect(
+        FurnaceAuditDraft.fromSources(
+          round: null,
+          conditionProjection: _projection('none|red:1:2026-09-01'),
+        ).composedAgainstRoundId,
+        isNull,
+      );
+    });
   });
 }

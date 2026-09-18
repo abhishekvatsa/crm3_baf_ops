@@ -413,6 +413,11 @@ class _FurnaceComponentConditionAuditScreenState
           uvObservations: submittedUvObservations,
           actor: actor,
           roundNote: 'Cross-furnace component condition audit.',
+          // These eight positions were witnessed against the round this draft
+          // was built from. If another operator has recorded one since, the
+          // server refuses rather than clearing their work with observations
+          // made before it existed.
+          composedAgainst: ComposedAgainstRound(draft.composedAgainstRoundId),
         );
         saved++;
         if (result.directiveId != null) directives++;

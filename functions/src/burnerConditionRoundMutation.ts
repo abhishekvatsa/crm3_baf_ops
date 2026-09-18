@@ -55,6 +55,13 @@ interface ParsedRequest {
   hotAirAtDraftSealObserved: boolean | null;
   uvObservations: ReadonlyArray<UvObservation> | null;
   roundNote: string | null;
+  /**
+   * The round this submission was composed against, or null for a furnace
+   * that had none. Undefined from a client that does not carry it, which
+   * keeps the behaviour that client shipped with rather than refusing it by
+   * a rule it cannot satisfy.
+   */
+  expectedCurrentRoundId?: string | null;
   fingerprint: string;
 }
 
@@ -233,6 +240,7 @@ export function parseBurnerConditionRoundMutationRequest(
     "hotAirAtDraftSealObserved",
     "uvObservations",
     "roundNote",
+    "expectedCurrentRoundId",
   ]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) invalid(key, "is unsupported");
@@ -292,6 +300,13 @@ export function parseBurnerConditionRoundMutationRequest(
       raw.hotAirAtDraftSealObserved as boolean : null,
     uvObservations,
     roundNote: optionalString(raw.roundNote, "roundNote", 1000),
+    // Included in the fingerprint only when the client sent it, so a request
+    // in the older shape fingerprints exactly as it always did and its stored
+    // receipt still replays.
+    ...(Object.prototype.hasOwnProperty.call(raw, "expectedCurrentRoundId") ? {
+      expectedCurrentRoundId:
+        optionalString(raw.expectedCurrentRoundId, "expectedCurrentRoundId", 200),
+    } : {}),
   };
   const fingerprint = `burnerround${extended ? 2 : 1}-sha256:${createHash("sha256")
     .update(stableJson(request), "utf8").digest("hex")}`;
@@ -488,6 +503,36 @@ function validateCurrentRoundProjection(
       {reasonCode: "burner-condition-current-projection-malformed"},
     );
   }
+  assertComposedAgainstCurrentRound(data.roundId as string | null, request);
+}
+
+/**
+ * A round is eight positions witnessed against what the furnace read when the
+ * observer opened it. Another operator recording a round in the meantime moves
+ * that baseline, and submitting the older composition would clear their work
+ * with observations made before it existed. The submission therefore names the
+ * round it was composed against, and is refused when that is no longer the
+ * current one. A deliberate complete survey is unaffected: re-open the furnace
+ * on the round that now stands and record it.
+ */
+function assertComposedAgainstCurrentRound(
+  currentRoundId: string | null,
+  request: ParsedRequest,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(request, "expectedCurrentRoundId")) {
+    return;
+  }
+  const expected = request.expectedCurrentRoundId ?? null;
+  if (expected === currentRoundId) return;
+  throw new AssetHierarchyMutationError(
+    "aborted",
+    "This furnace has a newer condition round than the one this was composed against. Re-open the furnace and record what you observed against the round that now stands.",
+    {
+      reasonCode: "burner-condition-round-superseded",
+      expectedCurrentRoundId: expected,
+      currentRoundId,
+    },
+  );
 }
 
 function resultFromReceipt(
@@ -787,6 +832,8 @@ export async function mutateBurnerConditionRoundWithDb(args: {
         currentRoundValue.data() ?? {},
         request,
       );
+    } else {
+      assertComposedAgainstCurrentRound(null, request);
     }
 
     const assetClass = record(

@@ -112,6 +112,14 @@ class FurnaceAuditDraft {
     return true;
   }
 
+  /// The condition round this draft was built from, or null when the furnace
+  /// had none. [sourceKey] leads with it, which is what makes a draft
+  /// recognisably composed against a particular state of the furnace.
+  String? get composedAgainstRoundId {
+    final head = sourceKey.split('|').first;
+    return head == 'none' || head.isEmpty ? null : head;
+  }
+
   /// Whether this draft should be replaced by a newly arrived snapshot of the
   /// same furnace. A draft with unsaved work on it never is.
   bool shouldAdoptSnapshot(String snapshotSourceKey) =>

@@ -12,6 +12,20 @@ const burnerConditionRoundCallableName = 'mutateAssetHierarchyV2';
 const burnerConditionRoundCallableRegion = 'asia-south1';
 const burnerDirectiveComplianceOperation = 'COMPLETE_BURNER_RED_HOT_DIRECTIVE';
 
+/// Which condition round a submission was composed against.
+///
+/// Distinguishes "there was no round when I opened this furnace"
+/// ([ComposedAgainstRound.none]) from a caller that simply does not know,
+/// which sends nothing and is judged as it always was.
+class ComposedAgainstRound {
+  const ComposedAgainstRound(this.roundId);
+
+  /// The furnace had no condition round when this was composed.
+  static const ComposedAgainstRound none = ComposedAgainstRound(null);
+
+  final String? roundId;
+}
+
 class BurnerConditionRoundException implements Exception {
   const BurnerConditionRoundException(this.message, {this.code});
 
@@ -356,6 +370,7 @@ class BurnerConditionRoundService {
     bool? draftSealRedHotObserved,
     bool? hotAirAtDraftSealObserved,
     List<BurnerUvObservation>? uvObservations,
+    ComposedAgainstRound? composedAgainst,
   }) async {
     if (!actor.canRecordBurnerConditionRound) {
       throw const BurnerConditionRoundException(
@@ -410,6 +425,14 @@ class BurnerConditionRoundService {
             .toList(growable: false),
       },
       'roundNote': _cleanOptionalText(roundNote),
+      // The round this was composed against, when the caller knows it.
+      // Another operator recording one in the meantime moves the baseline
+      // these eight positions were witnessed against, and the server refuses
+      // rather than letting the older composition clear their work. A caller
+      // that cannot say does not send the field and keeps the behaviour it
+      // had, rather than asserting that there was no round.
+      if (composedAgainst != null)
+        'expectedCurrentRoundId': composedAgainst.roundId,
     };
     final receipt = await _submit(request, actor, furnace.name);
     return BurnerConditionRoundResult.fromCallableData(
