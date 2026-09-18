@@ -108,6 +108,12 @@ export interface UserAuthorityMutationResult {
   readonly isApproved: boolean;
   readonly roles: ReadonlyArray<string>;
   readonly authorityDigest: string;
+  /// The target's authority as it stands now. Equal to [authorityDigest]
+  /// unless a later governed change has moved it on.
+  readonly currentAuthorityDigest: string;
+  /// Whether a later governed change replaced the authority this request
+  /// produced. The outcome above is still what this request committed.
+  readonly supersededByLaterChange: boolean;
   readonly auditId: string;
   readonly committedAt: string;
   readonly idempotentReplay: boolean;
@@ -414,6 +420,18 @@ function resultingCapsule(
   }
 }
 
+/** The authority capsule an audit recorded as this mutation's outcome. */
+function auditSnapshotCapsule(value: unknown): UserAuthorityJsonMap | null {
+  if (typeof value !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed != null && typeof parsed === "object" &&
+      !Array.isArray(parsed) ? parsed as UserAuthorityJsonMap : null;
+  } catch {
+    return null;
+  }
+}
+
 function resultFromReceipt(
   request: ParsedUserAuthorityMutationRequest,
   actorUid: string,
@@ -471,15 +489,34 @@ function resultFromReceipt(
       {reasonCode: "authority-replay-target-malformed"},
     );
   }
-  const currentDigest = canonicalUserAuthorityDigest(targetCapsule);
-  if (receipt.authorityDigest !== currentDigest) {
+  // What this request committed is settled by its own immutable pair - the
+  // receipt and the audit written in the same transaction - and not by what
+  // the target's authority says now. Somebody else legitimately changing that
+  // authority afterwards is ordinary, and it used to make the earlier
+  // acceptance unrecoverable: support could not tell an accepted command from
+  // a failed one using the original request. The historical outcome is
+  // returned as itself, and the current state is reported beside it rather
+  // than folded into it.
+  const acceptedSnapshot = auditSnapshotCapsule(audit.afterJson);
+  const acceptedCapsule = acceptedSnapshot == null ?
+    null : canonicalUserAuthorityCapsule(acceptedSnapshot);
+  if (acceptedCapsule == null) {
     throw new UserAuthorityMutationError(
-      "aborted",
-      "The target authority changed after the recorded mutation.",
-      {reasonCode: "authority-replay-evidence-drift"},
+      "data-loss",
+      "The recorded authority mutation outcome is malformed.",
+      {reasonCode: "authority-replay-evidence-malformed"},
     );
   }
-  const roles = normalizeCanonicalUserRoles(targetCapsule.roles);
+  const acceptedDigest = canonicalUserAuthorityDigest(acceptedCapsule);
+  const currentDigest = canonicalUserAuthorityDigest(targetCapsule);
+  if (receipt.authorityDigest !== acceptedDigest) {
+    throw new UserAuthorityMutationError(
+      "data-loss",
+      "The authority mutation receipt and its immutable audit disagree.",
+      {reasonCode: "authority-replay-evidence-malformed"},
+    );
+  }
+  const roles = normalizeCanonicalUserRoles(acceptedCapsule.roles);
   const operation = receipt.operation;
   const committedAt = receipt.committedAtIso;
   const auditId = receipt.auditId;
@@ -493,7 +530,7 @@ function resultFromReceipt(
     audit.performedByUid !== actorUid ||
     audit.entityId !== request.targetUid ||
     audit.operation !== request.operation ||
-    audit.authorityDigest !== currentDigest
+    audit.authorityDigest !== acceptedDigest
   ) {
     throw new UserAuthorityMutationError(
       "data-loss",
@@ -506,9 +543,11 @@ function resultFromReceipt(
     requestId: request.requestId,
     targetUid: request.targetUid,
     operation: operation as UserAuthorityMutationOperation,
-    isApproved: targetCapsule.isApproved,
+    isApproved: acceptedCapsule.isApproved,
     roles,
-    authorityDigest: currentDigest,
+    authorityDigest: acceptedDigest,
+    currentAuthorityDigest: currentDigest,
+    supersededByLaterChange: currentDigest !== acceptedDigest,
     auditId,
     committedAt,
     idempotentReplay: true,
@@ -752,6 +791,8 @@ export async function mutateUserAuthorityWithDb(args: {
       isApproved: resulting.isApproved,
       roles: resulting.roles,
       authorityDigest: resultingDigest,
+      currentAuthorityDigest: resultingDigest,
+      supersededByLaterChange: false,
       auditId,
       committedAt: committedAtIso,
       idempotentReplay: false,
