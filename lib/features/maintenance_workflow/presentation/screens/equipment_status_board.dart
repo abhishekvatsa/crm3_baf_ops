@@ -338,7 +338,9 @@ class EquipmentStatusBoard extends ConsumerWidget {
           (dialogContext) => AlertDialog(
             title: const Text('Deploy equipment to service?'),
             content: Text(
-              '${row.assetTypeKey} ${row.assetNumber} will be marked In Service.',
+              '${row.assetTypeKey} ${row.assetNumber} will be marked In Service '
+              'on this board. Condition declarations and open issues are '
+              'recorded separately and are not cleared by this.',
             ),
             actions: [
               TextButton(
@@ -367,7 +369,9 @@ class EquipmentStatusBoard extends ConsumerWidget {
           );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Equipment deployed to service.')),
+        const SnackBar(
+          content: Text('Equipment marked In Service on this board.'),
+        ),
       );
     } catch (error) {
       if (!context.mounted) return;

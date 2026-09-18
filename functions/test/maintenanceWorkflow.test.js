@@ -1349,6 +1349,86 @@ describe('maintenance workflow command integration', () => {
     await expect(service.execute({commandId: 'bad-reconcile', commandType: 'reconcileEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 5, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:02:00Z')})).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test('equipment the registry has taken out of service is not deployed into it', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('equipment_status/furnace_16', {
+      state: 'available',
+      version: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-16',
+    });
+    store.seed('asset_instances/furnace-16', {
+      schemaVersion: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-16',
+      assetNumber: 16,
+      status: 'active',
+      serviceState: 'outOfService',
+      version: 3,
+    });
+    const service = serviceFor(store);
+
+    // The workflow has nothing left to do on this furnace, but the register
+    // says the plant has taken it out of service. Releasing it into service
+    // here would leave the two records contradicting each other.
+    await expect(service.execute({
+      commandId: 'deploy-out-of-service',
+      commandType: 'deployEquipment',
+      aggregateId: 'equipment_furnace_16',
+      expectedVersion: 1,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 16,
+        assetClassId: 'furnace-class',
+        assetInstanceId: 'furnace-16',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T14:05:00Z')}))
+      .rejects.toMatchObject({
+        code: 'equipment-state-conflict',
+        details: {reasonCode: 'equipment-administratively-out-of-service'},
+      });
+    expect(store.read('equipment_status/furnace_16')).toMatchObject({
+      state: 'available',
+      version: 1,
+    });
+  });
+
+  test('equipment the registry keeps in service is deployed as before', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('equipment_status/furnace_17', {
+      state: 'available',
+      version: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-17',
+    });
+    store.seed('asset_instances/furnace-17', {
+      schemaVersion: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-17',
+      assetNumber: 17,
+      status: 'active',
+      serviceState: 'standby',
+      version: 2,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'deploy-standby',
+      commandType: 'deployEquipment',
+      aggregateId: 'equipment_furnace_17',
+      expectedVersion: 1,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 17,
+        assetClassId: 'furnace-class',
+        assetInstanceId: 'furnace-17',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T14:06:00Z')});
+
+    expect(store.read('equipment_status/furnace_17'))
+      .toMatchObject({state: 'inService', version: 2});
+  });
+
   test('compliance creation requires an accountable origin lane and lane work authority', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-compliance', 'inProgress', 2);
     store.seed('job_lanes/wf-compliance_elec_1', {
