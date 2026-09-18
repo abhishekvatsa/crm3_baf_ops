@@ -1876,6 +1876,14 @@ describe('the reviewed repair of a damaged quality case', () => {
         closureDisposition: null,
         decisionReason: null,
       });
+    // Whether the coil needs re-annealing was part of the decision that has
+    // just been returned for review, so it goes back with it. Leaving
+    // 'notRequired' standing under an open case would read as a current answer
+    // to a question nobody has been asked again.
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      reannealingStatus: 'pendingDecision',
+      reannealedToChargeNo: null,
+    });
     // The repaired case is one a quality decision can now act on.
     await expect(invokeQuality(state.db, 'si-1', {
       requestId: '66666666-6666-4666-8666-666666666666',
@@ -1886,7 +1894,38 @@ describe('the reviewed repair of a damaged quality case', () => {
       disposition: 'coilFoundAcceptable',
       linkedReannealingChargeNos: [],
     })).resolves.toMatchObject({version: 3});
+    // Decided again on the corrected evidence, the question is answered again.
+    expect(state.store.get('charge_abnormalities/abn-1'))
+      .toMatchObject({reannealingStatus: 'notRequired'});
   });
+
+  test('a repair leaves re-annealing that was carried out on the record',
+    async () => {
+      const record = abnormality({
+        severity: 'critical',
+        reannealingStatus: 'completed',
+        reannealedToChargeNo: 12045,
+      });
+      const state = fakeDb(damagedCase(
+        record,
+        closedWarning({
+          sourceSeverity: 'medium',
+          closureDisposition: 'reannealingCompleted',
+          linkedReannealingChargeNos: [12045],
+        }),
+      ));
+
+      await invoke(state.db, reconcileRequest());
+
+      expect(state.store.get('quality_warnings/abnormality_abn-1'))
+        .toMatchObject({status: 'open', closureDisposition: null});
+      // The charge was re-annealed. That is something that happened, not a
+      // judgement the review can take back, so it stays with its charge.
+      expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+        reannealingStatus: 'completed',
+        reannealedToChargeNo: 12045,
+      });
+    });
 
   test('a contradictory creation identity is repaired from its case', async () => {
     const record = abnormality({reannealingStatus: 'notRequired'});
@@ -2039,6 +2078,33 @@ describe('the reviewed repair of a damaged quality case', () => {
     });
     expect(state.writes).toHaveLength(writesAfterFirst);
   });
+
+  test('a repeated repair that returned a decision for review still replays',
+    async () => {
+      const record = abnormality({
+        severity: 'critical',
+        reannealingStatus: 'notRequired',
+      });
+      const state = fakeDb(damagedCase(
+        record,
+        closedWarning({sourceSeverity: 'medium'}),
+      ));
+
+      const first = await invoke(state.db, reconcileRequest());
+      const writesAfterFirst = state.writes.length;
+      const replay = await invoke(state.db, reconcileRequest(), {
+        now: () => new Date('2026-07-26T12:00:00.000Z'),
+      });
+
+      // The repair withdrew an answer the command never mentioned. A replay
+      // re-derives the committed record from the frozen command, so the rule
+      // has to be part of that derivation or a lost response would read as
+      // tampered evidence.
+      expect(replay).toEqual({...first, idempotentReplay: true});
+      expect(state.writes).toHaveLength(writesAfterFirst);
+      expect(state.store.get('charge_abnormalities/abn-1'))
+        .toMatchObject({reannealingStatus: 'pendingDecision'});
+    });
 
   test('only approved Admin authority can repair a case', async () => {
     const record = abnormality({
@@ -2221,6 +2287,116 @@ describe('documenting an issue case after the coils come out wrong', () => {
       decisionReason: null,
     });
   });
+
+  function recuperator() {
+    return {
+      ...baseReference(),
+      assetHierarchyRef: {
+        ...baseReference().assetHierarchyRef,
+        scope: 'componentDefinitionOnAsset',
+        schemaVersion: 4,
+        nodeId: 'recuperator',
+        nodeName: 'Recuperator',
+        hierarchyPath: ['Base', 'Heat recovery', 'Recuperator'],
+      },
+    };
+  }
+
+  test('a decided issue case whose recorded component moved returns for review', async () => {
+    const movedReference = recuperator();
+    // The pair already disagrees about which component the case is on: the
+    // warning still names the shell, the case names the recuperator.
+    const {record, state} = issueCase({
+      record: {affectedAssetHierarchyRefs: [movedReference]},
+      warning: closedWarning(),
+    });
+
+    await invoke(state.db, documented(record, {
+      affectedAssetHierarchyRefs: [movedReference],
+      possibleRootReasonNotes: 'Added after review',
+    }));
+
+    const repaired = state.store.get('quality_warnings/issue_ticket-1');
+    expect(repaired.affectedAssets[0].assetHierarchyRef)
+      .toMatchObject({nodeId: 'recuperator'});
+    // The earlier decision was made about the shell, so it cannot stay final
+    // over a case that now names a different component.
+    expect(repaired).toMatchObject({
+      status: 'open',
+      closedAt: null,
+      closureDisposition: null,
+    });
+  });
+
+  test('returning a decision for review reopens the re-annealing question',
+    async () => {
+      const movedReference = recuperator();
+      const {record, state} = issueCase({
+        record: {affectedAssetHierarchyRefs: [movedReference]},
+        warning: closedWarning(),
+      });
+
+      await invoke(state.db, documented(record, {
+        affectedAssetHierarchyRefs: [movedReference],
+        possibleRootReasonNotes: 'Added after review',
+      }));
+
+      expect(state.store.get('quality_warnings/issue_ticket-1'))
+        .toMatchObject({status: 'open'});
+      // 'Not required' was decided about the shell. With that decision back
+      // under review, the case must not still read as though re-annealing had
+      // been ruled out for the component it now names.
+      expect(state.store.get('charge_abnormalities/issue_quality_ticket-1'))
+        .toMatchObject({
+          reannealingStatus: 'pendingDecision',
+          reannealedToChargeNo: null,
+        });
+    });
+
+  test('a re-annealing judgement made in the same correction stands',
+    async () => {
+      const movedReference = recuperator();
+      const {record, state} = issueCase({
+        record: {affectedAssetHierarchyRefs: [movedReference]},
+        warning: closedWarning(),
+      });
+
+      await invoke(state.db, documented(record, {
+        affectedAssetHierarchyRefs: [movedReference],
+        reannealingStatus: 'required',
+      }));
+
+      expect(state.store.get('quality_warnings/issue_ticket-1'))
+        .toMatchObject({status: 'open'});
+      // Whoever corrected the case answered the re-annealing question while
+      // they were there. Their answer is the current one, not one to withdraw.
+      expect(state.store.get('charge_abnormalities/issue_quality_ticket-1'))
+        .toMatchObject({reannealingStatus: 'required'});
+    });
+
+  test('a repeated correction that returned a decision for review still replays',
+    async () => {
+      const movedReference = recuperator();
+      const {record, state} = issueCase({
+        record: {affectedAssetHierarchyRefs: [movedReference]},
+        warning: closedWarning(),
+      });
+      const request = documented(record, {
+        affectedAssetHierarchyRefs: [movedReference],
+        possibleRootReasonNotes: 'Added after review',
+      });
+
+      const first = await invoke(state.db, request);
+      const writesAfterFirst = state.writes.length;
+      const replay = await invoke(state.db, request, {
+        now: () => new Date('2026-07-26T12:00:00.000Z'),
+      });
+
+      // The correction withdrew a re-annealing answer its command still
+      // carried, so the replay derivation has to expect the same difference.
+      expect(replay).toEqual({...first, idempotentReplay: true});
+      expect(state.writes).toHaveLength(writesAfterFirst);
+    });
 
   test('an editorial correction leaves a decided issue case decided', async () => {
     const {record, state} = issueCase({warning: closedWarning()});

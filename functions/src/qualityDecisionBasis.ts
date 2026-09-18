@@ -162,27 +162,44 @@ export function warningDecisionBasisStale(
   warning: JsonMap,
   abnormality: JsonMap,
 ): boolean {
-  // A warning records its subjects by identity alone, so both sides are
-  // compared by identity here.
-  const subjects = (value: unknown): ReadonlyArray<JsonMap> =>
+  // A warning raised from a maintenance issue records the governed reference
+  // beside each subject; a standalone one records identity alone. Compare the
+  // two sides at the depth the warning actually carries: stripping to asset
+  // type and number would let a case move to another component while its
+  // decision stayed final, and comparing governed identity against a warning
+  // that never held one would call every standalone case stale.
+  const identityOnly = (value: unknown): ReadonlyArray<JsonMap> =>
     list(value).map((asset) => ({
       assetType: isMap(asset) ? asset.assetType : null,
       assetNumber: isMap(asset) ? asset.assetNumber : null,
     }));
+  const warningCarriesGovernedSubjects = list(warning.affectedAssets).some(
+    (asset) => isMap(asset) && asset.assetHierarchyRef != null,
+  );
+  const warningSubjects = warningCarriesGovernedSubjects ?
+    decisionSubjects({affectedAssets: warning.affectedAssets}) :
+    decisionSubjects({affectedAssets: identityOnly(warning.affectedAssets)});
+  const caseSubjects = warningCarriesGovernedSubjects ?
+    decisionSubjects({
+      affectedAssets: abnormality.affectedAssets,
+      affectedAssetHierarchyRefs: abnormality.affectedAssetHierarchyRefs,
+    }) :
+    decisionSubjects({affectedAssets: identityOnly(abnormality.affectedAssets)});
+  if (stableJson(warningSubjects) !== stableJson(caseSubjects)) return true;
   return decisionBasisChange(
     {
       abnormalityTypeId: abnormality.abnormalityTypeId,
       severity: warning.sourceSeverity,
       component: warning.component,
       observedReason: warning.warningReason,
-      affectedAssets: subjects(warning.affectedAssets),
+      affectedAssets: [],
     },
     {
       abnormalityTypeId: abnormality.abnormalityTypeId,
       severity: warningSeverityForCase(warning, abnormality),
       component: abnormality.component,
       observedReason: abnormality.observedReason,
-      affectedAssets: subjects(abnormality.affectedAssets),
+      affectedAssets: [],
     },
   ) != null;
 }

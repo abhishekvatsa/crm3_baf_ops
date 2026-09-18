@@ -1361,6 +1361,39 @@ function canonicalType(
   }
 }
 
+/**
+ * The re-annealing state a case carries once the decision that answered it is
+ * returned for review.
+ *
+ * Whether the coil needed re-annealing was part of that decision, so it goes
+ * back under review with it. A completed re-annealing is different: the charge
+ * was actually re-annealed, which is a thing that happened rather than a
+ * judgement, and it keeps its resulting charge. This is exactly what
+ * `REOPEN_QUALITY_WARNING` leaves behind, so a decision returned for review by
+ * a correction or a repair reads the same as one reopened deliberately.
+ */
+function reannealingAfterDecisionWithdrawn(
+  record: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const completed = record.reannealingStatus === "completed";
+  return {
+    reannealingStatus: completed ? "completed" : "pendingDecision",
+    reannealedToChargeNo: completed ?
+      record.reannealedToChargeNo ?? null : null,
+  };
+}
+
+/**
+ * What an ordinary correction did to the linked warning: the warning to write,
+ * whether the decision on it was returned for review, and the re-annealing
+ * state the case must carry as a result.
+ */
+type LinkedWarningUpdate = {
+  readonly warning: UserAuthorityJsonMap;
+  readonly decisionReturnedForReview: boolean;
+  readonly withdrawnReannealing: UserAuthorityJsonMap | null;
+};
+
 function warningAfterAbnormalityUpdate(args: {
   beforeAbnormality: UserAuthorityJsonMap;
   afterAbnormality: UserAuthorityJsonMap;
@@ -1372,7 +1405,7 @@ function warningAfterAbnormalityUpdate(args: {
   requestId: string;
   reason: string;
   committedAt: unknown;
-}): UserAuthorityJsonMap | null {
+}): LinkedWarningUpdate | null {
   const {
     beforeAbnormality,
     afterAbnormality,
@@ -1413,9 +1446,10 @@ function warningAfterAbnormalityUpdate(args: {
   // saw. The decision itself stays in the quality audit as history, exactly
   // as a reopen leaves it.
   const after: UserAuthorityJsonMap = {...warning};
+  const decisionOutgrown = projectionStale &&
+    warning.status !== "open" &&
+    warningDecisionBasisStale(warning, afterAbnormality);
   if (projectionStale) {
-    const decisionOutgrown = warning.status !== "open" &&
-      warningDecisionBasisStale(warning, afterAbnormality);
     Object.assign(after, warningProjectionFromCase(warning, afterAbnormality), {
       ...(decisionOutgrown ? {
         status: "open",
@@ -1481,7 +1515,15 @@ function warningAfterAbnormalityUpdate(args: {
     version: nextVersion,
     lastMutationId: args.requestId,
   });
-  return validateQualityWarningRecord(after, warningId);
+  return {
+    warning: validateQualityWarningRecord(after, warningId),
+    decisionReturnedForReview: decisionOutgrown,
+    // Whoever corrected the case may have answered the re-annealing question
+    // while they were there. That answer is the current one and is not
+    // withdrawn; only an answer left over from the reviewed decision is.
+    withdrawnReannealing: decisionOutgrown && !raChanged ?
+      reannealingAfterDecisionWithdrawn(afterAbnormality) : null,
+  };
 }
 
 function replayResult(args: {
@@ -1721,6 +1763,7 @@ function expectedAcceptedAbnormality(args: {
   accepted: UserAuthorityJsonMap;
   request: ParsedChargeAbnormalityMutationRequest;
   actorUid: string;
+  decisionReturnedForReview: boolean;
 }): UserAuthorityJsonMap {
   const {before, accepted, request, actorUid} = args;
   const expected: UserAuthorityJsonMap = {
@@ -1769,6 +1812,19 @@ function expectedAcceptedAbnormality(args: {
       deletedByName: accepted.deletedByName,
       deleteReason: request.reason,
     });
+  }
+  // Where the decision was returned for review, the committed re-annealing
+  // state legitimately differs from the one the command carried. The audit
+  // records that this happened; the rule itself is applied again here rather
+  // than taken on trust, and only where the command left re-annealing alone.
+  const commandLeftReannealing = update != null &&
+    update.reannealingStatus === before.reannealingStatus &&
+    (update.reannealedToChargeNo ?? null) ===
+      (before.reannealedToChargeNo ?? null);
+  if (args.decisionReturnedForReview &&
+      (request.operation === "RECONCILE_QUALITY_CASE" ||
+        commandLeftReannealing)) {
+    Object.assign(expected, reannealingAfterDecisionWithdrawn(before));
   }
   Object.assign(expected, {
     updatedAt: accepted.updatedAt,
@@ -1824,7 +1880,14 @@ function acceptedAbnormalityFromAudit(args: {
     );
     if (before.version !== request.expectedVersion ||
         !abnormalityRecordsMatch(
-          expectedAcceptedAbnormality({before, accepted, request, actorUid}),
+          expectedAcceptedAbnormality({
+            before,
+            accepted,
+            request,
+            actorUid,
+            decisionReturnedForReview:
+              audit.decisionReturnedForReview === true,
+          }),
           accepted,
         )) {
       return replayEvidenceMalformed();
@@ -1947,6 +2010,12 @@ function reconcileQualityCase(args: {
   // stays in the quality audit as history, exactly as a reopen leaves it.
   const decisionOutgrown = warning.status !== "open" &&
     warningDecisionBasisStale(warning, after);
+  // The repair authors no evidence of its own, so an answer it did not make is
+  // never left standing under a decision it has just returned for review.
+  if (decisionOutgrown) {
+    Object.assign(after, reannealingAfterDecisionWithdrawn(after));
+    validateExistingAbnormality(after, request.abnormalityId);
+  }
   const warningAfter: UserAuthorityJsonMap = {
     ...warning,
     ...warningGaps,
@@ -2453,7 +2522,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
         );
       }
     }
-    const warningAfter = request.operation === "UPDATE" ?
+    const linkedWarningUpdate = request.operation === "UPDATE" ?
       warningAfterAbnormalityUpdate({
         beforeAbnormality: existing,
         afterAbnormality: after,
@@ -2466,6 +2535,11 @@ export async function mutateChargeAbnormalityWithDb(args: {
         reason: request.reason,
         committedAt,
       }) : null;
+    const warningAfter = linkedWarningUpdate?.warning ?? null;
+    if (linkedWarningUpdate?.withdrawnReannealing != null) {
+      Object.assign(after, linkedWarningUpdate.withdrawnReannealing);
+      validateExistingAbnormality(after, request.abnormalityId);
+    }
 
     const auditAction =
       request.operation === "UPDATE" ? "update" : "delete";
@@ -2496,6 +2570,8 @@ export async function mutateChargeAbnormalityWithDb(args: {
       linkedWarningId: warningId,
       linkedWarningBeforeVersion: warning.version,
       linkedWarningResultVersion: warningAfter?.version ?? warning.version,
+      decisionReturnedForReview:
+        linkedWarningUpdate?.decisionReturnedForReview ?? false,
     };
     transaction.set(auditRef, {...mutationAudit});
     transaction.set(receiptRef, {

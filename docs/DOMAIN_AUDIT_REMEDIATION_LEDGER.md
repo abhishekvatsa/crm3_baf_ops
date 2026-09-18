@@ -126,6 +126,30 @@ Chapters SRC-13 and SRC-14. Only D10-01 has been verified against the current so
 
 Chapters SRC-16 and SRC-17 cover domains 11 to 18 together and have not been read.
 
+## A review of the repairs themselves
+
+An external review read the commits on this branch rather than the original
+domains, and found four defects in the repairs. All four are repaired here.
+
+| Finding | Status |
+|---|---|
+| R1 a standalone case's decision was compared against governed subjects the warning never carried, so any decided standalone case read as stale | repaired |
+| R2 a decision returned for review by a correction or a repair kept the re-annealing answer that decision had given | repaired |
+| R3 a skipped notification receipt returned no attempt identity, so the caller could not name the attempt it had just been told about | repaired |
+| R4 a lifecycle claim keyed on the time the work was performed, so a contradictory time made a second event instead of a refusal | repaired |
+
+R2 is worth naming precisely, because the commit messages on this branch claimed
+the repair left a case "exactly as a reopen leaves it" and it did not.
+`REOPEN_QUALITY_WARNING` withdraws the re-annealing judgement with the decision
+that made it, keeping a completed re-annealing and its charge because that is
+something that happened rather than something decided. The projection repair and
+the reviewed repair left `notRequired` standing under a case they had just
+returned for review, so the case read as an open question whose re-annealing
+answer was already final. One rule now states what a withdrawn decision leaves
+behind, and the two write paths and the frozen-command replay derivation all
+read it; the replay regressions fail when the derivation is removed, because a
+lost response would otherwise come back as tampered evidence.
+
 ## A sweep for the recurring class
 
 Three of the repairs above — D02-01, D06-01 and D10-01 — are the same mistake in
