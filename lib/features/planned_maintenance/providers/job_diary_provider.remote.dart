@@ -25,17 +25,42 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     } else if (!actor.canEditJobDiaryEntry(createdByUid: entry.createdByUid)) {
       throw StateError('Not authorized to edit this planned-job diary entry.');
     }
+    final openedAtVersion = entry.version;
     _normalizeDiaryEntryForUserSave(
       entry,
       markUnsynced: false,
       preserveCreatedAt: true,
-      bumpVersion: !isCreate,
+      bumpVersion: false,
     );
 
     entry.isSynced = true;
-    await _entries
-        .doc(entry.firestoreId)
-        .set(entry.toMap(), SetOptions(merge: true));
+    if (isCreate) {
+      await _entries
+          .doc(entry.firestoreId)
+          .set(entry.toMap(), SetOptions(merge: true));
+    } else {
+      // The stored entry is read as the precondition for writing, inside the
+      // transaction that writes, for the same reason the on-device writer
+      // does it: an edit made against an older revision must not replace what
+      // was written while it was open.
+      final reference = _entries.doc(entry.firestoreId);
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final snapshot = await transaction.get(reference);
+        final data = snapshot.data();
+        final refusal = jobDiarySaveRefusal(
+          openedAtVersion: openedAtVersion,
+          storedVersion: snapshot.exists && data != null
+              ? readRequiredPersistedInt(data['version'], field: 'version')
+              : null,
+          storedIsDeleted: data?['isDeleted'] == true,
+        );
+        if (refusal != null) {
+          throw StateError(jobDiarySaveRefusalMessage(refusal));
+        }
+        entry.version = openedAtVersion + 1;
+        transaction.set(reference, entry.toMap(), SetOptions(merge: true));
+      });
+    }
 
     if (auditContext != null) {
       final auditRepo = _auditRepo;
