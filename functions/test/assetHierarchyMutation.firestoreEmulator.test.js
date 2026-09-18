@@ -618,6 +618,66 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       .toEqual(restoredEvidence);
   });
 
+  test('a still-relevant administrative closure keeps blocking retirement', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    // Closed administratively without repair, and explicitly still relevant:
+    // resolved in the lifecycle sense, unresolved as far as the plant is
+    // concerned, and Plant Condition keeps counting it.
+    await db.collection('maintenance_records').doc('retained-issue').set({
+      firestoreId: 'retained-issue',
+      assetType: 'furnace',
+      assetNumber: 1,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: IDS.classId,
+        assetInstanceId: IDS.firstAsset,
+        assetNumber: 1,
+      }),
+      plantConditionEffect: 'unfit',
+      status: 'closedWithoutResolution',
+      isResolved: true,
+      isDeleted: false,
+      issueClosureSchemaVersion: 1,
+      issueClosureDisposition: 'stillRelevant',
+      createdAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:30:00.000Z'),
+      ),
+    });
+
+    const retirement = {
+      requestId: IDS.assetStatusRequest,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      status: 'retired',
+      reason: 'Retire the physical furnace after controlled verification.',
+    };
+    await expect(invokeRegistry(retirement)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-instance-open-condition-ticket',
+        ticketId: 'retained-issue',
+      }),
+    });
+
+    // Ending the concern's relevance is the supported way through.
+    await db.collection('maintenance_records').doc('retained-issue').update({
+      issueClosureDisposition: 'relevanceEnded',
+    });
+    await expect(invokeRegistry(retirement)).resolves.toMatchObject({
+      ok: true,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+    });
+  });
+
   test('an open component issue blocks retirement as a condition, not as damage', async () => {
     await invoke(classRequest());
     await invokeRegistry(assetRequest({

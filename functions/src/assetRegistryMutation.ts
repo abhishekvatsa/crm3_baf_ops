@@ -607,6 +607,17 @@ function conditionTicketTargetsAsset(
       data.plantConditionEffect !== "unavailable") {
     return false;
   }
+  // An issue closed administratively while explicitly still relevant is
+  // resolved in the lifecycle sense and not in the plant's. Plant Condition
+  // keeps counting it, so retiring the asset underneath it left a retained
+  // concern pointing at an asset no longer in the active population. Both
+  // sides read the same rule here: a concern still applies while it is open,
+  // or while its administrative closure says it remains relevant.
+  const stillApplies = data.isResolved !== true ||
+    (data.status === "closedWithoutResolution" &&
+      data.issueClosureSchemaVersion === 1 &&
+      data.issueClosureDisposition === "stillRelevant");
+  if (!stillApplies) return false;
   let reference: unknown;
   try {
     reference = typeof data.assetHierarchyRefJson === "string" ?
@@ -1317,6 +1328,18 @@ export async function mutateAssetRegistryWithDb(args: {
               .where("isDeleted", "==", false),
           ),
           "Open condition-changing maintenance-ticket lookup",
+        ));
+        // A still-relevant administrative closure is marked resolved, so the
+        // query above cannot see it, and the concern it retains would be
+        // stranded on a retired asset.
+        openConditionTicketQueries.push(asQuery(
+          await transaction.get(
+            maintenanceIssues.where("assetType", "==", assetType)
+              .where("assetNumber", "==", assetData.assetNumber)
+              .where("status", "==", "closedWithoutResolution")
+              .where("isDeleted", "==", false),
+          ),
+          "Retained condition-changing maintenance-ticket lookup",
         ));
       }
     }
