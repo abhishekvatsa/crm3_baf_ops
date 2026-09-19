@@ -43,6 +43,10 @@ import {
   adjudicateFurnaceStuckup,
   verifyFurnaceStuckupAudit,
 } from "./furnaceStuckupHandlers";
+import {
+  correctBurnerBlockInstallation,
+  verifyBurnerBlockCorrectionReplay,
+} from "./burnerBlockCorrectionHandler";
 import {startIssueCoordination} from "./issueCoordinationHandler";
 import {
   upsertFrequentIssueDefinition,
@@ -149,6 +153,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  correctBurnerBlockInstallation,
   raiseCriticalAlarm,
   provideCriticalAlarmDetails,
   confirmCriticalAlarmSupport,
@@ -213,6 +218,12 @@ export class MaintenanceWorkflowCommandService {
       if (replay != null) {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
+        await verifyBurnerBlockCorrectionReplay({
+          tx,
+          command,
+          actor,
+          receipt: replay,
+        });
         await verifyCriticalAlarmReplay({tx, command, actor, receipt: replay});
         await verifyUnusedInspectionCampaignDeletionReplay({
           tx,

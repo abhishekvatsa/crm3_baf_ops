@@ -6,6 +6,7 @@ import {
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {operationalEventDisposition} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -578,6 +579,21 @@ export function validateCurrentEvent(
     (resolvedAt == null || resolvedAt.getTime() >= startedAt.getTime()) &&
     (latestCompletedAt == null ||
       startedAt.getTime() >= latestCompletedAt.getTime());
+  const disposition = operationalEventDisposition(data);
+  const withdrawalEvidenceValid = disposition === "effective" ?
+    (!Object.prototype.hasOwnProperty.call(data, "withdrawalReason") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnAt") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByUid") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByName")) :
+    typeof data.isWithdrawn === "boolean" &&
+    typeof data.withdrawalReason === "string" &&
+    data.withdrawalReason.trim().length > 0 &&
+    data.withdrawalReason.length <= 1000 &&
+    isTimestampLike(data.withdrawnAt) &&
+    typeof data.withdrawnByUid === "string" &&
+    data.withdrawnByUid.length > 0 && data.withdrawnByUid.length <= 128 &&
+    typeof data.withdrawnByName === "string" &&
+    data.withdrawnByName.length > 0 && data.withdrawnByName.length <= 200;
   if (data.schemaVersion !== 1 || data.eventId !== eventId ||
       issueLinkIds.length !== linkedIssueIds.length ||
       !EVENT_TYPES.has(data.eventType as EventType) ||
@@ -595,6 +611,9 @@ export function validateCurrentEvent(
       data.updatedByName.length > 200 || !Number.isSafeInteger(data.version) ||
       (data.version as number) < 1 || typeof data.lastMutationId !== "string" ||
       !UUID.test(data.lastMutationId) ||
+      (Object.prototype.hasOwnProperty.call(data, "isWithdrawn") &&
+        typeof data.isWithdrawn !== "boolean") ||
+      !withdrawalEvidenceValid ||
       (data.status === "resolved" &&
         ((data.resolvedByUid as string).length > 128 ||
           (data.resolvedByName as string).length > 200 ||

@@ -3699,6 +3699,53 @@ describe('continuing a still-relevant administrative closure', () => {
       });
   });
 
+  test('a successor cannot change the component at the same governed asset', async () => {
+    const seeded = withClosure({
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 4,
+        nodeId: 'node-shell',
+        nodeVersion: 1,
+      }),
+    });
+    const node = (nodeId, name) => ({
+      schemaVersion: 1,
+      nodeId,
+      assetClassId: 'class-furnace',
+      status: 'active',
+      version: 1,
+      nodeType: 'component',
+      name,
+      hierarchyPath: ['Furnace', name],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: ['operations'],
+      componentTag: null,
+    });
+    seeded.store.seed('asset_hierarchy_nodes/node-shell', node('node-shell', 'Furnace shell'));
+    seeded.store.seed('asset_hierarchy_nodes/node-recuperator', node('node-recuperator', 'Recuperator'));
+
+    await expect(seeded.service.execute(successor({
+      component: 'Recuperator',
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 4,
+        nodeId: 'node-recuperator',
+        nodeVersion: 1,
+      }),
+    }), seeded.context)).rejects.toMatchObject({
+      details: {
+        reasonCode: 'maintenance-ticket-continuation-subject-changed',
+      },
+    });
+  });
+
   test('an ordinary issue still needs no continuation', async () => {
     const seeded = createServiceFor(mechanical);
 

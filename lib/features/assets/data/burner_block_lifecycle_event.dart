@@ -115,8 +115,9 @@ class BurnerBlockLifecycleEvent {
 
   factory BurnerBlockLifecycleEvent.fromMap(
     Map<String, dynamic> map,
-    String documentId,
-  ) {
+    String documentId, {
+    bool allowProjectionChronology = false,
+  }) {
     final source = 'burner_block_lifecycle_events/$documentId';
     readBoundedPersistedExtensionBag(
       map,
@@ -215,9 +216,10 @@ class BurnerBlockLifecycleEvent {
       field: 'recordedAt',
       source: source,
     );
-    if (actionPerformedAt.isAfter(
-          completedAt.add(const Duration(minutes: 5)),
-        ) ||
+    if ((!allowProjectionChronology &&
+            actionPerformedAt.isAfter(
+              completedAt.add(const Duration(minutes: 5)),
+            )) ||
         recordedAt != completedAt) {
       throw PersistedDataFormatException(
         field: 'completedAt',
@@ -395,11 +397,14 @@ class BurnerBlockLifecycleEvent {
         detail: 'current lifecycle identity is inconsistent',
       );
     }
-    final eventMap =
-        Map<String, dynamic>.from(map)
-          ..remove('projectionSchemaVersion')
-          ..remove('projectionId')
-          ..remove('currentEventId');
-    return BurnerBlockLifecycleEvent.fromMap(eventMap, currentEventId);
+    final eventMap = Map<String, dynamic>.from(map)
+      ..remove('projectionSchemaVersion')
+      ..remove('projectionId')
+      ..remove('currentEventId');
+    return BurnerBlockLifecycleEvent.fromMap(
+      eventMap,
+      currentEventId,
+      allowProjectionChronology: true,
+    );
   }
 }

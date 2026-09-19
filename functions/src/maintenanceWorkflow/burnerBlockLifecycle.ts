@@ -755,38 +755,145 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
   return {events, currentStates};
 };
 
+export const BURNER_BLOCK_CORRECTIONS =
+  "burner_block_lifecycle_corrections";
+
+export interface BurnerBlockCorrectionWritePlan {
+  readonly correction: {readonly path: string; readonly data: JsonMap};
+  readonly currentState: {readonly path: string; readonly data: JsonMap};
+  readonly correctedEvent: JsonMap;
+  readonly supersededCorrection: JsonMap | null;
+  readonly previousCurrentState: JsonMap | null;
+}
+
+const requireCurrentProjection = async (args: {
+  readonly tx: WorkflowTransaction;
+  readonly assetInstanceId: string;
+  readonly burnerPosition: number;
+  readonly expectedCurrentEventId: string;
+}): Promise<{
+  readonly projectionId: string;
+  readonly snapshot: Awaited<ReturnType<WorkflowTransaction["get"]>>;
+}> => {
+  const projectionId = currentStateId(
+    args.assetInstanceId,
+    args.burnerPosition,
+  );
+  const snapshot = await args.tx.get(
+    `burner_block_lifecycle_current/${projectionId}`,
+  );
+  const data = snapshot.data;
+  if (!snapshot.exists || data == null ||
+      data.projectionSchemaVersion !== 1 ||
+      data.projectionId !== projectionId ||
+      data.currentEventId !== data.eventId ||
+      data.assetInstanceId !== args.assetInstanceId ||
+      data.burnerPosition !== args.burnerPosition ||
+      data.installationDiscipline !== "mechanical") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The current burner-block lifecycle projection is missing or inconsistent.",
+      {reasonCode: "burner-block-lifecycle-current-invalid", projectionId},
+    );
+  }
+  if (data.currentEventId !== args.expectedCurrentEventId) {
+    throw new WorkflowError(
+      "workflow-version-conflict",
+      "The burner-block installation changed before this correction was applied.",
+      {
+        reasonCode: "burner-block-lifecycle-current-version-conflict",
+        projectionId,
+        expectedCurrentEventId: args.expectedCurrentEventId,
+        actualCurrentEventId: data.currentEventId,
+      },
+    );
+  }
+  return {projectionId, snapshot};
+};
+
+/** The correction in force for an event: the one nothing else supersedes. */
+const effectiveCorrection = (
+  corrections: readonly JsonMap[],
+  eventId: string,
+): JsonMap | null => {
+  const superseded = new Set(
+    corrections
+      .map((data) => data.supersedesCorrectionId)
+      .filter((value): value is string => typeof value === "string"),
+  );
+  const live = corrections.filter((data) =>
+    data.correctsEventId === eventId &&
+    !superseded.has(String(data.correctionId)));
+  if (live.length > 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This installation has more than one correction in force.",
+      {reasonCode: "burner-block-lifecycle-corrections-conflict", eventId},
+    );
+  }
+  return live[0] ?? null;
+};
+
+/** What an event says now: its own time, or the time a correction gave it. */
+const correctedInstallationTime = (
+  event: JsonMap,
+  corrections: readonly JsonMap[],
+): string => {
+  const correction = effectiveCorrection(
+    corrections,
+    requiredText(event.eventId, "current.eventId"),
+  );
+  return parseInstant(
+    correction == null ?
+      event.actionPerformedAt : correction.correctedActionPerformedAt,
+    "current.actionPerformedAt",
+  );
+};
+
 /**
- * Correcting an installation time that was written down wrong.
+ * Putting right an installation time that was written down wrong.
  *
- * An ordinary replacement recorded with the wrong date cannot be put right by
- * recording another replacement: a later entry is another physical event, and
- * correct ordering leaves the mistaken date current while the truth sits in
- * history. Using the "revised" disposition for this is the same thing wearing
- * a different label - it is another replacement, not a correction, and the
- * commissioning brief asks for the two to stay apart.
+ * Neither obvious repair is honest. Recording another replacement invents a
+ * physical event that never happened and adds one to the count of times that
+ * position was changed; editing the original destroys what somebody actually
+ * wrote. So a correction is neither: it is its own record, in its own
+ * collection, naming the event it corrects and saying why.
  *
- * So a correction is its own event. It names the event it replaces and says
- * why, the original stays exactly as it was recorded, and what is installed
- * now is rebuilt from the evidence that survives. That rebuild is the reason
- * this cannot reuse the ordinary write plan: the ordinary plan only ever moves
- * the projection forward, and a corrected date can move it back - to an
- * earlier replacement that was the true one all along.
+ * Keeping it out of the lifecycle event collection is deliberate. Installed
+ * handsets read every document in that collection through a decoder that
+ * refuses fields it does not know, so a correction filed there would have
+ * darkened the whole burner-block history on the plant rather than adding a
+ * line to it. What those handsets do see is the rebuilt current installation,
+ * which is the part that matters operationally.
+ *
+ * The rebuild is the reason this cannot reuse the ordinary write plan. That
+ * plan only ever moves the current installation forward; a corrected date can
+ * move it back, to an earlier replacement that was the true one all along.
  */
 export const prepareBurnerBlockInstallationCorrection = async (args: {
   readonly tx: WorkflowTransaction;
   readonly eventId: string;
-  readonly actionPerformedAt: unknown;
+  readonly expectedCurrentEventId: string;
+  readonly correctedActionPerformedAt: unknown;
   readonly reason: unknown;
+  readonly supersedesCorrectionId: string | null;
   readonly correctedBy: {readonly uid: string | null; readonly name: string};
-  readonly recordedAt: unknown;
+  readonly correctedAt: unknown;
   readonly correctionId: string;
-}): Promise<BurnerBlockLifecycleWritePlan> => {
+}): Promise<BurnerBlockCorrectionWritePlan> => {
   const reason = requiredText(args.reason, "reason");
-  const correctedAt = parseInstant(
-    args.actionPerformedAt,
-    "actionPerformedAt",
+  const correctedActionPerformedAt = parseInstant(
+    args.correctedActionPerformedAt,
+    "correctedActionPerformedAt",
   );
-  const recordedAt = parseInstant(args.recordedAt, "recordedAt");
+  const correctedAt = parseInstant(args.correctedAt, "correctedAt");
+  if (Date.parse(correctedActionPerformedAt) > Date.parse(correctedAt)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A corrected installation time cannot be later than the correction time.",
+      {reasonCode: "burner-block-lifecycle-correction-chronology-invalid"},
+    );
+  }
   const original = await args.tx.get(
     `burner_block_lifecycle_events/${args.eventId}`,
   );
@@ -795,60 +902,131 @@ export const prepareBurnerBlockInstallationCorrection = async (args: {
     throw new WorkflowError(
       "failed-precondition",
       "That burner-block lifecycle event was not found.",
-      {reasonCode: "burner-block-lifecycle-event-unknown", eventId: args.eventId},
+      {
+        reasonCode: "burner-block-lifecycle-event-unknown",
+        eventId: args.eventId,
+      },
     );
   }
   const assetInstanceId = requiredText(
     original.data.assetInstanceId,
     "current.assetInstanceId",
   );
+  const originalCompletedAt = parseInstant(
+    original.data.completedAt,
+    "current.completedAt",
+  );
+  // Installed clients still validate the shared current projection using the
+  // raw event's closure chronology. Refuse a correction that would make that
+  // projection unreadable; a mistaken closure needs a separately governed
+  // correction rather than an incompatible shared record.
+  if (Date.parse(correctedActionPerformedAt) >
+      Date.parse(originalCompletedAt) + 5 * 60 * 1000) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The corrected installation time would make the current projection incompatible with installed clients.",
+      {reasonCode: "burner-block-lifecycle-correction-after-completion"},
+    );
+  }
   const burnerPosition = positiveInteger(
     original.data.burnerPosition,
     "current.burnerPosition",
   );
-  const siblings = await args.tx.query("burner_block_lifecycle_events", [
-    {field: "assetInstanceId", op: "==", value: assetInstanceId},
-    {field: "burnerPosition", op: "==", value: burnerPosition},
+  const current = await requireCurrentProjection({
+    tx: args.tx,
+    assetInstanceId,
+    burnerPosition,
+    expectedCurrentEventId: requiredText(
+      args.expectedCurrentEventId,
+      "expectedCurrentEventId",
+    ),
+  });
+  const [siblings, storedCorrections] = await Promise.all([
+    args.tx.query("burner_block_lifecycle_events", [
+      {field: "assetInstanceId", op: "==", value: assetInstanceId},
+      {field: "burnerPosition", op: "==", value: burnerPosition},
+    ]),
+    args.tx.query(BURNER_BLOCK_CORRECTIONS, [
+      {field: "assetInstanceId", op: "==", value: assetInstanceId},
+      {field: "burnerPosition", op: "==", value: burnerPosition},
+    ]),
   ]);
   const surviving = siblings
     .map((row) => row.data)
     .filter((data): data is JsonMap => data != null && data.isDeleted !== true);
-  if (surviving.some((data) => data.correctsEventId === args.eventId)) {
+  const corrections = storedCorrections
+    .map((row) => row.data)
+    .filter((data): data is JsonMap => data != null);
+
+  // A correction that is itself wrong is corrected in turn, but only by
+  // somebody who knows what is in force. Naming the wrong predecessor - or
+  // none at all - means the caller was looking at something else.
+  const inForce = effectiveCorrection(corrections, args.eventId);
+  const named = args.supersedesCorrectionId;
+  if ((inForce == null ? null : String(inForce.correctionId)) !== named) {
     throw new WorkflowError(
       "failed-precondition",
-      "That event has already been corrected. Correct the correction instead.",
+      inForce == null ?
+        "That installation time has not been corrected before." :
+        "This installation time has already been corrected. " +
+          "Correct the correction that is in force.",
       {
-        reasonCode: "burner-block-lifecycle-already-corrected",
+        reasonCode: "burner-block-lifecycle-correction-stale",
+        eventId: args.eventId,
+        correctionInForce: inForce == null ? null : inForce.correctionId,
+      },
+    );
+  }
+  if (correctedInstallationTime(original.data, corrections) ===
+      correctedActionPerformedAt) {
+    // Restating the time already in force corrects nothing, and the record it
+    // would leave behind would claim a correction that never happened.
+    throw new WorkflowError(
+      "failed-precondition",
+      "That is the installation time already in force for this event.",
+      {
+        reasonCode: "burner-block-lifecycle-correction-no-change",
         eventId: args.eventId,
       },
     );
   }
+
   const correction: JsonMap = {
-    ...original.data,
-    eventId: args.correctionId,
+    schemaVersion: 1,
+    correctionId: args.correctionId,
     correctsEventId: args.eventId,
-    correctionReason: reason,
-    actionPerformedAt: correctedAt,
-    recordedAt,
-    completedByUid: args.correctedBy.uid,
-    completedByName: args.correctedBy.name,
+    expectedCurrentEventId: args.expectedCurrentEventId,
+    supersedesCorrectionId: named,
+    assetInstanceId,
+    burnerPosition,
+    assetClassId: original.data.assetClassId ?? null,
+    assetNumber: original.data.assetNumber ?? null,
+    componentTag: original.data.componentTag ?? null,
+    recordedActionPerformedAt: parseInstant(
+      original.data.actionPerformedAt,
+      "current.actionPerformedAt",
+    ),
+    correctedActionPerformedAt,
+    reason,
+    correctedAt,
+    correctedByUid: args.correctedBy.uid,
+    correctedByName: args.correctedBy.name,
     version: 1,
   };
-  const events = [{
-    path: `burner_block_lifecycle_events/${args.correctionId}`,
-    data: correction,
-  }];
-  // Rebuilt from every surviving event for this position, the correction
-  // included, so the answer does not depend on which way the date moved.
-  const supersededIds = new Set(
-    [...surviving, correction]
-      .map((data) => data.correctsEventId)
-      .filter((value): value is string => typeof value === "string"),
-  );
+
+  // Rebuilt from every surviving event at this position, each read at the
+  // time in force for it, so the answer does not depend on which way the
+  // corrected date moved.
+  const effective = [...corrections, correction];
   let winner: JsonMap | null = null;
-  for (const data of [...surviving, correction]) {
-    if (supersededIds.has(String(data.eventId))) continue;
-    if (winner == null || isLaterLifecycleData(data, winner)) winner = data;
+  for (const data of surviving) {
+    const candidate: JsonMap = {
+      ...data,
+      actionPerformedAt: correctedInstallationTime(data, effective),
+    };
+    if (winner == null || isLaterLifecycleData(candidate, winner)) {
+      winner = candidate;
+    }
   }
   if (winner == null) {
     throw new WorkflowError(
@@ -857,19 +1035,32 @@ export const prepareBurnerBlockInstallationCorrection = async (args: {
       {reasonCode: "burner-block-lifecycle-correction-empties-position"},
     );
   }
-  const projectionId = currentStateId(assetInstanceId, burnerPosition);
   return {
-    events,
-    currentStates: [{
-      path: `burner_block_lifecycle_current/${projectionId}`,
+    correction: {
+      path: `${BURNER_BLOCK_CORRECTIONS}/${args.correctionId}`,
+      data: correction,
+    },
+    currentState: {
+      path: `burner_block_lifecycle_current/${current.projectionId}`,
       data: {
         ...winner,
         projectionSchemaVersion: 1,
-        projectionId,
+        projectionId: current.projectionId,
         currentEventId: winner.eventId,
       },
-    }],
+    },
+    correctedEvent: original.data,
+    supersededCorrection: inForce,
+    previousCurrentState: current.snapshot.data ?? null,
   };
+};
+
+export const applyBurnerBlockInstallationCorrection = (
+  tx: WorkflowTransaction,
+  plan: BurnerBlockCorrectionWritePlan,
+): void => {
+  tx.create(plan.correction.path, plan.correction.data);
+  tx.set(plan.currentState.path, plan.currentState.data);
 };
 
 export const applyBurnerBlockLifecycleWritePlan = (

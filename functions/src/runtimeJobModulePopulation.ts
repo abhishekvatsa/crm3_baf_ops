@@ -15,6 +15,7 @@ import {
   readFieldDefinitionPayload,
   readFieldResponsePayload,
 } from "./persistedWorkPayload";
+import {firstRequirementContractDifference} from "./requirementContract";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 
 export type RuntimePopulationHttpsErrorCode =
@@ -1072,13 +1073,29 @@ function validateCreateShape(module: RuntimePopulationJsonMap): void {
   );
   assertJsonText(module.responsesJson, "module.responsesJson", "array");
   try {
-    readFieldDefinitionPayload(module.fieldDefinitionsJson, {
+    const definitions = readFieldDefinitionPayload(module.fieldDefinitionsJson, {
       field: "module.fieldDefinitionsJson",
     });
-    readFieldResponsePayload(module.responsesJson, {
+    const responses = readFieldResponsePayload(module.responsesJson, {
       field: "module.responsesJson",
     });
+    const contractDifference = firstRequirementContractDifference(
+      definitions.rows,
+      responses.rows,
+    );
+    if (contractDifference != null) {
+      throw new RuntimePopulationValidationError(
+        "failed-precondition",
+        "Module responses do not match the published requirement contract.",
+        {
+          reasonCode: "module-response-contract-mismatch",
+          fieldKey: contractDifference.key,
+          mismatch: contractDifference.reason,
+        },
+      );
+    }
   } catch (error) {
+    if (error instanceof RuntimePopulationValidationError) throw error;
     if (error instanceof PersistedWorkPayloadError) {
       throw new RuntimePopulationValidationError(
         "invalid-argument",

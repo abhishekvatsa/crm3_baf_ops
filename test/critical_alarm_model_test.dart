@@ -277,10 +277,9 @@ void main() {
   test(
     'active alarm and exact-contact reads cannot be displaced by history caps',
     () {
-      final repository =
-          File(
-            'lib/features/critical_alarm/data/critical_alarm_repository.dart',
-          ).readAsStringSync();
+      final repository = File(
+        'lib/features/critical_alarm/data/critical_alarm_repository.dart',
+      ).readAsStringSync();
       final activeBody = RegExp(
         r'watchActiveAlarms\(\) async\* \{([\s\S]*?)\n  \}\n\n  Stream<List<CriticalAlarm>> watchAlarms',
       ).firstMatch(repository)?.group(1);
@@ -291,14 +290,25 @@ void main() {
       );
       expect(activeBody, isNot(contains('.limit(')));
       expect(activeBody, contains('CriticalAlarmLiveSnapshot.unavailable()'));
+      expect(
+        activeBody,
+        contains('CriticalAlarmLiveSnapshot.partiallyVerified'),
+      );
       expect(activeBody, contains('CriticalAlarmLiveSnapshot.staleLastKnown'));
       expect(activeBody, contains('CriticalAlarmLiveSnapshot.serverVerified'));
+      expect(repository, contains('class _AlarmDecodeResult'));
+      expect(repository, contains('hasMalformed'));
+      expect(repository, contains('CriticalAlarmFeedIncompleteException'));
+      expect(
+        repository,
+        contains('A single damaged document must not terminate'),
+      );
+      expect(repository, contains('if (decoded.hasMalformed)'));
       expect(repository, isNot(contains('.limit(100)')));
 
-      final providers =
-          File(
-            'lib/features/critical_alarm/providers/critical_alarm_providers.dart',
-          ).readAsStringSync();
+      final providers = File(
+        'lib/features/critical_alarm/providers/critical_alarm_providers.dart',
+      ).readAsStringSync();
       expect(providers, contains('.watchActiveAlarms()'));
     },
   );

@@ -522,6 +522,29 @@ describe("published TemplateVersion server assignment", () => {
     expect(writes).toHaveLength(0);
   });
 
+  test("revalidates a resolved legacy physical identity inside the committing transaction", async () => {
+    const {db, store, writes} = fakeAssignmentDb();
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+      beforeAssignmentTransactionForTest: async () => {
+        store.set("asset_instances/base-101", {
+          ...baseInstanceFixture(),
+          status: "retired",
+        });
+      },
+    })).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: expect.objectContaining({
+        reasonCode: "custom-asset-instance-invalid",
+      }),
+    });
+    expect(writes).toHaveLength(0);
+  });
+
   test("creates canonical execution, frozen module, and idempotency receipt atomically", async () => {
     const {db, store, writes} = fakeAssignmentDb();
     const result = await assignPublishedTemplateVersionWithDb({
@@ -2117,6 +2140,98 @@ describe("published TemplateVersion server assignment", () => {
       },
     });
     expect(downgradedRequiredDb.writes).toHaveLength(0);
+
+    // Requiredness alone is not the requirement. A numeric reading and a
+    // text field with the same key would render different forms and produce
+    // different evidence, so assignment must refuse the published version.
+    const typeConflictVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              type: "text",
+              isRequired: true,
+            },
+          ],
+        },
+      ]),
+    });
+    typeConflictVersion.contentHash = computeTemplateVersionContentHash(
+      typeConflictVersion,
+    );
+    const typeConflictDb = fakeAssignmentDb({
+      versionData: typeConflictVersion,
+      audits: [auditFixture({afterHash: typeConflictVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: typeConflictDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: typeConflictVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(typeConflictDb.writes).toHaveLength(0);
+
+    // Supported aliases describe the same requirement and remain compatible
+    // with older published snapshots.
+    const aliasedVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              type: "numericWithUnit",
+              unit: "mm/s",
+              isRequired: true,
+            },
+          ],
+        },
+      ]),
+      fieldDefinitionsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          key: "vibration",
+          label: "Vibration",
+          type: "number",
+          unit: "MM/S",
+          required: true,
+        },
+      ]),
+    });
+    aliasedVersion.contentHash = computeTemplateVersionContentHash(
+      aliasedVersion,
+    );
+    const aliasedDb = fakeAssignmentDb({
+      versionData: aliasedVersion,
+      audits: [auditFixture({afterHash: aliasedVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: aliasedDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({expectedContentHash: aliasedVersion.contentHash}),
+      }),
+    ).resolves.toMatchObject({ok: true});
 
     const invalidFieldTypeVersion = versionFixture({
       fieldDefinitionsJson: JSON.stringify([

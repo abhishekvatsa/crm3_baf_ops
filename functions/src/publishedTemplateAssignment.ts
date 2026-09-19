@@ -18,6 +18,7 @@ import {
   parseFrozenMaintenanceClass,
 } from "./maintenanceWorkflow/maintenanceIntelligence";
 import {stableJson} from "./stableJson";
+import {compareRequirementContracts} from "./requirementContract";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -939,19 +940,6 @@ function validateAssignmentSnapshotTarget(
   return validatedReference;
 }
 
-function legacyAssignmentEquipmentIdentity(
-  request: ParsedAssignmentRequest,
-): AssignmentEquipmentIdentity {
-  return {
-    assetTypeKey: request.assetType,
-    assetNumber: request.assetNumber,
-    assetClassId: null,
-    assetInstanceId: null,
-    assetInstanceVersion: null,
-    innerCoverPosition: null,
-  };
-}
-
 function expectedPhysicalLegacyClassKey(
   request: ParsedAssignmentRequest,
 ): string | null {
@@ -1267,9 +1255,14 @@ function sameEquipmentIdentity(
 async function requireLegacyAssignmentTarget(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
-): Promise<void> {
+): Promise<AssignmentEquipmentIdentity> {
   const legacyKey = expectedPhysicalLegacyClassKey(request);
-  if (legacyKey == null) return;
+  if (legacyKey == null) {
+    throw new AssignmentValidationError(
+      "internal",
+      "A governed custom assignment cannot use the legacy target resolver.",
+    );
+  }
   const activeRows = (
     snapshot: AssignmentQuerySnapshotLike,
   ): AssignmentDocumentSnapshotLike[] => queryDocs(snapshot).filter((row) => {
@@ -1312,6 +1305,18 @@ async function requireLegacyAssignmentTarget(
       },
     );
   }
+  const identity = governedAssetInstanceIdentity(
+    instanceRows[0],
+    request,
+    assetClassId,
+  );
+  if (request.assetType === "innerCover") {
+    return {
+      ...identity,
+      innerCoverPosition: await resolveInnerCoverPosition(db, identity),
+    };
+  }
+  return identity;
 }
 
 async function resolveAssignmentEquipmentIdentity(
@@ -1320,8 +1325,7 @@ async function resolveAssignmentEquipmentIdentity(
 ): Promise<AssignmentEquipmentIdentity> {
   const hasRequestedGovernedIdentity = request.assetClassId != null;
   if (!hasRequestedGovernedIdentity && request.assetType !== "governedCustom") {
-    await requireLegacyAssignmentTarget(db, request);
-    return legacyAssignmentEquipmentIdentity(request);
+    return requireLegacyAssignmentTarget(db, request);
   }
   const versionSnapshot = await db
     .collection("template_versions")
@@ -1598,14 +1602,6 @@ function fieldModuleCode(field: AssignmentJsonMap): string | null {
   ]);
 }
 
-/**
- * Whether a field has to be answered, read exactly as the closure validator
- * reads it: explicitly true, never by default.
- */
-function fieldIsRequired(field: AssignmentJsonMap): boolean {
-  return field.required === true || field.isRequired === true;
-}
-
 function globalFieldsLinkedToModule(
   bundle: ParsedSnapshotBundle,
   code: string | null,
@@ -1658,11 +1654,14 @@ function assertEmbeddedFieldsAgree(
       normalizeKey(stringFrom(entry, FIELD_KEY_ALIASES)) === normalizedKey);
     if (embeddedField == null) {
       conflict(key, `the module's own ${source} omits it`);
-    } else if (fieldIsRequired(embeddedField) !== fieldIsRequired(linked)) {
+    } else {
+      const difference = compareRequirementContracts(embeddedField, linked);
+      if (difference == null) continue;
       conflict(
         key,
         `the module's own ${source} and the template disagree about ` +
-        "whether it has to be answered",
+        `${difference.field} (${JSON.stringify(difference.left)} versus ` +
+        `${JSON.stringify(difference.right)})`,
       );
     }
   }

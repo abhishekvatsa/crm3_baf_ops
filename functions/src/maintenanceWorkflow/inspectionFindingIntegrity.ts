@@ -82,6 +82,34 @@ export async function readInspectionHistory(
   ]), campaignId, targetKey, pending);
 }
 
+/**
+ * An observation belongs to an episode either through its explicit
+ * supersession chain or as a later ordinary reading after that episode's
+ * origin. The latter is ordered by the campaign revision when available so
+ * same-instant commands still have a stable boundary; legacy history falls
+ * back to its recorded instant.
+ */
+function readingBelongsToEpisode(
+  history: InspectionHistory,
+  originId: string,
+  reading: JsonMap,
+): boolean {
+  const origin = history.all.get(originId);
+  if (origin == null) historyRefusal();
+  const originRecordedAt = instant(origin.recordedAt);
+  let root = reading;
+  while (true) {
+    if (root.observationId === originId) return true;
+    if (root.supersedesObservationId == null) break;
+    root = history.all.get(id(root.supersedesObservationId))!;
+  }
+  if (typeof root.campaignVersionAtObservation === "number" &&
+      typeof origin.campaignVersionAtObservation === "number") {
+    return root.campaignVersionAtObservation >= origin.campaignVersionAtObservation;
+  }
+  return instant(root.recordedAt) >= originRecordedAt;
+}
+
 /** Keep the episode's original recording boundary stable while deriving first
  * adverse evidence and recurrence from its surviving readings. If correction
  * removes every adverse reading, technical resolution has no remaining basis:
@@ -90,22 +118,8 @@ export function inspectionEpisodeProjection(history: InspectionHistory, previous
   const originId = id(previous?.episodeOriginObservationId ?? previous?.firstObservationId ?? history.current.observationId);
   const origin = history.all.get(originId);
   if (origin == null) historyRefusal();
-  const originRecordedAt = instant(origin.recordedAt);
-  const belongs = (reading: JsonMap): boolean => {
-    let root = reading;
-    while (true) {
-      if (root.observationId === originId) return true;
-      if (root.supersedesObservationId == null) break;
-      root = history.all.get(id(root.supersedesObservationId))!;
-    }
-    // campaignVersionAtObservation orders real commands even when their server
-    // recording instants coincide. Legacy rows retain their recording boundary.
-    if (typeof root.campaignVersionAtObservation === "number" && typeof origin.campaignVersionAtObservation === "number") {
-      return root.campaignVersionAtObservation >= origin.campaignVersionAtObservation;
-    }
-    return instant(root.recordedAt) >= originRecordedAt;
-  };
-  const adverse = history.effective.filter((data) => belongs(data) && data.outOfRange === true);
+  const adverse = history.effective.filter((data) =>
+    readingBelongsToEpisode(history, originId, data) && data.outOfRange === true);
   const first = adverse.at(-1);
   return {
     episodeOriginObservationId: originId,
@@ -197,9 +211,11 @@ export function assertInspectionFindingEpisodeCurrent(
  *
  * A target can have had several episodes: an adverse reading opens one, it is
  * adjudicated, and a later adverse reading opens another. An observation
- * belongs to an episode when it is that episode's origin, or a correction of it
- * through the recorded supersession chain. Anything else is history from a
- * different episode, and a repair attached to it says nothing about this one.
+ * belongs to an episode when it is that episode's origin, a correction of it
+ * through the recorded supersession chain, or an ordinary reading at or after
+ * the episode's recording boundary. A later terminal episode is still kept
+ * separate because its active finding owns the later boundary and older
+ * terminal findings are not eligible for linking.
  */
 export function inspectionObservationBelongsToEpisode(
   history: InspectionHistory, finding: JsonMap, observationId: string,
@@ -207,17 +223,8 @@ export function inspectionObservationBelongsToEpisode(
   const originId = id(
     finding.episodeOriginObservationId ?? finding.firstObservationId,
   );
-  const seen = new Set<string>();
-  let cursor = history.all.get(observationId);
-  while (cursor != null) {
-    const cursorId = id(cursor.observationId);
-    if (cursorId === originId) return true;
-    if (seen.has(cursorId)) return false;
-    seen.add(cursorId);
-    cursor = cursor.supersedesObservationId == null ?
-      undefined : history.all.get(id(cursor.supersedesObservationId));
-  }
-  return false;
+  const reading = history.all.get(observationId);
+  return reading != null && readingBelongsToEpisode(history, originId, reading);
 }
 
 export function assertInspectionFindingActivation(rows: readonly DocSnapshot[], findingId: string, targetKey: string,

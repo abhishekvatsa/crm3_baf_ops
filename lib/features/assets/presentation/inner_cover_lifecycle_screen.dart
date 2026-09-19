@@ -8,6 +8,7 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/persistence/durable_submission.dart';
+import '../../../core/serialization/command_timestamp.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -21,6 +22,7 @@ import '../../maintenance/domain/furnace_stuckup_case.dart';
 import 'widgets/inner_cover_registration_date_field.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/inner_cover_acceptance_provider.dart';
+import '../providers/inner_cover_lifecycle_submission_provider.dart';
 import '../providers/furnace_stuckup_provider.dart';
 import '../repositories/asset_hierarchy_repository.dart';
 import '../services/inner_cover_acceptance_controller.dart';
@@ -276,6 +278,8 @@ class _InnerCoverIntakePageState extends ConsumerState<_InnerCoverIntakePage> {
                     user,
                   ),
                   onState: () => _changeCoverState(context, ref, cover, user),
+                  onCheckSavedLifecycle: () =>
+                      _checkSavedInnerCoverLifecycle(context, ref, cover),
                 );
               },
             ),
@@ -1291,22 +1295,54 @@ Future<void> _registerCover(
   if (result == null || !context.mounted) return;
   String? registeredId;
   final succeeded = await _runCommand(context, () async {
-    registeredId = await ref
-        .read(assetHierarchyRepositoryProvider)
-        .registerInnerCover(
-          innerCoverClass: innerCoverClass,
-          serialNumber: result.serialNumber,
-          sourceType: result.sourceType,
-          originClassification: result.originClassification,
-          actor: user,
-          reason: result.reason,
-          supplierOrFabricator: result.supplierOrFabricator,
-          receivedOrCompletedOn: result.receivedOrCompletedOn,
-          incorporatedOn: result.incorporatedOn,
-          drawingReference: result.drawingReference,
-          materialGrade: result.materialGrade,
-          notes: result.notes,
-          fabricationSections: result.sections,
+    final repository = ref.read(assetHierarchyRepositoryProvider);
+    final innerCoverId = const Uuid().v4();
+    String? clean(String? value) =>
+        value == null || value.trim().isEmpty ? null : value.trim();
+    registeredId = innerCoverId;
+    await ref
+        .read(innerCoverLifecycleSubmissionControllerProvider)
+        .submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            requestId: const Uuid().v4(),
+            operation: 'REGISTER_INNER_COVER',
+            innerCoverId: innerCoverId,
+            fields: {
+              'innerCoverAssetClassId': innerCoverClass.id,
+              'reason': result.reason,
+              'registrationDraft': {
+                'serialNumber': result.serialNumber,
+                'sourceType': result.sourceType.name,
+                'originClassification': result.originClassification.name,
+                'supplierOrFabricator': clean(result.supplierOrFabricator),
+                'receivedOrCompletedOn': result.receivedOrCompletedOn == null
+                    ? null
+                    : commandUtcMillis(result.receivedOrCompletedOn!),
+                'incorporatedOn': result.incorporatedOn == null
+                    ? null
+                    : commandUtcMillis(result.incorporatedOn!),
+                'drawingReference': clean(result.drawingReference),
+                'materialGrade': clean(result.materialGrade),
+                'notes': clean(result.notes),
+                'fabricationSections': result.sections
+                    .map(
+                      (section) => {
+                        'sectionId': const Uuid().v4(),
+                        'sectionType': section.type.name,
+                        'materialSource': section.materialSource.name,
+                        'donorInnerCoverId': section.donor?.id,
+                        'donorSectionKey': clean(section.donorSectionKey),
+                        'donorExpectedVersion': section.donor?.version,
+                        'lengthMm': section.lengthMm,
+                        'cutCount': section.cutCount,
+                        'notes': clean(section.notes),
+                      },
+                    )
+                    .toList(growable: false),
+              },
+            },
+          ),
         );
   }, success: 'Inner Cover registered for inspection.');
   if (succeeded && registeredId != null && context.mounted) {
@@ -1346,15 +1382,22 @@ Future<void> _manageBaseCover(
   );
   if (selection == null || !context.mounted) return;
   final repository = ref.read(assetHierarchyRepositoryProvider);
+  final submissions = ref.read(innerCoverLifecycleSubmissionControllerProvider);
   final incoming = selection.cover;
   await _runCommand(context, () async {
     if (current == null) {
       if (incoming.isAvailable) {
-        await repository.linkInnerCover(
-          cover: incoming,
-          base: base,
-          actor: user,
-          reason: selection.reason,
+        await submissions.submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            operation: 'LINK_INNER_COVER',
+            innerCoverId: incoming.id,
+            expectedVersion: incoming.version,
+            fields: {
+              'targetBaseAssetInstanceId': base.id,
+              'reason': selection.reason,
+            },
+          ),
         );
       } else {
         final source = assignments[incoming.currentBaseAssetInstanceId];
@@ -1363,12 +1406,19 @@ Future<void> _manageBaseCover(
             'The source Base assignment needs reconciliation.',
           );
         }
-        await repository.transferInnerCover(
-          cover: incoming,
-          sourceAssignment: source,
-          targetBase: base,
-          actor: user,
-          reason: selection.reason,
+        await submissions.submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            operation: 'TRANSFER_INNER_COVER',
+            innerCoverId: incoming.id,
+            expectedVersion: incoming.version,
+            fields: {
+              'sourceBaseAssetInstanceId': source.baseAssetInstanceId,
+              'expectedSourceAssignmentVersion': source.version,
+              'targetBaseAssetInstanceId': base.id,
+              'reason': selection.reason,
+            },
+          ),
         );
       }
       return;
@@ -1382,13 +1432,22 @@ Future<void> _manageBaseCover(
       );
     }
     if (incoming.isAvailable) {
-      await repository.replaceInnerCover(
-        incoming: incoming,
-        displaced: displaced,
-        targetAssignment: current,
-        displacedState: InnerCoverLifecycleState.awaitingInspection,
-        actor: user,
-        reason: selection.reason,
+      await submissions.submit(
+        originActorUid: user.uid,
+        request: repository.newInnerCoverLifecycleRequest(
+          operation: 'REPLACE_INNER_COVER',
+          innerCoverId: incoming.id,
+          expectedVersion: incoming.version,
+          fields: {
+            'targetBaseAssetInstanceId': current.baseAssetInstanceId,
+            'expectedTargetAssignmentVersion': current.version,
+            'displacedInnerCoverId': displaced.id,
+            'expectedDisplacedVersion': displaced.version,
+            'targetState': InnerCoverLifecycleState.awaitingInspection.name,
+            'physicalEventAt': commandUtcMillis(selection.physicalEventAt!),
+            'reason': selection.reason,
+          },
+        ),
       );
     } else {
       final source = assignments[incoming.currentBaseAssetInstanceId];
@@ -1397,13 +1456,22 @@ Future<void> _manageBaseCover(
           'The source Base assignment needs reconciliation.',
         );
       }
-      await repository.swapInnerCovers(
-        incoming: incoming,
-        sourceAssignment: source,
-        displaced: displaced,
-        targetAssignment: current,
-        actor: user,
-        reason: selection.reason,
+      await submissions.submit(
+        originActorUid: user.uid,
+        request: repository.newInnerCoverLifecycleRequest(
+          operation: 'SWAP_INNER_COVERS',
+          innerCoverId: incoming.id,
+          expectedVersion: incoming.version,
+          fields: {
+            'sourceBaseAssetInstanceId': source.baseAssetInstanceId,
+            'expectedSourceAssignmentVersion': source.version,
+            'targetBaseAssetInstanceId': current.baseAssetInstanceId,
+            'expectedTargetAssignmentVersion': current.version,
+            'displacedInnerCoverId': displaced.id,
+            'expectedDisplacedVersion': displaced.version,
+            'reason': selection.reason,
+          },
+        ),
       );
     }
   }, success: 'Base and Inner Cover pairing updated.');
@@ -1446,8 +1514,40 @@ Future<void> _showCoverDetails(
         user!,
       ),
       onState: () => _changeCoverState(sheetContext, ref, cover, user!),
+      onCheckSavedLifecycle: () =>
+          _checkSavedInnerCoverLifecycle(sheetContext, ref, cover),
     ),
   );
+}
+
+Future<void> _checkSavedInnerCoverLifecycle(
+  BuildContext context,
+  WidgetRef ref,
+  InnerCoverProfile cover,
+) async {
+  try {
+    final controller = ref.read(
+      innerCoverLifecycleSubmissionControllerProvider,
+    );
+    final saved = await controller.restore(cover.id);
+    if (saved == null) {
+      throw const AssetHierarchyException(
+        'There is no saved Inner Cover lifecycle change to check.',
+      );
+    }
+    await controller.check(saved.submissionId);
+    ref.invalidate(innerCoverLifecyclePendingProvider(cover.id));
+    ref.invalidate(innerCoverProfilesProvider);
+    ref.invalidate(innerCoverAssignmentsProvider);
+    ref.invalidate(innerCoverHistoryProvider(cover.id));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved Inner Cover change confirmed.')),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) _showError(context, '$error');
+  }
 }
 
 Future<void> _showBaseHistory(
@@ -1494,15 +1594,22 @@ Future<void> _assignAvailableCover(
   if (selection == null || !context.mounted) return;
   final targetAssignment = assignments[selection.base.id];
   final repository = ref.read(assetHierarchyRepositoryProvider);
+  final submissions = ref.read(innerCoverLifecycleSubmissionControllerProvider);
   final succeeded = await _runCommand(
     context,
     () async {
       if (targetAssignment == null) {
-        await repository.linkInnerCover(
-          cover: cover,
-          base: selection.base,
-          actor: user,
-          reason: selection.reason,
+        await submissions.submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            operation: 'LINK_INNER_COVER',
+            innerCoverId: cover.id,
+            expectedVersion: cover.version,
+            fields: {
+              'targetBaseAssetInstanceId': selection.base.id,
+              'reason': selection.reason,
+            },
+          ),
         );
         return;
       }
@@ -1512,13 +1619,22 @@ Future<void> _assignAvailableCover(
           'The installed Inner Cover profile needs reconciliation.',
         );
       }
-      await repository.replaceInnerCover(
-        incoming: cover,
-        displaced: displaced,
-        targetAssignment: targetAssignment,
-        displacedState: InnerCoverLifecycleState.awaitingInspection,
-        actor: user,
-        reason: selection.reason,
+      await submissions.submit(
+        originActorUid: user.uid,
+        request: repository.newInnerCoverLifecycleRequest(
+          operation: 'REPLACE_INNER_COVER',
+          innerCoverId: cover.id,
+          expectedVersion: cover.version,
+          fields: {
+            'targetBaseAssetInstanceId': targetAssignment.baseAssetInstanceId,
+            'expectedTargetAssignmentVersion': targetAssignment.version,
+            'displacedInnerCoverId': displaced.id,
+            'expectedDisplacedVersion': displaced.version,
+            'targetState': InnerCoverLifecycleState.awaitingInspection.name,
+            'physicalEventAt': commandUtcMillis(selection.physicalEventAt!),
+            'reason': selection.reason,
+          },
+        ),
       );
     },
     success: 'Inner Cover assigned to Base ${selection.base.assetNumber}.',
@@ -1638,14 +1754,23 @@ Future<void> _delinkCover(
   );
   if (result == null || !context.mounted) return;
   final succeeded = await _runCommand(context, () async {
+    final repository = ref.read(assetHierarchyRepositoryProvider);
     await ref
-        .read(assetHierarchyRepositoryProvider)
-        .delinkInnerCover(
-          cover: cover,
-          assignment: assignment,
-          targetState: result.state,
-          actor: user,
-          reason: result.reason,
+        .read(innerCoverLifecycleSubmissionControllerProvider)
+        .submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            operation: 'DELINK_INNER_COVER',
+            innerCoverId: cover.id,
+            expectedVersion: cover.version,
+            fields: {
+              'sourceBaseAssetInstanceId': assignment.baseAssetInstanceId,
+              'expectedSourceAssignmentVersion': assignment.version,
+              'targetState': result.state.name,
+              'physicalEventAt': commandUtcMillis(result.physicalEventAt),
+              'reason': result.reason,
+            },
+          ),
         );
   }, success: 'Inner Cover removed and returned to lifecycle control.');
   if (succeeded && context.mounted && closeSurfaceOnSuccess) {
@@ -1683,14 +1808,23 @@ Future<void> _changeCoverState(
   );
   if (result == null || !context.mounted) return;
   final succeeded = await _runCommand(context, () async {
+    final repository = ref.read(assetHierarchyRepositoryProvider);
     await ref
-        .read(assetHierarchyRepositoryProvider)
-        .setInnerCoverState(
-          cover: cover,
-          targetState: result.state,
-          retirementCondition: result.retirementCondition,
-          actor: user,
-          reason: result.reason,
+        .read(innerCoverLifecycleSubmissionControllerProvider)
+        .submit(
+          originActorUid: user.uid,
+          request: repository.newInnerCoverLifecycleRequest(
+            operation: 'SET_INNER_COVER_STATE',
+            innerCoverId: cover.id,
+            expectedVersion: cover.version,
+            fields: {
+              'targetState': result.state.name,
+              if (result.retirementCondition != null)
+                'retirementCondition': result.retirementCondition!.name,
+              'physicalEventAt': commandUtcMillis(result.physicalEventAt),
+              'reason': result.reason,
+            },
+          ),
         );
   }, success: 'Inner Cover lifecycle state updated.');
   if (succeeded && context.mounted) Navigator.pop(context);

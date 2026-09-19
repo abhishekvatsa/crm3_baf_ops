@@ -94,8 +94,8 @@ class OperationalEventDraft {
     'severity': severity.name,
     'scope': scope.name,
     'affectedAssetClassIds': affectedAssetClassIds.toSet().toList()..sort(),
-    'affectedAssetInstanceIds':
-        affectedAssetInstanceIds.toSet().toList()..sort(),
+    'affectedAssetInstanceIds': affectedAssetInstanceIds.toSet().toList()
+      ..sort(),
     'startedAt': canonicalOperationalEventCommandTimestamp(startedAt),
   };
 }
@@ -144,10 +144,12 @@ class OperationalEventInterval {
       startedAt.isBefore(endExclusive) && resolvedAt.isAfter(startInclusive);
 
   Duration durationWithin(DateTime startInclusive, DateTime endExclusive) {
-    final clippedStart =
-        startedAt.isAfter(startInclusive) ? startedAt : startInclusive;
-    final clippedEnd =
-        resolvedAt.isBefore(endExclusive) ? resolvedAt : endExclusive;
+    final clippedStart = startedAt.isAfter(startInclusive)
+        ? startedAt
+        : startInclusive;
+    final clippedEnd = resolvedAt.isBefore(endExclusive)
+        ? resolvedAt
+        : endExclusive;
     return clippedEnd.isAfter(clippedStart)
         ? clippedEnd.difference(clippedStart)
         : Duration.zero;
@@ -182,6 +184,10 @@ class OperationalEvent {
     required this.updatedByName,
     required this.lastMutationId,
     this.isWithdrawn = false,
+    this.withdrawalReason,
+    this.withdrawnAt,
+    this.withdrawnByUid,
+    this.withdrawnByName,
   });
 
   final String eventId;
@@ -216,8 +222,14 @@ class OperationalEvent {
   /// entered; what changes is that it no longer counts as a disruption.
   /// Absent on every record written before the withdrawal route existed.
   final bool isWithdrawn;
+  final String? withdrawalReason;
+  final DateTime? withdrawnAt;
+  final String? withdrawnByUid;
+  final String? withdrawnByName;
 
-  bool get isOpen => status == OperationalEventStatus.open;
+  bool get isEffective => !isWithdrawn;
+
+  bool get isOpen => isEffective && status == OperationalEventStatus.open;
 
   Iterable<OperationalEventInterval> occurrencesUntil(DateTime asOf) sync* {
     yield* completedIntervals;
@@ -239,7 +251,17 @@ class OperationalEvent {
     );
   }
 
-  Duration durationUntil(DateTime end) => occurrencesUntil(end).fold(
+  /// Effective occurrences are used by worklists, counts and reports. The
+  /// raw [occurrencesUntil] history remains available so a withdrawn entry is
+  /// still auditable as the record somebody entered.
+  Iterable<OperationalEventInterval> effectiveOccurrencesUntil(
+    DateTime asOf,
+  ) sync* {
+    if (!isEffective) return;
+    yield* occurrencesUntil(asOf);
+  }
+
+  Duration durationUntil(DateTime end) => effectiveOccurrencesUntil(end).fold(
     Duration.zero,
     (total, interval) =>
         total +
@@ -252,7 +274,7 @@ class OperationalEvent {
     DateTime startInclusive,
     DateTime endExclusive,
     DateTime asOf,
-  ) => occurrencesUntil(
+  ) => effectiveOccurrencesUntil(
     asOf,
   ).any((interval) => interval.overlaps(startInclusive, endExclusive));
 
@@ -260,17 +282,16 @@ class OperationalEvent {
     DateTime startInclusive,
     DateTime endExclusive,
     DateTime asOf,
-  ) =>
-      occurrencesUntil(asOf)
-          .where((interval) => interval.overlaps(startInclusive, endExclusive))
-          .length;
+  ) => effectiveOccurrencesUntil(
+    asOf,
+  ).where((interval) => interval.overlaps(startInclusive, endExclusive)).length;
 
   Duration durationWithin(
     DateTime startInclusive,
     DateTime endExclusive,
     DateTime asOf,
   ) {
-    return occurrencesUntil(asOf).fold(
+    return effectiveOccurrencesUntil(asOf).fold(
       Duration.zero,
       (total, interval) =>
           total + interval.durationWithin(startInclusive, endExclusive),
@@ -609,6 +630,55 @@ class OperationalEvent {
         detail: 'must not precede startedAt',
       );
     }
+    final isWithdrawn = map.containsKey('isWithdrawn')
+        ? readRequiredPersistedBool(
+            map['isWithdrawn'],
+            field: 'isWithdrawn',
+            source: source,
+          )
+        : false;
+    final withdrawalReason = readOptionalPersistedString(
+      map['withdrawalReason'],
+      field: 'withdrawalReason',
+      source: source,
+    );
+    final withdrawnAt = readOptionalPersistedDateTime(
+      map['withdrawnAt'],
+      field: 'withdrawnAt',
+      source: source,
+    );
+    final withdrawnByUid = readOptionalPersistedString(
+      map['withdrawnByUid'],
+      field: 'withdrawnByUid',
+      source: source,
+    );
+    final withdrawnByName = readOptionalPersistedString(
+      map['withdrawnByName'],
+      field: 'withdrawnByName',
+      source: source,
+    );
+    final withdrawalEvidence = <Object?>[
+      withdrawalReason,
+      withdrawnAt,
+      withdrawnByUid,
+      withdrawnByName,
+    ];
+    final withdrawalEvidenceValid = isWithdrawn
+        ? withdrawalEvidence.every((value) => value != null) &&
+              withdrawalReason!.isNotEmpty &&
+              withdrawalReason.length <= 1000 &&
+              withdrawnByUid!.isNotEmpty &&
+              withdrawnByUid.length <= 128 &&
+              withdrawnByName!.isNotEmpty &&
+              withdrawnByName.length <= 200
+        : withdrawalEvidence.every((value) => value == null);
+    if (!withdrawalEvidenceValid) {
+      throw PersistedDataFormatException(
+        field: 'isWithdrawn',
+        source: source,
+        detail: 'withdrawal disposition requires complete accountable evidence',
+      );
+    }
     return OperationalEvent(
       eventId: eventId,
       eventType: readRequiredPersistedEnum(
@@ -691,13 +761,11 @@ class OperationalEvent {
       // Absent on every record written before the withdrawal route existed,
       // which reads as what it means: this entry was not withdrawn. A value
       // that is present and not a boolean is a producer fault and fails closed.
-      isWithdrawn: map.containsKey('isWithdrawn')
-          ? readRequiredPersistedBool(
-            map['isWithdrawn'],
-            field: 'isWithdrawn',
-            source: source,
-          )
-          : false,
+      isWithdrawn: isWithdrawn,
+      withdrawalReason: withdrawalReason,
+      withdrawnAt: withdrawnAt,
+      withdrawnByUid: withdrawnByUid,
+      withdrawnByName: withdrawnByName,
     );
   }
 }

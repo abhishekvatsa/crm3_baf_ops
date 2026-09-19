@@ -53,8 +53,7 @@ OperationalEventImpactSummary summarizeOperationalEventImpact({
     // An entry withdrawn as recorded in error is not a disruption. It stays
     // readable as the record of what somebody entered, and it stops counting
     // towards cumulative time, occurrence counts and the leading topic.
-    if (event.isWithdrawn) continue;
-    for (final occurrence in event.occurrencesUntil(asOf)) {
+    for (final occurrence in event.effectiveOccurrencesUntil(asOf)) {
       if (topic != null && occurrence.eventType != topic) continue;
       if (!occurrence.overlaps(startInclusive, endExclusive)) continue;
 
@@ -93,7 +92,6 @@ OperationalEventImpactSummary summarizeOperationalEventImpact({
   );
 }
 
-DateTime _monthBoundary(DateTime value, {int offset = 0}) =>
-    value.isUtc
-        ? DateTime.utc(value.year, value.month + offset)
-        : DateTime(value.year, value.month + offset);
+DateTime _monthBoundary(DateTime value, {int offset = 0}) => value.isUtc
+    ? DateTime.utc(value.year, value.month + offset)
+    : DateTime(value.year, value.month + offset);

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "38A05C240002D13AF804C384C6CACB48B1B9A35ADA91A64860BD41DE8E977DB4",
+  "inventoryDigest": "F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "C029CB350CDA1717362BB0B26C5234CC718C7CA56569517519B5BA9DFFC5C83A",
+  "a05ManifestSha256": "B15E891B9BCCE2FBD8DED99EA59FBE178E014953A8034A1AF8261D311AFDB5BB",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1152,9 +1152,9 @@
       "id": "inner-cover-lifecycle-records",
       "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
-      "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
+      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, assurance invalidation, and fabrication genealogy",
+      "malformedDisposition": "fail closed before incomplete identity, linkage, assurance invalidation or genealogy enters lifecycle decisions or issue evidence; invalidation evidence must be complete together and preserve physical/recorded chronology",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, acceptance, and assurance invalidation evidence remains optional only where explicitly modelled; absent invalidation timestamps do not manufacture an invalidation",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
     },
     {
@@ -1458,9 +1458,9 @@
       "id": "operational-event-records",
       "file": "lib/features/operational_events/data/operational_event.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
-      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
-      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
     },
     {

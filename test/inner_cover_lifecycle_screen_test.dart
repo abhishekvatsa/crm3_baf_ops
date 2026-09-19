@@ -9,9 +9,11 @@ import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/inner_cover_lifecycle_screen.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/inner_cover_acceptance_provider.dart';
+import 'package:crm3_baf_ops/features/assets/providers/inner_cover_lifecycle_submission_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/furnace_stuckup_provider.dart';
 import 'package:crm3_baf_ops/features/assets/repositories/asset_hierarchy_repository.dart';
 import 'package:crm3_baf_ops/features/assets/services/inner_cover_acceptance_controller.dart';
+import 'package:crm3_baf_ops/features/assets/services/inner_cover_lifecycle_submission_controller.dart';
 import 'package:crm3_baf_ops/features/auth/domain/current_actor_access.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -387,7 +389,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Register'));
       await tester.pumpAndSettle();
       expect(repository.registerCalls, 1);
-      expect(repository.readCalls, 1);
+      expect(repository.readCalls, 2);
       expect(find.text('Registered Inner Cover'), findsOneWidget);
       expect(find.text('GR30'), findsOneWidget);
       expect(find.text('Awaiting inspection'), findsOneWidget);
@@ -824,6 +826,11 @@ void main() {
 
     expect(find.text('Return retired cover to inspection'), findsOneWidget);
     expect(find.text('Condition recorded at retirement'), findsOneWidget);
+    expect(find.textContaining('Physical event:'), findsOneWidget);
+    expect(
+      find.textContaining('Use when the physical change happened'),
+      findsOneWidget,
+    );
     expect(find.text('Available'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -1173,6 +1180,22 @@ Future<void> _pumpIntake(
             requireCapability: (_) async {},
           ),
         ),
+        innerCoverLifecycleSubmissionControllerProvider.overrideWith(
+          (ref) => InnerCoverLifecycleSubmissionController(
+            store: store,
+            repository: repository,
+            requireActor: () {
+              final access = CurrentActorAccess.resolve(
+                ref.read(currentAppUserProvider),
+              );
+              if (!access.isReady) {
+                throw AssetHierarchyException(access.message);
+              }
+              return access.actor!;
+            },
+            requireCapability: (_) async {},
+          ),
+        ),
         currentAppUserProvider.overrideWith(
           (ref) => actorStream ?? Stream.value(_actor(AppRole.admin)),
         ),
@@ -1266,6 +1289,9 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
   int acceptCalls = 0;
   int readCalls = 0;
   int registerCalls = 0;
+  String registeredCoverId = 'new-cover';
+  String registeredSerial = 'GR30';
+  String? registeredRequestId;
   String? acceptedRequestId;
   String? acceptanceReference;
   DateTime? inspectedOn;
@@ -1273,12 +1299,12 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
   int? acceptedVersion;
 
   InnerCoverProfile _current({int? version}) => InnerCoverProfile(
-    id: 'new-cover',
+    id: registeredCoverId,
     assetClassId: 'inner-class',
     assetClassCode: 'INNER_COVER',
     assetClassName: 'Inner Cover',
-    serialNumber: 'GR30',
-    normalizedSerialNumber: 'GR30',
+    serialNumber: registeredSerial,
+    normalizedSerialNumber: registeredSerial,
     sourceType: InnerCoverSourceType.purchased,
     originClassification: InnerCoverOriginClassification.documentedPurchase,
     lifecycleState: acceptedRequestId == null
@@ -1288,7 +1314,7 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
     version: version ?? acceptedVersion ?? serverVersion,
     createdAt: DateTime.utc(2026, 8, 1),
     updatedAt: DateTime.now(),
-    lastMutationId: acceptedRequestId ?? 'registration',
+    lastMutationId: acceptedRequestId ?? registeredRequestId ?? 'registration',
     acceptanceReference: acceptanceReference,
     acceptedAt: inspectedOn,
     acceptedByUid: acceptedRequestId == null ? null : 'actor-1',
@@ -1306,7 +1332,7 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
     int? minimumVersion,
   }) async {
     readCalls++;
-    expect(id, 'new-cover');
+    expect(id, registeredCoverId);
     if (failNextRead) {
       failNextRead = false;
       throw const AssetHierarchyException('Server read unavailable');
@@ -1315,7 +1341,49 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
   }
 
   @override
+  Map<String, dynamic> newInnerCoverLifecycleRequest({
+    required String operation,
+    required String innerCoverId,
+    int? expectedVersion,
+    Map<String, dynamic> fields = const <String, dynamic>{},
+    String? requestId,
+  }) => <String, dynamic>{
+    'requestId': requestId ?? 'request-${registerCalls + 1}',
+    'operation': operation,
+    'innerCoverId': innerCoverId,
+    if (expectedVersion != null) 'expectedVersion': expectedVersion,
+    ...fields,
+  };
+
+  @override
   dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #dispatchFrozenInnerCoverLifecycle) {
+      final request = Map<String, dynamic>.from(
+        invocation.positionalArguments.single as Map,
+      );
+      expect(invocation.namedArguments[#originActorUid], 'actor-1');
+      expect(request['operation'], 'REGISTER_INNER_COVER');
+      registerCalls++;
+      registeredRequestId = request['requestId'] as String;
+      registeredCoverId = request['innerCoverId'] as String;
+      final draft = Map<String, dynamic>.from(
+        request['registrationDraft'] as Map,
+      );
+      registeredSerial = draft['serialNumber'] as String;
+      profiles = [_current()];
+      updates.add(profiles);
+      return Future<AssetHierarchyMutationReceipt>.value(
+        AssetHierarchyMutationReceipt(
+          requestId: request['requestId'] as String,
+          operation: request['operation'] as String,
+          entityId: registeredCoverId,
+          version: 1,
+          auditId: 'inner_cover_${request['requestId']}',
+          committedAt: DateTime.now(),
+          idempotentReplay: false,
+        ),
+      );
+    }
     if (invocation.memberName == #registerInnerCover) {
       registerCalls++;
       profiles = [_current()];

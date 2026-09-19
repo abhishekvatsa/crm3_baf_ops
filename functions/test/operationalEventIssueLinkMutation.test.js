@@ -241,6 +241,24 @@ describe('operational event issue-link mutation', () => {
     });
   });
 
+  test('a withdrawn event cannot receive a new issue link', async () => {
+    const memory = fakeDb(baseSeed({
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'The duplicate entry was confirmed in error.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        withdrawnByName: 'Operations One',
+      }),
+    }));
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-withdrawn'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('atomically writes projections, immutable link, audit, and receipt', async () => {
     const memory = fakeDb(baseSeed());
     const result = await invoke(memory);

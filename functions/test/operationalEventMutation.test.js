@@ -794,6 +794,29 @@ describe('operational event mutation', () => {
     });
   });
 
+  test('malformed withdrawal evidence is rejected before any operation uses it', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'Recorded twice.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        // A withdrawn record without the accountable display name is not a
+        // valid effective-disposition projection.
+        withdrawnByName: null,
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', withdrawRequest({
+      requestId: IDS.resolve,
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-projection-malformed'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('a withdrawn entry is not edited, resolved or reopened afterwards',
     async () => {
       const memory = fakeDb({

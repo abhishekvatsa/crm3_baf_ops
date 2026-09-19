@@ -20,13 +20,19 @@ enum CriticalAlarmSupportBasis {
   raiserContactedDirectly,
 }
 
-enum CriticalAlarmFeedAuthority { serverVerified, staleLastKnown, unavailable }
+enum CriticalAlarmFeedAuthority {
+  serverVerified,
+  partiallyVerified,
+  staleLastKnown,
+  unavailable,
+}
 
 class CriticalAlarmLiveSnapshot {
   CriticalAlarmLiveSnapshot({
     required List<CriticalAlarm> alarms,
     required this.authority,
     required this.lastVerifiedAt,
+    this.malformedDocumentCount = 0,
   }) : alarms = List<CriticalAlarm>.unmodifiable(alarms);
 
   factory CriticalAlarmLiveSnapshot.serverVerified({
@@ -47,16 +53,27 @@ class CriticalAlarmLiveSnapshot {
     lastVerifiedAt: lastVerifiedAt,
   );
 
-  factory CriticalAlarmLiveSnapshot.unavailable() =>
-      CriticalAlarmLiveSnapshot(
-        alarms: const <CriticalAlarm>[],
-        authority: CriticalAlarmFeedAuthority.unavailable,
-        lastVerifiedAt: null,
-      );
+  factory CriticalAlarmLiveSnapshot.partiallyVerified({
+    required List<CriticalAlarm> alarms,
+    required int malformedDocumentCount,
+    DateTime? lastVerifiedAt,
+  }) => CriticalAlarmLiveSnapshot(
+    alarms: alarms,
+    authority: CriticalAlarmFeedAuthority.partiallyVerified,
+    lastVerifiedAt: lastVerifiedAt,
+    malformedDocumentCount: malformedDocumentCount,
+  );
+
+  factory CriticalAlarmLiveSnapshot.unavailable() => CriticalAlarmLiveSnapshot(
+    alarms: const <CriticalAlarm>[],
+    authority: CriticalAlarmFeedAuthority.unavailable,
+    lastVerifiedAt: null,
+  );
 
   final List<CriticalAlarm> alarms;
   final CriticalAlarmFeedAuthority authority;
   final DateTime? lastVerifiedAt;
+  final int malformedDocumentCount;
 
   bool get isServerVerified =>
       authority == CriticalAlarmFeedAuthority.serverVerified;
@@ -273,15 +290,15 @@ class CriticalAlarmDefinition {
     for (final definition in overrides) {
       merged[definition.key] = definition;
     }
-    final rows =
-        merged.values.toList()..sort((left, right) {
-          final rank = left.criticalityRank.compareTo(right.criticalityRank);
-          if (rank != 0) return rank;
-          final name = left.name.toLowerCase().compareTo(
-            right.name.toLowerCase(),
-          );
-          return name != 0 ? name : left.key.compareTo(right.key);
-        });
+    final rows = merged.values.toList()
+      ..sort((left, right) {
+        final rank = left.criticalityRank.compareTo(right.criticalityRank);
+        if (rank != 0) return rank;
+        final name = left.name.toLowerCase().compareTo(
+          right.name.toLowerCase(),
+        );
+        return name != 0 ? name : left.key.compareTo(right.key);
+      });
     return List.unmodifiable(rows);
   }
 
@@ -959,10 +976,9 @@ class CriticalAlarmContact {
       minimum: 2,
       maximum: 16,
     );
-    final dialPattern =
-        kind == CriticalAlarmContactKind.plantExtension
-            ? RegExp(r'^\d{2,8}$')
-            : RegExp(r'^\+?\d{5,15}$');
+    final dialPattern = kind == CriticalAlarmContactKind.plantExtension
+        ? RegExp(r'^\d{2,8}$')
+        : RegExp(r'^\+?\d{5,15}$');
     if (!dialPattern.hasMatch(dialValue)) {
       throw PersistedDataFormatException(
         field: 'dialValue',

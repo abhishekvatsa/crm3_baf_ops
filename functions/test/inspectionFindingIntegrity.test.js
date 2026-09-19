@@ -33,6 +33,22 @@ async function setup() {
   return {store, run, campaign, read, amend, finding, adjudicate, verify, secondActor};
 }
 
+async function seedCorrectiveTicket(f, ticketId, description = 'Repair the current inspection episode.') {
+  f.store.seed('asset_classes/class-furnace', {...f.store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace'});
+  f.store.seed('asset_instances/furnace-1', {...f.store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace', ownershipStatus: 'unassigned', ownerDiscipline: null, accountableRoleKeys: []});
+  await f.run({commandId: `create-${ticketId}`, commandType: 'createMaintenanceTicket',
+    aggregateId: ticketId, expectedVersion: 0, payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+      component: 'Pressure transmitter', subsystem: null, tag: null, hierarchyPath: [],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1}), maintenanceType: 'breakdown', classification: null,
+      description, routedTo: 'instrumentation', otherDepartment: null,
+      isCritical: false, startDate: '2026-08-21T05:15:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+    }}});
+}
+
 test('PBA01: earlier correction preserves later adverse current evidence and refuses false resolution', async () => {
   const f = await setup(); await f.read('first', '04:50', 1.8); await f.read('later-adverse', '05:10', 1.7);
   await f.read('mistimed', '05:20', 1.9);
@@ -136,6 +152,25 @@ test('a repair for an earlier episode is not taken as this episode corrective ac
   expect(current.status).toBe('open');
   expect(current.linkedTicketId ?? null).toBeNull();
   expect(f.finding('inspection-finding-first').status).toBe('invalidated');
+});
+
+test('a later ordinary adverse reading belongs to the active episode for corrective linking', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('later-adverse', '05:10', 1.7);
+  await seedCorrectiveTicket(f, 'current-repair');
+
+  await f.run({commandId: 'link-current-repair', commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {observationId: 'later-adverse', ticketId: 'current-repair',
+      reason: 'Record the corrective work for the current adverse episode.'}});
+
+  expect(f.finding()).toMatchObject({
+    episodeOriginObservationId: 'first',
+    currentObservationId: 'later-adverse',
+    status: 'correctiveActionLinked',
+    linkedTicketId: 'current-repair',
+  });
 });
 
 test('linking corrective work cannot settle a corrected-away adverse basis without explicit adjudication', async () => {

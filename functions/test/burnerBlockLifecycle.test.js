@@ -1,11 +1,13 @@
 'use strict';
 
 const {
+  applyBurnerBlockInstallationCorrection,
   applyBurnerBlockLifecycleWritePlan,
   prepareBurnerBlockInstallationCorrection,
   prepareBurnerBlockLifecycleWritePlan,
 } = require('../lib/maintenanceWorkflow/burnerBlockLifecycle');
 const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
+const {MaintenanceWorkflowCommandService} = require('../lib/maintenanceWorkflow/dispatcher');
 const {
   workflowFirestoreDataForTest,
 } = require('../lib/maintenanceWorkflow/firebaseStore');
@@ -945,20 +947,32 @@ describe('correcting a mistaken installation time', () => {
       .map(([, data]) => data);
   }
 
+  function correctionsOf(store) {
+    return store.entries()
+      .filter(([entryPath]) =>
+        entryPath.startsWith('burner_block_lifecycle_corrections/'))
+      .map(([, data]) => data);
+  }
+
   async function correct(store, overrides = {}) {
     const events = eventsOf(store);
+    const current = currentOf(store);
     return store.runTransaction(async (tx) => {
       const plan = await prepareBurnerBlockInstallationCorrection({
         tx,
-        eventId: events[0].eventId,
-        actionPerformedAt: '2026-08-10T08:00:00.000Z',
+        eventId: overrides.eventId ?? events[0].eventId,
+        expectedCurrentEventId:
+          overrides.expectedCurrentEventId ?? current.currentEventId,
+        correctedActionPerformedAt:
+          overrides.correctedActionPerformedAt ?? '2026-08-10T08:00:00.000Z',
         reason: 'The register shows the block was fitted on the 10th, not the 12th.',
         correctedBy: actor,
-        recordedAt: '2026-08-29T09:00:00.000Z',
+        correctedAt: '2026-08-29T09:00:00.000Z',
         correctionId: 'correction-1',
+        supersedesCorrectionId: overrides.supersedesCorrectionId ?? null,
         ...overrides,
       });
-      applyBurnerBlockLifecycleWritePlan(tx, plan);
+      applyBurnerBlockInstallationCorrection(tx, plan);
       return plan;
     });
   }
@@ -980,11 +994,11 @@ describe('correcting a mistaken installation time', () => {
     });
 
     // The correction names what it replaces and carries its reason.
-    const correction = eventsOf(store).find((data) =>
+    const correction = correctionsOf(store).find((data) =>
       data.correctsEventId === original.eventId);
     expect(correction).toMatchObject({
-      actionPerformedAt: '2026-08-10T08:00:00.000Z',
-      correctionReason:
+      correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+      reason:
         'The register shows the block was fitted on the 10th, not the 12th.',
       burnerPosition: original.burnerPosition,
     });
@@ -992,7 +1006,7 @@ describe('correcting a mistaken installation time', () => {
     // What is installed now is rebuilt from the surviving evidence, and a
     // correction that moves the date earlier still wins over what it replaced.
     expect(currentOf(store)).toMatchObject({
-      currentEventId: correction.eventId,
+      currentEventId: original.eventId,
       actionPerformedAt: '2026-08-10T08:00:00.000Z',
     });
   });
@@ -1013,7 +1027,7 @@ describe('correcting a mistaken installation time', () => {
 
     await correct(store, {
       eventId: later.eventId,
-      actionPerformedAt: '2026-08-08T08:00:00.000Z',
+      correctedActionPerformedAt: '2026-08-08T08:00:00.000Z',
     });
 
     // With the mistaken date corrected backwards, the block fitted on the 10th
@@ -1040,9 +1054,41 @@ describe('correcting a mistaken installation time', () => {
 
     await expect(correct(store, {correctionId: 'correction-2'}))
       .rejects.toMatchObject({
-        details: {reasonCode: 'burner-block-lifecycle-already-corrected'},
+        details: {reasonCode: 'burner-block-lifecycle-correction-stale'},
       });
     expect(original.eventId).toBeDefined();
+  });
+
+  test('a no-change correction is refused without a second correction record', async () => {
+    const store = seedStore();
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    await correct(store);
+    const before = store.entries();
+
+    await expect(correct(store, {
+      correctionId: 'correction-2',
+      correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+      supersedesCorrectionId: 'correction-1',
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'burner-block-lifecycle-correction-no-change'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a stale current projection is refused without mutation', async () => {
+    const store = seedStore();
+    await prepare(store);
+    const before = store.entries();
+
+    await expect(correct(store, {
+      expectedCurrentEventId: 'different-current-event',
+    })).rejects.toMatchObject({
+      code: 'workflow-version-conflict',
+      details: {
+        reasonCode: 'burner-block-lifecycle-current-version-conflict',
+      },
+    });
+    expect(store.entries()).toEqual(before);
   });
 
   test('an unknown event cannot be corrected', async () => {
@@ -1053,5 +1099,159 @@ describe('correcting a mistaken installation time', () => {
       .rejects.toMatchObject({
         details: {reasonCode: 'burner-block-lifecycle-event-unknown'},
       });
+  });
+});
+
+describe('burner-block installation correction command', () => {
+  const commandActor = {
+    uid: 'admin-1',
+    name: 'Admin One',
+    roles: new Set(['admin']),
+  };
+
+  const eventRows = (store) => store.entries()
+    .filter(([entryPath]) => entryPath.startsWith('burner_block_lifecycle_events/'))
+    .map(([, data]) => data);
+  const currentRow = (store) => store.entries()
+    .find(([entryPath]) => entryPath.startsWith('burner_block_lifecycle_current/'))?.[1];
+
+  async function seededCommandState() {
+    const store = seedStore();
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    store.seed(`users/${commandActor.uid}`, {
+      isApproved: true,
+      roles: ['admin'],
+      name: commandActor.name,
+    });
+    const event = eventRows(store)[0];
+    const current = currentRow(store);
+    const command = {
+      commandId: 'correction-command-1',
+      commandType: 'correctBurnerBlockInstallation',
+      aggregateId: 'correction-1',
+      expectedVersion: 0,
+      payload: {
+        eventId: event.eventId,
+        expectedCurrentEventId: current.currentEventId,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+        reason: 'The register shows the block was fitted on the 10th, not the 12th.',
+        supersedesCorrectionId: null,
+      },
+    };
+    return {store, command, event, current};
+  }
+
+  test('writes correction evidence, rebuilds current state and replays without writes', async () => {
+    const {store, command, event} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    };
+
+    const receipt = await service.execute(command, context);
+    expect(receipt.result).toMatchObject({
+      correctionId: 'correction-1',
+      correctsEventId: event.eventId,
+      currentEventId: event.eventId,
+      currentActionPerformedAt: '2026-08-10T08:00:00.000Z',
+    });
+    expect(store.read('burner_block_lifecycle_corrections/correction-1'))
+      .toMatchObject({
+        correctsEventId: event.eventId,
+        expectedCurrentEventId: event.eventId,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+      });
+    expect(store.read('audit_logs/server_burner_block_correction_correction-command-1'))
+      .toMatchObject({entityType: 'burnerBlockInstallationCorrection'});
+
+    // A real Firestore round trip changes ISO strings into Timestamp-shaped
+    // values. Replay must compare the instant, not the JavaScript object.
+    const correctionPath =
+      'burner_block_lifecycle_corrections/correction-1';
+    store.seed(
+      correctionPath,
+      workflowFirestoreDataForTest(store.read(correctionPath)),
+    );
+    const afterFirst = store.entries();
+    await expect(service.execute(command, context)).resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(afterFirst);
+  });
+
+  test('refuses a future physical installation before any write', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'future-correction-command',
+      aggregateId: 'future-correction',
+      payload: {
+        ...command.payload,
+        correctedActionPerformedAt: '2026-09-01T08:00:00.000Z',
+      },
+    }, {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'burner-block-correction-future-dated'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('refuses a correction that installed clients cannot decode', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'after-closure-correction-command',
+      aggregateId: 'after-closure-correction',
+      payload: {
+        ...command.payload,
+        correctedActionPerformedAt: '2026-08-29T08:00:00.000Z',
+      },
+    }, {
+      actor: commandActor,
+      serverNow: new Date('2026-09-01T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-correction-after-completion',
+      },
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('refuses a command that would make no change without writing evidence', async () => {
+    const {store, command, event} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    };
+    await service.execute(command, context);
+    const before = store.entries();
+    const current = currentRow(store);
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'correction-command-no-change',
+      aggregateId: 'correction-2',
+      payload: {
+        ...command.payload,
+        expectedCurrentEventId: current.currentEventId,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+        supersedesCorrectionId: 'correction-1',
+      },
+    }, context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'burner-block-lifecycle-correction-no-change'},
+    });
+    expect(event.eventId).toBeDefined();
+    expect(store.entries()).toEqual(before);
   });
 });

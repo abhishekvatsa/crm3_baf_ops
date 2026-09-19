@@ -118,16 +118,27 @@ final operationalEventsProvider = StreamProvider.autoDispose
       final events = FirebaseFirestore.instance.collection(
         'operational_events',
       );
-      final open = admitActorSessionSnapshots(
-        events
-            .where('status', isEqualTo: OperationalEventStatus.open.name)
-            .snapshots(includeMetadataChanges: true),
-        trust: cacheTrust,
-        actorUid: actorUid,
-        queryKey: 'events:open',
-        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
-        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
-      ).map(_decodeOperationalEvents);
+      final open =
+          admitActorSessionSnapshots(
+                events
+                    .where(
+                      'status',
+                      isEqualTo: OperationalEventStatus.open.name,
+                    )
+                    .snapshots(includeMetadataChanges: true),
+                trust: cacheTrust,
+                actorUid: actorUid,
+                queryKey: 'events:open',
+                isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+                hasPendingWrites: (snapshot) =>
+                    snapshot.metadata.hasPendingWrites,
+              )
+              .map(_decodeOperationalEvents)
+              .map(
+                (events) => events
+                    .where((event) => event.isOpen)
+                    .toList(growable: false),
+              );
       final recent = admitActorSessionSnapshots(
         events
             .orderBy('updatedAt', descending: true)
@@ -210,20 +221,26 @@ Stream<List<OperationalEvent>> _combineOperationalEventWindows(
 
   controller = StreamController<List<OperationalEvent>>(
     onListen: () {
-      openSubscription = open.listen((value) {
-        latestOpen = value;
-        emitWhenReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        latestOpen = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      });
-      recentSubscription = recent.listen((value) {
-        latestRecent = value;
-        emitWhenReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        latestRecent = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      });
+      openSubscription = open.listen(
+        (value) {
+          latestOpen = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          latestOpen = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+      );
+      recentSubscription = recent.listen(
+        (value) {
+          latestRecent = value;
+          emitWhenReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          latestRecent = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+      );
     },
     onCancel: () async {
       await openSubscription?.cancel();

@@ -76,29 +76,26 @@ class _OperationalEventIssueLinksScreenState
           accent: BafColors.warning,
         ),
       ),
-      floatingActionButton:
-          actor.canRecordOperationalEvent
-              ? FloatingActionButton.extended(
-                onPressed: _busy ? null : () => _linkIssue(actor, event),
-                backgroundColor: BafColors.navySoft,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.add_link_rounded),
-                label: const Text('Link issue'),
-              )
-              : null,
+      floatingActionButton: actor.canRecordOperationalEvent && event.isEffective
+          ? FloatingActionButton.extended(
+              onPressed: _busy ? null : () => _linkIssue(actor, event),
+              backgroundColor: BafColors.navySoft,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_link_rounded),
+              label: const Text('Link issue'),
+            )
+          : null,
       body: links.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading linked maintenance issues',
-              color: BafColors.warning,
-            ),
-        error:
-            (error, _) => _LinkState(
-              icon: Icons.error_outline_rounded,
-              color: BafColors.danger,
-              title: 'Could not load issue links',
-              message: '$error',
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Loading linked maintenance issues',
+          color: BafColors.warning,
+        ),
+        error: (error, _) => _LinkState(
+          icon: Icons.error_outline_rounded,
+          color: BafColors.danger,
+          title: 'Could not load issue links',
+          message: '$error',
+        ),
         data: (records) {
           final current = records
               .where(
@@ -109,10 +106,9 @@ class _OperationalEventIssueLinksScreenState
               .toList(growable: false);
           final prior = records
               .where(
-                (link) =>
-                    !link.eventOccurrenceStartedAt.isAtSameMomentAs(
-                      event.startedAt,
-                    ),
+                (link) => !link.eventOccurrenceStartedAt.isAtSameMomentAs(
+                  event.startedAt,
+                ),
               )
               .toList(growable: false);
           return ListView(
@@ -165,6 +161,12 @@ class _OperationalEventIssueLinksScreenState
   }
 
   Future<void> _linkIssue(AppUser actor, OperationalEvent event) async {
+    if (!event.isEffective) {
+      _showError(
+        'This event was withdrawn and cannot receive new issue links.',
+      );
+      return;
+    }
     final tickets = ref.read(allTicketsProvider).value;
     if (tickets == null) {
       _showError('Maintenance issues are still loading.');
@@ -180,26 +182,23 @@ class _OperationalEventIssueLinksScreenState
             )
             .value ??
         const <OperationalEventIssueLink>[];
-    final currentIssueIds =
-        existing
-            .where(
-              (link) => link.eventOccurrenceStartedAt.isAtSameMomentAs(
-                event.startedAt,
-              ),
-            )
-            .map((link) => link.issueId)
-            .toSet();
-    final eligible =
-        tickets
-            .where(
-              (ticket) =>
-                  userCanLinkOperationalEventIssue(actor, ticket) &&
-                  !ticket.isDeleted &&
-                  (ticket.firestoreId?.trim().isNotEmpty ?? false) &&
-                  !currentIssueIds.contains(ticket.firestoreId) &&
-                  operationalEventCoversIssue(event, ticket),
-            )
-            .toList();
+    final currentIssueIds = existing
+        .where(
+          (link) =>
+              link.eventOccurrenceStartedAt.isAtSameMomentAs(event.startedAt),
+        )
+        .map((link) => link.issueId)
+        .toSet();
+    final eligible = tickets
+        .where(
+          (ticket) =>
+              userCanLinkOperationalEventIssue(actor, ticket) &&
+              !ticket.isDeleted &&
+              (ticket.firestoreId?.trim().isNotEmpty ?? false) &&
+              !currentIssueIds.contains(ticket.firestoreId) &&
+              operationalEventCoversIssue(event, ticket),
+        )
+        .toList();
     eligible.sort((left, right) {
       if (left.isResolved != right.isResolved) return left.isResolved ? 1 : -1;
       return right.updatedAt.compareTo(left.updatedAt);
@@ -307,57 +306,53 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
           accent: BafColors.warning,
         ),
       ),
-      body:
-          issueId == null || issueId.isEmpty
-              ? const _LinkState(
-                icon: Icons.cloud_off_outlined,
-                color: BafColors.warning,
-                title: 'Issue not synchronized',
-                message:
-                    'This issue needs a cloud identity before event links can be read.',
-              )
-              : ref
-                  .watch(
-                    operationalIssueEventLinksProvider((
-                      actorUid: actor.uid,
-                      issueId: issueId,
-                    )),
-                  )
-                  .when(
-                    loading:
-                        () => const BafLoadingPanel(
-                          label: 'Loading linked operational events',
-                          color: BafColors.warning,
-                        ),
-                    error:
-                        (error, _) => _LinkState(
-                          icon: Icons.error_outline_rounded,
-                          color: BafColors.danger,
-                          title: 'Could not load event links',
-                          message: '$error',
-                        ),
-                    data:
-                        (links) => ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            _IssueContext(issue: issue),
-                            const SizedBox(height: 18),
-                            if (links.isEmpty)
-                              const _LinkState(
-                                icon: Icons.link_off_rounded,
-                                color: BafColors.textSecondary,
-                                title: 'No operational event link',
-                                message:
-                                    'This issue was not recorded as part of an operational disruption.',
-                              )
-                            else
-                              for (final link in links) ...[
-                                _EventLinkCard(link: link),
-                                const SizedBox(height: 10),
-                              ],
-                          ],
-                        ),
+      body: issueId == null || issueId.isEmpty
+          ? const _LinkState(
+              icon: Icons.cloud_off_outlined,
+              color: BafColors.warning,
+              title: 'Issue not synchronized',
+              message:
+                  'This issue needs a cloud identity before event links can be read.',
+            )
+          : ref
+                .watch(
+                  operationalIssueEventLinksProvider((
+                    actorUid: actor.uid,
+                    issueId: issueId,
+                  )),
+                )
+                .when(
+                  loading: () => const BafLoadingPanel(
+                    label: 'Loading linked operational events',
+                    color: BafColors.warning,
                   ),
+                  error: (error, _) => _LinkState(
+                    icon: Icons.error_outline_rounded,
+                    color: BafColors.danger,
+                    title: 'Could not load event links',
+                    message: '$error',
+                  ),
+                  data: (links) => ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _IssueContext(issue: issue),
+                      const SizedBox(height: 18),
+                      if (links.isEmpty)
+                        const _LinkState(
+                          icon: Icons.link_off_rounded,
+                          color: BafColors.textSecondary,
+                          title: 'No operational event link',
+                          message:
+                              'This issue was not recorded as part of an operational disruption.',
+                        )
+                      else
+                        for (final link in links) ...[
+                          _EventLinkCard(link: link),
+                          const SizedBox(height: 10),
+                        ],
+                    ],
+                  ),
+                ),
     );
   }
 }
@@ -486,17 +481,16 @@ class _IssueLinkDialogState extends State<_IssueLinkDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton.icon(
-        onPressed:
-            _reason.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(
-                  context,
-                  _IssueLinkInput(
-                    issue: _issue,
-                    relationship: _relationship,
-                    reason: _reason.text.trim(),
-                  ),
+        onPressed: _reason.text.trim().isEmpty
+            ? null
+            : () => Navigator.pop(
+                context,
+                _IssueLinkInput(
+                  issue: _issue,
+                  relationship: _relationship,
+                  reason: _reason.text.trim(),
                 ),
+              ),
         icon: const Icon(Icons.link_rounded),
         label: const Text('Link'),
       ),
@@ -529,6 +523,10 @@ class _EventContext extends StatelessWidget {
     lines: [
       '${event.eventType.label} · ${event.severity.label}',
       'Started ${_date(event.startedAt)}',
+      if (event.isWithdrawn)
+        'Withdrawn${event.withdrawnAt == null ? '' : ' ${_date(event.withdrawnAt!)}'}'
+            '${event.withdrawnByName == null ? '' : ' by ${event.withdrawnByName}'}'
+            '${event.withdrawalReason == null ? '' : ': ${event.withdrawalReason}'}',
       '$currentCount linked issue${currentCount == 1 ? '' : 's'} in this occurrence',
     ],
   );

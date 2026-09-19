@@ -930,4 +930,30 @@ describe('runtime planned-job module population mutation', () => {
     });
     expect(writes).toEqual([]);
   });
+
+  test('rejects accepted module responses whose type conflicts with the frozen field definition', async () => {
+    const {db, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution(),
+    });
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({
+        fieldDefinitionsJson: JSON.stringify([
+          {key: 'pressure', type: 'number', isRequired: true},
+        ]),
+        responsesJson: JSON.stringify([
+          {key: 'pressure', fieldType: 'text', value: '2.1'},
+        ]),
+      }),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'module-response-contract-mismatch',
+        fieldKey: 'pressure',
+        mismatch: 'type',
+      }),
+    });
+    expect(writes).toEqual([]);
+  });
 });

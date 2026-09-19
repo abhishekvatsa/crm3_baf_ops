@@ -37,6 +37,17 @@ final workflowCommandGatewayProvider = Provider<WorkflowCommandGateway>((ref) {
   return const FirebaseWorkflowCommandGateway();
 });
 
+final originBoundWorkflowCommandGatewayProvider =
+    Provider<OriginBoundWorkflowCommandGateway>((ref) {
+      final gateway = ref.read(workflowCommandGatewayProvider);
+      if (gateway is! OriginBoundWorkflowCommandGateway) {
+        throw StateError(
+          'The workflow gateway must preserve the originating actor.',
+        );
+      }
+      return gateway as OriginBoundWorkflowCommandGateway;
+    });
+
 final workflowOnlineExecutorProvider = Provider<WorkflowOnlineExecutor>((ref) {
   return WorkflowOnlineExecutor(
     connectivity: Connectivity(),

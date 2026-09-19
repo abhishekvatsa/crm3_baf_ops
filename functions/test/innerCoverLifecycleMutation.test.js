@@ -1,7 +1,9 @@
+const {createHash} = require('crypto');
 const {
   mutateInnerCoverLifecycleWithDb,
   parseInnerCoverLifecycleMutationRequest,
 } = require('../lib/innerCoverLifecycleMutation');
+const {stableJson} = require('../lib/stableJson');
 
 function clone(value) {
   if (value == null) return value;
@@ -16,6 +18,43 @@ function clone(value) {
     );
   }
   return structuredClone(value);
+}
+
+function historicalV3Fingerprint(request) {
+  const parsed = parseInnerCoverLifecycleMutationRequest(request);
+  const {
+    fingerprint,
+    legacyFingerprint,
+    legacyV3Fingerprint,
+    physicalEventAt,
+    timestampInstants,
+    ...historicalRequest
+  } = parsed;
+  return `innercover3-sha256:${createHash('sha256')
+    .update(stableJson({...historicalRequest, timestampInstants}), 'utf8')
+    .digest('hex')}`;
+}
+
+function historicalAuditEvidenceHash(audit) {
+  return createHash('sha256').update(stableJson({
+    ...audit,
+    performedAt: audit.performedAt.toISOString(),
+  }), 'utf8').digest('hex');
+}
+
+function makeHistoricalV3Evidence(memory, request) {
+  const receipt = memory.store.get(
+    `inner_cover_lifecycle_receipts/${request.requestId}`,
+  );
+  const audit = memory.store.get(
+    `inner_cover_lifecycle_audits/${receipt.auditId}`,
+  );
+  // Historical v3 bound timestampInstants, but its request object had no
+  // physicalEventAt member to include in the hash.
+  receipt.fingerprint = historicalV3Fingerprint(request);
+  audit.fingerprint = receipt.fingerprint;
+  receipt.auditEvidenceSha256 = historicalAuditEvidenceHash(audit);
+  return {receipt, audit};
 }
 
 function fakeDb(seed = {}) {
@@ -80,6 +119,7 @@ const IDS = {
   base2: '66666666-6666-4666-8666-666666666666',
   register: '77777777-7777-4777-8777-777777777777',
   accept: '88888888-8888-4888-8888-888888888888',
+  reaccept: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
   link: '99999999-9999-4999-8999-999999999999',
   delink: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   replace: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
@@ -227,6 +267,25 @@ describe('what a re-acceptance is allowed to rely on', () => {
       });
   });
 
+  test('an inspection after the old acceptance but before physical invalidation is refused', async () => {
+    const memory = fakeDb({...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection({
+        assuranceInvalidatedAt: new Date('2026-08-08T00:00:00.000Z'),
+        assuranceInvalidatedRecordedAt: new Date('2026-08-09T00:00:00.000Z'),
+        assuranceInvalidatedByUid: 'admin-1',
+        assuranceInvalidatedByName: 'Admin One',
+        assuranceInvalidationReason: 'Repair episode opened after removal.',
+        assuranceEpisodeId: IDS.delink,
+      }),
+    });
+
+    await expect(invoke(memory, acceptWith('2026-08-04T00:00:00.000Z')))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'inner-cover-acceptance-before-assurance-episode'},
+      });
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('a fresh inspection returns the cover to service', async () => {
     const memory = fakeDb({...seed(),
       [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection()});
@@ -237,8 +296,84 @@ describe('what a re-acceptance is allowed to rely on', () => {
       .toMatchObject({
         lifecycleState: 'available',
         acceptedAt: new Date('2026-08-14T00:00:00.000Z'),
+        assuranceEpisodeId: IDS.accept,
       });
   });
+
+  test('an older installed client without physical event time is refused safely', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    const writes = memory.writes.length;
+
+    await expect(invoke(memory, {
+      requestId: IDS.delink,
+      operation: 'DELINK_INNER_COVER',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      sourceBaseAssetInstanceId: IDS.base,
+      expectedSourceAssignmentVersion: 1,
+      targetState: 'awaitingInspection',
+      reason: 'Legacy client did not send the physical event time.',
+    }, {injectPhysicalEventAt: false})).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-physical-event-time-required'},
+    });
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`)).toMatchObject({
+      lifecycleState: 'installed',
+      version: 3,
+    });
+  });
+
+  test('a legacy invalidation without an episode ID requires reconciliation',
+    async () => {
+      const memory = fakeDb({...seed(),
+        [`inner_cover_profiles/${IDS.cover}`]: returnedForInspection({
+          assuranceInvalidatedAt: new Date('2026-08-08T00:00:00.000Z'),
+          assuranceInvalidatedRecordedAt: new Date('2026-08-09T00:00:00.000Z'),
+          assuranceInvalidatedByUid: 'admin-1',
+          assuranceInvalidatedByName: 'Admin One',
+          assuranceInvalidationReason: 'Repair episode opened after removal.',
+        }),
+      });
+
+      await expect(invoke(memory, acceptWith('2026-08-14T00:00:00.000Z')))
+        .rejects.toMatchObject({
+          details: {
+            reasonCode: 'inner-cover-assurance-episode-reconciliation-required',
+          },
+        });
+      expect(memory.writes).toHaveLength(0);
+    });
+
+  test('a reacceptance remains bound to the physical episode that invalidated clearance',
+    async () => {
+      const memory = fakeDb(seed());
+      await invoke(memory, registerRequest());
+      await invoke(memory, acceptRequest());
+      await invoke(memory, linkRequest());
+      await invoke(memory, {
+        requestId: IDS.delink,
+        operation: 'DELINK_INNER_COVER',
+        innerCoverId: IDS.cover,
+        expectedVersion: 3,
+        sourceBaseAssetInstanceId: IDS.base,
+        expectedSourceAssignmentVersion: 1,
+        targetState: 'awaitingInspection',
+        physicalEventAt: '2026-08-08T00:00:00.000Z',
+        reason: 'Open the post-service assurance episode for inspection.',
+      });
+
+      await invoke(memory, {
+        ...acceptWith('2026-08-14T00:00:00.000Z', 4),
+        requestId: IDS.reaccept,
+      });
+
+      expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+        .toMatchObject({assuranceEpisodeId: IDS.delink});
+    });
 
   test('a cover that was never accepted is unaffected', async () => {
     const memory = fakeDb({...seed(),
@@ -294,11 +429,20 @@ function profile(id, serial, state, version, overrides = {}) {
   };
 }
 
-async function invoke(memory, request) {
+async function invoke(memory, request, {injectPhysicalEventAt = true} = {}) {
+  const data = {...request};
+  if (injectPhysicalEventAt && ['SET_INNER_COVER_STATE', 'DELINK_INNER_COVER',
+    'REPLACE_INNER_COVER'].includes(data.operation) &&
+      data.physicalEventAt == null) {
+    // Existing test commands model the physical action at the fixed test
+    // clock. New clients send this explicitly; keeping the fixture helper
+    // compatible lets unrelated lifecycle assertions remain focused.
+    data.physicalEventAt = '2026-08-03T00:00:00.000Z';
+  }
   return mutateInnerCoverLifecycleWithDb({
     db: memory.db,
     authUid: 'admin-1',
-    data: request,
+    data,
     now: () => new Date('2026-08-15T12:00:00.000Z'),
     timestampFromDate: (date) => date,
   });
@@ -437,6 +581,64 @@ describe('Inner Cover lifecycle mutation', () => {
     const altered = parseInnerCoverLifecycleMutationRequest(request);
     expect(altered.legacyFingerprint).toBe(parsed.legacyFingerprint);
     expect(altered.fingerprint).not.toBe(parsed.fingerprint);
+  });
+
+  test('historical v3 acceptance replays before and after a later command without writes', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const request = acceptRequest();
+    const first = await invoke(memory, request);
+    const {receipt} = makeHistoricalV3Evidence(memory, request);
+    // Independently obtained from the parser at committed source 42a0c90f.
+    expect(receipt.fingerprint).toBe(
+      'innercover3-sha256:09fd5d7fed781c878f7b18414f8cef279df49fb83354295bf811a27dbd2dedc0',
+    );
+
+    expect(await invoke(memory, request)).toEqual({
+      ...first,
+      idempotentReplay: true,
+    });
+    await invoke(memory, linkRequest());
+    const beforeReplay = clone([...memory.store]);
+    const writes = memory.writes.length;
+    expect(await invoke(memory, request)).toEqual({
+      ...first,
+      idempotentReplay: true,
+    });
+    expect([...memory.store]).toEqual(beforeReplay);
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test.each([
+    ['receiptTimestamp', 'inner-cover-request-id-reused'],
+    ['auditTimestamp', 'inner-cover-replay-evidence-drift'],
+    ['auditSnapshot', 'inner-cover-replay-evidence-drift'],
+  ])('historical v3 replay refuses %s tampering after a later command', async (tamper, reasonCode) => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    const request = acceptRequest();
+    await invoke(memory, request);
+    const {receipt, audit} = makeHistoricalV3Evidence(memory, request);
+    await invoke(memory, linkRequest());
+    if (tamper === 'receiptTimestamp') {
+      receipt.timestampInstants.inspectedOn = '2026-08-03T00:00:00.000Z';
+    } else if (tamper === 'auditTimestamp') {
+      audit.timestampInstants.inspectedOn = '2026-08-03T00:00:00.000Z';
+      // Even a matching audit checksum cannot substitute for the command's
+      // original timestamp evidence.
+      receipt.auditEvidenceSha256 = historicalAuditEvidenceHash(audit);
+    } else {
+      audit.afterJson = JSON.stringify({
+        ...JSON.parse(audit.afterJson), serialNumber: 'FORGED',
+      });
+    }
+    const beforeReplay = clone([...memory.store]);
+    const writes = memory.writes.length;
+    await expect(invoke(memory, request)).rejects.toMatchObject({
+      details: {reasonCode},
+    });
+    expect([...memory.store]).toEqual(beforeReplay);
+    expect(memory.writes).toHaveLength(writes);
   });
 
   test('accepted A replays after legitimate B without changing the current profile', async () => {
@@ -865,6 +1067,7 @@ describe('Inner Cover lifecycle mutation', () => {
       acceptanceNotes: 'Accepted after dimensional and leak inspection.',
       acceptedByUid: 'admin-1',
       acceptedAt: '2026-08-02T00:00:00.000Z',
+      assuranceEpisodeId: IDS.accept,
     });
   });
 
@@ -923,6 +1126,7 @@ describe('Inner Cover lifecycle mutation', () => {
         sourceBaseAssetInstanceId: IDS.base,
         expectedSourceAssignmentVersion: 1,
         targetState: 'awaitingInspection',
+        physicalEventAt: '2026-08-14T10:00:00.000Z',
         reason: 'Remove the Inner Cover for post-service inspection.',
       },
       now: () => new Date('2026-08-14T12:00:00.000Z'),
@@ -967,7 +1171,40 @@ describe('Inner Cover lifecycle mutation', () => {
         lifecycleState: 'awaitingInspection',
         currentBaseAssetInstanceId: null,
         version: 4,
+        assuranceInvalidatedAt: new Date('2026-08-03T00:00:00.000Z'),
+        assuranceInvalidatedRecordedAt: new Date('2026-08-15T12:00:00.000Z'),
+        assuranceInvalidationReason: 'Remove the Inner Cover for post-service inspection.',
+        assuranceEpisodeId: IDS.delink,
       });
+  });
+
+  test('a delinked accepted cover cannot be linked before its assurance episode is reaccepted', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, registerRequest());
+    await invoke(memory, acceptRequest());
+    await invoke(memory, linkRequest());
+    await invoke(memory, {
+      requestId: IDS.delink,
+      operation: 'DELINK_INNER_COVER',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      sourceBaseAssetInstanceId: IDS.base,
+      expectedSourceAssignmentVersion: 1,
+      targetState: 'available',
+      physicalEventAt: '2026-08-08T00:00:00.000Z',
+      reason: 'Open the post-service assurance episode for inspection.',
+    });
+
+    await expect(invoke(memory, {
+      ...linkRequest(IDS.cover, 4),
+      requestId: IDS.donorSection,
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'inner-cover-reacceptance-required'},
+    });
+    // The lifecycle is visibly available only as a raw pool record; the
+    // invalidated assurance episode still blocks physical installation.
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`).lifecycleState)
+      .toBe('available');
   });
 
   test('exact replay is write-free and a reused request ID is rejected', async () => {

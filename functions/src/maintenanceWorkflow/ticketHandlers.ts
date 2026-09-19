@@ -2139,6 +2139,7 @@ async function assertContinuesRetainedConcern(args: {
   readonly continuesIssueId: string;
   readonly assetType: unknown;
   readonly assetNumber: unknown;
+  readonly assetReference: JsonMap;
 }): Promise<void> {
   const {tx, continuesIssueId} = args;
   const original = await tx.get(maintenancePath(continuesIssueId));
@@ -2163,6 +2164,118 @@ async function assertContinuesRetainedConcern(args: {
     throw new WorkflowError(
       "failed-precondition",
       "A continuation must be about the same physical subject as the concern it continues.",
+      {
+        reasonCode: "maintenance-ticket-continuation-subject-changed",
+        continuesIssueId,
+      },
+    );
+  }
+  const physicalSubject = (
+    reference: unknown,
+    field: string,
+    fallbackAssetNumber: unknown,
+  ): string => {
+    let row: JsonMap;
+    try {
+      const decoded = typeof reference === "string" ?
+        JSON.parse(reference) as unknown : reference;
+      row = record(decoded, field);
+    } catch {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed physical identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const scope = row.scope;
+    const assetClassId = row.assetClassId;
+    const assetInstanceId = row.assetInstanceId;
+    const assetInstanceVersion = row.assetInstanceVersion;
+    const assetNumber = row.assetNumber ?? fallbackAssetNumber;
+    if ((scope !== "physicalAsset" && scope !== "componentDefinitionOnAsset" &&
+         scope !== "installedComponent") ||
+        typeof assetClassId !== "string" || assetClassId.trim().length === 0 ||
+        typeof assetInstanceId !== "string" || assetInstanceId.trim().length === 0 ||
+        !Number.isSafeInteger(assetInstanceVersion) ||
+        (assetInstanceVersion as number) < 1 ||
+        !Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed physical identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const component = scope === "physicalAsset" ? {
+      nodeId: assetInstanceId,
+      nodeVersion: assetInstanceVersion,
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+    } : {
+      nodeId: row.nodeId ?? null,
+      nodeVersion: row.nodeVersion ?? null,
+      componentInstanceId: row.componentInstanceId ?? null,
+      componentInstanceVersion: row.componentInstanceVersion ?? null,
+    };
+    if (typeof component.nodeId !== "string" ||
+        component.nodeId.trim().length === 0 ||
+        !Number.isSafeInteger(component.nodeVersion) ||
+        (component.nodeVersion as number) < 1 ||
+        (scope === "installedComponent" &&
+          (typeof component.componentInstanceId !== "string" ||
+           !Number.isSafeInteger(component.componentInstanceVersion) ||
+           (component.componentInstanceVersion as number) < 1))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed component identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const rawAssociation = row.innerCoverAssociation;
+    let association: JsonMap | null = null;
+    if (rawAssociation != null) {
+      try {
+        const value = record(rawAssociation, `${field}.innerCoverAssociation`);
+        association = {
+          baseAssetInstanceId: value.baseAssetInstanceId ?? null,
+          baseAssetNumber: value.baseAssetNumber ?? null,
+          positionState: value.positionState ?? null,
+          innerCoverId: value.innerCoverId ?? null,
+          innerCoverSerialNumber: value.innerCoverSerialNumber ?? null,
+          linkageId: value.linkageId ?? null,
+          assignmentVersion: value.assignmentVersion ?? null,
+        };
+      } catch {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The continuation carries malformed Inner Cover association evidence.",
+          {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+        );
+      }
+    }
+    return stableJson({
+      assetClassId,
+      assetInstanceId,
+      assetInstanceVersion,
+      assetNumber: assetNumber as number,
+      scope,
+      ...component,
+      innerCoverAssociation: association,
+    });
+  };
+  const originalSubject = physicalSubject(
+    data.assetHierarchyRefJson,
+    "stored assetHierarchyRefJson",
+    data.assetNumber,
+  );
+  const successorSubject = physicalSubject(
+    args.assetReference,
+    "continuation assetHierarchyRefJson",
+    args.assetNumber,
+  );
+  if (originalSubject !== successorSubject) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A continuation must retain the same governed component and installation subject.",
       {
         reasonCode: "maintenance-ticket-continuation-subject-changed",
         continuesIssueId,
@@ -2744,6 +2857,7 @@ export const createMaintenanceTicket = async ({
       ),
       assetType: input.assetType,
       assetNumber: input.assetNumber,
+      assetReference: canonicalAssetReference,
     });
   }
   let stuckupCaseId: string | null = null;

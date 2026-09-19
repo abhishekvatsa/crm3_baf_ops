@@ -12,6 +12,7 @@ import {isValidAffectedAssetHierarchyReference} from
   "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {isOperationalEventEffective} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -575,6 +576,13 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     const event = record(eventValue, "Operational event");
     const issue = record(issueValue, "Maintenance issue");
     const eventVersion = validateCurrentEvent(event, request.eventId);
+    if (!isOperationalEventEffective(event)) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "A withdrawn operational event cannot receive a new issue link.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
     const issueEvidence = validateIssue(issue, request.issueId);
     const startedAt = timestampDate(event.startedAt);
     if (startedAt == null) {
