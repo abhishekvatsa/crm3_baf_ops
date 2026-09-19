@@ -250,8 +250,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 .length ??
             0;
         final overdueMaintenanceCount =
-            maintenanceDueStatesAsync.valueOrNull
-                ?.where((state) => state.isOverdue)
+            maintenanceDueStatesAsync.valueOrNull?.records
+                .where((state) => state.isOverdue)
                 .length ??
             0;
         final activeInspectionFindingCount =
@@ -289,7 +289,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             operationalEventsUnavailable ||
             qualityWarningsUnavailable ||
             qualityMonitoringUnavailable ||
-            maintenanceDueStatesAsync.valueOrNull == null ||
+            // A due-state record that could not be read may carry an
+            // outstanding obligation, so a short population qualifies
+            // this headline exactly as a missing one does.
+            maintenanceDueStatesAsync.valueOrNull?.isComplete != true ||
             inspectionFindingsAsync.valueOrNull == null ||
             criticalAlarmsUnavailable;
 

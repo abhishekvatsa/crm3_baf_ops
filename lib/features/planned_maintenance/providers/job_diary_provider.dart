@@ -13,10 +13,12 @@ import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../data/job_diary_model.dart';
+import '../domain/job_diary_save_precondition.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'job_diary_provider.local.dart';

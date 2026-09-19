@@ -6,6 +6,8 @@ import {
   AssetHierarchyMutationFirestoreLike,
   normalizeAssetHierarchyTag,
 } from "./assetHierarchyMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {activeAssetOperationalConditionForRegistry} from
   "./assetOperationalConditionMutation";
@@ -605,6 +607,17 @@ function conditionTicketTargetsAsset(
       data.plantConditionEffect !== "unavailable") {
     return false;
   }
+  // An issue closed administratively while explicitly still relevant is
+  // resolved in the lifecycle sense and not in the plant's. Plant Condition
+  // keeps counting it, so retiring the asset underneath it left a retained
+  // concern pointing at an asset no longer in the active population. Both
+  // sides read the same rule here: a concern still applies while it is open,
+  // or while its administrative closure says it remains relevant.
+  const stillApplies = data.isResolved !== true ||
+    (data.status === "closedWithoutResolution" &&
+      data.issueClosureSchemaVersion === 1 &&
+      data.issueClosureDisposition === "stillRelevant");
+  if (!stillApplies) return false;
   let reference: unknown;
   try {
     reference = typeof data.assetHierarchyRefJson === "string" ?
@@ -623,10 +636,21 @@ function conditionTicketTargetsAsset(
     );
   }
   const identity = reference as JsonMap;
-  if ((identity.scope !== "physicalAsset" && identity.scope !== "installedComponent") ||
+  // A governed reference is read by the contract that produced it. Judging it
+  // by a short list of scopes reported the component-on-asset reference the
+  // maintenance producer writes for an ordinary component issue as malformed,
+  // and a retirement was refused for damaged data rather than for the open
+  // condition that actually stands in its way.
+  const governedReference: boolean = Number.isSafeInteger(identity.assetNumber) &&
+    isValidAffectedAssetHierarchyReference(
+      identity, identity.assetNumber as number,
+    );
+  if (!governedReference &&
+      ((identity.scope !== "physicalAsset" &&
+        identity.scope !== "installedComponent") ||
       typeof identity.assetClassId !== "string" ||
       typeof identity.assetInstanceId !== "string" ||
-      !Number.isSafeInteger(identity.assetNumber)) {
+      !Number.isSafeInteger(identity.assetNumber))) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "Reconcile the open condition-changing issue before retiring this asset.",
@@ -1304,6 +1328,18 @@ export async function mutateAssetRegistryWithDb(args: {
               .where("isDeleted", "==", false),
           ),
           "Open condition-changing maintenance-ticket lookup",
+        ));
+        // A still-relevant administrative closure is marked resolved, so the
+        // query above cannot see it, and the concern it retains would be
+        // stranded on a retired asset.
+        openConditionTicketQueries.push(asQuery(
+          await transaction.get(
+            maintenanceIssues.where("assetType", "==", assetType)
+              .where("assetNumber", "==", assetData.assetNumber)
+              .where("status", "==", "closedWithoutResolution")
+              .where("isDeleted", "==", false),
+          ),
+          "Retained condition-changing maintenance-ticket lookup",
         ));
       }
     }

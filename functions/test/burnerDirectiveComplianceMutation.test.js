@@ -329,6 +329,31 @@ describe('burner directive compliance mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('a round without UV evidence cannot have it inferred by compliance', async () => {
+    const legacy = round();
+    // A round recorded before UV and draft-seal evidence was captured carries
+    // none of it.
+    delete legacy.uvObservations;
+    delete legacy.draftSealRedHotObserved;
+    delete legacy.hotAirAtDraftSealObserved;
+    legacy.schemaVersion = 1;
+    const memory = fakeDb({
+      ...seed(),
+      [`burner_condition_rounds/${IDS.source}`]: legacy,
+    });
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'burner-directive-compliance-round-evidence-unavailable',
+      }),
+    });
+    // Nothing was recorded, so no position nobody examined is now on record as
+    // examined and normal.
+    expect(memory.store.get(`burner_condition_rounds/${IDS.closure}`))
+      .toBeUndefined();
+  });
+
   test('atomically records compliance and closes the bound directive', async () => {
     const memory = fakeDb(seed());
     const result = await invoke(memory);

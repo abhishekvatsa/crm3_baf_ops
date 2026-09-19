@@ -115,3 +115,29 @@ The native conflict and recovery UI regressions remain named boundary evidence;
 the extracted provider files pass scoped analysis. This records the current
 working-tree inventory, not a new CI closure, production deployment or device
 result. The historical source and CI receipts above remain unchanged.
+
+## Furnace audit presentation review, 2026-09-19
+
+The installation-time correction dialog expanded
+`furnace_component_condition_audit_screen.dart` to 1,359 lines. The direct
+inventory detects authority, presentation and state orchestration only. Its
+new bounded declaration fixes the ceiling at that measured size; no global
+threshold or existing surface ceiling was increased.
+
+The matrix tabs and totals retain one unsaved-draft owner. Provider refreshes
+must preserve edited drafts, round submissions carry the observed round, and
+settlement uses the submitted draft revision. Reads remain behind typed
+providers; round and correction commands remain behind their separate services.
+Required markers protect those boundaries, and direct persistence, callable
+transport and persisted-payload serialization are forbidden in the screen.
+Further growth requires a focused presentation extraction, preserving the same
+draft ownership, rather than another ceiling increase.
+
+The named evidence covers matrix totals, retained selections across source
+refresh, source-error display and responsive scrolling; the correction service
+test checks its origin-bound command shape, and backend lifecycle tests cover
+correction evidence, chronology and replay. The direct A-02 inventory passes
+with 49 hotspots and digest
+`BCDCC1648EEDDD7508C51EAA2A5EFE4CAFFE329F0C0DCE0CBAE7C7E13F1993E9`.
+This is a working-tree classification, not a new CI closure or operational
+acceptance result. Historical evidence is unchanged.

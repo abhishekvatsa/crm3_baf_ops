@@ -112,19 +112,34 @@ void main() {
     },
   );
 
+  test('keeps device notification readiness separate from posting', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          return call.method == 'isNotificationReady' ? true : null;
+        });
+
+    const service = CriticalAlarmPlatformService();
+    expect(await service.isNotificationReady(), isTrue);
+  });
+
   test(
     'Android keys notification replacement and cancellation by exact alarm tag',
     () {
-      final source =
-          File(
-            'android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt',
-          ).readAsStringSync();
+      final source = File(
+        'android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt',
+      ).readAsStringSync();
       expect(source, contains('notificationTag(alarmId)'));
       expect(source, contains('CRITICAL_NOTIFICATION_ID'));
       expect(source, contains('manager.activeNotifications'));
       expect(source, contains('CRITICAL_NOTIFICATION_TAG_PREFIX'));
       expect(source, contains('areNotificationsEnabled()'));
-      expect(source, contains('getSystemService(Context.NOTIFICATION_SERVICE)'));
+      expect(source, contains('isNotificationReady'));
+      expect(source, contains('getNotificationChannel'));
+      expect(source, contains('channel.sound != null'));
+      expect(
+        source,
+        contains('getSystemService(Context.NOTIFICATION_SERVICE)'),
+      );
       expect(
         source,
         isNot(contains('getSystemService(NotificationManager::class.java)')),

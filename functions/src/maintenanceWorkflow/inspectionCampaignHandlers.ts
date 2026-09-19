@@ -6,6 +6,7 @@ import {requireInspectionContextReview} from "./inspectionTargetContextHandlers"
 import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
 import {activeInspectionFindings, assertInspectionFindingActivation,
   assertInspectionEvidenceWithinEpisode, effectiveInspectionHistory, inspectionEpisodeProjection,
+  inspectionObservationBelongsToEpisode,
   terminalInspectionEvidenceOwner,
   touchInspectionFindingPopulation} from "./inspectionFindingIntegrity";
 import {
@@ -1072,7 +1073,9 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     "componentName", "hierarchyPath", "physicalPosition", "observedAt", "value",
     "unit", "operatingConditions", "chargeNo", "note", "evidenceUrls",
     "supersedesObservationId",
-  ], ["targetKey", "targetContextRevision"], "payload");
+  ], [
+    "targetKey", "targetContextRevision", "historicalAmendmentReason",
+  ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const [campaign, existingObservation, superseded] = await Promise.all([
@@ -1335,12 +1338,41 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       "A correction must retain the original inspected target and definition.",
     );
   }
-  if (superseded?.data != null &&
-      governedTarget.lastObservationId !== superseded.data.observationId) {
+  // Correcting the reading that currently certifies a target is ordinary work
+  // and keeps every guard that belongs to it. A reading that is no longer
+  // current is a different thing: leaving a known error in it with no way out
+  // is what the ordinary refusal used to do, and inventing a fresh physical
+  // reading to get around that is worse. An amendment says explicitly that it
+  // is one, and says why, and is otherwise held to the same rules - including
+  // the safeguard that stops a correction reaching into an earlier terminal
+  // episode, which is applied further down and is not relaxed here.
+  const amendmentReason = command.payload.historicalAmendmentReason == null ?
+    null : cleanText(
+      command.payload.historicalAmendmentReason,
+      "historicalAmendmentReason",
+    );
+  const correctsCurrentReading = superseded?.data != null &&
+    governedTarget.lastObservationId === superseded.data.observationId;
+  if (superseded?.data != null && amendmentReason == null &&
+      !correctsCurrentReading) {
     throw new WorkflowError(
       "failed-precondition",
-      "Only the current certified reading can be corrected.",
+      "Only the current certified reading can be corrected. Amending an earlier reading needs a stated reason.",
       {reasonCode: "inspection-correction-not-current", targetKey},
+    );
+  }
+  if (amendmentReason != null && correctsCurrentReading) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This reading is the current one, so correct it through the ordinary route rather than as an amendment.",
+      {reasonCode: "inspection-amendment-reading-is-current", targetKey},
+    );
+  }
+  if (amendmentReason != null && superseded?.data == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "An amendment must name the earlier reading it replaces.",
+      {reasonCode: "inspection-amendment-without-original", targetKey},
     );
   }
   const distinct = Array.isArray(campaign.data.distinctTargetKeys) ?
@@ -1494,6 +1526,11 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     evidenceUrls: stringList(command.payload.evidenceUrls, "evidenceUrls", 20, 1000),
     supersedesObservationId: superseded?.data == null ? null :
       documentId(command.payload.supersedesObservationId, "supersedesObservationId"),
+    // Present only on an amendment, so an ordinary reading and an ordinary
+    // correction keep exactly the shape they have always had.
+    ...(amendmentReason == null ? {} : {
+      historicalAmendmentReason: amendmentReason,
+    }),
     baselineCampaignId,
     baselineObservationId: baselineObservation?.observationId ?? null,
     comparisonOutcome,
@@ -1667,8 +1704,18 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     {field: "campaignId", op: "==", value: campaignId},
     {field: "targetKey", op: "==", value: observation.data.targetKey},
   ]), campaignId, String(observation.data.targetKey));
-  if (finding?.data != null && typeof finding.data.linkedTicketId === "string" &&
-      finding.data.linkedTicketId !== ticketId) {
+  // Linking a historical observation to the issue that repaired it is a
+  // legitimate record. Treating that repair as the corrective action of a
+  // later episode is not: the newer episode would read as already having a
+  // corrective issue, and the appropriate one could no longer be attached.
+  const findingOwnsObservation = finding?.data != null &&
+    findingHistory != null &&
+    inspectionObservationBelongsToEpisode(
+      findingHistory, finding.data, observationId,
+    );
+  if (findingOwnsObservation &&
+      typeof finding!.data!.linkedTicketId === "string" &&
+      finding!.data!.linkedTicketId !== ticketId) {
     throw new WorkflowError(
       "failed-precondition",
       "This finding is already bound to another corrective maintenance issue.",
@@ -1690,12 +1737,12 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     linkedAt: now,
     reason,
   });
-  if (finding?.data != null) {
-    const findingId = documentId(finding.data.findingId, "findingId");
+  if (findingOwnsObservation) {
+    const findingId = documentId(finding!.data!.findingId, "findingId");
     assertInspectionFindingActivation(findingRows, findingId, String(observation.data.targetKey), campaign.data, findingHistory!);
     touchInspectionFindingPopulation(tx, campaignId, campaign.data);
-    tx.update(finding.path, {
-      version: Number(finding.data.version ?? 0) + 1,
+    tx.update(finding!.path, {
+      version: Number(finding!.data!.version ?? 0) + 1,
       status: "correctiveActionLinked",
       linkedTicketId: ticketId,
       linkedAt: now,
@@ -1711,7 +1758,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
       findingId,
       campaignId,
       operation: "link-corrective-action",
-      previousStatus: finding.data.status,
+      previousStatus: finding!.data!.status,
       resultingStatus: "correctiveActionLinked",
       observationId,
       ticketId,

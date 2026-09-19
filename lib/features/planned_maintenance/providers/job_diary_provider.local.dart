@@ -20,10 +20,14 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     } else if (!actor.canEditJobDiaryEntry(createdByUid: entry.createdByUid)) {
       throw StateError('Not authorized to edit this planned-job diary entry.');
     }
+    // The revision this edit was opened against. The save advances it, but
+    // only once the stored entry is confirmed to be that same revision, so a
+    // refused save leaves the edit exactly as the operator has it.
+    final openedAtVersion = entry.version;
     _normalizeDiaryEntryForUserSave(
       entry,
       markUnsynced: true,
-      bumpVersion: !isCreate,
+      bumpVersion: false,
     );
 
     Map<String, dynamic>? beforeSnapshot;
@@ -32,8 +36,21 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
 
     await isar.writeTxn(() async {
       if (!isCreate && entry.id != Isar.autoIncrement) {
+        // Read as the precondition for writing, not only for the audit
+        // snapshot. Another editor, or a pull adopting the server's copy, can
+        // store a newer revision while this one is being written, and a whole
+        // object put would replace an observation it never saw.
         final existing = await isar.jobDiaryEntrys.get(entry.id);
+        final refusal = jobDiarySaveRefusal(
+          openedAtVersion: openedAtVersion,
+          storedVersion: existing?.version,
+          storedIsDeleted: existing?.isDeleted ?? false,
+        );
+        if (refusal != null) {
+          throw StateError(jobDiarySaveRefusalMessage(refusal));
+        }
         beforeSnapshot = existing?.toAuditMap();
+        entry.version = openedAtVersion + 1;
       }
 
       await isar.jobDiaryEntrys.put(entry);

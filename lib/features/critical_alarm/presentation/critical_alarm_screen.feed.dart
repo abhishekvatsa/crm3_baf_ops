@@ -10,6 +10,7 @@ class _AlarmList extends ConsumerWidget {
     this.initialAlarmId,
     this.liveAuthority,
     this.lastVerifiedAt,
+    this.malformedDocumentCount = 0,
   });
 
   final List<CriticalAlarm> alarms;
@@ -20,6 +21,7 @@ class _AlarmList extends ConsumerWidget {
   final String? initialAlarmId;
   final CriticalAlarmFeedAuthority? liveAuthority;
   final DateTime? lastVerifiedAt;
+  final int malformedDocumentCount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,27 +56,45 @@ class _AlarmList extends ConsumerWidget {
       );
     }
     if (alarms.isEmpty) {
-      final stale =
-          liveAuthority == CriticalAlarmFeedAuthority.staleLastKnown;
+      final stale = liveAuthority == CriticalAlarmFeedAuthority.staleLastKnown;
+      final incomplete =
+          liveAuthority == CriticalAlarmFeedAuthority.partiallyVerified;
+      if (incomplete) {
+        return CriticalAlarmFeedState(
+          icon: Icons.warning_amber_outlined,
+          title: 'Active alarm snapshot incomplete',
+          message:
+              'The server returned no valid alarm rows, but '
+              '$malformedDocumentCount record(s) could not be read. Do not '
+              'infer that no alarm exists. Follow the plant emergency '
+              'procedure and retry the live check.',
+          action: OutlinedButton.icon(
+            onPressed: () => _retry(ref),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry live check'),
+          ),
+        );
+      }
       return CriticalAlarmFeedState(
         icon: stale ? Icons.cloud_off_outlined : Icons.verified_user_outlined,
         title: stale ? 'Active alarm state is stale' : emptyTitle,
-        message:
-            stale
-                ? 'The last server-verified set is no longer live. Do not '
-                    'infer that no alarm exists. Follow the plant emergency '
-                    'procedure.'
-                : 'Only server-confirmed alarm records appear here. Continue '
-                    'to follow normal plant safety procedures.',
+        message: stale
+            ? 'The last server-verified set is no longer live. Do not '
+                  'infer that no alarm exists. Follow the plant emergency '
+                  'procedure.'
+            : 'Only server-confirmed alarm records appear here. Continue '
+                  'to follow normal plant safety procedures.',
       );
     }
-    final ordered = [...alarms]..sort((left, right) {
-      if (left.id == initialAlarmId) return -1;
-      if (right.id == initialAlarmId) return 1;
-      return right.raisedAt.compareTo(left.raisedAt);
-    });
+    final ordered = [...alarms]
+      ..sort((left, right) {
+        if (left.id == initialAlarmId) return -1;
+        if (right.id == initialAlarmId) return 1;
+        return right.raisedAt.compareTo(left.raisedAt);
+      });
     final showStaleHeader =
         liveAuthority == CriticalAlarmFeedAuthority.staleLastKnown;
+    final showFeedWarning = showStaleHeader || malformedDocumentCount > 0;
     return RefreshIndicator(
       onRefresh: () async => _retry(ref),
       child: ListView.separated(
@@ -84,16 +104,17 @@ class _AlarmList extends ConsumerWidget {
           BafSpacing.md,
           96,
         ),
-        itemCount: ordered.length + (showStaleHeader ? 1 : 0),
+        itemCount: ordered.length + (showFeedWarning ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.md),
         itemBuilder: (context, index) {
-          if (showStaleHeader && index == 0) {
+          if (showFeedWarning && index == 0) {
             return CriticalAlarmStaleNotice(
               count: ordered.length,
               lastVerifiedAt: lastVerifiedAt,
+              incompleteCount: malformedDocumentCount,
             );
           }
-          final alarm = ordered[index - (showStaleHeader ? 1 : 0)];
+          final alarm = ordered[index - (showFeedWarning ? 1 : 0)];
           final exactContacts =
               contacts.asData?.value
                   .where(

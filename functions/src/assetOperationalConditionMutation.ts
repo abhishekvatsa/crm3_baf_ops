@@ -4,6 +4,8 @@ import {
   AssetHierarchyMutationError,
   AssetHierarchyMutationFirestoreLike,
 } from "./assetHierarchyMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 
@@ -660,8 +662,16 @@ function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void
   }
   const map = reference == null || typeof reference !== "object" ||
       Array.isArray(reference) ? null : reference as JsonMap;
+  // A governed reference is read by the contract that produced it. Reading
+  // only the older schema versions rejected the component-on-asset reference
+  // the maintenance producer writes for an ordinary component issue, so a
+  // current, valid issue looked like a different or malformed asset. The
+  // identity checks below still bind the reference to this very asset.
+  const governedReference: boolean = map != null &&
+    isValidAffectedAssetHierarchyReference(map, asset.assetNumber as number);
   if (map == null ||
-      (map.schemaVersion !== 2 && map.schemaVersion !== 3) ||
+      (!governedReference &&
+        map.schemaVersion !== 2 && map.schemaVersion !== 3) ||
       map.assetInstanceId !== asset.assetInstanceId ||
       map.assetClassId !== asset.assetClassId ||
       map.assetNumber !== asset.assetNumber) {

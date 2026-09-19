@@ -189,3 +189,18 @@ The current A04 inventory passes and binds the complete current A05 policy.
 Historical closure, CI, reconciliation, and schema migration evidence is retained;
 these local source measurements do not supply admission or operational evidence
 for this repair branch.
+
+## Current-source policy review, 2026-09-19
+
+The current inventory still classifies 55 fields: 49 JSON strings, six dynamic
+values, three bounded extension bags and zero registered extension fields. It
+inherits 99 reviewed A-05 decoder surfaces. Its exact current-source digest is
+`F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8`.
+
+Regeneration binds the reviewed A-05 additions for Inner Cover assurance
+invalidation and accountable operational-event withdrawal, plus the revised
+hierarchy receipt catch. Only the two inherited surface descriptions, complete
+A-05 manifest hash and resulting digest changed. Persisted field policies,
+extension restrictions and schema shapes are unchanged. Historical closure and
+production reconciliation receipts remain historical; this current-source
+inventory does not confer deployment or distribution authority.

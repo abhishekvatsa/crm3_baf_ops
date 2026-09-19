@@ -306,7 +306,9 @@ final operationsReportProvider = Provider.autoDispose
             identityWorkflows: identityWorkflows,
             identityAbnormalities: identityAbnormalities,
             events: events.requireValue,
-            dueStates: dueStates.requireValue,
+            dueStates: dueStates.requireValue.records,
+            unreadableDueStateCount:
+                dueStates.requireValue.rejectedDocumentIds.length,
             inspectionFindings: inspectionFindings.requireValue,
             qualityWarnings: qualityWarnings.requireValue,
             qualityMonitoringRequests: qualityMonitoring.requireValue,
@@ -344,6 +346,7 @@ OperationsReport buildOperationsReport({
   Map<String, ChargeAbnormality?> identityAbnormalities = const {},
   required List<OperationalEvent> events,
   List<MaintenanceDueState> dueStates = const [],
+  int unreadableDueStateCount = 0,
   List<InspectionFinding> inspectionFindings = const [],
   List<QualityWarning> qualityWarnings = const [],
   List<QualityMonitoringRequest> qualityMonitoringRequests = const [],
@@ -843,12 +846,12 @@ OperationsReport buildOperationsReport({
       occurrenceMatchesIdentity(occurrence);
 
   bool eventMatches(OperationalEvent event) =>
-      event.occurrencesUntil(reportAsOf).any(occurrenceMatchesReport);
+      event.effectiveOccurrencesUntil(reportAsOf).any(occurrenceMatchesReport);
 
   final filteredEvents = events.where(eventMatches).toList();
   final filteredOccurrences = <OperationalEventReportOccurrence>[];
   for (final event in events) {
-    final occurrences = event.occurrencesUntil(reportAsOf).toList();
+    final occurrences = event.effectiveOccurrencesUntil(reportAsOf).toList();
     for (var index = 0; index < occurrences.length; index++) {
       final occurrence = occurrences[index];
       if (!occurrenceMatchesReport(occurrence)) continue;
@@ -1044,7 +1047,7 @@ OperationsReport buildOperationsReport({
               .where((job) => !job.isCompleted && !job.isCancelled)
               .length,
           disruptionCount: events
-              .expand((event) => event.occurrencesUntil(reportAsOf))
+              .expand((event) => event.effectiveOccurrencesUntil(reportAsOf))
               .where(
                 (occurrence) =>
                     occurrenceMatchesClassSummary(occurrence, assetClass.id),
@@ -1072,6 +1075,7 @@ OperationsReport buildOperationsReport({
       filteredOccurrences,
     ),
     dueStates: List<MaintenanceDueState>.unmodifiable(filteredDueStates),
+    unreadableDueStateCount: unreadableDueStateCount,
     inspectionFindings: List<InspectionFinding>.unmodifiable(
       filteredInspectionFindings,
     ),

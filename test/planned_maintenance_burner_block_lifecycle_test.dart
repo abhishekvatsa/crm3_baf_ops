@@ -437,26 +437,30 @@ void main() {
       expect(projection.replacementsByPosition, hasLength(1));
     });
 
-    test('server receipt order defeats a backdated replacement action', () {
-      final first = _event(
+    test('a late report of earlier work stays history', () {
+      // The same sequence the backend's own regression uses: the block at
+      // position 3 was replaced on the 28th, and a replacement carried out on
+      // the 27th is reported afterwards. What is installed now is what was
+      // installed last, so the late report is history on both sides.
+      final performedLater = _event(
         id: 'event-first',
         position: 3,
         actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
         completedAt: DateTime.utc(2026, 8, 28, 9),
       );
-      final laterRecorded = _event(
+      final recordedLater = _event(
         id: 'event-later-recorded',
         position: 3,
         actionPerformedAt: DateTime.utc(2026, 8, 27, 8),
         completedAt: DateTime.utc(2026, 8, 28, 10),
       );
-      final firstUv = _uvEvent(
+      final performedLaterUv = _uvEvent(
         id: 'uv-first',
         position: 3,
         actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
         completedAt: DateTime.utc(2026, 8, 28, 9),
       );
-      final laterRecordedUv = _uvEvent(
+      final recordedLaterUv = _uvEvent(
         id: 'uv-later-recorded',
         position: 3,
         actionPerformedAt: DateTime.utc(2026, 8, 27, 8),
@@ -466,21 +470,50 @@ void main() {
       final projection = projectBurnerBlockCondition(
         round: null,
         newerRedHotObservations: const <int, DateTime>{},
-        lifecycleEvents: <BurnerBlockLifecycleEvent>[first, laterRecorded],
+        lifecycleEvents: <BurnerBlockLifecycleEvent>[
+          performedLater,
+          recordedLater,
+        ],
         uvLifecycleEvents: <UvDetectorLifecycleEvent>[
-          firstUv,
-          laterRecordedUv,
+          performedLaterUv,
+          recordedLaterUv,
         ],
         assetInstanceId: 'furnace-7',
       );
 
-      expect(
-        projection.replacementsByPosition[3]?.eventId,
-        'event-later-recorded',
+      expect(projection.replacementsByPosition[3]?.eventId, 'event-first');
+      expect(projection.uvReplacementsByPosition[3]?.eventId, 'uv-first');
+    });
+
+    test('a tie on physical time is broken by the recorded time', () {
+      final recordedFirst = _event(
+        id: 'event-recorded-first',
+        position: 4,
+        actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 9),
       );
+      final recordedSecond = _event(
+        id: 'event-recorded-second',
+        position: 4,
+        actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 10),
+      );
+
+      final projection = projectBurnerBlockCondition(
+        round: null,
+        newerRedHotObservations: const <int, DateTime>{},
+        lifecycleEvents: <BurnerBlockLifecycleEvent>[
+          recordedSecond,
+          recordedFirst,
+        ],
+        uvLifecycleEvents: const <UvDetectorLifecycleEvent>[],
+        assetInstanceId: 'furnace-7',
+      );
+
+      // Delivery order carries no meaning, so the answer does not depend on it.
       expect(
-        projection.uvReplacementsByPosition[3]?.eventId,
-        'uv-later-recorded',
+        projection.replacementsByPosition[4]?.eventId,
+        'event-recorded-second',
       );
     });
   });

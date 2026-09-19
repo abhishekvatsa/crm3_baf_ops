@@ -373,6 +373,7 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
       sourceBaseAssetInstanceId: IDS.base,
       expectedSourceAssignmentVersion: 1,
       targetState: 'awaitingInspection',
+      physicalEventAt: '2026-08-15T12:00:00.000Z',
       reason: 'Remove after service and return for inspection.',
     });
     expect((await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).exists)
@@ -382,6 +383,10 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
         lifecycleState: 'awaitingInspection',
         currentBaseAssetInstanceId: null,
         version: 4,
+        assuranceEpisodeId: IDS.delink,
+        assuranceInvalidatedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-15T12:00:00.000Z'),
+        ),
       });
     const history = await db.collection('inner_cover_linkages')
       .where('innerCoverId', '==', IDS.cover).get();

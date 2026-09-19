@@ -559,6 +559,21 @@
       "riskFingerprint": "ef03914213f7231d318a67c0fb0abd9bd5d53d6544bf82a23b2c67df80892daf"
     },
     {
+      "id": "job-diary-write-precondition",
+      "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "markers": [
+        "readRequiredPersistedInt(data['version'], field: 'version')"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "stored job diary revision read inside the transaction that writes over it",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none; a diary entry without a readable version is not written over",
+      "regression": "test/job_diary_save_precondition_test.dart",
+      "reArmCondition": "the stored revision is read outside the writing transaction, or a malformed version is treated as absent rather than refused",
+      "riskFingerprint": "4ebbb4ff68d001a06413a94031d7512b4d5758abb58cada9a42300b30255f322"
+    },
+    {
       "id": "knowledge-import",
       "file": "lib/features/planned_maintenance/domain/knowledge_governance_export.dart",
       "markers": [
@@ -768,12 +783,12 @@
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "asset-governance",
-      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
-      "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
+      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, assurance invalidation, and fabrication genealogy",
+      "malformedDisposition": "fail closed before incomplete identity, linkage, assurance invalidation or genealogy enters lifecycle decisions or issue evidence; invalidation evidence must be complete together and preserve physical/recorded chronology",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, acceptance, and assurance invalidation evidence remains optional only where explicitly modelled; absent invalidation timestamps do not manufacture an invalidation",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js",
       "reArmCondition": "Inner Cover identity, projection, chronology, state, or genealogy fields are defaulted or coerced from malformed input",
-      "riskFingerprint": "6f39ed0231d66a7d51a66494de87d89936a54dc8c9d5494c1d0603d9af4401dc"
+      "riskFingerprint": "9c448ef210842a2f57757fe87d6ffa3ee618b405150b93c957d9b2faef3f21d0"
     },
     {
       "id": "asset-registry-records",
@@ -815,9 +830,9 @@
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "plant-operations",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
-      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
-      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
       "reArmCondition": "event identity, scope, status, actor, timestamp, or version fields are defaulted from malformed input",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -1633,13 +1648,13 @@
     {
       "id": "asset-hierarchy-command-receipt-translation",
       "file": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
-      "siteFingerprint": "c3fd46e035ac7f1fa86a9bba8323d8c924ebefc0f77e57fdeb4b49e0483774d6",
+      "siteFingerprint": "810b556e16eaf17089ae3c3fb2d258bd941507992184d091bd5e3b3c15722b2e",
       "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
-      "purpose": "translate malformed hierarchy callable evidence into a blocking feature error and distinguish known preacceptance refusals from uncertain or historically accepted outcomes",
+      "purpose": "translate malformed hierarchy callable evidence into a blocking feature error and distinguish exact preacceptance or lifecycle business refusals from uncertain or historically accepted outcomes",
       "authorityBoundary": "server asset-hierarchy command receipt",
       "mutability": "the remote command may already be committed; no local success state is manufactured",
       "dataScope": "hierarchy, registry, Inner Cover, and asset-condition callable responses",
-      "malformedDisposition": "throw AssetHierarchyException without manufacturing success; only ACCEPT_INNER_COVER with the exact known code/reason pairs invalid-argument/invalid-inner-cover-lifecycle-request, aborted/inner-cover-version-mismatch, or failed-precondition/inner-cover-not-awaiting-acceptance produces AssetHierarchyCommandRefused; unknown or missing reasons, malformed evidence, replay conflicts, legacy reconciliation and uncertain transport retain the pending command identity",
+      "malformedDisposition": "throw AssetHierarchyException without manufacturing success; ACCEPT_INNER_COVER produces AssetHierarchyCommandRefused only for invalid-argument/invalid-inner-cover-lifecycle-request, aborted/inner-cover-version-mismatch, or failed-precondition with inner-cover-not-awaiting-acceptance, inner-cover-acceptance-evidence-stale, or inner-cover-acceptance-before-assurance-episode; nonacceptance lifecycle commands use the explicit lifecycleRefusalReasons code/reason pairs emitted after server receipt lookup; unknown or missing reasons, mismatched code/reason pairs, malformed evidence, replay conflicts, legacy reconciliation and uncertain transport retain the pending command identity",
       "regression": "test/asset_hierarchy_command_receipt_test.dart; test/inner_cover_acceptance_repository_test.dart; test/inner_cover_lifecycle_screen_test.dart; tools/v4/a05_persisted_decoder_inventory.py; test/inner_cover_acceptance_controller_test.dart",
       "reArmCondition": "malformed receipt becomes a successful hierarchy mutation, a historical receipt/reconciliation error releases a frozen command, or uncertainty is treated as proof that a new command may replace the pending one"
     },

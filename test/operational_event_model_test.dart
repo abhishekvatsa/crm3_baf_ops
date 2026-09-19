@@ -47,7 +47,9 @@ OperationalEvent impactEvent({
   required DateTime startedAt,
   DateTime? resolvedAt,
   List<OperationalEventInterval> completedIntervals = const [],
+  bool isWithdrawn = false,
 }) => OperationalEvent(
+  isWithdrawn: isWithdrawn,
   eventId: id,
   eventType: type,
   title: '${type.label} disruption',
@@ -58,18 +60,18 @@ OperationalEvent impactEvent({
   affectedAssetInstanceIds: const [],
   completedIntervals: completedIntervals,
   startedAt: startedAt,
-  status:
-      resolvedAt == null
-          ? OperationalEventStatus.open
-          : OperationalEventStatus.resolved,
+  status: resolvedAt == null
+      ? OperationalEventStatus.open
+      : OperationalEventStatus.resolved,
   createdAt: startedAt,
   createdByUid: 'ops-1',
   createdByName: 'Operations One',
   resolvedAt: resolvedAt,
   resolvedByUid: resolvedAt == null ? null : 'ops-2',
   resolvedByName: resolvedAt == null ? null : 'Operations Two',
-  resolutionNote:
-      resolvedAt == null ? null : 'Supply remained stable after restoration.',
+  resolutionNote: resolvedAt == null
+      ? null
+      : 'Supply remained stable after restoration.',
   version: 2,
   updatedAt: resolvedAt ?? startedAt,
   updatedByUid: 'ops-1',
@@ -141,10 +143,9 @@ void main() {
   test(
     'legacy missing link projection is empty and malformed present fails',
     () {
-      final legacy =
-          record()
-            ..remove('issueLinkIds')
-            ..remove('linkedIssueIds');
+      final legacy = record()
+        ..remove('issueLinkIds')
+        ..remove('linkedIssueIds');
       expect(OperationalEvent.fromMap(legacy, 'event-1').issueLinkIds, isEmpty);
       expect(
         () => OperationalEvent.fromMap(
@@ -195,21 +196,20 @@ void main() {
   });
 
   test('requires complete closure evidence for every prior occurrence', () {
-    final malformed =
-        record()
-          ..['completedIntervals'] = [
-            {
-              'eventType': 'powerTrip',
-              'title': 'Incoming power interruption',
-              'description': 'Incoming power was unavailable across the shop.',
-              'severity': 'critical',
-              'startedAt': DateTime.utc(2026, 8, 14, 8),
-              'resolvedAt': DateTime.utc(2026, 8, 14, 9),
-              'scope': 'plantWide',
-              'affectedAssetClassIds': <String>[],
-              'affectedAssetInstanceIds': <String>[],
-            },
-          ];
+    final malformed = record()
+      ..['completedIntervals'] = [
+        {
+          'eventType': 'powerTrip',
+          'title': 'Incoming power interruption',
+          'description': 'Incoming power was unavailable across the shop.',
+          'severity': 'critical',
+          'startedAt': DateTime.utc(2026, 8, 14, 8),
+          'resolvedAt': DateTime.utc(2026, 8, 14, 9),
+          'scope': 'plantWide',
+          'affectedAssetClassIds': <String>[],
+          'affectedAssetInstanceIds': <String>[],
+        },
+      ];
     expect(
       () => OperationalEvent.fromMap(malformed, 'event-1'),
       throwsFormatException,
@@ -396,6 +396,122 @@ void main() {
       );
       final merged = mergeOperationalEventWindows([open], [resolved, open]);
       expect(merged.map((event) => event.eventId), ['event-1', 'event-2']);
+    },
+  );
+
+  test('an entry withdrawn as recorded in error stops counting', () {
+    final real = impactEvent(
+      id: 'real-event',
+      type: OperationalEventType.water,
+      startedAt: DateTime.utc(2026, 8, 5, 8),
+      resolvedAt: DateTime.utc(2026, 8, 5, 9),
+    );
+    // The same disruption written down twice. The second copy is still in the
+    // record, and a reader can see it was withdrawn and why.
+    final duplicate = impactEvent(
+      id: 'duplicate-event',
+      type: OperationalEventType.water,
+      startedAt: DateTime.utc(2026, 8, 5, 8),
+      resolvedAt: DateTime.utc(2026, 8, 5, 9),
+      isWithdrawn: true,
+    );
+    final asOf = DateTime.utc(2026, 8, 23, 12);
+
+    final summary = summarizeOperationalEventImpact(
+      events: [real, duplicate],
+      month: DateTime.utc(2026, 8),
+      asOf: asOf,
+    );
+
+    expect(summary.eventCount, 1);
+    expect(summary.occurrenceCount, 1);
+    expect(summary.cumulativeDuration, const Duration(hours: 1));
+  });
+
+  test(
+    'withdrawal disposition closes the effective view but preserves raw history',
+    () {
+      final map =
+          record(
+              status: 'resolved',
+              resolvedAt: DateTime.utc(2026, 8, 14, 11),
+              resolvedByUid: 'ops-2',
+              resolvedByName: 'Operations Two',
+              resolutionNote: 'Supply remained stable after restoration.',
+            )
+            ..['isWithdrawn'] = true
+            ..['withdrawalReason'] = 'Duplicate entry confirmed in error.'
+            ..['withdrawnAt'] = DateTime.utc(2026, 8, 14, 12)
+            ..['withdrawnByUid'] = 'ops-3'
+            ..['withdrawnByName'] = 'Operations Three';
+
+      final event = OperationalEvent.fromMap(map, 'event-1');
+
+      expect(event.isWithdrawn, isTrue);
+      expect(event.isEffective, isFalse);
+      expect(event.isOpen, isFalse);
+      expect(event.withdrawalReason, 'Duplicate entry confirmed in error.');
+      expect(event.withdrawnByName, 'Operations Three');
+      expect(event.occurrencesUntil(DateTime.utc(2026, 8, 6)), hasLength(1));
+      expect(
+        event.effectiveOccurrencesUntil(DateTime.utc(2026, 8, 6)),
+        isEmpty,
+      );
+      expect(event.durationUntil(DateTime.utc(2026, 8, 6)), Duration.zero);
+    },
+  );
+
+  test('withdrawn records require complete accountable evidence', () {
+    final malformed = record()..['isWithdrawn'] = true;
+    expect(
+      () => OperationalEvent.fromMap(malformed, 'event-1'),
+      throwsFormatException,
+    );
+  });
+
+  test(
+    'a record written before the withdrawal route reads as not withdrawn',
+    () {
+      final map = <String, dynamic>{
+        'schemaVersion': 1,
+        'eventId': 'legacy-event',
+        'eventType': 'water',
+        'title': 'Water interruption',
+        'description': 'Recorded before withdrawal existed.',
+        'severity': 'significant',
+        'scope': 'plantWide',
+        'affectedAssetClassIds': <String>[],
+        'affectedAssetInstanceIds': <String>[],
+        'completedIntervals': <dynamic>[],
+        'startedAt': '2026-08-05T08:00:00.000Z',
+        'status': 'open',
+        'createdAt': '2026-08-05T08:05:00.000Z',
+        'createdByUid': 'ops-1',
+        'createdByName': 'Operations One',
+        'resolvedAt': null,
+        'resolvedByUid': null,
+        'resolvedByName': null,
+        'resolutionNote': null,
+        'version': 1,
+        'updatedAt': '2026-08-05T08:05:00.000Z',
+        'updatedByUid': 'ops-1',
+        'updatedByName': 'Operations One',
+        'lastMutationId': '11111111-1111-4111-8111-111111111111',
+      };
+
+      expect(
+        OperationalEvent.fromMap(map, 'legacy-event').isWithdrawn,
+        isFalse,
+      );
+      // A present value the producer got wrong is a fault, not a reason to read
+      // it as false.
+      expect(
+        () => OperationalEvent.fromMap({
+          ...map,
+          'isWithdrawn': 'yes',
+        }, 'legacy-event'),
+        throwsA(isA<Exception>()),
+      );
     },
   );
 }

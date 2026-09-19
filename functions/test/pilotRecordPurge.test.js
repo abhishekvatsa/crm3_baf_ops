@@ -226,6 +226,52 @@ describe('Admin-only permanent pilot record removal', () => {
     });
   });
 
+  test.each([
+    ['maintenance_completion_events', 'completion-1', {
+      sourceType: 'maintenanceIssue',
+      sourceId: 'record-1',
+    }],
+    ['maintenance_completion_sources', 'completion-source-1', {
+      sourceType: 'maintenanceIssue',
+      sourceId: 'record-1',
+    }],
+    ['maintenance_due_states', 'due-1', {
+      lastCompletionSourceType: 'maintenanceIssue',
+      lastCompletionSourceId: 'record-1',
+      nextDueAt: '2026-10-13T00:00:00.000Z',
+    }],
+  ])('preserves a ticket whose classified completion still drives %s',
+    async (collection, documentId, data) => {
+      const current = fixture();
+      current.store.seed(`${collection}/${documentId}`, data);
+
+      // Removing the ticket would leave this record, and the next-due date it
+      // carries, pointing at work that no longer exists.
+      await expect(
+        current.service.execute(current.command, current.context),
+      ).rejects.toMatchObject({
+        details: {reasonCode: 'pilot-record-purge-linked-maintenance-cadence'},
+      });
+      expect(current.store.read('maintenance_records/record-1')).not.toBeNull();
+    });
+
+  test('a completion belonging to another ticket does not block the purge',
+    async () => {
+      const current = fixture();
+      current.store.seed('maintenance_due_states/due-other', {
+        lastCompletionSourceType: 'maintenanceIssue',
+        lastCompletionSourceId: 'record-2',
+      });
+      current.store.seed('maintenance_completion_events/completion-other', {
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'record-1',
+      });
+
+      await expect(
+        current.service.execute(current.command, current.context),
+      ).resolves.toMatchObject({resultKey: 'pilot-record-permanently-removed'});
+    });
+
   test.each(['job_executions', 'job_modules', 'job_diary_entries'])(
     'preserves a template still referenced by %s',
     async (collection) => {

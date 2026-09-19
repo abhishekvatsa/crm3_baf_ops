@@ -12,6 +12,7 @@ import {WorkflowTransaction} from "./store";
 import {eventPlan} from "./events";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {persistedInstantMillis} from "../persistedInstant";
+import {validateQualityCasePostcondition} from "../qualityMutation";
 import {
   PersistedActionPayloadError,
   readComponentActionPayload,
@@ -147,6 +148,7 @@ const CREATE_TICKET_FIELDS = [
   "qualityWarningReason",
 ] as const;
 const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
+const CONTINUES_ISSUE_FIELD = "continuesIssueId";
 const PLANT_CONDITION_EFFECT_FIELD = "plantConditionEffect";
 const LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD =
   "issueLaneCompletionEvidence";
@@ -1528,6 +1530,44 @@ const qualityAbnormalityAssetFieldsForTicket = (
   };
 };
 
+/**
+ * An issue that reports suspected quality impact creates the same kind of case
+ * a quality decision later has to act on, so it is held to the same
+ * postcondition as the standalone producer: the pair about to be committed must
+ * read back through the adjudication path's own validation.
+ */
+const assertIssueCaseIsAdjudicable = (plan: {
+  warningId: string;
+  warning: JsonMap;
+  abnormalityId: string | null;
+  abnormality: JsonMap | null;
+}): void => {
+  try {
+    validateQualityCasePostcondition({
+      warningId: plan.warningId,
+      warning: plan.warning as {[key: string]: unknown},
+      abnormalityId: plan.abnormalityId,
+      abnormality: plan.abnormality as {[key: string]: unknown} | null,
+    });
+  } catch (error) {
+    const cause = (error as {details?: unknown}).details;
+    const causeDetails = cause != null && typeof cause === "object" ?
+      cause as {reasonCode?: unknown; field?: unknown} : {};
+    throw new WorkflowError(
+      "failed-precondition",
+      "This issue would create a quality case that cannot be decided. " +
+      "Nothing was saved.",
+      {
+        reasonCode: "maintenance-ticket-quality-case-postcondition-failed",
+        ...(typeof causeDetails.reasonCode === "string" ?
+          {causeReasonCode: causeDetails.reasonCode} : {}),
+        ...(typeof causeDetails.field === "string" ?
+          {field: causeDetails.field} : {}),
+      },
+    );
+  }
+};
+
 const qualityWarningProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -2081,6 +2121,188 @@ const writeAudit = (args: {
   return id;
 };
 
+/**
+ * A concern closed administratively while it explicitly remains relevant is a
+ * true record of a decision that was made, and it stays that way. When the work
+ * finally becomes practical, the plant needs somewhere to do it: this is that
+ * route. A new issue continues the concern, carries its own dates, assignee and
+ * technical resolution, and names what it continues so the two read as one
+ * story.
+ *
+ * What it deliberately does not do: reopen the closed record, relabel an
+ * administrative closure as a repair, or end the original's relevance. That
+ * last is the original's own decision, taken through its own administrative
+ * route when whoever owns it is satisfied.
+ */
+async function assertContinuesRetainedConcern(args: {
+  readonly tx: WorkflowTransaction;
+  readonly continuesIssueId: string;
+  readonly assetType: unknown;
+  readonly assetNumber: unknown;
+  readonly assetReference: JsonMap;
+}): Promise<void> {
+  const {tx, continuesIssueId} = args;
+  const original = await tx.get(maintenancePath(continuesIssueId));
+  const data = original.data ?? {};
+  if (!original.exists || data.isDeleted === true ||
+      data.status !== "closedWithoutResolution" ||
+      data.issueClosureSchemaVersion !== 1 ||
+      data.issueClosureDisposition !== "stillRelevant") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an issue closed administratively while it remains relevant can be continued.",
+      {
+        reasonCode: "maintenance-ticket-continuation-not-retained",
+        continuesIssueId,
+      },
+    );
+  }
+  // The continuation is about the same physical thing, or it is separate work
+  // and should be raised as such.
+  if (data.assetType !== args.assetType ||
+      data.assetNumber !== args.assetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A continuation must be about the same physical subject as the concern it continues.",
+      {
+        reasonCode: "maintenance-ticket-continuation-subject-changed",
+        continuesIssueId,
+      },
+    );
+  }
+  const physicalSubject = (
+    reference: unknown,
+    field: string,
+    fallbackAssetNumber: unknown,
+  ): string => {
+    let row: JsonMap;
+    try {
+      const decoded = typeof reference === "string" ?
+        JSON.parse(reference) as unknown : reference;
+      row = record(decoded, field);
+    } catch {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed physical identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const scope = row.scope;
+    const assetClassId = row.assetClassId;
+    const assetInstanceId = row.assetInstanceId;
+    const assetInstanceVersion = row.assetInstanceVersion;
+    const assetNumber = row.assetNumber ?? fallbackAssetNumber;
+    if ((scope !== "physicalAsset" && scope !== "componentDefinitionOnAsset" &&
+         scope !== "installedComponent") ||
+        typeof assetClassId !== "string" || assetClassId.trim().length === 0 ||
+        typeof assetInstanceId !== "string" || assetInstanceId.trim().length === 0 ||
+        !Number.isSafeInteger(assetInstanceVersion) ||
+        (assetInstanceVersion as number) < 1 ||
+        !Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed physical identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const component = scope === "physicalAsset" ? {
+      nodeId: assetInstanceId,
+      nodeVersion: assetInstanceVersion,
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+    } : {
+      nodeId: row.nodeId ?? null,
+      nodeVersion: row.nodeVersion ?? null,
+      componentInstanceId: row.componentInstanceId ?? null,
+      componentInstanceVersion: row.componentInstanceVersion ?? null,
+    };
+    if (typeof component.nodeId !== "string" ||
+        component.nodeId.trim().length === 0 ||
+        !Number.isSafeInteger(component.nodeVersion) ||
+        (component.nodeVersion as number) < 1 ||
+        (scope === "installedComponent" &&
+          (typeof component.componentInstanceId !== "string" ||
+           !Number.isSafeInteger(component.componentInstanceVersion) ||
+           (component.componentInstanceVersion as number) < 1))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The continuation does not carry a complete governed component identity.",
+        {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+      );
+    }
+    const rawAssociation = row.innerCoverAssociation;
+    let association: JsonMap | null = null;
+    if (rawAssociation != null) {
+      try {
+        const value = record(rawAssociation, `${field}.innerCoverAssociation`);
+        association = {
+          baseAssetInstanceId: value.baseAssetInstanceId ?? null,
+          baseAssetNumber: value.baseAssetNumber ?? null,
+          positionState: value.positionState ?? null,
+          innerCoverId: value.innerCoverId ?? null,
+          innerCoverSerialNumber: value.innerCoverSerialNumber ?? null,
+          linkageId: value.linkageId ?? null,
+          assignmentVersion: value.assignmentVersion ?? null,
+        };
+      } catch {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The continuation carries malformed Inner Cover association evidence.",
+          {reasonCode: "maintenance-ticket-continuation-identity-invalid"},
+        );
+      }
+    }
+    return stableJson({
+      assetClassId,
+      assetInstanceId,
+      assetInstanceVersion,
+      assetNumber: assetNumber as number,
+      scope,
+      ...component,
+      innerCoverAssociation: association,
+    });
+  };
+  const originalSubject = physicalSubject(
+    data.assetHierarchyRefJson,
+    "stored assetHierarchyRefJson",
+    data.assetNumber,
+  );
+  const successorSubject = physicalSubject(
+    args.assetReference,
+    "continuation assetHierarchyRefJson",
+    args.assetNumber,
+  );
+  if (originalSubject !== successorSubject) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A continuation must retain the same governed component and installation subject.",
+      {
+        reasonCode: "maintenance-ticket-continuation-subject-changed",
+        continuesIssueId,
+      },
+    );
+  }
+  // One open continuation at a time, so the same retained concern cannot be
+  // worked twice over.
+  const existing = await tx.query("maintenance_records", [
+    {field: CONTINUES_ISSUE_FIELD, op: "==", value: continuesIssueId},
+  ]);
+  const open = existing.find((row) => {
+    const rowData = row.data ?? {};
+    return rowData.isDeleted !== true && rowData.isResolved !== true;
+  });
+  if (open != null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This concern already has work open against it.",
+      {
+        reasonCode: "maintenance-ticket-successor-already-open",
+        continuesIssueId,
+      },
+    );
+  }
+}
+
 export const createMaintenanceTicket = async ({
   tx,
   command,
@@ -2112,6 +2334,10 @@ export const createMaintenanceTicket = async ({
     input,
     PLANT_CONDITION_EFFECT_FIELD,
   );
+  const hasContinuedIssue = Object.prototype.hasOwnProperty.call(
+    input,
+    CONTINUES_ISSUE_FIELD,
+  );
   const hasLegacyEmptyCompletionEvidence =
     hasLegacyEmptyLaneCompletionEvidence(input);
   exactKeys(
@@ -2119,6 +2345,7 @@ export const createMaintenanceTicket = async ({
     burner ? [...CREATE_TICKET_FIELDS,
       ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
       ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
       ...CREATE_BURNER_FIELDS,
       ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
       ...(hasLegacyEmptyCompletionEvidence ?
@@ -2127,6 +2354,7 @@ export const createMaintenanceTicket = async ({
       stuckup ? [...CREATE_TICKET_FIELDS,
         ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
         ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
         ...CREATE_STUCKUP_FIELDS,
         ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
         ...(hasLegacyEmptyCompletionEvidence ?
@@ -2135,6 +2363,7 @@ export const createMaintenanceTicket = async ({
         [...CREATE_TICKET_FIELDS,
           ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
           ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
+      ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
           ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
           ...(hasLegacyEmptyCompletionEvidence ?
             [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
@@ -2545,6 +2774,14 @@ export const createMaintenanceTicket = async ({
     qualityImpactAssessment: input.qualityImpactAssessment as string,
     qualityWarningReason,
     ...(hasQualityAbnormalityType ? {qualityAbnormalityTypeId} : {}),
+    // Named only when this issue continues a retained concern, so an ordinary
+    // issue keeps exactly the shape it has always had.
+    ...(hasContinuedIssue ? {
+      [CONTINUES_ISSUE_FIELD]: cleanText(
+        input[CONTINUES_ISSUE_FIELD],
+        CONTINUES_ISSUE_FIELD,
+      ),
+    } : {}),
     qualityAbnormalityId,
     qualityWarningId: suspected ? warningId : null,
     chargeQualityCaseId: suspected ? `issue_${command.aggregateId}` : null,
@@ -2611,6 +2848,18 @@ export const createMaintenanceTicket = async ({
     );
   }
   await requireVacantAudit(tx, command.commandId);
+  if (hasContinuedIssue) {
+    await assertContinuesRetainedConcern({
+      tx,
+      continuesIssueId: cleanText(
+        input[CONTINUES_ISSUE_FIELD],
+        CONTINUES_ISSUE_FIELD,
+      ),
+      assetType: input.assetType,
+      assetNumber: input.assetNumber,
+      assetReference: canonicalAssetReference,
+    });
+  }
   let stuckupCaseId: string | null = null;
   if (stuckup) {
     stuckupCaseId = command.aggregateId;
@@ -2845,7 +3094,15 @@ export const createMaintenanceTicket = async ({
       linkedDefinitionId: null,
     });
   }
-  if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
+  if (warning != null) {
+    assertIssueCaseIsAdjudicable({
+      warningId,
+      warning,
+      abnormalityId: qualityAbnormalityId,
+      abnormality,
+    });
+    tx.create(`quality_warnings/${warningId}`, warning);
+  }
   if (abnormality != null && qualityAbnormalityId != null) {
     tx.create(`charge_abnormalities/${qualityAbnormalityId}`, abnormality);
   }
@@ -3077,6 +3334,11 @@ export const resolveMaintenanceTicket = async ({
     );
   }
   const lifecycleCompletedAt = endDate.toISOString();
+  // When the work physically finished and when it was entered are different
+  // facts. Recording both as the completion time makes a late entry look like
+  // contemporaneous evidence, which is the one thing a reliability history
+  // cannot be allowed to say.
+  const lifecycleRecordedAt = iso(context.serverNow);
   const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
     tx,
     sourceType: "maintenanceIssue",
@@ -3085,7 +3347,7 @@ export const resolveMaintenanceTicket = async ({
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
     completedAt: lifecycleCompletedAt,
-    recordedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleRecordedAt,
     completedBy: context.actor,
     executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
   });
@@ -3098,7 +3360,7 @@ export const resolveMaintenanceTicket = async ({
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
     completedAt: lifecycleCompletedAt,
-    recordedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleRecordedAt,
     completedBy: context.actor,
     executionLevelInstrumentationEvidence:
       plan.assigned.includes("instrumentation"),

@@ -376,3 +376,20 @@ The AST inventory reports PASS with zero unclassified operations or presentation
 persistence. These are current working-source measurements. The earlier source,
 CI, and closure evidence remains historical and does not admit this repair branch
 or provide deployment, production reconciliation, or physical-device evidence.
+
+## Domain-audit remediation addendum, 2026-09-18
+
+This addendum supersedes the current-source totals above. Repairing the domain
+audits added one persistence site and then another: a job diary revision read
+inside the transaction that writes over it, and a count of the local knowledge
+rows so that an empty active catalogue can be told apart from a catalogue that
+was never there. The inventory now contains 595 operations and 2,078 sites
+across 70 classified surfaces, with exact digest
+`FCDCA1B1BCD4BE19717482718DF82ED00F8D530D6CA7DCEA53F8EB0C510D88BE`.
+
+No surface changed profile, store or mode, and one A-02 surface exception was
+removed rather than added, because extracting a screen's draft type took a
+responsibility out of a presentation file. The AST inventory reports PASS with
+zero unclassified operations or presentation persistence. These remain current
+working-source measurements and admit no deployment, production reconciliation
+or physical-device evidence.

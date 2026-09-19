@@ -432,6 +432,42 @@ function burnerBlockReplacementAction(overrides = {}) {
   });
 }
 
+function stillRelevantClosure(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    version: 4,
+    assetType: 'furnace',
+    assetNumber: 7,
+    component: 'Furnace body',
+    subsystem: null,
+    tag: null,
+    hierarchyPath: ['Furnace', 'Furnace body'],
+    assetHierarchyRefJson: physicalAssetReference(),
+    maintenanceType: 'breakdown',
+    classification: null,
+    description: 'Shell temperature above range; charge ended before repair.',
+    routedTo: 'mechanical',
+    otherDepartment: null,
+    isCritical: false,
+    startDate: '2026-08-14T16:20:00.000Z',
+    endDate: '2026-08-14T20:20:00.000Z',
+    chargeNoAtEvent: null,
+    status: 'closedWithoutResolution',
+    isResolved: true,
+    isDeleted: false,
+    issueClosureSchemaVersion: 1,
+    issueClosureDisposition: 'stillRelevant',
+    issueClosureReason:
+        'The charge has ended, but the condition remains relevant.',
+    closedByUid: 'admin-1',
+    closedByName: 'Admin One',
+    qualityIntentSchemaVersion: 1,
+    qualityImpactAssessment: 'notSuspected',
+    qualityWarningReason: null,
+    ...overrides,
+  };
+}
+
 function createCommand({
   commandId = 'create-ticket-2',
   ticketId = 'ticket-2',
@@ -2500,7 +2536,8 @@ describe('governed maintenance-ticket supervision', () => {
       sourceType: 'maintenanceIssue',
       sourceId: 'ticket-1',
       completedAt: '2026-08-14T16:00:00.000Z',
-      recordedAt: '2026-08-14T16:00:00.000Z',
+      // The repair finished at 16:00 and was entered at 16:30.
+      recordedAt: '2026-08-14T16:30:00.000Z',
     });
   });
 
@@ -3566,5 +3603,159 @@ describe('governed maintenance-ticket supervision', () => {
       aggregateVersion: receipt.aggregateVersion,
       result: receipt.result,
     });
+  });
+});
+
+describe('continuing a still-relevant administrative closure', () => {
+  function withClosure(overrides = {}) {
+    const seeded = createServiceFor(mechanical);
+    seeded.store.seed(
+      'maintenance_records/closed-still-relevant',
+      stillRelevantClosure(overrides),
+    );
+    return seeded;
+  }
+
+  function successor(ticket = {}, ticketId = 'successor-1') {
+    return createCommand({
+      commandId: `create-${ticketId}`,
+      ticketId,
+      ticket: {
+        description: 'The retained condition is now practical to repair.',
+        continuesIssueId: 'closed-still-relevant',
+        ...ticket,
+      },
+    });
+  }
+
+  test('a retained concern leads to assigned work without reopening', async () => {
+    const seeded = withClosure();
+
+    const receipt = await seeded.service.execute(successor(), seeded.context);
+
+    expect(receipt.resultKey).toBe('maintenance-ticket-created');
+    expect(seeded.store.read('maintenance_records/successor-1'))
+      .toMatchObject({
+        status: 'open',
+        isResolved: false,
+        continuesIssueId: 'closed-still-relevant',
+      });
+    // The earlier decision is untouched. It was an administrative closure and
+    // it still says so; only its own truthful decision ends its relevance.
+    expect(seeded.store.read('maintenance_records/closed-still-relevant'))
+      .toMatchObject({
+        status: 'closedWithoutResolution',
+        issueClosureDisposition: 'stillRelevant',
+        version: 4,
+      });
+  });
+
+  test('a second open successor for the same concern is refused', async () => {
+    const seeded = withClosure();
+    await seeded.service.execute(successor(), seeded.context);
+
+    await expect(seeded.service.execute(
+      successor({}, 'successor-2'),
+      seeded.context,
+    )).rejects.toMatchObject({
+      details: {reasonCode: 'maintenance-ticket-successor-already-open'},
+    });
+  });
+
+  test('a concern whose relevance was ended has nothing to continue', async () => {
+    const seeded = withClosure({issueClosureDisposition: 'relevanceEnded'});
+
+    await expect(seeded.service.execute(successor(), seeded.context))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'maintenance-ticket-continuation-not-retained'},
+      });
+  });
+
+  test('an ordinary resolved issue is not continued this way', async () => {
+    const seeded = withClosure({
+      status: 'resolved',
+      issueClosureDisposition: null,
+      issueClosureSchemaVersion: null,
+    });
+
+    await expect(seeded.service.execute(successor(), seeded.context))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'maintenance-ticket-continuation-not-retained'},
+      });
+  });
+
+  test('a successor must be about the same physical subject', async () => {
+    // The closure is about Furnace 9; the successor is an internally
+    // consistent Furnace 7 issue, so the existing governed-identity guard has
+    // nothing to object to. Continuing a concern about another furnace is
+    // separate work and is raised as such.
+    const seeded = withClosure({assetNumber: 9});
+
+    await expect(seeded.service.execute(successor(), seeded.context))
+      .rejects.toMatchObject({
+        details: {
+          reasonCode: 'maintenance-ticket-continuation-subject-changed',
+        },
+      });
+  });
+
+  test('a successor cannot change the component at the same governed asset', async () => {
+    const seeded = withClosure({
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 4,
+        nodeId: 'node-shell',
+        nodeVersion: 1,
+      }),
+    });
+    const node = (nodeId, name) => ({
+      schemaVersion: 1,
+      nodeId,
+      assetClassId: 'class-furnace',
+      status: 'active',
+      version: 1,
+      nodeType: 'component',
+      name,
+      hierarchyPath: ['Furnace', name],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: ['operations'],
+      componentTag: null,
+    });
+    seeded.store.seed('asset_hierarchy_nodes/node-shell', node('node-shell', 'Furnace shell'));
+    seeded.store.seed('asset_hierarchy_nodes/node-recuperator', node('node-recuperator', 'Recuperator'));
+
+    await expect(seeded.service.execute(successor({
+      component: 'Recuperator',
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 4,
+        nodeId: 'node-recuperator',
+        nodeVersion: 1,
+      }),
+    }), seeded.context)).rejects.toMatchObject({
+      details: {
+        reasonCode: 'maintenance-ticket-continuation-subject-changed',
+      },
+    });
+  });
+
+  test('an ordinary issue still needs no continuation', async () => {
+    const seeded = createServiceFor(mechanical);
+
+    const receipt = await seeded.service.execute(
+      createCommand({commandId: 'create-plain', ticketId: 'plain-1'}),
+      seeded.context,
+    );
+
+    expect(receipt.resultKey).toBe('maintenance-ticket-created');
+    expect(seeded.store.read('maintenance_records/plain-1').continuesIssueId)
+      .toBeUndefined();
   });
 });

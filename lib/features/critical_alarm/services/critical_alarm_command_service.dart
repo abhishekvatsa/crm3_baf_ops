@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
@@ -10,17 +12,35 @@ import '../domain/critical_alarm_models.dart';
 class CriticalAlarmCommandService {
   const CriticalAlarmCommandService({
     required this.connectivity,
-    required this.gateway,
+    required this.originBoundGateway,
+    required this.currentActorUid,
     this.checkConnectivity,
     this.immediateReplayDelay = const Duration(milliseconds: 250),
   });
 
   final Connectivity connectivity;
-  final WorkflowCommandGateway gateway;
+  final OriginBoundWorkflowCommandGateway originBoundGateway;
+  final String Function() currentActorUid;
   final Future<List<ConnectivityResult>> Function()? checkConnectivity;
   final Duration immediateReplayDelay;
 
   Future<WorkflowCommandReceipt> _execute(WorkflowCommand command) async {
+    final originUid = currentActorUid().trim();
+    if (originUid.isEmpty) {
+      throw const WorkflowException(
+        WorkflowErrorCode.unauthenticated,
+        'Sign in before recording a critical-safety command.',
+        details: {'reasonCode': 'critical-alarm-origin-actor-missing'},
+      );
+    }
+    // Freeze the origin before any connectivity check or uncertain-outcome
+    // wait. Both attempts use this exact envelope; a different account cannot
+    // accidentally submit or replay the first operator's command.
+    final originBoundEnvelope = jsonEncode({
+      'protocolVersion': 2,
+      'originActorUid': originUid,
+      'command': command.toMap(),
+    });
     final result =
         await (checkConnectivity?.call() ?? connectivity.checkConnectivity());
     if (result.every((entry) => entry == ConnectivityResult.none)) {
@@ -31,7 +51,9 @@ class CriticalAlarmCommandService {
       );
     }
     try {
-      return await gateway.execute(command);
+      return await originBoundGateway.executeOriginBoundEnvelope(
+        originBoundEnvelope,
+      );
     } on WorkflowException catch (error) {
       if (!_isUncertain(error)) rethrow;
       if (immediateReplayDelay > Duration.zero) {
@@ -40,7 +62,9 @@ class CriticalAlarmCommandService {
       try {
         // Same command ID: a committed first attempt resolves as an
         // idempotent replay, while a genuinely failed attempt executes once.
-        return await gateway.execute(command);
+        return await originBoundGateway.executeOriginBoundEnvelope(
+          originBoundEnvelope,
+        );
       } on WorkflowException catch (replayError) {
         if (!_isUncertain(replayError)) rethrow;
         throw WorkflowException(

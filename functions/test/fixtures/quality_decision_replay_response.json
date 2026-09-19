@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "requestId": "22222222-2222-4222-8222-222222222222",
+  "operation": "CLOSE_QUALITY_WARNING",
+  "entityId": "abnormality_abn-1",
+  "version": 2,
+  "auditId": "server_quality_22222222-2222-4222-8222-222222222222",
+  "committedAt": "2026-08-14T12:00:00.000Z",
+  "idempotentReplay": true,
+  "entity": {
+    "schemaVersion": 1,
+    "warningId": "abnormality_abn-1",
+    "sourceType": "abnormality",
+    "sourceId": "abn-1",
+    "sourceVersion": 2,
+    "sourceChargeNo": 12001,
+    "sourceSummary": "Atmosphere deviation",
+    "sourceSeverity": "critical",
+    "warningReason": "Atmosphere interruption may affect coil quality.",
+    "affectedAssets": [
+      {
+        "assetType": "furnace",
+        "assetNumber": 7
+      }
+    ],
+    "component": "Atmosphere control",
+    "status": "closed",
+    "closureRequestReason": null,
+    "closureRequestedAt": null,
+    "closureRequestedByUid": null,
+    "closureRequestedByName": null,
+    "closedAt": {
+      "_seconds": 1786708800,
+      "_nanoseconds": 0
+    },
+    "closedByUid": "si-1",
+    "closedByName": "SI One",
+    "closureDisposition": "coilFoundAcceptable",
+    "linkedReannealingChargeNos": [],
+    "decisionReason": "Inspection found the affected coil acceptable.",
+    "createdAt": {
+      "_seconds": 1786694400,
+      "_nanoseconds": 0
+    },
+    "createdByUid": "ops-1",
+    "createdByName": "Operations One",
+    "updatedAt": {
+      "_seconds": 1786708800,
+      "_nanoseconds": 0
+    },
+    "updatedByUid": "si-1",
+    "updatedByName": "SI One",
+    "version": 2,
+    "lastMutationId": "22222222-2222-4222-8222-222222222222"
+  },
+  "linkedAbnormality": {
+    "firestoreId": "abn-1",
+    "sourceChargeNo": 12001,
+    "abnormalityTypeId": "ATMOSPHERE_DEVIATION",
+    "abnormalityTypeTitle": "Atmosphere deviation",
+    "abnormalityTypeCode": "ATM-DEV",
+    "category": "process",
+    "severity": "critical",
+    "affectedAssets": [
+      {
+        "assetType": "furnace",
+        "assetNumber": 7
+      }
+    ],
+    "component": "Atmosphere control",
+    "observedReason": "Atmosphere interruption may affect coil quality.",
+    "description": "Logged from the cycle review.",
+    "possibleRootReasonCategory": "unknown",
+    "possibleRootReasonNotes": null,
+    "reannealingStatus": "notRequired",
+    "reannealedToChargeNo": null,
+    "loggedAt": {
+      "_seconds": 1786694400,
+      "_nanoseconds": 0
+    },
+    "updatedAt": "2026-08-14T12:00:00.000Z",
+    "loggedByUid": "ops-1",
+    "loggedByName": "Operations One",
+    "updatedByUid": "si-1",
+    "updatedByName": "SI One",
+    "linkedTicketFirestoreId": null,
+    "linkedExecutionFirestoreId": null,
+    "version": 2,
+    "isDeleted": false,
+    "deletedAt": null,
+    "deletedByUid": null,
+    "deletedByName": null,
+    "deleteReason": null
+  }
+}

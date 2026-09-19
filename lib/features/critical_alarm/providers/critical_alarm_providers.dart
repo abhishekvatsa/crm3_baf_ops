@@ -21,7 +21,9 @@ final criticalAlarmCommandServiceProvider =
     Provider<CriticalAlarmCommandService>(
       (ref) => CriticalAlarmCommandService(
         connectivity: Connectivity(),
-        gateway: ref.read(workflowCommandGatewayProvider),
+        originBoundGateway: ref.read(originBoundWorkflowCommandGatewayProvider),
+        currentActorUid: () =>
+            ref.read(firebaseAuthProvider).currentUser?.uid ?? '',
       ),
     );
 
@@ -95,8 +97,9 @@ final criticalAlarmsForReportsProvider = StreamProvider.autoDispose
           );
     });
 
-final activeCriticalAlarmsProvider =
-    StreamProvider<CriticalAlarmLiveSnapshot>((ref) {
+final activeCriticalAlarmsProvider = StreamProvider<CriticalAlarmLiveSnapshot>((
+  ref,
+) {
   return ref
       .watch(currentAppUserProvider)
       .when(

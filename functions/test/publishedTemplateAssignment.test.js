@@ -171,6 +171,34 @@ function assetInstanceFixture(overrides = {}) {
   };
 }
 
+// A legacy-shaped assignment names an asset type and number, and the register
+// has to hold that asset for the work to be admitted.
+function baseClassFixture(overrides = {}) {
+  return {
+    assetClassId: "base-class",
+    code: "BASE",
+    name: "Base",
+    legacyAssetTypeKey: "base",
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
+function baseInstanceFixture(overrides = {}) {
+  return {
+    assetInstanceId: "base-101",
+    assetClassId: "base-class",
+    assetNumber: 101,
+    name: "Base 101",
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
 function assetClassFixture(overrides = {}) {
   return {
     assetClassId: "annealing-car-class",
@@ -211,8 +239,8 @@ function fakeAssignmentDb({
   audits = [auditFixture()],
   equipmentData = null,
   workflows = [],
-  assetClasses = [assetClassFixture()],
-  assetInstances = [assetInstanceFixture()],
+  assetClasses = [assetClassFixture(), baseClassFixture()],
+  assetInstances = [assetInstanceFixture(), baseInstanceFixture()],
   innerCoverAssignments = [],
   innerCoverProfiles = [],
   maintenancePlans = [],
@@ -461,6 +489,60 @@ describe("published TemplateVersion server assignment", () => {
         reasonCode: 'assignment-source-plan-identity-incomplete',
       }),
     }));
+  });
+
+  test.each([
+    ["an asset the register does not hold", []],
+    ["an asset the register has retired", [
+      baseInstanceFixture({status: "retired"}),
+    ]],
+  ])("a fresh legacy-shaped assignment is refused for %s", async (
+    _label, baseInstances,
+  ) => {
+    const {db, writes} = fakeAssignmentDb({
+      assetInstances: [assetInstanceFixture(), ...baseInstances],
+    });
+
+    // The older request shape carries only an asset type and number. The same
+    // request with explicit governed identity is already refused; admitting it
+    // without resolving the register let new work be assigned to an asset the
+    // plant does not have.
+    await expect(assignPublishedTemplateVersionWithDb({
+      db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    })).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: expect.objectContaining({
+        reasonCode: "assignment-legacy-asset-not-registered",
+        assetNumber: 101,
+      }),
+    });
+    expect(writes).toHaveLength(0);
+  });
+
+  test("revalidates a resolved legacy physical identity inside the committing transaction", async () => {
+    const {db, store, writes} = fakeAssignmentDb();
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+      beforeAssignmentTransactionForTest: async () => {
+        store.set("asset_instances/base-101", {
+          ...baseInstanceFixture(),
+          status: "retired",
+        });
+      },
+    })).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: expect.objectContaining({
+        reasonCode: "custom-asset-instance-invalid",
+      }),
+    });
+    expect(writes).toHaveLength(0);
   });
 
   test("creates canonical execution, frozen module, and idempotency receipt atomically", async () => {
@@ -1930,6 +2012,226 @@ describe("published TemplateVersion server assignment", () => {
       details: {reasonCode: "duplicate-field-key"},
     });
     expect(duplicateFieldDb.writes).toHaveLength(0);
+
+    // A module that carries its own field list and is also named by a global
+    // required reading describes the same module twice. The materialiser took
+    // the embedded list and the reading disappeared, so the job could be
+    // closed and attested without it.
+    const shadowedRequiredVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {key: "notes", label: "Notes", type: "text", isRequired: false},
+          ],
+        },
+      ]),
+    });
+    shadowedRequiredVersion.contentHash = computeTemplateVersionContentHash(
+      shadowedRequiredVersion,
+    );
+    const shadowedRequiredDb = fakeAssignmentDb({
+      versionData: shadowedRequiredVersion,
+      audits: [auditFixture({afterHash: shadowedRequiredVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: shadowedRequiredDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: shadowedRequiredVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(shadowedRequiredDb.writes).toHaveLength(0);
+
+    // The same two representations agreeing is not a conflict: the embedded
+    // list carries the reading, and may add fields of its own.
+    const agreeingEmbeddedVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              moduleCode: "M-01",
+              type: "number",
+              isRequired: true,
+            },
+            {key: "notes", label: "Notes", type: "text", isRequired: false},
+          ],
+        },
+      ]),
+    });
+    agreeingEmbeddedVersion.contentHash = computeTemplateVersionContentHash(
+      agreeingEmbeddedVersion,
+    );
+    const agreeingEmbeddedDb = fakeAssignmentDb({
+      versionData: agreeingEmbeddedVersion,
+      audits: [auditFixture({afterHash: agreeingEmbeddedVersion.contentHash})],
+    });
+    const agreed = await assignPublishedTemplateVersionWithDb({
+      db: agreeingEmbeddedDb.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: agreeingEmbeddedVersion.contentHash,
+      }),
+    });
+    expect(agreed.modules[0].fieldDefinitionsJson).toContain("vibration");
+
+    // A reading the embedded list keeps but downgrades is the same hazard
+    // wearing different clothes.
+    const downgradedRequiredVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              moduleCode: "M-01",
+              type: "number",
+              isRequired: false,
+            },
+          ],
+        },
+      ]),
+    });
+    downgradedRequiredVersion.contentHash = computeTemplateVersionContentHash(
+      downgradedRequiredVersion,
+    );
+    const downgradedRequiredDb = fakeAssignmentDb({
+      versionData: downgradedRequiredVersion,
+      audits: [
+        auditFixture({afterHash: downgradedRequiredVersion.contentHash}),
+      ],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: downgradedRequiredDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: downgradedRequiredVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(downgradedRequiredDb.writes).toHaveLength(0);
+
+    // Requiredness alone is not the requirement. A numeric reading and a
+    // text field with the same key would render different forms and produce
+    // different evidence, so assignment must refuse the published version.
+    const typeConflictVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              type: "text",
+              isRequired: true,
+            },
+          ],
+        },
+      ]),
+    });
+    typeConflictVersion.contentHash = computeTemplateVersionContentHash(
+      typeConflictVersion,
+    );
+    const typeConflictDb = fakeAssignmentDb({
+      versionData: typeConflictVersion,
+      audits: [auditFixture({afterHash: typeConflictVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: typeConflictDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: typeConflictVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: "M-01",
+        field: "vibration",
+      },
+    });
+    expect(typeConflictDb.writes).toHaveLength(0);
+
+    // Supported aliases describe the same requirement and remain compatible
+    // with older published snapshots.
+    const aliasedVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          moduleTitle: "Inspect fan",
+          requiredForClosure: true,
+          discipline: "mechanical",
+          fields: [
+            {
+              key: "vibration",
+              label: "Vibration",
+              type: "numericWithUnit",
+              unit: "mm/s",
+              isRequired: true,
+            },
+          ],
+        },
+      ]),
+      fieldDefinitionsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          key: "vibration",
+          label: "Vibration",
+          type: "number",
+          unit: "MM/S",
+          required: true,
+        },
+      ]),
+    });
+    aliasedVersion.contentHash = computeTemplateVersionContentHash(
+      aliasedVersion,
+    );
+    const aliasedDb = fakeAssignmentDb({
+      versionData: aliasedVersion,
+      audits: [auditFixture({afterHash: aliasedVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: aliasedDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({expectedContentHash: aliasedVersion.contentHash}),
+      }),
+    ).resolves.toMatchObject({ok: true});
 
     const invalidFieldTypeVersion = versionFixture({
       fieldDefinitionsJson: JSON.stringify([

@@ -131,6 +131,30 @@ const requireNoDependencies = async (
       "pilot-record-purge-linked-inspection-finding",
     );
     await requireNoRows(cases, "pilot-record-purge-linked-stuckup-case");
+    // A classified ticket resets maintenance counters. The completion event,
+    // the source projection and the due state it produced outlive the ticket,
+    // and the due state carries a next-due date the plant schedules against.
+    // Removing the ticket underneath them would leave the cadence being driven
+    // by work that no longer exists, so the purge refuses while any of them
+    // still names it. Whether genuine maintenance history may be withdrawn
+    // with its ticket is a separate decision; nothing here erases it.
+    const [completionEvents, completionSources, dueStates] = await Promise.all([
+      tx.query("maintenance_completion_events", [
+        {field: "sourceType", op: "==", value: "maintenanceIssue"},
+        {field: "sourceId", op: "==", value: sourceDocumentId},
+      ]),
+      tx.query("maintenance_completion_sources", [
+        {field: "sourceType", op: "==", value: "maintenanceIssue"},
+        {field: "sourceId", op: "==", value: sourceDocumentId},
+      ]),
+      tx.query("maintenance_due_states", [
+        {field: "lastCompletionSourceType", op: "==", value: "maintenanceIssue"},
+        {field: "lastCompletionSourceId", op: "==", value: sourceDocumentId},
+      ]),
+    ]);
+    for (const rows of [completionEvents, completionSources, dueStates]) {
+      await requireNoRows(rows, "pilot-record-purge-linked-maintenance-cadence");
+    }
     for (const path of [
       `quality_warnings/issue_${sourceDocumentId}`,
       `maintenance_burner_closures/${sourceDocumentId}`,

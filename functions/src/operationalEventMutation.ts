@@ -6,6 +6,7 @@ import {
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {operationalEventDisposition} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -28,7 +29,8 @@ export type OperationalEventOperation =
   | "CREATE_OPERATIONAL_EVENT"
   | "UPDATE_OPERATIONAL_EVENT"
   | "RESOLVE_OPERATIONAL_EVENT"
-  | "REOPEN_OPERATIONAL_EVENT";
+  | "REOPEN_OPERATIONAL_EVENT"
+  | "WITHDRAW_OPERATIONAL_EVENT";
 
 type EventType =
   | "water"
@@ -103,6 +105,7 @@ const OPERATIONS = new Set<OperationalEventOperation>([
   "UPDATE_OPERATIONAL_EVENT",
   "RESOLVE_OPERATIONAL_EVENT",
   "REOPEN_OPERATIONAL_EVENT",
+  "WITHDRAW_OPERATIONAL_EVENT",
 ]);
 const EVENT_TYPES = new Set<EventType>([
   "water", "nitrogen", "mixedGas", "hydrogen", "powerTrip", "crane",
@@ -576,6 +579,21 @@ export function validateCurrentEvent(
     (resolvedAt == null || resolvedAt.getTime() >= startedAt.getTime()) &&
     (latestCompletedAt == null ||
       startedAt.getTime() >= latestCompletedAt.getTime());
+  const disposition = operationalEventDisposition(data);
+  const withdrawalEvidenceValid = disposition === "effective" ?
+    (!Object.prototype.hasOwnProperty.call(data, "withdrawalReason") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnAt") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByUid") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByName")) :
+    typeof data.isWithdrawn === "boolean" &&
+    typeof data.withdrawalReason === "string" &&
+    data.withdrawalReason.trim().length > 0 &&
+    data.withdrawalReason.length <= 1000 &&
+    isTimestampLike(data.withdrawnAt) &&
+    typeof data.withdrawnByUid === "string" &&
+    data.withdrawnByUid.length > 0 && data.withdrawnByUid.length <= 128 &&
+    typeof data.withdrawnByName === "string" &&
+    data.withdrawnByName.length > 0 && data.withdrawnByName.length <= 200;
   if (data.schemaVersion !== 1 || data.eventId !== eventId ||
       issueLinkIds.length !== linkedIssueIds.length ||
       !EVENT_TYPES.has(data.eventType as EventType) ||
@@ -593,6 +611,9 @@ export function validateCurrentEvent(
       data.updatedByName.length > 200 || !Number.isSafeInteger(data.version) ||
       (data.version as number) < 1 || typeof data.lastMutationId !== "string" ||
       !UUID.test(data.lastMutationId) ||
+      (Object.prototype.hasOwnProperty.call(data, "isWithdrawn") &&
+        typeof data.isWithdrawn !== "boolean") ||
+      !withdrawalEvidenceValid ||
       (data.status === "resolved" &&
         ((data.resolvedByUid as string).length > 128 ||
           (data.resolvedByName as string).length > 200 ||
@@ -629,6 +650,16 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     updatedAt: data.updatedAt,
     updatedByUid: data.updatedByUid,
     updatedByName: data.updatedByName,
+    // Present only once an entry has been withdrawn, so an event that never
+    // was keeps exactly the snapshot shape it has always had - and the audit
+    // of a withdrawal shows the one thing that changed.
+    ...(data.isWithdrawn === true ? {
+      isWithdrawn: true,
+      withdrawalReason: data.withdrawalReason,
+      withdrawnAt: data.withdrawnAt,
+      withdrawnByUid: data.withdrawnByUid,
+      withdrawnByName: data.withdrawnByName,
+    } : {}),
     version: data.version,
     lastMutationId: data.lastMutationId,
   };
@@ -911,6 +942,29 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-not-resolved"},
       );
     }
+    // An entry recorded by mistake - the same disruption written down twice,
+    // or one that never happened - is withdrawn rather than edited. The
+    // interval stays exactly as it was recorded, because it is evidence of
+    // what somebody entered; what changes is whether it counts as a
+    // disruption. Nothing further happens to it afterwards: reopening a
+    // withdrawn entry would be the fabricated recurrence this route exists to
+    // make unnecessary.
+    if (current?.isWithdrawn === true &&
+        request.operation !== "WITHDRAW_OPERATIONAL_EVENT") {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry was withdrawn as recorded in error. Record a new event instead.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
+    if (request.operation === "WITHDRAW_OPERATIONAL_EVENT" &&
+        current?.isWithdrawn === true) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry has already been withdrawn.",
+        {reasonCode: "operational-event-already-withdrawn"},
+      );
+    }
     if (request.operation === "REOPEN_OPERATIONAL_EVENT" &&
         (current?.completedIntervals as unknown[]).length >= MAX_COMPLETED_INTERVALS) {
       throw new AssetHierarchyMutationError(
@@ -1018,6 +1072,59 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-resolved-at-future"},
       );
     }
+    // Linking an issue to an occurrence checks that the issue belongs to the
+    // occurrence's governed scope. Correcting the scope afterwards can make
+    // that untrue, and the event would then list as current a link its own
+    // rule would refuse. A widening to plant-wide keeps every link valid; any
+    // other change is held until the links have been reviewed.
+    if (draft != null && current != null) {
+      const currentScope = stableJson({
+        scope: current.scope ?? null,
+        classes: [...(current.affectedAssetClassIds as unknown[] ?? [])].sort(),
+        instances:
+          [...(current.affectedAssetInstanceIds as unknown[] ?? [])].sort(),
+      });
+      const draftScope = stableJson({
+        scope: draft.scope,
+        classes: [...draft.affectedAssetClassIds].sort(),
+        instances: [...draft.affectedAssetInstanceIds].sort(),
+      });
+      const links = (current.issueLinkIds as unknown[] ?? []);
+      if (currentScope !== draftScope && draft.scope !== "plantWide" &&
+          links.length > 0) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "scope. Review those links before narrowing or moving the scope.",
+          {
+            reasonCode: "operational-event-scope-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
+      // A link's identity is derived from the occurrence start, so correcting
+      // the start leaves every existing link stored under an identity nothing
+      // can reach again: the association is neither current nor relinkable,
+      // and the event goes on listing it. The correction is held while links
+      // exist, naming them, so nobody strands one by correcting a time. The
+      // route through is to review those links first. A durable occurrence
+      // identity that survives a corrected start is the larger repair and is
+      // recorded as still open.
+      const storedStart = timestampDate(current.startedAt);
+      if (links.length > 0 &&
+          (storedStart == null ||
+            storedStart.getTime() !== Date.parse(draft.startedAtIso))) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "start time. Review those links before correcting the start.",
+          {
+            reasonCode: "operational-event-start-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
+    }
     const version = currentVersion + 1;
     let next: JsonMap;
     if (draft != null) {
@@ -1043,6 +1150,22 @@ export async function mutateOperationalEventWithDb(args: {
         resolvedByUid: current?.resolvedByUid ?? null,
         resolvedByName: current?.resolvedByName ?? null,
         resolutionNote: current?.resolutionNote ?? null,
+        version,
+        updatedAt: committedAt,
+        updatedByUid: actorUid,
+        updatedByName: actorName(actorData),
+        lastMutationId: request.requestId,
+      };
+    } else if (request.operation === "WITHDRAW_OPERATIONAL_EVENT") {
+      // Only these four fields change. The interval, its status and every
+      // recorded time stay as they are.
+      next = {
+        ...current!,
+        isWithdrawn: true,
+        withdrawalReason: request.reason,
+        withdrawnAt: committedAt,
+        withdrawnByUid: actorUid,
+        withdrawnByName: actorName(actorData),
         version,
         updatedAt: committedAt,
         updatedByUid: actorUid,

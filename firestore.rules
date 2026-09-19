@@ -1132,11 +1132,13 @@ service cloud.firestore {
         && request.resource.data.get('closedByUid', null) == null
         && request.resource.data.get('closedByName', null) == null
         && request.resource.data.get('closedAt', null) == null
-        && request.resource.data.get('closedWithoutAcknowledgement', false) == false;
-    }
-
-    function validGovernedBurnerDirectiveAcknowledgeForRoles(roles) {
-      return validDirectiveAcknowledgeForRoles(roles)
+        && request.resource.data.get('closedWithoutAcknowledgement', false) == false
+        // Acknowledging says the instruction was received. The instruction is
+        // the issuer's, so the recipient's write may touch only the record of
+        // that acknowledgement. Without this, a recipient could change what
+        // the directive said in the same write, and the record would go on
+        // attributing the changed instruction to whoever issued it. This list
+        // is what the client changes when it acknowledges.
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'isActive',
@@ -1150,6 +1152,10 @@ service cloud.firestore {
           'updatedAt',
           'version'
         ]);
+    }
+
+    function validGovernedBurnerDirectiveAcknowledgeForRoles(roles) {
+      return validDirectiveAcknowledgeForRoles(roles);
     }
 
     function validDirectiveCloseForRoles(roles) {
@@ -1167,7 +1173,21 @@ service cloud.firestore {
             && resource.data.get('directedTo', null) is string
             && roles.hasAny([resource.data.get('directedTo', null)])
           )
-        );
+        )
+        // Closing records how the instruction ended, including the remark
+        // that closes it. It does not reach the instruction itself; changing
+        // that is an Admin correction with its own authority.
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'isActive',
+          'closedByUid',
+          'closedByName',
+          'closedAt',
+          'closedWithoutAcknowledgement',
+          'remarks',
+          'updatedAt',
+          'version'
+        ]);
     }
 
     function validDirectiveAdminEditForRoles(roles) {
@@ -4011,6 +4031,13 @@ service cloud.firestore {
     match /burner_block_lifecycle_current/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;
+    }
+
+    // Correction evidence is a server-control record. The client reads the
+    // rebuilt current projection and the governed audit/receipt, not this
+    // internal amendment collection.
+    match /burner_block_lifecycle_corrections/{docId} {
+      allow read, write: if false;
     }
 
     match /uv_detector_lifecycle_events/{docId} {

@@ -743,6 +743,27 @@ class InspectionObservation {
       ? 'Base $hostAssetNumber ($subjectSerialNumber)'
       : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
 
+  /// Whether anything was actually compared to produce [outOfRange].
+  ///
+  /// Only a numeric reading against a defined limit is assessed. A boolean,
+  /// choice or text observation, and a numeric one on a definition that sets
+  /// no limit, is evidence that nothing was compared against - so its
+  /// `outOfRange: false` says "no numeric exception was raised" and not
+  /// "this conforms". Which boolean or choice value would count as adverse is
+  /// a plant decision that has not been made; until it is, the truthful
+  /// report of such an observation is that it was recorded.
+  bool get wasAssessedAgainstLimits =>
+      numericValue != null &&
+      (definition.minimumValue != null || definition.maximumValue != null);
+
+  /// How this observation should be described where a reader will take it as
+  /// a statement about the plant.
+  String get conditionLabel => outOfRange
+      ? 'Exception recorded'
+      : wasAssessedAgainstLimits
+      ? 'Within defined condition'
+      : 'Recorded; no defined condition to assess it against';
+
   String get displayValue => switch (definition.valueType) {
     InspectionValueType.number => '${numericValue ?? '-'} ${unit ?? ''}'.trim(),
     InspectionValueType.boolean => booleanValue == true ? 'Yes' : 'No',

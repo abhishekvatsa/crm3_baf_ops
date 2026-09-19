@@ -1106,6 +1106,7 @@ class AssetHierarchyRepository {
     required InnerCoverRetirementCondition? retirementCondition,
     required AppUser actor,
     required String reason,
+    required DateTime physicalEventAt,
   }) async {
     _requireAdmin(actor);
     final retiring = targetState == InnerCoverLifecycleState.retiredForSalvage;
@@ -1126,6 +1127,7 @@ class AssetHierarchyRepository {
       'targetState': targetState.name,
       if (retirementCondition != null)
         'retirementCondition': retirementCondition.name,
+      'physicalEventAt': commandUtcMillis(physicalEventAt),
       'reason': _validateConditionReason(reason),
     });
   }
@@ -1153,6 +1155,7 @@ class AssetHierarchyRepository {
     required InnerCoverLifecycleState targetState,
     required AppUser actor,
     required String reason,
+    required DateTime physicalEventAt,
   }) async {
     _requireAdmin(actor);
     await _invoke(<String, dynamic>{
@@ -1163,6 +1166,7 @@ class AssetHierarchyRepository {
       'sourceBaseAssetInstanceId': assignment.baseAssetInstanceId,
       'expectedSourceAssignmentVersion': assignment.version,
       'targetState': targetState.name,
+      'physicalEventAt': commandUtcMillis(physicalEventAt),
       'reason': _validateConditionReason(reason),
     });
   }
@@ -1194,6 +1198,7 @@ class AssetHierarchyRepository {
     required InnerCoverLifecycleState displacedState,
     required AppUser actor,
     required String reason,
+    required DateTime physicalEventAt,
   }) async {
     _requireAdmin(actor);
     await _invoke(<String, dynamic>{
@@ -1206,6 +1211,7 @@ class AssetHierarchyRepository {
       'displacedInnerCoverId': displaced.id,
       'expectedDisplacedVersion': displaced.version,
       'targetState': displacedState.name,
+      'physicalEventAt': commandUtcMillis(physicalEventAt),
       'reason': _validateConditionReason(reason),
     });
   }
@@ -1232,6 +1238,24 @@ class AssetHierarchyRepository {
       'expectedDisplacedVersion': displaced.version,
       'reason': _validateConditionReason(reason),
     });
+  }
+
+  /// Creates the exact request that a durable Inner Cover submission retains.
+  /// Callers must not rebuild this map from today's profile when retrying it.
+  Map<String, dynamic> newInnerCoverLifecycleRequest({
+    required String operation,
+    required String innerCoverId,
+    int? expectedVersion,
+    Map<String, dynamic> fields = const <String, dynamic>{},
+    String? requestId,
+  }) {
+    return <String, dynamic>{
+      'requestId': requestId ?? _uuid.v4(),
+      'operation': operation,
+      'innerCoverId': innerCoverId,
+      if (expectedVersion != null) 'expectedVersion': expectedVersion,
+      ...fields,
+    };
   }
 
   Future<String> createInstalledComponent({
@@ -1569,6 +1593,23 @@ class AssetHierarchyRepository {
     return _invoke(request, originActorUid: originActorUid);
   }
 
+  /// Sends a previously retained lifecycle request without reconstructing it
+  /// from the current profile. Acceptance has a stricter dedicated controller;
+  /// all other lifecycle operations use this shared durable path.
+  Future<AssetHierarchyMutationReceipt> dispatchFrozenInnerCoverLifecycle(
+    Map<String, dynamic> request, {
+    required String originActorUid,
+  }) async {
+    if (originActorUid.trim().isEmpty ||
+        originActorUid.trim() != originActorUid ||
+        request['operation'] == 'ACCEPT_INNER_COVER') {
+      throw const AssetHierarchyInputRejected(
+        'The saved Inner Cover lifecycle request needs review before it can be sent.',
+      );
+    }
+    return _invoke(request, originActorUid: originActorUid);
+  }
+
   Future<AssetHierarchyMutationReceipt> _invoke(
     Map<String, dynamic> request, {
     String? originActorUid,
@@ -1646,11 +1687,54 @@ class AssetHierarchyRepository {
               (error.code == 'aborted' &&
                   map['reasonCode'] == 'inner-cover-version-mismatch') ||
               (error.code == 'failed-precondition' &&
-                  map['reasonCode'] == 'inner-cover-not-awaiting-acceptance'));
+                  const {
+                    'inner-cover-not-awaiting-acceptance',
+                    'inner-cover-acceptance-evidence-stale',
+                    'inner-cover-acceptance-before-assurance-episode',
+                  }.contains(map['reasonCode'])));
       if (editableAcceptanceRefusal) {
         throw AssetHierarchyCommandRefused(
           error.message ??
               'The change was refused. Review the current record and entered evidence.',
+          code: error.code,
+          reasonCode: map['reasonCode'] is String
+              ? map['reasonCode'] as String
+              : null,
+        );
+      }
+      // These lifecycle business refusals occur after the backend has checked
+      // for an accepted receipt. A transport code alone cannot establish that
+      // outcome: the same code can describe failed recovery of an earlier
+      // acceptance. Keep unknown/replay failures frozen, and never broaden the
+      // dedicated acceptance contract above.
+      const lifecycleRefusalReasons = <String, Set<String>>{
+        'aborted': {'inner-cover-version-mismatch'},
+        'already-exists': {
+          'inner-cover-serial-collision',
+          'inner-cover-donor-part-already-consumed',
+          'inner-cover-target-base-occupied',
+        },
+        'invalid-argument': {'inner-cover-return-condition-unexpected'},
+        'failed-precondition': {
+          'inner-cover-base-unavailable',
+          'inner-cover-base-class-mismatch',
+          'inner-cover-class-mismatch',
+          'inner-cover-donor-not-salvageable',
+          'inner-cover-installed-state-change',
+          'inner-cover-state-transition-invalid',
+          'inner-cover-return-condition-required',
+          'inner-cover-return-condition-mismatch',
+          'inner-cover-not-available',
+          'inner-cover-reacceptance-required',
+          'inner-cover-replacement-target-changed',
+          'inner-cover-not-installed',
+        },
+      };
+      if (request['operation'] != 'ACCEPT_INNER_COVER' &&
+          lifecycleRefusalReasons[error.code]?.contains(map['reasonCode']) ==
+              true) {
+        throw AssetHierarchyCommandRefused(
+          error.message ?? 'The hierarchy change was refused.',
           code: error.code,
           reasonCode: map['reasonCode'] is String
               ? map['reasonCode'] as String

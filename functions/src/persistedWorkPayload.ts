@@ -1,3 +1,5 @@
+import {canonicalRequirementType} from "./requirementContract";
+
 export class PersistedWorkPayloadError extends Error {
   readonly field: string;
   readonly detail: string;
@@ -15,7 +17,7 @@ export type PersistedObjectListPayload = {
   readonly rows: readonly Record<string, unknown>[];
 };
 
-const FIELD_KEY_ALIASES = [
+export const FIELD_KEY_ALIASES = [
   "key",
   "fieldKey",
   "fieldId",
@@ -268,6 +270,16 @@ const assertFieldDefinition = (
   }
   for (const typeField of ["type", "fieldType"]) {
     assertOptionalFieldType(row[typeField], `${field}.${typeField}`);
+  }
+  if (
+    row.type != null &&
+    row.fieldType != null &&
+    canonicalRequirementType(row.type) !== canonicalRequirementType(row.fieldType)
+  ) {
+    throw new PersistedWorkPayloadError(
+      `${field}.type`,
+      "conflicts with fieldType",
+    );
   }
   for (const requiredField of ["required", "isRequired"]) {
     if (row[requiredField] != null && typeof row[requiredField] !== "boolean") {

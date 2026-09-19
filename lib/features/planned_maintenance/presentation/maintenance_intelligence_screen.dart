@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -122,9 +123,11 @@ class _DueStateTab extends ConsumerWidget {
                 'Maintenance due-state records need repair or could not be read.',
             onRetry: () => ref.invalidate(maintenanceDueStatesProvider),
           ),
-      data: (rows) {
+      data: (batch) {
+        final rows = batch.records;
         final overdue = rows.where((row) => row.isOverdue).length;
         final dueSoon = rows.where((row) => row.isDueSoon).length;
+        final unreadable = batch.rejectedDocumentIds.length;
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(maintenanceDueStatesProvider);
@@ -144,13 +147,37 @@ class _DueStateTab extends ConsumerWidget {
                   _Metric('Due soon', '$dueSoon', BafColors.warning),
                 ],
               ),
+              // These counts describe the records that could be read. A record
+              // that could not be read may carry an outstanding obligation, so
+              // the numbers above are not a statement about the whole plant
+              // until this says the population is complete.
+              if (unreadable > 0) ...[
+                const SizedBox(height: BafSpacing.sm),
+                StatusBadge(
+                  label:
+                      '$unreadable due-state '
+                      '${unreadable == 1 ? 'record' : 'records'} could not be '
+                      'read; these counts cover the rest',
+                  color: BafColors.danger,
+                  icon: Icons.report_gmailerrorred_rounded,
+                ),
+              ],
               const SizedBox(height: BafSpacing.lg),
-              if (rows.isEmpty)
+              if (rows.isEmpty && unreadable == 0)
                 const _EmptyState(
                   icon: Icons.hourglass_empty_rounded,
                   title: 'No classified completion yet',
                   message:
                       'Due state starts when a classified job is completed or an authorised user classifies historical completed work.',
+                )
+              else if (rows.isEmpty)
+                const _EmptyState(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  title: 'Due state cannot be shown',
+                  message:
+                      'Every due-state record in this population failed to '
+                      'read. This is not an all-clear: repair the records '
+                      'before reading anything into an empty list.',
                 )
               else
                 ...rows.map(

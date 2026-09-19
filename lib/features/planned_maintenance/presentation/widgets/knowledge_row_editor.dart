@@ -10,6 +10,7 @@ import '../../data/baf_knowledge_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
 import '../../domain/knowledge_governance_diff.dart';
 import '../../domain/knowledge_governance_models.dart';
+import '../../domain/knowledge_revision_settlement.dart';
 import '../../domain/module_composer_models.dart';
 import '../../providers/knowledge_governance_provider.dart';
 
@@ -694,22 +695,27 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     }
     final controller = ref.read(knowledgeGovernanceControllerProvider);
     try {
-      if (widget.isCreate) {
-        await controller.createRow(draft: _draft, actor: widget.actor);
-      } else {
-        await controller.updateRow(
-          before: widget.before!,
-          draft: _draft,
-          actor: widget.actor,
-        );
-      }
+      final written = widget.isCreate
+          ? await controller.createRow(draft: _draft, actor: widget.actor)
+          : await controller.updateRow(
+              before: widget.before!,
+              draft: _draft,
+              actor: widget.actor,
+            );
       if (!mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.pop<bool>(context, true);
+      // The rule is saved and audited. Say plainly when this device has not
+      // read it back yet, rather than showing a bare success or an error for
+      // something that did not fail.
       messenger?.showSnackBar(
-        SnackBar(content: Text('Saved ${_draft.rowCode}.')),
+        SnackBar(
+          content: Text(
+            knowledgeRevisionAdoptionNote(written.adoption, _draft.rowCode),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) {

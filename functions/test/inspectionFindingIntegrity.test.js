@@ -15,6 +15,13 @@ async function setup() {
     if (replaces) command.payload.supersedesObservationId = replaces;
     return run(command, who);
   };
+  const amend = (id, minute, value, replaces, reason, who = actor) => {
+    const command = observation({commandId: id, observationId: id, expectedVersion: campaign().version,
+      observedAt: `2026-08-21T${minute}:00.000Z`, numericValue: value});
+    command.payload.supersedesObservationId = replaces;
+    command.payload.historicalAmendmentReason = reason;
+    return run(command, who);
+  };
   const finding = (id = 'inspection-finding-first') => store.read(`inspection_findings/${id}`);
   const adjudicate = (id, findingId, status, who = actor) => run({commandId: id,
     commandType: 'adjudicateInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
@@ -23,7 +30,23 @@ async function setup() {
     commandType: 'verifyInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
     payload: {findingId, expectedFindingVersion: finding(findingId).version, observationId, outcome,
       reason: 'Certify only effective surviving physical evidence.'}});
-  return {store, run, campaign, read, finding, adjudicate, verify, secondActor};
+  return {store, run, campaign, read, amend, finding, adjudicate, verify, secondActor};
+}
+
+async function seedCorrectiveTicket(f, ticketId, description = 'Repair the current inspection episode.') {
+  f.store.seed('asset_classes/class-furnace', {...f.store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace'});
+  f.store.seed('asset_instances/furnace-1', {...f.store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace', ownershipStatus: 'unassigned', ownerDiscipline: null, accountableRoleKeys: []});
+  await f.run({commandId: `create-${ticketId}`, commandType: 'createMaintenanceTicket',
+    aggregateId: ticketId, expectedVersion: 0, payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+      component: 'Pressure transmitter', subsystem: null, tag: null, hierarchyPath: [],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1}), maintenanceType: 'breakdown', classification: null,
+      description, routedTo: 'instrumentation', otherDepartment: null,
+      isCritical: false, startDate: '2026-08-21T05:15:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+    }}});
 }
 
 test('PBA01: earlier correction preserves later adverse current evidence and refuses false resolution', async () => {
@@ -89,6 +112,65 @@ test('a correction chain that remains latest retains only its effective reading 
     evidenceReviewRequired: false, status: 'awaitingVerification'});
   await expect(f.verify('verify-effective-chain', 'correction-two')).resolves.toMatchObject({
     resultKey: 'inspection-finding-verifiedResolved'});
+});
+
+test('a repair for an earlier episode is not taken as this episode corrective action', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  // The first episode is adjudicated and closed.
+  await f.adjudicate('close-first-episode', 'inspection-finding-first', 'invalidated');
+  // A later adverse reading opens a separate episode for the same target.
+  await f.read('new-episode', '06:00', 1.7);
+  expect(f.finding('inspection-finding-new-episode'))
+    .toMatchObject({status: 'open', episodeOriginObservationId: 'new-episode'});
+
+  f.store.seed('asset_classes/class-furnace', {...f.store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace'});
+  f.store.seed('asset_instances/furnace-1', {...f.store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace', ownershipStatus: 'unassigned', ownerDiscipline: null, accountableRoleKeys: []});
+  await f.run({commandId: 'create-old-repair', commandType: 'createMaintenanceTicket',
+    aggregateId: 'old-repair', expectedVersion: 0, payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+      component: 'Pressure transmitter', subsystem: null, tag: null, hierarchyPath: [],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1}), maintenanceType: 'breakdown', classification: null,
+      description: 'Repair carried out for the earlier episode.', routedTo: 'instrumentation', otherDepartment: null,
+      isCritical: false, startDate: '2026-08-21T04:30:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+    }}});
+
+  // Recording that the earlier observation was repaired is legitimate history.
+  await f.run({commandId: 'link-old-repair', commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {observationId: 'first', ticketId: 'old-repair',
+      reason: 'Record the repair that followed the earlier reading.'}});
+
+  expect(f.store.entries().some(([entryPath]) =>
+    entryPath.startsWith('inspection_issue_links/'))).toBe(true);
+  // It says nothing about the later episode, which still needs its own
+  // corrective issue and must remain free to take one.
+  const current = f.finding('inspection-finding-new-episode');
+  expect(current.status).toBe('open');
+  expect(current.linkedTicketId ?? null).toBeNull();
+  expect(f.finding('inspection-finding-first').status).toBe('invalidated');
+});
+
+test('a later ordinary adverse reading belongs to the active episode for corrective linking', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('later-adverse', '05:10', 1.7);
+  await seedCorrectiveTicket(f, 'current-repair');
+
+  await f.run({commandId: 'link-current-repair', commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {observationId: 'later-adverse', ticketId: 'current-repair',
+      reason: 'Record the corrective work for the current adverse episode.'}});
+
+  expect(f.finding()).toMatchObject({
+    episodeOriginObservationId: 'first',
+    currentObservationId: 'later-adverse',
+    status: 'correctiveActionLinked',
+    linkedTicketId: 'current-repair',
+  });
 });
 
 test('linking corrective work cannot settle a corrected-away adverse basis without explicit adjudication', async () => {
@@ -307,3 +389,67 @@ test.each(['missing-parent', 'cycle', 'branched-correction', 'wrong-physical-sub
     await expect(f.verify('refuse-corrupt-history', 'healthy')).rejects.toMatchObject({code: 'failed-precondition'});
     expect(f.store.entries()).toEqual(before);
   });
+
+test('a reading that is no longer current can be amended with a stated reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+
+  // The first reading was written down wrong. It is not the current one, so
+  // the ordinary correction path refuses it - and refusing it leaves a known
+  // error in the record with no way out.
+  await expect(f.read('ordinary-attempt', '05:20', 3, 'first')).rejects.toMatchObject({
+    details: {reasonCode: 'inspection-correction-not-current'}});
+
+  await f.amend('amendment', '04:50', 3, 'first',
+    'The 04:50 reading was transcribed from the wrong gauge.');
+
+  // The original stays exactly as it was recorded.
+  expect(f.store.read('inspection_observations/first')).toMatchObject({
+    observationId: 'first', numericValue: 1.8});
+  expect(f.store.read('inspection_observations/amendment')).toMatchObject({
+    supersedesObservationId: 'first',
+    historicalAmendmentReason: 'The 04:50 reading was transcribed from the wrong gauge.',
+    numericValue: 3,
+  });
+});
+
+test('an amendment still needs its reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+  const before = f.store.entries();
+
+  await expect(f.amend('unexplained', '04:50', 3, 'first', '   '))
+    .rejects.toMatchObject({code: 'invalid-argument'});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('amending the current reading is the ordinary correction, not an amendment', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  const before = f.store.entries();
+
+  // The ordinary path already handles this, and it carries the guards that
+  // belong to a current reading. An amendment must not be a way around them.
+  await expect(f.amend('wrong-route', '04:50', 3, 'first', 'Mistyped the value.'))
+    .rejects.toMatchObject({
+      details: {reasonCode: 'inspection-amendment-reading-is-current'}});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('an amendment cannot reach into an earlier terminal episode', async () => {
+  const f = await setup();
+  await f.read('first', '05:10', 1.8);
+  await f.adjudicate('terminal-first', 'inspection-finding-first', 'acceptedCondition');
+  await f.read('second', '05:20', 1.7);
+  await f.read('third', '05:30', 1.6);
+  const before = f.store.entries();
+
+  // 'first' belongs to a terminal episode and is no longer current, so this is
+  // an amendment by every test. The safeguard that stops a correction merging
+  // histories is not relaxed by stating a reason.
+  await expect(f.amend('reaches-back', '05:00', 3, 'first', 'Wrong gauge.'))
+    .rejects.toMatchObject({code: 'failed-precondition'});
+  expect(f.store.entries()).toEqual(before);
+});

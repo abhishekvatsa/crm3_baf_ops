@@ -1,10 +1,10 @@
 part of 'furnace_component_condition_audit_screen.dart';
 
 class _FurnaceAuditTotals {
-  _FurnaceAuditTotals(Iterable<_FurnaceAuditDraft> drafts)
+  _FurnaceAuditTotals(Iterable<FurnaceAuditDraft> drafts)
     : rows = List.unmodifiable(drafts);
 
-  final List<_FurnaceAuditDraft> rows;
+  final List<FurnaceAuditDraft> rows;
 
   int get redHotBlocks =>
       rows.fold(0, (total, row) => total + row.redHotPositions.length);

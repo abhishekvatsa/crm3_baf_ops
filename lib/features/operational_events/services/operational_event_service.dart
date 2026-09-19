@@ -13,7 +13,8 @@ enum OperationalEventCommand {
   create('CREATE_OPERATIONAL_EVENT'),
   update('UPDATE_OPERATIONAL_EVENT'),
   resolve('RESOLVE_OPERATIONAL_EVENT'),
-  reopen('REOPEN_OPERATIONAL_EVENT');
+  reopen('REOPEN_OPERATIONAL_EVENT'),
+  withdraw('WITHDRAW_OPERATIONAL_EVENT');
 
   const OperationalEventCommand(this.wireName);
   final String wireName;
@@ -345,6 +346,16 @@ class OperationalEventService {
     required String reason,
   }) => _call(
     OperationalEventCommand.reopen,
+    eventId: event.eventId,
+    expectedVersion: event.version,
+    reason: reason,
+  );
+
+  Future<OperationalEventCommandResult> withdraw({
+    required OperationalEvent event,
+    required String reason,
+  }) => _call(
+    OperationalEventCommand.withdraw,
     eventId: event.eventId,
     expectedVersion: event.version,
     reason: reason,

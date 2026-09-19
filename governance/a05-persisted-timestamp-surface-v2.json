@@ -634,10 +634,12 @@
         "returnedToInspectionAt",
         "receivedOrCompletedOn",
         "incorporatedOn",
-        "acceptedAt"
+        "acceptedAt",
+        "assuranceInvalidatedAt",
+        "assuranceInvalidatedRecordedAt"
       ],
       "owner": "asset-governance",
-      "purpose": "restore Inner Cover receipt, incorporation, acceptance, retirement, return-to-inspection, and profile chronology",
+      "purpose": "restore Inner Cover receipt, incorporation, acceptance, assurance invalidation and recording, retirement, return-to-inspection, and profile chronology",
       "authorityBoundary": "remote-inner-cover-profile",
       "regression": "test/inner_cover_lifecycle_model_test.dart",
       "reArmCondition": "any Inner Cover profile timestamp schema change"
@@ -776,10 +778,11 @@
         "updatedAt"
       ],
       "optionalFields": [
-        "resolvedAt"
+        "resolvedAt",
+        "withdrawnAt"
       ],
       "owner": "plant-operations",
-      "purpose": "restore operational disruption chronology and complete resolution evidence",
+      "purpose": "restore operational disruption chronology and complete resolution or accountable withdrawal evidence",
       "authorityBoundary": "remote-operational-event-record",
       "regression": "test/operational_event_model_test.dart",
       "reArmCondition": "any operational-event timestamp schema change"

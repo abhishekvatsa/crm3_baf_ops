@@ -934,6 +934,120 @@ describe('maintenance workflow command integration', () => {
     await expect(service.execute({commandId: 'ops-final-denied', commandType: 'finalizeJob', aggregateId: 'wf-no-final', expectedVersion: 2, payload: {}}, {actor: ops, serverNow: at('2026-07-20T05:45:00Z')})).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test('stand preparation enters the escalation path like any request', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('maintenance_workflows/wf-clock', {
+      jobExecutionId: 'exec-clock', status: 'inProgress', version: 3,
+      assetTypeKey: 'furnace', assetNumber: 12, assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-12', laneSetFinalizedAt: '2026-07-20T00:00:00Z',
+      activeRedWork: false, awaitingPreparation: false,
+    });
+    store.seed('job_executions/exec-clock', {
+      isCompleted: false, isCancelled: false, isDeleted: false, version: 1,
+    });
+    store.seed('job_lanes/wf-clock_red_1', {
+      workflowId: 'wf-clock', jobExecutionId: 'exec-clock', laneKey: 'red',
+      status: 'pending', activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/furnace_12', {
+      state: 'underMaintenance', assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-12', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'prepare-red-clock', commandType: 'prepareRedLane',
+      aggregateId: 'wf-clock', expectedVersion: 3,
+      payload: {preparationRequired: true},
+    }, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')});
+
+    // The sweeper finds work by its next escalation time; a handover without
+    // one is never chased.
+    const handover = store.read('compliance_requests/wf-clock_red_preparation');
+    expect(handover).toMatchObject({
+      status: 'raised',
+      targetLaneKey: 'oprn',
+      becameDueAt: '2026-07-20T06:00:00.000Z',
+      acknowledgementDueAt: '2026-07-20T10:00:00.000Z',
+      nextEscalationAt: '2026-07-20T10:00:00.000Z',
+    });
+  });
+
+  test('a lane removed before preparation does not veto RED work', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('maintenance_workflows/wf-removed', {
+      jobExecutionId: 'exec-removed', status: 'inProgress', version: 3,
+      assetTypeKey: 'furnace', assetNumber: 9, assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-9', laneSetFinalizedAt: '2026-07-20T00:00:00Z',
+      activeRedWork: false, awaitingPreparation: false,
+    });
+    store.seed('job_executions/exec-removed', {
+      isCompleted: false, isCancelled: false, isDeleted: false, version: 1,
+    });
+    store.seed('job_lanes/wf-removed_mech_1', {
+      workflowId: 'wf-removed', jobExecutionId: 'exec-removed', laneKey: 'mech',
+      status: 'closed', activationGeneration: 1, version: 2,
+    });
+    store.seed('job_lanes/wf-removed_elec_1', {
+      workflowId: 'wf-removed', jobExecutionId: 'exec-removed', laneKey: 'elec',
+      status: 'pending', activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-removed_red_1', {
+      workflowId: 'wf-removed', jobExecutionId: 'exec-removed', laneKey: 'red',
+      status: 'pending', activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/furnace_9', {
+      state: 'underMaintenance', assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-9', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    const service = serviceFor(store);
+
+    // The electrical lane turns out not to be needed and is removed through
+    // its authorised no-progress path.
+    await service.execute({
+      commandId: 'remove-elec', commandType: 'removeLane',
+      aggregateId: 'wf-removed', expectedVersion: 3,
+      payload: {laneKey: 'elec', reason: 'Not required for this job'},
+    }, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')});
+    expect(store.read('job_lanes/wf-removed_elec_1').status).toBe('removed');
+
+    await service.execute({
+      commandId: 'prepare-red-removed', commandType: 'prepareRedLane',
+      aggregateId: 'wf-removed', expectedVersion: 4,
+      payload: {preparationRequired: true},
+    }, {actor: admin, serverNow: at('2026-07-20T06:01:00Z')});
+    await service.execute({
+      commandId: 'ack-prep-removed', commandType: 'acknowledgeCompliance',
+      aggregateId: 'wf-removed', expectedVersion: 5,
+      payload: {complianceId: 'wf-removed_red_preparation'},
+    }, {actor: ops, serverNow: at('2026-07-20T06:02:00Z')});
+    await service.execute({
+      commandId: 'comply-prep-removed', commandType: 'markComplianceComplied',
+      aggregateId: 'wf-removed', expectedVersion: 6,
+      payload: {
+        complianceId: 'wf-removed_red_preparation', note: 'Placed on stand',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T06:03:00Z')});
+    await service.execute({
+      commandId: 'confirm-prep-removed', commandType: 'confirmComplianceClosed',
+      aggregateId: 'wf-removed', expectedVersion: 7,
+      payload: {complianceId: 'wf-removed_red_preparation'},
+    }, {actor: refractory, serverNow: at('2026-07-20T06:04:00Z')});
+
+    // Preparation decided readiness over the active lanes; acknowledgment
+    // must read the same set rather than being vetoed by removed history.
+    const receipt = await service.execute({
+      commandId: 'red-ack-removed', commandType: 'acknowledgeLane',
+      aggregateId: 'wf-removed', expectedVersion: 8,
+      payload: {laneKey: 'red'},
+    }, {actor: refractory, serverNow: at('2026-07-20T06:05:00Z')});
+
+    expect(receipt.resultKey).toBe('lane-acknowledged');
+    expect(store.read('job_lanes/wf-removed_red_1').status).toBe('acknowledged');
+  });
+
   test('preselected furnace RED cannot acknowledge until preparation is confirmed', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('maintenance_workflows/wf-pre', {jobExecutionId: 'exec-pre', status: 'inProgress', version: 3, assetTypeKey: 'furnace', assetNumber: 8, assetClassId: 'furnace-class', assetInstanceId: 'furnace-8', laneSetFinalizedAt: '2026-07-20T00:00:00Z', activeRedWork: false, awaitingPreparation: false});
@@ -1235,6 +1349,86 @@ describe('maintenance workflow command integration', () => {
     await expect(service.execute({commandId: 'bad-reconcile', commandType: 'reconcileEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 5, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:02:00Z')})).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test('equipment the registry has taken out of service is not deployed into it', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('equipment_status/furnace_16', {
+      state: 'available',
+      version: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-16',
+    });
+    store.seed('asset_instances/furnace-16', {
+      schemaVersion: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-16',
+      assetNumber: 16,
+      status: 'active',
+      serviceState: 'outOfService',
+      version: 3,
+    });
+    const service = serviceFor(store);
+
+    // The workflow has nothing left to do on this furnace, but the register
+    // says the plant has taken it out of service. Releasing it into service
+    // here would leave the two records contradicting each other.
+    await expect(service.execute({
+      commandId: 'deploy-out-of-service',
+      commandType: 'deployEquipment',
+      aggregateId: 'equipment_furnace_16',
+      expectedVersion: 1,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 16,
+        assetClassId: 'furnace-class',
+        assetInstanceId: 'furnace-16',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T14:05:00Z')}))
+      .rejects.toMatchObject({
+        code: 'equipment-state-conflict',
+        details: {reasonCode: 'equipment-administratively-out-of-service'},
+      });
+    expect(store.read('equipment_status/furnace_16')).toMatchObject({
+      state: 'available',
+      version: 1,
+    });
+  });
+
+  test('equipment the registry keeps in service is deployed as before', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('equipment_status/furnace_17', {
+      state: 'available',
+      version: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-17',
+    });
+    store.seed('asset_instances/furnace-17', {
+      schemaVersion: 1,
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-17',
+      assetNumber: 17,
+      status: 'active',
+      serviceState: 'standby',
+      version: 2,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'deploy-standby',
+      commandType: 'deployEquipment',
+      aggregateId: 'equipment_furnace_17',
+      expectedVersion: 1,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 17,
+        assetClassId: 'furnace-class',
+        assetInstanceId: 'furnace-17',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T14:06:00Z')});
+
+    expect(store.read('equipment_status/furnace_17'))
+      .toMatchObject({state: 'inService', version: 2});
+  });
+
   test('compliance creation requires an accountable origin lane and lane work authority', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-compliance', 'inProgress', 2);
     store.seed('job_lanes/wf-compliance_elec_1', {
@@ -1280,6 +1474,107 @@ describe('maintenance workflow command integration', () => {
       targetLaneKey: 'oprn',
       raisedByUid: 'elec-1',
     });
+  });
+
+  test('reclassifying a lane the job once had starts a new generation', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-reclass', 'pendingLaneClassification', 0, 'base', 30);
+    store.seed('job_executions/wf-reclass-exec', {version: 1, isCompleted: false});
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'classify-first', commandType: 'finalizeLaneSet',
+      aggregateId: 'wf-reclass', expectedVersion: 0,
+      payload: {laneKeys: ['mech']},
+    }, {actor: admin, serverNow: at('2026-07-20T09:00:00Z')});
+    expect(store.read('job_lanes/wf-reclass_mech_1'))
+      .toMatchObject({status: 'pending', activationGeneration: 1});
+
+    // The last lane turns out not to be needed. Removing it returns the job
+    // for reclassification and keeps generation 1 as removed history.
+    await service.execute({
+      commandId: 'remove-last', commandType: 'removeLane',
+      aggregateId: 'wf-reclass', expectedVersion: 1,
+      payload: {laneKey: 'mech', reason: 'Raised against the wrong agency'},
+    }, {actor: admin, serverNow: at('2026-07-20T09:05:00Z')});
+    expect(store.read('job_lanes/wf-reclass_mech_1').status).toBe('removed');
+    expect(store.read('maintenance_workflows/wf-reclass').status)
+      .toBe('pendingLaneClassification');
+
+    // Reclassifying the same agency must not collide with its own history.
+    const receipt = await service.execute({
+      commandId: 'classify-again', commandType: 'finalizeLaneSet',
+      aggregateId: 'wf-reclass', expectedVersion: 2,
+      payload: {laneKeys: ['mech']},
+    }, {actor: admin, serverNow: at('2026-07-20T09:10:00Z')});
+
+    expect(receipt.resultKey).toBe('lane-set-finalized');
+    expect(store.read('job_lanes/wf-reclass_mech_2'))
+      .toMatchObject({status: 'pending', activationGeneration: 2});
+    expect(store.read('job_lanes/wf-reclass_mech_1').status).toBe('removed');
+  });
+
+  test('a dependency on an ordinary lane can be confirmed and released', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-gate', 'inProgress', 2, 'furnace', 21);
+    store.seed('job_lanes/wf-gate_elec_1', {
+      workflowId: 'wf-gate', laneKey: 'elec', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-gate_mech_1', {
+      workflowId: 'wf-gate', laneKey: 'mech', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-gate_oprn_1', {
+      workflowId: 'wf-gate', laneKey: 'oprn', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/furnace_21', {
+      state: 'underMaintenance', assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-21', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    const service = serviceFor(store);
+
+    // Electrical cannot proceed until Operations confirms; the dependency
+    // gates the mechanical lane, which is what the screen offers.
+    await service.execute({
+      commandId: 'raise-gate', commandType: 'raiseCompliance',
+      aggregateId: 'wf-gate', expectedVersion: 2,
+      payload: {
+        complianceId: 'c-gate', originLaneKey: 'elec', targetLaneKey: 'oprn',
+        gatesLaneFirestoreId: 'wf-gate_mech_1',
+        title: 'Confirm isolation',
+        description: 'Isolation confirmation is required before work proceeds.',
+        conditionTypeKey: 'manual',
+      },
+    }, {actor: electrical, serverNow: at('2026-07-20T15:00:00Z')});
+    await service.execute({
+      commandId: 'ack-gate', commandType: 'acknowledgeCompliance',
+      aggregateId: 'wf-gate', expectedVersion: 3,
+      payload: {complianceId: 'c-gate'},
+    }, {actor: ops, serverNow: at('2026-07-20T15:01:00Z')});
+    await service.execute({
+      commandId: 'comply-gate', commandType: 'markComplianceComplied',
+      aggregateId: 'wf-gate', expectedVersion: 4,
+      payload: {complianceId: 'c-gate', note: 'Isolation confirmed'},
+    }, {actor: ops, serverNow: at('2026-07-20T15:02:00Z')});
+
+    const receipt = await service.execute({
+      commandId: 'confirm-gate', commandType: 'confirmComplianceClosed',
+      aggregateId: 'wf-gate', expectedVersion: 5,
+      payload: {complianceId: 'c-gate'},
+    }, {actor: electrical, serverNow: at('2026-07-20T15:03:00Z')});
+
+    expect(receipt.resultKey).toBe('compliance-confirmed-closed');
+    expect(store.read('compliance_requests/c-gate'))
+      .toMatchObject({status: 'confirmedClosed'});
+    // Releasing an ordinary dependency is not a RED preparation: the plant
+    // is still under maintenance and no RED work has been released.
+    expect(store.read('equipment_status/furnace_21'))
+      .toMatchObject({state: 'underMaintenance', activeRedWorkCount: 0});
+    expect(store.read('maintenance_workflows/wf-gate').activeRedWork)
+      .not.toBe(true);
   });
 
   test('supervisor coordinates Operations support without impersonating the origin discipline', async () => {

@@ -65,6 +65,9 @@ class MorningReviewSourceFact {
     required this.assetInstanceId,
     required this.assetNumber,
     required this.observedAt,
+    this.evidenceReviewRequired = false,
+    this.evidenceReviewReason,
+    this.effectiveAdverseObservationCount,
   });
 
   final String factId;
@@ -80,6 +83,19 @@ class MorningReviewSourceFact {
   final String? assetInstanceId;
   final String? assetNumber;
   final DateTime? observedAt;
+
+  /// Whether the originating module says its evidence must be reviewed before
+  /// anything else settles this item. An inspection finding whose only adverse
+  /// reading was later corrected carries this: verification cannot substitute
+  /// for reviewing the corrected basis, and a manager reading the minutes has
+  /// to see that rather than an ordinary item awaiting verification.
+  final bool evidenceReviewRequired;
+  final String? evidenceReviewReason;
+
+  /// Adverse observations that survive in the episode, as distinct from the
+  /// historical recurrence counter. Absent on records written before the
+  /// producer carried it.
+  final int? effectiveAdverseObservationCount;
 
   /// Condition is captured by the server independently of the issue lifecycle.
   /// The existing source-type field keeps schema-one clients able to read it.
@@ -117,7 +133,11 @@ class MorningReviewSourceFact {
       'assetInstanceId',
       'assetNumber',
       'observedAtIso',
-    }, source);
+    }, source, optional: const {
+      'evidenceReviewRequired',
+      'evidenceReviewReason',
+      'effectiveAdverseObservationCount',
+    });
     final assetClassId = _optionalBoundedText(
       map['assetClassId'],
       field: 'assetClassId',
@@ -218,6 +238,27 @@ class MorningReviewSourceFact {
       observedAt: readOptionalPersistedDateTime(
         map['observedAtIso'],
         field: 'observedAtIso',
+        source: source,
+      ),
+      // Absent means a producer that predates the qualifier, which is the
+      // only reason to default. A value that is present and malformed is a
+      // producer fault and fails closed like every other field here.
+      evidenceReviewRequired: map.containsKey('evidenceReviewRequired')
+          ? readRequiredPersistedBool(
+            map['evidenceReviewRequired'],
+            field: 'evidenceReviewRequired',
+            source: source,
+          )
+          : false,
+      evidenceReviewReason: _optionalBoundedText(
+        map['evidenceReviewReason'],
+        field: 'evidenceReviewReason',
+        source: source,
+        maximum: 120,
+      ),
+      effectiveAdverseObservationCount: readOptionalPersistedInt(
+        map['effectiveAdverseObservationCount'],
+        field: 'effectiveAdverseObservationCount',
         source: source,
       ),
     );
@@ -2200,15 +2241,24 @@ String _embeddedId(Map<String, dynamic> map, String field, String source) {
   return id;
 }
 
+/// Requires [expected] exactly, apart from the keys named in [optional].
+///
+/// A frozen record is read by clients older and newer than the backend that
+/// wrote it, so a field a later producer adds has to be readable here without
+/// its absence in older records becoming an error. Only keys named here are
+/// tolerated; anything else is still a shape the reader refuses.
 void _requireExactFields(
   Map<String, dynamic> map,
   Set<String> expected,
-  String source,
-) {
+  String source, {
+  Set<String> optional = const <String>{},
+}) {
   final actual = map.keys.toSet();
-  if (actual.length != expected.length || !actual.containsAll(expected)) {
+  if (!actual.containsAll(expected) ||
+      actual.difference(expected).difference(optional).isNotEmpty) {
     final missing = expected.difference(actual).toList()..sort();
-    final extra = actual.difference(expected).toList()..sort();
+    final extra =
+        actual.difference(expected).difference(optional).toList()..sort();
     throw PersistedDataFormatException(
       field: 'recordShape',
       source: source,

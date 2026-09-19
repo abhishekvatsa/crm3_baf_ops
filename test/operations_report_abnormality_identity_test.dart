@@ -22,6 +22,8 @@ import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 
 void main() {
   test(
@@ -215,7 +217,14 @@ class _ReportHarness {
         operationalEventsForReportsProvider.overrideWith(
           (ref, uid) => Stream.value([]),
         ),
-        maintenanceDueStatesProvider.overrideWith((ref) => Stream.value([])),
+        maintenanceDueStatesProvider.overrideWith(
+          (ref) => Stream.value(
+            const DecodedSnapshotBatch<MaintenanceDueState>(
+              records: [],
+              rejectedDocumentIds: [],
+            ),
+          ),
+        ),
         allInspectionFindingsProvider.overrideWith((ref) => Stream.value([])),
         qualityWarningsForReportsProvider.overrideWith((ref, uid) async* {
           warningEmissions++;

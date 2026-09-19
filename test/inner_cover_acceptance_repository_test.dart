@@ -222,6 +222,21 @@ void main() {
     ),
     (
       code: 'failed-precondition',
+      reason: 'inner-cover-acceptance-evidence-stale',
+      editable: true,
+    ),
+    (
+      code: 'failed-precondition',
+      reason: 'inner-cover-acceptance-before-assurance-episode',
+      editable: true,
+    ),
+    (
+      code: 'failed-precondition',
+      reason: 'inner-cover-assurance-episode-reconciliation-required',
+      editable: false,
+    ),
+    (
+      code: 'failed-precondition',
       reason: 'inner-cover-legacy-replay-reconciliation-required',
       editable: false,
     ),
@@ -233,6 +248,11 @@ void main() {
     (
       code: 'failed-precondition',
       reason: 'inner-cover-projection-incomplete',
+      editable: false,
+    ),
+    (
+      code: 'already-exists',
+      reason: 'inner-cover-request-id-reused',
       editable: false,
     ),
     (
@@ -295,6 +315,91 @@ void main() {
           ),
         );
         expect(functions.request?['operation'], 'ACCEPT_INNER_COVER');
+      },
+    );
+  }
+  for (final scenario in <({String code, String? reason, bool refused})>[
+    (code: 'aborted', reason: 'inner-cover-version-mismatch', refused: true),
+    (
+      code: 'already-exists',
+      reason: 'inner-cover-target-base-occupied',
+      refused: true,
+    ),
+    (
+      code: 'failed-precondition',
+      reason: 'inner-cover-not-available',
+      refused: true,
+    ),
+    (
+      code: 'already-exists',
+      reason: 'inner-cover-request-id-reused',
+      refused: false,
+    ),
+    (
+      code: 'failed-precondition',
+      reason: 'inner-cover-legacy-replay-reconciliation-required',
+      refused: false,
+    ),
+    (
+      code: 'failed-precondition',
+      reason: 'inner-cover-profile-malformed',
+      refused: false,
+    ),
+    (
+      code: 'data-loss',
+      reason: 'inner-cover-replay-evidence-drift',
+      refused: false,
+    ),
+    (code: 'failed-precondition', reason: null, refused: false),
+    (
+      code: 'invalid-argument',
+      reason: 'unknown-validation-origin',
+      refused: false,
+    ),
+    (code: 'permission-denied', reason: null, refused: false),
+    (code: 'unauthenticated', reason: null, refused: false),
+    (code: 'resource-exhausted', reason: null, refused: false),
+    (code: 'deadline-exceeded', reason: null, refused: false),
+  ]) {
+    test(
+      'frozen lifecycle ${scenario.code}/${scenario.reason} definite refusal=${scenario.refused}',
+      () async {
+        final functions =
+            _Functions(expectedCallable: assetHierarchyV2CallableName)
+              ..failure = FirebaseFunctionsException(
+                code: scenario.code,
+                message: 'Server explanation',
+                details: scenario.reason == null
+                    ? null
+                    : {'reasonCode': scenario.reason},
+              );
+        final repository = AssetHierarchyRepository(
+          firestore: _Firestore(),
+          functions: functions,
+        );
+        final request = <String, dynamic>{
+          'requestId': '88888888-8888-4888-8888-888888888888',
+          'operation': 'LINK_INNER_COVER',
+          'innerCoverId': '33333333-3333-4333-8333-333333333333',
+          'expectedVersion': 2,
+          'targetBaseAssetInstanceId': '55555555-5555-4555-8555-555555555555',
+          'reason': 'Install the inspected cover.',
+        };
+        await expectLater(
+          repository.dispatchFrozenInnerCoverLifecycle(
+            request,
+            originActorUid: 'admin-1',
+          ),
+          throwsA(
+            predicate<Object>(
+              (error) =>
+                  error is AssetHierarchyException &&
+                  (error is AssetHierarchyCommandRefused) == scenario.refused,
+            ),
+          ),
+        );
+        expect(functions.request, request);
+        expect(functions.outerRequest?['originActorUid'], 'admin-1');
       },
     );
   }

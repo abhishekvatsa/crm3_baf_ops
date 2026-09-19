@@ -164,6 +164,7 @@ async function processCriticalAlarmRaisedNotification(args: {
 
   const plan = await prepareCriticalAlarmNotification({db, data, sourceEventId});
   if (plan == null) return;
+  const alarmId = String(plan.notificationData.alarmId ?? "");
   const recipientGroups = groupNotificationRecipientsByToken(plan.recipients);
 
   const failures: unknown[] = [];
@@ -184,7 +185,25 @@ async function processCriticalAlarmRaisedNotification(args: {
           recipientGroup.fcmToken,
         ),
         sourceDocumentPath: `maintenance_workflow_events/${sourceEventId}`,
-        prepare: async () => recipientPlan,
+        prepare: async () => {
+          // The plan was built before recipients were discovered, and an
+          // emergency alert that is no longer true must not go out. Re-reading
+          // the alarm here narrows that window; it cannot close it, because
+          // nothing spans Firestore and the delivery service.
+          const current = await db.collection("critical_alarms")
+            .doc(alarmId).get();
+          const alarm = current.data();
+          if (!current.exists ||
+              !isNotifiableCriticalAlarmStatus(alarm?.status)) {
+            logger.warn("Critical alarm is no longer notifiable at dispatch", {
+              eventId: sourceEventId,
+              alarmId,
+              status: typeof alarm?.status === "string" ? alarm.status : null,
+            });
+            return null;
+          }
+          return recipientPlan;
+        },
         dispatch: (prepared): Promise<SendOutcome> => sendNotification({
           db: notificationDb(db),
           messaging: admin.messaging() as unknown as MessagingLike,

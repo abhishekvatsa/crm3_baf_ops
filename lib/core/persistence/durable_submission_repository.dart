@@ -816,6 +816,12 @@ class DurableSubmissionRepository {
     Map<String, dynamic> inner,
   ) {
     if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'REGISTER_INNER_COVER') {
+      // Registration creates the aggregate, so there is no existing revision
+      // to compare. The backend deliberately rejects a dummy expectedVersion.
+      return !inner.containsKey('expectedVersion');
+    }
+    if (protocol == 'assetHierarchy.v2' &&
         const {
           'RECORD_BURNER_CONDITION_ROUND',
           'COMPLETE_BURNER_RED_HOT_DIRECTIVE',

@@ -1,6 +1,12 @@
 const {
   mutateRuntimeJobModulePopulationWithDb,
 } = require('../lib/runtimeJobModulePopulation');
+const {
+  MaintenanceWorkflowCommandService,
+} = require('../lib/maintenanceWorkflow/dispatcher');
+const {
+  MemoryWorkflowStore,
+} = require('../lib/maintenanceWorkflow/memoryStore');
 
 function clone(value) {
   return value == null ? value : structuredClone(value);
@@ -235,7 +241,7 @@ describe('runtime planned-job module population mutation', () => {
         workflowId: 'exec1',
         laneKey: 'mech',
         activationGeneration: 1,
-        statusKey: 'acknowledged',
+        status: 'acknowledged',
       },
     });
 
@@ -256,6 +262,75 @@ describe('runtime planned-job module population mutation', () => {
     });
   });
 
+  test('a lane the workflow itself acknowledged can take new work', async () => {
+    const workflow = new MemoryWorkflowStore();
+    workflow.seed('users/admin-1', {
+      isApproved: true, roles: ['admin'], name: 'Admin One',
+    });
+    workflow.seed('users/mech-1', {
+      isApproved: true, roles: ['seniorMechanical'], name: 'Mechanical One',
+    });
+    workflow.seed('maintenance_workflows/exec1', {
+      jobExecutionId: 'exec1',
+      status: 'pendingLaneClassification',
+      version: 0,
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      laneSetFinalizedAt: null,
+      cancelled: false,
+      createdAt: '2026-06-24T00:00:00.000Z',
+      updatedAt: '2026-06-24T00:00:00.000Z',
+    });
+    workflow.seed('job_executions/exec1', {...execution(), version: 1});
+    const service = new MaintenanceWorkflowCommandService(workflow);
+    await service.execute({
+      commandId: 'classify-lanes',
+      commandType: 'finalizeLaneSet',
+      aggregateId: 'exec1',
+      expectedVersion: 0,
+      payload: {laneKeys: ['mech']},
+    }, {
+      actor: {uid: 'admin-1', name: 'Admin One', roles: new Set(['admin'])},
+      serverNow: new Date('2026-06-24T01:00:00.000Z'),
+    });
+    await service.execute({
+      commandId: 'acknowledge-mech',
+      commandType: 'acknowledgeLane',
+      aggregateId: 'exec1',
+      expectedVersion: 1,
+      payload: {laneKey: 'mech'},
+    }, {
+      actor: {
+        uid: 'mech-1',
+        name: 'Mechanical One',
+        roles: new Set(['seniorMechanical']),
+      },
+      serverNow: new Date('2026-06-24T02:00:00.000Z'),
+    });
+
+    // Exactly the lane the workflow produced, read by the module consumer.
+    const {db, store} = fakeDb({
+      ...Object.fromEntries(workflow.entries()),
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution({workflowSchemaVersion: 1}),
+    });
+
+    await invoke(db, {
+      operation: 'create',
+      module: modulePayload({
+        laneKey: 'mech',
+        laneActivationGeneration: 1,
+        workflowLaneFirestoreId: 'exec1_mech_1',
+      }),
+    });
+
+    expect(store.get('job_modules/module1')).toMatchObject({
+      laneKey: 'mech',
+      laneActivationGeneration: 1,
+      workflowLaneFirestoreId: 'exec1_mech_1',
+    });
+  });
+
   test('workflow-v1 create rejects an unacknowledged or stale lane', async () => {
     const {db} = fakeDb({
       'users/supervisor1': user(),
@@ -264,7 +339,7 @@ describe('runtime planned-job module population mutation', () => {
         workflowId: 'exec1',
         laneKey: 'mech',
         activationGeneration: 1,
-        statusKey: 'pending',
+        status: 'pending',
       },
     });
 
@@ -852,6 +927,32 @@ describe('runtime planned-job module population mutation', () => {
     })).rejects.toMatchObject({
       code: 'invalid-argument',
       details: expect.objectContaining({reasonCode: 'work-payload-invalid'}),
+    });
+    expect(writes).toEqual([]);
+  });
+
+  test('rejects accepted module responses whose type conflicts with the frozen field definition', async () => {
+    const {db, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution(),
+    });
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({
+        fieldDefinitionsJson: JSON.stringify([
+          {key: 'pressure', type: 'number', isRequired: true},
+        ]),
+        responsesJson: JSON.stringify([
+          {key: 'pressure', fieldType: 'text', value: '2.1'},
+        ]),
+      }),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'module-response-contract-mismatch',
+        fieldKey: 'pressure',
+        mismatch: 'type',
+      }),
     });
     expect(writes).toEqual([]);
   });

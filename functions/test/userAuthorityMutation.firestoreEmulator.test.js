@@ -31,6 +31,8 @@ const IDS = {
   collision: '77777777-7777-4777-8777-777777777777',
   approveRace: '88888888-8888-4888-8888-888888888888',
   demoteRace: '99999999-9999-4999-8999-999999999999',
+  supersededReplay: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  laterChange: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
 };
 
 function authorityDigest(isApproved, roles) {
@@ -260,6 +262,77 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
         reasonCode: 'authority-receipt-fingerprint-version-unsupported',
       },
     });
+  });
+
+  test('a later authority change does not hide the earlier accepted one', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const approve = requestFixture({
+      requestId: IDS.supersededReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+
+    const accepted = await invoke('adminA', approve);
+
+    // A legitimate later change moves the target's authority on.
+    await invoke('adminA', requestFixture({
+      requestId: IDS.laterChange,
+      targetUid: 'target',
+      operation: 'REPLACE_ROLES',
+      isApproved: true,
+      currentRoles: ['operations'],
+      roles: ['seniorMechanical'],
+    }));
+    const currentRoles = (
+      await db.collection('users').doc('target').get()
+    ).data().roles;
+    expect(currentRoles).toEqual(['seniorMechanical']);
+
+    // The first response was lost. Asking again must return what that request
+    // actually committed, not refuse because someone else has since acted.
+    const replay = await invoke('adminA', approve);
+
+    // Everything this request committed comes back unchanged; only the two
+    // fields that describe the world since then differ.
+    expect(replay).toEqual({
+      ...accepted,
+      idempotentReplay: true,
+      supersededByLaterChange: true,
+      currentAuthorityDigest: authorityDigest(true, ['seniorMechanical']),
+    });
+    expect(replay.roles).toEqual(accepted.roles);
+    expect(replay.authorityDigest).toBe(accepted.authorityDigest);
+    // The current state is reported as itself, not folded into the outcome.
+    expect(replay.currentAuthorityDigest)
+      .toBe(authorityDigest(true, ['seniorMechanical']));
+    expect(replay.currentAuthorityDigest).not.toBe(replay.authorityDigest);
+
+    // Nothing was written, and the later change still stands.
+    expect((await db.collection('users').doc('target').get()).data().roles)
+      .toEqual(['seniorMechanical']);
+    expect(await collectionState('user_authority_mutation_receipts'))
+      .toHaveLength(2);
+  });
+
+  test('an unsuperseded replay says so rather than staying silent', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({
+      requestId: IDS.supersededReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+
+    const accepted = await invoke('adminA', request);
+    const replay = await invoke('adminA', request);
+
+    expect(replay.supersededByLaterChange).toBe(false);
+    expect(replay.currentAuthorityDigest).toBe(accepted.authorityDigest);
   });
 
   test('replay fails closed when immutable audit evidence drifts', async () => {

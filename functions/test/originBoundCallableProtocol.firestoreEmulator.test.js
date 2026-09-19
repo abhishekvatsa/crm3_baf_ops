@@ -164,6 +164,14 @@ describeWithEmulator('actual V2 callable handler boundary', () => {
 
   test('published assignment V2 acceptance replays through V1 with original request, receipt and shared quota', async () => {
     const fixtures = require('./helpers/publishedTemplateV2Fixtures.cjs');
+    // The assignment names an asset type and number, so the register has to
+    // hold that asset.
+    await db.doc('asset_classes/base-class').set({schemaVersion: 1,
+      assetClassId: 'base-class', code: 'BASE', name: 'Base',
+      legacyAssetTypeKey: 'base', status: 'active', isDeleted: false, version: 1});
+    await db.doc('asset_instances/base-101').set({schemaVersion: 1,
+      assetInstanceId: 'base-101', assetClassId: 'base-class', assetNumber: 101,
+      name: 'Base 101', status: 'active', isDeleted: false, version: 1});
     await db.doc('template_packages/pkg1').set(fixtures.packageFixture());
     await db.doc('template_versions/ver1').set(fixtures.versionFixture());
     await db.doc('template_publish_audits/audit1').set(fixtures.auditFixture());

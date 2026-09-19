@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3",
+  "inventoryDigest": "F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "3A95D09C5E952F5FFBBCFEC0F345A5F53B502E77FD482DB09661D1B4F3F8B202",
+  "a05ManifestSha256": "B15E891B9BCCE2FBD8DED99EA59FBE178E014953A8034A1AF8261D311AFDB5BB",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1152,9 +1152,9 @@
       "id": "inner-cover-lifecycle-records",
       "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
-      "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
+      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, assurance invalidation, and fabrication genealogy",
+      "malformedDisposition": "fail closed before incomplete identity, linkage, assurance invalidation or genealogy enters lifecycle decisions or issue evidence; invalidation evidence must be complete together and preserve physical/recorded chronology",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, acceptance, and assurance invalidation evidence remains optional only where explicitly modelled; absent invalidation timestamps do not manufacture an invalidation",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
     },
     {
@@ -1219,6 +1219,15 @@
       "malformedDisposition": "fail closed",
       "compatibility": "documented absent pre-feature kind, discipline, severity, and flags only",
       "regression": "test/a05_planned_work_record_integrity_test.dart"
+    },
+    {
+      "id": "job-diary-write-precondition",
+      "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "stored job diary revision read inside the transaction that writes over it",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none; a diary entry without a readable version is not written over",
+      "regression": "test/job_diary_save_precondition_test.dart"
     },
     {
       "id": "job-module-native-save-baseline",
@@ -1449,9 +1458,9 @@
       "id": "operational-event-records",
       "file": "lib/features/operational_events/data/operational_event.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
-      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
-      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
     },
     {

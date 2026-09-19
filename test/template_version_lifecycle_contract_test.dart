@@ -194,6 +194,32 @@ void main() {
       );
     });
 
+    test('publishing a resumed draft goes through the publication '
+        'numbering rule', () {
+      final actions = _read(
+        'lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart',
+      );
+
+      // A draft keeps its own number while it is a draft, and the publish path
+      // resolves the number it is published under through the one rule that
+      // knows the store requires a package's active version to be its latest.
+      expect(actions, contains('templatePublicationNumbering('));
+      expect(actions, contains('version.versionNumber = numbering.versionNumber'));
+      expect(
+        actions,
+        contains('package.latestVersionNumber = numbering.latestVersionNumber'),
+      );
+      expect(
+        actions,
+        isNot(
+          contains('''if (version.versionNumber > package.latestVersionNumber) {'''),
+        ),
+        reason:
+            'publishing must not leave the package counter behind the version '
+            'it has just pointed at',
+      );
+    });
+
     test('resumed drafts cannot be moved across packages', () {
       final dialog = _read(
         'lib/features/planned_maintenance/presentation/widgets/publish_metadata_dialog.dart',

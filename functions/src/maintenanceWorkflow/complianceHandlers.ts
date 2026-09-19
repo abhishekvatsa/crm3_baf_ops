@@ -705,10 +705,17 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     gatePath,
     "gatesLaneFirestoreId",
     command.aggregateId,
-    "red",
   );
-  const workflowEquipmentIdentity = gatePath == null ?
-    null : equipmentIdentityFromWorkflow(workflow);
+  // A request may gate any active lane, and confirming it releases that
+  // dependency. Releasing RED work and changing what the equipment is doing is
+  // a different act: only the request the RED preparation decision installed as
+  // the RED lane's gate carries it. Anything else confirming is an ordinary
+  // dependency being met, whichever lane it gated.
+  const redPreparation = gatedLane != null &&
+    gatedLane.data.laneKey === "red" &&
+    gatedLane.data.gatingComplianceRequestId === id;
+  const workflowEquipmentIdentity = redPreparation ?
+    equipmentIdentityFromWorkflow(workflow) : null;
   const assetTypeKey = workflowEquipmentIdentity?.assetTypeKey ?? null;
   const assetNumber = workflowEquipmentIdentity?.assetNumber ?? null;
   const equipmentId = workflowEquipmentIdentity == null ?
@@ -770,8 +777,8 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
   }
 
   let equipmentState: string | null = null;
-  if (gatePath != null) {
-    if (gatedLane == null) {
+  if (redPreparation) {
+    if (gatedLane == null || gatePath == null) {
       throw new WorkflowError("not-found", "Gated lane was not found.");
     }
     if (assetTypeKey == null || assetNumber == null || equipmentId == null || otherFacts == null) {
@@ -812,9 +819,9 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
       updatedAt: now,
     });
   }
-  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: gatePath == null ? "compliance.confirmedClosed" : "red.preparationConfirmed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, releasedGate: gatePath, equipmentState}});
+  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: redPreparation ? "red.preparationConfirmed" : "compliance.confirmedClosed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, releasedGate: gatePath, equipmentState}});
   tx.create(event.path, event.data);
-  return {resultKey: gatePath == null ? "compliance-confirmed-closed" : "red-preparation-confirmed", aggregateVersion: nextVersion, result: {complianceId: id, releasedGate: gatePath, equipmentState}};
+  return {resultKey: redPreparation ? "red-preparation-confirmed" : "compliance-confirmed-closed", aggregateVersion: nextVersion, result: {complianceId: id, releasedGate: gatePath, equipmentState}};
 };
 
 export const proposeCounterCondition: CommandHandler = async ({tx, command, context}) => {

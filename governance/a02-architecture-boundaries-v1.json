@@ -216,32 +216,45 @@
     {
       "path": "lib/features/assets/presentation/furnace_component_condition_audit_screen.dart",
       "disposition": "bounded-exception",
-      "owner": "Architecture / assets",
-      "purpose": "Owns the governed Furnace burner-block, draft-seal, and UV condition audit, including fixed matrix headings and unsaved-change evidence.",
+      "owner": "Architecture / assets and furnace condition audit",
+      "purpose": "Owns the cross-furnace burner-block, draft-seal and UV condition matrices, their shared unsaved drafts and totals, and the installation-history correction dialog.",
       "responsibilities": [
         "authority",
         "presentation",
         "state-orchestration"
       ],
-      "authorityBoundary": "Approved-user capability controls whether observations may be changed; governed audit providers remain authoritative for the Furnace inventory and recorded condition evidence.",
-      "persistenceOwnership": "No direct persistence is admitted; typed providers own reads and the audit command boundary owns writes.",
-      "transactionOwnership": "No database transaction is owned by this presentation surface.",
-      "rationale": "The fixed-heading condition matrix, its local draft state, totals, filters, and submission affordances form one operational audit surface. Focused tests exercise the fixed panes through Furnace 22 and the changing condition totals.",
+      "authorityBoundary": "The screen checks current actor loading/error state and condition-round capability before observing operational providers. The correction affordance reads the adjudication capability; the correction command service and backend remain responsible for authenticated command admission and immutable event validation.",
+      "persistenceOwnership": "Typed providers own hierarchy, issue, round and lifecycle reads. BurnerConditionRoundService owns round submission and BurnerBlockCorrectionCommandService owns correction transport. This screen owns transient form drafts only and performs no direct database access or persisted-payload serialization.",
+      "transactionOwnership": "No database transaction is owned here. The UI submits each furnace draft with its observed round identity and settles only the submitted local revision; backend handlers own correction evidence and lifecycle projection transactions.",
+      "rationale": "The new installation correction dialog takes this existing matrix workspace over the size threshold without adding a persistence responsibility. The matrices, totals and refresh reconciliation share one draft owner; splitting that ownership during this correction tranche would risk replacing edits that were not submitted. Correction transport already resides in its separate service. The exception freezes the measured 1359-line surface with no growth allowance; further expansion must extract presentation-only units while retaining one draft owner.",
       "regressionTests": [
         "test/furnace_condition_totals_test.dart",
-        "test/operational_asset_screen_authority_gate_test.dart"
+        "test/burner_block_correction_command_service_test.dart",
+        "functions/test/burnerBlockLifecycle.test.js"
       ],
-      "maximumLines": 1300,
+      "maximumLines": 1359,
       "requiredMarkers": [
         "class FurnaceComponentConditionAuditScreen",
-        "furnace-audit-fixed-corner",
-        "furnace-audit-fixed-furnace-column"
+        "actorAsync.isLoading",
+        "actorAsync.hasError",
+        "canRecordBurnerConditionRound",
+        "canAdjudicateFurnaceStuckup",
+        "burnerConditionRoundServiceProvider",
+        "burnerBlockCorrectionCommandServiceProvider",
+        "ComposedAgainstRound(draft.composedAgainstRoundId)",
+        "draft.settleSave(submittedRevision)"
       ],
       "forbiddenMarkers": [
-        "FirebaseFirestore.instance",
-        "Isar.getInstance()"
+        "FirebaseFirestore",
+        "Isar.getInstance()",
+        "writeTxn(",
+        "runTransaction(",
+        "FirebaseFunctions",
+        "HttpsCallable",
+        "jsonEncode(",
+        "jsonDecode("
       ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a fixed-pane marker disappears, direct persistence appears, or the named regressions no longer pass."
+      "reArmCondition": "Re-arm on any growth above 1359 lines, changed detected responsibilities, missing required markers, direct persistence or callable transport, or failing named regression. Further UI growth requires a focused presentation extraction that preserves one draft owner and the observed-round/submitted-revision boundaries; raising this ceiling alone is not an exit."
     },
     {
       "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",

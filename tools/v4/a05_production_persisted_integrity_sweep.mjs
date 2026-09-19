@@ -99,6 +99,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   asset_operational_conditions: 'DART_RECONCILIATION_REQUIRED',
   burner_block_lifecycle_events: 'DART_RECONCILIATION_REQUIRED',
   burner_block_lifecycle_current: 'DART_RECONCILIATION_REQUIRED',
+  burner_block_lifecycle_corrections: 'SERVER_CONTROL_RECORD',
   burner_condition_rounds: 'DART_RECONCILIATION_REQUIRED',
   uv_detector_lifecycle_events: 'DART_RECONCILIATION_REQUIRED',
   uv_detector_lifecycle_current: 'DART_RECONCILIATION_REQUIRED',

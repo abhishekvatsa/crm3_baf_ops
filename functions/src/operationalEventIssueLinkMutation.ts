@@ -8,8 +8,11 @@ import {
   timestampDate,
   validateCurrentEvent,
 } from "./operationalEventMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {isOperationalEventEffective} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -74,6 +77,14 @@ const LINK_ROLES = new Set([
 ]);
 const ISSUE_STATUSES = new Set([
   "open", "acknowledged", "inProgress", "resolved",
+  // An issue closed administratively is a state this application records
+  // itself. Reading it as malformed data denies the link its own evidence;
+  // the link keeps the real status and resolution, so nothing here counts a
+  // closure without resolution as a technical repair.
+  "closedWithoutResolution",
+]);
+const TERMINAL_ISSUE_STATUSES = new Set([
+  "resolved", "closedWithoutResolution",
 ]);
 const MAX_EVENT_LINKS = 100;
 const MAX_ISSUE_LINKS = 50;
@@ -278,7 +289,7 @@ function optionalIssueText(
   return cleaned.length === 0 ? null : cleaned;
 }
 
-function assetReference(value: unknown): {
+function assetReference(value: unknown, assetNumber: number): {
   assetClassId: string | null;
   assetInstanceId: string | null;
 } {
@@ -304,6 +315,20 @@ function assetReference(value: unknown): {
     );
   }
   const row = parsed as JsonMap;
+  // A governed reference is read by the contract that produced it, which knows
+  // each scope's schema and checks that the reference names this very asset.
+  // The maintenance producer emits a component-on-asset reference for an
+  // ordinary issue, and reading only the older shapes called a current,
+  // valid ticket malformed.
+  const governedReference: boolean =
+    isValidAffectedAssetHierarchyReference(row, assetNumber);
+  if (governedReference) {
+    return {
+      assetClassId: row.assetClassId as string,
+      assetInstanceId: typeof row.assetInstanceId === "string" ?
+        row.assetInstanceId : null,
+    };
+  }
   const schemaVersion = row.schemaVersion;
   const scope = schemaVersion === 1 ? "definition" : row.scope;
   if (![1, 2, 3].includes(schemaVersion as number) ||
@@ -339,7 +364,8 @@ function validateIssue(data: JsonMap, issueId: string): IssueEvidence {
   if (data.firestoreId !== issueId || !Number.isSafeInteger(version) ||
       (version as number) < 1 || typeof status !== "string" ||
       !ISSUE_STATUSES.has(status) || typeof isResolved !== "boolean" ||
-      ((status === "resolved") !== isResolved) || data.isDeleted !== false ||
+      (TERMINAL_ISSUE_STATUSES.has(status) !== isResolved) ||
+      data.isDeleted !== false ||
       typeof assetType !== "string" || assetType.trim().length === 0 ||
       !Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1 ||
       typeof description !== "string" || description.trim().length === 0 ||
@@ -354,7 +380,10 @@ function validateIssue(data: JsonMap, issueId: string): IssueEvidence {
       {reasonCode: "operational-event-link-issue-malformed", issueId},
     );
   }
-  const reference = assetReference(data.assetHierarchyRefJson);
+  const reference = assetReference(
+    data.assetHierarchyRefJson,
+    assetNumber as number,
+  );
   return {
     version: version as number,
     status,
@@ -547,6 +576,13 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     const event = record(eventValue, "Operational event");
     const issue = record(issueValue, "Maintenance issue");
     const eventVersion = validateCurrentEvent(event, request.eventId);
+    if (!isOperationalEventEffective(event)) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "A withdrawn operational event cannot receive a new issue link.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
     const issueEvidence = validateIssue(issue, request.issueId);
     const startedAt = timestampDate(event.startedAt);
     if (startedAt == null) {

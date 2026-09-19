@@ -22,6 +22,8 @@ const IDS = {
   malformed: '44444444-4444-4444-8444-444444444444',
   deleted: '55555555-5555-4555-8555-555555555555',
   qualityReplay: '66666666-6666-4666-8666-666666666666',
+  reconcile: '77777777-7777-4777-8777-777777777777',
+  qualityRepair: '88888888-8888-4888-8888-888888888888',
 };
 
 function abnormality(overrides = {}) {
@@ -402,14 +404,14 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
   test('malformed current state rolls back without target, audit, or receipt write', async () => {
     await seed();
     const before = abnormality();
-    delete before.possibleRootReasonNotes;
+    delete before.loggedByUid;
     await db.collection('charge_abnormalities').doc('abn-1').set(before);
 
     await expect(invoke(updateRequest(IDS.malformed))).rejects.toMatchObject({
       code: 'failed-precondition',
       details: expect.objectContaining({
         reasonCode: 'abnormality-record-malformed',
-        field: 'possibleRootReasonNotes',
+        field: 'loggedByUid',
       }),
     });
 
@@ -419,6 +421,77 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     expect(await collectionState('charge_abnormality_mutation_receipts'))
       .toHaveLength(0);
     expect(await collectionState('audit_logs')).toHaveLength(0);
+  });
+
+  test('a record written before canonical null keys is correctable', async () => {
+    await seed();
+    const before = abnormality();
+    delete before.possibleRootReasonNotes;
+    delete before.component;
+    await db.collection('charge_abnormalities').doc('abn-1').set(before);
+
+    const corrected = await invoke(updateRequest(IDS.malformed));
+
+    expect(corrected.version).toBe(5);
+    const stored =
+      (await db.collection('charge_abnormalities').doc('abn-1').get()).data();
+    expect(Object.prototype.hasOwnProperty.call(stored, 'possibleRootReasonNotes'))
+      .toBe(true);
+    const audits = (await collectionState('audit_logs')).filter(({id}) =>
+      id.startsWith('server_charge_abnormality_'),
+    );
+    expect(audits).toHaveLength(1);
+    expect(Object.prototype.hasOwnProperty.call(
+      JSON.parse(audits[0].data.beforeJson),
+      'possibleRootReasonNotes',
+    )).toBe(false);
+  });
+
+  test('a reviewed repair returns a drifted closed case for decision', async () => {
+    await seed({warningOverrides: {
+      sourceSeverity: 'low',
+      status: 'closed',
+      closedAt: new Date('2026-07-25T09:00:00.000Z'),
+      closedByUid: 'admin-1',
+      closedByName: 'Admin One',
+      closureDisposition: 'qualityAdjudication',
+      decisionReason: 'Closed on the evidence recorded then.',
+      updatedAt: new Date('2026-07-25T09:00:00.000Z'),
+      updatedByUid: 'admin-1',
+      updatedByName: 'Admin One',
+    }});
+
+    const repaired = await invoke({
+      requestId: IDS.reconcile,
+      abnormalityId: 'abn-1',
+      operation: 'RECONCILE_QUALITY_CASE',
+      expectedVersion: 4,
+      expectedWarningVersion: 1,
+      reason: 'Reviewed repair of a case whose records disagree',
+    });
+
+    expect(repaired.version).toBe(5);
+    const warning =
+      (await db.collection('quality_warnings').doc('abnormality_abn-1').get())
+        .data();
+    expect(warning).toMatchObject({
+      version: 2,
+      sourceVersion: 5,
+      sourceSeverity: 'medium',
+      status: 'open',
+      closedAt: null,
+      closureDisposition: null,
+    });
+    // Repaired against real stored timestamps, the case is decidable again.
+    await expect(invokeQuality({
+      requestId: IDS.qualityRepair,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'abnormality_abn-1',
+      expectedVersion: 2,
+      reason: 'Reviewed again on the corrected evidence.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    })).resolves.toMatchObject({version: 3});
   });
 
   test('soft delete commits tombstone and evidence in one transaction', async () => {

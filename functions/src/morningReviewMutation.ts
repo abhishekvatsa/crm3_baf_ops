@@ -930,12 +930,22 @@ function inspectionFindingSourceProjection(
     });
   const component = boundedDisplay(data.componentName, 120) ??
     boundedDisplay(data.physicalPosition, 120);
+  // The effective count describes the evidence that survives; the legacy
+  // recurrence counter stays readable for schema-1 clients but is not what a
+  // manager should be told, because a corrected adverse basis leaves it
+  // standing at 1 while nothing adverse remains.
+  const effectiveAdverse =
+    typeof data.effectiveAdverseObservationCount === "number" ?
+      data.effectiveAdverseObservationCount :
+      (data.recurrenceCount as number);
+  const evidenceReviewRequired = data.evidenceReviewRequired === true;
   const details = [
     identityLabel,
     data.physicalPosition == null ? null :
       `Position: ${boundedDisplay(data.physicalPosition, 100)}`,
-    (data.recurrenceCount as number) > 1 ?
-      `Observed ${data.recurrenceCount} times` : null,
+    evidenceReviewRequired ?
+      "Evidence review required before verification" :
+      effectiveAdverse > 1 ? `Observed ${effectiveAdverse} times` : null,
     data.linkedTicketId == null ? null :
       `Corrective ticket: ${boundedDisplay(data.linkedTicketId, 100)}`,
   ].filter((value): value is string => value != null);
@@ -1136,6 +1146,12 @@ function sourceFact(args: {
     assetInstanceId: identity.assetInstanceId,
     assetNumber: identity.assetNumber,
     observedAtIso: observedAt?.toISOString() ?? null,
+    // The qualifier reaches the manager through the summary above rather than
+    // as its own fields. The installed client reads a source fact with an
+    // exact field set and refuses any Morning Review schema but 1, so an
+    // additive field here would stop it reading the very session that carries
+    // the finding. Carrying it as structured data waits for a client that can
+    // read it; the reader that tolerates it is already in this branch.
   };
 }
 
@@ -2490,8 +2506,24 @@ export async function mutateMorningReviewWithDb(args: {
         }
       }
 
+      // A meeting that was held must be able to have its minutes closed, even
+      // if nobody got to it before midnight: leaving them open for ever is a
+      // worse record than closing them late. Finalizing an existing open
+      // session, and the facilitator takeover that lets somebody else do it
+      // when the original facilitator is away, are therefore allowed on an
+      // older day. Nothing else is: an old meeting never pretends to be
+      // today's, a held meeting is never recorded as not held, and opening a
+      // new session for a past day is still refused.
+      //
+      // The lateness needs no new field. The session already carries the day
+      // it was held and the time it was finalized, and those two together say
+      // it was closed afterwards.
+      const closingAnOlderMeeting =
+        (request.operation === "FINALIZE_MORNING_REVIEW" ||
+          request.operation === "TAKE_OVER_MORNING_REVIEW") &&
+        status === "open";
       if (request.operation !== "ADD_MORNING_REVIEW_ADDENDUM" &&
-          !actionLifecycleOperation) {
+          !actionLifecycleOperation && !closingAnOlderMeeting) {
         ensureSessionDay(sessionId, clock.plantDay);
       }
       const participantRef = participants.doc(`${sessionId}_${actorUid}`);
@@ -2695,6 +2727,61 @@ export async function mutateMorningReviewWithDb(args: {
           );
         }
         const draft = request.actionDraft!;
+        // An action's asset is typed identity, not a label: the agenda groups
+        // by it and people are held to it. Storing what the client sent let an
+        // action name an asset the plant does not have, or name a real
+        // instance under another class, number and label. The register is read
+        // here, and the names it holds are the ones recorded.
+        let assetClassName = draft.assetClassName;
+        let assetNumber = draft.assetNumber;
+        if (draft.assetClassId != null && draft.assetInstanceId != null) {
+          const [classSnapshot, instanceSnapshot] = [
+            asSnapshot(
+              await transaction.get(
+                args.db.collection("asset_classes").doc(draft.assetClassId),
+              ),
+              "Morning Review action asset class lookup",
+            ),
+            asSnapshot(
+              await transaction.get(
+                args.db.collection("asset_instances")
+                  .doc(draft.assetInstanceId),
+              ),
+              "Morning Review action asset instance lookup",
+            ),
+          ];
+          const assetClass = classSnapshot.exists ?
+            classSnapshot.data() ?? null : null;
+          const instance = instanceSnapshot.exists ?
+            instanceSnapshot.data() ?? null : null;
+          if (assetClass == null || instance == null) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "This action names an asset the plant register does not hold.",
+              {
+                reasonCode: "morning-review-action-asset-unknown",
+                assetClassId: draft.assetClassId,
+                assetInstanceId: draft.assetInstanceId,
+              },
+            );
+          }
+          if (instance.assetClassId !== draft.assetClassId) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "This action names an asset that belongs to another class.",
+              {
+                reasonCode: "morning-review-action-asset-mismatch",
+                assetClassId: draft.assetClassId,
+                assetInstanceId: draft.assetInstanceId,
+              },
+            );
+          }
+          assetClassName = typeof assetClass.name === "string" &&
+            assetClass.name.trim().length > 0 ?
+            assetClass.name.trim() : draft.assetClassName;
+          assetNumber = instance.assetNumber == null ?
+            draft.assetNumber : String(instance.assetNumber);
+        }
         let assigneeName: string | null = null;
         if (draft.assigneeUid != null) {
           const target = asSnapshot(
@@ -2724,9 +2811,9 @@ export async function mutateMorningReviewWithDb(args: {
           section: draft.section,
           text: draft.text,
           assetClassId: draft.assetClassId,
-          assetClassName: draft.assetClassName,
+          assetClassName,
           assetInstanceId: draft.assetInstanceId,
-          assetNumber: draft.assetNumber,
+          assetNumber,
           assigneeUid: draft.assigneeUid,
           assigneeName,
           assigneeRole: draft.assigneeRole,
@@ -2816,7 +2903,14 @@ export async function mutateMorningReviewWithDb(args: {
             "You already facilitate this Morning Review.",
           );
         }
-        ensureJoined(participantSnapshot, sessionId, actorUid);
+        // Taking over a meeting still under way means stepping into it, so
+        // the actor has to be in it. Taking over one left open on an earlier
+        // day is an administrative act: an Admin closing an abandoned meeting
+        // is not claiming to have attended it, and joining it today would be
+        // the false record. Who did it and why is recorded either way.
+        if (sessionId === clock.plantDay || !isAdmin) {
+          ensureJoined(participantSnapshot, sessionId, actorUid);
+        }
         const previousHistory = Array.isArray(session.facilitatorHistory) ?
           session.facilitatorHistory : [];
         if (previousHistory.length >= 20) {

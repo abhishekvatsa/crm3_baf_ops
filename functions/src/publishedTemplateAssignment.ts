@@ -4,6 +4,7 @@ import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {
   PersistedWorkPayloadError,
+  FIELD_KEY_ALIASES,
   readFieldDefinitionPayload,
 } from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
@@ -17,6 +18,7 @@ import {
   parseFrozenMaintenanceClass,
 } from "./maintenanceWorkflow/maintenanceIntelligence";
 import {stableJson} from "./stableJson";
+import {compareRequirementContracts} from "./requirementContract";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -938,19 +940,6 @@ function validateAssignmentSnapshotTarget(
   return validatedReference;
 }
 
-function legacyAssignmentEquipmentIdentity(
-  request: ParsedAssignmentRequest,
-): AssignmentEquipmentIdentity {
-  return {
-    assetTypeKey: request.assetType,
-    assetNumber: request.assetNumber,
-    assetClassId: null,
-    assetInstanceId: null,
-    assetInstanceVersion: null,
-    innerCoverPosition: null,
-  };
-}
-
 function expectedPhysicalLegacyClassKey(
   request: ParsedAssignmentRequest,
 ): string | null {
@@ -1254,13 +1243,89 @@ function sameEquipmentIdentity(
     left.assetInstanceVersion === right.assetInstanceVersion;
 }
 
+/**
+ * The physical subject a legacy-shaped assignment names.
+ *
+ * An older request carries only an asset type and number. Admitting a fresh one
+ * without resolving that pair against the register let new work be assigned to
+ * an asset the plant does not have, or one already retired, while the same
+ * request carrying explicit governed identity was refused. Accepted requests
+ * are unaffected: a replay is answered from its receipt before this runs.
+ */
+async function requireLegacyAssignmentTarget(
+  db: AssignmentFirestoreLike,
+  request: ParsedAssignmentRequest,
+): Promise<AssignmentEquipmentIdentity> {
+  const legacyKey = expectedPhysicalLegacyClassKey(request);
+  if (legacyKey == null) {
+    throw new AssignmentValidationError(
+      "internal",
+      "A governed custom assignment cannot use the legacy target resolver.",
+    );
+  }
+  const activeRows = (
+    snapshot: AssignmentQuerySnapshotLike,
+  ): AssignmentDocumentSnapshotLike[] => queryDocs(snapshot).filter((row) => {
+    const data = row.data() ?? {};
+    return data.status === "active" && data.isDeleted !== true;
+  });
+  const classRows = activeRows(
+    await db.collection("asset_classes")
+      .where("legacyAssetTypeKey", "==", legacyKey).get(),
+  );
+  if (classRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "No single active governed asset class matches this assignment type.",
+      {
+        reasonCode: "assignment-legacy-asset-class-unresolved",
+        legacyAssetTypeKey: legacyKey,
+      },
+    );
+  }
+  const assetClassId = assertDocumentId(
+    classRows[0].id,
+    "asset class document ID",
+  );
+  const instanceRows = activeRows(
+    await db.collection("asset_instances")
+      .where("assetClassId", "==", assetClassId)
+      .where("assetNumber", "==", request.assetNumber)
+      .get(),
+  );
+  if (instanceRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "This asset is not a single active entry in the plant register. " +
+      "Select the asset again so the assignment carries its governed identity.",
+      {
+        reasonCode: "assignment-legacy-asset-not-registered",
+        legacyAssetTypeKey: legacyKey,
+        assetNumber: request.assetNumber,
+      },
+    );
+  }
+  const identity = governedAssetInstanceIdentity(
+    instanceRows[0],
+    request,
+    assetClassId,
+  );
+  if (request.assetType === "innerCover") {
+    return {
+      ...identity,
+      innerCoverPosition: await resolveInnerCoverPosition(db, identity),
+    };
+  }
+  return identity;
+}
+
 async function resolveAssignmentEquipmentIdentity(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
 ): Promise<AssignmentEquipmentIdentity> {
   const hasRequestedGovernedIdentity = request.assetClassId != null;
   if (!hasRequestedGovernedIdentity && request.assetType !== "governedCustom") {
-    return legacyAssignmentEquipmentIdentity(request);
+    return requireLegacyAssignmentTarget(db, request);
   }
   const versionSnapshot = await db
     .collection("template_versions")
@@ -1537,6 +1602,71 @@ function fieldModuleCode(field: AssignmentJsonMap): string | null {
   ]);
 }
 
+function globalFieldsLinkedToModule(
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+): AssignmentJsonMap[] {
+  if (code == null || code.trim().length === 0) return [];
+  const normalizedCode = normalizeKey(code);
+  return bundle.fieldDefinitions.filter(
+    (field) => normalizeKey(fieldModuleCode(field)) === normalizedCode,
+  );
+}
+
+/**
+ * A published template can describe one module's fields in two places: a list
+ * embedded in the module, and the template's own field definitions linked back
+ * by module code. Both are the same template's account of the same module, so
+ * where they disagree the template does not say what has to be recorded.
+ *
+ * Taking the embedded list alone dropped a required global reading, and the
+ * job then closed and issued a closure attestation without it. Nothing is
+ * merged here to repair that: a module's two lists can legitimately describe
+ * alternative modes, and a union would materialise a module nobody published.
+ * Agreeing accounts are materialised exactly as before; a disagreement is
+ * refused before it takes effect, naming the field it is about.
+ */
+function assertEmbeddedFieldsAgree(
+  embedded: readonly AssignmentJsonMap[],
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+  source: string,
+): void {
+  const conflict = (field: string, message: string): never => {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `Module ${code ?? "unknown"} describes ${field} twice and the two ` +
+      `descriptions disagree: ${message}. Republish the template with one ` +
+      "account of this module's fields.",
+      {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: code ?? null,
+        field,
+        source,
+      },
+    );
+  };
+  for (const linked of globalFieldsLinkedToModule(bundle, code)) {
+    const key = stringFrom(linked, FIELD_KEY_ALIASES);
+    if (key == null) continue;
+    const normalizedKey = normalizeKey(key);
+    const embeddedField = embedded.find((entry) =>
+      normalizeKey(stringFrom(entry, FIELD_KEY_ALIASES)) === normalizedKey);
+    if (embeddedField == null) {
+      conflict(key, `the module's own ${source} omits it`);
+    } else {
+      const difference = compareRequirementContracts(embeddedField, linked);
+      if (difference == null) continue;
+      conflict(
+        key,
+        `the module's own ${source} and the template disagree about ` +
+        `${difference.field} (${JSON.stringify(difference.left)} versus ` +
+        `${JSON.stringify(difference.right)})`,
+      );
+    }
+  }
+}
+
 function fieldsForModule(
   bundle: ParsedSnapshotBundle,
   module: AssignmentJsonMap,
@@ -1555,7 +1685,10 @@ function fieldsForModule(
         `embedded ${key} for module ${code ?? "unknown"}`,
         true,
       );
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        return parsed;
+      }
     }
     if (Array.isArray(value)) {
       const parsed = value.map((entry, index) => {
@@ -1574,7 +1707,10 @@ function fieldsForModule(
         }
         return {...(entry as AssignmentJsonMap)};
       });
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        return parsed;
+      }
     }
   }
 

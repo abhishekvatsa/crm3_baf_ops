@@ -35,6 +35,7 @@ import '../domain/knowledge_correction_promoter.dart';
 import '../domain/knowledge_governance_diff.dart';
 import '../domain/knowledge_governance_export.dart';
 import '../domain/knowledge_governance_models.dart';
+import '../domain/knowledge_revision_settlement.dart';
 
 /// Result of a single governed write.
 class KnowledgeGovernanceWriteResult {
@@ -44,13 +45,30 @@ class KnowledgeGovernanceWriteResult {
   final KnowledgeGovernanceAction action;
   final DateTime performedAt;
 
+  /// Whether this device is showing the revision it has just written. The
+  /// revision is committed and audited either way; pending means only that
+  /// the local copy has not caught up with it.
+  final KnowledgeRevisionAdoption adoption;
+
   const KnowledgeGovernanceWriteResult({
     required this.rowCode,
     required this.versionAfter,
     required this.diff,
     required this.action,
     required this.performedAt,
+    this.adoption = KnowledgeRevisionAdoption.adopted,
   });
+
+  KnowledgeGovernanceWriteResult settledAs(
+    KnowledgeRevisionAdoption adoption,
+  ) => KnowledgeGovernanceWriteResult(
+    rowCode: rowCode,
+    versionAfter: versionAfter,
+    diff: diff,
+    action: action,
+    performedAt: performedAt,
+    adoption: adoption,
+  );
 }
 
 class KnowledgeGovernanceImportApplyResult {
@@ -129,7 +147,6 @@ class KnowledgeGovernanceController {
       transaction.set(ref, cloudMap);
       return 1;
     });
-    await _knowledge.pullCloudToLocal();
     final result = KnowledgeGovernanceWriteResult(
       rowCode: draft.rowCode,
       versionAfter: versionAfter,
@@ -137,14 +154,17 @@ class KnowledgeGovernanceController {
       action: governanceAction,
       performedAt: DateTime.now(),
     );
-    await _logAudit(
-      action: AuditAction.create,
-      result: result,
-      actor: actor,
-      reason: reason,
-      severity: _severityFor(draft, isCreate: true),
+    final adoption = await settleCommittedKnowledgeRevision(
+      recordAudit: () => _logAudit(
+        action: AuditAction.create,
+        result: result,
+        actor: actor,
+        reason: reason,
+        severity: _severityFor(draft, isCreate: true),
+      ),
+      adoptLocally: _knowledge.pullCloudToLocal,
     );
-    return result;
+    return result.settledAs(adoption);
   }
 
   /// Update an existing row. Bumps version by exactly +1 and writes a
@@ -215,8 +235,6 @@ class KnowledgeGovernanceController {
       transaction.set(ref, cloudMap, SetOptions(merge: true));
       return nextVersion;
     });
-    await _knowledge.pullCloudToLocal();
-
     final action =
         governanceAction ??
         _resolveLifecycleAction(before: before, after: draft);
@@ -227,18 +245,23 @@ class KnowledgeGovernanceController {
       action: action,
       performedAt: DateTime.now(),
     );
-    await _logAudit(
-      action:
-          action == KnowledgeGovernanceAction.retired ||
-                  action == KnowledgeGovernanceAction.archived
-              ? AuditAction.delete
-              : AuditAction.update,
-      result: result,
-      actor: actor,
-      reason: reason,
-      severity: _severityFor(draft, isCreate: false, lifecycle: action),
+    // The revision is committed. Its audit belongs with it and is settled
+    // first; reading it back into the local copy is this device catching up.
+    final adoption = await settleCommittedKnowledgeRevision(
+      recordAudit: () => _logAudit(
+        action:
+            action == KnowledgeGovernanceAction.retired ||
+                    action == KnowledgeGovernanceAction.archived
+                ? AuditAction.delete
+                : AuditAction.update,
+        result: result,
+        actor: actor,
+        reason: reason,
+        severity: _severityFor(draft, isCreate: false, lifecycle: action),
+      ),
+      adoptLocally: _knowledge.pullCloudToLocal,
     );
-    return result;
+    return result.settledAs(adoption);
   }
 
   Future<KnowledgeGovernanceWriteResult> retireRow({

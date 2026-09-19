@@ -165,6 +165,18 @@ function user(role, name = role) {
 
 function baseSeed() {
   return {
+    // An action names a subject from the plant register, so the register has
+    // to hold it.
+    'asset_classes/furnace-class': {
+      schemaVersion: 1, assetClassId: 'furnace-class', code: 'FURNACE',
+      name: 'Furnace', legacyAssetTypeKey: 'furnace', status: 'active',
+    },
+    'asset_instances/furnace-12': {
+      schemaVersion: 1, assetInstanceId: 'furnace-12',
+      assetClassId: 'furnace-class', assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace', assetNumber: 12, name: 'Furnace 12',
+      status: 'active', version: 3,
+    },
     'users/admin-1': user('admin', 'Admin One'),
     'users/si-1': user('si', 'SI One'),
     'users/si-2': user('si', 'SI Two'),
@@ -877,6 +889,88 @@ describe('Morning Review governed lifecycle', () => {
     expect(capture.sourceCollectionsAtLimit).toContain('inspection_findings');
   });
 
+  test('a corrected adverse basis survives into the morning snapshot', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      // The inspection module raised this finding and its only adverse
+      // reading was then corrected to an in-range value. The module keeps
+      // saying that technical verification cannot substitute for reviewing
+      // the corrected basis; the manager reading the minutes has to see it.
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 1,
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+      'inspection_findings/finding-standing': inspectionFinding(
+        'finding-standing',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 2,
+          effectiveAdverseObservationCount: 2,
+          evidenceReviewRequired: false,
+          evidenceReviewReason: null,
+        },
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    const corrected = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-corrected');
+    expect(corrected).toMatchObject({status: 'awaitingVerification'});
+    // It reads as different from an ordinary awaiting-verification item in the
+    // frozen prose, which is what a manager reads, and the recurrence counter
+    // a correction leaves standing at one is not offered as evidence.
+    expect(corrected.summary).toContain('Evidence review required');
+    expect(corrected.summary).not.toContain('Observed 1 times');
+
+    const standing = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-standing');
+    expect(standing.summary).toContain('Observed 2 times');
+    expect(standing.summary).not.toContain('Evidence review required');
+  });
+
+  test('the frozen fact keeps the shape the installed client reads', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    // The installed client reads a source fact with an exact field set and
+    // refuses any Morning Review schema but 1. An additive field here would
+    // stop it reading the very session that carries this finding.
+    for (const fact of capture.facts) {
+      expect(Object.keys(fact).sort()).toEqual([
+        'assetClassId', 'assetClassName', 'assetInstanceId', 'assetNumber',
+        'factId', 'observedAtIso', 'section', 'sourceCollection',
+        'sourceDocumentId', 'sourceType', 'status', 'summary', 'title',
+      ]);
+    }
+  });
+
   test('bounds incomplete-source markers for existing client readers', async () => {
     const seed = baseSeed();
     const longId = 'x'.repeat(241);
@@ -1461,6 +1555,70 @@ describe('Morning Review governed lifecycle', () => {
       .toBe(sessionVersion + 1);
   });
 
+  test.each([
+    ['an asset the register does not hold', {
+      assetClassId: 'absent-class', assetClassName: 'Furnace',
+      assetInstanceId: 'absent-furnace', assetNumber: '999',
+    }, 'morning-review-action-asset-unknown'],
+    ['a real asset claimed under another class', {
+      assetClassId: 'base-class', assetClassName: 'Base',
+      assetInstanceId: 'furnace-12', assetNumber: '12',
+    }, 'morning-review-action-asset-mismatch'],
+  ])('an action cannot name %s', async (_label, asset, reasonCode) => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'asset_classes/base-class': {
+        schemaVersion: 1, assetClassId: 'base-class', code: 'BASE',
+        name: 'Base', legacyAssetTypeKey: 'base', status: 'active',
+      },
+    });
+    await invoke(memory, 'si-1', startRequest());
+    const writesBefore = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        ...asset,
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({reasonCode}),
+    });
+    expect(memory.writes).toHaveLength(writesBefore);
+  });
+
+  test('an action records the register name, not the label it was sent', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        assetClassId: 'furnace-class',
+        assetClassName: 'Stale label',
+        assetInstanceId: 'furnace-12',
+        assetNumber: '7',
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    });
+
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`))
+      .toMatchObject({assetClassName: 'Furnace', assetNumber: '12'});
+  });
+
   test('keeps routed actions usable without converting ownership into attendance', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'si-1', startRequest());
@@ -1614,6 +1772,100 @@ describe('Morning Review governed lifecycle', () => {
     });
     expect(memory.store.get(`morning_review_documents/${sessionId}`).entries)
       .toHaveLength(accepted);
+  });
+
+  test('a meeting held yesterday can have its minutes closed today', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(session.status).toBe('open');
+
+    // The meeting was held. Leaving its minutes open forever is a worse record
+    // than closing them late and saying they were closed late.
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      summary: 'Closed the following morning; the meeting was held as recorded.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(finalized).toMatchObject({status: 'finalized', plantDay: priorDay});
+    // No new field records the lateness, because the record already carries
+    // it: the meeting's intended day is untouched and the finalization time is
+    // the real one, so the two together say it was closed the next day.
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .not.toBe(finalized.plantDay);
+    expect(memory.store.get(`morning_review_documents/${priorDay}`))
+      .toMatchObject({sessionId: priorDay});
+  });
+
+  test('closing on the day it was held reads as the same day', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId,
+      expectedVersion: session.version,
+      summary: 'Closed on the day it was held.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${sessionId}`);
+    expect(finalized.status).toBe('finalized');
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .toBe(finalized.plantDay);
+  });
+
+  test('an older meeting can be taken over so it can be closed', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+
+    // The facilitator is not here today; somebody has to be able to close it.
+    await invoke(memory, 'admin-1', {
+      requestId: IDS.takeover,
+      operation: 'TAKE_OVER_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      reason: 'The facilitator is on leave and the minutes are still open.',
+    });
+
+    expect(memory.store.get(`morning_review_sessions/${priorDay}`))
+      .toMatchObject({facilitatorUid: 'admin-1', plantDay: priorDay});
+  });
+
+  test('a meeting that was held is not recorded as not held afterwards', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+
+    // Late finalization is a way to close a meeting truthfully, not a way to
+    // say it never happened.
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.notHeld,
+      operation: 'RECORD_MORNING_REVIEW_NOT_HELD',
+      sessionId: priorDay,
+      reason: 'Claiming the meeting never happened.',
+    })).rejects.toThrow();
+  });
+
+  test('an older day still cannot be opened as a new meeting', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+
+    await expect(invoke(memory, 'si-1', {
+      ...startRequest(),
+      sessionId: priorDay,
+    })).rejects.toThrow();
   });
 
   test('full review byte budget cannot veto prior-day action acceptance or completion', async () => {

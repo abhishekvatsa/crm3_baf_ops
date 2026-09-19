@@ -123,6 +123,9 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
   @override
   Future<List<DurableSubmission>> pending() async => [];
 
+  final List<ComposedAgainstRound?> composedAgainstCalls =
+      <ComposedAgainstRound?>[];
+
   @override
   Future<BurnerConditionRoundResult> record({
     required AssetInstanceRecord furnace,
@@ -132,8 +135,10 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
     bool? draftSealRedHotObserved,
     bool? hotAirAtDraftSealObserved,
     List<BurnerUvObservation>? uvObservations,
+    ComposedAgainstRound? composedAgainst,
   }) async {
     calls.add(List<BurnerConditionObservation>.from(observations));
+    composedAgainstCalls.add(composedAgainst);
     return BurnerConditionRoundResult(
       roundId: 'round-1',
       assetInstanceId: furnace.id,

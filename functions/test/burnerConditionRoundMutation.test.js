@@ -276,6 +276,78 @@ describe('burner condition round mutation', () => {
       });
   });
 
+  test('a round composed before another round was recorded is refused', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`burner_condition_current/${IDS.asset}`]: {
+        schemaVersion: 1,
+        assetInstanceId: IDS.asset,
+        roundId: 'round-recorded-by-someone-else',
+        observedAt: '2026-09-01T04:00:00.000Z',
+      },
+    });
+    const writesBefore = memory.writes.length;
+
+    // This submission was composed against the furnace as it read before
+    // that: eight positions witnessed against a baseline that has moved.
+    await expect(invoke(memory, request({
+      expectedCurrentRoundId: null,
+    }))).rejects.toMatchObject({
+      details: {reasonCode: 'burner-condition-round-superseded'},
+    });
+    expect(memory.writes).toHaveLength(writesBefore);
+    expect(memory.store.get(`burner_condition_current/${IDS.asset}`).roundId)
+      .toBe('round-recorded-by-someone-else');
+  });
+
+  test('a round composed against the current one is recorded', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`burner_condition_current/${IDS.asset}`]: {
+        schemaVersion: 1,
+        assetInstanceId: IDS.asset,
+        roundId: 'round-the-operator-saw',
+        observedAt: '2026-09-01T04:00:00.000Z',
+      },
+    });
+
+    const result = await invoke(memory, request({
+      expectedCurrentRoundId: 'round-the-operator-saw',
+    }));
+
+    expect(result.idempotentReplay).toBe(false);
+    expect(memory.store.get(`burner_condition_current/${IDS.asset}`).roundId)
+      .toBe(IDS.round);
+  });
+
+  test('the first round on a furnace expects no current round', async () => {
+    const memory = fakeDb(seed());
+
+    const result = await invoke(memory, request({
+      expectedCurrentRoundId: null,
+    }));
+
+    expect(result.idempotentReplay).toBe(false);
+  });
+
+  test('a client that names no expectation is recorded as before', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`burner_condition_current/${IDS.asset}`]: {
+        schemaVersion: 1,
+        assetInstanceId: IDS.asset,
+        roundId: 'round-recorded-by-someone-else',
+        observedAt: '2026-09-01T04:00:00.000Z',
+      },
+    });
+
+    // An older client does not carry the field at all. It keeps the behaviour
+    // it shipped with rather than being refused by a rule it cannot satisfy.
+    const result = await invoke(memory, request());
+
+    expect(result.idempotentReplay).toBe(false);
+  });
+
   test('red-hot evidence atomically creates an I&A directive', async () => {
     const memory = fakeDb(seed('seniorInstrumentation'));
     const result = await invoke(memory, request({

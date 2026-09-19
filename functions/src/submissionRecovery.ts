@@ -304,11 +304,21 @@ export async function reviewSavedSubmissionWithDb(args: {
     }
     if (previous.exists) {
       const proof = validatedProof(previous.data() ?? {});
-      // Inspection can recover a lost final response without requiring the
-      // operator to remember the original reason. The stored reason is returned
-      // unchanged; a new finalization still requires its exact original binding.
+      // Inspection recovers a lost final response. It does not need the
+      // operator to remember the original reason, and it does not need the
+      // Admin who made the decision to be the one asking: the decision is
+      // permanent, and recovering it must not wait on one person being
+      // available. Both the stored reason and the original reviewer are
+      // returned unchanged, so the proof still says who decided.
+      //
+      // Everything that identifies the evidence - the domain, the request,
+      // its hash and the original actor - must still match exactly, and a new
+      // finalization still requires the complete original binding, reviewer
+      // included, so retrieval never becomes re-execution under a new name.
+      const recoverable = new Set(["reason", "reviewerUid"]);
       const same = Object.entries(binding).every(([name, value]) =>
-        (request.phase === "inspect" && name === "reason") || proof[name] === value);
+        (request.phase === "inspect" && recoverable.has(name)) ||
+        proof[name] === value);
       if (!same || proof.decisionId !== decisionId || !iso(proof.decidedAt) ||
           (proof.outcome !== "cancelled" && proof.outcome !== "reviewedExisting") ||
           (proof.outcome === "cancelled" && (fenceProof?.outcome !== "cancelled" || proof.receiptSha256 !== null)) ||

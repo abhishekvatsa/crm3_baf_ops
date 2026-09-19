@@ -234,6 +234,9 @@ class _OperationalEventsScreenState
                                   actor.canRecordOperationalEvent &&
                                   visible[index].isOpen,
                               canResolve: actor.canResolveOperationalEvent,
+                              canWithdraw:
+                                  actor.canRecordOperationalEvent &&
+                                  !visible[index].isWithdrawn,
                               onEdit: () => _editEvent(
                                 actor: actor,
                                 classes: classes,
@@ -242,6 +245,7 @@ class _OperationalEventsScreenState
                               ),
                               onResolve: () => _resolveEvent(visible[index]),
                               onReopen: () => _reopenEvent(visible[index]),
+                              onWithdraw: () => _withdrawEvent(visible[index]),
                               onIssues: () => Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
@@ -391,6 +395,21 @@ class _OperationalEventsScreenState
     );
   }
 
+  Future<void> _withdrawEvent(OperationalEvent event) async {
+    final reason = await _askForReason(
+      title: 'Withdraw event in error',
+      label: 'Why should this recorded event no longer count as a disruption?',
+      action: 'Withdraw',
+    );
+    if (reason == null || !mounted) return;
+    await _run(
+      () => ref
+          .read(operationalEventServiceProvider)
+          .withdraw(event: event, reason: reason),
+      'Event withdrawn in error. Its raw history remains available.',
+    );
+  }
+
   Future<String?> _askForReason({
     required String title,
     required String label,
@@ -432,9 +451,11 @@ class _EventCard extends StatelessWidget {
     required this.assetNames,
     required this.canEdit,
     required this.canResolve,
+    required this.canWithdraw,
     required this.onEdit,
     required this.onResolve,
     required this.onReopen,
+    required this.onWithdraw,
     required this.onIssues,
   });
 
@@ -444,9 +465,11 @@ class _EventCard extends StatelessWidget {
   final Map<String, String> assetNames;
   final bool canEdit;
   final bool canResolve;
+  final bool canWithdraw;
   final VoidCallback onEdit;
   final VoidCallback onResolve;
   final VoidCallback onReopen;
+  final VoidCallback onWithdraw;
   final VoidCallback onIssues;
 
   @override
@@ -552,12 +575,22 @@ class _EventCard extends StatelessWidget {
           const SizedBox(height: 6),
           _DetailLine(
             icon: Icons.timer_outlined,
-            text:
-                'Total impact ${_formatImpactDuration(event.durationUntil(asOf))} '
-                'across ${event.completedIntervals.length + 1} '
-                '${event.completedIntervals.isEmpty ? 'occurrence' : 'occurrences'}'
-                '${event.isOpen ? ' · ongoing' : ''}',
+            text: event.isWithdrawn
+                ? 'Withdrawn in error · raw history retained; no effective impact'
+                : 'Total impact ${_formatImpactDuration(event.durationUntil(asOf))} '
+                      'across ${event.completedIntervals.length + 1} '
+                      '${event.completedIntervals.isEmpty ? 'occurrence' : 'occurrences'}'
+                      '${event.isOpen ? ' · ongoing' : ''}',
           ),
+          if (event.isWithdrawn && event.withdrawalReason != null) ...[
+            const SizedBox(height: 6),
+            _DetailLine(
+              icon: Icons.info_outline_rounded,
+              text:
+                  'Withdrawal reason: ${event.withdrawalReason}'
+                  '${event.withdrawnByName == null ? '' : ' · by ${event.withdrawnByName}'}',
+            ),
+          ],
           if (event.resolutionNote != null) ...[
             const SizedBox(height: 6),
             _DetailLine(
@@ -614,7 +647,14 @@ class _EventCard extends StatelessWidget {
                   'Issues${event.issueLinkIds.isEmpty ? '' : ' (${event.issueLinkIds.length})'}',
                 ),
               ),
-              if (canResolve)
+              if (canWithdraw)
+                OutlinedButton.icon(
+                  key: ValueKey('operational-event-withdraw-${event.eventId}'),
+                  onPressed: onWithdraw,
+                  icon: const Icon(Icons.visibility_off_outlined),
+                  label: const Text('Withdraw in error'),
+                ),
+              if (canResolve && !event.isWithdrawn)
                 event.isOpen
                     ? FilledButton.icon(
                         key: ValueKey(

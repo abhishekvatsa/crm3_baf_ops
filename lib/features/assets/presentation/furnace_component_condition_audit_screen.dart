@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
@@ -14,6 +15,7 @@ import '../../maintenance/providers/maintenance_provider.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/burner_block_condition_projection.dart';
+import '../domain/furnace_audit_draft.dart';
 import '../data/burner_block_lifecycle_event.dart';
 import '../data/burner_condition_round.dart';
 import '../data/uv_detector_lifecycle_event.dart';
@@ -21,6 +23,7 @@ import '../providers/asset_hierarchy_provider.dart';
 import '../providers/burner_block_lifecycle_provider.dart';
 import '../providers/burner_condition_round_provider.dart';
 import '../providers/uv_detector_lifecycle_provider.dart';
+import '../providers/burner_block_correction_provider.dart';
 import '../services/burner_condition_round_service.dart';
 import 'widgets/uv_detector_lifecycle_list.dart';
 
@@ -36,7 +39,7 @@ class FurnaceComponentConditionAuditScreen extends ConsumerStatefulWidget {
 
 class _FurnaceComponentConditionAuditScreenState
     extends ConsumerState<FurnaceComponentConditionAuditScreen> {
-  final Map<String, _FurnaceAuditDraft> _drafts = {};
+  final Map<String, FurnaceAuditDraft> _drafts = {};
   bool _saving = false;
 
   @override
@@ -96,16 +99,15 @@ class _FurnaceComponentConditionAuditScreenState
       uvLifecycleCurrentAsync,
       ticketsAsync,
     ].any((value) => value.isLoading && !value.hasValue);
-    final error =
-        <AsyncValue<Object?>>[
-          classesAsync,
-          assetsAsync,
-          lifecycleAsync,
-          lifecycleCurrentAsync,
-          uvLifecycleAsync,
-          uvLifecycleCurrentAsync,
-          ticketsAsync,
-        ].where((value) => value.hasError && !value.hasValue).firstOrNull;
+    final error = <AsyncValue<Object?>>[
+      classesAsync,
+      assetsAsync,
+      lifecycleAsync,
+      lifecycleCurrentAsync,
+      uvLifecycleAsync,
+      uvLifecycleCurrentAsync,
+      ticketsAsync,
+    ].where((value) => value.hasError && !value.hasValue).firstOrNull;
     if (loading) {
       return _shell(
         const BafLoadingPanel(label: 'Loading furnace condition authority'),
@@ -174,10 +176,8 @@ class _FurnaceComponentConditionAuditScreenState
       return _shell(
         BafStatePanel.error(
           message: 'Current furnace condition authority could not be verified.',
-          onPrimary:
-              () => ref.invalidate(
-                latestBurnerConditionRoundsProvider(latestQuery),
-              ),
+          onPrimary: () =>
+              ref.invalidate(latestBurnerConditionRoundsProvider(latestQuery)),
         ),
       );
     }
@@ -217,9 +217,8 @@ class _FurnaceComponentConditionAuditScreenState
         );
         final current = _drafts[furnace.id];
         if (current == null ||
-            (!current.dirty &&
-                current.sourceKey != conditionProjection.sourceKey)) {
-          _drafts[furnace.id] = _FurnaceAuditDraft.fromSources(
+            current.shouldAdoptSnapshot(conditionProjection.sourceKey)) {
+          _drafts[furnace.id] = FurnaceAuditDraft.fromSources(
             round: round,
             conditionProjection: conditionProjection,
           );
@@ -235,8 +234,9 @@ class _FurnaceComponentConditionAuditScreenState
       );
     }
 
-    final dirtyCount =
-        furnaces.where((furnace) => _drafts[furnace.id]?.dirty == true).length;
+    final dirtyCount = furnaces
+        .where((furnace) => _drafts[furnace.id]?.dirty == true)
+        .length;
     final totals = _FurnaceAuditTotals(
       furnaces.map((furnace) => _drafts[furnace.id]!),
     );
@@ -316,7 +316,10 @@ class _FurnaceComponentConditionAuditScreenState
                     condition: BurnerUvCondition.hanging,
                     onChanged: _markChanged,
                   ),
-                  _BurnerBlockLifecycleList(events: lifecycleEvents),
+                  _BurnerBlockLifecycleList(
+                    events: lifecycleEvents,
+                    currentEvents: lifecycleCurrent,
+                  ),
                   UvDetectorLifecycleList(events: uvLifecycleEvents),
                 ],
               ),
@@ -331,17 +334,15 @@ class _FurnaceComponentConditionAuditScreenState
             BafSpacing.md,
           ),
           child: FilledButton.icon(
-            onPressed:
-                _saving || dirtyCount == 0
-                    ? null
-                    : () => _save(furnaces, actor),
-            icon:
-                _saving
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.verified_outlined),
+            onPressed: _saving || dirtyCount == 0
+                ? null
+                : () => _save(furnaces, actor),
+            icon: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.verified_outlined),
             label: Text(
               _saving
                   ? 'Recording governed audit...'
@@ -366,12 +367,12 @@ class _FurnaceComponentConditionAuditScreenState
     body: body,
   );
 
-  void _markChanged(String assetId, void Function(_FurnaceAuditDraft) change) {
+  void _markChanged(String assetId, void Function(FurnaceAuditDraft) change) {
     final draft = _drafts[assetId];
     if (draft == null) return;
     setState(() {
       change(draft);
-      draft.dirty = true;
+      draft.markEdited();
     });
   }
 
@@ -383,6 +384,7 @@ class _FurnaceComponentConditionAuditScreenState
     setState(() => _saving = true);
     var saved = 0;
     var directives = 0;
+    var stillPending = 0;
     try {
       final service = ref.read(burnerConditionRoundServiceProvider);
       for (final furnace in changed) {
@@ -393,18 +395,37 @@ class _FurnaceComponentConditionAuditScreenState
           );
         }
         final draft = _drafts[furnace.id]!;
+        // What is being recorded is this revision of the draft, read before
+        // the request goes out. The controls stay live while it is in flight.
+        final submittedRevision = draft.revision;
+        final submittedObservations = List<BurnerConditionObservation>.of(
+          draft.burnerObservations,
+        );
+        final submittedUvObservations = List<BurnerUvObservation>.of(
+          draft.uvObservations,
+        );
+        final submittedDraftSealRedHot = draft.draftSealRedHotObserved;
+        final submittedHotAirAtDraftSeal = draft.hotAirAtDraftSealObserved;
         final result = await service.record(
           furnace: furnace,
-          observations: draft.burnerObservations,
-          draftSealRedHotObserved: draft.draftSealRedHotObserved,
-          hotAirAtDraftSealObserved: draft.hotAirAtDraftSealObserved,
-          uvObservations: draft.uvObservations,
+          observations: submittedObservations,
+          draftSealRedHotObserved: submittedDraftSealRedHot,
+          hotAirAtDraftSealObserved: submittedHotAirAtDraftSeal,
+          uvObservations: submittedUvObservations,
           actor: actor,
           roundNote: 'Cross-furnace component condition audit.',
+          // These eight positions were witnessed against the round this draft
+          // was built from. If another operator has recorded one since, the
+          // server refuses rather than clearing their work with observations
+          // made before it existed.
+          composedAgainst: ComposedAgainstRound(draft.composedAgainstRoundId),
         );
         saved++;
         if (result.directiveId != null) directives++;
-        draft.dirty = false;
+        // An observation recorded while this was in flight was not in the
+        // envelope, so the draft stays pending and carries it into the next
+        // save instead of being marked recorded and then replaced.
+        if (!draft.settleSave(submittedRevision)) stillPending++;
       }
       ref.invalidate(latestBurnerConditionRoundsProvider);
       if (!mounted) return;
@@ -412,7 +433,11 @@ class _FurnaceComponentConditionAuditScreenState
         SnackBar(
           content: Text(
             '$saved furnace audit${saved == 1 ? '' : 's'} recorded. '
-            '$directives I&A directive${directives == 1 ? '' : 's'} created.',
+            '$directives I&A directive${directives == 1 ? '' : 's'} created.'
+            '${stillPending == 0 ? '' : ' $stillPending furnace'
+                      '${stillPending == 1 ? '' : 's'} changed while this was '
+                      'being recorded and ${stillPending == 1 ? 'is' : 'are'} '
+                      'still pending.'}',
           ),
           backgroundColor: BafColors.success,
         ),
@@ -431,104 +456,6 @@ class _FurnaceComponentConditionAuditScreenState
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-}
-
-class _FurnaceAuditDraft {
-  _FurnaceAuditDraft({
-    required this.sourceKey,
-    required this.sourceAt,
-    required this.redHotPositions,
-    required this.draftSealRedHotObserved,
-    required this.hotAirAtDraftSealObserved,
-    required this.uvByPosition,
-    required this.burnerObservations,
-    required this.replacementsByPosition,
-    required this.uvReplacementsByPosition,
-  });
-
-  factory _FurnaceAuditDraft.fromSources({
-    required BurnerConditionRound? round,
-    required BurnerBlockConditionProjection conditionProjection,
-  }) {
-    final redHot = conditionProjection.redHotPositions;
-    final uv = Map<int, BurnerUvCondition>.of(
-      conditionProjection.uvConditionsByPosition,
-    );
-    final prior = round?.observations;
-    return _FurnaceAuditDraft(
-      sourceKey: conditionProjection.sourceKey,
-      sourceAt: conditionProjection.latestEvidenceAt,
-      redHotPositions: Set<int>.of(redHot),
-      draftSealRedHotObserved: round?.draftSealRedHotObserved ?? false,
-      hotAirAtDraftSealObserved: round?.hotAirAtDraftSealObserved ?? false,
-      uvByPosition: uv,
-      burnerObservations: <BurnerConditionObservation>[
-        for (var position = 1; position <= 8; position++)
-          BurnerConditionObservation(
-            position: position,
-            flameObservation:
-                prior == null
-                    ? BurnerRoundFlameObservation.notChecked
-                    : prior[position - 1].flameObservation,
-            redHotObserved: redHot.contains(position),
-            microampReading:
-                prior == null ? null : prior[position - 1].microampReading,
-            remarks:
-                prior == null
-                    ? 'Condition matrix audit did not assess flame signal.'
-                    : prior[position - 1].remarks,
-          ),
-      ],
-      replacementsByPosition: Map<int, BurnerBlockLifecycleEvent>.unmodifiable(
-        conditionProjection.replacementsByPosition,
-      ),
-      uvReplacementsByPosition: Map<int, UvDetectorLifecycleEvent>.unmodifiable(
-        <int, UvDetectorLifecycleEvent>{
-          for (final entry
-              in conditionProjection.uvReplacementsByPosition.entries)
-            if (round == null ||
-                entry.value.actionPerformedAt.isAfter(round.observedAt))
-              entry.key: entry.value,
-        },
-      ),
-    );
-  }
-
-  final String sourceKey;
-  final DateTime? sourceAt;
-  final Set<int> redHotPositions;
-  bool draftSealRedHotObserved;
-  bool hotAirAtDraftSealObserved;
-  final Map<int, BurnerUvCondition> uvByPosition;
-  List<BurnerConditionObservation> burnerObservations;
-  final Map<int, BurnerBlockLifecycleEvent> replacementsByPosition;
-  final Map<int, UvDetectorLifecycleEvent> uvReplacementsByPosition;
-  bool dirty = false;
-
-  List<BurnerUvObservation> get uvObservations => <BurnerUvObservation>[
-    for (var position = 1; position <= 8; position++)
-      BurnerUvObservation(
-        position: position,
-        condition: uvByPosition[position]!,
-      ),
-  ];
-
-  void setRedHot(int position, bool value) {
-    value ? redHotPositions.add(position) : redHotPositions.remove(position);
-    burnerObservations = <BurnerConditionObservation>[
-      for (final observation in burnerObservations)
-        BurnerConditionObservation(
-          position: observation.position,
-          flameObservation: observation.flameObservation,
-          redHotObserved:
-              observation.position == position
-                  ? value
-                  : observation.redHotObserved,
-          microampReading: observation.microampReading,
-          remarks: observation.remarks,
-        ),
-    ];
   }
 }
 
@@ -601,15 +528,19 @@ class _AuditStatusBand extends StatelessWidget {
 }
 
 typedef _DraftChange =
-    void Function(String assetId, void Function(_FurnaceAuditDraft) change);
+    void Function(String assetId, void Function(FurnaceAuditDraft) change);
 
-class _BurnerBlockLifecycleList extends StatelessWidget {
-  const _BurnerBlockLifecycleList({required this.events});
+class _BurnerBlockLifecycleList extends ConsumerWidget {
+  const _BurnerBlockLifecycleList({
+    required this.events,
+    required this.currentEvents,
+  });
 
   final List<BurnerBlockLifecycleEvent> events;
+  final List<BurnerBlockLifecycleEvent> currentEvents;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (events.isEmpty) {
       return const Center(
         child: Padding(
@@ -628,6 +559,19 @@ class _BurnerBlockLifecycleList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.sm),
       itemBuilder: (context, index) {
         final event = events[index];
+        final current = currentEvents
+            .where(
+              (candidate) =>
+                  candidate.assetInstanceId == event.assetInstanceId &&
+                  candidate.burnerPosition == event.burnerPosition,
+            )
+            .firstOrNull;
+        final canCorrect =
+            ref
+                .watch(currentAppUserProvider)
+                .valueOrNull
+                ?.canAdjudicateFurnaceStuckup ==
+            true;
         final sourceLabel = switch (event.sourceType) {
           BurnerBlockLifecycleSourceType.maintenanceIssue => 'Issue resolution',
           BurnerBlockLifecycleSourceType.legacyPlannedJob =>
@@ -685,6 +629,17 @@ class _BurnerBlockLifecycleList extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (canCorrect)
+                    IconButton(
+                      tooltip: 'Correct recorded installation time',
+                      onPressed: () => _correctBurnerBlockInstallation(
+                        context,
+                        ref,
+                        event,
+                        current?.eventId ?? event.eventId,
+                      ),
+                      icon: const Icon(Icons.history_rounded),
+                    ),
                 ],
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -695,9 +650,9 @@ class _BurnerBlockLifecycleList extends StatelessWidget {
                   StatusBadge(
                     label:
                         event.supplyMode ==
-                                BurnerBlockLifecycleSupplyMode.sailRed
-                            ? 'SAIL-made by RED'
-                            : 'Purchased',
+                            BurnerBlockLifecycleSupplyMode.sailRed
+                        ? 'SAIL-made by RED'
+                        : 'Purchased',
                     color: BafColors.maintenance,
                   ),
                   StatusBadge(label: sourceLabel, color: BafColors.planned),
@@ -747,6 +702,172 @@ class _BurnerBlockLifecycleList extends StatelessWidget {
   }
 }
 
+Future<void> _correctBurnerBlockInstallation(
+  BuildContext context,
+  WidgetRef ref,
+  BurnerBlockLifecycleEvent event,
+  String expectedCurrentEventId,
+) async {
+  final draft = await showDialog<_BurnerCorrectionDraft>(
+    context: context,
+    builder: (_) => _BurnerCorrectionDialog(event: event),
+  );
+  if (draft == null || !context.mounted) return;
+  try {
+    final receipt = await ref
+        .read(burnerBlockCorrectionCommandServiceProvider)
+        .correct(
+          correctionId: 'burner-correction-${const Uuid().v4()}',
+          eventId: event.eventId,
+          expectedCurrentEventId: expectedCurrentEventId,
+          correctedActionPerformedAt: draft.actionPerformedAt
+              .toUtc()
+              .toIso8601String(),
+          reason: draft.reason,
+        );
+    final actor = ref.read(currentAppUserProvider).valueOrNull;
+    if (actor != null) {
+      ref.invalidate(burnerBlockLifecycleEventsProvider(actor.uid));
+      ref.invalidate(burnerBlockLifecycleCurrentProvider(actor.uid));
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Installation correction recorded: ${receipt.resultKey}.',
+          ),
+        ),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Installation correction was not confirmed: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
+  }
+}
+
+class _BurnerCorrectionDraft {
+  const _BurnerCorrectionDraft({
+    required this.actionPerformedAt,
+    required this.reason,
+  });
+
+  final DateTime actionPerformedAt;
+  final String reason;
+}
+
+class _BurnerCorrectionDialog extends StatefulWidget {
+  const _BurnerCorrectionDialog({required this.event});
+
+  final BurnerBlockLifecycleEvent event;
+
+  @override
+  State<_BurnerCorrectionDialog> createState() =>
+      _BurnerCorrectionDialogState();
+}
+
+class _BurnerCorrectionDialogState extends State<_BurnerCorrectionDialog> {
+  late DateTime _date;
+  late TimeOfDay _time;
+  late final TextEditingController _reason;
+
+  @override
+  void initState() {
+    super.initState();
+    final local = widget.event.actionPerformedAt.toLocal();
+    _date = DateTime(local.year, local.month, local.day);
+    _time = TimeOfDay.fromDateTime(local);
+    _reason = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Correct installation time'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'The original event remains unchanged. This creates a reviewed correction record.',
+          ),
+          const SizedBox(height: BafSpacing.md),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final selected = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+                initialDate: _date,
+              );
+              if (selected != null) setState(() => _date = selected);
+            },
+            icon: const Icon(Icons.calendar_today_rounded),
+            label: Text(DateFormat('dd MMM yyyy').format(_date)),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final selected = await showTimePicker(
+                context: context,
+                initialTime: _time,
+              );
+              if (selected != null) setState(() => _time = selected);
+            },
+            icon: const Icon(Icons.schedule_rounded),
+            label: Text(_time.format(context)),
+          ),
+          TextField(
+            controller: _reason,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Reason',
+              hintText: 'Explain the source evidence for the corrected time.',
+            ),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          final reason = _reason.text.trim();
+          if (reason.isEmpty) return;
+          Navigator.pop(
+            context,
+            _BurnerCorrectionDraft(
+              actionPerformedAt: DateTime(
+                _date.year,
+                _date.month,
+                _date.day,
+                _time.hour,
+                _time.minute,
+              ),
+              reason: reason,
+            ),
+          );
+        },
+        child: const Text('Record correction'),
+      ),
+    ],
+  );
+}
+
 class _BurnerBlockMatrix extends StatelessWidget {
   const _BurnerBlockMatrix({
     required this.furnaces,
@@ -755,7 +876,7 @@ class _BurnerBlockMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _DraftChange onChanged;
 
   @override
@@ -771,21 +892,20 @@ class _BurnerBlockMatrix extends StatelessWidget {
         key: ValueKey('block-${furnace.id}-$position'),
         selected: selected,
         color: BafColors.danger,
-        tooltip:
-            selected
-                ? 'Red hot observed'
-                : replacement == null
-                ? 'No red-hot observation'
-                : 'Cleared by ${replacement.supplyMode == BurnerBlockLifecycleSupplyMode.sailRed ? 'SAIL/RED-made' : 'purchased'} block replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
-        evidenceIcon:
-            !selected && replacement != null ? Icons.handyman_outlined : null,
-        onChanged:
-            furnace.serviceState == AssetServiceState.outOfService
-                ? null
-                : (value) => onChanged(
-                  furnace.id,
-                  (current) => current.setRedHot(position, value),
-                ),
+        tooltip: selected
+            ? 'Red hot observed'
+            : replacement == null
+            ? 'No red-hot observation'
+            : 'Cleared by ${replacement.supplyMode == BurnerBlockLifecycleSupplyMode.sailRed ? 'SAIL/RED-made' : 'purchased'} block replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
+        evidenceIcon: !selected && replacement != null
+            ? Icons.handyman_outlined
+            : null,
+        onChanged: furnace.serviceState == AssetServiceState.outOfService
+            ? null
+            : (value) => onChanged(
+                furnace.id,
+                (current) => current.setRedHot(position, value),
+              ),
       );
     },
   );
@@ -799,7 +919,7 @@ class _DraftSealMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _DraftChange onChanged;
 
   @override
@@ -810,25 +930,23 @@ class _DraftSealMatrix extends StatelessWidget {
     drafts: drafts,
     onConfirm: (furnace) => onChanged(furnace.id, (_) {}),
     cellBuilder: (furnace, draft, position) {
-      final selected =
-          position == 1
-              ? draft.draftSealRedHotObserved
-              : draft.hotAirAtDraftSealObserved;
+      final selected = position == 1
+          ? draft.draftSealRedHotObserved
+          : draft.hotAirAtDraftSealObserved;
       return _ConditionCell(
         key: ValueKey('seal-${furnace.id}-$position'),
         selected: selected,
         color: position == 1 ? BafColors.danger : BafColors.warning,
         tooltip: position == 1 ? 'Draft seal red hot' : 'Hot air at draft seal',
-        onChanged:
-            furnace.serviceState == AssetServiceState.outOfService
-                ? null
-                : (value) => onChanged(furnace.id, (current) {
-                  if (position == 1) {
-                    current.draftSealRedHotObserved = value;
-                  } else {
-                    current.hotAirAtDraftSealObserved = value;
-                  }
-                }),
+        onChanged: furnace.serviceState == AssetServiceState.outOfService
+            ? null
+            : (value) => onChanged(furnace.id, (current) {
+                if (position == 1) {
+                  current.draftSealRedHotObserved = value;
+                } else {
+                  current.hotAirAtDraftSealObserved = value;
+                }
+              }),
       );
     },
   );
@@ -843,7 +961,7 @@ class _UvConditionMatrix extends StatelessWidget {
   });
 
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final BurnerUvCondition condition;
   final _DraftChange onChanged;
 
@@ -869,23 +987,22 @@ class _UvConditionMatrix extends StatelessWidget {
         key: ValueKey('uv-${condition.name}-${furnace.id}-$position'),
         selected: selected,
         color: _uvColor(condition),
-        tooltip:
-            selected
-                ? '${condition.label} at UV$position'
-                : replacement == null
-                ? '${condition.label} not recorded at UV$position'
-                : 'UV$position returned to service by I&A replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
-        evidenceIcon:
-            !selected && replacement != null ? Icons.sensors_rounded : null,
-        onChanged:
-            furnace.serviceState == AssetServiceState.outOfService
-                ? null
-                : (value) => onChanged(
-                  furnace.id,
-                  (current) =>
-                      current.uvByPosition[position] =
-                          value ? condition : BurnerUvCondition.serviceable,
-                ),
+        tooltip: selected
+            ? '${condition.label} at UV$position'
+            : replacement == null
+            ? '${condition.label} not recorded at UV$position'
+            : 'UV$position returned to service by I&A replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
+        evidenceIcon: !selected && replacement != null
+            ? Icons.sensors_rounded
+            : null,
+        onChanged: furnace.serviceState == AssetServiceState.outOfService
+            ? null
+            : (value) => onChanged(
+                furnace.id,
+                (current) => current.uvByPosition[position] = value
+                    ? condition
+                    : BurnerUvCondition.serviceable,
+              ),
       );
     },
   );
@@ -894,7 +1011,7 @@ class _UvConditionMatrix extends StatelessWidget {
 typedef _MatrixCellBuilder =
     Widget Function(
       AssetInstanceRecord furnace,
-      _FurnaceAuditDraft draft,
+      FurnaceAuditDraft draft,
       int position,
     );
 
@@ -910,7 +1027,7 @@ class _MatrixFrame extends StatefulWidget {
 
   final List<String> headers;
   final List<AssetInstanceRecord> furnaces;
-  final Map<String, _FurnaceAuditDraft> drafts;
+  final Map<String, FurnaceAuditDraft> drafts;
   final _MatrixCellBuilder cellBuilder;
   final ValueChanged<AssetInstanceRecord> onConfirm;
   final double cellWidth;
@@ -1102,7 +1219,7 @@ class _MatrixFrameState extends State<_MatrixFrame> {
 
   Widget _buildFurnaceIdentityRow({
     required AssetInstanceRecord furnace,
-    required _FurnaceAuditDraft draft,
+    required FurnaceAuditDraft draft,
     required double rowHeight,
   }) {
     return Container(
@@ -1131,8 +1248,8 @@ class _MatrixFrameState extends State<_MatrixFrame> {
                   draft.sourceAt == null
                       ? 'No prior audit'
                       : DateFormat(
-                        'dd MMM, HH:mm',
-                      ).format(draft.sourceAt!.toLocal()),
+                          'dd MMM, HH:mm',
+                        ).format(draft.sourceAt!.toLocal()),
                   style: const TextStyle(
                     color: BafColors.textSecondary,
                     fontSize: 10,
@@ -1142,23 +1259,22 @@ class _MatrixFrameState extends State<_MatrixFrame> {
             ),
           ),
           Tooltip(
-            message:
-                draft.dirty
-                    ? 'This Furnace is ready to record'
-                    : 'Confirm this Furnace as reviewed',
+            message: draft.dirty
+                ? 'This Furnace is ready to record'
+                : 'Confirm this Furnace as reviewed',
             child: IconButton(
               visualDensity: VisualDensity.compact,
-              onPressed:
-                  furnace.serviceState == AssetServiceState.outOfService
-                      ? null
-                      : () => widget.onConfirm(furnace),
+              onPressed: furnace.serviceState == AssetServiceState.outOfService
+                  ? null
+                  : () => widget.onConfirm(furnace),
               icon: Icon(
                 draft.dirty
                     ? Icons.task_alt_rounded
                     : Icons.fact_check_outlined,
                 size: 19,
-                color:
-                    draft.dirty ? BafColors.success : BafColors.textSecondary,
+                color: draft.dirty
+                    ? BafColors.success
+                    : BafColors.textSecondary,
               ),
             ),
           ),
@@ -1169,7 +1285,7 @@ class _MatrixFrameState extends State<_MatrixFrame> {
 
   Widget _buildConditionRow({
     required AssetInstanceRecord furnace,
-    required _FurnaceAuditDraft draft,
+    required FurnaceAuditDraft draft,
     required double rowHeight,
   }) {
     return Container(
@@ -1218,10 +1334,9 @@ class _ConditionCell extends StatelessWidget {
             Checkbox(
               value: selected,
               activeColor: color,
-              onChanged:
-                  onChanged == null
-                      ? null
-                      : (value) => onChanged!(value == true),
+              onChanged: onChanged == null
+                  ? null
+                  : (value) => onChanged!(value == true),
             ),
             if (evidenceIcon != null)
               Positioned(

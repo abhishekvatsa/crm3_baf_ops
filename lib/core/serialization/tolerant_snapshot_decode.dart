@@ -91,6 +91,61 @@ List<T> decodeDocuments<T>(
   return records;
 }
 
+/// A decoded batch that can say how complete it is.
+///
+/// [decodeSnapshotDocuments] returns a plain list, which cannot tell a short
+/// list from a complete one. Where absence changes a decision rather than a
+/// display - a due-state population whose headline says nothing is overdue,
+/// for instance - the caller has to be able to say "and these rows could not
+/// be read". This is that batch.
+class DecodedSnapshotBatch<T> {
+  const DecodedSnapshotBatch({
+    required this.records,
+    required this.rejectedDocumentIds,
+  });
+
+  /// The rows that decoded.
+  final List<T> records;
+
+  /// The documents that did not, by identity, so support can go and look.
+  final List<String> rejectedDocumentIds;
+
+  /// Whether every document in the snapshot is represented in [records].
+  bool get isComplete => rejectedDocumentIds.isEmpty;
+
+  /// How many documents the snapshot held, readable or not.
+  int get rawCount => records.length + rejectedDocumentIds.length;
+}
+
+/// Decodes a snapshot into a batch that carries its own completeness.
+///
+/// Use this, not [decodeSnapshotDocuments], wherever a count or an empty list
+/// would be read as a statement about the world rather than as what happened
+/// to decode.
+DecodedSnapshotBatch<T> decodeSnapshotBatch<T>(
+  QuerySnapshot<Map<String, dynamic>> snapshot,
+  T Function(Map<String, dynamic> data, String documentId) decode, {
+  required String source,
+}) {
+  final rejected = <String>[];
+  final records = decodeSnapshotDocuments(
+    snapshot,
+    decode,
+    source: source,
+    onQuarantined: (documentId, error) {
+      rejected.add(documentId);
+      debugPrint(
+        'Quarantined malformed $source document $documentId: $error. '
+        'The batch reports itself as incomplete.',
+      );
+    },
+  );
+  return DecodedSnapshotBatch<T>(
+    records: records,
+    rejectedDocumentIds: List.unmodifiable(rejected),
+  );
+}
+
 /// How many documents this process has quarantined since start.
 ///
 /// Support needs to know that a screen is showing an incomplete list. Without

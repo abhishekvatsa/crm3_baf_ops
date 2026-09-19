@@ -277,7 +277,7 @@ List<String> _targetRow(
       '${target.dispositionReason == null ? '' : '\n${target.dispositionReason}'}',
   latest == null
       ? 'No reading recorded'
-      : '${latest.displayValue}\n${latest.outOfRange ? 'Exception recorded' : 'Within defined condition'}',
+      : '${latest.displayValue}\n${latest.conditionLabel}',
   '${_dateTime(target.dispositionAt)}\nby ${target.dispositionByName}',
   'Asset v${target.assetInstanceVersion}'
       '${target.contextReview == null ? "" : "\nReviewed context ${target.contextRevision}: asset v${target.currentContext.assetInstanceVersion}, ${target.currentContext.rowLabel}\n${target.contextReview!.reviewedByName}: ${target.contextReview!.reason}\nAudit ${target.contextReview!.auditId}"}'
@@ -292,7 +292,7 @@ List<String> _observationRow(
 }) => <String>[
   '${_dateTime(observation.observedAt)}\nRecorded ${_dateTime(observation.recordedAt)}',
   '${observation.rowLabel}\n${_componentPosition(componentName: observation.componentName, componentNodeId: observation.componentNodeId, hierarchyPath: observation.hierarchyPath, physicalPosition: observation.physicalPosition)}',
-  '${observation.displayValue}\n${observation.outOfRange ? 'Exception recorded' : 'Within defined condition'}\n${isSuperseded ? 'Superseded' : 'Current'}',
+  '${observation.displayValue}\n${observation.conditionLabel}\n${isSuperseded ? 'Superseded' : 'Current'}',
   _operatingContext(observation),
   '${observation.observerName}\n${observation.observerUid}',
   'Observation ${observation.id}'
