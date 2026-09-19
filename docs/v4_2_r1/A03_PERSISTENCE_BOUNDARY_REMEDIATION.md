@@ -393,3 +393,38 @@ responsibility out of a presentation file. The AST inventory reports PASS with
 zero unclassified operations or presentation persistence. These remain current
 working-source measurements and admit no deployment, production reconciliation
 or physical-device evidence.
+
+## Critical-alarm recovery inventory addendum, 2026-09-19
+
+The current inventory contains 596 operations and 2,081 sites across the same
+70 classified surfaces. Its exact digest is
+`531A9D0BD36D2CA83BEC9590AFDAA58D55FCF273512407AC8EF3919C46462E71`.
+The sole added operation is `DurableSubmissionRepository.watchForActor`, which
+contributes three sites to the structural read inventory. It observes retained
+work for the selected actor and emits the initial population through the same
+watcher, avoiding a read/subscribe gap.
+The critical-alarm provider gates disclosure against live actor authority.
+
+This operation remains inside the existing Isar repository classification;
+no store, mode, profile or presentation persistence allowance changes. The
+native pending-submission tests cover appearance and settlement without manual
+invalidation, account changes and temporary authority failure. The current
+inventory pins bind the new operation; historical closure and production
+evidence remain unchanged and confer no new release authority.
+
+## Burner correction review inventory addendum, 2026-09-20
+
+The current inventory contains 600 operations and 2,091 sites across 72
+classified surfaces, with digest
+`4C92C4B915402B61678724D9D30199C58ACF11CA3BB95F213F11ACAFA7B7361E`.
+The correction provider wires a read-only repository. The repository reads
+the original installation, complete event-scoped correction chain, accepted
+correction and current installation from the server, rejecting cached,
+pending, missing or conflicting evidence. Its explicit profile permits no
+Firestore mutation. Approved Admin/SI admission and remote Rules remain
+independent requirements.
+
+The existing durable journal owns the original command envelope and local
+acceptance settlement; the workflow backend owns correction and audit writes.
+This inventory refresh records current source boundaries only and does not
+change historical closure or authorize deployment.

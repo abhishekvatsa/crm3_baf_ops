@@ -126,11 +126,10 @@ void main() {
   });
 
   test('legacy T0 fabrication never inherits documented origin', () {
-    final legacy =
-        profileMap()
-          ..['sourceType'] = 'fabricated'
-          ..['traceabilityGrade'] = 'T0'
-          ..remove('originClassification');
+    final legacy = profileMap()
+      ..['sourceType'] = 'fabricated'
+      ..['traceabilityGrade'] = 'T0'
+      ..remove('originClassification');
 
     final profile = InnerCoverProfile.fromMap(legacy, 'cover-1');
 
@@ -261,5 +260,35 @@ void main() {
       'removalReason': 'Moved to inspection.',
     }, 'link-1');
     expect(closed.removedByName, 'Admin Two');
+    expect(closed.removedPhysicalAt, isNull);
+    final physicalClosed = <String, dynamic>{
+      ...active,
+      'active': false,
+      'removedAt': DateTime.utc(2026, 8, 3),
+      'removedPhysicalAt': DateTime.utc(2026, 8, 2),
+      'removedByUid': 'admin-2',
+      'removedByName': 'Admin Two',
+      'removalAction': 'DELINK_INNER_COVER',
+      'removalReason': 'Late entry of physical removal.',
+    };
+    final decoded = InnerCoverLinkage.fromMap(physicalClosed, 'link-1');
+    expect(decoded.removedPhysicalAt, DateTime.utc(2026, 8, 2));
+    expect(decoded.removedAt, DateTime.utc(2026, 8, 3));
+    for (final contradiction in [
+      {'removedPhysicalAt': DateTime.utc(2026, 7, 31)},
+      {'removedPhysicalAt': DateTime.utc(2026, 8, 4)},
+      {'removedAt': DateTime.utc(2026, 7, 31)},
+      {'removedPhysicalAt': 'not-a-date'},
+      {'installedAt': 'not-a-date'},
+    ]) {
+      expect(
+        () => InnerCoverLinkage.fromMap({
+          ...physicalClosed,
+          ...contradiction,
+        }, 'link-1'),
+        throwsA(isA<PersistedDataFormatException>()),
+        reason: '$contradiction must not become valid-looking history',
+      );
+    }
   });
 }

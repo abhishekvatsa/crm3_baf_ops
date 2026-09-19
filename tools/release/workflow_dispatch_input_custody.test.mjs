@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import {execFileSync} from 'node:child_process';
 
 import {
   auditManualWorkflows,
@@ -78,6 +79,55 @@ test('all current manual workflows keep dispatch inputs out of run blocks', () =
   assert.ok(sources.every((source) => source.includes('CRM_DISPATCH_')));
   assert.ok(sources.every((source) =>
     source.includes('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')));
+});
+
+test('production dispatch and builders enforce the same Play version-code ceiling', () => {
+  const workflow = fs.readFileSync(
+    path.join(repositoryRoot, '.github/workflows/production-artifact.yml'), 'utf8');
+  const limitCheck = 'test "$CRM_DISPATCH_BUILD_NUMBER" -le 2100000000';
+  assert.ok(workflow.includes(limitCheck));
+  const policy = fs.readFileSync(
+    path.join(repositoryRoot, 'tools/release/Test-ProductionReleasePolicy.ps1'), 'utf8');
+  assert.ok(policy.includes(`'${limitCheck}'`));
+
+  // Execute only the actual parameter declarations. No builder body, signing
+  // input, production workflow, or release artifact is accessed or executed.
+  const root = repositoryRoot.replaceAll("'", "''");
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $checks = @(
+      @{Path='tools/release/New-ProductionArtifact.ps1';Name='ExpectedBuildNumber'},
+      @{Path='tools/release/Invoke-CIAndroidPackageProof.ps1';Name='BuildNumber'}
+    )
+    foreach ($check in $checks) {
+      $tokens=$null; $errors=$null
+      $ast=[System.Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path '${root}' $check.Path),[ref]$tokens,[ref]$errors)
+      if ($errors.Count) { throw 'Builder has syntax errors' }
+      $parameter=@($ast.ParamBlock.Parameters | Where-Object {
+        $_.Name.VariablePath.UserPath -eq $check.Name
+      })
+      if ($parameter.Count -ne 1) { throw 'Missing build-number declaration' }
+      $body='[CmdletBinding()]param(' + $parameter[0].Extent.Text + ') return $' + $check.Name
+      $validate=[scriptblock]::Create($body)
+      foreach ($valid in @(1,2100000000)) {
+        $arguments=@{}; $arguments[$check.Name]=$valid
+        if ((& $validate @arguments) -ne $valid) { throw 'Valid boundary rejected' }
+      }
+      foreach ($invalid in @(-1,0,2100000001,2147483647)) {
+        $arguments=@{}; $arguments[$check.Name]=$invalid; $refused=$false
+        try { [void](& $validate @arguments) } catch {
+          if ($_.FullyQualifiedErrorId -notlike 'ParameterArgumentValidationError*') { throw }
+          $refused=$true
+        }
+        if (-not $refused) { throw 'Out-of-range build number accepted' }
+      }
+    }
+    'PASS_PLAY_VERSION_CODE_BOUNDARIES'
+  `;
+  const output = execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script],
+    {encoding: 'utf8'});
+  assert.match(output, /PASS_PLAY_VERSION_CODE_BOUNDARIES/);
 });
 
 test('C-01 closure is bound to exact merge and post-merge evidence', () => {

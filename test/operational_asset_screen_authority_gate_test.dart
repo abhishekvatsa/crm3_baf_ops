@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
@@ -54,11 +55,11 @@ void main() {
       tester,
       screen: const InnerCoverLifecycleScreen(),
       overrides: [
-        innerCoverProfilesProvider.overrideWith((ref) {
+        innerCoverProfileBatchProvider.overrideWith((ref) {
           reads++;
           throw StateError('profiles must not be read');
         }),
-        innerCoverAssignmentsProvider.overrideWith((ref) {
+        innerCoverAssignmentBatchProvider.overrideWith((ref) {
           reads++;
           throw StateError('assignments must not be read');
         }),
@@ -183,11 +184,21 @@ void main() {
       ProviderScope(
         overrides: [
           currentAppUserProvider.overrideWith((ref) => actors.stream),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream<List<InnerCoverProfile>>.value(const []),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => Stream.value(
+              const DecodedSnapshotBatch<InnerCoverProfile>(
+                records: [],
+                rejectedDocumentIds: [],
+              ),
+            ),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream<List<BaseInnerCoverAssignment>>.value(const []),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => Stream.value(
+              const DecodedSnapshotBatch<BaseInnerCoverAssignment>(
+                records: [],
+                rejectedDocumentIds: [],
+              ),
+            ),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),

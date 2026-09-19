@@ -818,6 +818,7 @@ test('successor business collections have exact app or server authority', () => 
   const appDecoded = [
     'asset_availability_current',
     'asset_condition_declarations',
+    'burner_block_lifecycle_corrections',
     'critical_alarm_contacts',
     'critical_alarms',
     'frequent_issue_definitions',
@@ -881,6 +882,7 @@ test('every successor app collection reaches a strict Dart decoder', async () =>
   const successorCollections = [
     'asset_availability_current',
     'asset_condition_declarations',
+    'burner_block_lifecycle_corrections',
     'critical_alarm_contacts',
     'critical_alarms',
     'frequent_issue_definitions',
@@ -925,6 +927,29 @@ test('every successor app collection reaches a strict Dart decoder', async () =>
     ),
   );
   assert.equal(JSON.stringify(reconciliation).includes('private-'), false);
+});
+
+test('correction records cannot pass without app decoder reconciliation', () => {
+  const result = classify({
+    documents: {
+      burner_block_lifecycle_corrections: [
+        {id: 'private-correction-id', data: {}},
+      ],
+    },
+    roots: ['burner_block_lifecycle_corrections'],
+  });
+
+  assert.equal(result.decision, A05_DECISIONS.hold);
+  assert.equal(
+    result.collectionDispositions.burner_block_lifecycle_corrections,
+    'DART_RECONCILIATION_REQUIRED',
+  );
+  assert.ok(result.blockingFindings.some((finding) =>
+    finding.collection === 'burner_block_lifecycle_corrections' &&
+    finding.reason === 'supported-record-strict-reader-reconciliation-failed' &&
+    finding.reconciliationError === 'MISSING_RECONCILIATION_RESULT',
+  ));
+  assert.equal(JSON.stringify(result).includes('private-correction-id'), false);
 });
 
 test('production sweep source contains no Firestore mutation API', () => {

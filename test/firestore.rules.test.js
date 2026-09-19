@@ -5862,6 +5862,29 @@ describe("governed dynamic asset hierarchy", () => {
     }
   });
 
+  test("burner correction history is readable only by approved Admin or SI and never client-writable", async () => {
+    await seedUser("correctionAdmin", ["admin"]);
+    await seedUser("correctionSi", ["si"]);
+    await seedUser("correctionOps", ["operations"]);
+    await seedUser("correctionPending", ["si"], false);
+    const path = "burner_block_lifecycle_corrections/correction-1";
+    await seedDoc(path, {correctionId: "correction-1", correctsEventId: "event-1"});
+    for (const uid of ["correctionAdmin", "correctionSi"]) {
+      await assertSucceeds(getDoc(doc(dbAs(uid), path)));
+      await assertSucceeds(getDocs(query(collection(dbAs(uid), "burner_block_lifecycle_corrections"),
+        where("correctsEventId", "==", "event-1"))));
+      await assertFails(updateDoc(doc(dbAs(uid), path), {reason: "rewrite"}));
+      await assertFails(deleteDoc(doc(dbAs(uid), path)));
+      await assertFails(setDoc(doc(dbAs(uid), "burner_block_lifecycle_corrections/new"), {correctsEventId: "event-1"}));
+    }
+    for (const uid of ["correctionOps", "correctionPending"]) {
+      await assertFails(getDoc(doc(dbAs(uid), path)));
+      await assertFails(getDocs(query(collection(dbAs(uid), "burner_block_lifecycle_corrections"),
+        where("correctsEventId", "==", "event-1"))));
+    }
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
+  });
+
   test("burner rounds and component lifecycles are approved-readable and immutable", async () => {
     await seedUser("burnerPending", ["operations"], false);
     await seedDoc("burner_condition_rounds/round-1", {

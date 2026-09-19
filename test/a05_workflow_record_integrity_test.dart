@@ -49,6 +49,36 @@ void main() {
       );
     });
 
+    test(
+      'workflow kind preserves legacy absence and validates current kinds',
+      () {
+        expect(
+          workflowAggregateRecordFromFirestoreData(
+            documentId: 'workflow-1',
+            data: _workflow(),
+          ).workflowKind,
+          isNull,
+        );
+        for (final kind in ['plannedMaintenance', 'issueCoordination']) {
+          expect(
+            workflowAggregateRecordFromFirestoreData(
+              documentId: 'workflow-1',
+              data: _workflow()..['workflowKind'] = kind,
+            ).workflowKind,
+            kind,
+          );
+        }
+        for (final invalid in ['', 'other', 7, true]) {
+          _expectFormat(
+            () => workflowAggregateRecordFromFirestoreData(
+              documentId: 'workflow-1',
+              data: _workflow()..['workflowKind'] = invalid,
+            ),
+          );
+        }
+      },
+    );
+
     test('wrong-typed present booleans fail instead of becoming defaults', () {
       _expectFormat(
         () => workflowAggregateRecordFromFirestoreData(
@@ -73,22 +103,20 @@ void main() {
     test('governed custom workflow and equipment identity is exact', () {
       final workflow = workflowAggregateRecordFromFirestoreData(
         documentId: 'workflow-custom',
-        data:
-            _workflow()
-              ..['assetTypeKey'] = 'governedCustom'
-              ..['assetNumber'] = 3
-              ..['assetClassId'] = 'annealing-car-class'
-              ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        data: _workflow()
+          ..['assetTypeKey'] = 'governedCustom'
+          ..['assetNumber'] = 3
+          ..['assetClassId'] = 'annealing-car-class'
+          ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       );
       final equipment = equipmentStatusRecordFromFirestoreData(
         documentId:
             'governedCustom_annealing-car-class_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        data:
-            _equipment()
-              ..['assetTypeKey'] = 'governedCustom'
-              ..['assetNumber'] = 3
-              ..['assetClassId'] = 'annealing-car-class'
-              ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        data: _equipment()
+          ..['assetTypeKey'] = 'governedCustom'
+          ..['assetNumber'] = 3
+          ..['assetClassId'] = 'annealing-car-class'
+          ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       );
 
       expect(workflow.assetClassId, 'annealing-car-class');
@@ -99,10 +127,9 @@ void main() {
       _expectFormat(
         () => equipmentStatusRecordFromFirestoreData(
           documentId: 'governedCustom_3',
-          data:
-              _equipment()
-                ..['assetTypeKey'] = 'governedCustom'
-                ..['assetNumber'] = 3,
+          data: _equipment()
+            ..['assetTypeKey'] = 'governedCustom'
+            ..['assetNumber'] = 3,
         ),
       );
     });
@@ -165,15 +192,13 @@ void main() {
     });
 
     test('documented absent legacy workflow values remain compatible', () {
-      final workflow =
-          _workflow()
-            ..remove('activeRedWork')
-            ..remove('awaitingPreparation')
-            ..remove('cancelled');
-      final lane =
-          _lane()
-            ..remove('progressRevision')
-            ..remove('displayOrder');
+      final workflow = _workflow()
+        ..remove('activeRedWork')
+        ..remove('awaitingPreparation')
+        ..remove('cancelled');
+      final lane = _lane()
+        ..remove('progressRevision')
+        ..remove('displayOrder');
       final prompt = _prompt()..remove('active');
 
       expect(

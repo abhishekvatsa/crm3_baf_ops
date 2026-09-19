@@ -979,6 +979,11 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     final sectionErrors = sections
         .expand((section) => section.validate())
         .toList(growable: false);
+    final rawSectionErrors = _isFabricatedOrigin
+        ? _sections.values
+              .expand((state) => state.rawValidationErrors())
+              .toList(growable: false)
+        : const <String>[];
     final serialError = normalizeInnerCoverSerial(serial).length < 2
         ? 'Enter an Inner Cover serial number.'
         : null;
@@ -990,19 +995,22 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     if (serialError != null ||
         reasonError != null ||
         sectionErrors.isNotEmpty ||
+        rawSectionErrors.isNotEmpty ||
         dateError != null) {
       final errorSection = serialError != null
           ? _identityKey
           : dateError != null
           ? _timelineKey
-          : sectionErrors.isNotEmpty
+          : sectionErrors.isNotEmpty || rawSectionErrors.isNotEmpty
           ? _fabricationKey
           : _recordKey;
       setState(() {
         _serialError = serialError;
         _reasonError = reasonError;
         _dateError = dateError;
-        _sectionsError = sectionErrors.isEmpty
+        _sectionsError = rawSectionErrors.isNotEmpty
+            ? rawSectionErrors.first
+            : sectionErrors.isEmpty
             ? null
             : 'Complete the fabrication evidence: ${sectionErrors.first}';
       });

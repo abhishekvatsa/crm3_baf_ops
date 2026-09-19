@@ -7,6 +7,50 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'copied readings retain original ages and do not count as a new survey',
+    () {
+      final originalAt = DateTime.utc(2026, 8, 1);
+      final round = _round(
+        furnaceNumber: 2,
+        observedAt: DateTime.utc(2026, 9, 1),
+        evidenceKind: 'directiveCompliance',
+        evidenceProvenance: {
+          for (final field in burnerEvidenceFields)
+            field: BurnerEvidenceProvenance(
+              kind: 'inherited',
+              sourceRoundId: 'original',
+              observedAt: originalAt,
+              observerUid: 'original-ops',
+              observerName: 'Original Operations',
+            ),
+        },
+      );
+      final report = buildBurnerReliabilityReport([], [round]);
+      expect(report.roundCount, 0);
+      expect(report.partialRoundCount, 1);
+      expect(report.redHotObservationCount, 0);
+      expect(report.rows.first.latestMicroampAt, originalAt);
+      expect(report.rows.first.latest, originalAt);
+    },
+  );
+
+  test(
+    'legacy copied values with unknown ages are excluded from dated summaries',
+    () {
+      final report = buildBurnerReliabilityReport([], [
+        _round(
+          furnaceNumber: 2,
+          observedAt: DateTime.utc(2026, 9, 1),
+          roundNote: 'I&A compliance for directive burner_round_red_hot_old.',
+        ),
+      ]);
+      expect(report.rows, isEmpty);
+      expect(report.roundCount, 0);
+      expect(report.unknownAgeRoundCount, 1);
+    },
+  );
+
+  test(
     'aggregates lockout, red-hot, outcome, microamp and action evidence',
     () {
       final open = _ticket(
@@ -38,21 +82,22 @@ void main() {
         id: 'closed-1',
         furnaceNumber: 2,
         startedAt: DateTime.utc(2026, 8, 12, 8),
-        lockout: BurnerLockoutCase(
-          positions: const [1],
-          commonMode: false,
-          cycleStage: BurnerCycleStage.ignition,
-          flameObservation: BurnerObservation.notSeen,
-          sparkObservation: BurnerObservation.seen,
-          relightAttempts: 1,
-          remainsLockedOut: true,
-        ).withResolution(
-          BurnerLockoutResolution(
-            outcomes: const {1: BurnerResolutionOutcome.returnedToService},
-            microampReadings: const {1: 3.4},
-          ),
-          actions: [returnedAction],
-        ),
+        lockout:
+            BurnerLockoutCase(
+              positions: const [1],
+              commonMode: false,
+              cycleStage: BurnerCycleStage.ignition,
+              flameObservation: BurnerObservation.notSeen,
+              sparkObservation: BurnerObservation.seen,
+              relightAttempts: 1,
+              remainsLockedOut: true,
+            ).withResolution(
+              BurnerLockoutResolution(
+                outcomes: const {1: BurnerResolutionOutcome.returnedToService},
+                microampReadings: const {1: 3.4},
+              ),
+              actions: [returnedAction],
+            ),
         actions: [returnedAction],
         resolved: true,
       );
@@ -69,20 +114,23 @@ void main() {
         id: 'closed-2',
         furnaceNumber: 1,
         startedAt: DateTime.utc(2026, 8, 11, 8),
-        lockout: BurnerLockoutCase(
-          positions: const [8],
-          commonMode: false,
-          cycleStage: BurnerCycleStage.ignition,
-          flameObservation: BurnerObservation.notSeen,
-          sparkObservation: BurnerObservation.seen,
-          relightAttempts: 2,
-          remainsLockedOut: true,
-        ).withResolution(
-          BurnerLockoutResolution(
-            outcomes: const {8: BurnerResolutionOutcome.isolatedForFollowUp},
-          ),
-          actions: [followUpAction],
-        ),
+        lockout:
+            BurnerLockoutCase(
+              positions: const [8],
+              commonMode: false,
+              cycleStage: BurnerCycleStage.ignition,
+              flameObservation: BurnerObservation.notSeen,
+              sparkObservation: BurnerObservation.seen,
+              relightAttempts: 2,
+              remainsLockedOut: true,
+            ).withResolution(
+              BurnerLockoutResolution(
+                outcomes: const {
+                  8: BurnerResolutionOutcome.isolatedForFollowUp,
+                },
+              ),
+              actions: [followUpAction],
+            ),
         actions: [followUpAction],
         resolved: true,
       );
@@ -140,26 +188,27 @@ void main() {
       performedBy: 'I&A One',
       performedAt: closedAt,
     );
-    final reopened = _ticket(
-        id: 'reopened-1',
-        furnaceNumber: 4,
-        startedAt: DateTime.utc(2026, 8, 14, 8),
-        lockout: BurnerLockoutCase(
-          positions: const [3],
-          commonMode: false,
-          cycleStage: BurnerCycleStage.firing,
-          flameObservation: BurnerObservation.notSeen,
-          sparkObservation: BurnerObservation.seen,
-          relightAttempts: 1,
-          remainsLockedOut: true,
-        ),
-      )
-      ..resolutionHistory = [
-        ResolutionHistory(
-          resolvedAt: closedAt,
-          actionsJson: ComponentAction.encode([historicalAction]),
-        ),
-      ];
+    final reopened =
+        _ticket(
+            id: 'reopened-1',
+            furnaceNumber: 4,
+            startedAt: DateTime.utc(2026, 8, 14, 8),
+            lockout: BurnerLockoutCase(
+              positions: const [3],
+              commonMode: false,
+              cycleStage: BurnerCycleStage.firing,
+              flameObservation: BurnerObservation.notSeen,
+              sparkObservation: BurnerObservation.seen,
+              relightAttempts: 1,
+              remainsLockedOut: true,
+            ),
+          )
+          ..resolutionHistory = [
+            ResolutionHistory(
+              resolvedAt: closedAt,
+              actionsJson: ComponentAction.encode([historicalAction]),
+            ),
+          ];
 
     final report = buildBurnerReliabilityReport([reopened]);
 
@@ -255,7 +304,13 @@ void main() {
 BurnerConditionRound _round({
   required int furnaceNumber,
   required DateTime observedAt,
+  String evidenceKind = 'inspection',
+  Map<String, BurnerEvidenceProvenance> evidenceProvenance = const {},
+  String? roundNote,
 }) => BurnerConditionRound(
+  evidenceKind: evidenceKind,
+  evidenceProvenance: evidenceProvenance,
+  roundNote: roundNote,
   roundId: 'round-1',
   assetClassId: 'furnace-class',
   assetClassCode: 'FURNACE',
@@ -290,25 +345,24 @@ MaintenanceRecord _ticket({
   List<ComponentAction> actions = const [],
   bool resolved = false,
 }) {
-  final record =
-      MaintenanceRecord()
-        ..firestoreId = id
-        ..assetType = AssetType.furnace
-        ..assetNumber = furnaceNumber
-        ..maintenanceType = MaintenanceType.breakdown
-        ..classification = burnerLockoutClassification
-        ..description = 'Structured furnace burner lockout evidence.'
-        ..routedTo = RoutedTo.instrumentation
-        ..status = resolved ? TicketStatus.resolved : TicketStatus.open
-        ..isResolved = resolved
-        ..component = 'Burner system'
-        ..subsystem = 'Burner system'
-        ..startDate = startedAt
-        ..endDate = resolved ? startedAt.add(const Duration(hours: 2)) : null
-        ..createdAt = startedAt
-        ..updatedAt = startedAt.add(const Duration(hours: 2))
-        ..resolutionHistoryJson = '[]'
-        ..burnerLockoutCase = lockout
-        ..actions = actions;
+  final record = MaintenanceRecord()
+    ..firestoreId = id
+    ..assetType = AssetType.furnace
+    ..assetNumber = furnaceNumber
+    ..maintenanceType = MaintenanceType.breakdown
+    ..classification = burnerLockoutClassification
+    ..description = 'Structured furnace burner lockout evidence.'
+    ..routedTo = RoutedTo.instrumentation
+    ..status = resolved ? TicketStatus.resolved : TicketStatus.open
+    ..isResolved = resolved
+    ..component = 'Burner system'
+    ..subsystem = 'Burner system'
+    ..startDate = startedAt
+    ..endDate = resolved ? startedAt.add(const Duration(hours: 2)) : null
+    ..createdAt = startedAt
+    ..updatedAt = startedAt.add(const Duration(hours: 2))
+    ..resolutionHistoryJson = '[]'
+    ..burnerLockoutCase = lockout
+    ..actions = actions;
   return record;
 }

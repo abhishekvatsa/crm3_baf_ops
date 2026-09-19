@@ -21,6 +21,12 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
   Isar get isar => throw UnsupportedError('UI test store has no native Isar.');
 
   @override
+  Stream<List<DurableSubmission>> watchForActor(String actorUid) =>
+      throw UnsupportedError(
+        'Reactive pending recovery requires the real Isar fixture.',
+      );
+
+  @override
   Future<List<DurableSubmission>> listForAdministrativeReview({
     required void Function() requireReviewer,
   }) => throw UnsupportedError(

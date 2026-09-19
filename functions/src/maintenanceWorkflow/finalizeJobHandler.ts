@@ -309,7 +309,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     const ids = deterministicRedSuccessorIds(command.aggregateId, command.commandId);
     successorWorkflowId = ids.workflowId;
     successorExecutionId = ids.executionId;
-    successorTemplate = await resolveRedSuccessorTemplate(tx, assetTypeKey);
+    successorTemplate = await resolveRedSuccessorTemplate(tx, equipmentIdentity);
     successorModules = successorTemplate.modules.map((module, index) => buildRedSuccessorModule({
       template: successorTemplate!,
       module,
@@ -396,6 +396,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       parentExecutionId: parentExecutionId,
       assetTypeKey,
       assetNumber,
+      assetClassId: equipmentIdentity.assetClassId,
+      assetInstanceId: equipmentIdentity.assetInstanceId,
       status: awaitingPreparation ? "awaitingCompliance" : "assigned",
       version: 1,
       workflowSchemaVersion: 1,
@@ -452,6 +454,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       templatePackageCode: successorTemplate.packageCode,
       assetType: assetTypeKey,
       assetNumber,
+      assetClassId: equipmentIdentity.assetClassId,
+      assetInstanceId: equipmentIdentity.assetInstanceId,
       isCompleted: false,
       isCancelled: false,
       assignedByUid: context.actor.uid,
@@ -478,6 +482,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       modulePopulationLastModuleId: successorModules.at(-1)?.id ?? null,
       metadataJson: JSON.stringify({
         source: "server_governed_red_successor",
+        publicationAuditId: successorTemplate.publicationAuditId,
         parentWorkflowId: command.aggregateId,
         parentExecutionId,
         packageFirestoreId: successorTemplate.packageId,

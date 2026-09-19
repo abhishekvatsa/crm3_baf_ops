@@ -78,17 +78,43 @@ function fakeDb(seed = {}) {
     };
   }
 
+  function query(collection, clauses = [], max = null) {
+    return {
+      where(field, op, value) {
+        return query(collection, [...clauses, [field, op, value]], max);
+      },
+      limit(value) {
+        return query(collection, clauses, value);
+      },
+      _query: {collection, clauses, max},
+    };
+  }
+
   return {
     store,
     writes,
     db: {
       collection(name) {
-        return {doc(id) { return ref(name, id); }};
+        return {
+          doc(id) { return ref(name, id); },
+          where(field, op, value) { return query(name, [[field, op, value]]); },
+        };
       },
       async runTransaction(fn) {
         const staged = [];
         const transaction = {
           async get(documentRef) {
+            if (staged.length > 0) throw new Error('Transaction read after write');
+            if (documentRef._query != null) {
+              const {collection, clauses, max} = documentRef._query;
+              const rows = [...store.entries()]
+                .filter(([path]) => path.startsWith(`${collection}/`))
+                .filter(([, value]) => clauses.every(([field, op, expected]) =>
+                  op === '==' && value?.[field] === expected))
+                .slice(0, max ?? Number.MAX_SAFE_INTEGER)
+                .map(([path, value]) => snapshot(path, path.split('/').pop()));
+              return {docs: rows};
+            }
             return snapshot(documentRef.path, documentRef.id);
           },
           set(documentRef, data) {
@@ -362,14 +388,14 @@ describe('what a re-acceptance is allowed to rely on', () => {
         sourceBaseAssetInstanceId: IDS.base,
         expectedSourceAssignmentVersion: 1,
         targetState: 'awaitingInspection',
-        physicalEventAt: '2026-08-08T00:00:00.000Z',
+         physicalEventAt: '2026-08-16T00:00:00.000Z',
         reason: 'Open the post-service assurance episode for inspection.',
-      });
+      }, {now: '2026-08-31T12:00:00.000Z'});
 
       await invoke(memory, {
-        ...acceptWith('2026-08-14T00:00:00.000Z', 4),
+         ...acceptWith('2026-08-17T00:00:00.000Z', 4),
         requestId: IDS.reaccept,
-      });
+      }, {now: '2026-08-31T12:00:00.000Z'});
 
       expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
         .toMatchObject({assuranceEpisodeId: IDS.delink});
@@ -429,7 +455,14 @@ function profile(id, serial, state, version, overrides = {}) {
   };
 }
 
-async function invoke(memory, request, {injectPhysicalEventAt = true} = {}) {
+async function invoke(
+  memory,
+  request,
+  {
+    injectPhysicalEventAt = true,
+    now = '2026-08-15T12:00:00.000Z',
+  } = {},
+) {
   const data = {...request};
   if (injectPhysicalEventAt && ['SET_INNER_COVER_STATE', 'DELINK_INNER_COVER',
     'REPLACE_INNER_COVER'].includes(data.operation) &&
@@ -437,15 +470,102 @@ async function invoke(memory, request, {injectPhysicalEventAt = true} = {}) {
     // Existing test commands model the physical action at the fixed test
     // clock. New clients send this explicitly; keeping the fixture helper
     // compatible lets unrelated lifecycle assertions remain focused.
-    data.physicalEventAt = '2026-08-03T00:00:00.000Z';
+    data.physicalEventAt = data.operation === 'SET_INNER_COVER_STATE'
+      ? '2026-08-03T00:00:00.000Z'
+      : '2026-08-15T12:00:00.000Z';
   }
   return mutateInnerCoverLifecycleWithDb({
     db: memory.db,
     authUid: 'admin-1',
     data,
-    now: () => new Date('2026-08-15T12:00:00.000Z'),
+    now: () => new Date(now),
     timestampFromDate: (date) => date,
   });
+}
+
+function custodyLinkage(linkageId, innerCoverId, serial, baseId, active = true) {
+  return {
+    schemaVersion: 1,
+    linkageId,
+    baseAssetInstanceId: baseId,
+    innerCoverId,
+    innerCoverSerialNumber: serial,
+    installedAt: new Date('2026-08-05T00:00:00.000Z'),
+    active,
+    removedAt: active ? null : new Date('2026-08-10T00:00:00.000Z'),
+    version: active ? 1 : 2,
+  };
+}
+
+function installedCustody(innerCoverId, serial, baseId, baseNumber, linkageId) {
+  return {
+    [`inner_cover_profiles/${innerCoverId}`]: profile(
+      innerCoverId, serial, 'installed', 4, {
+        currentBaseAssetInstanceId: baseId,
+        currentBaseAssetNumber: baseNumber,
+        currentBaseAssetName: `Base ${baseNumber}`,
+        currentLinkageId: linkageId,
+      },
+    ),
+    [`base_inner_cover_assignments/${baseId}`]: {
+      schemaVersion: 1,
+      baseAssetInstanceId: baseId,
+      innerCoverId,
+      innerCoverSerialNumber: serial,
+      linkageId,
+      version: 1,
+    },
+    [`inner_cover_linkages/${linkageId}`]: custodyLinkage(
+      linkageId, innerCoverId, serial, baseId,
+    ),
+  };
+}
+
+function targetCustodyScenario(operation) {
+  const hasSource = ['TRANSFER_INNER_COVER', 'SWAP_INNER_COVERS']
+    .includes(operation);
+  const replacesTarget = ['REPLACE_INNER_COVER', 'SWAP_INNER_COVERS']
+    .includes(operation);
+  return {
+    data: {
+      ...seed(),
+      ...(hasSource ? installedCustody(
+        IDS.cover, 'GR26', IDS.base2, 202, 'link-source',
+      ) : {
+        [`inner_cover_profiles/${IDS.cover}`]: profile(
+          IDS.cover, 'GR26', 'available', 2,
+        ),
+      }),
+      ...(replacesTarget ? installedCustody(
+        IDS.cover2, 'GR27', IDS.base, 201, 'link-target',
+      ) : {}),
+    },
+    request: {
+      ...linkRequest(IDS.cover, hasSource ? 4 : 2),
+      operation,
+      ...(hasSource ? {
+        sourceBaseAssetInstanceId: IDS.base2,
+        expectedSourceAssignmentVersion: 1,
+      } : {}),
+      ...(replacesTarget ? {
+        expectedTargetAssignmentVersion: 1,
+        displacedInnerCoverId: IDS.cover2,
+        expectedDisplacedVersion: 4,
+      } : {}),
+      ...(operation === 'REPLACE_INNER_COVER' ? {
+        targetState: 'awaitingInspection',
+      } : {}),
+    },
+  };
+}
+
+function closedCustodyHistory(baseId) {
+  return Object.fromEntries(Array.from({length: 25}, (_, index) => {
+    const linkageId = `aa-closed-${String(index).padStart(2, '0')}`;
+    return [`inner_cover_linkages/${linkageId}`, custodyLinkage(
+      linkageId, IDS.cover2, 'GR27', baseId, false,
+    )];
+  }));
 }
 
 describe('Inner Cover lifecycle mutation', () => {
@@ -528,7 +648,7 @@ describe('Inner Cover lifecycle mutation', () => {
   });
 
   test.each([
-    ['2026-08-15T12:00:00.000001Z', 'cannot be in the future'],
+    ['2026-09-01T00:00:00.000001Z', 'cannot be in the future'],
     ['2026-07-31T23:59:59.999999Z', 'cannot predate receipt'],
   ])('microsecond compatibility preserves chronology for %s', async (instant, message) => {
     const memory = fakeDb(seed());
@@ -774,9 +894,9 @@ describe('Inner Cover lifecycle mutation', () => {
     await invoke(memory, {
       // Re-accepted after the cover came back, on the inspection carried out
       // for that return rather than the one that first qualified it.
-      ...acceptRequest(IDS.cover, 4, '2026-08-14T00:00:00.000Z'),
+      ...acceptRequest(IDS.cover, 4, '2026-08-17T00:00:00.000Z'),
       requestId: IDS.replace,
-    });
+    }, {now: '2026-08-31T12:00:00.000Z'});
     await expect(invoke(memory, {
       ...linkRequest(IDS.cover, 5), requestId: IDS.donorSection,
     })).rejects.toMatchObject({details: {reasonCode: 'inner-cover-base-unavailable'}});
@@ -1141,6 +1261,80 @@ describe('Inner Cover lifecycle mutation', () => {
       .toMatchObject({active: true, removedAt: null});
   });
 
+  test.each([
+    ['DELINK_INNER_COVER', '2026-08-04T23:59:59.999Z'],
+    ['REPLACE_INNER_COVER', '2026-08-04T23:59:59.999Z'],
+  ])('%s rejects physical removal before installation even when recorded later',
+    async (operation, physicalEventAt) => {
+      const {data, request} = targetCustodyScenario('REPLACE_INNER_COVER');
+      const memory = fakeDb(data);
+      const removal = operation === 'REPLACE_INNER_COVER' ? request : {
+        requestId: IDS.delink,
+        operation,
+        innerCoverId: IDS.cover2,
+        expectedVersion: 4,
+        sourceBaseAssetInstanceId: IDS.base,
+        expectedSourceAssignmentVersion: 1,
+        targetState: 'awaitingInspection',
+        reason: 'Record the physical removal for inspection.',
+      };
+      await expect(invoke(memory, {...removal, physicalEventAt}))
+        .rejects.toMatchObject({
+          code: 'failed-precondition',
+          details: {reasonCode: 'inner-cover-physical-linkage-chronology-invalid'},
+        });
+      expect(memory.writes).toHaveLength(0);
+    });
+
+  test.each(['DELINK_INNER_COVER', 'REPLACE_INNER_COVER'])(
+    '%s retains the physical removal time separately from recording time',
+    async (operation) => {
+      const {data, request} = targetCustodyScenario('REPLACE_INNER_COVER');
+      const memory = fakeDb(data);
+      const removal = operation === 'REPLACE_INNER_COVER' ? request : {
+        requestId: IDS.delink,
+        operation,
+        innerCoverId: IDS.cover2,
+        expectedVersion: 4,
+        sourceBaseAssetInstanceId: IDS.base,
+        expectedSourceAssignmentVersion: 1,
+        targetState: 'awaitingInspection',
+        reason: 'Record the physical removal for inspection.',
+      };
+      await invoke(memory, {
+        ...removal, physicalEventAt: '2026-08-10T00:00:00.000Z',
+      });
+      expect(memory.store.get('inner_cover_linkages/link-target')).toMatchObject({
+        active: false,
+        removedAt: new Date('2026-08-15T12:00:00.000Z'),
+        removedPhysicalAt: new Date('2026-08-10T00:00:00.000Z'),
+      });
+    },
+  );
+
+  test.each([undefined, 'not-a-date'])(
+    'removal rejects missing or malformed installation time: %s',
+    async (installedAt) => {
+      const {data} = targetCustodyScenario('REPLACE_INNER_COVER');
+      data['inner_cover_linkages/link-target'].installedAt = installedAt;
+      const memory = fakeDb(data);
+      await expect(invoke(memory, {
+        requestId: IDS.delink,
+        operation: 'DELINK_INNER_COVER',
+        innerCoverId: IDS.cover2,
+        expectedVersion: 4,
+        sourceBaseAssetInstanceId: IDS.base,
+        expectedSourceAssignmentVersion: 1,
+        targetState: 'awaitingInspection',
+        reason: 'Record the physical removal for inspection.',
+      })).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-linkage-history-malformed'},
+      });
+      expect(memory.writes).toHaveLength(0);
+    },
+  );
+
   test('registers, accepts, links and delinks with exact history', async () => {
     const memory = fakeDb(seed());
     const registered = await invoke(memory, registerRequest());
@@ -1171,7 +1365,7 @@ describe('Inner Cover lifecycle mutation', () => {
         lifecycleState: 'awaitingInspection',
         currentBaseAssetInstanceId: null,
         version: 4,
-        assuranceInvalidatedAt: new Date('2026-08-03T00:00:00.000Z'),
+        assuranceInvalidatedAt: new Date('2026-08-15T12:00:00.000Z'),
         assuranceInvalidatedRecordedAt: new Date('2026-08-15T12:00:00.000Z'),
         assuranceInvalidationReason: 'Remove the Inner Cover for post-service inspection.',
         assuranceEpisodeId: IDS.delink,
@@ -1191,7 +1385,7 @@ describe('Inner Cover lifecycle mutation', () => {
       sourceBaseAssetInstanceId: IDS.base,
       expectedSourceAssignmentVersion: 1,
       targetState: 'available',
-      physicalEventAt: '2026-08-08T00:00:00.000Z',
+       physicalEventAt: '2026-08-15T12:00:00.000Z',
       reason: 'Open the post-service assurance episode for inspection.',
     });
 
@@ -1259,6 +1453,155 @@ describe('Inner Cover lifecycle mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('missing assignment cannot hide surviving active custody', async () => {
+    const linkageId = 'link-surviving-custody';
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover, 'GR26', 'available', 2,
+      ),
+      [`inner_cover_profiles/${IDS.cover2}`]: profile(
+        IDS.cover2, 'GR27', 'installed', 4, {
+          currentBaseAssetInstanceId: IDS.base,
+          currentBaseAssetNumber: 201,
+          currentBaseAssetName: 'Base 201',
+          currentLinkageId: linkageId,
+        },
+      ),
+      [`inner_cover_linkages/${linkageId}`]: {
+        schemaVersion: 1,
+        linkageId,
+        baseAssetInstanceId: IDS.base,
+        innerCoverId: IDS.cover2,
+        active: true,
+      },
+    });
+
+    await expect(invoke(memory, linkRequest())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  describe.each([
+    'LINK_INNER_COVER', 'TRANSFER_INNER_COVER',
+    'REPLACE_INNER_COVER', 'SWAP_INNER_COVERS',
+  ])('%s verifies all target custody evidence', (operation) => {
+    test('closed history cannot hide another active linkage', async () => {
+      const {data, request} = targetCustodyScenario(operation);
+      const memory = fakeDb({
+        ...data,
+        ...closedCustodyHistory(IDS.base),
+        'inner_cover_linkages/zz-surviving': custodyLinkage(
+          'zz-surviving', IDS.register, 'GR99', IDS.base,
+        ),
+      });
+      await expect(invoke(memory, request)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+      });
+      expect(memory.writes).toHaveLength(0);
+    });
+
+    test.each(['installed', 'available'])(
+      'a surviving %s profile claim blocks installation without its linkage',
+      async (lifecycleState) => {
+        const {data, request} = targetCustodyScenario(operation);
+        const memory = fakeDb({
+          ...data,
+          [`inner_cover_profiles/${IDS.register}`]: profile(
+            IDS.register, 'GR99', lifecycleState, 4, {
+              currentBaseAssetInstanceId: IDS.base,
+              currentBaseAssetNumber: 201,
+              currentBaseAssetName: 'Base 201',
+              currentLinkageId: 'missing-linkage',
+            },
+          ),
+        });
+        await expect(invoke(memory, request)).rejects.toMatchObject({
+          code: 'failed-precondition',
+          details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+        });
+        expect(memory.writes).toHaveLength(0);
+      },
+    );
+
+    test('valid closed history does not prevent a legitimate installation', async () => {
+      const {data, request} = targetCustodyScenario(operation);
+      const memory = fakeDb({...data, ...closedCustodyHistory(IDS.base)});
+      await expect(invoke(memory, request)).resolves.toMatchObject({ok: true});
+      expect(memory.store.get(`base_inner_cover_assignments/${IDS.base}`))
+        .toMatchObject({innerCoverId: IDS.cover});
+      const installedOnTarget = [...memory.store.entries()].filter(([key, value]) =>
+        key.startsWith('inner_cover_profiles/') &&
+        value.currentBaseAssetInstanceId === IDS.base);
+      expect(installedOnTarget).toHaveLength(1);
+    });
+  });
+
+  test.each([
+    ['missing active flag', {active: undefined}],
+    ['string active flag', {active: 'true'}],
+    ['closed flag without removal time', {active: false}],
+    ['malformed removal time', {active: false, removedAt: 'yesterday'}],
+    ['removal before installation', {
+      active: false, removedAt: new Date('2026-08-04T00:00:00.000Z'),
+    }],
+    ['physical removal before installation', {
+      active: false,
+      removedAt: new Date('2026-08-10T00:00:00.000Z'),
+      removedPhysicalAt: new Date('2026-08-04T00:00:00.000Z'),
+    }],
+  ])('a %s cannot establish target vacancy', async (_, overrides) => {
+    const {data, request} = targetCustodyScenario('LINK_INNER_COVER');
+    const memory = fakeDb({
+      ...data,
+      'inner_cover_linkages/damaged': {
+        ...custodyLinkage('damaged', IDS.cover2, 'GR27', IDS.base),
+        ...overrides,
+      },
+    });
+    await expect(invoke(memory, request)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('swap also rejects conflicting custody on the source Base', async () => {
+    const {data, request} = targetCustodyScenario('SWAP_INNER_COVERS');
+    const memory = fakeDb({
+      ...data,
+      'inner_cover_linkages/source-conflict': custodyLinkage(
+        'source-conflict', IDS.register, 'GR99', IDS.base2,
+      ),
+    });
+    await expect(invoke(memory, request)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-source-base-custody-unverified'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each(['REPLACE_INNER_COVER', 'SWAP_INNER_COVERS'])(
+    '%s rejects a reviewed cover whose profile claims a different Base',
+    async (operation) => {
+      const {data, request} = targetCustodyScenario(operation);
+      Object.assign(data[`inner_cover_profiles/${IDS.cover2}`], {
+        currentBaseAssetInstanceId: IDS.register,
+        currentBaseAssetNumber: 999,
+        currentBaseAssetName: 'Base 999',
+      });
+      const memory = fakeDb(data);
+      await expect(invoke(memory, request)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+      });
+      expect(memory.writes).toHaveLength(0);
+    },
+  );
+
   test('atomic replacement returns the displaced cover to the pool', async () => {
     const linkageId = 'link-existing';
     const installed = profile(IDS.cover2, 'GR27', 'installed', 4, {
@@ -1293,6 +1636,7 @@ describe('Inner Cover lifecycle mutation', () => {
         baseAssetInstanceId: IDS.base,
         innerCoverId: IDS.cover2,
         innerCoverSerialNumber: 'GR27',
+        installedAt: new Date('2026-08-05T00:00:00.000Z'),
         active: true,
         removedAt: null,
         version: 1,

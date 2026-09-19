@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/persistence/durable_submission_repository.dart';
+import '../../../core/persistence/durable_submission_review_acceptance.dart';
 import '../../auth/data/user_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../repositories/asset_hierarchy_repository.dart';
@@ -58,6 +59,34 @@ class InnerCoverLifecycleSubmissionController {
       _frozen(saved);
     }
     return saved;
+  }
+
+  /// Lists retained registrations without requiring a server profile row.
+  /// Registration is the one lifecycle operation whose first accepted write
+  /// may be the profile itself, so its recovery entry point cannot be attached
+  /// only to a decoded profile list.
+  Future<List<DurableSubmission>> pendingRegistrations() async {
+    final actor = _actor();
+    final rows = await store.listForActor(actor.uid);
+    _actor(actor.uid);
+    return rows
+        .where((row) {
+          if (row.protocol != 'assetHierarchy.v2' ||
+              !row.resourceKey.startsWith('innerCoverLifecycle:')) {
+            return false;
+          }
+          try {
+            return _frozen(row)['operation'] == 'REGISTER_INNER_COVER';
+          } on Object {
+            return true;
+          }
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic> registrationRequestOf(DurableSubmission saved) {
+    _actor(_savedActor(saved));
+    return _frozen(saved);
   }
 
   Map<String, dynamic> _frozen(DurableSubmission saved) {
@@ -121,7 +150,12 @@ class InnerCoverLifecycleSubmissionController {
     final existing = await store.read(requestId);
     _actor(actor.uid);
     if (existing != null) {
-      _frozen(existing);
+      final savedRequest = _frozen(existing);
+      if (!sameSubmissionJson(savedRequest, request)) {
+        throw const AssetHierarchyException(
+          'This request ID already contains different Inner Cover instructions. Nothing was sent.',
+        );
+      }
       return check(existing.submissionId);
     }
     final saved = await store.prepare(
@@ -208,7 +242,10 @@ class InnerCoverLifecycleSubmissionController {
         'The outcome is not confirmed. The original Inner Cover request is saved on this device; check it again.',
       );
     }
-    final receiptJson = jsonEncode(receipt.toInnerCoverMap());
+    // idempotentReplay describes this observation, not the accepted operation.
+    // It must not enter the immutable local acceptance capsule.
+    final receiptMap = receipt.toInnerCoverMap()..['idempotentReplay'] = false;
+    final receiptJson = jsonEncode(receiptMap);
     _receipt(saved, receiptJson);
     final accepted = await store.settleAccepted(
       submissionId: submissionId,
@@ -225,7 +262,27 @@ class InnerCoverLifecycleSubmissionController {
   void _receipt(DurableSubmission saved, String receiptJson) {
     final raw = durableSubmissionJsonObject(receiptJson);
     final request = _frozen(saved);
-    AssetHierarchyMutationReceipt.fromMap(raw, request: request);
+    final receipt = AssetHierarchyMutationReceipt.fromMap(
+      raw,
+      request: request,
+    );
+    final expectedVersion = request['operation'] == 'REGISTER_INNER_COVER'
+        ? 0
+        : request['expectedVersion'];
+    final hasSecondary =
+        request['operation'] == 'REPLACE_INNER_COVER' ||
+        request['operation'] == 'SWAP_INNER_COVERS';
+    final expectedSecondary = request['expectedDisplacedVersion'];
+    if (expectedVersion is! int ||
+        receipt.version != expectedVersion + 1 ||
+        (hasSecondary
+            ? expectedSecondary is! int ||
+                  receipt.secondaryVersion != expectedSecondary + 1
+            : receipt.secondaryVersion != null)) {
+      throw const AssetHierarchyException(
+        'The Inner Cover receipt does not match the saved revisions. Its evidence is retained for review.',
+      );
+    }
   }
 
   Future<InnerCoverProfile> _reconcile(
@@ -244,19 +301,65 @@ class InnerCoverLifecycleSubmissionController {
       durableSubmissionJsonObject(receiptJson),
       request: request,
     );
-    final current = await repository.readInnerCoverFromServer(
-      request['innerCoverId'] as String,
-      minimumVersion: receipt.version,
-    );
-    if (current.id != receipt.entityId ||
-        current.version < receipt.version ||
-        (current.version == receipt.version &&
-            current.lastMutationId != receipt.requestId)) {
-      throw const AssetHierarchyException(
-        'The Inner Cover change is recorded, but current server evidence does not yet agree. Both records are retained for review.',
+    final actorUid = _savedActor(saved);
+    Future<InnerCoverProfile> readAffected(String id, int version) async {
+      _actor(actorUid);
+      final profile = await repository.readInnerCoverFromServer(
+        id,
+        minimumVersion: version,
       );
+      _actor(actorUid);
+      if (profile.id != id ||
+          profile.version < version ||
+          (profile.version == version &&
+              profile.lastMutationId != receipt.requestId)) {
+        throw const AssetHierarchyException(
+          'The Inner Cover change is recorded, but an affected cover has not been confirmed from current server evidence. The accepted request remains saved; check again.',
+        );
+      }
+      return profile;
     }
-    _actor(_savedActor(saved));
+
+    final current = await readAffected(receipt.entityId, receipt.version);
+    if (receipt.secondaryVersion != null) {
+      final displacedId = request['displacedInnerCoverId'];
+      if (displacedId is! String || displacedId.isEmpty) {
+        throw const AssetHierarchyException(
+          'The accepted change is missing its second cover identity. Its saved evidence needs review.',
+        );
+      }
+      await readAffected(displacedId, receipt.secondaryVersion!);
+    }
+    if (request['operation'] == 'REGISTER_INNER_COVER') {
+      final draft = request['registrationDraft'];
+      final sections = draft is Map ? draft['fabricationSections'] : null;
+      final donorVersions = <String, int>{};
+      if (sections is List) {
+        for (final section in sections) {
+          if (section is! Map ||
+              section['materialSource'] != 'reusedKnownDonor') {
+            continue;
+          }
+          final id = section['donorInnerCoverId'];
+          final version = section['donorExpectedVersion'];
+          if (id is! String ||
+              id.isEmpty ||
+              version is! int ||
+              version < 1 ||
+              (donorVersions.containsKey(id) &&
+                  donorVersions[id] != version + 1)) {
+            throw const AssetHierarchyException(
+              'The accepted fabrication has incomplete donor identities. Its saved evidence needs review.',
+            );
+          }
+          donorVersions[id] = version + 1;
+        }
+      }
+      for (final donor in donorVersions.entries) {
+        await readAffected(donor.key, donor.value);
+      }
+    }
+    _actor(actorUid);
     await store.markReconciled(
       submissionId: saved.submissionId,
       envelopeSha256: saved.envelopeSha256,

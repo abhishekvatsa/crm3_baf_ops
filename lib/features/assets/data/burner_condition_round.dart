@@ -6,6 +6,105 @@ const burnerConditionRoundSchemaVersion = 2;
 const burnerConditionRoundOperation = 'RECORD_BURNER_CONDITION_ROUND';
 const maximumBurnerMicroampReading = 1000000.0;
 
+class BurnerEvidenceProvenance {
+  const BurnerEvidenceProvenance({
+    required this.kind,
+    this.sourceRoundId,
+    this.observedAt,
+    this.observerUid,
+    this.observerName,
+  });
+
+  static const unknown = BurnerEvidenceProvenance(kind: 'unknown');
+  final String kind;
+  final String? sourceRoundId;
+  final DateTime? observedAt;
+  final String? observerUid;
+  final String? observerName;
+
+  factory BurnerEvidenceProvenance.fromMap(
+    Map<String, dynamic> map,
+    String source,
+  ) {
+    _requireExactKeys(map, const {
+      'kind',
+      'sourceRoundId',
+      'observedAt',
+      'observerUid',
+      'observerName',
+    }, source);
+    final kind = readRequiredPersistedString(
+      map['kind'],
+      field: 'kind',
+      source: source,
+    );
+    if (!const {
+      'observed',
+      'inherited',
+      'directiveDisposition',
+      'unknown',
+    }.contains(kind)) {
+      throw PersistedDataFormatException(
+        field: 'kind',
+        source: source,
+        detail: 'unsupported evidence kind',
+      );
+    }
+    final value = BurnerEvidenceProvenance(
+      kind: kind,
+      sourceRoundId: readOptionalPersistedString(
+        map['sourceRoundId'],
+        field: 'sourceRoundId',
+        source: source,
+      ),
+      observedAt: readOptionalPersistedDateTime(
+        map['observedAt'],
+        field: 'observedAt',
+        source: source,
+      ),
+      observerUid: readOptionalPersistedString(
+        map['observerUid'],
+        field: 'observerUid',
+        source: source,
+      ),
+      observerName: readOptionalPersistedString(
+        map['observerName'],
+        field: 'observerName',
+        source: source,
+      ),
+    );
+    final fields = [
+      value.sourceRoundId,
+      value.observedAt,
+      value.observerUid,
+      value.observerName,
+    ];
+    if (kind == 'unknown'
+        ? fields.any((item) => item != null)
+        : fields.any((item) => item == null)) {
+      throw PersistedDataFormatException(
+        field: 'provenance',
+        source: source,
+        detail: 'evidence attribution must be complete or explicitly unknown',
+      );
+    }
+    return value;
+  }
+}
+
+Set<String> get burnerEvidenceFields => {
+  for (var position = 1; position <= 8; position++) ...{
+    'burners.$position.redHotObserved',
+    'burners.$position.flameObservation',
+    'burners.$position.microampReading',
+    'burners.$position.remarks',
+    'uv.$position.condition',
+    'uv.$position.remarks',
+  },
+  'draftSealRedHotObserved',
+  'hotAirAtDraftSealObserved',
+};
+
 enum BurnerRoundFlameObservation { seen, notSeen, notOperating, notChecked }
 
 enum BurnerUvCondition { serviceable, melted, missing, hanging }
@@ -328,15 +427,13 @@ BurnerDirectiveComplianceProjection projectBurnerDirectiveCompliance({
         disposition == BurnerDirectiveComplianceDisposition.restoredInService;
     final abnormalUv = disposition != null && !restored;
     final redHotObserved = restored ? false : before.redHotObserved;
-    final flameObservation =
-        abnormalUv
-            ? BurnerRoundFlameObservation.notOperating
-            : before.flameObservation;
+    final flameObservation = abnormalUv
+        ? BurnerRoundFlameObservation.notOperating
+        : before.flameObservation;
     final microampReading = abnormalUv ? null : before.microampReading;
-    final remarks =
-        disposition == null
-            ? before.remarks
-            : 'Directive compliance: ${disposition.label}.';
+    final remarks = disposition == null
+        ? before.remarks
+        : 'Directive compliance: ${disposition.label}.';
     if (redHotObserved != before.redHotObserved ||
         flameObservation != before.flameObservation ||
         microampReading != before.microampReading ||
@@ -467,6 +564,9 @@ class BurnerConditionRound {
     required this.fingerprint,
     this.roundNote,
     this.directiveId,
+    this.evidenceKind = 'inspection',
+    this.evidenceProvenance = const {},
+    this.baselineRoundId,
   });
 
   final String roundId;
@@ -490,6 +590,39 @@ class BurnerConditionRound {
   final String recordedByName;
   final String? directiveId;
   final String fingerprint;
+  final String evidenceKind;
+  final Map<String, BurnerEvidenceProvenance> evidenceProvenance;
+  final String? baselineRoundId;
+
+  bool get hasUnresolvedLegacyProvenance =>
+      evidenceProvenance.isEmpty &&
+      (roundNote?.startsWith(
+            'I&A compliance for directive burner_round_red_hot_',
+          ) ??
+          false);
+  bool get isWitnessedInspection =>
+      evidenceKind == 'inspection' && !hasUnresolvedLegacyProvenance;
+
+  BurnerEvidenceProvenance evidenceFor(String field) {
+    final explicit = evidenceProvenance[field];
+    if (explicit != null) return explicit;
+    if (evidenceKind != 'inspection' ||
+        evidenceProvenance.isNotEmpty ||
+        hasUnresolvedLegacyProvenance ||
+        ((field.startsWith('uv.') ||
+                field.contains('DraftSeal') ||
+                field == 'draftSealRedHotObserved') &&
+            uvObservations.isEmpty)) {
+      return BurnerEvidenceProvenance.unknown;
+    }
+    return BurnerEvidenceProvenance(
+      kind: 'observed',
+      sourceRoundId: roundId,
+      observedAt: observedAt,
+      observerUid: recordedByUid,
+      observerName: recordedByName,
+    );
+  }
 
   factory BurnerConditionRound.fromMap(
     Map<String, dynamic> map,
@@ -522,6 +655,9 @@ class BurnerConditionRound {
       'recordedByName',
       'directiveId',
       'fingerprint',
+      if (map.containsKey('evidenceKind')) 'evidenceKind',
+      if (map.containsKey('evidenceProvenance')) 'evidenceProvenance',
+      if (map.containsKey('baselineRoundId')) 'baselineRoundId',
       if (schemaVersion == 2) ...<String>{
         'draftSealRedHotObserved',
         'hotAirAtDraftSealObserved',
@@ -689,6 +825,45 @@ class BurnerConditionRound {
         detail: 'must be a versioned SHA-256 fingerprint',
       );
     }
+    final provenance = <String, BurnerEvidenceProvenance>{};
+    final rawProvenance = map['evidenceProvenance'];
+    final kind = map.containsKey('evidenceKind')
+        ? map['evidenceKind']
+        : 'inspection';
+    if (!const {
+          'inspection',
+          'partialInspection',
+          'directiveCompliance',
+        }.contains(kind) ||
+        map.containsKey('evidenceKind') !=
+            map.containsKey('evidenceProvenance') ||
+        (map.containsKey('evidenceProvenance') &&
+            (rawProvenance is! Map ||
+                rawProvenance.length != burnerEvidenceFields.length ||
+                !rawProvenance.keys.toSet().containsAll(
+                  burnerEvidenceFields,
+                )))) {
+      throw PersistedDataFormatException(
+        field: 'evidenceProvenance',
+        source: source,
+        detail: 'invalid provenance contract',
+      );
+    }
+    if (rawProvenance is Map) {
+      for (final entry in rawProvenance.entries) {
+        if (!burnerEvidenceFields.contains(entry.key) || entry.value is! Map) {
+          throw PersistedDataFormatException(
+            field: 'evidenceProvenance',
+            source: source,
+            detail: 'unsupported field evidence',
+          );
+        }
+        provenance[entry.key as String] = BurnerEvidenceProvenance.fromMap(
+          Map<String, dynamic>.from(entry.value as Map),
+          '$source/${entry.key}',
+        );
+      }
+    }
     return BurnerConditionRound(
       roundId: roundId,
       assetClassId: readRequiredPersistedString(
@@ -757,6 +932,13 @@ class BurnerConditionRound {
       ),
       directiveId: directiveId,
       fingerprint: fingerprint,
+      evidenceKind: kind as String,
+      evidenceProvenance: Map.unmodifiable(provenance),
+      baselineRoundId: readOptionalPersistedString(
+        map['baselineRoundId'],
+        field: 'baselineRoundId',
+        source: source,
+      ),
     );
   }
 }

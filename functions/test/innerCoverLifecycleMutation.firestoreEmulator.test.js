@@ -168,6 +168,117 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
     return snapshot.docs.map((document) => ({id: document.id, ...document.data()}));
   }
 
+  function acceptedProfile(innerCoverId, serialNumber) {
+    return {
+      schemaVersion: 1,
+      innerCoverId,
+      assetClassId: IDS.innerClass,
+      assetClassCode: 'INNER_COVER',
+      assetClassName: 'Inner Cover',
+      serialNumber,
+      normalizedSerialNumber: serialNumber,
+      sourceType: 'legacyExisting',
+      lifecycleState: 'available',
+      traceabilityGrade: 'T0',
+      acceptanceReference: `ACC-${serialNumber}`,
+      acceptedAt: new Date('2026-08-02T00:00:00.000Z'),
+      acceptedByUid: 'admin-1',
+      acceptedByName: 'Admin One',
+      currentBaseAssetInstanceId: null,
+      currentBaseAssetNumber: null,
+      currentBaseAssetName: null,
+      currentLinkageId: null,
+      version: 2,
+      lastMutationId: 'seed',
+    };
+  }
+
+  function linkRequest(innerCoverId = IDS.cover, requestId = IDS.link) {
+    return {
+      requestId,
+      operation: 'LINK_INNER_COVER',
+      innerCoverId,
+      expectedVersion: 2,
+      targetBaseAssetInstanceId: IDS.base,
+      reason: 'Install the accepted cover after verifying Base custody.',
+    };
+  }
+
+  test.each(['active linkage', 'installed profile', 'malformed active flag'])(
+    'missing assignment cannot hide a surviving %s behind 25 closed histories',
+    async (evidence) => {
+      const batch = db.batch();
+      batch.set(db.collection('inner_cover_profiles').doc(IDS.cover),
+        acceptedProfile(IDS.cover, 'GR30'));
+      for (let index = 0; index < 25; index++) {
+        const linkageId = `aa-closed-${String(index).padStart(2, '0')}`;
+        batch.set(db.collection('inner_cover_linkages').doc(linkageId), {
+          schemaVersion: 1, linkageId, baseAssetInstanceId: IDS.base,
+          innerCoverId: IDS.donor, innerCoverSerialNumber: 'GR20',
+          active: false, version: 2,
+          installedAt: new Date('2026-08-05T00:00:00.000Z'),
+          removedAt: new Date('2026-08-10T00:00:00.000Z'),
+        });
+      }
+      const linkageId = 'zz-surviving';
+      if (evidence === 'installed profile') {
+        batch.set(db.collection('inner_cover_profiles').doc(IDS.donor), {
+          ...acceptedProfile(IDS.donor, 'GR20'),
+          lifecycleState: 'installed',
+          currentBaseAssetInstanceId: IDS.base,
+          currentBaseAssetNumber: 201,
+          currentBaseAssetName: 'Base 201',
+          currentLinkageId: linkageId,
+          version: 3,
+        });
+      } else {
+        batch.set(db.collection('inner_cover_linkages').doc(linkageId), {
+          schemaVersion: 1, linkageId, baseAssetInstanceId: IDS.base,
+          innerCoverId: IDS.donor, innerCoverSerialNumber: 'GR20',
+          active: evidence === 'active linkage' ? true : 'true', version: 1,
+          installedAt: new Date('2026-08-11T00:00:00.000Z'), removedAt: null,
+        });
+      }
+      await batch.commit();
+      const profileRef = db.collection('inner_cover_profiles').doc(IDS.cover);
+      const before = await profileRef.get();
+      await expect(invoke(linkRequest())).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+      });
+      expect((await profileRef.get()).updateTime.isEqual(before.updateTime)).toBe(true);
+      expect((await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).exists)
+        .toBe(false);
+      expect((await db.collection('inner_cover_lifecycle_receipts').get()).empty).toBe(true);
+      expect((await db.collection('inner_cover_lifecycle_audits').get()).empty).toBe(true);
+    },
+  );
+
+  test('concurrent links to one vacant Base commit exactly one custody relation', async () => {
+    const batch = db.batch();
+    batch.set(db.collection('inner_cover_profiles').doc(IDS.cover),
+      acceptedProfile(IDS.cover, 'GR30'));
+    batch.set(db.collection('inner_cover_profiles').doc(IDS.donor),
+      acceptedProfile(IDS.donor, 'GR20'));
+    await batch.commit();
+    const results = await Promise.allSettled([
+      invoke(linkRequest(IDS.cover, IDS.link)),
+      invoke(linkRequest(IDS.donor, IDS.delink)),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.find((result) => result.status === 'rejected').reason)
+      .toMatchObject({details: {reasonCode: 'inner-cover-target-base-occupied'}});
+    const assignment = (await db.collection('base_inner_cover_assignments')
+      .doc(IDS.base).get()).data();
+    const installed = await db.collection('inner_cover_profiles')
+      .where('currentBaseAssetInstanceId', '==', IDS.base).get();
+    expect(installed.size).toBe(1);
+    expect(installed.docs[0].id).toBe(assignment.innerCoverId);
+    expect((await db.collection('inner_cover_linkages').get()).size).toBe(1);
+    expect((await db.collection('inner_cover_lifecycle_receipts').get()).size).toBe(1);
+    expect((await db.collection('inner_cover_lifecycle_audits').get()).size).toBe(1);
+  }, 60000);
+
   test.each([
     ['inner_cover_acceptance_dart_request.json', '2026-09-12T08:30:00.123Z'],
     ['inner_cover_acceptance_legacy_dart_request.json', '2026-09-12T08:30:00.123456Z'],

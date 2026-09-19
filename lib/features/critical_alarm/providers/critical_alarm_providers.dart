@@ -2,8 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/persistence/durable_submission.dart';
+import '../../../core/providers/durable_submission_provider.dart';
 import '../../../core/security/actor_session_cache_trust.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../data/critical_alarm_repository.dart';
@@ -21,11 +24,30 @@ final criticalAlarmCommandServiceProvider =
     Provider<CriticalAlarmCommandService>(
       (ref) => CriticalAlarmCommandService(
         connectivity: Connectivity(),
+        durableStore: ref.watch(durableSubmissionRepositoryProvider),
         originBoundGateway: ref.read(originBoundWorkflowCommandGatewayProvider),
-        currentActorUid: () =>
-            ref.read(firebaseAuthProvider).currentUser?.uid ?? '',
+        currentActorUid: () {
+          final access = CurrentActorAccess.resolve(
+            ref.read(currentAppUserProvider),
+          );
+          final authenticatedUid = ref
+              .read(firebaseAuthProvider)
+              .currentUser
+              ?.uid;
+          return access.actor?.uid == authenticatedUid
+              ? access.actor?.uid ?? ''
+              : '';
+        },
       ),
     );
+
+final criticalAlarmPendingSubmissionsProvider = StreamProvider.autoDispose((
+  ref,
+) {
+  final access = CurrentActorAccess.resolve(ref.watch(currentAppUserProvider));
+  if (!access.isReady) return Stream.value(const <DurableSubmission>[]);
+  return ref.watch(criticalAlarmCommandServiceProvider).watchPending();
+});
 
 final criticalAlarmPlatformServiceProvider =
     Provider<CriticalAlarmPlatformService>(
@@ -123,35 +145,46 @@ final activeCriticalAlarmsProvider = StreamProvider<CriticalAlarmLiveSnapshot>((
 });
 
 final criticalAlarmContactsProvider =
-    StreamProvider<List<CriticalAlarmContact>>((ref) {
+    StreamProvider<CriticalAlarmContactsSnapshot>((ref) {
       return ref
           .watch(currentAppUserProvider)
           .when(
             data: (user) {
               if (user == null || !user.isApproved) {
-                return Stream.value(const <CriticalAlarmContact>[]);
+                return Stream.value(
+                  const CriticalAlarmContactsSnapshot(
+                    contacts: <CriticalAlarmContact>[],
+                    malformedDocumentIds: <String>[],
+                  ),
+                );
               }
               return ref.watch(criticalAlarmRepositoryProvider).watchContacts();
             },
-            loading: () => const Stream<List<CriticalAlarmContact>>.empty(),
-            error: Stream<List<CriticalAlarmContact>>.error,
+            loading: () => const Stream<CriticalAlarmContactsSnapshot>.empty(),
+            error: Stream<CriticalAlarmContactsSnapshot>.error,
           );
     });
 
 final criticalAlarmDefinitionsProvider =
-    StreamProvider<List<CriticalAlarmDefinition>>((ref) {
+    StreamProvider<CriticalAlarmDefinitionsSnapshot>((ref) {
       return ref
           .watch(currentAppUserProvider)
           .when(
             data: (user) {
               if (user == null || !user.isApproved) {
-                return Stream.value(const <CriticalAlarmDefinition>[]);
+                return Stream.value(
+                  const CriticalAlarmDefinitionsSnapshot(
+                    definitions: <CriticalAlarmDefinition>[],
+                    malformedDocumentIds: <String>[],
+                  ),
+                );
               }
               return ref
                   .watch(criticalAlarmRepositoryProvider)
                   .watchDefinitions();
             },
-            loading: () => const Stream<List<CriticalAlarmDefinition>>.empty(),
-            error: Stream<List<CriticalAlarmDefinition>>.error,
+            loading: () =>
+                const Stream<CriticalAlarmDefinitionsSnapshot>.empty(),
+            error: Stream<CriticalAlarmDefinitionsSnapshot>.error,
           );
     });

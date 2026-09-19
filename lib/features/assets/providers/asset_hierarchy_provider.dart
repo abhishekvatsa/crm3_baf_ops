@@ -5,6 +5,7 @@ import '../data/inner_cover_lifecycle.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../repositories/asset_hierarchy_repository.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 final assetHierarchyRepositoryProvider = Provider<AssetHierarchyRepository>((
   ref,
@@ -64,11 +65,25 @@ final innerCoverProfilesProvider = StreamProvider<List<InnerCoverProfile>>((
   return ref.watch(assetHierarchyRepositoryProvider).watchInnerCoverProfiles();
 });
 
+final innerCoverProfileBatchProvider =
+    StreamProvider<DecodedSnapshotBatch<InnerCoverProfile>>((ref) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverProfileBatches();
+    });
+
 final innerCoverAssignmentsProvider =
     StreamProvider<List<BaseInnerCoverAssignment>>((ref) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInnerCoverAssignments();
+    });
+
+final innerCoverAssignmentBatchProvider =
+    StreamProvider<DecodedSnapshotBatch<BaseInnerCoverAssignment>>((ref) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverAssignmentBatches();
     });
 
 final innerCoverHistoryProvider = StreamProvider.autoDispose

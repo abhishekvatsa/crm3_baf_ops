@@ -5,6 +5,23 @@
   "timestampInventory": "governance/a05-persisted-timestamp-surface-v2.json",
   "surfaces": [
     {
+      "id": "workflow-origin-bound-execution",
+      "file": "lib/features/maintenance_workflow/services/workflow_online_executor.dart",
+      "markers": [
+        "String? _originFromPayload(String payloadJson)",
+        "final decoded = jsonDecode(receipt.resultJson);",
+        "final decoded = jsonDecode(payloadJson);"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "maintenance-workflow",
+      "authorityBoundary": "original-account-bound durable command payload and exact local acceptance envelope; request identity, aggregate, command type, expected revision and frozen payload are verified before network dispatch or acceptance reuse",
+      "malformedDisposition": "malformed or ownerless command bytes have no verified original account and remain preserved for review; malformed or mismatched acceptance is unavailable evidence, never proof of success or permission to overwrite the retained request",
+      "compatibility": "the production executor requires a live original actor and the versioned origin wrapper; legacy ownerless state is preserved without automatic actor attribution or dispatch",
+      "regression": "test/workflow_origin_binding_review_test.dart; test/workflow_online_executor_post_receipt_test.dart",
+      "reArmCondition": "malformed origin becomes current-account authority, stored acceptance bypasses exact envelope comparison, a changed actor inherits work, or dispatch precedes durable preparation and claim",
+      "riskFingerprint": "4cf3f31e700c460fcb5d407b44e5a10c59a07faab212c256b14577d319ae3c33"
+    },
+    {
       "id": "operational-event-creation-outbox",
       "file": "lib/features/operational_events/services/operational_event_creation_store.dart",
       "markers": [
@@ -268,12 +285,12 @@
       ],
       "classification": "LOCAL_CONTROL_STATE",
       "owner": "maintenance-workflow",
-      "authorityBoundary": "durable uncertain command retry payload",
-      "malformedDisposition": "fail closed and retain retry row",
-      "compatibility": "none",
-      "regression": "test/workflow_uncertain_retry_service_test.dart",
-      "reArmCondition": "malformed retry payload is discarded or executed",
-      "riskFingerprint": "4366eecec69ae5b5a02a63ec83133e1165f2060291a608e0db612ea11f69a9f8"
+      "authorityBoundary": "durable uncertain command retry payload and original-account envelope; retry never attributes saved work to a replacement account",
+      "malformedDisposition": "fail closed and retain the original retry bytes for manual review; actor mismatch defers the existing claim without spending an execution attempt",
+      "compatibility": "legacy payloads remain readable for diagnosis but production execution requires their verified original account; malformed present origin wrappers cannot fall through as legacy payloads",
+      "regression": "test/workflow_uncertain_retry_service_test.dart; test/workflow_origin_binding_review_test.dart",
+      "reArmCondition": "malformed retry payload is discarded or executed, or original-account authority is substituted after restart or account change",
+      "riskFingerprint": "ffad88936c324ebad4fcad359b4aac5f7324a06324fa4e74c4ca071894c8b0f4"
     },
     {
       "id": "maintenance-resolution-history",
@@ -940,15 +957,16 @@
         "factory BurnerConditionCurrentPointer.fromMap",
         "factory BurnerConditionRound.fromMap",
         "factory BurnerConditionObservation.fromMap",
-        "static BurnerRedHotDirectiveBinding? tryDecode"
+        "static BurnerRedHotDirectiveBinding? tryDecode",
+        "factory BurnerEvidenceProvenance.fromMap"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "furnace-reliability",
-      "authorityBoundary": "server-maintained current-round identity plus immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
-      "malformedDisposition": "fail closed before a malformed current pointer, missing or mismatched referenced round, or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "round schemas 1 and 2 plus current-pointer schema 1; exactly eight ordered positions, exact derived position projections, strict directive-source binding, and exact pointer-to-round identity and chronology",
-      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
-      "reArmCondition": "current-pointer or round identity, exact shape, position coverage, observation, microamp, red-hot projection, directive, actor, timestamp, or fingerprint validation changes",
+      "authorityBoundary": "server-maintained current-round identity, immutable burner and UV values, and per-field original observation age/observer lineage distinguishing inspection, inherited values and directive dispositions",
+      "malformedDisposition": "fail closed on malformed current/round identity, inconsistent derived positions, unsupported evidence kinds, or malformed explicit provenance; genuinely absent legacy mixed-age provenance stays unknown rather than becoming a fresh observation",
+      "compatibility": "round schemas 1 and 2 plus pointer schema 1; complete explicit field provenance for new records; legacy full inspections retain their original observation attribution, while mixed-age legacy compliance evidence and schema-1 missing UV fields remain unconfirmed",
+      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js; functions/test/burnerDirectiveComplianceMutation.test.js",
+      "reArmCondition": "inherited or unknown values become newly observed, partial/provenance coverage is bypassed, current/round identity or derived scope changes, or malformed lineage is suppressed by a fallback",
       "riskFingerprint": "dbb8ebba1b7529823b5db5185a3518d844aef46b3747a5fe304ceee5db962ea9"
     },
     {
@@ -1577,9 +1595,74 @@
       "regression": "test/workflow_module_reopen_adoption_native_test.dart",
       "reArmCondition": "timestamp precision, supported shapes, equality order, mutation of original evidence, or error disposition changes",
       "riskFingerprint": "b176871f4950db80a6ca3f6fc5aca31746bbaa96722e842045d943940b0b0ffc"
+    },
+    {
+      "id": "burner-block-installation-correction-record",
+      "file": "lib/features/assets/data/burner_block_installation_correction.dart",
+      "markers": [
+        "factory BurnerBlockInstallationCorrection.fromMap",
+        "BurnerBlockInstallationCorrection? effectiveBurnerBlockCorrection("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "server-authored retained installation-date correction identity, physical subject, original/effective/review chronology, reviewer and exact predecessor chain; original lifecycle events remain immutable",
+      "malformedDisposition": "reject invalid identity, schema, version, position, reviewer or chronology; reject missing, duplicate, branching, cyclic or disconnected predecessor evidence before selecting an effective correction",
+      "compatibility": "correction schema/version 1 with supported persisted timestamp representations; unrelated server metadata is retained by the server but is not interpreted as client authority; an empty complete correction query denotes no correction",
+      "regression": "test/burner_block_installation_correction_test.dart; test/tools/a05_persisted_reconciliation_bridge_test.dart",
+      "reArmCondition": "malformed corrections disappear from a purported complete chain, unknown versions are accepted, or changed subject/timestamp/reviewer data is replaced with a default",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "burner-block-correction-server-review",
+      "file": "lib/features/assets/repositories/burner_block_correction_repository.dart",
+      "markers": [
+        "class BurnerBlockCorrectionRepository",
+        "Future<BurnerBlockCorrectionReview> review(",
+        "Future<void> confirmReadback(",
+        "static BurnerBlockInstallationCorrection verifyCorrectionReadback("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "read-only server-confirmed original event, complete correction history and current installation before correction preparation; accepted readback binds original/corrected times, original current-event basis, reviewer, reason and acceptance time to the frozen request and receipt",
+      "malformedDisposition": "strict model errors and missing/conflicting/cached/pending server evidence propagate; incomplete query results never stand in for an uncorrected event, and accepted readback failure leaves durable acceptance awaiting reconciliation",
+      "compatibility": "original lifecycle and current-projection schema 1 plus correction schema 1; a later valid installation may remain current while the original correction is confirmed",
+      "regression": "test/burner_block_installation_correction_test.dart; test/burner_block_correction_command_service_test.dart",
+      "reArmCondition": "readback uses a cache as authority, incomplete or wrong-subject history supplies a predecessor, or a later installation must equal the historical correction after-image",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "burner-block-correction-durable-command",
+      "file": "lib/features/assets/services/burner_block_correction_command_service.dart",
+      "markers": [
+        "Map<String, dynamic> _command(",
+        "Future<WorkflowCommandReceipt> resume(",
+        "WorkflowCommandReceipt _receipt(",
+        "Future<WorkflowCommandReceipt> _adopt("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "immutable original-account-bound native correction envelope and its matching server acceptance; correction/event identity, predecessor, expected current event and corrected physical instant remain frozen across retries",
+      "malformedDisposition": "invalid saved envelopes or receipts fail closed and retain native evidence; transport failures and unfenced retry refusals stay uncertain; verified acceptance persists across failed readback and is never replaced by a new request",
+      "compatibility": "maintenanceWorkflow.v2 durable envelopes for correctBurnerBlockInstallation; server schema-2 correction audit binding and supported timestamp representations; no inference of ownership for legacy unbound requests",
+      "regression": "test/burner_block_correction_command_service_test.dart; functions/test/burnerBlockLifecycle.test.js",
+      "reArmCondition": "dispatch precedes durable prepare/claim, actors exchange saved requests, malformed receipts become acceptance, a retry refusal clears an uncertain earlier attempt, or failed readback loses accepted evidence",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
     }
   ],
   "catchSites": [
+    {
+      "id": "workflow-origin-envelope-parse-refusal",
+      "file": "lib/features/maintenance_workflow/services/workflow_online_executor.dart",
+      "siteFingerprint": "056361079fb019fb59c3eac3d1209d4296556b950de8596db69dba2f4203d148",
+      "classification": "FAIL_CLOSED_AUTHORITY_ABSENCE",
+      "purpose": "treat unreadable saved origin JSON as no verified original account before dispatch admission",
+      "authorityBoundary": "original actor of an existing durable workflow command",
+      "mutability": "none; original bytes remain retained",
+      "dataScope": "local workflow retry command payload wrapper",
+      "malformedDisposition": "return null only to the original-account admission check, which throws workflow-legacy-origin-review-required rather than assigning the current account or sending the command",
+      "regression": "test/workflow_origin_binding_review_test.dart",
+      "reArmCondition": "null origin becomes authority, malformed saved bytes are replaced, or a malformed command reaches either V1 or V2 dispatch"
+    },
     {
       "id": "installed-store-marker-classification",
       "file": "lib/core/services/isar_installed_store_provenance.dart",

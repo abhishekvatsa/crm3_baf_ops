@@ -5,6 +5,7 @@ const {
   parseBurnerDirectiveComplianceRequest,
   userCanCompleteBurnerDirective,
 } = require('../lib/burnerDirectiveComplianceMutation');
+const {mutateBurnerConditionRoundWithDb} = require('../lib/burnerConditionRoundMutation');
 
 const clone = (value) => value == null ? value : structuredClone(value);
 
@@ -221,6 +222,7 @@ function seed(overrides = {}) {
       name: 'Furnace',
       legacyAssetTypeKey: 'furnace',
       status: 'active',
+      version: 1,
     },
     [`asset_instances/${IDS.asset}`]: {
       schemaVersion: 1,
@@ -267,6 +269,148 @@ async function invoke(memory, data = request()) {
 }
 
 describe('burner directive compliance mutation', () => {
+  test.each(Array.from({length: 8}, (_, index) => index + 1).flatMap((position) =>
+    ['restoredInService', 'uvMelted', 'uvMissing', 'uvHungRemoved']
+      .map((disposition) => [position, disposition])))(
+    'B%i %s recovers after a genuine later-clear survey and another later round',
+    async (position, disposition) => {
+      const memory = fakeDb(seed());
+      memory.store.delete(`burner_condition_rounds/${IDS.source}`);
+      memory.store.delete(`directives/${directiveId}`);
+      const survey = (id, redHot, instant) => mutateBurnerConditionRoundWithDb({
+        db: memory.db, authUid: 'actor-1',
+        data: {requestId: id, operation: 'RECORD_BURNER_CONDITION_ROUND',
+          assetClassId: IDS.class, assetInstanceId: IDS.asset, expectedAssetVersion: 4,
+          observations: observations(redHot), uvObservations: uvObservations(),
+          draftSealRedHotObserved: false, hotAirAtDraftSealObserved: false},
+        now: () => new Date(instant), timestampFromDate: (date) => date,
+      });
+      await survey(IDS.source, [position], '2026-08-28T09:00:00.000Z');
+      await survey(IDS.newer, [], '2026-08-28T10:00:00.000Z');
+      const command = request({expectedCurrentRoundId: IDS.newer,
+        dispositions: [{position, disposition}]});
+      const accepted = await invoke(memory, command);
+      const acceptedRound = memory.store.get(`burner_condition_rounds/${IDS.closure}`);
+      expect(acceptedRound.observations[position - 1].redHotObserved).toBe(false);
+      const writes = memory.writes.length;
+      expect(await invoke(memory, command)).toEqual({...accepted, idempotentReplay: true});
+      expect(memory.writes).toHaveLength(writes);
+      await survey('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', [], '2026-08-28T12:00:00.000Z');
+      const afterLater = memory.writes.length;
+      expect(await invoke(memory, command)).toEqual({...accepted, idempotentReplay: true});
+      expect(memory.writes).toHaveLength(afterLater);
+    },
+  );
+
+  test('compliance keeps untouched measurement and UV ages from the actual latest round', async () => {
+    const current = round(IDS.newer, '2026-08-28T10:30:00.000Z');
+    current.uvObservations[1].condition = 'melted';
+    const memory = fakeDb(seed({[`burner_condition_rounds/${IDS.newer}`]: current}));
+    await invoke(memory, request({expectedCurrentRoundId: IDS.newer}));
+    const result = memory.store.get(`burner_condition_rounds/${IDS.closure}`);
+    expect(result).toMatchObject({evidenceKind: 'directiveCompliance', baselineRoundId: IDS.newer});
+    expect(result.evidenceProvenance['uv.2.condition']).toEqual({
+      kind: 'inherited', sourceRoundId: IDS.newer,
+      observedAt: '2026-08-28T10:30:00.000Z',
+      observerUid: 'operations-1', observerName: 'Operations One',
+    });
+    expect(result.evidenceProvenance['burners.1.microampReading'])
+      .toMatchObject({kind: 'inherited', sourceRoundId: IDS.newer,
+        observedAt: '2026-08-28T10:30:00.000Z'});
+    expect(result.evidenceProvenance['burners.3.redHotObserved'])
+      .toMatchObject({kind: 'directiveDisposition', sourceRoundId: IDS.closure});
+    expect(current.uvObservations[1].condition).toBe('melted');
+  });
+
+  test.each(['uvMelted', 'uvMissing', 'uvHungRemoved'])(
+    'legacy accepted later-clear %s remains recoverable from its retained baseline',
+    async (disposition) => {
+      const memory = fakeDb(seed({[`burner_condition_rounds/${IDS.newer}`]:
+        round(IDS.newer, '2026-08-28T10:30:00.000Z', [])}));
+      const command = request({expectedCurrentRoundId: IDS.newer,
+        dispositions: [{position: 3, disposition}]});
+      const accepted = await invoke(memory, command);
+      const stored = memory.store.get(`burner_condition_rounds/${IDS.closure}`);
+      for (const key of ['evidenceKind', 'evidenceProvenance', 'baselineRoundId']) delete stored[key];
+      const receipt = memory.store.get(`burner_condition_round_receipts/${IDS.closure}`);
+      for (const key of ['evidenceVersion', 'roundEvidenceSha256', 'baselineRoundId',
+        'baselineEvidenceSha256', 'sourceRoundEvidenceSha256']) delete receipt[key];
+      const writes = memory.writes.length;
+      expect(await invoke(memory, command)).toEqual({...accepted, idempotentReplay: true});
+      expect(memory.writes).toHaveLength(writes);
+    },
+  );
+
+  test.each(['microamp', 'flame', 'seal', 'observer', 'baseline', 'missingBaseline', 'downgrade'])(
+    'replay rejects valid-shaped %s changes to accepted inherited evidence', async (tamper) => {
+      const memory = fakeDb(seed());
+      await invoke(memory);
+      const stored = memory.store.get(`burner_condition_rounds/${IDS.closure}`);
+      if (tamper === 'microamp') stored.observations[0].microampReading = 9.2;
+      if (tamper === 'flame') stored.observations[0].flameObservation = 'notSeen';
+      if (tamper === 'seal') stored.hotAirAtDraftSealObserved = true;
+      if (tamper === 'observer') stored.recordedByName = 'Someone Else';
+      if (tamper === 'baseline') {
+        memory.store.get(`burner_condition_rounds/${IDS.source}`).observations[0].microampReading = 9.2;
+        stored.observations[0].microampReading = 9.2;
+      }
+      if (tamper === 'missingBaseline') memory.store.delete(`burner_condition_rounds/${IDS.source}`);
+      if (tamper === 'downgrade') {
+        const receipt = memory.store.get(`burner_condition_round_receipts/${IDS.closure}`);
+        delete receipt.evidenceVersion;
+        delete receipt.roundEvidenceSha256;
+      }
+      const writes = memory.writes.length;
+      await expect(invoke(memory)).rejects.toMatchObject({code: 'data-loss',
+        details: {reasonCode: 'burner-directive-compliance-replay-evidence-drift'}});
+      expect(memory.writes).toHaveLength(writes);
+    },
+  );
+
+  test('same Furnace descriptive rename preserves source history and exact replay', async () => {
+    const current = {...round(IDS.newer, '2026-08-28T10:30:00.000Z'),
+      assetName: 'Heating Furnace Seven', assetInstanceVersion: 5};
+    const memory = fakeDb(seed({[`burner_condition_rounds/${IDS.newer}`]: current}));
+    Object.assign(memory.store.get(`asset_instances/${IDS.asset}`), {
+      name: 'Heating Furnace Seven', version: 5,
+    });
+    const command = request({expectedAssetVersion: 5, expectedCurrentRoundId: IDS.newer});
+    const accepted = await invoke(memory, command);
+    expect(memory.store.get(`burner_condition_rounds/${IDS.source}`).assetName).toBe('Furnace 7');
+    expect(await invoke(memory, command)).toEqual({...accepted, idempotentReplay: true});
+  });
+
+  test('replay tolerates supported timestamp representations without weakening content binding', async () => {
+    const memory = fakeDb(seed());
+    const accepted = await invoke(memory);
+    const stored = memory.store.get(`burner_condition_rounds/${IDS.closure}`);
+    stored.observedAt = stored.observedAt.toISOString();
+    for (const entry of Object.values(stored.evidenceProvenance)) {
+      if (entry.observedAt != null) entry.observedAt = new Date(entry.observedAt);
+    }
+    const source = memory.store.get(`burner_condition_rounds/${IDS.source}`);
+    source.observedAt = new Date(source.observedAt);
+    expect(await invoke(memory)).toEqual({...accepted, idempotentReplay: true});
+  });
+
+  test('a physical Furnace number conflict is still refused after a descriptive rename', async () => {
+    const memory = fakeDb(seed());
+    memory.store.get(`burner_condition_rounds/${IDS.source}`).assetNumber = 8;
+    await expect(invoke(memory)).rejects.toMatchObject({code: 'data-loss',
+      details: {reasonCode: 'burner-directive-compliance-round-asset-drift'}});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('accepted compliance remains bound to the original actor and request contents', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory);
+    memory.store.set('users/actor-2', {isApproved: true, roles: ['admin'], name: 'Other Admin'});
+    await expect(mutateBurnerDirectiveComplianceWithDb({db: memory.db,
+      authUid: 'actor-2', data: request()})).rejects.toMatchObject({code: 'already-exists'});
+    await expect(invoke(memory, request({closureRemarks: 'Different closure intent.'})))
+      .rejects.toMatchObject({code: 'already-exists'});
+  });
+
   test('a refreshed asset display snapshot does not relabel or invalidate the historical source round', async () => {
     const m = fakeDb(seed());
     m.store.get(`asset_classes/${IDS.class}`).name = 'BAF Heating Furnaces';

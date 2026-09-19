@@ -1,9 +1,14 @@
 const {MaintenanceWorkflowCommandService} = require('../lib/maintenanceWorkflow/dispatcher');
 const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
+const {computeTemplateVersionContentHash} = require('../lib/publishedTemplateAssignment');
+const {versionFixture, auditFixture} = require('./helpers/publishedTemplateV2Fixtures.cjs');
 const {
   equipmentIdentityFromWorkflow,
   equipmentPathForIdentity,
 } = require('../lib/maintenanceWorkflow/paths');
+const {
+  resolveRedSuccessorTemplate,
+} = require('../lib/maintenanceWorkflow/redSuccessorTemplateResolver');
 
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
 const admin = actor('admin-1', ['admin']);
@@ -147,12 +152,14 @@ const seedRedSuccessorTemplate = (store, assetTypeKey = 'furnace') => {
     assetTypeKey, active: true, redSuccessorTemplateCode: code,
   });
   store.seed(`template_packages/${packageId}`, {
+    firestoreId: packageId, latestVersionNumber: 1,
     packageCode: code, title: `${assetTypeKey} RED work`, lifecycleStatus: 'active',
     activeVersionFirestoreId: versionId, isDeleted: false,
   });
-  store.seed(`template_versions/${versionId}`, {
+  const publishedVersion = versionFixture({
+    firestoreId: versionId,
     packageFirestoreId: packageId, status: 'published', isDeleted: false,
-    versionNumber: 1, versionLabel: 'v1', contentHash: `hash-${assetTypeKey}-red`,
+    versionNumber: 1, versionLabel: 'v1',
     jobTemplateSnapshotJson: JSON.stringify({jobName: `${assetTypeKey} RED successor`}),
     moduleSnapshotsJson: JSON.stringify([{
       moduleCode: 'RED-01', moduleTitle: 'Inspect and repair refractory',
@@ -162,6 +169,12 @@ const seedRedSuccessorTemplate = (store, assetTypeKey = 'furnace') => {
       moduleCode: 'RED-01', key: 'condition', label: 'Refractory condition', type: 'longText',
     }]),
   });
+  publishedVersion.contentHash = computeTemplateVersionContentHash(publishedVersion);
+  store.seed(`template_versions/${versionId}`, publishedVersion);
+  store.seed(`template_publish_audits/audit-${versionId}`, auditFixture({
+    firestoreId: `audit-${versionId}`, packageFirestoreId: packageId,
+    versionFirestoreId: versionId, afterHash: publishedVersion.contentHash,
+  }));
 };
 
 describe('maintenance workflow command integration', () => {
@@ -832,6 +845,8 @@ describe('maintenance workflow command integration', () => {
       isCompleted: false,
       isCancelled: false,
     });
+    expect(JSON.parse(store.read(`job_executions/${successorExecutionId}`).metadataJson))
+      .toMatchObject({publicationAuditId: 'audit-ver-red-furnace'});
     expect(store.entries().filter(([path]) => path.startsWith('job_modules/red_module_'))).toHaveLength(1);
     const completedExecution = store.read('job_executions/wf1-exec');
     expect(completedExecution).toMatchObject({
@@ -882,7 +897,7 @@ describe('maintenance workflow command integration', () => {
       .rejects.toMatchObject({
         code: 'red-successor-template-unconfigured',
         details: expect.objectContaining({
-          reasonCode: 'field-definition-payload-invalid',
+          reasonCode: 'field-key-missing',
         }),
       });
 
@@ -907,7 +922,7 @@ describe('maintenance workflow command integration', () => {
 
   test('base RED successor starts in situ without preparation compliance', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-base', 'readyForClosure', 2, 'base', 101);
-    store.seed('maintenance_workflows/wf-base', {jobExecutionId: 'wf-base-exec', status: 'readyForClosure', version: 2, assetTypeKey: 'base', assetNumber: 101, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
+    store.seed('maintenance_workflows/wf-base', {jobExecutionId: 'wf-base-exec', status: 'readyForClosure', version: 2, assetTypeKey: 'base', assetNumber: 101, assetClassId: 'class-base', assetInstanceId: 'base-101', laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
     store.seed('job_lanes/wf-base_mech_1', {workflowId: 'wf-base', jobExecutionId: 'wf-base-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('equipment_status/base_101', {
       state: 'underMaintenance',
@@ -918,12 +933,62 @@ describe('maintenance workflow command integration', () => {
     });
     seedRedSuccessorTemplate(store, 'base');
     const service = serviceFor(store);
-    const receipt = await service.execute({commandId: 'final-base-red', commandType: 'finalizeJob', aggregateId: 'wf-base', expectedVersion: 2, payload: {redRequired: true}}, {actor: admin, serverNow: at('2026-07-20T05:30:00Z')});
+    const command = {commandId: 'final-base-red', commandType: 'finalizeJob', aggregateId: 'wf-base', expectedVersion: 2, payload: {redRequired: true}};
+    const receipt = await service.execute(command, {actor: admin, serverNow: at('2026-07-20T05:30:00Z')});
     const successorId = receipt.result.successorWorkflowId;
     expect(receipt.result.preparationComplianceId).toBeNull();
     expect(store.read(`maintenance_workflows/${successorId}`)).toMatchObject({activeRedWork: true, awaitingPreparation: false, status: 'assigned'});
+    expect(store.read(`maintenance_workflows/${successorId}`)).toMatchObject({assetClassId: 'class-base', assetInstanceId: 'base-101'});
+    expect(store.read(`job_executions/${receipt.result.successorExecutionId}`)).toMatchObject({assetClassId: 'class-base', assetInstanceId: 'base-101'});
     expect(store.read(`job_lanes/${successorId}_red_1`)).toMatchObject({status: 'pending', gatingComplianceRequestId: null});
     expect(store.read('equipment_status/base_101').state).toBe('underRED');
+    await service.execute({
+      commandId: 'ack-child-after-finalization', commandType: 'acknowledgeLane',
+      aggregateId: successorId, expectedVersion: 1, payload: {laneKey: 'red'},
+    }, {actor: refractory, serverNow: at('2026-07-20T05:31:00Z')});
+    expect(equipmentIdentityFromWorkflow(store.read(`maintenance_workflows/${successorId}`)))
+      .toEqual(equipmentIdentityFromWorkflow(store.read('maintenance_workflows/wf-base')));
+    store.seed('template_packages/pkg-red-base', {
+      ...store.read('template_packages/pkg-red-base'), lifecycleStatus: 'retired',
+    });
+    store.seed('template_publish_audits/audit-ver-red-base', {
+      ...store.read('template_publish_audits/audit-ver-red-base'), isDeleted: true,
+    });
+    const beforeReplay = store.entries();
+    expect(await service.execute(command, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')})).toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+  });
+
+  test.each(['furnace', 'base'])('invalid RED publication leaves %s parent and child population untouched', async (assetType) => {
+    const store = new MemoryWorkflowStore();
+    const assetNumber = assetType === 'base' ? 101 : 7;
+    seedWorkflow(store, 'wf-proof', 'readyForClosure', 2, assetType, assetNumber);
+    store.seed('maintenance_workflows/wf-proof', {
+      ...store.read('maintenance_workflows/wf-proof'), laneSetFinalizedAt: '2026-07-20T00:00:00Z',
+    });
+    store.seed('job_lanes/wf-proof_mech_1', {
+      workflowId: 'wf-proof', jobExecutionId: 'wf-proof-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2,
+    });
+    store.seed(`equipment_status/${assetType}_${assetNumber}`, {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    seedRedSuccessorTemplate(store, assetType);
+    const versionPath = `template_versions/ver-red-${assetType}`;
+    store.seed(versionPath, {
+      ...store.read(versionPath), contentHash: `tg2-sha256:${'a'.repeat(64)}`,
+    });
+    const service = serviceFor(store);
+    const before = store.entries();
+    await expect(service.execute({
+      commandId: 'invalid-proof-finalization', commandType: 'finalizeJob',
+      aggregateId: 'wf-proof', expectedVersion: 2,
+      payload: {redRequired: true, ...(assetType === 'furnace' ? {preparationRequired: true} : {})},
+    }, {actor: admin, serverNow: at('2026-07-20T05:30:00Z')})).rejects.toMatchObject({
+      code: 'red-successor-template-unconfigured', details: {reasonCode: 'version-hash-mismatch'},
+    });
+    expect(store.entries()).toEqual(before);
   });
 
   test('ordinary Operations user cannot finalize the overall planned job', async () => {
@@ -1325,6 +1390,78 @@ describe('maintenance workflow command integration', () => {
       escalationTier: 0,
       lastEscalatedAt: null,
     });
+  });
+
+  test('ordinary counter-condition cannot replace RED preparation authority', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-red-authority', 'awaitingCompliance', 3);
+    store.seed('job_lanes/wf-red-authority_red_1', {
+      workflowId: 'wf-red-authority', laneKey: 'red', status: 'pending',
+      version: 1, activationGeneration: 1,
+      gatingComplianceRequestId: 'wf-red-authority_red_preparation',
+      redPreparationComplianceId: 'wf-red-authority_red_preparation',
+    });
+    store.seed('compliance_requests/c-generic-red', {
+      linkedWorkflowId: 'wf-red-authority', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      status: 'acknowledged', gatesLaneFirestoreId: 'job_lanes/wf-red-authority_red_1',
+      counterDepth: 0, counterProposal: {revisedDescription: 'Generic revision'}, version: 1,
+    });
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'generic-red-counter', commandType: 'decideCounterCondition',
+      aggregateId: 'wf-red-authority', expectedVersion: 3,
+      payload: {complianceId: 'c-generic-red', accepted: true, successorComplianceId: 'c-generic-red-2'},
+    }, {actor: electrical, serverNow: at('2026-07-20T12:30:00Z')})).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'red-preparation-authority-conflict'},
+    });
+    expect(store.read('job_lanes/wf-red-authority_red_1')).toMatchObject({
+      gatingComplianceRequestId: 'wf-red-authority_red_preparation',
+      redPreparationComplianceId: 'wf-red-authority_red_preparation',
+    });
+    expect(store.read('compliance_requests/c-generic-red-2')).toBeNull();
+  });
+
+  test('RED successor field ownership uses the published semantic key', async () => {
+    const store = new MemoryWorkflowStore();
+    seedRedSuccessorTemplate(store, 'furnace');
+    const caseVariant = {
+      ...store.read('template_versions/ver-red-furnace'),
+      fieldDefinitionsJson: JSON.stringify([{
+        moduleCode: 'red-01', key: 'condition', label: 'Refractory condition', type: 'longText', isRequired: true,
+      }]),
+    };
+    caseVariant.contentHash = computeTemplateVersionContentHash(caseVariant);
+    store.seed('template_versions/ver-red-furnace', caseVariant);
+    store.seed('template_publish_audits/audit-ver-red-furnace', {
+      ...store.read('template_publish_audits/audit-ver-red-furnace'),
+      afterHash: caseVariant.contentHash,
+    });
+    const template = await store.runTransaction((tx) => resolveRedSuccessorTemplate(tx, {
+      assetTypeKey: 'furnace', assetNumber: 7, assetClassId: null, assetInstanceId: null,
+    }));
+    expect(JSON.parse(template.modules[0].fieldDefinitionsJson)).toHaveLength(1);
+  });
+
+  test('confirmation rejects an attempt belonging to another compliance request', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-attempt-binding', 'inProgress', 2);
+    store.seed('compliance_requests/c-attempt-binding', {
+      linkedWorkflowId: 'wf-attempt-binding', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      status: 'complied', currentAttemptId: 'other-request_1', attemptCount: 1, version: 1,
+    });
+    store.seed('compliance_attempts/other-request_1', {
+      complianceRequestId: 'other-request', attemptNumber: 1, accepted: false,
+    });
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'confirm-foreign-attempt', commandType: 'confirmComplianceClosed',
+      aggregateId: 'wf-attempt-binding', expectedVersion: 2,
+      payload: {complianceId: 'c-attempt-binding'},
+    }, {actor: electrical, serverNow: at('2026-07-20T12:40:00Z')})).rejects.toMatchObject({
+      code: 'failed-precondition',
+    });
+    expect(store.read('compliance_requests/c-attempt-binding').status).toBe('complied');
   });
 
   test('rejected counter consumes the single revision and a second proposal is denied', async () => {
@@ -1733,6 +1870,7 @@ describe('maintenance workflow command integration', () => {
       targetLaneKey: 'oprn',
       status: 'complied',
       currentAttemptId: 'c-correction-bridge_1',
+      attemptCount: 1,
       version: 3,
     });
     store.seed('compliance_attempts/c-correction-bridge_1', {
@@ -2022,7 +2160,7 @@ describe('maintenance workflow command integration', () => {
     store.seed('compliance_requests/c-foreign-gate', {
       linkedWorkflowId: 'wf-gate-owner', originLaneKey: 'elec', targetLaneKey: 'red',
       gatesLaneFirestoreId: 'job_lanes/wf-foreign_red_1', status: 'complied',
-      currentAttemptId: 'c-foreign-gate_1', version: 2,
+      currentAttemptId: 'c-foreign-gate_1', attemptCount: 1, version: 2,
     });
     store.seed('compliance_attempts/c-foreign-gate_1', {
       complianceRequestId: 'c-foreign-gate', attemptNumber: 1, accepted: false,

@@ -4033,11 +4033,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Correction evidence is a server-control record. The client reads the
-    // rebuilt current projection and the governed audit/receipt, not this
-    // internal amendment collection.
+    // The same approved reviewers who can correct installations can inspect
+    // their complete predecessor chain. All writes remain server-owned.
     match /burner_block_lifecycle_corrections/{docId} {
-      allow read, write: if false;
+      allow read: if isAdminOrSI();
+      allow write: if false;
     }
 
     match /uv_detector_lifecycle_events/{docId} {

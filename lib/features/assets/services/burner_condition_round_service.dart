@@ -27,10 +27,15 @@ class ComposedAgainstRound {
 }
 
 class BurnerConditionRoundException implements Exception {
-  const BurnerConditionRoundException(this.message, {this.code});
+  const BurnerConditionRoundException(
+    this.message, {
+    this.code,
+    this.definitiveRefusal = false,
+  });
 
   final String message;
   final String? code;
+  final bool definitiveRefusal;
 
   @override
   String toString() => message;
@@ -371,6 +376,9 @@ class BurnerConditionRoundService {
     bool? hotAirAtDraftSealObserved,
     List<BurnerUvObservation>? uvObservations,
     ComposedAgainstRound? composedAgainst,
+    Set<String>? observedFields,
+    Map<String, dynamic>? expectedInstallationBasis,
+    List<Map<String, dynamic>>? expectedOpenIssueBasis,
   }) async {
     if (!actor.canRecordBurnerConditionRound) {
       throw const BurnerConditionRoundException(
@@ -409,6 +417,18 @@ class BurnerConditionRoundService {
         code: 'invalid-argument',
       );
     }
+    if (observedFields != null &&
+        (observedFields.isEmpty ||
+            !burnerEvidenceFields.containsAll(observedFields) ||
+            composedAgainst == null ||
+            expectedInstallationBasis == null ||
+            expectedOpenIssueBasis == null)) {
+      throw const BurnerConditionRoundException(
+        'Review the current furnace evidence and select the fields actually checked before saving a partial audit.',
+        code: 'partial-basis-required',
+        definitiveRefusal: true,
+      );
+    }
     final request = <String, dynamic>{
       'operation': burnerConditionRoundOperation,
       'assetClassId': furnace.assetClassId,
@@ -433,6 +453,11 @@ class BurnerConditionRoundService {
       // had, rather than asserting that there was no round.
       if (composedAgainst != null)
         'expectedCurrentRoundId': composedAgainst.roundId,
+      if (observedFields != null) ...{
+        'observedFields': observedFields.toList()..sort(),
+        'expectedInstallationBasis': expectedInstallationBasis,
+        'expectedOpenIssueBasis': expectedOpenIssueBasis,
+      },
     };
     final receipt = await _submit(request, actor, furnace.name);
     return BurnerConditionRoundResult.fromCallableData(

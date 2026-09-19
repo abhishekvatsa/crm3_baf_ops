@@ -63,3 +63,54 @@ Only these reviewed current-source hashes, policies and exact audit counts were
 updated. Historical A-05 tranches, closure receipts, production reconciliation
 and device evidence were not rewritten. Any new parser, changed catch behavior,
 fallback, absent server confirmation or altered identity admission re-arms review.
+
+## September 20 current-source addendum
+
+The origin-bound generic workflow executor is now a directly discovered JSON
+consumer. Its original-account wrapper and accepted-envelope readers are
+classified as local control state, with one separately classified parse catch.
+That catch returns no verified origin; admission then refuses the saved command
+and preserves its bytes for review. It cannot infer the current account, create
+an acceptance, or grant dispatch authority. Native Isar regressions cover account
+changes, preserved legacy and malformed bytes, exact envelope recovery after
+reopen, durable preparation failure, and receipt settlement failure.
+
+The existing uncertain-retry surface now recognizes the versioned origin
+wrapper. Malformed wrappers remain reviewable evidence, and another account's
+retry cannot acquire their authority. Its changed fingerprint records the
+reviewed decoder and authority checks; the parser and catch discovery rules are
+unchanged.
+
+Current inventory is 100 surfaces, 54 decoder catches, 58 strict-reader consumer
+files, 49 raw-JSON consumer files, and 477 risk candidates. Fifteen candidates
+belong to the newly classified executor, and one was added to the previously
+classified retry surface. Existing alarm policies and historical receipts remain
+intact. A-03 remains 596 operations, 2081 sites and 70 surfaces.
+
+Automatic RED successor construction now calls the same published requirement
+compiler used by ordinary assignment's validation and field selection. The
+canonical source check follows that call through `validatedFieldsForModule` to
+`readFieldDefinitionPayload`, instead of requiring a duplicate direct reader in
+the RED resolver. Normalized ambiguous ownership and conflicting embedded/global
+requirements fail before successor creation; the published version/hash and
+original snapshots remain unchanged. Functions regressions compare both paths
+and verify that an unanswered required reading still blocks closure. This is
+source validation, not a rewrite or re-certification of historical jobs.
+
+Both producers also use the shared publication-proof validator for document
+identity, active/latest version, reconstructed canonical content hash, publishing
+actor, and a matching unambiguous publication audit. RED reads that proof within
+the finalization transaction and retains its audit ID in the new child execution
+metadata. Invalid proof leaves the parent and child population untouched. Replay
+of an already committed finalization still uses its historical receipt before
+fresh publication checks, including after the child advances or the template is
+retired. Existing ordinary assignment validation order and historical evidence
+are preserved.
+
+RED target admission also reuses ordinary snapshot type/hierarchy/installed-number
+validation and compares explicit class/instance scope with the transaction-read
+parent identity. The child workflow and execution retain those parent IDs for
+later RED work. Broad legacy templates retain their established type/number
+compatibility; explicitly scoped templates require matching governed parent
+identity. This does not introduce a registry repair policy or rewrite earlier
+children.

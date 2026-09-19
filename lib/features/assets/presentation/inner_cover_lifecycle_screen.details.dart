@@ -23,6 +23,12 @@ class _CoverDetailsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final pairingEvidence = canManage
+        ? _InnerCoverPairingEvidence.fromBatches(
+            ref.watch(innerCoverProfileBatchProvider),
+            ref.watch(innerCoverAssignmentBatchProvider),
+          )
+        : null;
     final history = ref.watch(innerCoverHistoryProvider(cover.id));
     final fabrication = ref.watch(innerCoverFabricationProvider(cover.id));
     final pendingAcceptance = canManage
@@ -78,6 +84,16 @@ class _CoverDetailsSheet extends ConsumerWidget {
                   ),
               ],
             ),
+            if (cover.requiresReacceptance) ...[
+              const SizedBox(height: BafSpacing.sm),
+              const Text(
+                'Physically in the pool, but not qualified for use. Start inspection and record fresh acceptance before assigning it.',
+                style: TextStyle(
+                  color: BafColors.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: BafSpacing.lg),
             if (const {
               InnerCoverLifecycleState.awaitingInspection,
@@ -152,6 +168,13 @@ class _CoverDetailsSheet extends ConsumerWidget {
               ),
             if (canManage) ...[
               const SizedBox(height: BafSpacing.lg),
+              if (cover.isAvailable && pairingEvidence == null) ...[
+                const Text(
+                  _pairingUnavailableMessage,
+                  style: TextStyle(color: BafColors.warning),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+              ],
               Wrap(
                 spacing: BafSpacing.sm,
                 runSpacing: BafSpacing.sm,
@@ -191,7 +214,11 @@ class _CoverDetailsSheet extends ConsumerWidget {
                     ),
                   if (cover.isAvailable)
                     FilledButton.icon(
-                      onPressed: onAssign,
+                      onPressed:
+                          pairingEvidence?.profiles[cover.id]?.isAvailable ==
+                              true
+                          ? onAssign
+                          : null,
                       icon: const Icon(Icons.add_link_rounded),
                       label: const Text('Assign to Base'),
                     ),
@@ -201,8 +228,10 @@ class _CoverDetailsSheet extends ConsumerWidget {
                       onPressed: onState,
                       icon: const Icon(Icons.sync_alt_rounded),
                       label: Text(
-                        cover.lifecycleState ==
-                                InnerCoverLifecycleState.retiredForSalvage
+                        _canStartInnerCoverReinspection(cover)
+                            ? 'Start inspection'
+                            : cover.lifecycleState ==
+                                  InnerCoverLifecycleState.retiredForSalvage
                             ? 'Return for inspection'
                             : 'Change state',
                       ),
@@ -300,7 +329,9 @@ class _CoverDetailsSheet extends ConsumerWidget {
                               subtitle: Text(
                                 item.active
                                     ? 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}'
-                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\nRemoved ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
+                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\n'
+                                          'Removed physically ${item.removedPhysicalAt == null ? 'not recorded' : date.format(item.removedPhysicalAt!.toLocal())}; '
+                                          'recorded ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
                               ),
                             ),
                           )
@@ -386,7 +417,9 @@ class _BaseHistorySheet extends ConsumerWidget {
                               subtitle: Text(
                                 item.active
                                     ? 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}'
-                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\nRemoved ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
+                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\n'
+                                          'Removed physically ${item.removedPhysicalAt == null ? 'not recorded' : date.format(item.removedPhysicalAt!.toLocal())}; '
+                                          'recorded ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
                               ),
                             );
                           },

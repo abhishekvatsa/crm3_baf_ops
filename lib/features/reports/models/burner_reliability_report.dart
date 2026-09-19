@@ -9,12 +9,16 @@ class BurnerReliabilityReport {
     required this.roundCount,
     required this.rows,
     required this.actionColumns,
+    this.partialRoundCount = 0,
+    this.unknownAgeRoundCount = 0,
   });
 
   final int issueCount;
   final int roundCount;
   final List<BurnerReliabilityRow> rows;
   final List<BurnerActionCode> actionColumns;
+  final int partialRoundCount;
+  final int unknownAgeRoundCount;
 
   int get openPositionCount => rows.where((row) => row.openCount > 0).length;
   int get redHotObservationCount =>
@@ -155,47 +159,81 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
   }
   for (final round in rounds) {
     for (final observation in round.observations) {
+      final redEvidence = round.evidenceFor(
+        'burners.${observation.position}.redHotObserved',
+      );
+      final flameEvidence = round.evidenceFor(
+        'burners.${observation.position}.flameObservation',
+      );
+      final readingEvidence = round.evidenceFor(
+        'burners.${observation.position}.microampReading',
+      );
+      final evidenceTimes = [
+        redEvidence.observedAt,
+        flameEvidence.observedAt,
+        readingEvidence.observedAt,
+      ].whereType<DateTime>().toList()..sort();
+      if (evidenceTimes.isEmpty) continue;
+      final latestEvidence = evidenceTimes.last;
       final key = '${round.assetNumber}:${observation.position}';
       final row = rows.putIfAbsent(
         key,
         () => _MutableBurnerReliabilityRow(
           furnaceNumber: round.assetNumber,
           burnerPosition: observation.position,
-          latest: round.observedAt,
+          latest: latestEvidence,
         ),
       );
-      row.roundCount++;
-      if (observation.redHotObserved) row.redHotCount++;
-      if (round.observedAt.isAfter(row.latest)) row.latest = round.observedAt;
-      if (row.latestRoundAt == null ||
-          !round.observedAt.isBefore(row.latestRoundAt!)) {
-        row.latestRoundAt = round.observedAt;
+      if (round.isWitnessedInspection) row.roundCount++;
+      if (observation.redHotObserved &&
+          redEvidence.sourceRoundId == round.roundId &&
+          redEvidence.kind != 'unknown') {
+        row.redHotCount++;
+      }
+      if (latestEvidence.isAfter(row.latest)) row.latest = latestEvidence;
+      final flameAt = flameEvidence.observedAt;
+      if (flameAt != null &&
+          (row.latestRoundAt == null ||
+              !flameAt.isBefore(row.latestRoundAt!))) {
+        row.latestRoundAt = flameAt;
         row.latestFlameObservation = observation.flameObservation;
       }
       final reading = observation.microampReading;
+      final readingAt = readingEvidence.observedAt;
       if (reading != null &&
+          readingAt != null &&
           (row.latestMicroampAt == null ||
-              round.observedAt.isAfter(row.latestMicroampAt!))) {
+              readingAt.isAfter(row.latestMicroampAt!))) {
         row.latestMicroampReading = reading;
-        row.latestMicroampAt = round.observedAt;
+        row.latestMicroampAt = readingAt;
       }
     }
   }
-  final sortedRows =
-      rows.values.toList()..sort((left, right) {
-        final furnace = left.furnaceNumber.compareTo(right.furnaceNumber);
-        return furnace != 0
-            ? furnace
-            : left.burnerPosition.compareTo(right.burnerPosition);
-      });
-  final actionColumns =
-      actionTotals.entries.toList()..sort((left, right) {
-        final count = right.value.compareTo(left.value);
-        return count != 0 ? count : left.key.name.compareTo(right.key.name);
-      });
+  final sortedRows = rows.values.toList()
+    ..sort((left, right) {
+      final furnace = left.furnaceNumber.compareTo(right.furnaceNumber);
+      return furnace != 0
+          ? furnace
+          : left.burnerPosition.compareTo(right.burnerPosition);
+    });
+  final actionColumns = actionTotals.entries.toList()
+    ..sort((left, right) {
+      final count = right.value.compareTo(left.value);
+      return count != 0 ? count : left.key.name.compareTo(right.key.name);
+    });
   return BurnerReliabilityReport(
     issueCount: issueCount,
-    roundCount: rounds.length,
+    roundCount: rounds.where((round) => round.isWitnessedInspection).length,
+    partialRoundCount: rounds
+        .where((round) => !round.isWitnessedInspection)
+        .length,
+    unknownAgeRoundCount: rounds
+        .where(
+          (round) => burnerEvidenceFields.any(
+            (field) => round.evidenceFor(field).observedAt == null,
+          ),
+        )
+        .length,
     rows: List<BurnerReliabilityRow>.unmodifiable(
       sortedRows.map((row) => row.freeze()),
     ),

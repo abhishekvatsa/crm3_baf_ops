@@ -22,12 +22,22 @@ type DocumentRefLike = {
   path?: string;
   get: () => Promise<SnapshotLike>;
 };
+type QuerySnapshotLike = {docs: SnapshotLike[]};
+type QueryLike = {
+  where: (field: string, op: string, value: unknown) => QueryLike;
+};
 type TransactionLike = {
-  get: (ref: DocumentRefLike) => Promise<SnapshotLike>;
+  get: {
+    (ref: DocumentRefLike): Promise<SnapshotLike>;
+    (ref: QueryLike): Promise<QuerySnapshotLike>;
+  };
   set: (ref: DocumentRefLike, data: JsonMap) => void;
   delete: (ref: DocumentRefLike) => void;
 };
-type CollectionLike = {doc: (id?: string) => DocumentRefLike};
+type CollectionLike = {
+  doc: (id?: string) => DocumentRefLike;
+  where: (field: string, op: string, value: unknown) => QueryLike;
+};
 type LifecycleDbLike = {
   collection: (name: string) => CollectionLike;
   runTransaction: <T>(fn: (transaction: TransactionLike) => Promise<T>) =>
@@ -855,6 +865,90 @@ function record(snapshot: SnapshotLike, label: string): JsonMap {
   return snapshot.data()!;
 }
 
+function queryRecords(
+  snapshot: SnapshotLike | QuerySnapshotLike,
+  label: string,
+): SnapshotLike[] {
+  if (!("docs" in snapshot) || !Array.isArray(snapshot.docs)) {
+    throw new AssetHierarchyMutationError(
+      "data-loss",
+      `${label} returned an invalid query result.`,
+      {reasonCode: "inner-cover-custody-query-malformed"},
+    );
+  }
+  return snapshot.docs;
+}
+
+async function requireExclusiveBaseCustody(args: {
+  transaction: TransactionLike;
+  profiles: CollectionLike;
+  linkages: CollectionLike;
+  baseId: string;
+  expectedCover: JsonMap | null;
+  side: "source" | "target";
+}): Promise<void> {
+  const {transaction, profiles, linkages, baseId, expectedCover} = args;
+  const profileSnapshots = queryRecords(await transaction.get(
+    profiles.where("currentBaseAssetInstanceId", "==", baseId),
+  ), "Base profile custody lookup");
+  // Read the complete Base history. Limiting before examining active flags can
+  // hide current custody behind closed history, and filtering on active=true
+  // would hide a damaged or missing active flag on an unclosed linkage.
+  const linkageSnapshots = queryRecords(await transaction.get(
+    linkages.where("baseAssetInstanceId", "==", baseId),
+  ), "Base linkage custody lookup");
+  const expectedProfileMissing = expectedCover != null &&
+    (expectedCover.lifecycleState !== "installed" ||
+      expectedCover.currentBaseAssetInstanceId !== baseId ||
+      profileSnapshots.length !== 1);
+  const unexpectedProfile = expectedProfileMissing || profileSnapshots.some((snapshot) => {
+    const data = snapshot.data();
+    return !snapshot.exists || data == null || expectedCover == null ||
+      snapshot.id !== expectedCover.innerCoverId ||
+      data.innerCoverId !== expectedCover.innerCoverId ||
+      data.lifecycleState !== "installed" ||
+      data.currentBaseAssetInstanceId !== baseId ||
+      data.currentLinkageId !== expectedCover.currentLinkageId;
+  });
+  const unexpectedLinkage = linkageSnapshots.some((snapshot) => {
+    const data = snapshot.data();
+    if (!snapshot.exists || data == null || data.schemaVersion !== 1 ||
+        data.linkageId !== snapshot.id || data.baseAssetInstanceId !== baseId ||
+        typeof data.innerCoverId !== "string" || data.innerCoverId.length === 0 ||
+        typeof data.innerCoverSerialNumber !== "string" ||
+        data.innerCoverSerialNumber.length === 0 ||
+        !Number.isSafeInteger(data.version) || (data.version as number) < 1) {
+      return true;
+    }
+    if (data.active === true && expectedCover != null &&
+        data.linkageId === expectedCover.currentLinkageId &&
+        data.innerCoverId === expectedCover.innerCoverId &&
+        data.innerCoverSerialNumber === expectedCover.serialNumber &&
+        data.removedAt == null && data.removedPhysicalAt == null) {
+      // The operation's direct linkage read also verifies its installation
+      // timestamp before closing the reviewed cover's interval.
+      return false;
+    }
+    const installedAt = persistedInstantMillis(data.installedAt);
+    const removedAt = persistedInstantMillis(data.removedAt);
+    const removedPhysicalAt = persistedInstantMillis(data.removedPhysicalAt);
+    // Only an explicit, chronologically valid closure proves that an older
+    // linkage no longer claims the Base. Incomplete evidence needs repair.
+    return data.active !== false || !Number.isFinite(installedAt) ||
+      !Number.isFinite(removedAt) || removedAt < installedAt ||
+      (data.removedPhysicalAt != null &&
+        (!Number.isFinite(removedPhysicalAt) ||
+          removedPhysicalAt < installedAt || removedPhysicalAt > removedAt));
+  });
+  if (unexpectedProfile || unexpectedLinkage) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The Base has conflicting or incomplete Inner Cover custody evidence. Reconcile it before installing another cover.",
+      {reasonCode: `inner-cover-${args.side}-base-custody-unverified`},
+    );
+  }
+}
+
 function requireVersion(
   data: JsonMap,
   expected: number | null,
@@ -1360,6 +1454,7 @@ function closeLink(
   action: string,
   reason: string,
   committedAt: unknown,
+  physicalEventAt: unknown | null,
   actorUid: string,
   actorName: string,
   owner: {profile: JsonMap; baseAssetInstanceId: unknown},
@@ -1379,7 +1474,8 @@ function closeLink(
     );
   }
   if (current.schemaVersion !== 1 || current.active !== true ||
-      current.removedAt != null || !Number.isSafeInteger(current.version)) {
+      current.removedAt != null || current.removedPhysicalAt != null ||
+      !Number.isSafeInteger(current.version) || (current.version as number) < 1) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The active linkage history record is malformed.",
@@ -1391,8 +1487,14 @@ function closeLink(
   // an ordinary valid-looking installation interval.
   const installedMillis = persistedInstantMillis(current.installedAt);
   const removedMillis = persistedInstantMillis(committedAt);
-  if (Number.isFinite(installedMillis) && Number.isFinite(removedMillis) &&
-      removedMillis < installedMillis) {
+  if (!Number.isFinite(installedMillis)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The active linkage has no valid installation time.",
+      {reasonCode: "inner-cover-linkage-history-malformed"},
+    );
+  }
+  if (Number.isFinite(removedMillis) && removedMillis < installedMillis) {
     throw new AssetHierarchyMutationError(
       "aborted",
       "This removal time precedes the installation it ends. " +
@@ -1400,9 +1502,20 @@ function closeLink(
       {reasonCode: "inner-cover-linkage-chronology-invalid"},
     );
   }
+  const physicalRemovedMillis = persistedInstantMillis(physicalEventAt);
+  if (Number.isFinite(installedMillis) &&
+      Number.isFinite(physicalRemovedMillis) &&
+      physicalRemovedMillis < installedMillis) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The physical removal time precedes the recorded installation.",
+      {reasonCode: "inner-cover-physical-linkage-chronology-invalid"},
+    );
+  }
   return {
     ...current,
     removedAt: committedAt,
+    ...(physicalEventAt == null ? {} : {removedPhysicalAt: physicalEventAt}),
     removedByUid: actorUid,
     removedByName: actorName,
     removalAction: action,
@@ -1697,6 +1810,28 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       await transaction.get(sourceAssignmentRef);
     const targetAssignmentSnapshot = targetAssignmentRef == null ? null :
       await transaction.get(targetAssignmentRef);
+
+    // Missing assignments do not prove vacancy. Replacement and swap also
+    // require the reviewed displaced cover to be the only surviving claimant.
+    const replacesTarget = request.operation === "REPLACE_INNER_COVER" ||
+      request.operation === "SWAP_INNER_COVERS";
+    if (targetBaseRef != null &&
+        (targetAssignmentSnapshot?.exists !== true || replacesTarget)) {
+      await requireExclusiveBaseCustody({
+        transaction, profiles, linkages,
+        baseId: request.targetBaseAssetInstanceId!,
+        expectedCover: replacesTarget ? displacedProfile : null,
+        side: "target",
+      });
+    }
+    if (request.operation === "SWAP_INNER_COVERS") {
+      await requireExclusiveBaseCustody({
+        transaction, profiles, linkages,
+        baseId: request.sourceBaseAssetInstanceId!,
+        expectedCover: currentProfile,
+        side: "source",
+      });
+    }
 
     const nowDate = args.now?.() ?? new Date();
     const committedAtIso = nowDate.toISOString();
@@ -2225,6 +2360,8 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         );
         transaction.set(displacedLinkRef, closeLink(
           displacedLink, request.operation, request.reason, committedAt,
+          request.physicalEventAt == null ? null :
+            toTimestamp(request.physicalEventAt),
           actorUid, actorName,
           {
             profile: displaced,
@@ -2294,7 +2431,9 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         );
         if (request.operation === "DELINK_INNER_COVER") {
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt,
+            request.physicalEventAt == null ? null :
+              toTimestamp(request.physicalEventAt), actorUid,
             actorName,
             {
               profile: current,
@@ -2340,7 +2479,8 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             actorName, request.requestId,
           );
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt, null,
+            actorUid,
             actorName,
             {
               profile: current,
@@ -2384,7 +2524,8 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             "Displaced linkage history",
           );
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt, null,
+            actorUid,
             actorName,
             {
               profile: current,
@@ -2393,6 +2534,7 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           ));
           transaction.set(displacedLinkRef, closeLink(
             displacedLink, request.operation, request.reason, committedAt,
+            null,
             actorUid, actorName,
             {
               profile: displaced,

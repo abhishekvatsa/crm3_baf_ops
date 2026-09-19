@@ -79,18 +79,17 @@ void main() {
         ]),
       );
 
-      final secondSession =
-          await admitActorSessionSnapshots(
-            Stream.fromIterable(const [
-              (fromCache: false, value: 'actor-b-server'),
-              (fromCache: true, value: 'actor-b-cache'),
-            ]),
-            trust: trust,
-            actorUid: 'operations-2',
-            queryKey: queryKey,
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (_) => false,
-          ).toList();
+      final secondSession = await admitActorSessionSnapshots(
+        Stream.fromIterable(const [
+          (fromCache: false, value: 'actor-b-server'),
+          (fromCache: true, value: 'actor-b-cache'),
+        ]),
+        trust: trust,
+        actorUid: 'operations-2',
+        queryKey: queryKey,
+        isFromCache: (snapshot) => snapshot.fromCache,
+        hasPendingWrites: (_) => false,
+      ).toList();
       expect(secondSession.map((snapshot) => snapshot.value), [
         'actor-b-server',
         'actor-b-cache',
@@ -155,14 +154,20 @@ void main() {
 
       expect(find.text('Burner reliability'), findsOneWidget);
       expect(find.text('Lockout reports'), findsOneWidget);
-      expect(find.text('Condition rounds'), findsOneWidget);
+      expect(find.text('Witnessed surveys'), findsOneWidget);
       expect(find.text('Open positions'), findsOneWidget);
       expect(find.text('Red-hot records'), findsOneWidget);
       expect(find.text('FR-02-B01'), findsOneWidget);
       expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
       expect(find.text('1 red hot'), findsOneWidget);
       expect(find.text('UV detector cleaning: 1'), findsOneWidget);
-      expect(find.text('1 rounds'), findsWidgets);
+      expect(find.text('1 surveys'), findsWidgets);
+      expect(
+        find.textContaining(
+          'Copied readings keep their original observation dates.',
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -221,7 +226,10 @@ void main() {
       expect(queryActors, containsAllInOrder(['operations-1', 'operations-2']));
       expect(disposedActors, contains('operations-1'));
       expect(find.text('3.6 microamp on 16 Aug 2026'), findsNothing);
-      expect(find.text('No burner evidence in this period'), findsOneWidget);
+      expect(
+        find.text('No dated burner evidence in this period'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -422,25 +430,25 @@ MaintenanceRecord _burnerTicket({required DateTime now}) {
     performedBy: 'I&A One',
     performedAt: now,
   );
-  final record =
-      MaintenanceRecord()
-        ..firestoreId = 'burner-ticket-1'
-        ..assetType = AssetType.furnace
-        ..assetNumber = 2
-        ..maintenanceType = MaintenanceType.breakdown
-        ..classification = burnerLockoutClassification
-        ..description = 'Burner 1 locked out with a red-hot block observation.'
-        ..routedTo = RoutedTo.instrumentation
-        ..status = TicketStatus.resolved
-        ..isResolved = true
-        ..component = 'Burner system'
-        ..subsystem = 'Burner system'
-        ..startDate = now.subtract(const Duration(hours: 2))
-        ..endDate = now
-        ..createdAt = now.subtract(const Duration(hours: 2))
-        ..updatedAt = now
-        ..resolutionHistoryJson = '[]'
-        ..burnerLockoutCase = BurnerLockoutCase(
+  final record = MaintenanceRecord()
+    ..firestoreId = 'burner-ticket-1'
+    ..assetType = AssetType.furnace
+    ..assetNumber = 2
+    ..maintenanceType = MaintenanceType.breakdown
+    ..classification = burnerLockoutClassification
+    ..description = 'Burner 1 locked out with a red-hot block observation.'
+    ..routedTo = RoutedTo.instrumentation
+    ..status = TicketStatus.resolved
+    ..isResolved = true
+    ..component = 'Burner system'
+    ..subsystem = 'Burner system'
+    ..startDate = now.subtract(const Duration(hours: 2))
+    ..endDate = now
+    ..createdAt = now.subtract(const Duration(hours: 2))
+    ..updatedAt = now
+    ..resolutionHistoryJson = '[]'
+    ..burnerLockoutCase =
+        BurnerLockoutCase(
           positions: const [1],
           commonMode: false,
           cycleStage: BurnerCycleStage.firing,
@@ -456,6 +464,6 @@ MaintenanceRecord _burnerTicket({required DateTime now}) {
           ),
           actions: [action],
         )
-        ..actions = [action];
+    ..actions = [action];
   return record;
 }

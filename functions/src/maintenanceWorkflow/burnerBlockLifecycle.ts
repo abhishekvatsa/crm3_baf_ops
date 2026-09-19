@@ -419,16 +419,18 @@ const eventId = (parts: readonly string[]): string =>
  */
 const physicalActionKey = (data: JsonMap): string | null =>
   data.sourceActionId == null ? null : stableJson({
+    sourceType: data.sourceType,
+    sourceId: data.sourceId,
     sourceActionId: data.sourceActionId,
-    assetInstanceId: data.assetInstanceId ?? null,
-    burnerPosition: data.burnerPosition ?? null,
   });
 
 /**
  * The claim two references make about one physical action. The time it was
- * performed is evidence about the action, not part of its name: keeping it in
- * the identity meant a reference that contradicted the time was filed as a
- * second action instead of being caught as a contradiction.
+ * performed, position, and target asset are claims, not parts of its identity.
+ * Identity is scoped to the parent closure, so a disputed target cannot create
+ * a second action and unrelated jobs can still use the same local action ID.
+ * Original execution/module payloads retain every reference; coalescing only
+ * prevents those retained references from counting as multiple installations.
  */
 const sameLifecycleClaim = (left: JsonMap, right: JsonMap): boolean => {
   const comparable = (data: JsonMap): string => stableJson(

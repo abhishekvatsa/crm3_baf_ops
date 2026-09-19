@@ -12936,16 +12936,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 595
-    and a03_inventory_report.get("siteCount") == 2078
+    and a03_inventory_report.get("operationCount") == 600
+    and a03_inventory_report.get("siteCount") == 2091
     and a03_inventory_report.get("inventoryDigest")
-        == "FCDCA1B1BCD4BE19717482718DF82ED00F8D530D6CA7DCEA53F8EB0C510D88BE"
+        == "4C92C4B915402B61678724D9D30199C58ACF11CA3BB95F213F11ACAFA7B7361E"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 70
-    and len({surface.get("path") for surface in a03_surfaces}) == 70
+    and len(a03_surfaces) == 72
+    and len({surface.get("path") for surface in a03_surfaces}) == 72
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -12990,9 +12990,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 99
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 103
     and a04_inventory_report.get("inventoryDigest")
-        == "F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8"
+        == "98E133903A49B807054ABCB4C9F717FAFA97D68ED1131B85C20C13261716F48C"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13000,8 +13000,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 99
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 99
+    and len(a04_inherited_decoders) == 103
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 103
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13269,10 +13269,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 96
-    and a05_timestamp_inventory_report.get("directCallCount") == 235
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 140
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 93
+    and a05_timestamp_inventory_report.get("readerCount") == 100
+    and a05_timestamp_inventory_report.get("directCallCount") == 244
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 147
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 95
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 37
@@ -13286,7 +13286,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 96
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 100
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -13311,17 +13311,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 99
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 58
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 48
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 461
+    and a05_decoder_inventory_report.get("surfaceCount") == 103
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 54
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 59
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 49
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 478
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 99
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 103
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 54
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13762,7 +13762,11 @@ check(
     and "Saved responses need repair" in a05_job_history
     and "invalidPersistedEvidence" in a05_closure_guard
     and "readFieldResponsePayload" in a05_finalize_handler
-    and "readFieldDefinitionPayload" in a05_red_resolver
+    and "compiled = compilePublishedTemplateRequirements({" in a05_red_resolver
+    and "export function compilePublishedTemplateRequirements(" in a05_assignment
+    and "fields: validatedFieldsForModule(bundle, snapshot)" in a05_assignment
+    and "return [...readFieldDefinitionPayload(JSON.stringify(fields), {"
+        in a05_assignment
     and "fieldDefinitionsJson must contain a JSON array when present"
         in a05_red_resolver
     and "readFieldDefinitionPayload" in a05_assignment

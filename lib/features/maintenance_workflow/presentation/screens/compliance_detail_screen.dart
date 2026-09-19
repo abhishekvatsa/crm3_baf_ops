@@ -247,7 +247,15 @@ class _ComplianceDetailScreenState
                 : receiptVersion;
             final workflowFinal =
                 workflow?.statusKey == 'completed' ||
-                workflow?.statusKey == 'cancelled';
+                workflow?.statusKey == 'cancelled' ||
+                workflow?.cancelled == true ||
+                workflow?.completedAt != null;
+            final postClosureFollowUp =
+                workflow?.statusKey == 'completed' &&
+                workflow?.cancelled != true &&
+                workflow?.workflowKind != 'issueCoordination' &&
+                record.gatesLaneFirestoreId == null &&
+                !record.isDeleted;
             return _detailBody(
               context,
               ref,
@@ -257,6 +265,7 @@ class _ComplianceDetailScreenState
               busy: commandState.isLoading,
               version: version,
               workflowFinal: workflowFinal,
+              postClosureFollowUp: postClosureFollowUp,
             );
           },
         ),
@@ -273,6 +282,7 @@ class _ComplianceDetailScreenState
     required bool busy,
     int? version,
     bool workflowFinal = false,
+    bool postClosureFollowUp = false,
     Widget? actionOverride,
   }) {
     return ListView(
@@ -337,6 +347,15 @@ class _ComplianceDetailScreenState
           subtitle: 'Actions follow lane authority and current state',
         ),
         const SizedBox(height: BafSpacing.sm),
+        if (postClosureFollowUp)
+          const BafStatePanel(
+            icon: Icons.fact_check_outlined,
+            color: BafColors.audit,
+            title: 'Follow-up after job closure',
+            message:
+                'This non-blocking request can still be answered and reviewed. '
+                'The physical job stays closed; these actions do not reopen work.',
+          ),
         if (actionOverride != null)
           actionOverride
         else if (version == null)
@@ -347,7 +366,7 @@ class _ComplianceDetailScreenState
             message:
                 'Actions are disabled until the authoritative workflow version is available.',
           )
-        else if (workflowFinal)
+        else if (workflowFinal && !postClosureFollowUp)
           const BafRecordSurface(
             accent: BafColors.audit,
             child: Row(
@@ -372,6 +391,7 @@ class _ComplianceDetailScreenState
             expectedVersion: version,
             busy: busy,
             actor: actor,
+            postClosureFollowUp: postClosureFollowUp,
           ),
         const SizedBox(height: BafSpacing.xl),
         const BafSectionLabel(
@@ -495,6 +515,7 @@ class _ComplianceDetailScreenState
     required int expectedVersion,
     required bool busy,
     required AppUser actor,
+    required bool postClosureFollowUp,
   }) {
     final widgets = <Widget>[];
     void add(Widget widget) {
@@ -516,12 +537,16 @@ class _ComplianceDetailScreenState
         WorkflowActionGuard(
           busy: busy,
           enabled: mayMarkCondition,
-          label: 'Confirm release condition met',
+          label: postClosureFollowUp
+              ? 'Confirm condition (follow-up only)'
+              : 'Confirm release condition met',
           icon: Icons.playlist_add_check_circle_outlined,
           onPressed: () async {
             final note = await _askText(
               context,
-              title: 'Confirm release condition met',
+              title: postClosureFollowUp
+                  ? 'Confirm condition (follow-up only)'
+                  : 'Confirm release condition met',
               label: 'What was completed or verified?',
             );
             if (note == null) return;
@@ -531,6 +556,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.confirmConditionAndReactivate,
               actorUid: actor.uid,
+              expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -551,6 +577,7 @@ class _ComplianceDetailScreenState
             expectedVersion,
             WorkflowCommandType.acknowledgeCompliance,
             actorUid: actor.uid,
+            expectedComplianceVersion: record.version,
           ),
         ),
       );
@@ -578,6 +605,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.markComplianceComplied,
               actorUid: actor.uid,
+              expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -602,6 +630,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.proposeCounterCondition,
                     actorUid: actor.uid,
+                    expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'revisedDescription': revised},
                   );
                 },
@@ -630,6 +659,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.decideCounterCondition,
                     actorUid: actor.uid,
+                    expectedComplianceVersion: record.version,
                     extra: <String, Object?>{
                       'accepted': true,
                       'note': note,
@@ -660,6 +690,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.decideCounterCondition,
                     actorUid: actor.uid,
+                    expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'accepted': false, 'note': note},
                   );
                 },
@@ -692,6 +723,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.confirmComplianceClosed,
               actorUid: actor.uid,
+              expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -714,6 +746,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.returnComplianceForCorrection,
                     actorUid: actor.uid,
+                    expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'reason': reason},
                   );
                 },
@@ -736,6 +769,7 @@ class _ComplianceDetailScreenState
     int expectedVersion,
     WorkflowCommandType type, {
     required String actorUid,
+    required int expectedComplianceVersion,
     Map<String, Object?> extra = const <String, Object?>{},
   }) async {
     if (!mounted) return;
@@ -749,6 +783,7 @@ class _ComplianceDetailScreenState
               expectedVersion: expectedVersion,
               payload: <String, Object?>{
                 'complianceId': widget.record.firestoreId,
+                'expectedComplianceVersion': expectedComplianceVersion,
                 ...extra,
               },
             ),

@@ -4,6 +4,8 @@ const {
 const {
   MemoryWorkflowStore,
 } = require('../lib/maintenanceWorkflow/memoryStore');
+const {payloadFingerprint} = require('../lib/maintenanceWorkflow/utils');
+const {receiptPath} = require('../lib/maintenanceWorkflow/idempotency');
 
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
 const admin = actor('admin-alarm', ['admin']);
@@ -535,4 +537,190 @@ describe('critical safety alarm workflow', () => {
       details: {reasonCode: 'critical-alarm-replay-evidence-invalid'},
     });
   });
+
+  test('idempotent replay rejects altered accepted alarm content', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const command = raiseCommand('alarm-replay-content');
+    await service.execute(command, {
+      actor: ops,
+      serverNow: at('2026-08-26T16:10:00Z'),
+    });
+    const auditPath = 'critical_alarm_audits/raise-alarm-replay-content';
+    const audit = store.read(auditPath);
+    const after = JSON.parse(audit.afterJson);
+    store.seed(auditPath, {
+      ...audit,
+      afterJson: JSON.stringify({...after, location: 'Forged location'}),
+    });
+
+    await expect(service.execute(command, {
+      actor: ops,
+      serverNow: at('2026-08-26T16:11:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'critical-alarm-replay-evidence-invalid'},
+    });
+  });
+
+  test('every alarm and configuration operation binds its audit independently and replays after later work', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const accepted = [];
+    async function accept(command, currentActor = ops,
+      collection = 'critical_alarm_audits', contentField = 'location') {
+      const receipt = await service.execute(command, {
+        actor: currentActor,
+        serverNow: new Date(Date.parse('2026-09-19T10:00:00Z') +
+          accepted.length * 60000),
+      });
+      accepted.push({command, actor: currentActor, receipt,
+        auditPath: `${collection}/${command.commandId}`, contentField});
+    }
+    await accept(raiseCommand('bound-alarm'));
+    await accept({commandId: 'bound-details',
+      commandType: 'provideCriticalAlarmDetails', aggregateId: 'bound-alarm',
+      expectedVersion: 1, payload: {details: 'Revised physical incident details.'}});
+    await accept({commandId: 'bound-support',
+      commandType: 'confirmCriticalAlarmSupport', aggregateId: 'bound-alarm',
+      expectedVersion: 2, payload: {basis: 'supportDispatched',
+        responderNote: 'Support dispatched from control room', details: null}}, si);
+    await accept({commandId: 'bound-resolve',
+      commandType: 'resolveCriticalAlarm', aggregateId: 'bound-alarm',
+      expectedVersion: 3, payload: {resolutionSummary: 'Incident resolved and verified.'}}, si);
+    await accept(raiseCommand('bound-withdrawn-alarm'));
+    await accept({commandId: 'bound-withdraw',
+      commandType: 'withdrawCriticalAlarmInError', aggregateId: 'bound-withdrawn-alarm',
+      expectedVersion: 1, payload: {reason: 'Duplicate report confirmed with the raiser.'}});
+    await accept({commandId: 'bound-contact-create',
+      commandType: 'upsertCriticalAlarmContact', aggregateId: 'bound-contact',
+      expectedVersion: 0, payload: {contact: {schemaVersion: 1,
+        label: 'Emergency control', contactKind: 'plantExtension', dialValue: '4100',
+        alarmTypeKeys: ['fire'], priority: 1, notes: null}, reason: 'Create contact'}},
+    admin, 'critical_alarm_contact_audits', 'label');
+    await accept({commandId: 'bound-contact-retire',
+      commandType: 'setCriticalAlarmContactStatus', aggregateId: 'bound-contact',
+      expectedVersion: 1, payload: {status: 'retired', reason: 'Contact unavailable'}},
+    admin, 'critical_alarm_contact_audits', 'label');
+    await accept({commandId: 'bound-definition-create',
+      commandType: 'upsertCriticalAlarmDefinition', aggregateId: 'boundHazard',
+      expectedVersion: 0, payload: {definition: {schemaVersion: 1,
+        name: 'Governed plant hazard', criticalityKey: 'highest', criticalityRank: 1},
+      reason: 'Create governed reason'}},
+    admin, 'critical_alarm_definition_audits', 'name');
+    await accept({commandId: 'bound-definition-retire',
+      commandType: 'setCriticalAlarmDefinitionStatus', aggregateId: 'boundHazard',
+      expectedVersion: 1, payload: {status: 'retired', reason: 'Retire governed reason'}},
+    admin, 'critical_alarm_definition_audits', 'name');
+
+    expect(new Set(accepted.map(({command}) => command.commandType)).size).toBe(9);
+    for (const entry of accepted) {
+      const {command, receipt, auditPath, contentField} = entry;
+      const audit = store.read(auditPath);
+      expect(audit.schemaVersion).toBe(3);
+      expect(receipt.result).toMatchObject({auditSchemaVersion: 3,
+        acceptedAfterFingerprint: audit.acceptedAfterFingerprint});
+      expect(store.read(receiptPath(command.commandId)).result).toEqual(receipt.result);
+      const beforeReplay = store.entries();
+      await expect(service.execute(command, {
+        actor: entry.actor, serverNow: at('2026-09-19T12:00:00Z'),
+      })).resolves.toEqual(receipt);
+      expect(store.entries()).toEqual(beforeReplay);
+
+      for (const corruption of ['downgrade-v1', 'downgrade-v2', 'rehashed']) {
+        const alteredAfter = {...JSON.parse(audit.afterJson),
+          [contentField]: 'Different accepted value'};
+        store.seed(auditPath, {...audit,
+          schemaVersion: corruption === 'downgrade-v1' ? 1 :
+            corruption === 'downgrade-v2' ? 2 : 3,
+          afterJson: JSON.stringify(alteredAfter),
+          acceptedAfterFingerprint: payloadFingerprint(alteredAfter),
+        });
+        // Only the audit changes: command, receipt, event and current record
+        // continue to carry the original evidence, even after later work.
+        expect(store.entries().filter(([path, data]) =>
+          JSON.stringify(data) !== JSON.stringify(
+            beforeReplay.find(([originalPath]) => originalPath === path)?.[1],
+          )).map(([path]) => path)).toEqual([auditPath]);
+        const beforeRejectedReplay = store.entries();
+        await expect(service.execute(command, {
+          actor: entry.actor, serverNow: at('2026-09-19T12:01:00Z'),
+        })).rejects.toMatchObject({code: 'failed-precondition',
+          details: {reasonCode: 'critical-alarm-replay-evidence-invalid'}});
+        expect(store.entries()).toEqual(beforeRejectedReplay);
+        store.seed(auditPath, audit);
+      }
+    }
+  });
+
+  test.each([1, 2])('historical schema-%i audits replay without inventing receipt bindings', async (schemaVersion) => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const command = raiseCommand(`historical-audit-${schemaVersion}`);
+    const first = await service.execute(command, {
+      actor: ops, serverNow: at('2026-09-19T10:00:00Z'),
+    });
+    // Reconstruct the persisted shapes emitted before receipt-bound audits.
+    // Neither historical receipt schema ever carried these result fields.
+    const {auditSchemaVersion: _schema, acceptedAfterFingerprint: _hash,
+      ...historicalResult} = first.result;
+    const historicalReceipt = {...first, result: historicalResult};
+    const storedReceiptPath = receiptPath(command.commandId);
+    store.seed(storedReceiptPath, {...store.read(storedReceiptPath),
+      result: historicalResult});
+    const auditPath = `critical_alarm_audits/${command.commandId}`;
+    const audit = store.read(auditPath);
+    const historicalAudit = {...audit, schemaVersion,
+      performedAt: {_seconds: Date.parse(first.appliedAt) / 1000, _nanoseconds: 0}};
+    if (schemaVersion === 1) delete historicalAudit.acceptedAfterFingerprint;
+    store.seed(auditPath, historicalAudit);
+    await service.execute({commandId: `later-${command.aggregateId}`,
+      commandType: 'provideCriticalAlarmDetails', aggregateId: command.aggregateId,
+      expectedVersion: 1, payload: {details: 'Later independently accepted details.'}},
+    {actor: ops, serverNow: at('2026-09-19T10:01:00Z')});
+    const beforeReplay = store.entries();
+    await expect(service.execute(command, {
+      actor: ops, serverNow: at('2026-09-19T10:02:00Z'),
+    })).resolves.toEqual(historicalReceipt);
+    expect(store.entries()).toEqual(beforeReplay);
+
+    if (schemaVersion === 2) {
+      store.seed(auditPath, {...historicalAudit, afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson), location: 'Altered historical location',
+      })});
+      await expect(service.execute(command, {
+        actor: ops, serverNow: at('2026-09-19T10:03:00Z'),
+      })).rejects.toMatchObject({details: {
+        reasonCode: 'critical-alarm-replay-evidence-invalid',
+      }});
+    }
+  });
+
+  test.each(['missing-schema', 'missing-hash', 'missing-both', 'invalid-hash'])(
+    'new evidence does not use legacy compatibility with %s receipt binding', async (damage) => {
+      const store = new MemoryWorkflowStore();
+      const service = serviceFor(store);
+      const command = raiseCommand(`binding-${damage}`);
+      await service.execute(command, {
+        actor: ops, serverNow: at('2026-09-19T10:00:00Z'),
+      });
+      const path = receiptPath(command.commandId);
+      const stored = store.read(path);
+      if (damage === 'missing-schema' || damage === 'missing-both') {
+        delete stored.result.auditSchemaVersion;
+      }
+      if (damage === 'missing-hash' || damage === 'missing-both') {
+        delete stored.result.acceptedAfterFingerprint;
+      }
+      if (damage === 'invalid-hash') stored.result.acceptedAfterFingerprint = 'bad';
+      store.seed(path, stored);
+      const beforeReplay = store.entries();
+      await expect(service.execute(command, {
+        actor: ops, serverNow: at('2026-09-19T10:01:00Z'),
+      })).rejects.toMatchObject({details: {
+        reasonCode: 'critical-alarm-replay-evidence-invalid',
+      }});
+      expect(store.entries()).toEqual(beforeReplay);
+    },
+  );
 });

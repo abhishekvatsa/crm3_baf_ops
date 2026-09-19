@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/compliance_request_record.dart';
 import '../data/equipment_status_record.dart';
@@ -13,6 +14,7 @@ import '../data/workflow_aggregate_record.dart';
 import '../data/workflow_event_record.dart';
 import '../domain/compliance_visibility_policy.dart';
 import '../domain/workflow_command_contract.dart';
+import '../domain/workflow_error.dart';
 import '../domain/workflow_models.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
 import '../repositories/isar_workflow_repository.dart';
@@ -61,6 +63,13 @@ final workflowOnlineExecutorProvider = Provider<WorkflowOnlineExecutor>((ref) {
       final access = ref.read(appNetworkAccessProvider).asData?.value;
       if (access == null || access == AppNetworkAccess.unknown) return null;
       return access.willRefuseRequests;
+    },
+    originActorUid: () {
+      final access = CurrentActorAccess.resolve(
+        ref.read(currentAppUserProvider),
+      );
+      final authenticated = ref.read(firebaseAuthProvider).currentUser?.uid;
+      return access.actor?.uid == authenticated ? access.actor?.uid : null;
     },
   );
 });
@@ -391,6 +400,7 @@ class WorkflowCommandController
     WorkflowOnlineExecutor executor,
     WorkflowPullService pullService,
   ) : _executeCommand = executor.execute,
+      _currentActorUid = executor.originActorUid,
       _pullProjections = (() async {
         await pullService.pull();
       }),
@@ -400,23 +410,41 @@ class WorkflowCommandController
     required Future<WorkflowCommandReceipt> Function(WorkflowCommand command)
     executeCommand,
     required Future<void> Function() pullProjections,
+    String? Function()? currentActorUid,
   }) : _executeCommand = executeCommand,
+       _currentActorUid = currentActorUid,
        _pullProjections = pullProjections,
        super(const AsyncData(null));
 
   final Future<WorkflowCommandReceipt> Function(WorkflowCommand command)
   _executeCommand;
   final Future<void> Function() _pullProjections;
+  final String? Function()? _currentActorUid;
+
+  void _requireSameActor(String? origin) {
+    if (_currentActorUid == null) return;
+    if (origin == null || origin.isEmpty || _currentActorUid() != origin) {
+      const error = WorkflowException(
+        WorkflowErrorCode.permissionDenied,
+        'Return to the original approved account to view this workflow result.',
+      );
+      if (mounted) state = AsyncError(error, StackTrace.current);
+      throw error;
+    }
+  }
 
   // Exact-readback callers may refresh the wider projection separately.
   Future<WorkflowCommandReceipt> execute(
     WorkflowCommand command, {
     bool refreshProjections = true,
   }) async {
+    final origin = _currentActorUid?.call();
+    _requireSameActor(origin);
     state = const AsyncLoading();
     late final WorkflowCommandReceipt receipt;
     try {
       receipt = await _executeCommand(command);
+      _requireSameActor(origin);
     } catch (error, stackTrace) {
       try {
         await _pullProjections();
@@ -435,6 +463,7 @@ class WorkflowCommandController
       // The receipt proves that the command succeeded. Projection refresh is
       // independent and will retry through normal synchronization.
     }
+    _requireSameActor(origin);
     return receipt;
   }
 }

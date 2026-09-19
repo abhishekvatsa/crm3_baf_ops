@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/persistence/durable_submission.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -16,6 +17,7 @@ import 'critical_alarm_feed_state.dart';
 import 'critical_alarm_stale_notice.dart';
 
 part 'critical_alarm_screen.feed.dart';
+part 'critical_alarm_screen.recovery.dart';
 
 class CriticalAlarmScreen extends ConsumerWidget {
   const CriticalAlarmScreen({super.key, this.initialAlarmId});
@@ -80,8 +82,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final recentFeed = ref.watch(criticalAlarmFeedProvider);
     final contacts = ref.watch(criticalAlarmContactsProvider);
     final definitionFeed = ref.watch(criticalAlarmDefinitionsProvider);
+    final definitionSnapshot = definitionFeed.asData?.value;
     final activeDefinitions =
-        definitionFeed.asData?.value
+        definitionSnapshot?.definitions
             .where((definition) => definition.isActive)
             .toList() ??
         const <CriticalAlarmDefinition>[];
@@ -91,8 +94,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final activeAlarmRows = activeFeed.whenData((snapshot) => snapshot.alarms);
     final recentRows = recentFeed.asData?.value ?? const <CriticalAlarm>[];
     final history = recentRows.where((alarm) => !alarm.isActive).toList();
+    final contactSnapshot = contacts.asData?.value;
     final contactRows =
-        contacts.asData?.value ?? const <CriticalAlarmContact>[];
+        contactSnapshot?.contacts ?? const <CriticalAlarmContact>[];
     final linkedAlarmIsHistorical =
         initialAlarmId != null &&
         !active.any((alarm) => alarm.id == initialAlarmId) &&
@@ -133,6 +137,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
         body: Column(
           children: [
             const _ScopeBoundary(),
+            const _PendingCriticalAlarmCommands(),
             Expanded(
               child: TabBarView(
                 children: [
@@ -169,7 +174,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
           heroTag: 'raise-critical-alarm',
           backgroundColor: BafColors.danger,
           foregroundColor: Colors.white,
-          onPressed: definitionFeed.hasValue && activeDefinitions.isNotEmpty
+          onPressed:
+              definitionSnapshot?.isComplete == true &&
+                  activeDefinitions.isNotEmpty
               ? () => _raise(context, ref, activeDefinitions)
               : null,
           icon: const Icon(Icons.notification_important),
@@ -202,7 +209,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
         ),
         title: Text('Raise ${draft.definition.name}?'),
         content: Text(
-          '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\n${draft.details}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. The alarm is sent immediately after confirmation and is never queued offline.',
+          '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\n${draft.details}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. If the response is interrupted, the original command is saved on this device for checking.',
         ),
         actions: [
           TextButton(
@@ -479,12 +486,13 @@ class _AlarmCard extends ConsumerWidget {
                 children: [
                   if (lifecycleActionsEnabled &&
                       alarm.isActive &&
-                      alarm.detailsPending &&
                       _canEditDetails)
                     OutlinedButton.icon(
                       onPressed: () => _provideDetails(context, ref),
                       icon: const Icon(Icons.edit_note_outlined),
-                      label: const Text('Add details'),
+                      label: Text(
+                        alarm.detailsPending ? 'Add details' : 'Update details',
+                      ),
                     ),
                   if (lifecycleActionsEnabled &&
                       alarm.status == CriticalAlarmStatus.raised &&
@@ -534,7 +542,9 @@ class _AlarmCard extends ConsumerWidget {
   Future<void> _provideDetails(BuildContext context, WidgetRef ref) async {
     final value = await _askText(
       context,
-      title: 'Add incident details',
+      title: alarm.detailsPending
+          ? 'Add incident details'
+          : 'Update incident details',
       label: 'What happened and what remains at risk?',
       minimum: 1,
       maximum: 2000,
@@ -1096,7 +1106,7 @@ void _showCommandFailure(
           error.code == WorkflowErrorCode.deadlineExceeded ||
           error.code == WorkflowErrorCode.aborted);
   final message = dispatch && uncertain
-      ? 'Alarm dispatch could not be confirmed. It will not retry automatically. Check Active alarms and follow the plant emergency procedure.'
+      ? 'Alarm dispatch could not be confirmed. The original command is saved on this device; use the recovery banner before raising a new alarm. Check Active alarms and follow the plant emergency procedure.'
       : '$error';
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(message), backgroundColor: BafColors.danger),

@@ -87,18 +87,16 @@ class WorkflowPullQuarantineRecord {
         field: 'error',
         source: source,
       ),
-      observedAt:
-          readOptionalPersistedDateTime(
-            json['observedAt'],
-            field: 'observedAt',
-            source: source,
-          )?.toUtc(),
-      quarantinedAt:
-          readRequiredPersistedDateTime(
-            json['quarantinedAt'],
-            field: 'quarantinedAt',
-            source: source,
-          ).toUtc(),
+      observedAt: readOptionalPersistedDateTime(
+        json['observedAt'],
+        field: 'observedAt',
+        source: source,
+      )?.toUtc(),
+      quarantinedAt: readRequiredPersistedDateTime(
+        json['quarantinedAt'],
+        field: 'quarantinedAt',
+        source: source,
+      ).toUtc(),
     );
   }
 }
@@ -134,7 +132,10 @@ class WorkflowPullService {
   static const _workflowKey = '${_prefix}_workflows';
   static const _laneKey = '${_prefix}_lanes';
   static const _complianceKey = '${_prefix}_compliance';
-  static const _attemptKey = '${_prefix}_attempts';
+  // The previous checkpoint tracked attemptedAt and may already have skipped
+  // reviews of older attempts. Start this mutation cursor with a full rescan;
+  // retain the old checkpoint and advance only after successful local adoption.
+  static const _attemptKey = '${_prefix}_attempt_updates_v3';
   static const _equipmentKey = '${_prefix}_equipment';
   static const _promptKey = '${_prefix}_prompts';
   static const _eventKey = '${_prefix}_events';
@@ -206,6 +207,10 @@ class WorkflowPullService {
       fetch: remote.fetchAttemptsAfter,
       upsert: local.upsertComplianceAttemptFromRemote,
       identity: (record) => record.firestoreId,
+      // attemptedAt is physical evidence and must not move when a review
+      // accepts or returns the attempt. The remote batch also contributes its
+      // updatedAt observation to the cursor, while this fallback keeps the
+      // local record model compatible with older installations.
       timestamp: (record) => record.attemptedAt,
       failures: failures,
       quarantined: quarantined,
@@ -424,13 +429,11 @@ class WorkflowPullService {
       ].join('|');
       byIdentity[identity] = record;
     }
-    final combined =
-        byIdentity.values.toList()
-          ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
-    final retained =
-        combined.length <= _maxQuarantineRecords
-            ? combined
-            : combined.sublist(combined.length - _maxQuarantineRecords);
+    final combined = byIdentity.values.toList()
+      ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
+    final retained = combined.length <= _maxQuarantineRecords
+        ? combined
+        : combined.sublist(combined.length - _maxQuarantineRecords);
     final encoded = jsonEncode(
       retained.map((record) => record.toJson()).toList(growable: false),
     );

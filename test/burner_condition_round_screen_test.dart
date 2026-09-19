@@ -136,6 +136,9 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
     bool? hotAirAtDraftSealObserved,
     List<BurnerUvObservation>? uvObservations,
     ComposedAgainstRound? composedAgainst,
+    Set<String>? observedFields,
+    Map<String, dynamic>? expectedInstallationBasis,
+    List<Map<String, dynamic>>? expectedOpenIssueBasis,
   }) async {
     calls.add(List<BurnerConditionObservation>.from(observations));
     composedAgainstCalls.add(composedAgainst);

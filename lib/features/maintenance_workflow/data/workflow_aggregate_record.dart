@@ -28,6 +28,11 @@ class WorkflowAggregateRecord {
   String statusKey = 'pendingLaneClassification';
 
   int workflowSchemaVersion = 1;
+
+  // Supplied by authoritative reads for action eligibility; not a local schema change.
+  @ignore
+  String? workflowKind;
+
   int version = 0;
   int laneSetVersion = 0;
   DateTime? laneSetFinalizedAt;

@@ -15,7 +15,7 @@ class _AlarmList extends ConsumerWidget {
 
   final List<CriticalAlarm> alarms;
   final AsyncValue<List<CriticalAlarm>> feed;
-  final AsyncValue<List<CriticalAlarmContact>> contacts;
+  final AsyncValue<CriticalAlarmContactsSnapshot> contacts;
   final AppUser? user;
   final String emptyTitle;
   final String? initialAlarmId;
@@ -115,8 +115,9 @@ class _AlarmList extends ConsumerWidget {
             );
           }
           final alarm = ordered[index - (showFeedWarning ? 1 : 0)];
+          final contactSnapshot = contacts.asData?.value;
           final exactContacts =
-              contacts.asData?.value
+              contactSnapshot?.contacts
                   .where(
                     (contact) =>
                         contact.isActive &&
@@ -127,11 +128,12 @@ class _AlarmList extends ConsumerWidget {
           return _AlarmCard(
             alarm: alarm,
             contacts: exactContacts,
-            contactsVerified: contacts.asData != null,
+            contactsVerified: contactSnapshot?.isComplete == true,
             user: user,
             lifecycleActionsEnabled:
                 liveAuthority == null ||
-                liveAuthority == CriticalAlarmFeedAuthority.serverVerified,
+                liveAuthority == CriticalAlarmFeedAuthority.serverVerified ||
+                liveAuthority == CriticalAlarmFeedAuthority.partiallyVerified,
           );
         },
       ),

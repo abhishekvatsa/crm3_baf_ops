@@ -204,3 +204,39 @@ A-05 manifest hash and resulting digest changed. Persisted field policies,
 extension restrictions and schema shapes are unchanged. Historical closure and
 production reconciliation receipts remain historical; this current-source
 inventory does not confer deployment or distribution authority.
+
+## Current-source inherited-decoder review, 2026-09-20
+
+The current inventory still classifies 55 fields: 49 JSON strings, six dynamic
+values, three bounded extension bags and zero registered extension fields. It
+now inherits 100 reviewed A-05 decoder surfaces. The exact current-source digest
+is `2AF4B3945D589F569620FA2A3D652FEE78D84033A3A770A36DD04C3F64B7ACC5`.
+
+Regeneration adds the reviewed original-account-bound workflow execution
+boundary and updates the uncertain-retry boundary's authority, compatibility,
+malformed-evidence disposition and regression ownership. It also binds the
+complete current A-05 manifest, including the strict authoritative workflow-kind
+decoder. The workflow-kind property is ignored by Isar; no persisted schema
+field, field policy, extension restriction or generated Isar schema changed.
+
+The A-04 generator passed with no failures on this local source. Historical
+closure, CI and production-reconciliation receipts remain unchanged; this
+inventory refresh supplies no deployment, migration or distribution evidence.
+
+## Burner evidence and correction decoder review, 2026-09-20
+
+The inventory still classifies 55 fields: 49 JSON strings, six dynamic values,
+three bounded extension bags and zero registered extension fields. It now
+inherits 103 reviewed A-05 decoder surfaces, with digest
+`98E133903A49B807054ABCB4C9F717FAFA97D68ED1131B85C20C13261716F48C`.
+The added surfaces cover the correction record, strict server review/readback,
+and durable original-envelope correction acceptance. Existing round decoding
+now explicitly validates per-field provenance and preserves legacy evidence
+whose observation source is unknown.
+
+The inherited contract is a source-only change. The earlier installed round
+decoder rejects the new top-level provenance fields; backend activation must
+wait for updated readers and a coordinated client rollout or old-reader gate.
+New partial-edit requests also require the matching backend. No extension
+namespace, automatic migration, deployment or installed-client compatibility
+is implied by this inventory passing.

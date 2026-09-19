@@ -33,7 +33,7 @@ param(
   [string]$ExpectedApprovalReference,
 
   [Parameter(Mandatory)]
-  [ValidateRange(1, 2147483647)]
+  [ValidateRange(1, 2100000000)]
   [int]$ExpectedBuildNumber,
 
   [Parameter(Mandatory)]

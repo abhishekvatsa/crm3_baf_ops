@@ -164,6 +164,8 @@ export interface LaneDoc extends JsonMap {
   readonly activationGeneration?: number;
   readonly progressRevision?: number;
   readonly gatingComplianceRequestId?: string | null;
+  /** Separate RED-preparation authority; ordinary gates must not copy this. */
+  readonly redPreparationComplianceId?: string | null;
 }
 
 export interface ComplianceDoc extends JsonMap {
@@ -180,6 +182,8 @@ export interface ComplianceDoc extends JsonMap {
   readonly raisedUnderCoordination?: boolean;
   readonly coordinationBasis?: string | null;
   readonly linkedMaintenanceFirestoreId?: string | null;
+  /** Retained physical owner when a follow-up is revised after job closure. */
+  readonly physicalSourceComplianceId?: string | null;
   readonly linkedExecutionFirestoreId?: string | null;
   readonly linkedLaneFirestoreId?: string | null;
   readonly gatesLaneFirestoreId?: string | null;

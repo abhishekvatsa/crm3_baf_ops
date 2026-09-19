@@ -1178,6 +1178,101 @@ describe('burner-block installation correction command', () => {
     expect(store.entries()).toEqual(afterFirst);
   });
 
+  test.each([
+    ['reason', 'A different unreviewed explanation'],
+    ['supersedesCorrectionId', 'a-different-predecessor'],
+    ['correctedByUid', 'another-reviewer'],
+    ['correctedByName', 'Another reviewer'],
+    ['recordedActionPerformedAt', '2026-08-11T08:00:00.000Z'],
+    ['correctedAt', '2026-08-30T09:00:00.000Z'],
+    ['assetInstanceId', 'a-different-furnace'],
+    ['version', 2],
+  ])('replay refuses changed retained correction %s without rewriting evidence', async (field, value) => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = 'burner_block_lifecycle_corrections/correction-1';
+    store.seed(path, {...store.read(path), [field]: value});
+    const before = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'burner-block-correction-replay-invalid'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('replay binds the original audit fingerprint and tolerates its Firestore timestamp', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await service.execute(command, context);
+    const path = 'audit_logs/server_burner_block_correction_correction-command-1';
+    store.seed(path, workflowFirestoreDataForTest(store.read(path)));
+    const beforeReplay = store.entries();
+    await expect(service.execute(command, context)).resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+    const audit = store.read(path);
+    const alteredAfter = JSON.parse(audit.afterJson);
+    alteredAfter.currentInstallation.actionPerformedAt = '2026-08-09T08:00:00.000Z';
+    store.seed(path, {...audit, afterJson: JSON.stringify(alteredAfter)});
+    const beforeRefusal = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'burner-block-correction-replay-invalid'},
+    });
+    expect(store.entries()).toEqual(beforeRefusal);
+  });
+
+  test('an installation committed after correction review makes that new command stale', async () => {
+    const {store, command} = await seededCommandState();
+    await prepare(store, action({id: 'later-installation', createdAt: '2026-08-28T08:00:00.000Z'}), {
+      sourceId: 'execution-after-review',
+    });
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'burner-block-lifecycle-current-version-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('accepted correction replay preserves a later legitimate installation', async () => {
+    const {store, command} = await seededCommandState();
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    await prepare(store, action({id: 'later-installation', createdAt: '2026-08-30T08:00:00.000Z'}), {
+      sourceId: 'execution-after-correction',
+      completedAt: '2026-08-30T09:00:00.000Z',
+      recordedAt: '2026-08-30T09:00:00.000Z',
+    });
+    const before = store.entries();
+    const current = currentRow(store);
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      ...context, serverNow: new Date('2026-08-31T09:00:00.000Z'),
+    })).resolves.toEqual(receipt);
+    expect(currentRow(store)).toEqual(current);
+    expect(current.sourceId).toBe('execution-after-correction');
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a restarted successor names the exact predecessor while older accepted replay remains valid', async () => {
+    const {store, command} = await seededCommandState();
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const firstReceipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    const successor = {...command, commandId: 'correction-command-2', aggregateId: 'correction-2', payload: {
+      ...command.payload, supersedesCorrectionId: 'correction-1', correctedActionPerformedAt: '2026-08-11T08:00:00.000Z',
+    }};
+    await new MaintenanceWorkflowCommandService(store).execute(successor, context);
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, context)).resolves.toEqual(firstReceipt);
+    await expect(new MaintenanceWorkflowCommandService(store).execute({
+      ...successor, commandId: 'correction-command-3', aggregateId: 'correction-3',
+      payload: {...successor.payload, correctedActionPerformedAt: '2026-08-09T08:00:00.000Z'},
+    }, context)).rejects.toMatchObject({details: {reasonCode: 'burner-block-lifecycle-correction-stale'}});
+    expect(currentRow(store).actionPerformedAt).toBe('2026-08-11T08:00:00.000Z');
+    expect(store.entries()).toEqual(before);
+  });
+
   test('refuses a future physical installation before any write', async () => {
     const {store, command} = await seededCommandState();
     const service = new MaintenanceWorkflowCommandService(store);
@@ -1253,5 +1348,99 @@ describe('burner-block installation correction command', () => {
     });
     expect(event.eventId).toBeDefined();
     expect(store.entries()).toEqual(before);
+  });
+});
+
+
+describe('burner-block parent-scoped physical action identity', () => {
+  const duplicateReferences = (first, second) => [
+    {sourceModuleId: null, discipline: 'mechanical', actionsJson: JSON.stringify([first])},
+    {sourceModuleId: 'module-1', discipline: 'mechanical', actionsJson: JSON.stringify([second])},
+  ];
+
+  test.each([
+    ['position', {burnerPosition: 4}],
+    ['physical time', {createdAt: '2026-08-28T07:15:00.000Z'}],
+    ['disposition', {replacement: 'repaired'}],
+    ['performer evidence', {performedBy: 'A different technician'}],
+  ])('one action with conflicting %s refuses the entire plan', async (_, changedFacts) => {
+    const store = seedStore();
+    const before = store.entries();
+    await expect(prepare(store, action(), {
+      actionSources: duplicateReferences(action(), action(changedFacts)),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'burner-block-lifecycle-action-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a different governed asset cannot manufacture a second identity', async () => {
+    const store = seedStore();
+    const alternateAssetId = 'different-physical-furnace';
+    // Both records pass the individual target validation. The repeated action
+    // must still reject their contradictory physical IDs, even at one number.
+    store.seed(`asset_instances/${alternateAssetId}`, {
+      ...store.read(`asset_instances/${IDS.asset}`),
+      assetInstanceId: alternateAssetId,
+    });
+    const row = action();
+    const alternative = action({
+      assetHierarchyRef: {...row.assetHierarchyRef, assetInstanceId: alternateAssetId},
+    });
+    const before = store.entries();
+    await expect(prepare(store, row, {
+      actionSources: duplicateReferences(row, alternative),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'burner-block-lifecycle-action-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('exact repeated references count once without rewriting either source payload', async () => {
+    const store = seedStore();
+    const sources = duplicateReferences(action(), action());
+    const retained = JSON.stringify(sources);
+    const plan = await prepare(store, action(), {actionSources: sources});
+    expect(plan.events).toHaveLength(1);
+    expect(plan.currentStates).toHaveLength(1);
+    expect(JSON.stringify(sources)).toBe(retained);
+    expect(sources.map((source) => source.sourceModuleId)).toEqual([null, 'module-1']);
+    expect(sources.every((source) => JSON.parse(source.actionsJson).length === 1)).toBe(true);
+  });
+
+  test('distinct action IDs at the same position and time remain separate installations', async () => {
+    const store = seedStore();
+    const plan = await prepare(store, action(), {
+      actionSources: duplicateReferences(action({id: 'first-action'}), action({id: 'second-action'})),
+    });
+    expect(plan.events).toHaveLength(2);
+    expect(plan.events.map((event) => event.data.sourceActionId)).toEqual(['first-action', 'second-action']);
+  });
+
+  test('legacy rows without action identity are not heuristically coalesced', async () => {
+    const store = seedStore();
+    const plan = await prepare(store, action(), {
+      actionSources: duplicateReferences(action({id: null}), action({id: null})),
+    });
+    expect(plan.events).toHaveLength(2);
+    expect(plan.events.every((event) => event.data.sourceActionId == null)).toBe(true);
+  });
+
+  test('the same local action ID in different parent sources is separate work', async () => {
+    const store = seedStore();
+    const sources = [
+      {sourceType: 'workflowPlannedJob', sourceId: 'parent-a'},
+      {sourceType: 'workflowPlannedJob', sourceId: 'parent-b'},
+      {sourceType: 'maintenanceIssue', sourceId: 'parent-a'},
+    ];
+    const ids = [];
+    for (const source of sources) {
+      const plan = await prepare(store, action(), source);
+      expect(plan.events).toHaveLength(1);
+      ids.push(plan.events[0].data.eventId);
+    }
+    expect(new Set(ids).size).toBe(3);
   });
 });

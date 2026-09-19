@@ -90,7 +90,11 @@ class _ResponsiveFormPair extends StatelessWidget {
     builder: (context, constraints) {
       if (constraints.maxWidth < BafBreakpoints.compact) {
         return Column(
-          children: [first, const SizedBox(height: BafSpacing.md), second],
+          children: [
+            first,
+            const SizedBox(height: BafSpacing.md),
+            second,
+          ],
         );
       }
       return Row(
@@ -167,12 +171,28 @@ class _SectionEditorState {
         type: type,
         materialSource: source,
         donor: donor,
-        donorSectionKey:
-            donorKey.text.trim().isEmpty ? null : donorKey.text.trim(),
+        donorSectionKey: donorKey.text.trim().isEmpty
+            ? null
+            : donorKey.text.trim(),
         lengthMm: double.tryParse(length.text.trim()),
         cutCount: int.tryParse(cuts.text.trim()) ?? 1,
         notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
       );
+
+  List<String> rawValidationErrors() {
+    final errors = <String>[];
+    final rawLength = length.text.trim();
+    if (rawLength.isNotEmpty && double.tryParse(rawLength) == null) {
+      errors.add(
+        '${type.label}: enter a valid numeric length or leave it blank.',
+      );
+    }
+    final rawCuts = cuts.text.trim();
+    if (rawCuts.isEmpty || int.tryParse(rawCuts) == null) {
+      errors.add('${type.label}: enter a whole-number cut count.');
+    }
+    return errors;
+  }
 
   void dispose() {
     donorKey.dispose();
@@ -237,15 +257,14 @@ class _FabricationSectionEditor extends StatelessWidget {
             initialValue: state.source,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Material source'),
-            items:
-                InnerCoverSectionMaterialSource.values
-                    .map(
-                      (source) => DropdownMenuItem(
-                        value: source,
-                        child: Text(source.label),
-                      ),
-                    )
-                    .toList(),
+            items: InnerCoverSectionMaterialSource.values
+                .map(
+                  (source) => DropdownMenuItem(
+                    value: source,
+                    child: Text(source.label),
+                  ),
+                )
+                .toList(),
             onChanged: (value) {
               state.source = value ?? state.source;
               if (state.source !=
@@ -275,18 +294,17 @@ class _FabricationSectionEditor extends StatelessWidget {
               initialValue: state.donor,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Known donor'),
-              items:
-                  donors
-                      .map(
-                        (donor) => DropdownMenuItem(
-                          value: donor,
-                          child: Text(
-                            donor.serialNumber,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
+              items: donors
+                  .map(
+                    (donor) => DropdownMenuItem(
+                      value: donor,
+                      child: Text(
+                        donor.serialNumber,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) {
                 state.donor = value;
                 onChanged();
@@ -334,4 +352,241 @@ class _FabricationSectionEditor extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InnerCoverIntakePage extends ConsumerStatefulWidget {
+  final String innerCoverId;
+  const _InnerCoverIntakePage({required this.innerCoverId});
+
+  @override
+  ConsumerState<_InnerCoverIntakePage> createState() =>
+      _InnerCoverIntakePageState();
+}
+
+class _InnerCoverIntakePageState extends ConsumerState<_InnerCoverIntakePage> {
+  late Future<InnerCoverProfile> _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = _read();
+  }
+
+  Future<InnerCoverProfile> _read() => ref
+      .read(assetHierarchyRepositoryProvider)
+      .readInnerCoverFromServer(widget.innerCoverId);
+
+  @override
+  Widget build(BuildContext context) {
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    if (access.availability == CurrentActorAvailability.verifying) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Registered Inner Cover',
+        appBarSubtitle: 'Confirm intake and continue to inspection',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        label: 'Checking Inner Cover access',
+      );
+    }
+    if (access.availability == CurrentActorAvailability.verificationFailed) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Registered Inner Cover',
+        appBarSubtitle: 'Confirm intake and continue to inspection',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        message: 'Inner Cover access could not be verified.',
+      );
+    }
+    final user = access.actor;
+    return BafScreenScaffold(
+      title: 'Registered Inner Cover',
+      subtitle: 'Confirm intake and continue to inspection',
+      icon: Icons.layers_outlined,
+      accent: BafColors.maintenance,
+      body: user == null || !user.isApproved
+          ? const SingleChildScrollView(
+              child: BafStatePanel(
+                icon: Icons.lock_outline_rounded,
+                color: BafColors.danger,
+                title: 'Inner Cover access required',
+                message: 'An approved account is required to view this cover.',
+              ),
+            )
+          : FutureBuilder<InnerCoverProfile>(
+              future: _profile,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return SingleChildScrollView(
+                    child: BafStatePanel.error(
+                      title: 'Registration recorded; current state unconfirmed',
+                      message:
+                          'Do not register the cover again. Check its current state to continue to inspection.',
+                      primaryLabel: 'Check current cover',
+                      onPrimary: () => setState(() => _profile = _read()),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const BafLoadingPanel(
+                    label: 'Checking the registered cover',
+                    color: BafColors.maintenance,
+                  );
+                }
+                final cover = snapshot.data!;
+                return _CoverDetailsSheet(
+                  cover: cover,
+                  bulgeEvidence: null,
+                  canManage: user.canManageAssetHierarchy,
+                  onAccept: () => _acceptCover(context, ref, cover, user),
+                  onAssign: () => _assignAvailableCover(
+                    context,
+                    ref,
+                    user,
+                    cover,
+                    (ref.read(allAssetInstancesProvider).value ?? const [])
+                        .where(
+                          (asset) =>
+                              asset.isActive && asset.assetClassCode == 'BASE',
+                        )
+                        .toList(),
+                  ),
+                  onDelink: () => _delinkCover(
+                    context,
+                    ref,
+                    cover,
+                    (ref
+                                .read(innerCoverAssignmentBatchProvider)
+                                .value
+                                ?.records ??
+                            const <BaseInnerCoverAssignment>[])
+                        .where((item) => item.innerCoverId == cover.id)
+                        .firstOrNull,
+                    user,
+                  ),
+                  onState: () => _changeCoverState(context, ref, cover, user),
+                  onCheckSavedLifecycle: () =>
+                      _checkSavedInnerCoverLifecycle(context, ref, cover),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _PendingInnerCoverRegistrationsPage extends ConsumerStatefulWidget {
+  const _PendingInnerCoverRegistrationsPage();
+
+  @override
+  ConsumerState<_PendingInnerCoverRegistrationsPage> createState() =>
+      _PendingInnerCoverRegistrationsPageState();
+}
+
+class _PendingInnerCoverRegistrationsPageState
+    extends ConsumerState<_PendingInnerCoverRegistrationsPage> {
+  late Future<List<DurableSubmission>> _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _rows = _load();
+  }
+
+  Future<List<DurableSubmission>> _load() => ref
+      .read(innerCoverLifecycleSubmissionControllerProvider)
+      .pendingRegistrations();
+
+  Future<void> _check(DurableSubmission row) async {
+    try {
+      final profile = await ref
+          .read(innerCoverLifecycleSubmissionControllerProvider)
+          .check(row.submissionId);
+      if (!mounted) return;
+      ref.invalidate(innerCoverProfileBatchProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${profile.serialNumber}: registration confirmed.'),
+        ),
+      );
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => _InnerCoverIntakePage(innerCoverId: profile.id),
+        ),
+      );
+      if (mounted) setState(() => _rows = _load());
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$error')));
+      setState(() => _rows = _load());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const BafAppBarTitle(
+        title: 'Pending registrations',
+        subtitle: 'Original saved intake requests',
+        icon: Icons.pending_actions_rounded,
+        accent: BafColors.maintenance,
+      ),
+    ),
+    body: FutureBuilder<List<DurableSubmission>>(
+      future: _rows,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _LoadError(error: snapshot.error!);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final rows = snapshot.data!;
+        if (rows.isEmpty) {
+          return const _EmptyState(
+            icon: Icons.task_alt_rounded,
+            message: 'No saved Inner Cover registrations need checking.',
+          );
+        }
+        final controller = ref.read(
+          innerCoverLifecycleSubmissionControllerProvider,
+        );
+        return ListView.separated(
+          padding: const EdgeInsets.all(BafSpacing.lg),
+          itemCount: rows.length,
+          separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            Map<String, dynamic>? request;
+            try {
+              request = controller.registrationRequestOf(row);
+            } on Object {
+              request = null;
+            }
+            final draft = request?['registrationDraft'];
+            final serial = draft is Map
+                ? draft['serialNumber']?.toString() ?? row.aggregateId
+                : row.aggregateId;
+            return Card(
+              child: ListTile(
+                leading: const Icon(Icons.layers_outlined),
+                title: Text(serial),
+                subtitle: Text(
+                  'Saved ${DateFormat('dd MMM yyyy, HH:mm').format(row.createdAt.toLocal())}\n'
+                  'Request ${row.requestId} · ${row.state.name}',
+                ),
+                isThreeLine: true,
+                trailing: FilledButton(
+                  onPressed: () => _check(row),
+                  child: const Text('Check'),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
 }

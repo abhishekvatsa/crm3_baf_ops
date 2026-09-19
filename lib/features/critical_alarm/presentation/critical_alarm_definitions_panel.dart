@@ -24,57 +24,70 @@ class CriticalAlarmDefinitionsPanel extends ConsumerWidget {
     final definitions = ref.watch(criticalAlarmDefinitionsProvider);
     return definitions.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, _) => CriticalAlarmFeedState(
-            icon: Icons.cloud_off_outlined,
-            title: 'Alarm reasons unavailable',
-            message:
-                'The live governed catalogue could not be verified. No catalogue change is available.',
-            action: OutlinedButton.icon(
-              onPressed: () => ref.invalidate(criticalAlarmDefinitionsProvider),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry live check'),
+      error: (error, _) => CriticalAlarmFeedState(
+        icon: Icons.cloud_off_outlined,
+        title: 'Alarm reasons unavailable',
+        message:
+            'The live governed catalogue could not be verified. No catalogue change is available.',
+        action: OutlinedButton.icon(
+          onPressed: () => ref.invalidate(criticalAlarmDefinitionsProvider),
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry live check'),
+        ),
+      ),
+      data: (snapshot) {
+        final rows = snapshot.definitions;
+        final body = SafeArea(
+          top: false,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(
+              BafSpacing.md,
+              BafSpacing.md,
+              BafSpacing.md,
+              BafSpacing.xl,
             ),
-          ),
-      data:
-          (rows) => SafeArea(
-            top: false,
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                BafSpacing.md,
-                BafSpacing.md,
-                BafSpacing.md,
-                BafSpacing.xl,
-              ),
-              itemCount: rows.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed:
-                          () => showCriticalAlarmDefinitionEditor(context, ref),
-                      icon: const Icon(Icons.add_alert_outlined),
-                      label: const Text('Add alarm reason'),
-                    ),
-                  );
-                }
-                final definition = rows[index - 1];
-                return _DefinitionCard(
-                  definition: definition,
-                  onEdit:
-                      () => showCriticalAlarmDefinitionEditor(
-                        context,
-                        ref,
-                        definition: definition,
-                      ),
-                  onStatus:
-                      () => _changeDefinitionStatus(context, ref, definition),
+            itemCount: rows.length + (snapshot.isComplete ? 1 : 0),
+            separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
+            itemBuilder: (context, index) {
+              if (snapshot.isComplete && index == 0) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () =>
+                        showCriticalAlarmDefinitionEditor(context, ref),
+                    icon: const Icon(Icons.add_alert_outlined),
+                    label: const Text('Add alarm reason'),
+                  ),
                 );
-              },
-            ),
+              }
+              final definition = rows[index - (snapshot.isComplete ? 1 : 0)];
+              return _DefinitionCard(
+                definition: definition,
+                actionsEnabled: snapshot.isComplete,
+                onEdit: () => showCriticalAlarmDefinitionEditor(
+                  context,
+                  ref,
+                  definition: definition,
+                ),
+                onStatus: () =>
+                    _changeDefinitionStatus(context, ref, definition),
+              );
+            },
           ),
+        );
+        if (snapshot.isComplete) return body;
+        return Column(
+          children: [
+            CriticalAlarmConfigurationWarning(
+              title: 'Alarm-reason catalogue incomplete',
+              message:
+                  '${snapshot.malformedDocumentIds.length} reason record(s) could not be read. Valid reasons remain visible, but catalogue changes are disabled until the complete live set is verified.',
+              onRetry: () => ref.invalidate(criticalAlarmDefinitionsProvider),
+            ),
+            Expanded(child: body),
+          ],
+        );
+      },
     );
   }
 
@@ -83,15 +96,13 @@ class CriticalAlarmDefinitionsPanel extends ConsumerWidget {
     WidgetRef ref,
     CriticalAlarmDefinition definition,
   ) async {
-    final target =
-        definition.isActive
-            ? CriticalAlarmDefinitionStatus.retired
-            : CriticalAlarmDefinitionStatus.active;
+    final target = definition.isActive
+        ? CriticalAlarmDefinitionStatus.retired
+        : CriticalAlarmDefinitionStatus.active;
     final reason = await showDialog<String>(
       context: context,
-      builder:
-          (_) =>
-              _DefinitionStatusDialog(definition: definition, target: target),
+      builder: (_) =>
+          _DefinitionStatusDialog(definition: definition, target: target),
     );
     if (reason == null || !context.mounted) return;
     try {
@@ -116,11 +127,13 @@ class _DefinitionCard extends StatelessWidget {
     required this.definition,
     required this.onEdit,
     required this.onStatus,
+    this.actionsEnabled = true,
   });
 
   final CriticalAlarmDefinition definition;
   final VoidCallback onEdit;
   final VoidCallback onStatus;
+  final bool actionsEnabled;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -184,18 +197,18 @@ class _DefinitionCard extends StatelessWidget {
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Alarm reason actions',
-            onSelected: (value) => value == 'edit' ? onEdit() : onStatus(),
-            itemBuilder:
-                (_) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  PopupMenuItem(
-                    value: 'status',
-                    child: Text(definition.isActive ? 'Retire' : 'Restore'),
-                  ),
-                ],
-          ),
+          if (actionsEnabled)
+            PopupMenuButton<String>(
+              tooltip: 'Alarm reason actions',
+              onSelected: (value) => value == 'edit' ? onEdit() : onStatus(),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(
+                  value: 'status',
+                  child: Text(definition.isActive ? 'Retire' : 'Restore'),
+                ),
+              ],
+            ),
         ],
       ),
     ),
@@ -309,9 +322,8 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
                     ),
                   ],
                   selected: {_criticalityKey},
-                  onSelectionChanged:
-                      (selection) =>
-                          setState(() => _criticalityKey = selection.single),
+                  onSelectionChanged: (selection) =>
+                      setState(() => _criticalityKey = selection.single),
                 ),
               ),
               const SizedBox(height: BafSpacing.md),
@@ -401,11 +413,8 @@ class _DefinitionStatusDialogState extends State<_DefinitionStatusDialog> {
           labelText: 'Audit reason',
           counterText: '',
         ),
-        validator:
-            (value) =>
-                (value?.trim().isEmpty ?? true)
-                    ? 'Enter an audit reason'
-                    : null,
+        validator: (value) =>
+            (value?.trim().isEmpty ?? true) ? 'Enter an audit reason' : null,
       ),
     ),
     actions: [

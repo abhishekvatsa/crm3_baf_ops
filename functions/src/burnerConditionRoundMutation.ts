@@ -6,6 +6,9 @@ import {
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {BURNER_EVIDENCE_FIELDS, conditionProvenance, partialConditionValues,
+  roundEvidenceHash} from "./burnerConditionEvidence";
+import {parseConditionBasis, verifyConditionBasis} from "./burnerConditionBasis";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -62,6 +65,9 @@ interface ParsedRequest {
    * a rule it cannot satisfy.
    */
   expectedCurrentRoundId?: string | null;
+  observedFields?: ReadonlyArray<string>;
+  expectedInstallationBasis?: unknown;
+  expectedOpenIssueBasis?: unknown;
   fingerprint: string;
 }
 
@@ -241,6 +247,7 @@ export function parseBurnerConditionRoundMutationRequest(
     "uvObservations",
     "roundNote",
     "expectedCurrentRoundId",
+    "observedFields", "expectedInstallationBasis", "expectedOpenIssueBasis",
   ]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) invalid(key, "is unsupported");
@@ -287,6 +294,27 @@ export function parseBurnerConditionRoundMutationRequest(
     }
     uvObservations = raw.uvObservations.map(parseUvObservation);
   }
+  let partialFields: {observedFields?: ReadonlyArray<string>;
+    expectedInstallationBasis?: unknown; expectedOpenIssueBasis?: unknown} = {};
+  if (Object.prototype.hasOwnProperty.call(raw, "observedFields")) {
+    if (!extended || !Object.prototype.hasOwnProperty.call(raw, "expectedCurrentRoundId") ||
+        raw.expectedInstallationBasis == null || raw.expectedOpenIssueBasis == null) {
+      throw new AssetHierarchyMutationError("invalid-argument",
+        "Partial condition updates require the reviewed round, installation and issue basis.",
+        {reasonCode: "burner-condition-round-partial-basis-required"});
+    }
+    if (!Array.isArray(raw.observedFields) || raw.observedFields.length === 0 ||
+        raw.observedFields.length > BURNER_EVIDENCE_FIELDS.length ||
+        raw.observedFields.some((field) => typeof field !== "string" ||
+          !BURNER_EVIDENCE_FIELDS.includes(field)) ||
+        new Set(raw.observedFields).size !== raw.observedFields.length) {
+      invalid("observedFields", "must contain unique observed condition fields");
+    }
+    partialFields = {observedFields: [...raw.observedFields].sort(),
+      ...parseConditionBasis(raw)};
+  } else if (raw.expectedInstallationBasis != null || raw.expectedOpenIssueBasis != null) {
+    invalid("observedFields", "is required with a partial condition basis");
+  }
   const request = {
     requestId,
     operation: RECORD_BURNER_CONDITION_ROUND,
@@ -307,6 +335,7 @@ export function parseBurnerConditionRoundMutationRequest(
       expectedCurrentRoundId:
         optionalString(raw.expectedCurrentRoundId, "expectedCurrentRoundId", 200),
     } : {}),
+    ...partialFields,
   };
   const fingerprint = `burnerround${extended ? 2 : 1}-sha256:${createHash("sha256")
     .update(stableJson(request), "utf8").digest("hex")}`;
@@ -675,6 +704,14 @@ function validateRetainedRound(
   if (instantIso(data.observedAt) !== committedAtIso) {
     mismatches.push("observedAt");
   }
+  if (receipt.evidenceVersion != null) {
+    if (receipt.evidenceVersion !== 1 ||
+        receipt.roundEvidenceSha256 !== roundEvidenceHash(data)) {
+      mismatches.push("boundEvidence");
+    }
+  } else if (data.evidenceKind != null || data.evidenceProvenance != null) {
+    mismatches.push("missingEvidenceBinding");
+  }
   if (mismatches.length > 0) {
     throw new AssetHierarchyMutationError(
       "data-loss",
@@ -748,18 +785,16 @@ export async function mutateBurnerConditionRoundWithDb(args: {
     .doc(request.assetInstanceId);
   const receiptRef = db.collection("burner_condition_round_receipts")
     .doc(request.requestId);
-  const redHotPositions = redHotPositionsFor(request);
-  const directivePositions = directivePositionsFor(request);
-  const directiveId = directivePositions.length === 0 ? null :
-    `burner_round_red_hot_${request.requestId}`;
-  const directiveRef = directiveId == null ? null :
-    db.collection("directives").doc(directiveId);
+  const directiveRef = db.collection("directives")
+    .doc(`burner_round_red_hot_${request.requestId}`);
   const now = args.now ?? (() => new Date());
   const timestampFromDate = args.timestampFromDate ?? ((date: Date) => date);
 
   actor(await actorRef.get());
 
+  const originalRequest = request;
   return db.runTransaction(async (rawTransaction) => {
+    let request = originalRequest;
     const transaction = rawTransaction as unknown as TransactionLike;
     const actorData = actor(asSnapshot(
       await transaction.get(actorRef),
@@ -777,10 +812,50 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       await transaction.get(currentRoundRef),
       "Current burner-round projection lookup",
     );
-    const directiveValue = directiveRef == null ? null : asSnapshot(
+    const directiveValue = asSnapshot(
       await transaction.get(directiveRef),
       "Burner-round directive lookup",
     );
+    let baseline: JsonMap | null = null;
+    if (request.observedFields != null) {
+      if (request.expectedCurrentRoundId != null) {
+        baseline = record(asSnapshot(await transaction.get(
+          db.collection("burner_condition_rounds").doc(request.expectedCurrentRoundId),
+        ), "Partial condition baseline lookup"), "Reviewed condition round");
+        if (baseline.roundId !== request.expectedCurrentRoundId ||
+            baseline.assetInstanceId !== request.assetInstanceId ||
+            baseline.assetClassId !== request.assetClassId ||
+            ![1, 2].includes(baseline.schemaVersion as number) ||
+            !Array.isArray(baseline.observations) || baseline.observations.length !== 8) {
+          throw new AssetHierarchyMutationError("data-loss",
+            "The reviewed condition baseline needs reconciliation.",
+            {reasonCode: "burner-condition-round-baseline-malformed"});
+        }
+        try {
+          const observations = baseline.observations.map(parseObservation);
+          if (observations.some((item, index) => item.position !== index + 1)) {
+            throw new Error("Invalid baseline positions");
+          }
+          if (baseline.schemaVersion === 2 &&
+              (!Array.isArray(baseline.uvObservations) || baseline.uvObservations.length !== 8 ||
+                baseline.uvObservations.map(parseUvObservation)
+                  .some((item, index) => item.position !== index + 1) ||
+                typeof baseline.draftSealRedHotObserved !== "boolean" ||
+                typeof baseline.hotAirAtDraftSealObserved !== "boolean")) {
+            throw new Error("Invalid baseline extended evidence");
+          }
+        } catch (_) {
+          throw new AssetHierarchyMutationError("data-loss",
+            "The reviewed condition baseline has malformed observations.",
+            {reasonCode: "burner-condition-round-baseline-malformed"});
+        }
+      }
+      request = partialConditionValues({...request}, baseline, request.observedFields);
+    }
+    const redHotPositions = redHotPositionsFor(request);
+    const directivePositions = directivePositionsFor(request);
+    const directiveId = directivePositions.length === 0 ? null :
+      `burner_round_red_hot_${request.requestId}`;
 
     if (receiptValue.exists) {
       const receiptData = receiptValue.data() ?? {};
@@ -798,7 +873,16 @@ export async function mutateBurnerConditionRoundWithDb(args: {
         replay.committedAt,
         receiptData,
       );
-      if (replay.directiveId == null && directiveValue != null) {
+      if (receiptData.evidenceVersion != null && request.observedFields != null &&
+          (receiptData.baselineRoundId !== request.expectedCurrentRoundId ||
+            receiptData.baselineEvidenceSha256 !==
+              (baseline == null ? null : roundEvidenceHash(baseline)))) {
+        throw new AssetHierarchyMutationError("data-loss",
+          "The retained partial condition baseline no longer matches its receipt.",
+          {reasonCode: "burner-condition-round-replay-evidence-drift"});
+      }
+      if (replay.directiveId !== directiveId ||
+          (replay.directiveId == null && directiveValue.exists)) {
         throw new AssetHierarchyMutationError(
           "data-loss",
           "A burner-round directive exists without red-hot source evidence.",
@@ -851,6 +935,30 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       "Governed Furnace",
     );
     verifyFurnace(assetClass, asset, request);
+    if (baseline != null && (baseline.assetNumber !== asset.assetNumber ||
+        baseline.assetClassCode !== asset.assetClassCode)) {
+      throw new AssetHierarchyMutationError("data-loss",
+        "The reviewed condition round belongs to conflicting asset evidence.",
+        {reasonCode: "burner-condition-round-baseline-malformed"});
+    }
+    if (request.observedFields != null) {
+      await verifyConditionBasis({db, transaction, request: {
+        assetInstanceId: request.assetInstanceId,
+        expectedInstallationBasis: request.expectedInstallationBasis,
+        expectedOpenIssueBasis: request.expectedOpenIssueBasis,
+      },
+        assetNumber: asset.assetNumber as number});
+      // A valid submitted field and a valid inherited field can still form an
+      // invalid observation together (for example, notOperating plus an old
+      // microamp reading). Require the caller to explicitly resolve that pair.
+      try {
+        request.observations.map(parseObservation);
+      } catch (_) {
+        throw new AssetHierarchyMutationError("invalid-argument",
+          "The changed fields conflict with retained observations. Review the affected burner fields.",
+          {reasonCode: "burner-condition-round-partial-observation-conflict"});
+      }
+    }
 
     const committed = now();
     const committedAt = timestampFromDate(committed);
@@ -886,6 +994,16 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       recordedByName,
       directiveId,
       fingerprint: request.fingerprint,
+      evidenceKind: request.observedFields == null ? "inspection" : "partialInspection",
+      ...(request.observedFields == null ? {} : {
+        baselineRoundId: request.expectedCurrentRoundId ?? null,
+      }),
+      evidenceProvenance: conditionProvenance({
+        before: baseline, roundId: request.requestId, observedAt: committedAtIso,
+        actorUid, actorName: recordedByName, kind: "observed",
+        assertedFields: new Set(request.observedFields ?? BURNER_EVIDENCE_FIELDS.filter(
+          (field) => request.uvObservations != null || field.startsWith("burners."))),
+      }),
     };
     const receipt: JsonMap = {
       schemaVersion: 1,
@@ -905,6 +1023,12 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       directiveId,
       committedAt,
       committedAtIso,
+      evidenceVersion: 1,
+      roundEvidenceSha256: roundEvidenceHash(round),
+      ...(request.observedFields == null ? {} : {
+        baselineRoundId: request.expectedCurrentRoundId ?? null,
+        baselineEvidenceSha256: baseline == null ? null : roundEvidenceHash(baseline),
+      }),
     };
 
     transaction.set(roundRef as unknown as DocumentRefLike, round);

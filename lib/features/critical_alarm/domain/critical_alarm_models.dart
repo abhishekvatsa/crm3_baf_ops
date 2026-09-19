@@ -14,6 +14,30 @@ enum CriticalAlarmDefinitionStatus { active, retired }
 
 enum CriticalAlarmContactKind { mobile, landline, plantExtension }
 
+class CriticalAlarmContactsSnapshot {
+  const CriticalAlarmContactsSnapshot({
+    required this.contacts,
+    required this.malformedDocumentIds,
+  });
+
+  final List<CriticalAlarmContact> contacts;
+  final List<String> malformedDocumentIds;
+
+  bool get isComplete => malformedDocumentIds.isEmpty;
+}
+
+class CriticalAlarmDefinitionsSnapshot {
+  const CriticalAlarmDefinitionsSnapshot({
+    required this.definitions,
+    required this.malformedDocumentIds,
+  });
+
+  final List<CriticalAlarmDefinition> definitions;
+  final List<String> malformedDocumentIds;
+
+  bool get isComplete => malformedDocumentIds.isEmpty;
+}
+
 enum CriticalAlarmSupportBasis {
   supportDispatched,
   supportAlreadyPresent,
@@ -284,10 +308,19 @@ class CriticalAlarmDefinition {
   }
 
   static List<CriticalAlarmDefinition> mergeOverrides(
-    Iterable<CriticalAlarmDefinition> overrides,
-  ) {
-    final merged = <String, CriticalAlarmDefinition>{...byKey};
+    Iterable<CriticalAlarmDefinition> overrides, {
+    Iterable<String> unavailableKeys = const <String>[],
+  }) {
+    // Defaults apply only when the server has no override. An unreadable
+    // override may be retired or carry a different governed definition;
+    // treating it as absent would silently restore an active default.
+    final unavailable = unavailableKeys.toSet();
+    final merged = <String, CriticalAlarmDefinition>{
+      for (final entry in byKey.entries)
+        if (!unavailable.contains(entry.key)) entry.key: entry.value,
+    };
     for (final definition in overrides) {
+      if (unavailable.contains(definition.key)) continue;
       merged[definition.key] = definition;
     }
     final rows = merged.values.toList()

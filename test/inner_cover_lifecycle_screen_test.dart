@@ -1,4 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
@@ -25,6 +29,416 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/test_support/in_memory_durable_submission_store.dart';
 
 void main() {
+  testWidgets(
+    'Start inspection selects inspection for an unqualified pool cover',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 9, 20);
+      final repository = _IntakeRepository()
+        ..profiles = [
+          _profile(
+            id: 'needs-reinspection',
+            serial: 'GR71',
+            state: InnerCoverLifecycleState.available,
+            acceptedAt: now.subtract(const Duration(days: 3)),
+            assuranceInvalidatedAt: now.subtract(const Duration(days: 1)),
+            now: now,
+          ),
+        ];
+      addTearDown(repository.updates.close);
+      await _pumpIntake(tester, repository);
+      await tester.tap(find.text('Pool'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GR71'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, 'Assign to Base'), findsNothing);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Start inspection'));
+      await tester.pumpAndSettle();
+      final state = tester.state<FormFieldState<InnerCoverLifecycleState>>(
+        find.byType(DropdownButtonFormField<InnerCoverLifecycleState>),
+      );
+      expect(state.value, InnerCoverLifecycleState.underInspection);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final incompleteSource in ['assignments', 'profiles', 'cache']) {
+    testWidgets(
+      'unverified $incompleteSource withholds vacancy claims and Pool assignment',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1100));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 9, 20);
+        final cover = _profile(
+          id: 'healthy-cover',
+          serial: 'GR72',
+          state: InnerCoverLifecycleState.available,
+          now: now,
+        );
+        final repository = _IntakeRepository()..profiles = [cover];
+        addTearDown(repository.updates.close);
+        await _pumpIntake(
+          tester,
+          repository,
+          bases: [_base(201, now), _base(202, now)],
+          profileBatches: Stream.value(
+            _batch([
+              cover,
+            ], rejected: incompleteSource == 'profiles' ? ['bad-cover'] : []),
+          ),
+          assignmentBatches: Stream.value(
+            DecodedSnapshotBatch<BaseInnerCoverAssignment>(
+              records: const [],
+              rejectedDocumentIds: incompleteSource == 'assignments'
+                  ? ['base-201']
+                  : [],
+              isFromCache: incompleteSource == 'cache',
+            ),
+          ),
+        );
+        expect(find.text('Vacant 2'), findsNothing);
+        expect(find.text('Occupied 2'), findsNothing);
+        expect(find.text('Vacancy and totals unverified'), findsOneWidget);
+        if (incompleteSource != 'profiles') {
+          expect(find.text('Vacant unverified'), findsOneWidget);
+          expect(find.text('Occupied unverified'), findsOneWidget);
+        }
+        expect(find.byTooltip('Link Inner Cover'), findsNothing);
+        await tester.tap(find.text('Pool'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('GR72'),
+          findsOneWidget,
+          reason: 'Healthy profiles stay readable.',
+        );
+        await tester.tap(find.text('GR72'));
+        await tester.pumpAndSettle();
+        final assign = find.widgetWithText(FilledButton, 'Assign to Base');
+        expect(assign, findsOneWidget);
+        expect(tester.widget<FilledButton>(assign).onPressed, isNull);
+        expect(
+          find.textContaining('Pairing records are incomplete or unavailable.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final conflict in [
+    'missing assignment',
+    'missing profile',
+    'different linkage',
+  ]) {
+    testWidgets('complete snapshots with $conflict cannot claim safe custody', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 9, 20);
+      final base = _base(201, now);
+      final installed = _profile(
+        id: 'installed-cover',
+        serial: 'GR78',
+        state: InnerCoverLifecycleState.installed,
+        baseId: base.id,
+        baseNumber: base.assetNumber,
+        baseName: base.name,
+        linkageId: 'installed-linkage',
+        now: now,
+      );
+      final spare = _profile(
+        id: 'healthy-spare',
+        serial: 'GR79',
+        state: InnerCoverLifecycleState.available,
+        now: now,
+      );
+      final profiles = [if (conflict != 'missing profile') installed, spare];
+      final assignments = [
+        if (conflict != 'missing assignment')
+          BaseInnerCoverAssignment(
+            baseAssetInstanceId: base.id,
+            baseAssetClassId: base.assetClassId,
+            baseAssetNumber: base.assetNumber,
+            baseAssetName: base.name,
+            innerCoverId: installed.id,
+            innerCoverSerialNumber: installed.serialNumber,
+            linkageId: conflict == 'different linkage'
+                ? 'other-linkage'
+                : 'installed-linkage',
+            linkedAt: now,
+            version: 1,
+            updatedAt: now,
+            lastMutationId: 'assignment-mutation',
+          ),
+      ];
+      final repository = _IntakeRepository()..profiles = profiles;
+      addTearDown(repository.updates.close);
+      await _pumpIntake(
+        tester,
+        repository,
+        bases: [base, _base(202, now)],
+        profileBatches: _completeBatchStream(profiles),
+        assignmentBatches: _completeBatchStream(assignments),
+      );
+      expect(find.text('Vacancy and totals unverified'), findsOneWidget);
+      expect(find.text('Vacant unverified'), findsOneWidget);
+      expect(find.text('Occupied unverified'), findsOneWidget);
+      expect(find.text('Vacant 2'), findsNothing);
+      expect(find.text('Vacant 1'), findsNothing);
+      expect(find.byTooltip('Link Inner Cover'), findsNothing);
+      expect(find.byTooltip('Change Inner Cover'), findsNothing);
+      await tester.tap(find.text('Pool'));
+      await tester.pumpAndSettle();
+      expect(find.text('GR79'), findsOneWidget);
+      await tester.tap(find.text('GR79'));
+      await tester.pumpAndSettle();
+      final assign = find.widgetWithText(FilledButton, 'Assign to Base');
+      expect(assign, findsOneWidget);
+      expect(tester.widget<FilledButton>(assign).onPressed, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'cached empty assignments become selectable only after server confirmation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 9, 20);
+      final batches =
+          StreamController<DecodedSnapshotBatch<BaseInnerCoverAssignment>>();
+      addTearDown(batches.close);
+      batches.add(
+        const DecodedSnapshotBatch(
+          records: [],
+          rejectedDocumentIds: [],
+          isFromCache: true,
+        ),
+      );
+      final repository = _IntakeRepository()
+        ..profiles = [
+          _profile(
+            id: 'spare',
+            serial: 'GR73',
+            state: InnerCoverLifecycleState.available,
+            now: now,
+          ),
+        ];
+      addTearDown(repository.updates.close);
+      await _pumpIntake(
+        tester,
+        repository,
+        bases: [_base(201, now)],
+        assignmentBatches: batches.stream,
+      );
+      expect(find.text('Vacant unverified'), findsOneWidget);
+      await tester.tap(find.text('Pool'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GR73'));
+      await tester.pumpAndSettle();
+      final assign = find.widgetWithText(FilledButton, 'Assign to Base');
+      expect(tester.widget<FilledButton>(assign).onPressed, isNull);
+      batches.add(_batch(const <BaseInnerCoverAssignment>[]));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(assign).onPressed, isNotNull);
+      await tester.tap(assign);
+      await tester.pumpAndSettle();
+      expect(find.text('Vacant 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final openDialog in [false, true]) {
+    testWidgets(
+      'new incomplete assignment data blocks an already open ${openDialog ? 'assignment form' : 'cover detail'}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1100));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 9, 20);
+        final batches =
+            StreamController<DecodedSnapshotBatch<BaseInnerCoverAssignment>>();
+        addTearDown(batches.close);
+        batches.add(_batch(const <BaseInnerCoverAssignment>[]));
+        final repository = _IntakeRepository()
+          ..profiles = [
+            _profile(
+              id: 'spare',
+              serial: 'GR74',
+              state: InnerCoverLifecycleState.available,
+              now: now,
+            ),
+          ];
+        addTearDown(repository.updates.close);
+        await _pumpIntake(
+          tester,
+          repository,
+          bases: [_base(201, now)],
+          assignmentBatches: batches.stream,
+        );
+        await tester.tap(find.text('Pool'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('GR74'));
+        await tester.pumpAndSettle();
+        final assign = find.widgetWithText(FilledButton, 'Assign to Base');
+        expect(tester.widget<FilledButton>(assign).onPressed, isNotNull);
+        if (openDialog) {
+          await tester.tap(assign);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Base 201').last);
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Assignment reason'),
+            'Ready to install.',
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, 'Assign'),
+                )
+                .onPressed,
+            isNotNull,
+          );
+        }
+        batches.add(
+          _batch(const <BaseInnerCoverAssignment>[], rejected: ['base-201']),
+        );
+        await tester.pumpAndSettle();
+        if (openDialog) {
+          expect(find.text('Close form'), findsOneWidget);
+          expect(
+            find.widgetWithText(TextField, 'Assignment reason'),
+            findsNothing,
+          );
+        } else {
+          expect(tester.widget<FilledButton>(assign).onPressed, isNull);
+        }
+        expect(
+          find.textContaining('Pairing records are incomplete or unavailable.'),
+          findsWidgets,
+        );
+        expect(repository.registerCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'saved registration without a profile is recoverable only by its original account',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = InMemoryDurableSubmissionStore();
+      for (final actorUid in ['actor-1', 'other-admin']) {
+        final coverId = 'unconfirmed-$actorUid';
+        final requestId = 'register-$actorUid';
+        await store.prepare(
+          DurableSubmissionDraft(
+            submissionId: requestId,
+            actorUid: actorUid,
+            requestId: requestId,
+            aggregateId: coverId,
+            resourceKey: InnerCoverLifecycleSubmissionController.resource(
+              coverId,
+            ),
+            protocol: 'assetHierarchy.v2',
+            envelopeJson: jsonEncode({
+              'protocolVersion': 2,
+              'originActorUid': actorUid,
+              'request': {
+                'requestId': requestId,
+                'operation': 'REGISTER_INNER_COVER',
+                'innerCoverId': coverId,
+                'reason': 'Original retained registration.',
+                'registrationDraft': {
+                  'serialNumber': actorUid == 'actor-1' ? 'GR75' : 'PRIVATE76',
+                },
+              },
+            }),
+            displayMetadataJson: '{}',
+          ),
+        );
+      }
+      final repository = _IntakeRepository();
+      addTearDown(repository.updates.close);
+      await _pumpIntake(tester, repository, submissionStore: store);
+      expect(repository.profiles, isEmpty);
+      await tester.tap(
+        find.byTooltip('Saved pending Inner Cover registrations'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('GR75'), findsOneWidget);
+      expect(find.text('PRIVATE76'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Check'));
+      await tester.pumpAndSettle();
+      expect(repository.registerCalls, 1);
+      expect(repository.registeredRequestId, 'register-actor-1');
+      expect(repository.registeredCoverId, 'unconfirmed-actor-1');
+      expect(find.text('Registered Inner Cover'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'fabrication rejects raw text rather than silently replacing it',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _IntakeRepository();
+      addTearDown(repository.updates.close);
+      await _pumpIntake(tester, repository);
+      await tester.tap(find.byTooltip('Register Inner Cover'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Purchased · documented'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fabricated · documented').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Inner Cover serial number'),
+        'GR77',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Registration reason'),
+        'Record fabrication details.',
+      );
+      final cuts = find.widgetWithText(TextField, 'Cuts used').first;
+      for (final rawCuts in ['1.5', '', 'three']) {
+        await tester.enterText(cuts, rawCuts);
+        await tester.tap(find.widgetWithText(FilledButton, 'Register'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('enter a whole-number cut count'),
+          findsOneWidget,
+        );
+        expect(repository.registerCalls, 0);
+      }
+      await tester.enterText(cuts, '3');
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('enter a whole-number cut count'),
+        findsNothing,
+      );
+      final length = find.widgetWithText(TextField, 'Length (mm)').first;
+      await tester.enterText(length, 'not a number');
+      await tester.tap(find.widgetWithText(FilledButton, 'Register'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('enter a valid numeric length or leave it blank'),
+        findsOneWidget,
+      );
+      expect(repository.registerCalls, 0);
+      await tester.enterText(length, '');
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('enter a valid numeric length or leave it blank'),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final lostResponse in [true, false]) {
     testWidgets(
       'saved acceptance reopens after the entire UI is replaced: lost response=$lostResponse',
@@ -523,11 +937,11 @@ void main() {
             (ref) => Stream.value([assetClass]),
           ),
           allAssetInstancesProvider.overrideWith((ref) => Stream.value([base])),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value([installed, longSerial, available]),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => _completeBatchStream([installed, longSerial, available]),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream.value([assignment]),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => _completeBatchStream([assignment]),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),
@@ -593,16 +1007,6 @@ void main() {
         state: InnerCoverLifecycleState.awaitingInspection,
         now: now,
       );
-      final staleInstalledProfile = _profile(
-        id: 'cover-stale',
-        serial: 'G97',
-        state: InnerCoverLifecycleState.installed,
-        now: now,
-        baseId: 'retired-base-record',
-        baseNumber: 999,
-        baseName: 'Retired Base record',
-        linkageId: 'stale-link',
-      );
       final assignment = BaseInnerCoverAssignment(
         baseAssetInstanceId: bases.first.id,
         baseAssetClassId: assetClass.id,
@@ -637,16 +1041,11 @@ void main() {
             allAssetInstancesProvider.overrideWith(
               (ref) => Stream.value(bases),
             ),
-            innerCoverProfilesProvider.overrideWith(
-              (ref) => Stream.value([
-                installed,
-                available,
-                attention,
-                staleInstalledProfile,
-              ]),
+            innerCoverProfileBatchProvider.overrideWith(
+              (ref) => _completeBatchStream([installed, available, attention]),
             ),
-            innerCoverAssignmentsProvider.overrideWith(
-              (ref) => Stream.value([assignment]),
+            innerCoverAssignmentBatchProvider.overrideWith(
+              (ref) => _completeBatchStream([assignment]),
             ),
             furnaceStuckupCasesProvider.overrideWith(
               (ref) => Stream.value(const []),
@@ -783,11 +1182,11 @@ void main() {
             (ref) => Stream.value([_baseClass(now)]),
           ),
           allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value([retired]),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => _completeBatchStream([retired]),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream.value(const <BaseInnerCoverAssignment>[]),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => _completeBatchStream(const <BaseInnerCoverAssignment>[]),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),
@@ -907,11 +1306,11 @@ void main() {
             (ref) => Stream.value([assetClass]),
           ),
           allAssetInstancesProvider.overrideWith((ref) => Stream.value([base])),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value([installed]),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => _completeBatchStream([installed]),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream.value([assignment]),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => _completeBatchStream([assignment]),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),
@@ -970,11 +1369,11 @@ void main() {
           allAssetInstancesProvider.overrideWith(
             (ref) => Stream.value(const <AssetInstanceRecord>[]),
           ),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value(const <InnerCoverProfile>[]),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => _completeBatchStream(const <InnerCoverProfile>[]),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream.value(const <BaseInnerCoverAssignment>[]),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => _completeBatchStream(const <BaseInnerCoverAssignment>[]),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),
@@ -1085,11 +1484,11 @@ void main() {
           allAssetInstancesProvider.overrideWith(
             (ref) => Stream.value(const <AssetInstanceRecord>[]),
           ),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value(const <InnerCoverProfile>[]),
+          innerCoverProfileBatchProvider.overrideWith(
+            (ref) => _completeBatchStream(const <InnerCoverProfile>[]),
           ),
-          innerCoverAssignmentsProvider.overrideWith(
-            (ref) => Stream.value(const <BaseInnerCoverAssignment>[]),
+          innerCoverAssignmentBatchProvider.overrideWith(
+            (ref) => _completeBatchStream(const <BaseInnerCoverAssignment>[]),
           ),
           furnaceStuckupCasesProvider.overrideWith(
             (ref) => Stream.value(const []),
@@ -1137,12 +1536,23 @@ void main() {
   });
 }
 
+Stream<DecodedSnapshotBatch<T>> _completeBatchStream<T>(List<T> records) =>
+    Stream.value(_batch(records));
+
+DecodedSnapshotBatch<T> _batch<T>(
+  List<T> records, {
+  List<String> rejected = const [],
+}) => DecodedSnapshotBatch(records: records, rejectedDocumentIds: rejected);
+
 Future<void> _pumpIntake(
   WidgetTester tester,
   _IntakeRepository repository, {
   bool adminEntry = false,
   Stream<AppUser?>? actorStream,
   InMemoryDurableSubmissionStore? submissionStore,
+  List<AssetInstanceRecord> bases = const [],
+  Stream<DecodedSnapshotBatch<InnerCoverProfile>>? profileBatches,
+  Stream<DecodedSnapshotBatch<BaseInnerCoverAssignment>>? assignmentBatches,
 }) async {
   final store = submissionStore ?? InMemoryDurableSubmissionStore();
   final now = DateTime.utc(2026, 8, 1);
@@ -1199,7 +1609,10 @@ Future<void> _pumpIntake(
         currentAppUserProvider.overrideWith(
           (ref) => actorStream ?? Stream.value(_actor(AppRole.admin)),
         ),
-        assetClassesProvider.overrideWith((ref) => Stream.value([assetClass])),
+        assetClassesProvider.overrideWith(
+          (ref) =>
+              Stream.value([assetClass, if (bases.isNotEmpty) _baseClass(now)]),
+        ),
         assetHierarchyNodesProvider(
           assetClass.id,
         ).overrideWith((ref) => Stream.value(const [])),
@@ -1212,9 +1625,11 @@ Future<void> _pumpIntake(
         adminExecutionsStreamProvider.overrideWith(
           (ref) => Stream.value(const []),
         ),
-        allAssetInstancesProvider.overrideWith((ref) => Stream.value(const [])),
-        innerCoverAssignmentsProvider.overrideWith(
-          (ref) => Stream.value(const []),
+        allAssetInstancesProvider.overrideWith((ref) => Stream.value(bases)),
+        if (profileBatches != null)
+          innerCoverProfileBatchProvider.overrideWith((ref) => profileBatches),
+        innerCoverAssignmentBatchProvider.overrideWith(
+          (ref) => assignmentBatches ?? _completeBatchStream(const []),
         ),
         furnaceStuckupCasesProvider.overrideWith(
           (ref) => Stream.value(const []),
@@ -1320,6 +1735,16 @@ class _IntakeRepository extends Fake implements AssetHierarchyRepository {
     acceptedByUid: acceptedRequestId == null ? null : 'actor-1',
     acceptedByName: acceptedRequestId == null ? null : 'Actor One',
   );
+  @override
+  Stream<DecodedSnapshotBatch<InnerCoverProfile>>
+  watchInnerCoverProfileBatches() =>
+      watchInnerCoverProfiles().map((profiles) => _batch(profiles));
+
+  @override
+  Stream<DecodedSnapshotBatch<BaseInnerCoverAssignment>>
+  watchInnerCoverAssignmentBatches() =>
+      _completeBatchStream(const <BaseInnerCoverAssignment>[]);
+
   @override
   Stream<List<InnerCoverProfile>> watchInnerCoverProfiles() async* {
     yield profiles;
@@ -1476,6 +1901,8 @@ InnerCoverProfile _profile({
       InnerCoverOriginClassification.documentedPurchase,
   DateTime? receivedOrCompletedOn,
   DateTime? incorporatedOn,
+  DateTime? acceptedAt,
+  DateTime? assuranceInvalidatedAt,
   String? baseId,
   int? baseNumber,
   String? baseName,
@@ -1493,6 +1920,8 @@ InnerCoverProfile _profile({
   traceabilityGrade: InnerCoverTraceabilityGrade.t3,
   receivedOrCompletedOn: receivedOrCompletedOn,
   incorporatedOn: incorporatedOn,
+  acceptedAt: acceptedAt,
+  assuranceInvalidatedAt: assuranceInvalidatedAt,
   currentBaseAssetInstanceId: baseId,
   currentBaseAssetNumber: baseNumber,
   currentBaseAssetName: baseName,

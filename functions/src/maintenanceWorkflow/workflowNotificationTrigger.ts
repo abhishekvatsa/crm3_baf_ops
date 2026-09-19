@@ -14,6 +14,7 @@ import type {
 import {
   getTokenLookupForInstallation,
   getTokenLookupsForApprovedUsers,
+  getTokenLookupsForUser,
   getTokenLookupsForRoles,
   groupNotificationRecipientsByToken,
   sendNotification,
@@ -144,6 +145,21 @@ async function prepareCriticalAlarmNotification(args: {
   };
 }
 
+async function revalidateCriticalAlarmRecipients(
+  db: admin.firestore.Firestore,
+  recipients: ReadonlyArray<UserTokenLookup>,
+): Promise<ReadonlyArray<UserTokenLookup>> {
+  const uids = [...new Set(recipients.map((recipient) => recipient.uid))];
+  const currentByUid = new Map<string, ReadonlyArray<UserTokenLookup>>();
+  await Promise.all(uids.map(async (uid) => {
+    currentByUid.set(uid, await getTokenLookupsForUser(notificationDb(db), uid));
+  }));
+  return recipients.filter((recipient) =>
+    (currentByUid.get(recipient.uid) ?? []).some((current) =>
+      current.fcmToken === recipient.fcmToken &&
+      current.installationId === recipient.installationId));
+}
+
 async function processCriticalAlarmRaisedNotification(args: {
   db: admin.firestore.Firestore;
   data: admin.firestore.DocumentData;
@@ -202,7 +218,12 @@ async function processCriticalAlarmRaisedNotification(args: {
             });
             return null;
           }
-          return recipientPlan;
+          const currentRecipients = await revalidateCriticalAlarmRecipients(
+            db,
+            recipientPlan.recipients,
+          );
+          if (currentRecipients.length === 0) return null;
+          return {...recipientPlan, recipients: currentRecipients};
         },
         dispatch: (prepared): Promise<SendOutcome> => sendNotification({
           db: notificationDb(db),

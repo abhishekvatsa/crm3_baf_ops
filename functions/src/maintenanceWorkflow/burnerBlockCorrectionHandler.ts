@@ -24,6 +24,33 @@ const samePersistedInstant = (left: unknown, right: unknown): boolean => {
     leftMillis === rightMillis;
 };
 
+const canonicalInstant = (value: unknown): string | null => {
+  const millis = persistedInstantMillis(value);
+  return Number.isFinite(millis) ? new Date(millis).toISOString() : null;
+};
+
+const correctionEvidence = (value: unknown): JsonMap | null => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = {...value as JsonMap};
+  for (const field of ["recordedActionPerformedAt", "correctedActionPerformedAt", "correctedAt"]) {
+    const instant = canonicalInstant(result[field]);
+    if (instant == null) return null;
+    result[field] = instant;
+  }
+  return result;
+};
+
+const acceptedCorrectionEvidence = (audit: JsonMap): JsonMap | null => {
+  if (typeof audit.afterJson !== "string") return null;
+  try {
+    const after = JSON.parse(audit.afterJson) as unknown;
+    if (after == null || typeof after !== "object" || Array.isArray(after)) return null;
+    return correctionEvidence((after as JsonMap).correction);
+  } catch (_) {
+    return null;
+  }
+};
+
 const exactKeys = (
   value: JsonMap,
   expected: readonly string[],
@@ -218,6 +245,9 @@ export const verifyBurnerBlockCorrectionReplay = async (args: {
     args.tx.get(auditPath(args.command.commandId)),
   ]);
   const data = audit.data;
+  const auditTimestamp = data == null ? null : canonicalInstant(data.timestamp);
+  const acceptedCorrection = data == null ? null : acceptedCorrectionEvidence(data);
+  const retainedCorrection = correctionEvidence(correction.data);
   if (!correction.exists || correction.data == null || !audit.exists ||
       data == null ||
       args.receipt.resultKey !== "burner-block-installation-corrected" ||
@@ -231,9 +261,17 @@ export const verifyBurnerBlockCorrectionReplay = async (args: {
       ) ||
       data.schemaVersion !== 2 ||
       data.auditId !== auditId(args.command.commandId) ||
+      args.receipt.result.auditId !== data.auditId ||
+      args.receipt.result.auditSchemaVersion !== data.schemaVersion ||
       data.entityId !== args.command.aggregateId ||
       data.performedByUid !== args.actor.uid ||
-      typeof data.afterJson !== "string" || data.afterJson.length === 0) {
+      data.commandFingerprint !== payloadFingerprint(args.command as unknown as JsonMap) ||
+      auditTimestamp == null ||
+      // Existing schema-2 receipts already bind the accepted audit. Check that
+      // original binding rather than minting fresh evidence from today's data.
+      args.receipt.result.auditFingerprint !== payloadFingerprint({...data, timestamp: auditTimestamp}) ||
+      acceptedCorrection == null || retainedCorrection == null ||
+      stableJson(acceptedCorrection) !== stableJson(retainedCorrection)) {
     throw new WorkflowError(
       "failed-precondition",
       "Burner-block correction replay evidence is missing or inconsistent.",

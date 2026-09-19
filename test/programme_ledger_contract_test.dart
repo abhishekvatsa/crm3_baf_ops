@@ -699,7 +699,7 @@ void main() {
     );
     expect(a03Manifest['findingId'], 'A-03');
     expect(a03Manifest['inventoryDigest'], matches(RegExp(r'^[A-F0-9]{64}$')));
-    expect(_objects(a03Manifest['surfaces']), hasLength(70));
+    expect(_objects(a03Manifest['surfaces']), hasLength(72));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');
@@ -760,10 +760,10 @@ void main() {
     // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      'F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8',
+      '98E133903A49B807054ABCB4C9F717FAFA97D68ED1131B85C20C13261716F48C',
     );
     expect(_objects(a04Manifest['fields']), hasLength(55));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(99));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(103));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

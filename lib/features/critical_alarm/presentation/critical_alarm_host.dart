@@ -425,7 +425,18 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
 
   void _notifyPartiallyVerified(List<CriticalAlarm> alarms) {
     if (!mounted) return;
-    for (final alarm in alarms.where((candidate) => candidate.isRinging)) {
+    for (final alarm in alarms) {
+      if (!alarm.isRinging) {
+        // Positive same-ID terminal evidence is safe to apply even though the
+        // rest of the population is incomplete. Never infer anything about
+        // IDs absent from this partial snapshot.
+        _partiallyObservedRingingAlarms.remove(alarm.id);
+        _latestRingingIds = {..._latestRingingIds}..remove(alarm.id);
+        _latestRingingAlarms = {..._latestRingingAlarms}..remove(alarm.id);
+        _notifiedRingingIds.remove(alarm.id);
+        unawaited(_alarmPlatform.cancelNotification(alarm.id));
+        continue;
+      }
       // A partial snapshot may contain a genuine new alarm, but it is not a
       // safe basis for global reconciliation or cancellation. Retain only
       // the additions we actually observed so their notification can finish
@@ -449,22 +460,50 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     CriticalAlarmPlatformService platform,
     CriticalAlarm alarm,
   ) async {
-    var ready = false;
-    var shown = false;
+    final originActorUid = _latestAlarmActor?.uid;
     try {
-      ready = await platform.isNotificationReady();
-      if (!ready) return;
-      shown = await platform.showActiveNotification(alarm);
+      final ready = await platform.isNotificationReady();
+      if (!ready || !_canPostNotification(alarm, originActorUid)) {
+        return;
+      }
+      final shown = await platform.showActiveNotification(alarm);
+      if (!shown) return;
+      // Native posting also awaits. A newer same-ID server row may have
+      // arrived while it was in progress, even in a partial snapshot.
+      if (_canPostNotification(alarm, originActorUid)) {
+        _notifiedRingingIds.add(alarm.id);
+      } else {
+        await platform.cancelNotification(alarm.id);
+      }
     } finally {
       _notificationAttemptsInFlight.remove(alarm.id);
+      final current = _currentRingingAlarm(alarm.id);
+      if (current != null &&
+          (current.version != alarm.version ||
+              current.updatedAt != alarm.updatedAt) &&
+          _canPostNotification(current, originActorUid)) {
+        // A newer ringing revision was held back by this in-flight attempt.
+        // Give that revision its own attempt once stale posting is settled.
+        _attemptNotification(platform, current);
+      }
     }
-    if (!mounted || !ready || !shown) return;
-    if (_latestRingingIds.contains(alarm.id) ||
-        _partiallyObservedRingingAlarms.containsKey(alarm.id)) {
-      _notifiedRingingIds.add(alarm.id);
-    } else {
-      await platform.cancelNotification(alarm.id);
+  }
+
+  CriticalAlarm? _currentRingingAlarm(String alarmId) =>
+      _partiallyObservedRingingAlarms[alarmId] ?? _latestRingingAlarms[alarmId];
+
+  bool _canPostNotification(CriticalAlarm alarm, String? originActorUid) {
+    final actor = _latestAlarmActor;
+    final current = _currentRingingAlarm(alarm.id);
+    if (!mounted ||
+        originActorUid == null ||
+        actor?.uid != originActorUid ||
+        actor?.isApproved != true) {
+      return false;
     }
+    return current?.isRinging == true &&
+        current!.version == alarm.version &&
+        current.updatedAt == alarm.updatedAt;
   }
 }
 

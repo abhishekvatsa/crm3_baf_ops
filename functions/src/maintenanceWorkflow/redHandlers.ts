@@ -106,6 +106,7 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   }
   tx.update(laneId, {
     gatingComplianceRequestId: complianceId,
+    redPreparationComplianceId: complianceId,
     version: (redLane.version ?? 0) + 1,
     updatedAt: now,
   });

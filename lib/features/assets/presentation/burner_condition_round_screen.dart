@@ -363,7 +363,12 @@ class _BurnerConditionRoundScreenState
       if (!mounted) return;
       Navigator.of(context).pop(result);
     } on BurnerConditionRoundException catch (error) {
-      if (mounted) _showMessage(error.message);
+      if (mounted) {
+        if (error.definitiveRefusal) {
+          ref.invalidate(allAssetInstancesProvider);
+        }
+        _showMessage(error.message);
+      }
     } finally {
       if (mounted) {
         setState(() {

@@ -945,6 +945,7 @@ class InnerCoverLinkage {
   final String installedByUid;
   final String installedByName;
   final DateTime? removedAt;
+  final DateTime? removedPhysicalAt;
   final String? removedByUid;
   final String? removedByName;
   final String? removalAction;
@@ -963,6 +964,7 @@ class InnerCoverLinkage {
     required this.installedByUid,
     required this.installedByName,
     this.removedAt,
+    this.removedPhysicalAt,
     this.removedByUid,
     this.removedByName,
     this.removalAction,
@@ -994,9 +996,19 @@ class InnerCoverLinkage {
       field: 'active',
       source: source,
     );
+    final installedAt = readRequiredPersistedDateTime(
+      map['installedAt'],
+      field: 'installedAt',
+      source: source,
+    );
     final removedAt = readOptionalPersistedDateTime(
       map['removedAt'],
       field: 'removedAt',
+      source: source,
+    );
+    final removedPhysicalAt = readOptionalPersistedDateTime(
+      map['removedPhysicalAt'],
+      field: 'removedPhysicalAt',
       source: source,
     );
     final removedByUid = readOptionalPersistedString(
@@ -1021,12 +1033,17 @@ class InnerCoverLinkage {
     );
     if ((active &&
             (removedAt != null ||
+                removedPhysicalAt != null ||
                 removedByUid != null ||
                 removedByName != null ||
                 removalAction != null ||
                 removalReason != null)) ||
         (!active &&
             (removedAt == null ||
+                removedAt.isBefore(installedAt) ||
+                (removedPhysicalAt != null &&
+                    (removedPhysicalAt.isBefore(installedAt) ||
+                        removedPhysicalAt.isAfter(removedAt))) ||
                 removedByUid == null ||
                 removedByName == null ||
                 removalAction == null ||
@@ -1066,11 +1083,7 @@ class InnerCoverLinkage {
         field: 'innerCoverSerialNumber',
         source: source,
       ),
-      installedAt: readRequiredPersistedDateTime(
-        map['installedAt'],
-        field: 'installedAt',
-        source: source,
-      ),
+      installedAt: installedAt,
       installedByUid: readRequiredPersistedString(
         map['installedByUid'],
         field: 'installedByUid',
@@ -1082,6 +1095,7 @@ class InnerCoverLinkage {
         source: source,
       ),
       removedAt: removedAt,
+      removedPhysicalAt: removedPhysicalAt,
       removedByUid: removedByUid,
       removedByName: removedByName,
       removalAction: removalAction,

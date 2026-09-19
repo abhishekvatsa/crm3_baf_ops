@@ -31,6 +31,7 @@ class DurableSubmissionRepository {
     'maintenanceWorkflow.v2',
     'chargeAbnormality.v2',
     'publishedTemplateAssignment.v2',
+    'criticalAlarm.v1',
   };
 
   DateTime get _time => _now().toUtc();
@@ -131,6 +132,21 @@ class DurableSubmissionRepository {
     values.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return values;
   }
+
+  /// Observe this actor's retained rows without a read/subscribe gap. Domain
+  /// callers still gate each emission against live authority before disclosure.
+  Stream<List<DurableSubmission>> watchForActor(String actorUid) => _rows
+      .where()
+      .actorUidEqualTo(actorUid)
+      .watch(fireImmediately: true)
+      .map((rows) {
+        final values = rows
+            .map(_view)
+            .where((row) => row.state.isUnresolved)
+            .toList();
+        values.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return values;
+      });
 
   Future<DurableSubmissionClaim> claim({
     required String submissionId,
@@ -729,7 +745,11 @@ class DurableSubmissionRepository {
     final envelope = durableSubmissionJsonObject(
       data['envelopeJson'] as String,
     );
-    final innerKey = data['protocol'] == 'maintenanceWorkflow.v2'
+    final innerKey =
+        const {
+          'maintenanceWorkflow.v2',
+          'criticalAlarm.v1',
+        }.contains(data['protocol'])
         ? 'command'
         : 'request';
     if (envelope.length != 3 ||
@@ -765,6 +785,7 @@ class DurableSubmissionRepository {
     Map<String, dynamic> inner,
   ) {
     if (protocol == 'maintenanceWorkflow.v2') return 'aggregateId';
+    if (protocol == 'criticalAlarm.v1') return 'aggregateId';
     if (protocol == 'publishedTemplateAssignment.v2') return 'requestId';
     if (protocol == 'chargeAbnormality.v2') {
       if (inner['operation'] != 'CREATE_QUALITY_MONITORING_REQUEST' ||

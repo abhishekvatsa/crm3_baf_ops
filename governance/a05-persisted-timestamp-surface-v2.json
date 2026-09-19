@@ -667,7 +667,8 @@
         "installedAt"
       ],
       "optionalFields": [
-        "removedAt"
+        "removedAt",
+        "removedPhysicalAt"
       ],
       "owner": "asset-governance",
       "purpose": "restore complete Inner Cover installation and removal history",
@@ -1519,6 +1520,66 @@
       "authorityBoundary": "server physical-subject context; malformed evidence refuses review or decoding",
       "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart",
       "reArmCondition": "new timestamp fallback, changed physical identity, or accepted malformed review chronology"
+    },
+    {
+      "id": "burner-field-evidence-provenance",
+      "readerFile": "lib/features/assets/data/burner_condition_round.dart",
+      "readerMarker": "factory BurnerEvidenceProvenance.fromMap",
+      "requiredFields": [],
+      "optionalFields": [
+        "observedAt"
+      ],
+      "owner": "furnace-reliability",
+      "purpose": "retain each burner and UV field observation age and original observer separately from a later inherited or directive-derived snapshot",
+      "authorityBoundary": "remote-burner-field-evidence-provenance",
+      "regression": "test/burner_condition_round_test.dart",
+      "reArmCondition": "inherited evidence adopts a newer observation instant, explicit provenance is incomplete, or unknown evidence acquires inferred age or observer authority"
+    },
+    {
+      "id": "burner-block-installation-correction-record",
+      "readerFile": "lib/features/assets/data/burner_block_installation_correction.dart",
+      "readerMarker": "factory BurnerBlockInstallationCorrection.fromMap",
+      "requiredFields": [
+        "recordedActionPerformedAt",
+        "correctedActionPerformedAt",
+        "correctedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "retain original physical time, corrected effective time and reviewer recording time as separate correction evidence",
+      "authorityBoundary": "remote-burner-block-correction-record",
+      "regression": "test/burner_block_installation_correction_test.dart",
+      "reArmCondition": "original and effective chronology merge, correction chronology defaults, or a malformed predecessor chain is treated as a first correction"
+    },
+    {
+      "id": "burner-block-correction-server-readback",
+      "readerFile": "lib/features/assets/repositories/burner_block_correction_repository.dart",
+      "readerMarker": "static BurnerBlockInstallationCorrection verifyCorrectionReadback(",
+      "requiredFields": [
+        "recordedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "compare accepted original and corrected physical times to server-read correction evidence without requiring a later current installation to equal the historical after-image",
+      "authorityBoundary": "remote-burner-block-correction-acceptance-readback",
+      "regression": "test/burner_block_installation_correction_test.dart; test/burner_block_correction_command_service_test.dart",
+      "reArmCondition": "cached or incomplete evidence confirms readback, mismatched correction time is accepted, or reconciliation overwrites a later legitimate current installation"
+    },
+    {
+      "id": "burner-block-correction-durable-receipt",
+      "readerFile": "lib/features/assets/services/burner_block_correction_command_service.dart",
+      "readerMarker": "WorkflowCommandReceipt _receipt(",
+      "requiredFields": [
+        "correctedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "compare the accepted receipt and exact saved command physical instant before adopting durable correction acceptance",
+      "authorityBoundary": "original-account-bound-burner-correction-command-and-receipt",
+      "regression": "test/burner_block_correction_command_service_test.dart",
+      "reArmCondition": "receipt and frozen command times are coerced or defaulted, or a changed request or actor adopts the retained correction acceptance"
     }
   ]
 }

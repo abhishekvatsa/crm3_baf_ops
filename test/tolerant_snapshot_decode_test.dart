@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +13,33 @@ import 'package:flutter_test/flutter_test.dart';
 /// These tests hold live reads to the same disposition.
 void main() {
   setUp(resetQuarantinedSnapshotDocumentCount);
+
+  test('a decoded empty cache is complete but cannot prove server vacancy', () {
+    final cached = decodeSnapshotBatch<String>(
+      _EmptySnapshot(fromCache: true),
+      (_, id) => id,
+      source: 'InnerCoverAssignment',
+    );
+    final confirmed = decodeSnapshotBatch<String>(
+      _EmptySnapshot(fromCache: false),
+      (_, id) => id,
+      source: 'InnerCoverAssignment',
+    );
+    expect(cached.records, isEmpty);
+    expect(cached.isComplete, isTrue);
+    expect(cached.isServerConfirmed, isFalse);
+    expect(confirmed.isServerConfirmed, isTrue);
+  });
+
+  test('pending local writes do not establish current server evidence', () {
+    final batch = decodeSnapshotBatch<String>(
+      _EmptySnapshot(fromCache: false, pendingWrites: true),
+      (_, id) => id,
+      source: 'InnerCoverAssignment',
+    );
+    expect(batch.isComplete, isTrue);
+    expect(batch.isServerConfirmed, isFalse);
+  });
 
   ({String id, Map<String, dynamic> data}) doc(String id, String name) =>
       (id: id, data: <String, dynamic>{'name': name});
@@ -135,4 +163,22 @@ void main() {
       );
     });
   });
+}
+
+class _EmptySnapshot extends Fake
+    implements QuerySnapshot<Map<String, dynamic>> {
+  _EmptySnapshot({required bool fromCache, bool pendingWrites = false})
+    : metadata = _Metadata(fromCache, pendingWrites);
+  @override
+  final SnapshotMetadata metadata;
+  @override
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => const [];
+}
+
+class _Metadata extends Fake implements SnapshotMetadata {
+  _Metadata(this.isFromCache, this.hasPendingWrites);
+  @override
+  final bool isFromCache;
+  @override
+  final bool hasPendingWrites;
 }

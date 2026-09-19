@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "FCDCA1B1BCD4BE19717482718DF82ED00F8D530D6CA7DCEA53F8EB0C510D88BE",
+  "inventoryDigest": "4C92C4B915402B61678724D9D30199C58ACF11CA3BB95F213F11ACAFA7B7361E",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -46,14 +46,25 @@
       "authorityBoundary": "The presentation verifies Admin/SI authority before constructing this privacy-safe local read adapter.",
       "offlineSemantics": "Reads local counts and provenance only; it does not sync, reset, delete, or mark records clean.",
       "transactionOwnership": "No mutation or transaction is admitted."
+    },
+    "burner-correction-server-read": {
+      "layer": "repository",
+      "authorityBoundary": "Approved Admin/SI admission is checked by the correction UI and command service; Firestore Rules independently restrict original-event, correction-chain and current-installation reads. Stored correction data grants no role or write authority.",
+      "offlineSemantics": "Requires Source.server and rejects cached or pending-write snapshots. Missing or conflicting original, complete predecessor chain, accepted correction or current evidence remains unconfirmed; no offline snapshot is adopted as server acceptance.",
+      "transactionOwnership": "Owns read-only Firestore queries and strict typed decoding. The native durable journal owns local request settlement; the backend workflow transaction alone creates corrections, audits and rebuilt current projections."
     }
   },
   "surfaces": [
     {
       "path": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
       "profile": "repository-adapter",
-      "allowedStores": ["isar"],
-      "allowedModes": ["mutating", "read"],
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/workflow_module_reopen_adoption_native_test.dart"
@@ -62,8 +73,12 @@
     {
       "path": "lib/features/planned_maintenance/providers/workflow_module_reopen_provider.dart",
       "profile": "read-provider",
-      "allowedStores": ["firestore"],
-      "allowedModes": ["read"],
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/workflow_module_reopen_adoption_native_test.dart",
@@ -84,7 +99,8 @@
         "test/a03_persistence_boundary_contract_test.dart",
         "test/durable_submission_repository_test.dart",
         "test/saved_submission_review_test.dart",
-        "test/inner_cover_acceptance_controller_test.dart"
+        "test/inner_cover_acceptance_controller_test.dart",
+        "test/critical_alarm_pending_submissions_test.dart"
       ]
     },
     {
@@ -1025,6 +1041,38 @@
       ],
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/providers/burner_block_correction_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/burner_block_installation_correction_test.dart",
+        "test/burner_block_correction_command_service_test.dart",
+        "test/firestore.rules.test.js"
+      ]
+    },
+    {
+      "path": "lib/features/assets/repositories/burner_block_correction_repository.dart",
+      "profile": "burner-correction-server-read",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/burner_block_installation_correction_test.dart",
+        "test/burner_block_correction_command_service_test.dart",
+        "test/firestore.rules.test.js"
       ]
     }
   ]

@@ -563,18 +563,26 @@ class AssetHierarchyRepository {
   }
 
   Stream<List<InnerCoverProfile>> watchInnerCoverProfiles() {
-    return _innerCoverProfiles.snapshots().map((snapshot) {
-      final records =
-          decodeSnapshotDocuments(
-            snapshot,
-            InnerCoverProfile.fromMap,
-            source: 'InnerCoverProfile',
-          ).toList()..sort(
-            (left, right) => left.normalizedSerialNumber.compareTo(
-              right.normalizedSerialNumber,
-            ),
-          );
-      return List<InnerCoverProfile>.unmodifiable(records);
+    return watchInnerCoverProfileBatches().map(
+      (batch) => List<InnerCoverProfile>.unmodifiable(batch.records),
+    );
+  }
+
+  Stream<DecodedSnapshotBatch<InnerCoverProfile>>
+  watchInnerCoverProfileBatches() {
+    return _innerCoverProfiles.snapshots(includeMetadataChanges: true).map((
+      snapshot,
+    ) {
+      final batch = decodeSnapshotBatch(
+        snapshot,
+        InnerCoverProfile.fromMap,
+        source: 'InnerCoverProfile',
+      );
+      batch.records.sort(
+        (left, right) =>
+            left.normalizedSerialNumber.compareTo(right.normalizedSerialNumber),
+      );
+      return batch;
     });
   }
 
@@ -605,17 +613,25 @@ class AssetHierarchyRepository {
   }
 
   Stream<List<BaseInnerCoverAssignment>> watchInnerCoverAssignments() {
-    return _innerCoverAssignments.snapshots().map((snapshot) {
-      final records =
-          decodeSnapshotDocuments(
-            snapshot,
-            BaseInnerCoverAssignment.fromMap,
-            source: 'BaseInnerCoverAssignment',
-          ).toList()..sort(
-            (left, right) =>
-                left.baseAssetNumber.compareTo(right.baseAssetNumber),
-          );
-      return List<BaseInnerCoverAssignment>.unmodifiable(records);
+    return watchInnerCoverAssignmentBatches().map(
+      (batch) => List<BaseInnerCoverAssignment>.unmodifiable(batch.records),
+    );
+  }
+
+  Stream<DecodedSnapshotBatch<BaseInnerCoverAssignment>>
+  watchInnerCoverAssignmentBatches() {
+    return _innerCoverAssignments.snapshots(includeMetadataChanges: true).map((
+      snapshot,
+    ) {
+      final batch = decodeSnapshotBatch(
+        snapshot,
+        BaseInnerCoverAssignment.fromMap,
+        source: 'BaseInnerCoverAssignment',
+      );
+      batch.records.sort(
+        (left, right) => left.baseAssetNumber.compareTo(right.baseAssetNumber),
+      );
+      return batch;
     });
   }
 

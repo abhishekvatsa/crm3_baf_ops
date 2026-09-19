@@ -52,9 +52,7 @@ List<T> decodeSnapshotDocuments<T>(
   void Function(String documentId, Object error)? onQuarantined,
 }) {
   return decodeDocuments(
-    snapshot.docs.map(
-      (doc) => (id: doc.id, data: doc.data()),
-    ),
+    snapshot.docs.map((doc) => (id: doc.id, data: doc.data())),
     decode,
     source: source,
     onQuarantined: onQuarantined,
@@ -102,6 +100,8 @@ class DecodedSnapshotBatch<T> {
   const DecodedSnapshotBatch({
     required this.records,
     required this.rejectedDocumentIds,
+    this.isFromCache = false,
+    this.hasPendingWrites = false,
   });
 
   /// The rows that decoded.
@@ -109,6 +109,13 @@ class DecodedSnapshotBatch<T> {
 
   /// The documents that did not, by identity, so support can go and look.
   final List<String> rejectedDocumentIds;
+
+  /// Decoding every cached row does not prove that a missing server row is
+  /// absent. Consumers that infer vacancy must also check [isServerConfirmed].
+  final bool isFromCache;
+  final bool hasPendingWrites;
+
+  bool get isServerConfirmed => !isFromCache && !hasPendingWrites;
 
   /// Whether every document in the snapshot is represented in [records].
   bool get isComplete => rejectedDocumentIds.isEmpty;
@@ -143,6 +150,8 @@ DecodedSnapshotBatch<T> decodeSnapshotBatch<T>(
   return DecodedSnapshotBatch<T>(
     records: records,
     rejectedDocumentIds: List.unmodifiable(rejected),
+    isFromCache: snapshot.metadata.isFromCache,
+    hasPendingWrites: snapshot.metadata.hasPendingWrites,
   );
 }
 

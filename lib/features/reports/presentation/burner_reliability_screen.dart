@@ -248,12 +248,19 @@ class _BurnerReliabilityBodyState
                   selectedAssetId: selectedAsset?.id,
                   startDate: _startDate,
                   endDate: _endDate,
-                  onAssetChanged:
-                      (value) => setState(() => _assetInstanceId = value),
+                  onAssetChanged: (value) =>
+                      setState(() => _assetInstanceId = value),
                   onDateRangePressed: _selectDateRange,
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 _ReliabilityMetrics(report: report),
+                Text(
+                  '${report.partialRoundCount} partial or directive updates; ${report.unknownAgeRoundCount} entries include unknown observation ages. Copied readings keep their original observation dates. Undated evidence is excluded from age-based summaries.',
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: BafSpacing.sm),
                 const Text(
                   burnerConditionRoundHistoryDisclosure,
@@ -271,7 +278,7 @@ class _BurnerReliabilityBodyState
                 if (report.rows.isEmpty)
                   const _ReportNotice(
                     icon: Icons.local_fire_department_outlined,
-                    title: 'No burner evidence in this period',
+                    title: 'No dated burner evidence in this period',
                     message:
                         'Change the date or Furnace filter to inspect another evidence window.',
                   )
@@ -281,16 +288,14 @@ class _BurnerReliabilityBodyState
                       padding: const EdgeInsets.only(bottom: BafSpacing.sm),
                       child: _BurnerReliabilityCard(
                         row: row,
-                        onTap:
-                            () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder:
-                                    (_) => AssetTimelineScreen(
-                                      initialAssetType: AssetType.furnace,
-                                      initialAssetNumber: row.furnaceNumber,
-                                    ),
-                              ),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => AssetTimelineScreen(
+                              initialAssetType: AssetType.furnace,
+                              initialAssetNumber: row.furnaceNumber,
                             ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -332,18 +337,16 @@ class _BurnerReliabilityBodyState
   Future<void> _openRoundForm() async {
     final result = await Navigator.of(context).push<BurnerConditionRoundResult>(
       MaterialPageRoute<BurnerConditionRoundResult>(
-        builder:
-            (_) => BurnerConditionRoundScreen(
-              initialAssetInstanceId: _assetInstanceId,
-            ),
+        builder: (_) => BurnerConditionRoundScreen(
+          initialAssetInstanceId: _assetInstanceId,
+        ),
       ),
     );
     if (!mounted || result == null) return;
     ref.invalidate(burnerConditionRoundsProvider);
-    final recordedMessage =
-        result.directiveId == null
-            ? 'Burner round recorded.'
-            : 'Burner round and critical I&A directive recorded.';
+    final recordedMessage = result.directiveId == null
+        ? 'Burner round recorded.'
+        : 'Burner round and critical I&A directive recorded.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -428,10 +431,8 @@ class _BurnerFilters extends StatelessWidget {
                   ),
                 ),
             ],
-            onChanged:
-                (value) => onAssetChanged(
-                  value == null || value.isEmpty ? null : value,
-                ),
+            onChanged: (value) =>
+                onAssetChanged(value == null || value.isEmpty ? null : value),
           ),
           const SizedBox(height: BafSpacing.md),
           SizedBox(
@@ -475,7 +476,7 @@ class _ReliabilityMetrics extends StatelessWidget {
           color: BafColors.maintenance,
         ),
         _Metric(
-          label: 'Condition rounds',
+          label: 'Witnessed surveys',
           value: report.roundCount,
           icon: Icons.fact_check_outlined,
           color: BafColors.assets,
@@ -592,20 +593,19 @@ class _BurnerReliabilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions =
-        row.actionCounts.entries.toList()..sort((left, right) {
-          final count = right.value.compareTo(left.value);
-          return count != 0 ? count : left.key.name.compareTo(right.key.name);
-        });
+    final actions = row.actionCounts.entries.toList()
+      ..sort((left, right) {
+        final count = right.value.compareTo(left.value);
+        return count != 0 ? count : left.key.name.compareTo(right.key.name);
+      });
     return Material(
       color: BafColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
         side: BorderSide(
-          color:
-              row.openCount > 0
-                  ? BafColors.danger.withValues(alpha: 0.32)
-                  : BafColors.border,
+          color: row.openCount > 0
+              ? BafColors.danger.withValues(alpha: 0.32)
+              : BafColors.border,
         ),
       ),
       child: InkWell(
@@ -629,14 +629,12 @@ class _BurnerReliabilityCard extends StatelessWidget {
                     ),
                   ),
                   StatusBadge(
-                    label:
-                        row.openCount > 0
-                            ? '${row.openCount} open report${row.openCount == 1 ? '' : 's'}'
-                            : 'No open lockout',
-                    color:
-                        row.openCount > 0
-                            ? BafColors.danger
-                            : BafColors.success,
+                    label: row.openCount > 0
+                        ? '${row.openCount} open report${row.openCount == 1 ? '' : 's'}'
+                        : 'No open lockout',
+                    color: row.openCount > 0
+                        ? BafColors.danger
+                        : BafColors.success,
                   ),
                   const SizedBox(width: BafSpacing.xs),
                   const Icon(
@@ -656,7 +654,7 @@ class _BurnerReliabilityCard extends StatelessWidget {
                   ),
                   if (row.roundCount > 0)
                     StatusBadge(
-                      label: '${row.roundCount} rounds',
+                      label: '${row.roundCount} surveys',
                       color: BafColors.charges,
                     ),
                   if (row.redHotCount > 0)
@@ -691,7 +689,7 @@ class _BurnerReliabilityCard extends StatelessWidget {
                       row.latestMicroampReading == null
                           ? 'No microamp reading recorded'
                           : '${NumberFormat('0.###').format(row.latestMicroampReading)} microamp'
-                              '${row.latestMicroampAt == null ? '' : ' on ${DateFormat('dd MMM yyyy').format(row.latestMicroampAt!)}'}',
+                                '${row.latestMicroampAt == null ? '' : ' on ${DateFormat('dd MMM yyyy').format(row.latestMicroampAt!)}'}',
                       style: const TextStyle(
                         color: BafColors.textPrimary,
                         fontWeight: FontWeight.w700,

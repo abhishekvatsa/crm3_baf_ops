@@ -224,9 +224,9 @@
         "state-orchestration"
       ],
       "authorityBoundary": "The screen checks current actor loading/error state and condition-round capability before observing operational providers. The correction affordance reads the adjudication capability; the correction command service and backend remain responsible for authenticated command admission and immutable event validation.",
-      "persistenceOwnership": "Typed providers own hierarchy, issue, round and lifecycle reads. BurnerConditionRoundService owns round submission and BurnerBlockCorrectionCommandService owns correction transport. This screen owns transient form drafts only and performs no direct database access or persisted-payload serialization.",
-      "transactionOwnership": "No database transaction is owned here. The UI submits each furnace draft with its observed round identity and settles only the submitted local revision; backend handlers own correction evidence and lifecycle projection transactions.",
-      "rationale": "The new installation correction dialog takes this existing matrix workspace over the size threshold without adding a persistence responsibility. The matrices, totals and refresh reconciliation share one draft owner; splitting that ownership during this correction tranche would risk replacing edits that were not submitted. Correction transport already resides in its separate service. The exception freezes the measured 1359-line surface with no growth allowance; further expansion must extract presentation-only units while retaining one draft owner.",
+      "persistenceOwnership": "Typed providers own hierarchy, issue, round and lifecycle reads. BurnerConditionRoundService owns durable round submission. BurnerBlockCorrectionControls delegates correction review and original-envelope recovery to its repository and command service. The screen owns transient form drafts only and performs no direct database access or persisted-payload serialization.",
+      "transactionOwnership": "No database transaction is owned here. Each submission captures checked fields and the reviewed round, installation and open-issue basis. A matching receipt settles only the captured fields; successor edits remain pending against the accepted baseline. Backend handlers own round and correction evidence transactions.",
+      "rationale": "Correction review and durable recovery now live in the separate correction controls, repository and command service. The matrix retains one draft owner so accepting one request cannot erase later edits. Existing size and responsibility limits remain enforced, with explicit markers for checked-field capture, reviewed dependencies and accepted-baseline settlement.",
       "regressionTests": [
         "test/furnace_condition_totals_test.dart",
         "test/burner_block_correction_command_service_test.dart",
@@ -240,9 +240,13 @@
         "canRecordBurnerConditionRound",
         "canAdjudicateFurnaceStuckup",
         "burnerConditionRoundServiceProvider",
-        "burnerBlockCorrectionCommandServiceProvider",
+        "BurnerBlockCorrectionControls",
         "ComposedAgainstRound(draft.composedAgainstRoundId)",
-        "draft.settleSave(submittedRevision)"
+        "draft.acceptSubmission(submitted, result.roundId, result.committedAt)",
+        "draft.captureSubmission()",
+        "observedFields: submitted.observedFields",
+        "expectedInstallationBasis: submitted.installationBasis",
+        "expectedOpenIssueBasis: draft.openIssueBasis"
       ],
       "forbiddenMarkers": [
         "FirebaseFirestore",

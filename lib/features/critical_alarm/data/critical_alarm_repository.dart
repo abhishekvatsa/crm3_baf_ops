@@ -142,7 +142,7 @@ class CriticalAlarmRepository {
     });
   }
 
-  Stream<List<CriticalAlarmContact>> watchContacts() async* {
+  Stream<CriticalAlarmContactsSnapshot> watchContacts() async* {
     await for (final snapshot
         in firestore
             .collection('critical_alarm_contacts')
@@ -151,16 +151,25 @@ class CriticalAlarmRepository {
       if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
         continue;
       }
-      yield List.unmodifiable(
-        snapshot.docs.map(
-          (document) =>
-              CriticalAlarmContact.fromFirestore(document.data(), document.id),
-        ),
+      final contacts = <CriticalAlarmContact>[];
+      final malformedDocumentIds = <String>[];
+      for (final document in snapshot.docs) {
+        try {
+          contacts.add(
+            CriticalAlarmContact.fromFirestore(document.data(), document.id),
+          );
+        } on Object {
+          malformedDocumentIds.add(document.id);
+        }
+      }
+      yield CriticalAlarmContactsSnapshot(
+        contacts: List.unmodifiable(contacts),
+        malformedDocumentIds: List.unmodifiable(malformedDocumentIds),
       );
     }
   }
 
-  Stream<List<CriticalAlarmDefinition>> watchDefinitions() async* {
+  Stream<CriticalAlarmDefinitionsSnapshot> watchDefinitions() async* {
     await for (final snapshot
         in firestore
             .collection('critical_alarm_definitions')
@@ -168,11 +177,24 @@ class CriticalAlarmRepository {
       if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
         continue;
       }
-      final overrides = snapshot.docs.map(
-        (document) =>
+      final overrides = <CriticalAlarmDefinition>[];
+      final malformedDocumentIds = <String>[];
+      for (final document in snapshot.docs) {
+        try {
+          overrides.add(
             CriticalAlarmDefinition.fromFirestore(document.data(), document.id),
+          );
+        } on Object {
+          malformedDocumentIds.add(document.id);
+        }
+      }
+      yield CriticalAlarmDefinitionsSnapshot(
+        definitions: CriticalAlarmDefinition.mergeOverrides(
+          overrides,
+          unavailableKeys: malformedDocumentIds,
+        ),
+        malformedDocumentIds: List.unmodifiable(malformedDocumentIds),
       );
-      yield CriticalAlarmDefinition.mergeOverrides(overrides);
     }
   }
 }

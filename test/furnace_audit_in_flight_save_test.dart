@@ -23,6 +23,74 @@ FurnaceAuditDraft _draft({String sourceKey = 'round-1'}) =>
     );
 
 void main() {
+  test('successor edits rebase on acceptance and use the accepted round', () {
+    final draft = _draft();
+    draft.setRedHot(1, true);
+    draft.markEdited();
+    final submitted = draft.captureSubmission();
+    draft.setRedHot(2, true);
+    draft.markEdited();
+    expect(submitted.values['burners.2.redHotObserved'], false);
+    draft.acceptSubmission(submitted, 'round-2', DateTime.utc(2026, 9, 1));
+    final fresh = _draft(sourceKey: 'round-2');
+    fresh.setRedHot(1, true);
+    fresh.hotAirAtDraftSealObserved = true;
+    draft.updateBasis(
+      fresh,
+      roundId: 'round-2',
+      observedAt: DateTime.utc(2026, 9, 1),
+    );
+    expect(draft.composedAgainstRoundId, 'round-2');
+    expect(draft.awaitingAcceptedBasis, false);
+    expect(draft.redHotPositions, {1, 2});
+    expect(draft.hotAirAtDraftSealObserved, true);
+    expect(draft.observedFields, {'burners.2.redHotObserved'});
+    expect(draft.dirty, true);
+  });
+
+  test(
+    'a later update retains independent edits but requires review for conflicts',
+    () {
+      final draft = _draft();
+      draft.uvByPosition[1] = BurnerUvCondition.missing;
+      draft.markEdited();
+      final independent = _draft(sourceKey: 'round-2');
+      independent.setRedHot(3, true);
+      draft.updateBasis(independent);
+      expect(draft.redHotPositions, {3});
+      expect(draft.uvByPosition[1], BurnerUvCondition.missing);
+      expect(draft.requiresReview, false);
+      final conflicting = _draft(sourceKey: 'round-3');
+      conflicting.uvByPosition[1] = BurnerUvCondition.melted;
+      draft.updateBasis(conflicting);
+      expect(draft.requiresReview, true);
+      expect(draft.conflicts, {'uv.1.condition'});
+      expect(draft.composedAgainstRoundId, 'round-2');
+      draft.reviewCurrent(keepLocalEdits: true);
+      expect(draft.composedAgainstRoundId, 'round-3');
+      expect(draft.uvByPosition[1], BurnerUvCondition.missing);
+      expect(draft.observedFields, {'uv.1.condition'});
+    },
+  );
+
+  test(
+    'confirming a category does not renew untouched flame or signal fields',
+    () {
+      final draft = _draft();
+      expect(draft.isKnown('burners.1.redHotObserved'), false);
+      draft.confirmFields([
+        for (var n = 1; n <= 8; n++) 'burners.$n.redHotObserved',
+      ]);
+      draft.markEdited();
+      expect(draft.observedFields.length, 8);
+      expect(
+        draft.observedFields,
+        isNot(contains('burners.1.microampReading')),
+      );
+      expect(draft.isKnown('burners.1.redHotObserved'), true);
+    },
+  );
+
   group('a furnace audit draft saved while it is being edited', () {
     test('an observation recorded during the save stays pending', () {
       final draft = _draft();
@@ -43,19 +111,21 @@ void main() {
       );
     });
 
-    test('a draft that stays pending is not replaced by the saved snapshot',
-        () {
-      final draft = _draft();
-      draft.markEdited();
-      final submittedRevision = draft.revision;
-      draft.markEdited();
-      draft.settleSave(submittedRevision);
+    test(
+      'a draft that stays pending is not replaced by the saved snapshot',
+      () {
+        final draft = _draft();
+        draft.markEdited();
+        final submittedRevision = draft.revision;
+        draft.markEdited();
+        draft.settleSave(submittedRevision);
 
-      // The save produced a new round, so the next snapshot of this furnace
-      // arrives under a different source key. Adopting it here would discard
-      // the observation the operator has just recorded.
-      expect(draft.shouldAdoptSnapshot('round-2'), isFalse);
-    });
+        // The save produced a new round, so the next snapshot of this furnace
+        // arrives under a different source key. Adopting it here would discard
+        // the observation the operator has just recorded.
+        expect(draft.shouldAdoptSnapshot('round-2'), isFalse);
+      },
+    );
 
     test('an undisturbed save settles and its snapshot is adopted', () {
       final draft = _draft();

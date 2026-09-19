@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
@@ -11,6 +12,7 @@ import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.
 import 'package:crm3_baf_ops/features/assets/providers/burner_block_lifecycle_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/burner_condition_round_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/uv_detector_lifecycle_provider.dart';
+import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_service.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
@@ -30,8 +32,9 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Roboto-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Roboto-Medium.ttf')))
         .load();
-    await (FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
   testWidgets(
@@ -134,8 +137,17 @@ void main() {
         'furnace-2': _round(2, healthy: true),
       });
       await tester.pumpAndSettle();
-      expect(find.text('Burner blocks (3)'), findsOneWidget);
-      expect(find.text('UV missing (1)'), findsOneWidget);
+      // Only the position actually edited is retained; untouched fields adopt
+      // the new current survey instead of reintroducing the earlier faults.
+      expect(find.text('Burner blocks (1)'), findsOneWidget);
+      expect(find.text('UV missing (0)'), findsOneWidget);
+      final retained = tester.widget<Checkbox>(
+        find.descendant(
+          of: find.byKey(const ValueKey('block-furnace-1-3')),
+          matching: find.byType(Checkbox),
+        ),
+      );
+      expect(retained.value, isTrue);
       expect(find.text('1 unsaved furnace'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -151,6 +163,43 @@ void main() {
     );
     expect(find.text('Burner blocks (0)'), findsNothing);
     expect(find.byTooltip('Condition totals'), findsNothing);
+  });
+
+  testWidgets('category confirmation requires the same evidence it reviewed', (
+    tester,
+  ) async {
+    final rounds = StreamController<Map<String, BurnerConditionRound>>();
+    addTearDown(rounds.close);
+    rounds.add(_initialRounds());
+    await _pump(tester, rounds: rounds.stream);
+    final confirm = find.descendant(
+      of: find.byKey(const ValueKey('furnace-audit-row-label-furnace-1')),
+      matching: find.byType(IconButton),
+    );
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm Furnace 1 checks'), findsOneWidget);
+    rounds.add({
+      'furnace-1': _round(1, healthy: true),
+      'furnace-2': _round(2, healthy: true),
+    });
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Checked now'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Furnace evidence changed. Review the current values and confirm again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('1 unsaved furnace'), findsNothing);
+    expect(find.text('Burner blocks (0)'), findsOneWidget);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Checked now'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 unsaved furnace'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -275,6 +324,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        burnerConditionRoundServiceProvider.overrideWithValue(
+          _AuditReadService(),
+        ),
         currentAppUserProvider.overrideWith(
           (ref) => Stream.value(
             AppUser(
@@ -371,14 +423,13 @@ Future<void> _pump(
               ),
             ),
           ),
-          builder:
-              (context, child) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(scale),
-                  padding: const EdgeInsets.only(top: 24, bottom: 32),
-                ),
-                child: child!,
-              ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+              padding: const EdgeInsets.only(top: 24, bottom: 32),
+            ),
+            child: child!,
+          ),
           home: const Scaffold(),
           initialRoute: '/audit',
           routes: {
@@ -445,12 +496,11 @@ BurnerConditionRound _round(int number, {bool healthy = false}) =>
       assetInstanceVersion: 1,
       assetNumber: number,
       assetName: 'Furnace $number',
-      redHotPositions:
-          healthy
-              ? []
-              : number == 1
-              ? [1, 2]
-              : [1],
+      redHotPositions: healthy
+          ? []
+          : number == 1
+          ? [1, 2]
+          : [1],
       observations: [
         for (var position = 1; position <= 8; position++)
           BurnerConditionObservation(
@@ -467,15 +517,14 @@ BurnerConditionRound _round(int number, {bool healthy = false}) =>
         for (var position = 1; position <= 8; position++)
           BurnerUvObservation(
             position: position,
-            condition:
-                healthy
-                    ? BurnerUvCondition.serviceable
-                    : switch ((number, position)) {
-                      (1, 1) => BurnerUvCondition.melted,
-                      (1, 2) || (2, 1) => BurnerUvCondition.missing,
-                      (1, 3) => BurnerUvCondition.hanging,
-                      _ => BurnerUvCondition.serviceable,
-                    },
+            condition: healthy
+                ? BurnerUvCondition.serviceable
+                : switch ((number, position)) {
+                    (1, 1) => BurnerUvCondition.melted,
+                    (1, 2) || (2, 1) => BurnerUvCondition.missing,
+                    (1, 3) => BurnerUvCondition.hanging,
+                    _ => BurnerUvCondition.serviceable,
+                  },
           ),
       ],
       observedAt: healthy ? _now.add(const Duration(hours: 1)) : _now,
@@ -497,4 +546,9 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
     ).writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
   });
+}
+
+class _AuditReadService extends BurnerConditionRoundService {
+  @override
+  Future<List<DurableSubmission>> pending() async => [];
 }

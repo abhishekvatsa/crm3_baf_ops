@@ -150,7 +150,11 @@ BurnerConditionRound _round({
   required DateTime observedAt,
   required List<int> redHot,
   Map<int, BurnerUvCondition> uvConditions = const <int, BurnerUvCondition>{},
+  String evidenceKind = 'inspection',
+  Map<String, BurnerEvidenceProvenance> evidenceProvenance = const {},
 }) => BurnerConditionRound(
+  evidenceKind: evidenceKind,
+  evidenceProvenance: evidenceProvenance,
   roundId: id,
   assetClassId: 'class-furnace',
   assetClassCode: 'FURNACE',
@@ -183,26 +187,84 @@ BurnerConditionRound _round({
 );
 
 void main() {
+  test(
+    'inherited UV age permits a later replacement despite newer compliance envelope',
+    () {
+      final round = _round(
+        id: 'compliance',
+        observedAt: DateTime.utc(2026, 9, 3),
+        redHot: [],
+        uvConditions: {1: BurnerUvCondition.melted},
+        evidenceKind: 'directiveCompliance',
+        evidenceProvenance: {
+          'uv.1.condition': BurnerEvidenceProvenance(
+            kind: 'inherited',
+            sourceRoundId: 'old',
+            observedAt: DateTime.utc(2026, 9, 1),
+            observerUid: 'ops',
+            observerName: 'Operations',
+          ),
+        },
+      );
+      final projection = projectBurnerBlockCondition(
+        round: round,
+        newerRedHotObservations: {},
+        lifecycleEvents: [],
+        currentUvLifecycleEvents: [
+          _uvEvent(
+            id: 'replacement',
+            position: 1,
+            completedAt: DateTime.utc(2026, 9, 2),
+          ),
+        ],
+        currentCollectionsAuthoritative: true,
+        assetInstanceId: 'furnace-7',
+      );
+      expect(
+        projection.uvConditionsByPosition[1],
+        BurnerUvCondition.serviceable,
+      );
+    },
+  );
+
+  test(
+    'authoritative empty current collections do not resurrect raw history',
+    () {
+      final projection = projectBurnerBlockCondition(
+        round: null,
+        newerRedHotObservations: {},
+        lifecycleEvents: [
+          _event(
+            id: 'history',
+            position: 1,
+            completedAt: DateTime.utc(2026, 9, 2),
+          ),
+        ],
+        currentCollectionsAuthoritative: true,
+        assetInstanceId: 'furnace-7',
+      );
+      expect(projection.replacementsByPosition, isEmpty);
+    },
+  );
+
   group('planned-maintenance burner-block lifecycle', () {
     test(
       'SAIL/RED and purchased provenance survive canonical serialization',
       () {
-        final sail =
-            ComponentAction.decode(
-              ComponentAction.encode(<ComponentAction>[_replacement()]),
-              source: 'planned maintenance',
-            ).single;
-        final purchased =
-            ComponentAction.decode(
-              ComponentAction.encode(<ComponentAction>[
-                _replacement(
-                  mode: BurnerBlockSupplyMode.purchased,
-                  supplier: 'Industrial Refractories Ltd',
-                  purchaseOrder: 'PO-2026-411',
-                ),
-              ]),
-              source: 'planned maintenance',
-            ).single;
+        final sail = ComponentAction.decode(
+          ComponentAction.encode(<ComponentAction>[_replacement()]),
+          source: 'planned maintenance',
+        ).single;
+        final purchased = ComponentAction.decode(
+          ComponentAction.encode(<ComponentAction>[
+            _replacement(
+              mode: BurnerBlockSupplyMode.purchased,
+              supplier: 'Industrial Refractories Ltd',
+              purchaseOrder: 'PO-2026-411',
+            ),
+          ]),
+          source: 'planned maintenance',
+        ).single;
 
         expect(sail.burnerPosition, 3);
         expect(sail.burnerBlockSupplyMode, BurnerBlockSupplyMode.sailRed);
@@ -253,11 +315,10 @@ void main() {
         status: ActionStatus.resolved,
         burnerPosition: 3,
       );
-      final decoded =
-          ComponentAction.decode(
-            ComponentAction.encode(<ComponentAction>[action]),
-            source: 'planned UV replacement',
-          ).single;
+      final decoded = ComponentAction.decode(
+        ComponentAction.encode(<ComponentAction>[action]),
+        source: 'planned UV replacement',
+      ).single;
 
       expect(decoded.burnerPosition, 3);
       expect(decoded.isGovernedUvDetectorReplacement, isTrue);
@@ -436,6 +497,76 @@ void main() {
       expect(projection.replacementsByPosition[3]?.eventId, 'event-new');
       expect(projection.replacementsByPosition, hasLength(1));
     });
+
+    test(
+      'the current projection overrides corrected raw history for its position',
+      () {
+        final rawEvent = _event(
+          id: 'event-corrected-raw',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 29),
+          completedAt: DateTime.utc(2026, 8, 29, 1),
+        );
+        final currentEvent = _event(
+          id: 'event-current',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 28),
+          completedAt: DateTime.utc(2026, 8, 28, 1),
+        );
+        final projection = projectBurnerBlockCondition(
+          round: _round(
+            id: 'round-red-hot',
+            observedAt: DateTime.utc(2026, 8, 27),
+            redHot: const [3],
+          ),
+          newerRedHotObservations: const <int, DateTime>{},
+          lifecycleEvents: <BurnerBlockLifecycleEvent>[rawEvent],
+          currentLifecycleEvents: <BurnerBlockLifecycleEvent>[currentEvent],
+          assetInstanceId: 'furnace-7',
+        );
+
+        expect(projection.replacementsByPosition[3]?.eventId, 'event-current');
+        expect(projection.redHotPositions, isEmpty);
+      },
+    );
+
+    test(
+      'a corrected effective installation time changes the snapshot key',
+      () {
+        final before = _event(
+          id: 'event-current',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 21),
+          completedAt: DateTime.utc(2026, 8, 21, 1),
+        );
+        final after = _event(
+          id: 'event-current',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 23),
+          completedAt: DateTime.utc(2026, 8, 23, 1),
+        );
+        BurnerBlockConditionProjection project(
+          BurnerBlockLifecycleEvent event,
+        ) => projectBurnerBlockCondition(
+          round: _round(
+            id: 'round-red-hot',
+            observedAt: DateTime.utc(2026, 8, 22),
+            redHot: const [3],
+          ),
+          newerRedHotObservations: const <int, DateTime>{},
+          lifecycleEvents: const <BurnerBlockLifecycleEvent>[],
+          currentLifecycleEvents: <BurnerBlockLifecycleEvent>[event],
+          assetInstanceId: 'furnace-7',
+        );
+
+        final beforeProjection = project(before);
+        final afterProjection = project(after);
+
+        expect(beforeProjection.sourceKey, isNot(afterProjection.sourceKey));
+        expect(beforeProjection.redHotPositions, contains(3));
+        expect(afterProjection.redHotPositions, isEmpty);
+      },
+    );
 
     test('a late report of earlier work stays history', () {
       // The same sequence the backend's own regression uses: the block at

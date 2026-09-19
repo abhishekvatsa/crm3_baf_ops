@@ -14,6 +14,156 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final conditionBased in [false, true]) {
+    testWidgets(
+      'completed job permits request-only follow-up; condition=$conditionBased',
+      (tester) async {
+        final record = _compliance(status: 'acknowledged', version: 7)
+          ..conditionTypeKey = conditionBased ? 'chargeComplete' : 'manual';
+        final parent = _aggregate(10)..statusKey = 'completed';
+        WorkflowCommand? sent;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (_) => Stream.value(
+                  AppUser(
+                    uid: 'admin-1',
+                    name: 'Admin One',
+                    email: 'admin@example.invalid',
+                    roles: const [AppRole.admin],
+                    isApproved: true,
+                    createdAt: DateTime.utc(2026),
+                  ),
+                ),
+              ),
+              workflowComplianceRecordProvider.overrideWith(
+                (_, __) async => record,
+              ),
+              workflowAuthoritativeRecordProvider.overrideWith(
+                (_, __) async => parent,
+              ),
+              workflowCommandControllerProvider.overrideWith(
+                (_) => WorkflowCommandController.forTesting(
+                  executeCommand: (command) async {
+                    sent = command;
+                    return _receipt(
+                      command,
+                      resultKey: conditionBased
+                          ? 'condition-confirmed-follow-up'
+                          : 'compliance-complied',
+                      aggregateVersion: 10,
+                    );
+                  },
+                  pullProjections: () async {},
+                ),
+              ),
+            ],
+            child: MaterialApp(
+              theme: BafAppTheme.light,
+              home: ComplianceDetailScreen(record: record),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Follow-up after job closure'), findsOneWidget);
+        final action = find.text(
+          conditionBased
+              ? 'Confirm condition (follow-up only)'
+              : 'Mark complied',
+        );
+        await tester.scrollUntilVisible(action, 220);
+        await tester.tap(action);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField),
+          'Preserved request follow-up only',
+        );
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        expect(sent?.expectedVersion, 10);
+        expect(sent?.payload['expectedComplianceVersion'], 7);
+        expect(sent?.payload['complianceId'], record.firestoreId);
+        expect(
+          sent?.type,
+          conditionBased
+              ? WorkflowCommandType.confirmConditionAndReactivate
+              : WorkflowCommandType.markComplianceComplied,
+        );
+        expect(parent.statusKey, 'completed');
+        expect(parent.version, 10);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final terminalScope in [
+    'blocking request',
+    'cancelled status',
+    'completed issue coordination',
+    'cancelled flag with open status',
+    'completed timestamp with open status',
+  ]) {
+    testWidgets('closed follow-up does not unlock $terminalScope', (
+      tester,
+    ) async {
+      final record = _compliance(status: 'acknowledged', version: 7)
+        ..gatesLaneFirestoreId = terminalScope == 'blocking request'
+            ? 'owning-lane'
+            : null;
+      final parent = _aggregate(10)..statusKey = 'completed';
+      switch (terminalScope) {
+        case 'cancelled status':
+          parent.statusKey = 'cancelled';
+        case 'completed issue coordination':
+          parent.workflowKind = 'issueCoordination';
+        case 'cancelled flag with open status':
+          parent
+            ..statusKey = 'inProgress'
+            ..cancelled = true;
+        case 'completed timestamp with open status':
+          parent
+            ..statusKey = 'inProgress'
+            ..completedAt = DateTime.utc(2026, 9, 20);
+      }
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (_) => Stream.value(_instrumentationActor()),
+            ),
+            workflowComplianceRecordProvider.overrideWith(
+              (_, __) async => record,
+            ),
+            workflowAuthoritativeRecordProvider.overrideWith(
+              (_, __) async => parent,
+            ),
+            workflowCommandControllerProvider.overrideWith(
+              (_) => WorkflowCommandController.forTesting(
+                executeCommand: (_) async => throw StateError(
+                  'Terminal physical scope remains immutable',
+                ),
+                pullProjections: () async {},
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: ComplianceDetailScreen(record: record),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Follow-up after job closure'), findsNothing);
+      expect(find.text('Mark complied'), findsNothing);
+      expect(
+        find.textContaining('no further lifecycle action'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final unavailable in [
     'missing',
     'wrong-workflow',
@@ -25,14 +175,12 @@ void main() {
       (tester) async {
         final original = _compliance(status: 'superseded', version: 3)
           ..supersededById = 'revised-request';
-        final successor =
-            _compliance(status: 'acknowledged', version: 1)
-              ..firestoreId = 'revised-request'
-              ..isDeleted = unavailable == 'deleted'
-              ..linkedWorkflowId =
-                  unavailable == 'wrong-workflow'
-                      ? 'other'
-                      : original.linkedWorkflowId;
+        final successor = _compliance(status: 'acknowledged', version: 1)
+          ..firestoreId = 'revised-request'
+          ..isDeleted = unavailable == 'deleted'
+          ..linkedWorkflowId = unavailable == 'wrong-workflow'
+              ? 'other'
+              : original.linkedWorkflowId;
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -87,10 +235,9 @@ void main() {
   ) async {
     final original = _compliance(status: 'superseded', version: 3)
       ..supersededById = 'revised-request';
-    final revised =
-        _compliance(status: 'acknowledged', version: 1)
-          ..firestoreId = 'revised-request'
-          ..title = 'Agreed crane positioning';
+    final revised = _compliance(status: 'acknowledged', version: 1)
+      ..firestoreId = 'revised-request'
+      ..title = 'Agreed crane positioning';
     final readIds = <String>[];
     await tester.pumpWidget(
       ProviderScope(
@@ -133,14 +280,13 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final record =
-        _compliance(status: 'confirmedClosed', version: 6)
-          ..compliedByName = 'Operations One'
-          ..compliedAt = DateTime(2026, 9, 4, 10, 15)
-          ..complianceNote = 'Crane positioned on stand 2.'
-          ..confirmedByName = 'Mechanical One'
-          ..confirmedAt = DateTime(2026, 9, 4, 10, 20)
-          ..confirmNote = 'Placement accepted.';
+    final record = _compliance(status: 'confirmedClosed', version: 6)
+      ..compliedByName = 'Operations One'
+      ..compliedAt = DateTime(2026, 9, 4, 10, 15)
+      ..complianceNote = 'Crane positioned on stand 2.'
+      ..confirmedByName = 'Mechanical One'
+      ..confirmedAt = DateTime(2026, 9, 4, 10, 20)
+      ..confirmNote = 'Placement accepted.';
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -255,15 +401,15 @@ void main() {
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
-        final record =
-            _compliance(status: 'acknowledged', version: 2)
-              ..targetLaneKey = 'oprn'
-              ..conditionTypeKey = 'chargeComplete'
-              ..conditionRef = '12345'
-              ..requestPurposeKey = 'deferment'
-              ..defermentBasisKey = 'ongoingCycle'
-              ..counterRevisedDescription =
-                  pendingRevision ? 'Wait for crane release too.' : null;
+        final record = _compliance(status: 'acknowledged', version: 2)
+          ..targetLaneKey = 'oprn'
+          ..conditionTypeKey = 'chargeComplete'
+          ..conditionRef = '12345'
+          ..requestPurposeKey = 'deferment'
+          ..defermentBasisKey = 'ongoingCycle'
+          ..counterRevisedDescription = pendingRevision
+              ? 'Wait for crane release too.'
+              : null;
         final actor = AppUser(
           uid: 'operations-1',
           name: 'Operator',
@@ -284,8 +430,8 @@ void main() {
               ),
               workflowCommandControllerProvider.overrideWith(
                 (ref) => WorkflowCommandController.forTesting(
-                  executeCommand:
-                      (_) async => throw StateError('No command expected'),
+                  executeCommand: (_) async =>
+                      throw StateError('No command expected'),
                   pullProjections: () async {},
                 ),
               ),
@@ -531,36 +677,34 @@ AppUser _instrumentationActor() => AppUser(
 ComplianceRequestRecord _compliance({
   required String status,
   required int version,
-}) =>
-    ComplianceRequestRecord()
-      ..firestoreId = 'compliance-device-1'
-      ..isSynced = true
-      ..version = version
-      ..title = 'Build 19 operations support'
-      ..description = 'Software-only device validation.'
-      ..originLaneKey = 'mech'
-      ..targetLaneKey = 'inst'
-      ..statusKey = status
-      ..conditionTypeKey = 'manual'
-      ..raisedByUid = 'mechanical-1'
-      ..raisedByName = 'Mechanical One'
-      ..linkedWorkflowId = 'workflow-device-1';
+}) => ComplianceRequestRecord()
+  ..firestoreId = 'compliance-device-1'
+  ..isSynced = true
+  ..version = version
+  ..title = 'Build 19 operations support'
+  ..description = 'Software-only device validation.'
+  ..originLaneKey = 'mech'
+  ..targetLaneKey = 'inst'
+  ..statusKey = status
+  ..conditionTypeKey = 'manual'
+  ..raisedByUid = 'mechanical-1'
+  ..raisedByName = 'Mechanical One'
+  ..linkedWorkflowId = 'workflow-device-1';
 
-WorkflowAggregateRecord _aggregate(int version) =>
-    WorkflowAggregateRecord()
-      ..firestoreId = 'workflow-device-1'
-      ..jobExecutionFirestoreId = 'issue-device-1'
-      ..assetTypeKey = 'forcedCooler'
-      ..assetNumber = 1
-      ..statusKey = 'awaitingCompliance'
-      ..version = version
-      ..laneSetVersion = 1
-      ..laneSetFinalizedAt = DateTime.utc(2026, 8, 30)
-      ..activeRedWork = false
-      ..awaitingPreparation = false
-      ..cancelled = false
-      ..createdAt = DateTime.utc(2026, 8, 30)
-      ..updatedAt = DateTime.utc(2026, 8, 30, 1, version);
+WorkflowAggregateRecord _aggregate(int version) => WorkflowAggregateRecord()
+  ..firestoreId = 'workflow-device-1'
+  ..jobExecutionFirestoreId = 'issue-device-1'
+  ..assetTypeKey = 'forcedCooler'
+  ..assetNumber = 1
+  ..statusKey = 'awaitingCompliance'
+  ..version = version
+  ..laneSetVersion = 1
+  ..laneSetFinalizedAt = DateTime.utc(2026, 8, 30)
+  ..activeRedWork = false
+  ..awaitingPreparation = false
+  ..cancelled = false
+  ..createdAt = DateTime.utc(2026, 8, 30)
+  ..updatedAt = DateTime.utc(2026, 8, 30, 1, version);
 
 WorkflowCommandReceipt _receipt(
   WorkflowCommand command, {

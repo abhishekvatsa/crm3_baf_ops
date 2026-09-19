@@ -101,7 +101,7 @@ def _function_span(path: Path, marker: str) -> tuple[int, int, str]:
 
 def _reader_fields(body: str, reader: str) -> list[str]:
     indexed_pattern = re.compile(
-        rf"{reader}\(\s*(?:map|data|composer|json|normalized)\['([^']+)'\]\s*,"
+        rf"{reader}\(\s*(?:map|data|composer|json|normalized|result|payload)\['([^']+)'\]\s*,"
         rf".*?field:\s*'([^']+)'",
         re.DOTALL,
     )
