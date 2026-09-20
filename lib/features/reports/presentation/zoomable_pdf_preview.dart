@@ -61,10 +61,9 @@ class ZoomablePdfPreview extends ConsumerWidget {
           actionSpacing: BafSpacing.sm,
         ),
         loadingWidget: const _PdfPreviewLoading(),
-        pagesBuilder:
-            (context, pages) => ZoomablePdfPageDeck(
-              pages: List<PdfPreviewPageData>.unmodifiable(pages),
-            ),
+        pagesBuilder: (context, pages) => ZoomablePdfPageDeck(
+          pages: List<PdfPreviewPageData>.unmodifiable(pages),
+        ),
       ),
     );
   }
@@ -127,10 +126,9 @@ class _ZoomablePdfPageDeckState extends State<ZoomablePdfPageDeck> {
   void didUpdateWidget(covariant ZoomablePdfPageDeck oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextIndex = math.min(_pageIndex, widget.pages.length - 1);
-    final oldPage =
-        _pageIndex < oldWidget.pages.length
-            ? oldWidget.pages[_pageIndex]
-            : null;
+    final oldPage = _pageIndex < oldWidget.pages.length
+        ? oldWidget.pages[_pageIndex]
+        : null;
     final nextPage = widget.pages[nextIndex];
     if (nextIndex != _pageIndex || oldPage != nextPage) {
       _pageIndex = nextIndex;
@@ -156,14 +154,15 @@ class _ZoomablePdfPageDeckState extends State<ZoomablePdfPageDeck> {
         pageCount: widget.pages.length,
         scale: _scale,
         onPrevious: _pageIndex == 0 ? null : () => _showPage(_pageIndex - 1),
-        onNext:
-            _pageIndex == widget.pages.length - 1
-                ? null
-                : () => _showPage(_pageIndex + 1),
-        onZoomOut:
-            _scale <= 1.01 ? null : () => _pageKey.currentState?.zoomOut(),
-        onResetZoom:
-            _scale <= 1.01 ? null : () => _pageKey.currentState?.resetZoom(),
+        onNext: _pageIndex == widget.pages.length - 1
+            ? null
+            : () => _showPage(_pageIndex + 1),
+        onZoomOut: _scale <= 1.01
+            ? null
+            : () => _pageKey.currentState?.zoomOut(),
+        onResetZoom: _scale <= 1.01
+            ? null
+            : () => _pageKey.currentState?.resetZoom(),
         onZoomIn: _scale >= 4.99 ? null : () => _pageKey.currentState?.zoomIn(),
       ),
     ],
@@ -309,11 +308,12 @@ class _ZoomablePdfPageState extends State<_ZoomablePdfPage> {
       _reset();
       return;
     }
-    final matrix = Matrix4.diagonal3Values(scale, scale, 1)..setTranslationRaw(
-      focalPoint.dx * (1 - scale),
-      focalPoint.dy * (1 - scale),
-      0,
-    );
+    final matrix = Matrix4.diagonal3Values(scale, scale, 1)
+      ..setTranslationRaw(
+        focalPoint.dx * (1 - scale),
+        focalPoint.dy * (1 - scale),
+        0,
+      );
     _transformationController.value = matrix;
     setState(() => _displayScale = scale);
     widget.onScaleChanged(scale);

@@ -7,6 +7,64 @@ Future<void> _reviewPlanSubject(
 ) async {
   var accepted = false;
   try {
+    if (!plan.isSerialInnerCover) {
+      final subject = await ref
+          .read(assetHierarchyRepositoryProvider)
+          .readAssetInstanceFromServer(plan.assetInstanceId);
+      if (!context.mounted) return;
+      if (subject.assetClassId != plan.assetClassId ||
+          subject.assetNumber != plan.assetNumber ||
+          subject.version <= plan.assetInstanceVersion ||
+          !subject.isActive) {
+        throw StateError(
+          'The plan already uses this asset revision, or its exact identity needs investigation.',
+        );
+      }
+      final reason = await showMaintenancePlanAssetReview(
+        context,
+        plan: plan,
+        subject: subject,
+      );
+      if (reason == null || !context.mounted) return;
+      final command = WorkflowCommand(
+        commandId: 'setMaintenancePlanStatus_${const Uuid().v4()}',
+        type: WorkflowCommandType.setMaintenancePlanStatus,
+        aggregateId: plan.id,
+        expectedVersion: plan.version,
+        payload: maintenancePlanAssetReviewPayload(subject, reason),
+      );
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command, refreshProjections: false);
+      if (receipt.commandId != command.commandId ||
+          receipt.resultKey != 'maintenance-plan-subject-revalidated' ||
+          receipt.aggregateVersion != plan.version + 1 ||
+          receipt.result['planId'] != plan.id ||
+          receipt.result['status'] != 'ready' ||
+          receipt.result['assetInstanceVersion'] != subject.version ||
+          receipt.result['auditId'] != command.commandId) {
+        throw StateError('The plan review receipt could not be verified.');
+      }
+      accepted = true;
+      final current = await ref
+          .read(maintenanceIntelligenceRepositoryProvider)
+          .readPlanFromServer(plan.id);
+      if (current.version < receipt.aggregateVersion ||
+          current.assetInstanceId != plan.assetInstanceId ||
+          current.assetClassId != plan.assetClassId ||
+          current.assetInstanceVersion < subject.version) {
+        throw StateError('The reviewed plan revision has not reached this device.');
+      }
+      ref.invalidate(maintenancePlansProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Plan subject review recorded. Completion remains a separate action.'),
+          backgroundColor: BafColors.sync,
+        ),
+      );
+      return;
+    }
     final subject = await ref
         .read(assetHierarchyRepositoryProvider)
         .readInnerCoverFromServer(plan.assetInstanceId);
@@ -99,6 +157,22 @@ Map<String, Object?> maintenancePlanSubjectReviewPayload(
   },
 };
 
+Map<String, Object?> maintenancePlanAssetReviewPayload(
+  AssetInstanceRecord subject,
+  String reason,
+) => {
+  'status': 'ready',
+  'executionId': null,
+  'reason': reason.trim(),
+  'revalidation': {
+    'assetClassId': subject.assetClassId,
+    'assetInstanceId': subject.id,
+    'assetInstanceVersion': subject.version,
+    'assetNumber': subject.assetNumber,
+    'assetName': subject.name,
+  },
+};
+
 Future<String?> showMaintenancePlanSubjectReview(
   BuildContext context, {
   required MaintenancePlan plan,
@@ -163,6 +237,70 @@ Future<String?> showMaintenancePlanSubjectReview(
     ),
   );
   // Dialog route animations may still own the controller for this frame.
+  WidgetsBinding.instance.addPostFrameCallback((_) => reason.dispose());
+  return result;
+}
+
+Future<String?> showMaintenancePlanAssetReview(
+  BuildContext context, {
+  required MaintenancePlan plan,
+  required AssetInstanceRecord subject,
+}) async {
+  final reason = TextEditingController();
+  final form = GlobalKey<FormState>();
+  final result = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Review current asset for this plan'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: form,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${plan.assetInstanceName} · ${plan.maintenanceClass.title}'),
+              const SizedBox(height: BafSpacing.sm),
+              Text(
+                'Plan asset revision: ${plan.assetInstanceVersion}\n'
+                'Current asset revision: ${subject.version}\n'
+                'Asset: ${subject.name}\nNumber: ${subject.assetNumber}',
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              const Text(
+                'Confirm that this plan still applies to the same physical asset. '
+                'This records your review; it does not complete maintenance or change availability.',
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              TextFormField(
+                controller: reason,
+                decoration: const InputDecoration(labelText: 'Review reason'),
+                maxLines: 3,
+                maxLength: 500,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Explain why this plan still applies.'
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (form.currentState!.validate()) {
+              Navigator.pop(dialogContext, reason.text.trim());
+            }
+          },
+          child: const Text('Record subject review'),
+        ),
+      ],
+    ),
+  );
   WidgetsBinding.instance.addPostFrameCallback((_) => reason.dispose());
   return result;
 }

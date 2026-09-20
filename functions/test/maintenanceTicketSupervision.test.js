@@ -18,6 +18,7 @@ const {
 const {
   TICKET_LANE_FIELDS,
 } = require('../lib/maintenanceWorkflow/ticketLanePlan');
+const {verifyConditionBasis} = require('../lib/burnerConditionBasis');
 
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
@@ -520,6 +521,7 @@ function burnerResolutionAction({
     isAutoResolved: false,
     createdAt: '2026-08-14T16:00:00.000Z',
     severity: 'high',
+    performedBy: 'Instrumentation technician',
     version: 1,
     attendanceSessionId,
     burnerPosition: position,
@@ -743,6 +745,38 @@ describe('governed maintenance-ticket supervision', () => {
       },
     });
   });
+
+  test.each(['after-physical-removal', 'at-physical-removal', 'before-physical-removal', 'physical-after-recording', 'malformed-physical'])(
+    'Base vacancy uses physical removal when recording was delayed: %s', async (mode) => {
+      const historical = createServiceFor(operations);
+      seedBaseWithoutInnerCover(historical.store);
+      seedActiveInnerCoverLinkageForBase201(historical.store);
+      const path = 'inner_cover_linkages/link-base-201-gr26';
+      historical.store.seed(path, {...historical.store.read(path), active: false, version: 2,
+        removedAt: '2026-08-14T16:25:00.000Z',
+        removedPhysicalAt: mode === 'physical-after-recording' ? '2026-08-14T16:26:00.000Z' :
+          mode === 'malformed-physical' ? '2026-02-31T16:15:00.000Z' : '2026-08-14T16:15:00.000Z'});
+      const command = createCommand({commandId: 'review-physical-vacancy', ticketId: 'physical-vacancy', ticket: {
+        assetType: 'base', assetNumber: 201, component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association', hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(), classification: 'baseInnerCoverUnavailable',
+        description: 'Record Base vacancy after the physical removal.', plantConditionEffect: 'unavailable',
+        routedTo: 'operations', startDate: mode === 'before-physical-removal' ? '2026-08-14T16:14:00.000Z' :
+          mode === 'at-physical-removal' ? '2026-08-14T16:15:00.000Z' : '2026-08-14T16:20:00.000Z',
+      }});
+      const before = historical.store.entries();
+      if (mode === 'after-physical-removal' || mode === 'at-physical-removal') {
+        const accepted = await historical.service.execute(command, historical.context);
+        expect(accepted.aggregateVersion).toBe(1);
+        expect(JSON.parse(historical.store.read('maintenance_records/physical-vacancy').assetHierarchyRefJson)
+          .innerCoverAssociation.positionState).toBe('noneLinked');
+        const after = historical.store.entries();
+        await historical.service.execute(command, historical.context); expect(historical.store.entries()).toEqual(after);
+      } else {
+        await expect(historical.service.execute(command, historical.context)).rejects.toBeDefined();
+        expect(historical.store.entries()).toEqual(before);
+      }
+    });
 
   test('preserves a queued Base vacancy observed before restoration', async () => {
     const delayed = createServiceFor(operations);
@@ -1277,6 +1311,49 @@ describe('governed maintenance-ticket supervision', () => {
         linkedMaintenanceFirestoreId: 'red-hot-ticket',
         createdByUid: electrical.uid,
       });
+  });
+
+  test('a produced red-hot issue stays in the condition basis until retained relevance is explicitly ended', async () => {
+    const {store, service, context} = createServiceFor(electrical);
+    await service.execute(createCommand({commandId: 'create-retained-red-hot', ticketId: 'retained-red-hot', ticket: {
+      component: 'Burner system', maintenanceType: 'breakdown', classification: 'furnaceBurnerLockout',
+      routedTo: 'instrumentation', isCritical: true, burnerLockoutSchemaVersion: 1,
+      burnerPositions: [5], burnerCommonMode: false, burnerCycleStage: 'firing', burnerHmiAlarm: 'Flame failure',
+      burnerFlameObservation: 'notSeen', burnerSparkObservation: 'seen', burnerRelightAttempts: 1,
+      burnerRemainsLockedOut: true, burnerRedHotPositions: [5], burnerAttendedPositions: [], burnerResolutionEvidence: {},
+    }}), context);
+    const verify = async (expectedOpenIssueBasis) => verifyConditionBasis({
+      db: {collection: (collection) => ({where: (field, op, value) => ({collection, field, op, value})})},
+      transaction: {get: async (query) => ({docs: store.entries()
+        .filter(([path, row]) => path.startsWith(`${query.collection}/`) && row[query.field] === query.value)
+        .map(([path, row]) => ({id: path.split('/').pop(), exists: true, data: () => row}))})},
+      request: {assetClassId: 'class-furnace', assetInstanceId: 'asset-furnace-7',
+        expectedInstallationBasis: {burner: [], uv: []}, expectedOpenIssueBasis}, assetNumber: 7,
+    });
+    const issueBasis = () => {
+      const row = store.read('maintenance_records/retained-red-hot');
+      return [{id: row.firestoreId, version: row.version, updatedAt: row.updatedAt}];
+    };
+    await expect(verify(issueBasis())).resolves.toBeUndefined();
+    const closeCommand = {commandId: 'retain-red-hot-concern', commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'retained-red-hot', expectedVersion: 1,
+      payload: {disposition: 'stillRelevant', reason: 'The unresolved red-hot condition remains under engineering review.'}};
+    const closeContext = {actor: admin, serverNow: new Date('2026-08-14T16:31:00.000Z')};
+    const closedReceipt = await service.execute(closeCommand, closeContext);
+    const retained = store.read('maintenance_records/retained-red-hot');
+    expect(retained).toMatchObject({status: 'closedWithoutResolution', isResolved: true,
+      issueClosureDisposition: 'stillRelevant', burnerRedHotPositions: [5], version: 2});
+    await expect(verify(issueBasis())).resolves.toBeUndefined();
+    await expect(verify([])).rejects.toMatchObject({details: {reasonCode: 'burner-condition-round-issue-basis-mismatch'}});
+    const retainedBasis = issueBasis();
+    await service.execute({...closeCommand, commandId: 'end-red-hot-concern', expectedVersion: 2,
+      payload: {disposition: 'relevanceEnded', reason: 'Engineering confirmed the original concern no longer applies.'}},
+    {actor: admin, serverNow: new Date('2026-08-14T16:32:00.000Z')});
+    await expect(verify([])).resolves.toBeUndefined();
+    await expect(verify(retainedBasis)).rejects.toMatchObject({details: {reasonCode: 'burner-condition-round-issue-basis-mismatch'}});
+    const committed = store.entries();
+    await expect(service.execute(closeCommand, closeContext)).resolves.toEqual(closedReceipt);
+    expect(store.entries()).toEqual(committed);
   });
 
   test('fails closed on stale asset evidence and orphan projections', async () => {
@@ -2019,7 +2096,11 @@ describe('governed maintenance-ticket supervision', () => {
       transition,
       transitionContext,
     );
-    await expect(seeded.service.execute(transition, transitionContext))
+    const renamedActorContext = {
+      actor: actor(secondAdmin.uid, ['admin']),
+      serverNow: new Date('2026-08-15T09:00:00.000Z'),
+    };
+    await expect(seeded.service.execute(transition, renamedActorContext))
       .resolves.toEqual(receipt);
 
     expect(receipt).toMatchObject({
@@ -2332,6 +2413,9 @@ describe('governed maintenance-ticket supervision', () => {
     expect(accepted.read(`maintenance_records/${ticketId}`)).toMatchObject({
       endDate: '2026-08-14T16:00:00.000Z',
       downtimeHours: 1.5,
+      // The issue was not acknowledged before closure. The recorded value is
+      // the command-entry time, not the earlier physical end date.
+      acknowledgedAt: at.toISOString(),
     });
 
     const rejected = directHandlerTransaction(ticketId, ticket);
@@ -2648,6 +2732,33 @@ describe('governed maintenance-ticket supervision', () => {
         sourceVersion: 4,
         closedByUid: admin.uid,
       });
+  });
+
+  test('burner resolution refuses attendance evidence without a performer', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      routedTo: 'instrumentation',
+      classification: 'furnaceBurnerLockout',
+      burnerPositions: [2],
+    });
+    const action = burnerResolutionAction({position: 2});
+    delete action.performedBy;
+
+    await expect(seeded.service.execute({
+      commandId: 'reject-burner-without-performer',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Attempted closure without physical performer evidence.',
+        teamsInvolved: ['instrumentation'],
+        actionsJson: JSON.stringify([action]),
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'maintenance-ticket-burner-action-performer-missing'},
+    });
   });
 
   test('rejects burner evidence bound to another attendance session', async () => {
@@ -3606,6 +3717,118 @@ describe('governed maintenance-ticket supervision', () => {
   });
 });
 
+describe('reactive review acceptance and identity regression', () => {
+  test('Admin withdrawal commits tombstone and audit atomically, then replays', async () => {
+    const seeded = serviceFor(admin);
+    const command = {commandId: 'withdraw-ticket', commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1', expectedVersion: 3,
+      payload: {withdrawInError: true, corrections: {}, reason: 'Duplicate of the verified issue.'}};
+    const receipt = await seeded.service.execute(command, seeded.context);
+    expect(receipt.resultKey).toBe('maintenance-ticket-withdrawn');
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({isDeleted: true, deletedByUid: admin.uid, version: 4});
+    const audit = seeded.store.read('audit_logs/server_maintenance_ticket_withdraw-ticket');
+    expect(JSON.parse(audit.beforeJson).isDeleted).toBe(false);
+    expect(JSON.parse(audit.afterJson).isDeleted).toBe(true);
+    await expect(seeded.service.execute(command, seeded.context)).resolves.toEqual(receipt);
+    const other = serviceFor(si);
+    await expect(other.service.execute(command, other.context)).rejects.toMatchObject({code: 'permission-denied'});
+    expect(other.store.read('maintenance_records/ticket-1').isDeleted).toBe(false);
+  });
+  const correction = (changes, extra = {}) => ({
+    commandId: 'review-correction', commandType: 'correctMaintenanceTicket',
+    aggregateId: 'ticket-1', expectedVersion: 3,
+    payload: {corrections: changes, reason: 'Reviewed the original equipment entry.', ...extra},
+  });
+
+  test.each(['component', 'subsystem', 'tag'])('ordinary %s edit cannot contradict registered identity', async (field) => {
+    const seeded = serviceFor(admin, {assetHierarchyRefJson: JSON.stringify(physicalAssetReference())});
+    await expect(seeded.service.execute(correction({[field]: 'another target'}), seeded.context))
+      .rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-target-correction-required'}});
+    expect(seeded.store.read('maintenance_records/ticket-1').version).toBe(3);
+  });
+
+  test('explicit Admin target correction refreshes all identity fields and replays after rename', async () => {
+    const seeded = serviceFor(admin, {startDate: '2026-08-14T14:30:00.000Z', actionsJson: '[]'});
+    seedFurnaceHierarchy(seeded.store);
+    const reference = hierarchyAction().assetHierarchyRef;
+    const command = correction({}, {targetReferenceJson: JSON.stringify(reference)});
+    const receipt = await seeded.service.execute(command, seeded.context);
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({component: 'Furnace shell', version: 4});
+    const saved = seeded.store.read('maintenance_records/ticket-1');
+    seeded.store.seed(`users/${admin.uid}`, {isApproved: true, roles: ['admin'], name: 'Renamed administrator'});
+    await expect(seeded.service.execute(command, seeded.context)).resolves.toEqual(receipt);
+    expect(seeded.store.read('maintenance_records/ticket-1')).toEqual(saved);
+  });
+
+  test('target correction cannot silently retarget a linked inspection finding', async () => {
+    const seeded = serviceFor(admin, {startDate: '2026-08-14T14:30:00.000Z'});
+    seeded.store.seed('inspection_issue_links/link-1', {ticketId: 'ticket-1'});
+    await expect(seeded.service.execute(correction({}, {targetReferenceJson: JSON.stringify(physicalAssetReference())}), seeded.context))
+      .rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-target-dependent-evidence'}});
+  });
+
+  test.each(['description', 'remarks', 'actionsJson'])('accepted audit rejects privileged alteration of %s', async (field) => {
+    const seeded = serviceFor(admin);
+    const command = correction({description: 'Verified original description'});
+    await seeded.service.execute(command, seeded.context);
+    const path = `audit_logs/server_maintenance_ticket_${command.commandId}`;
+    const audit = seeded.store.read(path);
+    const after = JSON.parse(audit.afterJson);
+    after[field] = field === 'actionsJson' ? '[{"fabricated":true}]' : 'Changed after acceptance';
+    seeded.store.seed(path, {...audit, afterJson: JSON.stringify(after)});
+    await expect(seeded.service.execute(command, seeded.context))
+      .rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-replay-content-invalid'}});
+  });
+
+  test.each(['transfer', 'labelCorrection'])('Others %s preserves the appropriate completion evidence', async (kind) => {
+    const seeded = serviceFor(admin, {
+      routedTo: 'others', otherDepartment: 'Vendor A', status: 'inProgress',
+      acknowledgedByUid: admin.uid, acknowledgedByName: admin.name, acknowledgedAt: at.toISOString(),
+      issueLaneSchemaVersion: 1, issueLaneRevision: 1,
+      issueAssignedLanes: ['others', 'electrical'], issueAcknowledgedLanes: ['others', 'electrical'],
+      issueCompletedLanes: ['others'], issueLaneCompletionEvidence: {
+        others: {completedAt: at.toISOString(), completedByUid: admin.uid, completedByName: admin.name},
+      },
+    });
+    const command = {commandId: 'department-review', commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1', expectedVersion: 3, payload: {lanes: ['others', 'electrical'],
+        otherDepartment: 'Vendor B', departmentChangeKind: kind, reason: 'Reviewed who owns this work.'}};
+    await seeded.service.execute(command, seeded.context);
+    const ticket = seeded.store.read('maintenance_records/ticket-1');
+    expect(ticket.issueCompletedLanes).toEqual(kind === 'transfer' ? [] : ['others']);
+    expect(ticket.issueAcknowledgedLanes).toContain('electrical');
+    expect(ticket.issueLaneCompletionEvidence.others != null).toBe(kind !== 'transfer');
+    const audit = seeded.store.read('audit_logs/server_maintenance_ticket_department-review');
+    expect(JSON.parse(audit.beforeJson).otherDepartment).toBe('Vendor A');
+  });
+
+  test('non-restored burner attendance keeps the issue active and later repair is distinct', async () => {
+    const seeded = serviceFor(admin, {startDate: '2026-08-14T14:30:00.000Z',
+      routedTo: 'instrumentation', classification: 'furnaceBurnerLockout', burnerPositions: [2], actionsJson: '[]'});
+    const command = {commandId: 'attendance-only', commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1', expectedVersion: 3, payload: {
+        endDate: '2026-08-14T16:00:00.000Z', remarks: 'Cleaned; still locked out.',
+        teamsInvolved: ['instrumentation'], burnerAttendanceContractVersion: 1, attendanceOnly: true,
+        actionsJson: JSON.stringify([{...burnerResolutionAction({position: 2, attendanceSessionId: 'burner_ticket-1_2_r3'}),
+          burnerOutcome: 'remainsLockedOut'}]),
+      }};
+    const receipt = await seeded.service.execute(command, seeded.context);
+    expect(receipt.resultKey).toBe('maintenance-ticket-attendance-recorded');
+    const active = seeded.store.read('maintenance_records/ticket-1');
+    expect(active).toMatchObject({isResolved: false, status: 'inProgress', version: 4, actionsJson: '[]'});
+    expect(active.endDate).toBeUndefined();
+    expect(JSON.parse(active.metadataJson).burnerAttendanceHistory).toHaveLength(1);
+    expect(seeded.store.read('maintenance_burner_closures/ticket-1')).toBeNull();
+    await expect(seeded.service.execute(command, seeded.context)).resolves.toEqual(receipt);
+    await seeded.service.execute({...command, commandId: 'repair-complete', expectedVersion: 4,
+      payload: {...command.payload, attendanceOnly: false, remarks: 'Burner restored.',
+        actionsJson: JSON.stringify([burnerResolutionAction({position: 2, attendanceSessionId: 'burner_ticket-1_2_r4'})])}}, seeded.context);
+    const repaired = seeded.store.read('maintenance_records/ticket-1');
+    expect(repaired.isResolved).toBe(true);
+    expect(JSON.parse(repaired.metadataJson).burnerAttendanceHistory).toHaveLength(1);
+  });
+});
+
 describe('continuing a still-relevant administrative closure', () => {
   function withClosure(overrides = {}) {
     const seeded = createServiceFor(mechanical);
@@ -3758,4 +3981,13 @@ describe('continuing a still-relevant administrative closure', () => {
     expect(seeded.store.read('maintenance_records/plain-1').continuesIssueId)
       .toBeUndefined();
   });
+});
+
+
+test('a permanently removed ticket identity cannot be recreated by a fresh command', async () => {
+  const {pilotPurgeReceiptId, PILOT_PURGE_MANIFEST_COLLECTION} = require('../lib/pilotRecordPurge');
+  const harness = createServiceFor();
+  harness.store.seed(`${PILOT_PURGE_MANIFEST_COLLECTION}/${pilotPurgeReceiptId('maintenance_records', 'ticket-2')}`, {schemaVersion: 1});
+  await expect(harness.service.execute(createCommand(), harness.context)).rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-identity-permanently-removed'}});
+  expect(harness.store.read('maintenance_records/ticket-2')).toBeNull();
 });

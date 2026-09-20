@@ -5,11 +5,13 @@ class _EventSummary extends StatelessWidget {
     required this.openCount,
     required this.criticalCount,
     required this.resolvedCount,
+    required this.withdrawnCount,
   });
 
   final int openCount;
   final int criticalCount;
   final int resolvedCount;
+  final int withdrawnCount;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -37,6 +39,14 @@ class _EventSummary extends StatelessWidget {
             label: 'Recent resolved',
             value: resolvedCount,
             color: BafColors.success,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _Metric(
+            label: 'Withdrawn',
+            value: withdrawnCount,
+            color: BafColors.textSecondary,
           ),
         ),
       ],
@@ -189,40 +199,38 @@ class _EventImpactPanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           eventsAsync.when(
-            loading:
-                () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 18),
-                  child: Center(child: CircularProgressIndicator()),
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Monthly impact is unavailable.',
+                  style: TextStyle(
+                    color: BafColors.danger,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-            error:
-                (error, _) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Monthly impact is unavailable.',
-                      style: TextStyle(
-                        color: BafColors.danger,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      error.toString(),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Retry impact summary'),
-                    ),
-                  ],
+                const SizedBox(height: 6),
+                Text(
+                  error.toString(),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                  ),
                 ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry impact summary'),
+                ),
+              ],
+            ),
             data: (events) {
               final summary = summarizeOperationalEventImpact(
                 events: events,
@@ -380,6 +388,45 @@ class _HistoryWindowNotice extends StatelessWidget {
   );
 }
 
+class _IncompleteFeedNotice extends StatelessWidget {
+  const _IncompleteFeedNotice({required this.malformedDocumentCount});
+
+  final int malformedDocumentCount;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: BafColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.warning.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: BafColors.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'The live event list is incomplete: $malformedDocumentCount '
+              '${malformedDocumentCount == 1 ? 'record could' : 'records could'} '
+              'not be read. Do not infer that no event exists; retry after '
+              'the malformed data is repaired.',
+              style: const TextStyle(
+                color: BafColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _Metric extends StatelessWidget {
   const _Metric({
     required this.label,
@@ -421,6 +468,47 @@ class _Metric extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.filter});
+  final _OperationalEventFilter filter;
+
+  bool get showingOpen => filter == _OperationalEventFilter.open;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            showingOpen
+                ? Icons.check_circle_outline
+                : filter == _OperationalEventFilter.withdrawn
+                ? Icons.remove_circle_outline
+                : Icons.history_rounded,
+            size: 44,
+            color: BafColors.textSecondary,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            showingOpen
+                ? 'No open operational events'
+                : filter == _OperationalEventFilter.withdrawn
+                ? 'No withdrawn operational events'
+                : 'No resolved events',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: BafColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

@@ -6,13 +6,14 @@
 //   - JSON: the canonical machine-readable format. Round-trips through the
 //     existing `BafKnowledgeRow.fromCloudMap(...)` constructor without loss.
 //   - CSV: a flat compatibility format for offline review/edit in
-//     spreadsheet tools. Multi-value columns use `;` as the inner
-//     separator. CSV import is deliberately strict: extra columns are
+//     spreadsheet tools. Multi-value columns use JSON arrays within CSV cells.
+//     Legacy semicolon-separated cells remain readable. CSV import is deliberately strict: extra columns are
 //     ignored, missing columns mean "no change".
 
 import 'dart:convert';
 
 import '../data/baf_knowledge_model.dart';
+import '../data/job_module_model.dart';
 import 'knowledge_governance_models.dart';
 import 'module_composer_models.dart';
 
@@ -56,11 +57,19 @@ class KnowledgeImportRowResult {
   final List<String> messages;
   final KnowledgeRowDraft? draft;
 
+  /// Version observed when this row was parsed. A null value means the
+  /// import was reviewed as a create (or was parsed without a local
+  /// baseline). Applying it to a row that appeared meanwhile is unsafe.
+  final int? sourceVersion;
+  final String? sourceEntryJson;
+
   const KnowledgeImportRowResult({
     required this.rowCode,
     required this.accepted,
     required this.messages,
     this.draft,
+    this.sourceVersion,
+    this.sourceEntryJson,
   });
 }
 
@@ -86,6 +95,7 @@ class KnowledgeGovernanceExport {
     'deviceTags',
     'targetRefs',
     'suggestedFields',
+    'suggestedFieldPresets',
     'requiredForClosure',
     'resolverImpact',
     'composerReadiness',
@@ -106,8 +116,8 @@ class KnowledgeGovernanceExport {
     required KnowledgeBundleFormat format,
     required String matrixVersion,
   }) {
-    final rowList =
-        rows.toList()..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+    final rowList = rows.toList()
+      ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
     final exportedAt = DateTime.now().toIso8601String();
     if (format == KnowledgeBundleFormat.json) {
       final payload = <String, dynamic>{
@@ -179,6 +189,12 @@ class KnowledgeGovernanceExport {
       return _emptyRejection('Parse failed: $e');
     }
 
+    final duplicateCodes = <String>{};
+    final seenCodes = <String>{};
+    for (final row in rowMaps) {
+      final code = (row['rowCode'] ?? '').toString().trim();
+      if (!seenCodes.add(code)) duplicateCodes.add(code);
+    }
     for (final raw in rowMaps) {
       final rowCode = (raw['rowCode'] ?? '').toString().trim();
       if (rowCode.isEmpty) {
@@ -192,12 +208,71 @@ class KnowledgeGovernanceExport {
         continue;
       }
       final messages = <String>[];
+      if (duplicateCodes.contains(rowCode)) {
+        messages.add(
+          'Repeated row code in this import; review one proposed change per row.',
+        );
+      }
       if ((raw['taskText'] ?? '').toString().trim().isEmpty) {
         messages.add('taskText missing');
       }
       final reason = (raw['changeSummary'] ?? '').toString().trim();
       if (reason.isEmpty) {
         messages.add('changeSummary missing');
+      }
+      if (raw.containsKey('suggestedFieldPresets') &&
+          _readPresetMaps(raw['suggestedFieldPresets']) == null) {
+        messages.add('suggestedFieldPresets must be a JSON array of objects');
+      }
+      _validateLiteral(
+        messages,
+        raw,
+        'lifecycleStatus',
+        KnowledgeLifecycleStatus.values.map((value) => value.name).toSet(),
+      );
+      _validateLiteral(
+        messages,
+        raw,
+        'composerReadiness',
+        ComposerReadiness.values.map((value) => value.name).toSet(),
+      );
+      _validateLiteral(
+        messages,
+        raw,
+        'confidence',
+        KnowledgeConfidence.values.map((value) => value.name).toSet(),
+      );
+      _validateLiteral(
+        messages,
+        raw,
+        'frequency',
+        MaintenanceFrequency.values.map((value) => value.name).toSet(),
+      );
+      _validateLiteral(
+        messages,
+        raw,
+        'discipline',
+        JobModuleDiscipline.values.map((value) => value.name).toSet(),
+      );
+      _validateLiteral(messages, raw, 'requiredForClosure', const <String>{
+        'yes',
+        'no',
+        'consult',
+      });
+      if (format == KnowledgeBundleFormat.json) {
+        for (final field in const <String>[
+          'ownerDisciplines',
+          'safetyClasses',
+          'procedureRefs',
+          'partRefs',
+          'deviceTags',
+          'targetRefs',
+          'suggestedFields',
+        ]) {
+          if (raw.containsKey(field) && raw[field] is! List) {
+            messages.add('$field must be a JSON array');
+          }
+        }
       }
       if (messages.isNotEmpty) {
         rejected.add(
@@ -209,20 +284,40 @@ class KnowledgeGovernanceExport {
         );
         continue;
       }
-      final existing =
-          existingRowsByCode == null ? null : existingRowsByCode[rowCode];
-      final draft =
-          existing == null
-              ? KnowledgeRowDraft.blank(prefilledRowCode: rowCode)
-              : KnowledgeRowDraft.fromRow(existing);
-      _hydrateDraft(draft, raw);
-      draft.changeSummary = reason;
+      final existing = existingRowsByCode == null
+          ? null
+          : existingRowsByCode[rowCode];
+      final draft = existing == null
+          ? KnowledgeRowDraft.blank(prefilledRowCode: rowCode)
+          : KnowledgeRowDraft.fromRow(existing);
+      try {
+        _hydrateDraft(draft, raw);
+        draft.changeSummary = reason;
+        final validation = draft.validateForSave(isCreate: existing == null);
+        messages.addAll(validation.errors);
+      } catch (error) {
+        messages.add('Instruction could not be decoded: $error');
+      }
+      if (messages.isNotEmpty) {
+        rejected.add(
+          KnowledgeImportRowResult(
+            rowCode: rowCode,
+            accepted: false,
+            messages: messages,
+          ),
+        );
+        continue;
+      }
       accepted.add(
         KnowledgeImportRowResult(
           rowCode: rowCode,
           accepted: true,
           messages: const <String>[],
           draft: draft,
+          sourceVersion: existing?.version,
+          sourceEntryJson: existing == null
+              ? null
+              : jsonEncode(existing.toEntryMap()),
         ),
       );
     }
@@ -287,6 +382,11 @@ class KnowledgeGovernanceExport {
       'deviceTags': row.deviceTags,
       'targetRefs': row.targetRefs,
       'suggestedFields': row.suggestedFields,
+      'suggestedFieldPresets': row
+          .toEntry(0)
+          .suggestedFields
+          .map((field) => field.toMap())
+          .toList(),
       'requiredForClosure': row.requiredForClosure,
       'resolverImpact': row.resolverImpact,
       'composerReadiness': row.composerReadiness,
@@ -327,19 +427,23 @@ class KnowledgeGovernanceExport {
       case 'discipline':
         return row.discipline;
       case 'ownerDisciplines':
-        return row.ownerDisciplines.join(';');
+        return jsonEncode(row.ownerDisciplines);
       case 'safetyClasses':
-        return row.safetyClasses.join(';');
+        return jsonEncode(row.safetyClasses);
       case 'procedureRefs':
-        return row.procedureRefs.join(';');
+        return jsonEncode(row.procedureRefs);
       case 'partRefs':
-        return row.partRefs.join(';');
+        return jsonEncode(row.partRefs);
       case 'deviceTags':
-        return row.deviceTags.join(';');
+        return jsonEncode(row.deviceTags);
       case 'targetRefs':
-        return row.targetRefs.join(';');
+        return jsonEncode(row.targetRefs);
       case 'suggestedFields':
-        return row.suggestedFields.join(';');
+        return jsonEncode(row.suggestedFields);
+      case 'suggestedFieldPresets':
+        return jsonEncode(
+          row.toEntry(0).suggestedFields.map((field) => field.toMap()).toList(),
+        );
       case 'requiredForClosure':
         return row.requiredForClosure;
       case 'resolverImpact':
@@ -376,8 +480,8 @@ class KnowledgeGovernanceExport {
     draft.assetFamily = (raw['assetFamily'] ?? draft.assetFamily).toString();
     draft.functionalSection =
         (raw['functionalSection'] ?? draft.functionalSection).toString();
-    draft.componentGroup =
-        (raw['componentGroup'] ?? draft.componentGroup).toString();
+    draft.componentGroup = (raw['componentGroup'] ?? draft.componentGroup)
+        .toString();
     draft.taskType = (raw['taskType'] ?? draft.taskType).toString();
     draft.frequency = (raw['frequency'] ?? draft.frequency).toString();
     draft.discipline = (raw['discipline'] ?? draft.discipline).toString();
@@ -391,22 +495,26 @@ class KnowledgeGovernanceExport {
     );
     draft.procedureRefs = _readList(raw['procedureRefs'], draft.procedureRefs);
     draft.partRefs = _readList(raw['partRefs'], draft.partRefs);
-    draft.deviceTags =
-        _readList(
-          raw['deviceTags'],
-          draft.deviceTags,
-        ).map((tag) => tag.toUpperCase()).toList();
+    draft.deviceTags = _readList(
+      raw['deviceTags'],
+      draft.deviceTags,
+    ).map((tag) => tag.toUpperCase()).toList();
     draft.targetRefs = _readList(raw['targetRefs'], draft.targetRefs);
     draft.suggestedFields = _readList(
       raw['suggestedFields'],
       draft.suggestedFields,
     );
+    if (raw.containsKey('suggestedFieldPresets')) {
+      draft.suggestedFieldPresets = _readPresetMaps(
+        raw['suggestedFieldPresets'],
+      );
+    }
     draft.requiredForClosure =
         (raw['requiredForClosure'] ?? draft.requiredForClosure).toString();
-    draft.resolverImpact =
-        (raw['resolverImpact'] ?? draft.resolverImpact).toString();
-    draft.consultQuestion =
-        (raw['consultQuestion'] ?? draft.consultQuestion).toString();
+    draft.resolverImpact = (raw['resolverImpact'] ?? draft.resolverImpact)
+        .toString();
+    draft.consultQuestion = (raw['consultQuestion'] ?? draft.consultQuestion)
+        .toString();
     draft.sourceManual = (raw['sourceManual'] ?? draft.sourceManual).toString();
     draft.sourcePage = (raw['sourcePage'] ?? draft.sourcePage).toString();
     draft.sourceType = (raw['sourceType'] ?? draft.sourceType).toString();
@@ -446,11 +554,49 @@ class KnowledgeGovernanceExport {
           .toList();
     }
     final text = value.toString().trim();
-    if (text.isEmpty) return fallback;
+    if (text.isEmpty) return const <String>[];
+    if (text.startsWith('[')) {
+      final parsed = jsonDecode(text);
+      if (parsed is! List || parsed.any((item) => item is! String)) {
+        throw const FormatException('List cells require an array of strings');
+      }
+      return parsed.cast<String>();
+    }
     return text
-        .split(RegExp(r'[;,]'))
+        .split(';')
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
+        .toList();
+  }
+
+  static void _validateLiteral(
+    List<String> messages,
+    Map<String, dynamic> raw,
+    String field,
+    Set<String> allowed,
+  ) {
+    if (!raw.containsKey(field) || raw[field] == null) return;
+    final value = raw[field];
+    if (value is! String || !allowed.contains(value.trim())) {
+      messages.add('$field contains an unsupported value');
+    }
+  }
+
+  static List<Map<String, dynamic>>? _readPresetMaps(Object? value) {
+    if (value == null) return null;
+    Object? decoded = value;
+    if (value is String) {
+      try {
+        decoded = jsonDecode(value);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (decoded is! List || decoded.any((item) => item is! Map)) {
+      return null;
+    }
+    return decoded
+        .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
   }
 

@@ -602,7 +602,23 @@ async function requestReset(
           {reasonCode: "device-recovery-request-replay-conflict"},
         );
       }
-      return {idempotentReplay: true};
+      const existingData = existing.data() as JsonMap | undefined;
+      if (existingData == null ||
+          existingData.requestId !== requestId ||
+          existingData.targetUid !== targetUid ||
+          existingData.installationId !== installationId ||
+          typeof existingData.status !== "string") {
+        throw new DeviceRecoveryMutationError(
+          "data-loss",
+          "The device-recovery request receipt has no matching current state.",
+          {reasonCode: "device-recovery-replay-state-missing"},
+        );
+      }
+      return {
+        idempotentReplay: true,
+        status: existingData.status,
+        notificationQueued: existingData.status === "pending",
+      };
     }
     const existingData = existing.data() as JsonMap | undefined;
     if (existingData?.status === "in_progress") {
@@ -677,7 +693,11 @@ async function requestReset(
         timestamp,
       }),
     );
-    return {idempotentReplay: false};
+    return {
+      idempotentReplay: false,
+      status: "pending",
+      notificationQueued: true,
+    };
   });
 
   return {
@@ -686,8 +706,8 @@ async function requestReset(
     requestId,
     targetUid,
     installationId,
-    status: "pending",
-    notificationQueued: true,
+    status: result.status,
+    notificationQueued: result.notificationQueued,
     idempotentReplay: result.idempotentReplay,
   };
 }

@@ -35,12 +35,11 @@ AssetHierarchyNode node({
 
 void main() {
   test('asset class draft normalizes code and rejects malformed identity', () {
-    final valid =
-        const AssetClassDraft(
-          code: ' furnace-main ',
-          name: ' Furnace ',
-          majorArea: ' BAF Shop ',
-        ).normalized();
+    final valid = const AssetClassDraft(
+      code: ' furnace-main ',
+      name: ' Furnace ',
+      majorArea: ' BAF Shop ',
+    ).normalized();
     expect(valid.code, 'FURNACE-MAIN');
     expect(valid.name, 'Furnace');
     expect(valid.validate(), isEmpty);
@@ -239,7 +238,9 @@ void main() {
       'acceptedEvidenceId': 'issue-1',
       'acceptedEvidenceVersion': 4,
       'acceptedEvidenceSnapshotJson':
-          '{"sourceId":"issue-1","sourceType":"maintenanceIssue","sourceVersion":4}',
+          '{"sourceId":"issue-1","sourceType":"maintenanceIssue","sourceVersion":4,'
+          '"applicabilitySchemaVersion":1,"applicabilityScope":"componentDefinitionOnAsset",'
+          '"definitionNodeId":"pressure-transmitter","componentInstanceId":null}',
     }, 'audit-1');
 
     expect(audit.entityId, 'component-new');
@@ -252,6 +253,14 @@ void main() {
     );
     expect(audit.acceptedEvidenceId, 'issue-1');
     expect(audit.acceptedEvidenceVersion, 4);
+    expect(
+      jsonDecode(audit.acceptedEvidenceSnapshotJson!),
+      containsPair('applicabilityScope', 'componentDefinitionOnAsset'),
+    );
+    expect(
+      jsonDecode(audit.acceptedEvidenceSnapshotJson!),
+      containsPair('definitionNodeId', 'pressure-transmitter'),
+    );
   });
 
   test('component lifecycle audit rejects partial replacement evidence', () {
@@ -444,25 +453,24 @@ void main() {
       ),
     );
     expect(
-      () =>
-          const AssetHierarchyReference(
-            scope: AssetHierarchyReferenceScope.installedComponent,
-            assetClassId: 'class-1',
-            assetClassCode: 'FURNACE',
-            assetClassName: 'Furnace',
-            nodeId: 'node-1',
-            nodeVersion: 1,
-            nodeName: 'Pressure transmitter',
-            assetInstanceId: 'asset-1',
-            assetInstanceVersion: 1,
-            assetNumber: 1,
-            assetInstanceName: 'Furnace 1',
-            componentInstanceId: 'component-1',
-            componentInstanceVersion: 1,
-            hierarchyPath: <String>['Pressure transmitter'],
-            ownershipStatus: AssetOwnershipStatus.provisional,
-            ownerDiscipline: 'Instrumentation',
-          ).encode(),
+      () => const AssetHierarchyReference(
+        scope: AssetHierarchyReferenceScope.installedComponent,
+        assetClassId: 'class-1',
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        nodeId: 'node-1',
+        nodeVersion: 1,
+        nodeName: 'Pressure transmitter',
+        assetInstanceId: 'asset-1',
+        assetInstanceVersion: 1,
+        assetNumber: 1,
+        assetInstanceName: 'Furnace 1',
+        componentInstanceId: 'component-1',
+        componentInstanceVersion: 1,
+        hierarchyPath: <String>['Pressure transmitter'],
+        ownershipStatus: AssetOwnershipStatus.provisional,
+        ownerDiscipline: 'Instrumentation',
+      ).encode(),
       throwsStateError,
     );
   });
@@ -507,10 +515,15 @@ void main() {
       }, claimId),
       throwsA(isA<PersistedDataFormatException>()),
     );
+    final provisional = AssetTagClaimRecord.fromMap({
+      ...valid,
+      'ownershipStatus': 'provisional',
+    }, claimId);
+    expect(provisional.ownershipStatus, AssetOwnershipStatus.provisional);
     expect(
       () => AssetTagClaimRecord.fromMap({
         ...valid,
-        'ownershipStatus': 'provisional',
+        'ownershipStatus': 'unknown-authority',
       }, claimId),
       throwsA(isA<PersistedDataFormatException>()),
     );

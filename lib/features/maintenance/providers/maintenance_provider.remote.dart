@@ -1,10 +1,21 @@
 part of 'maintenance_provider.dart';
 
 class FirestoreMaintenanceRepository extends MaintenanceRepository {
-  final AuditRepository _auditRepo;
+  @override
+  Stream<List<MaintenanceRecord>> watchContinuations(String issueId) =>
+      _collection.where('continuesIssueId', isEqualTo: issueId).snapshots()
+        .map((snapshot) => _decodeTickets(snapshot, queryKey: 'continuations:$issueId', requireComplete: true)
+            .where((ticket) => !ticket.isDeleted).toList(growable: false));
+  final WorkflowOnlineExecutor Function()? _withdrawalExecutor;
+  final void Function(String queryKey, Iterable<String> documentIds)?
+  _onMalformed;
 
-  FirestoreMaintenanceRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  FirestoreMaintenanceRepository({
+    AuditRepository? auditRepository,
+    void Function(String queryKey, Iterable<String> documentIds)? onMalformed,
+    WorkflowOnlineExecutor Function()? withdrawalExecutor,
+  }) : _onMalformed = onMalformed,
+       _withdrawalExecutor = withdrawalExecutor;
 
   final _collection = FirebaseFirestore.instance.collection(
     'maintenance_records',
@@ -17,21 +28,6 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     'maintenance_burner_closures',
   );
 
-  Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
-    if (data == null) return null;
-    final sanitized = <String, dynamic>{};
-    data.forEach((key, value) {
-      if (value is Timestamp) {
-        sanitized[key] = value.toDate().toIso8601String();
-      } else if (value is FieldValue) {
-        sanitized[key] = value.toString();
-      } else {
-        sanitized[key] = value;
-      }
-    });
-    return sanitized;
-  }
-
   @override
   Stream<List<MaintenanceRecord>> watchOpenTickets() {
     return _collection
@@ -39,7 +35,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(_mapTicket).toList());
+        .map((snap) => _decodeTickets(snap, queryKey: 'open'));
   }
 
   @override
@@ -68,10 +64,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         )
         .snapshots()
         .map((snapshot) {
-          final tickets = snapshot.docs
-              .map(_mapTicket)
-              .where((ticket) => ticket.canStillAffectPlantCondition)
-              .toList();
+          final tickets = _decodeTickets(
+            snapshot,
+            queryKey: 'plant-condition',
+            requireComplete: true,
+          ).where((ticket) => ticket.canStillAffectPlantCondition).toList();
           tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return tickets;
         });
@@ -87,7 +84,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       query = query.limit(limit);
     }
 
-    return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+    return query.snapshots().map(
+      (snap) => _decodeTickets(snap, queryKey: 'all'),
+    );
   }
 
   @override
@@ -104,10 +103,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     // newer records may carry offset-aware instants. Firestore string ranges
     // cannot order those representations as one timeline, so reporting reads
     // the complete uncapped stream and applies the parsed overlap contract.
-    return watchAllTickets().map(
+    return _collection.where('isDeleted', isEqualTo: false).snapshots()
+        .map((snapshot) => _decodeTickets(snapshot, queryKey: 'report', requireComplete: true)).map(
       (records) => records
           .where(
-            (record) => maintenanceRecordOverlapsPeriod(
+            (record) => record.administrativeClosure?.disposition.name == 'stillRelevant' || maintenanceRecordOverlapsPeriod(
               record,
               startInclusive,
               endExclusive,
@@ -133,7 +133,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       query = query.limit(limit);
     }
 
-    return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+    return query.snapshots().map(
+      (snap) => _decodeTickets(snap, queryKey: 'asset:${type.name}:$number'),
+    );
   }
 
   @override
@@ -153,7 +155,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       query = query.limit(limit);
     }
 
-    return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+    return query.snapshots().map(
+      (snap) =>
+          _decodeTickets(snap, queryKey: 'open-asset:${type.name}:$number'),
+    );
   }
 
   @override
@@ -170,7 +175,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       query = query.limit(limit);
     }
 
-    return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+    return query.snapshots().map(
+      (snap) => _decodeTickets(snap, queryKey: 'type:${type.name}'),
+    );
   }
 
   @override
@@ -188,7 +195,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       query = query.limit(limit);
     }
 
-    return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+    return query.snapshots().map(
+      (snap) => _decodeTickets(snap, queryKey: 'open-type:${type.name}'),
+    );
   }
 
   @override
@@ -347,48 +356,19 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       'delete this ticket',
     );
 
-    final beforeSnapshot = _sanitizeForAudit(doc.data());
-    final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
-    final nextVersion = currentVersion + 1;
-
-    final now = DateTime.now().toIso8601String();
-    await _collection.doc(docId).update({
-      'isDeleted': true,
-      'deletedAt': now,
-      'deletedByUid': auditContext?.performedByUid,
-      'deletedByName': auditContext?.performedByName,
-      'deleteReason': auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      'updatedAt': now,
-      'version': nextVersion,
-    });
-
-    if (auditContext != null) {
-      final afterSnapshot = {
-        ...?beforeSnapshot,
-        'isDeleted': true,
-        'deletedAt': now,
-        'deletedByUid': auditContext.performedByUid,
-        'deletedByName': auditContext.performedByName,
-        'deleteReason': auditContext.reason?.name ?? auditContext.reasonNotes,
-        'updatedAt': now,
-        'version': nextVersion,
-      };
-
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'maintenance',
-            entityId: docId,
-            action: AuditAction.delete,
-            context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
-            ),
-          ),
-        ),
-      );
+    final executor = _withdrawalExecutor?.call();
+    final reason = auditContext?.reasonNotes?.trim().isNotEmpty == true
+        ? auditContext!.reasonNotes! : auditContext?.reason?.name;
+    if (executor == null || reason == null || auditContext?.performedByUid != actor.uid) {
+      throw StateError('Audited withdrawal requires the original Admin account and a reason.');
     }
+    final server = await readMaintenanceIssueCommandServerState(docId);
+    if (server == null) throw StateError('The server issue could not be verified.');
+    if (server.isDeleted) return;
+    final command = buildMaintenanceWithdrawalCommand(server, reason);
+    final receipt = await executor.execute(command,
+      validateReceipt: (receipt) => validateMaintenanceWithdrawalReceipt(command, receipt));
+    validateMaintenanceWithdrawalReceipt(command, receipt);
   }
 
   @override
@@ -466,7 +446,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       if (ticket.acknowledgedByUid == null)
         'acknowledgedByName':
             closedByName ?? (actor.name.isNotEmpty ? actor.name : actor.uid),
-      if (ticket.acknowledgedByUid == null) 'acknowledgedAt': now,
+      // A closure without a prior lane acknowledgement is an implicit
+      // acknowledgement recorded when this command is entered. It must not
+      // fabricate an acknowledgement at the physical end date.
+      if (ticket.acknowledgedByUid == null) 'acknowledgedAt': updatedAt,
       'updatedAt': updatedAt,
       'version': ticket.version + 1,
     };
@@ -926,6 +909,8 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     'tag': t.tag,
     'hierarchyPath': t.hierarchyPath,
     'assetHierarchyRefJson': t.assetHierarchyRefJson,
+    if (t.continuesIssueId?.trim().isNotEmpty == true)
+      'continuesIssueId': t.continuesIssueId!.trim(),
     'maintenanceType': t.maintenanceType.name,
     'classification': t.classification,
     'description': t.description,
@@ -973,6 +958,13 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       documentId: doc.id,
     );
   }
+
+  List<MaintenanceRecord> _decodeTickets(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String queryKey,
+    bool requireComplete = false,
+  }) => decodeMaintenanceFeed(snapshot, queryKey: queryKey,
+      requireComplete: requireComplete, onMalformed: _onMalformed);
 }
 
 // ─────────────────────────────────────────────────────────────

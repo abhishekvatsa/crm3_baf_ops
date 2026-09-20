@@ -127,13 +127,23 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
         ),
       );
       try {
-        currentBurnerRounds = await ref.read(
+        final fetchedBurnerRounds = await ref.read(
           latestBurnerConditionRoundsProvider(
             LatestBurnerConditionRoundsQuery(
               actorUid: actorUid,
               assetInstanceIds: furnaceAssets.map((asset) => asset.id),
             ),
           ).future,
+        );
+        // The report object was captured before the composer opened. A round
+        // observed after that boundary belongs to a newer application
+        // snapshot and must not silently enter this export. It will render as
+        // unknown rather than being presented as evidence for the older
+        // report.
+        currentBurnerRounds = Map<String, BurnerConditionRound>.fromEntries(
+          fetchedBurnerRounds.entries.where(
+            (entry) => !entry.value.observedAt.isAfter(report.asOf),
+          ),
         );
       } on Object catch (error) {
         progress.close();

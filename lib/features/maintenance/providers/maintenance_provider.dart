@@ -18,17 +18,36 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../data/maintenance_feed_decoder.dart';
 import '../data/remote_maintenance_reader.dart';
 import '../data/remote_maintenance_timestamps.dart';
 import '../../quality/domain/quality_warning_projection.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/issue_administrative_closure.dart';
+import '../services/maintenance_withdrawal_command.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_online_executor.dart';
 
 part 'maintenance_provider.local.dart';
 part 'maintenance_provider.copy.dart';
 part 'maintenance_provider.reopen.dart';
 part 'maintenance_provider.remote.dart';
+
+class MaintenanceFeedDiagnostics {
+  const MaintenanceFeedDiagnostics({
+    this.malformedDocumentIds = const <String>{},
+  });
+
+  final Set<String> malformedDocumentIds;
+
+  bool get isIncomplete => malformedDocumentIds.isNotEmpty;
+}
+
+final maintenanceFeedDiagnosticsProvider =
+    StateProvider.family<MaintenanceFeedDiagnostics, String>(
+      (ref, _) => const MaintenanceFeedDiagnostics(),
+    );
 
 const maintenancePairedBatchMaximum = 166;
 
@@ -246,6 +265,13 @@ abstract class MaintenanceRepository {
   Stream<List<MaintenanceRecord>> watchOpenTickets();
   Stream<List<MaintenanceRecord>> watchPlantConditionTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
+  Stream<List<MaintenanceRecord>> watchContinuations(String issueId) =>
+      Stream.error(UnsupportedError('Linked-work reads are unavailable.'));
+
+  Stream<int> watchVisibleOpenTicketCount(AppUser actor) => watchOpenTickets().map(
+    (tickets) => actor.canSeeAllTickets ? tickets.length :
+        tickets.where((ticket) => ticket.loggedByUid == actor.uid).length,
+  ).distinct();
   Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
     DateTime startInclusive,
     DateTime endExclusive,
@@ -258,7 +284,7 @@ abstract class MaintenanceRepository {
     return watchAllTickets().map(
       (records) => records
           .where(
-            (record) => maintenanceRecordOverlapsPeriod(
+            (record) => record.administrativeClosure?.disposition.name == 'stillRelevant' || maintenanceRecordOverlapsPeriod(
               record,
               startInclusive,
               endExclusive,
@@ -542,6 +568,14 @@ final firestoreMaintenanceRepo = Provider<FirestoreMaintenanceRepository>((
 ) {
   return FirestoreMaintenanceRepository(
     auditRepository: ref.read(auditRepositoryProvider),
+    withdrawalExecutor: () => ref.read(workflowOnlineExecutorProvider),
+    onMalformed: (queryKey, documentIds) {
+      ref
+          .read(maintenanceFeedDiagnosticsProvider(queryKey).notifier)
+          .state = MaintenanceFeedDiagnostics(
+        malformedDocumentIds: Set.unmodifiable(documentIds),
+      );
+    },
   );
 });
 
@@ -572,58 +606,7 @@ final visibleOpenTicketCountProvider = StreamProvider.family<int, AppUser>((
   ref,
   appUser,
 ) {
-  if (kIsWeb) {
-    return ref.watch(maintenanceRepositoryProvider).watchOpenTickets().map((
-      tickets,
-    ) {
-      if (appUser.canSeeAllTickets) return tickets.length;
-      return tickets
-          .where((ticket) => ticket.loggedByUid == appUser.uid)
-          .length;
-    }).distinct();
-  }
-
-  if (appUser.canSeeAllTickets) {
-    Future<int> countOpenTickets() {
-      return isar.maintenanceRecords
-          .filter()
-          .isResolvedEqualTo(false)
-          .and()
-          .isDeletedEqualTo(false)
-          .count();
-    }
-
-    return isar.maintenanceRecords
-        .filter()
-        .isResolvedEqualTo(false)
-        .and()
-        .isDeletedEqualTo(false)
-        .watchLazy(fireImmediately: true)
-        .asyncMap((_) => countOpenTickets())
-        .distinct();
-  }
-
-  Future<int> countOwnOpenTickets() {
-    return isar.maintenanceRecords
-        .filter()
-        .isResolvedEqualTo(false)
-        .and()
-        .isDeletedEqualTo(false)
-        .and()
-        .loggedByUidEqualTo(appUser.uid)
-        .count();
-  }
-
-  return isar.maintenanceRecords
-      .filter()
-      .isResolvedEqualTo(false)
-      .and()
-      .isDeletedEqualTo(false)
-      .and()
-      .loggedByUidEqualTo(appUser.uid)
-      .watchLazy(fireImmediately: true)
-      .asyncMap((_) => countOwnOpenTickets())
-      .distinct();
+  return ref.watch(maintenanceRepositoryProvider).watchVisibleOpenTicketCount(appUser);
 });
 
 final allTicketsProvider = StreamProvider<List<MaintenanceRecord>>((ref) {

@@ -27,9 +27,11 @@ class OperationalEventsScreen extends ConsumerStatefulWidget {
       _OperationalEventsScreenState();
 }
 
+enum _OperationalEventFilter { open, resolved, withdrawn }
+
 class _OperationalEventsScreenState
     extends ConsumerState<OperationalEventsScreen> {
-  var _showOpen = true;
+  var _filter = _OperationalEventFilter.open;
   var _busy = false;
   var _selectedMonth = _monthStart(DateTime.now());
   OperationalEventType? _selectedTopic;
@@ -124,10 +126,20 @@ class _OperationalEventsScreenState
               ),
               data: (events) {
                 final open = events.where((event) => event.isOpen).toList();
-                final resolved = events
-                    .where((event) => !event.isOpen)
+                final withdrawn = events
+                    .where((event) => event.isWithdrawn)
                     .toList();
-                final visible = _showOpen ? open : resolved;
+                final resolved = events
+                    .where((event) => !event.isOpen && !event.isWithdrawn)
+                    .toList();
+                final visible = switch (_filter) {
+                  _OperationalEventFilter.open => open,
+                  _OperationalEventFilter.resolved => resolved,
+                  _OperationalEventFilter.withdrawn => withdrawn,
+                };
+                final feedDiagnostics = ref.watch(
+                  operationalEventFeedDiagnosticsProvider(actor.uid),
+                );
                 final critical = open
                     .where(
                       (event) =>
@@ -145,8 +157,16 @@ class _OperationalEventsScreenState
                           openCount: open.length,
                           criticalCount: critical,
                           resolvedCount: resolved.length,
+                          withdrawnCount: withdrawn.length,
                         ),
                       ),
+                      if (feedDiagnostics.isIncomplete)
+                        SliverToBoxAdapter(
+                          child: _IncompleteFeedNotice(
+                            malformedDocumentCount:
+                                feedDiagnostics.malformedDocumentCount,
+                          ),
+                        ),
                       SliverToBoxAdapter(
                         child: _EventImpactPanel(
                           eventsAsync: reportEventsAsync,
@@ -182,34 +202,39 @@ class _OperationalEventsScreenState
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: SegmentedButton<bool>(
+                          child: SegmentedButton<_OperationalEventFilter>(
                             key: const ValueKey(
                               'operational-event-status-filter',
                             ),
                             segments: const [
                               ButtonSegment(
-                                value: true,
+                                value: _OperationalEventFilter.open,
                                 icon: Icon(Icons.warning_amber_rounded),
                                 label: Text('Open'),
                               ),
                               ButtonSegment(
-                                value: false,
+                                value: _OperationalEventFilter.resolved,
                                 icon: Icon(Icons.task_alt_rounded),
                                 label: Text('Recent resolved'),
                               ),
+                              ButtonSegment(
+                                value: _OperationalEventFilter.withdrawn,
+                                icon: Icon(Icons.remove_circle_outline),
+                                label: Text('Withdrawn'),
+                              ),
                             ],
-                            selected: {_showOpen},
+                            selected: {_filter},
                             onSelectionChanged: (selection) =>
-                                setState(() => _showOpen = selection.first),
+                                setState(() => _filter = selection.first),
                           ),
                         ),
                       ),
-                      if (!_showOpen)
+                      if (_filter != _OperationalEventFilter.open)
                         const SliverToBoxAdapter(child: _HistoryWindowNotice()),
                       if (visible.isEmpty)
                         SliverFillRemaining(
                           hasScrollBody: false,
-                          child: _EmptyState(showingOpen: _showOpen),
+                          child: _EmptyState(filter: _filter),
                         )
                       else
                         SliverPadding(
@@ -1214,37 +1239,6 @@ class _EventInput {
   const _EventInput({required this.draft, required this.reason});
   final OperationalEventDraft draft;
   final String reason;
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.showingOpen});
-  final bool showingOpen;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            showingOpen ? Icons.check_circle_outline : Icons.history_rounded,
-            size: 44,
-            color: BafColors.textSecondary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            showingOpen ? 'No open operational events' : 'No resolved events',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: BafColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _ErrorState extends StatelessWidget {

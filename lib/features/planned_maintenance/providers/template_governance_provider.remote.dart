@@ -73,18 +73,20 @@ class FirestoreTemplateGovernanceRepository
     String? reason,
   }) async {
     _requireTemplateGovernor(actor, 'publish template versions');
-    if (!record.isDraft) {
+    final reviewed = _detachedPublicationVersion(record);
+    final candidate = _detachedPublicationVersion(record);
+    if (!candidate.isDraft) {
       throw StateError('Only draft template versions can be published.');
     }
-    if (record.firestoreId != null && !record.isSynced) {
+    if (candidate.firestoreId != null && !candidate.isSynced) {
       throw StateError(
         'A saved TemplateVersion draft must sync successfully before it can be published.',
       );
     }
 
-    _validateTemplateVersionSnapshotForPublish(record);
+    _validateTemplateVersionSnapshotForPublish(candidate);
 
-    final beforeHash = record.contentHash;
+    final beforeHash = candidate.contentHash;
     final now = DateTime.now();
     record
       ..status = TemplateVersionStatus.published
@@ -92,31 +94,43 @@ class FirestoreTemplateGovernanceRepository
       ..publishedByName = actor.name
       ..publishedAt = now
       ..updatedAt = now;
-    record.refreshContentHash();
-    _normalizeVersionForUserSave(record, actor: actor, markUnsynced: false);
+    candidate.refreshContentHash();
+    _normalizeVersionForUserSave(candidate, actor: actor, markUnsynced: false);
 
     final audit = _newAudit(
       action: TemplatePublishAuditAction.published,
       actor: actor,
-      version: record,
+      version: candidate,
       reason: reason,
       beforeHash: beforeHash,
-      afterHash: record.contentHash,
+      afterHash: candidate.contentHash,
     )..isSynced = true;
 
     await FirebaseFirestore.instance.runTransaction((txn) async {
-      final packageId = record.packageFirestoreId;
+      final saved = await txn.get(_versions.doc(candidate.firestoreId));
+      if (!saved.exists) throw StateError('The reviewed draft is missing. Reload before publishing.');
+      final current = TemplateVersion.fromMap(saved.data()!, saved.id);
+      if (current.version != reviewed.version || current.versionNumber != reviewed.versionNumber ||
+          current.computeContentHash() != reviewed.computeContentHash() ||
+          current.updatedAt.toUtc() != reviewed.updatedAt.toUtc() || current.isDeleted || !current.isDraft) {
+        throw StateError('The reviewed draft changed. Newer content is preserved; reload before publishing.');
+      }
+      final packageId = candidate.packageFirestoreId;
       DocumentReference<Map<String, dynamic>>? packageRef;
       DocumentSnapshot<Map<String, dynamic>>? packageSnap;
 
       if (packageId != null) {
         packageRef = _packages.doc(packageId);
         packageSnap = await txn.get(packageRef);
+        final latest = packageSnap.data()?['latestVersionNumber'];
+        if (latest is! int || candidate.versionNumber <= latest) {
+          throw StateError('Publish this older draft as a new linked version; its saved number cannot be changed.');
+        }
       }
 
       txn.set(
-        _versions.doc(record.firestoreId),
-        record.toMap(),
+        _versions.doc(candidate.firestoreId),
+        candidate.toMap(),
         SetOptions(merge: true),
       );
       txn.set(
@@ -128,12 +142,12 @@ class FirestoreTemplateGovernanceRepository
       if (packageRef != null) {
         final currentLatest = packageSnap?.data()?['latestVersionNumber'];
         final currentLatestNumber = currentLatest is int ? currentLatest : 0;
-        final nextLatestNumber = record.versionNumber > currentLatestNumber
-            ? record.versionNumber
+        final nextLatestNumber = candidate.versionNumber > currentLatestNumber
+            ? candidate.versionNumber
             : currentLatestNumber;
 
         txn.set(packageRef, {
-          'activeVersionFirestoreId': record.firestoreId,
+          'activeVersionFirestoreId': candidate.firestoreId,
           'latestVersionNumber': nextLatestNumber,
           'updatedByUid': actor.uid,
           'updatedByName': actor.name,
@@ -142,6 +156,9 @@ class FirestoreTemplateGovernanceRepository
         }, SetOptions(merge: true));
       }
     });
+    _copyTemplateVersionLifecycleState(record, candidate, isSynced: true);
+    record..publishedByUid = candidate.publishedByUid..publishedByName = candidate.publishedByName
+      ..publishedAt = candidate.publishedAt;
   }
 
   @override

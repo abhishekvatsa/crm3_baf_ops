@@ -1,3 +1,4 @@
+import 'dart:convert';
 // FILE: lib/features/planned_maintenance/presentation/widgets/knowledge_audit_timeline.dart
 
 import 'package:flutter/material.dart';
@@ -22,11 +23,10 @@ class KnowledgeAuditTimeline extends ConsumerWidget {
         await ref.read(knowledgeGovernanceAuditFeedProvider.future);
       },
       child: feedAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading knowledge audit trail',
-              color: BafColors.planned,
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Loading knowledge audit trail',
+          color: BafColors.planned,
+        ),
         error: (e, _) => ListView(
           children: [
             Padding(
@@ -103,10 +103,7 @@ class _AuditCard extends StatelessWidget {
                   ),
                 const SizedBox(width: 6),
                 if (versionAfter != null)
-                  StatusBadge(
-                    label: 'v$versionAfter',
-                    color: BafColors.audit,
-                  ),
+                  StatusBadge(label: 'v$versionAfter', color: BafColors.audit),
               ],
             ),
             const SizedBox(height: BafSpacing.xs),
@@ -135,6 +132,20 @@ class _AuditCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (diff is Map && diff['changes'] is List)
+              ExpansionTile(
+                title: const Text('Review changed fields'),
+                children: [
+                  for (final change in diff['changes'] as List)
+                    if (change is Map)
+                      ListTile(
+                        title: Text('${change['field']}'),
+                        subtitle: SelectableText(
+                          'Before: ${jsonEncode(change['before'])}\nAfter: ${jsonEncode(change['after'])}',
+                        ),
+                      ),
+                ],
+              ),
             if (changeCount > 0) ...[
               const SizedBox(height: BafSpacing.xs),
               Text(

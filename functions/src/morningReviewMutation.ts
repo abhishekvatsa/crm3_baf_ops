@@ -1,9 +1,13 @@
 import {createHash} from "crypto";
+import {correctMorningReviewAction, parseMorningReviewActionCorrection, MorningReviewActionCorrection} from "./morningReviewActionCorrection";
 
 import {AssetHierarchyMutationError} from "./assetHierarchyMutation";
 import {persistedInstantMillis} from "./persistedInstant";
 import {validateQualityWarningRecord} from "./qualityMutation";
 import {stableJson} from "./stableJson";
+import {resolveMorningReviewSubject} from "./morningReviewSubjects";
+import {protectMorningReviewPopulation, requireMorningReviewPopulation} from "./morningReviewRetention";
+import {assertMorningReviewNotRefused, executeMorningReviewWithRefusalFence} from "./morningReviewRecovery";
 import {
   canonicalApprovedUserAuthority,
   normalizeCanonicalUserRoles,
@@ -18,6 +22,7 @@ type MorningReviewOperation =
   | "CREATE_MORNING_REVIEW_ACTION"
   | "ACCEPT_MORNING_REVIEW_ACTION"
   | "COMPLETE_MORNING_REVIEW_ACTION"
+  | "AMEND_MORNING_REVIEW_ACTION"
   | "TAKE_OVER_MORNING_REVIEW"
   | "FINALIZE_MORNING_REVIEW"
   | "RECORD_MORNING_REVIEW_NOT_HELD"
@@ -133,6 +138,9 @@ interface ParsedRequest {
   concernDraft: StandingConcernDraft | null;
   fingerprint: string;
   expectedPlantDay: string | null;
+  recoveryVersion: number | null;
+  actionCorrection: MorningReviewActionCorrection | null;
+  correctionReason: string | null;
 }
 
 export interface MorningReviewMutationResult {
@@ -180,6 +188,9 @@ const SOURCE_SCAN_PAGE_SIZE = 300;
 const MAX_SOURCE_SCAN_PAGES = 10;
 const MAX_SOURCE_COLLECTION_MARKERS = 10;
 const MAX_SESSION_ENTRIES = 180;
+// Addenda are a separate append-only allowance. The combined 230 rows remain
+// below the installed client's 250-row meeting query limit.
+const MAX_SESSION_ADDENDA = 50;
 const MAX_SESSION_ACTIONS = 100;
 const MAX_SESSION_PARTICIPANTS = 100;
 const MAX_STANDING_CONCERNS = 250;
@@ -232,6 +243,7 @@ const OPERATIONS = new Set<MorningReviewOperation>([
   "CREATE_MORNING_REVIEW_ACTION",
   "ACCEPT_MORNING_REVIEW_ACTION",
   "COMPLETE_MORNING_REVIEW_ACTION",
+  "AMEND_MORNING_REVIEW_ACTION",
   "TAKE_OVER_MORNING_REVIEW",
   "FINALIZE_MORNING_REVIEW",
   "RECORD_MORNING_REVIEW_NOT_HELD",
@@ -276,6 +288,9 @@ const ALLOWED_KEYS: Readonly<Record<MorningReviewOperation, ReadonlySet<string>>
     COMPLETE_MORNING_REVIEW_ACTION: new Set([
       "requestId", "operation", "sessionId", "actionId", "expectedVersion",
       "reason",
+    ]),
+    AMEND_MORNING_REVIEW_ACTION: new Set([
+      "requestId", "operation", "sessionId", "actionId", "expectedVersion", "reason", "actionCorrection",
     ]),
     TAKE_OVER_MORNING_REVIEW: new Set([
       "requestId", "operation", "sessionId", "expectedVersion", "reason",
@@ -512,8 +527,11 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
   if (!OPERATIONS.has(operation)) invalid("operation", "is unsupported");
   // The published V1 key snapshot remains stable. Only the two sessionless
   // operations have the capability-gated intended-day extension.
-  exactKeys(data, ["START_MORNING_REVIEW", "RECORD_MORNING_REVIEW_NOT_HELD"].includes(operation) ?
-    new Set([...ALLOWED_KEYS[operation], "expectedPlantDay"]) : ALLOWED_KEYS[operation], "request");
+  exactKeys(data, new Set([...ALLOWED_KEYS[operation], "recoveryVersion",
+    ...(operation === "CHECK_MORNING_REVIEW_STANDING_CONCERN" ? ["expectedVersion", "correctionReason"] : []),
+    ...(["START_MORNING_REVIEW", "RECORD_MORNING_REVIEW_NOT_HELD"].includes(operation) ? ["expectedPlantDay"] : [])]), "request");
+  const recoveryVersion = data.recoveryVersion == null ? null : data.recoveryVersion;
+  if (recoveryVersion != null && recoveryVersion !== 1) invalid("recoveryVersion", "must be 1");
   const requestId = requiredString(data.requestId, "requestId", 80);
   if (!UUID.test(requestId)) invalid("requestId", "must be a UUID");
 
@@ -541,7 +559,10 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     "FINALIZE_MORNING_REVIEW",
     "RESOLVE_MORNING_REVIEW_STANDING_CONCERN",
   ].includes(operation);
-  const expectedVersion = needsVersion ? requiredVersion(data.expectedVersion) : null;
+  const actionCorrection = operation === "AMEND_MORNING_REVIEW_ACTION" ? parseMorningReviewActionCorrection(data.actionCorrection) : null;
+  const correctionReason = operation === "CHECK_MORNING_REVIEW_STANDING_CONCERN" && data.correctionReason != null ? requiredString(data.correctionReason, "correctionReason", MAX_COMMAND_REASON_LENGTH) : null;
+  const expectedVersion = needsVersion || actionCorrection != null || correctionReason != null ? requiredVersion(data.expectedVersion) : null;
+  if (operation === "CHECK_MORNING_REVIEW_STANDING_CONCERN" && data.expectedVersion != null && correctionReason == null) invalid("correctionReason", "is required for a correction");
   const actionId = operation.includes("_ACTION") &&
       operation !== "CREATE_MORNING_REVIEW_ACTION" ?
     optionalId(data.actionId, "actionId") : null;
@@ -567,6 +588,7 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     "CHECK_MORNING_REVIEW_STANDING_CONCERN",
     "ADD_MORNING_REVIEW_ADDENDUM",
   ].includes(operation) && reason == null) invalid("reason", "is required");
+  if (actionCorrection != null && reason == null) invalid("reason", "is required");
   const summary = operation === "FINALIZE_MORNING_REVIEW" ?
     requiredString(data.summary, "summary", 2000) : null;
   const checkState = operation === "CHECK_MORNING_REVIEW_STANDING_CONCERN" ?
@@ -606,10 +628,16 @@ export function parseMorningReviewMutationRequest(value: unknown): ParsedRequest
     concernDraft,
     // Preserve the original canonical bytes for requests stored by old clients.
     ...(expectedPlantDay == null ? {} : {expectedPlantDay}),
+    ...(recoveryVersion == null ? {} : {recoveryVersion}),
+    ...(actionCorrection == null ? {} : {actionCorrection}),
+    ...(correctionReason == null ? {} : {correctionReason}),
   };
   return {
     ...canonical,
     expectedPlantDay,
+    recoveryVersion,
+    actionCorrection,
+    correctionReason,
     fingerprint: `morningreview${expectedPlantDay == null ? 1 : 2}-sha256:${
       createHash("sha256").update(stableJson(canonical), "utf8").digest("hex")
     }`,
@@ -641,6 +669,7 @@ export function userCanMutateMorningReview(
       !OPERATIONS.has(operation as MorningReviewOperation)) return false;
   if ([
     "START_MORNING_REVIEW",
+    "AMEND_MORNING_REVIEW_ACTION",
     "TAKE_OVER_MORNING_REVIEW",
     "FINALIZE_MORNING_REVIEW",
     "RECORD_MORNING_REVIEW_NOT_HELD",
@@ -897,6 +926,17 @@ function inspectionFindingIsValid(
     return false;
   }
   const hostAssetNumber = data.hostAssetNumber;
+  const hasEvidenceProjection = ["effectiveAdverseObservationCount",
+    "evidenceReviewRequired", "evidenceReviewReason"].some((key) => key in data);
+  if (hasEvidenceProjection &&
+      (!Number.isSafeInteger(data.effectiveAdverseObservationCount) ||
+        (data.effectiveAdverseObservationCount as number) < 0 ||
+        typeof data.evidenceReviewRequired !== "boolean" ||
+        !("evidenceReviewReason" in data) ||
+        data.evidenceReviewRequired !== (data.effectiveAdverseObservationCount === 0) ||
+        (data.evidenceReviewRequired ?
+          data.evidenceReviewReason !== "inspection-episode-adverse-basis-corrected" :
+          data.evidenceReviewReason !== null))) return false;
   if (hostAssetNumber != null &&
       (!Number.isSafeInteger(hostAssetNumber) ||
         (hostAssetNumber as number) < 1)) {
@@ -944,7 +984,9 @@ function inspectionFindingSourceProjection(
     data.physicalPosition == null ? null :
       `Position: ${boundedDisplay(data.physicalPosition, 100)}`,
     evidenceReviewRequired ?
-      "Evidence review required before verification" :
+      ["acceptedCondition", "invalidated"].includes(String(data.status)) ?
+        "Corrected adverse evidence explicitly adjudicated" :
+        "Evidence review required before verification" :
       effectiveAdverse > 1 ? `Observed ${effectiveAdverse} times` : null,
     data.linkedTicketId == null ? null :
       `Corrective ticket: ${boundedDisplay(data.linkedTicketId, 100)}`,
@@ -1046,6 +1088,11 @@ function sourceAssetIdentity(data: JsonMap): SourceAssetIdentity {
 }
 
 function sourceLifecycleStatus(collection: string, data: JsonMap): string {
+  if (collection === "operational_events") {
+    if (data.isWithdrawn === true) return "withdrawn in error";
+    if (data.status === "open") return "open";
+    if (data.status === "resolved") return "resolved";
+  }
   const explicit = firstText(data, [
     "status", "availabilityState", "condition", "workflowQueueState",
   ], 80);
@@ -1166,6 +1213,23 @@ function sourceRecordRelevant(args: {
   captureEnd: Date;
 }): boolean {
   if (args.data.isDeleted === true) return false;
+  if (args.collection === "operational_events") {
+    if (args.data.isWithdrawn === true) {
+      return touchedDuring(
+        args.data,
+        ["withdrawnAt", "updatedAt"],
+        args.priorStart,
+        args.captureEnd,
+      );
+    }
+    if (args.data.status === "open") return true;
+    return touchedDuring(
+      args.data,
+      ["resolvedAt", "updatedAt"],
+      args.priorStart,
+      args.captureEnd,
+    );
+  }
   const normalizedStatus = normalizedStatusKey(firstText(args.data, [
     "status", "availabilityState", "condition", "workflowQueueState",
   ], 80));
@@ -1575,6 +1639,8 @@ function resultStatusMatchesOperation(
     return status === "accepted";
   case "COMPLETE_MORNING_REVIEW_ACTION":
     return status === "completed";
+  case "AMEND_MORNING_REVIEW_ACTION":
+    return status === "cancelled" || status === "open";
   case "FINALIZE_MORNING_REVIEW":
     return status === "finalized";
   case "RECORD_MORNING_REVIEW_NOT_HELD":
@@ -1628,6 +1694,7 @@ async function sessionPopulation(args: {
   transaction: TransactionLike;
   sessionId: string;
   committed: Date;
+  projectedSession?: JsonMap;
 }): Promise<{
   entries: ReadonlyArray<SnapshotLike>;
   actions: ReadonlyArray<SnapshotLike>;
@@ -1655,10 +1722,23 @@ async function sessionPopulation(args: {
         page,
         "Morning Review standing concern finalization lookup",
       ).docs),
-      query("morning_review_concern_checks", MAX_SESSION_ENTRIES + 1),
+      query("morning_review_concern_checks", MAX_STANDING_CONCERNS + 1),
     ]);
-  const retainedConcerns = standingConcerns.filter((snapshot) => {
+  const concernPopulation = [...standingConcerns];
+  for (const check of concernChecks) {
+    const concernId = check.data()?.concernId;
+    if (typeof concernId !== "string" || concernId.includes("/")) throw new AssetHierarchyMutationError("data-loss", "Malformed standing concern reference.");
+    if (!concernPopulation.some((row) => row.id === concernId)) {
+      const retained = asSnapshot(await args.transaction.get(args.db.collection("morning_review_concern_history").doc(concernId)), "Retained checked concern");
+      if (retained.exists) concernPopulation.push(retained);
+    }
+  }
+  const retainedConcerns = concernPopulation.filter((snapshot) => {
     const data = snapshot.data() ?? {};
+    const createdAt = timestampDate(data.createdAt);
+    const originDay = typeof data.originSessionId === "string" ? data.originSessionId :
+      createdAt == null ? null : indiaParts(createdAt).plantDay;
+    if (originDay != null && originDay > args.sessionId) return false;
     if (data.status === "active") return true;
     if (data.status !== "resolved") {
       throw new AssetHierarchyMutationError(
@@ -1675,22 +1755,46 @@ async function sessionPopulation(args: {
         {reasonCode: "morning-review-standing-concern-retention-invalid"},
       );
     }
-    return retainedUntil > args.committed;
+    return retainedUntil > args.committed || concernChecks.some((check) => check.data()?.concernId === snapshot.id);
   });
+  const concernIds = new Set(retainedConcerns.map((row) => row.id));
+  if (concernChecks.some((row) => !concernIds.has(String(row.data()?.concernId)))) {
+    throw new AssetHierarchyMutationError("data-loss", "A retained daily check has lost its standing concern. Restore that evidence before finalizing.", {reasonCode: "morning-review-standing-concern-missing"});
+  }
   if (entries.length > MAX_SESSION_ENTRIES ||
       actions.length > MAX_SESSION_ACTIONS ||
       participants.length > MAX_SESSION_PARTICIPANTS ||
       retainedConcerns.length > MAX_STANDING_CONCERNS ||
-      concernChecks.length > MAX_SESSION_ENTRIES) {
+      concernChecks.length > MAX_STANDING_CONCERNS) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The Morning Review has exceeded its governed finalization capacity.",
       {reasonCode: "morning-review-finalization-capacity-exceeded"},
     );
   }
+  const meeting = args.projectedSession ?? asSnapshot(await args.transaction.get(args.db.collection("morning_review_sessions").doc(args.sessionId)), "Captured action membership").data() ?? {};
+  const allActions = [...actions];
+  const manifest = asSnapshot(await args.transaction.get(args.db.collection("morning_review_population_manifests").doc(args.sessionId)), "Original action membership").data();
+  const originalActions = (manifest?.members as JsonMap | undefined)?.morning_review_actions;
+  if (Array.isArray(originalActions)) for (const id of originalActions) {
+    if (typeof id !== "string" || !id || id.includes("/")) throw new AssetHierarchyMutationError("data-loss", "Malformed original action membership.");
+    if (allActions.some((row) => row.id === id)) continue;
+    const retained = asSnapshot(await args.transaction.get(args.db.collection("morning_review_action_history").doc(id)), "Retained original action");
+    if (retained.exists && retained.data()?.sessionId === args.sessionId) allActions.push(retained);
+  }
+  for (const fact of Array.isArray(meeting.sourceFacts) ? meeting.sourceFacts : []) {
+    if (fact?.sourceType !== "carriedAction" || fact?.sourceCollection !== "morning_review_actions") continue;
+    const id = fact.sourceDocumentId;
+    if (typeof id !== "string" || !id || id.includes("/") || fact.factId !== `morning_review_actions/${id}`) throw new AssetHierarchyMutationError("data-loss", "Malformed captured action identity.");
+    if (allActions.some((row) => row.id === id)) continue;
+    let action = asSnapshot(await args.transaction.get(args.db.collection("morning_review_actions").doc(id)), "Captured carried action");
+    if (!action.exists) action = asSnapshot(await args.transaction.get(args.db.collection("morning_review_action_history").doc(id)), "Retained carried action outcome");
+    if (!action.exists) throw new AssetHierarchyMutationError("data-loss", "A captured action has lost its outcome evidence. Reconcile it before finalizing.", {reasonCode: "morning-review-carried-action-evidence-missing"});
+    allActions.push(action);
+  }
   return {
     entries,
-    actions,
+    actions: allActions,
     participants,
     standingConcerns: retainedConcerns,
     concernChecks,
@@ -1815,6 +1919,14 @@ async function ensureAdmittedContentCanFinalize(args: {
   expiresAt: unknown;
   timestampFromDate: (date: Date) => unknown;
 }): Promise<void> {
+  // A carried action may finish without contributing to today's meeting.
+  // Unrelated damaged meeting content must not veto that independent write.
+  if (!args.writes.some((write) =>
+    write.ref.path === `morning_review_sessions/${args.sessionId}` ||
+    (write.data?.sessionId === args.sessionId &&
+      ["morning_review_entries", "morning_review_actions", "morning_review_participants", "morning_review_concern_checks"]
+        .some((collection) => write.ref.path === `${collection}/${write.ref.id}`)) ||
+    write.ref.path === `morning_review_standing_concerns/${write.ref.id}`)) return;
   const sessionRef = args.db.collection("morning_review_sessions")
     .doc(args.sessionId);
   const before = asSnapshot(await args.transaction.get(sessionRef),
@@ -1823,7 +1935,7 @@ async function ensureAdmittedContentCanFinalize(args: {
     before.exists ? [before] : [], args.writes, args.sessionId);
   const session = sessions.find((value) => value.id === args.sessionId)?.data();
   if (session?.status !== "open") return;
-  const beforePopulation = await sessionPopulation(args);
+  const beforePopulation = await sessionPopulation({...args, projectedSession: session});
   const project = (collection: string, records: ReadonlyArray<SnapshotLike>) =>
     projectedRecords(collection, records, args.writes, args.sessionId);
   const population: SessionPopulation = {
@@ -1859,10 +1971,10 @@ async function ensureAdmittedContentCanFinalize(args: {
       args.timestampFromDate(addDays(lifecycleInstant, RETENTION_DAYS))),
   }, finalFields);
   if (population.entries.length > MAX_SESSION_ENTRIES ||
-      population.actions.length > MAX_SESSION_ACTIONS ||
+      population.actions.length > MAX_SESSION_ACTIONS + MAX_SOURCE_FACTS ||
       population.participants.length > MAX_SESSION_PARTICIPANTS ||
       population.standingConcerns.length > MAX_STANDING_CONCERNS ||
-      population.concernChecks.length > MAX_SESSION_ENTRIES ||
+      population.concernChecks.length > MAX_STANDING_CONCERNS ||
       Buffer.byteLength(stableJson(document), "utf8") + 512 >
         MAX_FROZEN_DOCUMENT_BYTES) {
     throw new AssetHierarchyMutationError(
@@ -2089,9 +2201,9 @@ async function mutateMorningReviewActionLifecycle(args: {
       });
     } catch (error) {
       if (!(error instanceof AssetHierarchyMutationError) ||
-          error.code !== "failed-precondition" ||
-          (error.details as JsonMap | undefined)?.reasonCode !==
-            "morning-review-content-capacity-reached") throw error;
+          !["morning-review-content-capacity-reached", "morning-review-standing-concern-status-invalid",
+            "morning-review-standing-concern-retention-invalid", "morning-review-standing-concern-missing"]
+            .includes(String((error.details as JsonMap | undefined)?.reasonCode))) throw error;
       // This meeting entry is optional. Capacity cannot cancel the native
       // carried action or its receipt, nor consume a meeting version by itself.
       carriedEntryRef = null;
@@ -2128,6 +2240,12 @@ async function mutateMorningReviewActionLifecycle(args: {
       lastMutationId: args.request.requestId,
     }, {merge: true});
   }
+  if (!accepting) args.transaction.set(args.db.collection("morning_review_action_history").doc(actionRef.id), {
+    ...action, status: "completed", version: nextVersion, completedAt: at, completedByUid: args.actorUid,
+    completedByName: args.actorName, completionNote: args.request.reason, updatedAt: at,
+    updatedByUid: args.actorUid, updatedByName: args.actorName, expiresAt: args.completedExpiresAt,
+    lastMutationId: args.request.requestId,
+  });
   if (carriedEntryRef != null && carriedEntry != null &&
       currentSessionRef != null && currentSessionVersion != null) {
     args.transaction.set(carriedEntryRef, carriedEntry);
@@ -2166,20 +2284,22 @@ export async function lookupMorningReviewReceiptWithDb(args: {
   db: MorningReviewFirestoreLike;
   authUid: string | null;
   data: JsonMap;
-}): Promise<MorningReviewMutationResult> {
+}): Promise<MorningReviewMutationResult | JsonMap> {
   const actorUid = args.authUid;
   if (actorUid == null || actorUid.trim().length === 0) {
     throw new AssetHierarchyMutationError("unauthenticated", "Sign in before checking saved work.");
   }
-  const request = parseMorningReviewMutationRequest(args.data);
+  const includeAcceptance = args.data.acceptanceEvidence === true;
+  const originalRequest = includeAcceptance ? exactObject(args.data.request, "request") : args.data;
+  if (includeAcceptance && Object.keys(args.data).sort().join(",") !== "acceptanceEvidence,request") {
+    invalid("receiptLookup", "unsupported acceptance lookup fields");
+  }
+  const request = parseMorningReviewMutationRequest(originalRequest);
   return args.db.runTransaction(async (transaction) => {
     const actor = asSnapshot(await transaction.get(args.db.collection("users").doc(actorUid)),
       "Morning Review receipt owner lookup");
     approvedAuthority(actor.data());
-    if (!userCanMutateMorningReview(actor.data(), request.operation)) {
-      throw new AssetHierarchyMutationError("permission-denied",
-        "Your current role cannot check this Morning Review operation.");
-    }
+    // This reads the original actor's historical result, never executes work.
     const receipt = asSnapshot(await transaction.get(
       args.db.collection("morning_review_mutation_receipts").doc(request.requestId)),
     "Morning Review receipt lookup");
@@ -2188,11 +2308,47 @@ export async function lookupMorningReviewReceiptWithDb(args: {
         "No acceptance receipt was found. The saved request still needs review; nothing was resent.",
         {reasonCode: "morning-review-receipt-not-found"});
     }
-    return resultFromReceipt(request, actorUid, receipt.data() ?? {});
+    const result = resultFromReceipt(request, actorUid, receipt.data() ?? {});
+    if (!includeAcceptance) return result;
+    // Legacy receipts already bind the original actor and canonical request by
+    // their stored cryptographic fingerprint. Expose that verified acceptance,
+    // without inventing the former registry labels or a historical after-image.
+    const basis = receipt.data()?.acceptanceBasis ?? {
+      schemaVersion: 1, actorUid, request: originalRequest,
+      result: persistedResult(result), canonicalAsset: null,
+      evidenceKind: "legacy-request-fingerprint",
+      sourceFingerprint: receipt.data()?.fingerprint,
+    };
+    if (basis != null && (typeof basis !== "object" || Array.isArray(basis) ||
+        (basis as JsonMap).actorUid !== actorUid ||
+        stableJson((basis as JsonMap).request) !== stableJson(originalRequest) ||
+        stableJson((basis as JsonMap).result) !== stableJson(persistedResult(result)))) {
+      throw new AssetHierarchyMutationError("data-loss", "The retained acceptance basis is inconsistent.");
+    }
+    return {schemaVersion: 1, receipt: result, acceptanceBasis: basis};
   });
 }
 
 export async function mutateMorningReviewWithDb(args: {
+  db: MorningReviewFirestoreLike;
+  authUid: string | null;
+  data: JsonMap;
+  now?: () => Date;
+  timestampFromDate?: (date: Date) => unknown;
+}): Promise<MorningReviewMutationResult> {
+  // Syntax and authenticated identity are never classified as business refusal.
+  const request = parseMorningReviewMutationRequest(args.data);
+  if (args.authUid == null || !args.authUid.trim()) {
+    throw new AssetHierarchyMutationError("unauthenticated", "Sign in before changing Morning Review.");
+  }
+  const actorUid = args.authUid.trim();
+  if (request.recoveryVersion == null) return executeMorningReviewMutation(args);
+  return executeMorningReviewWithRefusalFence({db: args.db, actorUid, request: args.data,
+    now: args.now ?? (() => new Date()), execute: () => executeMorningReviewMutation(args),
+    accepted: (receipt) => resultFromReceipt(request, actorUid, receipt)});
+}
+
+async function executeMorningReviewMutation(args: {
   db: MorningReviewFirestoreLike;
   authUid: string | null;
   data: JsonMap;
@@ -2290,6 +2446,12 @@ export async function mutateMorningReviewWithDb(args: {
         receiptSnapshot.data() ?? {},
       );
     }
+    if (!userCanMutateMorningReview(actorSnapshot.data(), request.operation)) {
+      throw new AssetHierarchyMutationError("permission-denied",
+        "Your current role cannot perform this Morning Review operation.",
+        {reasonCode: "morning-review-operation-role-denied"});
+    }
+    await assertMorningReviewNotRefused(args.db, transaction, args.data, actorUid);
     assertExpectedPlantDay(request, clock.plantDay);
 
     const sessionRef = sessions.doc(sessionId);
@@ -2303,7 +2465,17 @@ export async function mutateMorningReviewWithDb(args: {
       request.operation === "ACCEPT_MORNING_REVIEW_ACTION" ||
       request.operation === "COMPLETE_MORNING_REVIEW_ACTION";
 
-    if (actionLifecycleOperation && !sessionSnapshot.exists) {
+    if (request.operation === "AMEND_MORNING_REVIEW_ACTION") {
+      const corrected = await correctMorningReviewAction({db: args.db, tx: transaction,
+        actionId: request.actionId!, sessionId, expectedVersion: request.expectedVersion!,
+        requestId: request.requestId, reason: request.reason!, correction: request.actionCorrection!,
+        actorUid, actorName: name, roles: authority.roles, at: timestampFromDate(committed), expiresAt});
+      if (sessionSnapshot.exists && session.status === "open") transaction.set(sessionRef, {
+        version: sessionVersion(session, sessionId) + 1, updatedAt: timestampFromDate(committed),
+        updatedByUid: actorUid, updatedByName: name, lastMutationId: request.requestId,
+      }, {merge: true});
+      mutationResult = result({request, sessionId, entityId: request.actionId!, ...corrected, committed});
+    } else if (actionLifecycleOperation && !sessionSnapshot.exists) {
       mutationResult = await mutateMorningReviewActionLifecycle({
         db: args.db,
         transaction,
@@ -2648,15 +2820,20 @@ export async function mutateMorningReviewWithDb(args: {
         const entryPage = asQuerySnapshot(
           await transaction.get(
             entries.where("sessionId", "==", sessionId)
-              .limit(MAX_SESSION_ENTRIES + 1),
+              .limit(MAX_SESSION_ENTRIES + MAX_SESSION_ADDENDA + 1),
           ),
           "Morning Review entry capacity lookup",
         );
-        if (entryPage.docs.length >= MAX_SESSION_ENTRIES) {
+        const relevantEntries = entryPage.docs.filter((row) =>
+          (row.data()?.kind === "addendum") === isAddendum);
+        if (entryPage.docs.length > MAX_SESSION_ENTRIES + MAX_SESSION_ADDENDA ||
+            relevantEntries.length >= (isAddendum ? MAX_SESSION_ADDENDA : MAX_SESSION_ENTRIES)) {
           throw new AssetHierarchyMutationError(
             "failed-precondition",
-            "This Morning Review already contains the maximum entry count.",
-            {reasonCode: "morning-review-entry-capacity-reached"},
+            isAddendum ? "This Morning Review already contains 50 addenda." :
+              "This Morning Review already contains the maximum entry count.",
+            {reasonCode: isAddendum ? "morning-review-addendum-capacity-reached" :
+              "morning-review-entry-capacity-reached"},
           );
         }
         if (draft.kind === "conclusion" && !isFacilitator && !isAdmin) {
@@ -2667,6 +2844,7 @@ export async function mutateMorningReviewWithDb(args: {
         }
         const createdAt = timestampFromDate(committed);
         const retainedExpiresAt = isAddendum ? session.expiresAt : expiresAt;
+        const subject = await resolveMorningReviewSubject(args.db, transaction, draft);
         transaction.set(entryRef, {
           schemaVersion: 1,
           entryId: request.requestId,
@@ -2676,9 +2854,9 @@ export async function mutateMorningReviewWithDb(args: {
           kind: draft.kind,
           text: draft.text,
           assetClassId: draft.assetClassId,
-          assetClassName: draft.assetClassName,
+          assetClassName: subject.assetClassName,
           assetInstanceId: draft.assetInstanceId,
-          assetNumber: draft.assetNumber,
+          assetNumber: subject.assetNumber,
           sourceReferences: draft.sourceReferences,
           authorUid: actorUid,
           authorName: name,
@@ -2727,61 +2905,7 @@ export async function mutateMorningReviewWithDb(args: {
           );
         }
         const draft = request.actionDraft!;
-        // An action's asset is typed identity, not a label: the agenda groups
-        // by it and people are held to it. Storing what the client sent let an
-        // action name an asset the plant does not have, or name a real
-        // instance under another class, number and label. The register is read
-        // here, and the names it holds are the ones recorded.
-        let assetClassName = draft.assetClassName;
-        let assetNumber = draft.assetNumber;
-        if (draft.assetClassId != null && draft.assetInstanceId != null) {
-          const [classSnapshot, instanceSnapshot] = [
-            asSnapshot(
-              await transaction.get(
-                args.db.collection("asset_classes").doc(draft.assetClassId),
-              ),
-              "Morning Review action asset class lookup",
-            ),
-            asSnapshot(
-              await transaction.get(
-                args.db.collection("asset_instances")
-                  .doc(draft.assetInstanceId),
-              ),
-              "Morning Review action asset instance lookup",
-            ),
-          ];
-          const assetClass = classSnapshot.exists ?
-            classSnapshot.data() ?? null : null;
-          const instance = instanceSnapshot.exists ?
-            instanceSnapshot.data() ?? null : null;
-          if (assetClass == null || instance == null) {
-            throw new AssetHierarchyMutationError(
-              "failed-precondition",
-              "This action names an asset the plant register does not hold.",
-              {
-                reasonCode: "morning-review-action-asset-unknown",
-                assetClassId: draft.assetClassId,
-                assetInstanceId: draft.assetInstanceId,
-              },
-            );
-          }
-          if (instance.assetClassId !== draft.assetClassId) {
-            throw new AssetHierarchyMutationError(
-              "failed-precondition",
-              "This action names an asset that belongs to another class.",
-              {
-                reasonCode: "morning-review-action-asset-mismatch",
-                assetClassId: draft.assetClassId,
-                assetInstanceId: draft.assetInstanceId,
-              },
-            );
-          }
-          assetClassName = typeof assetClass.name === "string" &&
-            assetClass.name.trim().length > 0 ?
-            assetClass.name.trim() : draft.assetClassName;
-          assetNumber = instance.assetNumber == null ?
-            draft.assetNumber : String(instance.assetNumber);
-        }
+        const {assetClassName, assetNumber} = await resolveMorningReviewSubject(args.db, transaction, draft);
         let assigneeName: string | null = null;
         if (draft.assigneeUid != null) {
           const target = asSnapshot(
@@ -3060,6 +3184,11 @@ export async function mutateMorningReviewWithDb(args: {
           expiresAt,
           lastMutationId: request.requestId,
         }, {merge: true});
+        transaction.set(args.db.collection("morning_review_concern_history").doc(concernRef.id), {
+          ...concern, status: "resolved", version, resolvedAt: at, resolvedByUid: actorUid, resolvedByName: name,
+          resolutionReason: request.reason, updatedAt: at, updatedByUid: actorUid, updatedByName: name,
+          expiresAt, lastMutationId: request.requestId,
+        });
         if (status === "open") {
           transaction.set(sessionRef, {
             version: currentVersion + 1,
@@ -3093,7 +3222,7 @@ export async function mutateMorningReviewWithDb(args: {
         );
         const concern = concernSnapshot.data() ?? {};
         if (!concernSnapshot.exists || concern.schemaVersion !== 1 ||
-            concern.concernId !== request.concernId || concern.status !== "active") {
+            concern.concernId !== request.concernId || !["active", "resolved"].includes(String(concern.status))) {
           throw new AssetHierarchyMutationError(
             "failed-precondition",
             "Only an active standing concern can be checked.",
@@ -3104,14 +3233,21 @@ export async function mutateMorningReviewWithDb(args: {
           await transaction.get(checkRef),
           "Morning Review standing concern check lookup",
         );
+        if (!checkSnapshot.exists && concern.status !== "active") throw new AssetHierarchyMutationError("failed-precondition", "A resolved concern cannot receive a new daily check.");
         if (checkSnapshot.exists) {
-          throw new AssetHierarchyMutationError(
-            "already-exists",
-            "This standing concern has already been checked today.",
-          );
+          if (request.correctionReason == null) throw new AssetHierarchyMutationError("already-exists", "This standing concern has already been checked today.");
+          if (!hasAnyRole(authority.roles, START_ROLES)) throw new AssetHierarchyMutationError("permission-denied", "Only Admin or SI can correct a check.");
+          if (request.expectedVersion !== currentVersion) throw new AssetHierarchyMutationError("aborted", "The meeting changed. Read the latest check before correcting it.");
+        } else if (request.correctionReason != null) {
+          throw new AssetHierarchyMutationError("failed-precondition", "There is no previous check to correct.");
+        }
+        const auditRef = args.db.collection("morning_review_corrections").doc(request.requestId);
+        if (checkSnapshot.exists) {
+          const priorAudit = asSnapshot(await transaction.get(auditRef), "Check correction audit");
+          if (priorAudit.exists) throw new AssetHierarchyMutationError("data-loss", "Correction history exists without its receipt.");
         }
         const at = timestampFromDate(committed);
-        transaction.set(checkRef, {
+        const correctedCheck = {
           schemaVersion: 1,
           checkId: checkRef.id,
           sessionId,
@@ -3122,8 +3258,12 @@ export async function mutateMorningReviewWithDb(args: {
           checkedAt: at,
           checkedByUid: actorUid,
           checkedByName: name,
-          expiresAt,
-        });
+          expiresAt: checkSnapshot.exists && checkSnapshot.data()?.expiresAt === null ? null : expiresAt,
+        };
+        transaction.set(checkRef, correctedCheck);
+        if (checkSnapshot.exists) transaction.set(auditRef, {schemaVersion: 1, requestId: request.requestId,
+          entityType: "concernCheck", entityId: checkRef.id, sessionId, kind: "correctCheck", reason: request.correctionReason,
+          actorUid, actorName: name, correctedAt: at, before: checkSnapshot.data(), after: correctedCheck});
         const version = currentVersion + 1;
         transaction.set(sessionRef, {
           version,
@@ -3155,6 +3295,18 @@ export async function mutateMorningReviewWithDb(args: {
             {reasonCode: "morning-review-session-version-mismatch"},
           );
         }
+        // Validate the original capture before issuing a new document digest.
+        // Facts use the version-1 string timestamp contract, unchanged by
+        // Firestore timestamp conversion of the enclosing session.
+        const capturedFacts = session.sourceFacts;
+        const capturedDigest = `morningreviewsource1-sha256:${createHash("sha256")
+          .update(stableJson(capturedFacts), "utf8").digest("hex")}`;
+        if (!Array.isArray(capturedFacts) || session.sourceFactCount !== capturedFacts.length ||
+            capturedFacts.length > MAX_SOURCE_FACTS || session.sourceFactDigest !== capturedDigest) {
+          throw new AssetHierarchyMutationError("data-loss",
+            "The captured Morning Review evidence has changed. Reconcile the original evidence before finalizing.",
+            {reasonCode: "morning-review-source-integrity-mismatch"});
+        }
         const documentRef = documents.doc(sessionId);
         const documentSnapshot = asSnapshot(
           await transaction.get(documentRef),
@@ -3172,9 +3324,24 @@ export async function mutateMorningReviewWithDb(args: {
           sessionId,
           committed,
         });
+        const completeManifest = await requireMorningReviewPopulation({db: args.db, tx: transaction, sessionId,
+          entries: frozen.entries, participants: frozen.participants, checks: frozen.concernChecks,
+          actions: frozen.actions.filter((action) => action.data()?.sessionId === sessionId)});
+        const openedAt = timestampDate(session.openedAt);
+        if (!completeManifest && (session.expiresAt === null || openedAt == null || addDays(openedAt, RETENTION_DAYS) <= committed)) {
+          throw new AssetHierarchyMutationError("failed-precondition", "This older meeting has exceeded its original retention period without independent population evidence. Restore and reconcile its original content before finalizing.",
+            {reasonCode: "morning-review-legacy-population-reconciliation-required"});
+        }
         const at = timestampFromDate(committed);
         const version = currentVersion + 1;
         const document = frozenDocumentContent(session, frozen, {
+          // Older sessions have no independent membership evidence. Retain
+          // that uncertainty in the issued minutes; never fabricate a manifest.
+          ...(!completeManifest ? {sourceCaptureState: "bounded",
+            sourceCollectionsAtLimit: boundedSourceCollectionMarkers([
+              ...(session.sourceCollectionsAtLimit as string[]),
+              "Legacy meeting population unverified",
+            ])} : {}),
           finalSummary: request.summary,
           finalizedAt: at,
           finalizedByUid: actorUid,
@@ -3246,8 +3413,18 @@ export async function mutateMorningReviewWithDb(args: {
       actorUid,
       fingerprint: request.fingerprint,
       result: persistedResult(mutationResult),
+      acceptanceBasis: {
+        schemaVersion: 1, actorUid, request: args.data,
+        result: persistedResult(mutationResult),
+        canonicalAsset: request.operation === "CREATE_MORNING_REVIEW_ACTION" ? (() => {
+          const action = pendingWrites.find((write) => write.ref.path === `morning_review_actions/${request.requestId}`)?.data;
+          return action == null ? null : {assetClassId: action.assetClassId, assetClassName: action.assetClassName,
+            assetInstanceId: action.assetInstanceId, assetNumber: action.assetNumber};
+        })() : null,
+      },
       committedAt: timestampFromDate(committed),
-      expiresAt,
+      // Minimal exact-request acceptance must outlive display/document TTL.
+      expiresAt: null,
     });
     await ensureAdmittedContentCanFinalize({
       db: args.db,
@@ -3259,6 +3436,8 @@ export async function mutateMorningReviewWithDb(args: {
       expiresAt,
       timestampFromDate,
     });
+    await protectMorningReviewPopulation({db: args.db, tx: transaction, writes: pendingWrites,
+      creatingSession: request.operation === "START_MORNING_REVIEW" && request.recoveryVersion === 1 ? sessionId : null});
     for (const write of pendingWrites) {
       if (write.data == null) nativeTransaction.delete(write.ref);
       else nativeTransaction.set(write.ref, write.data, write.options);

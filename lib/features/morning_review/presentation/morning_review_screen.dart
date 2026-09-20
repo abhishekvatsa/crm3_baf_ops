@@ -15,17 +15,23 @@ import '../../auth/presentation/current_actor_gate.dart';
 import '../../../core/persistence/durable_submission.dart';
 import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../domain/morning_review_models.dart';
+import '../data/morning_review_rows.dart';
 import '../domain/morning_review_report.dart';
 import '../providers/morning_review_providers.dart';
 import '../services/morning_review_command_service.dart';
 import 'morning_review_agenda_view.dart';
 import 'morning_review_editors.dart';
+import 'morning_review_action_correction_editor.dart';
 import 'saved_morning_review_change_panel.dart';
+import 'morning_review_refused_change_panel.dart';
 
 part 'morning_review_screen.commands.dart';
+part 'morning_review_screen.corrections.dart';
 
 class MorningReviewScreen extends ConsumerStatefulWidget {
-  const MorningReviewScreen({super.key});
+  const MorningReviewScreen({super.key, this.sessionId});
+
+  final String? sessionId;
 
   @override
   ConsumerState<MorningReviewScreen> createState() =>
@@ -36,6 +42,7 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
   bool _busy = false;
   String? _reconciliationScheduledFor;
   DurableSubmission? _savedChange;
+  DurableSubmission? _refusedChange;
   String? _savedChangeError;
 
   void _update(VoidCallback action) => setState(action);
@@ -80,7 +87,9 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
   }
 
   Widget _buildAuthorized(BuildContext context, AppUser actor) {
-    final sessionAsync = ref.watch(currentMorningReviewSessionProvider);
+    final sessionAsync = widget.sessionId == null
+        ? ref.watch(currentMorningReviewSessionProvider)
+        : ref.watch(historicalMorningReviewSessionProvider(widget.sessionId!));
     final recentAsync = ref.watch(recentMorningReviewSessionsProvider);
     final activeActionsAsync = ref.watch(activeMorningReviewActionsProvider);
     final concernsAsync = ref.watch(morningReviewStandingConcernsProvider);
@@ -114,6 +123,8 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
         ),
         body: Column(
           children: [
+            if (_refusedChange != null && _refusedChange!.actorUid == actor.uid)
+              MorningReviewRefusedChangePanel(saved: _refusedChange!),
             if (_savedChange != null || _savedChangeError != null)
               SavedMorningReviewChangePanel(
                 saved: _savedChange,
@@ -138,12 +149,14 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                         onStart: () => unawaited(_startReview()),
                         onNotHeld: () => unawaited(_recordNotHeld()),
                         onOpenArchive: _openArchive,
-                        onAcceptAction:
-                            (action) => unawaited(_acceptAction(action)),
-                        onCompleteAction:
-                            (action) => unawaited(_completeAction(action)),
+                        onAcceptAction: (action) =>
+                            unawaited(_acceptAction(action)),
+                        onAmendAction: (action) =>
+                            unawaited(_amendAction(action)),
+                        onCompleteAction: (action) =>
+                            unawaited(_completeAction(action)),
                       )
-                      : _buildSessionTabs(
+                    : _buildSessionTabs(
                         actor: actor,
                         session: session,
                         recentAsync: recentAsync,
@@ -167,6 +180,8 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
     required AsyncValue<List<MorningReviewStandingConcern>> concernsAsync,
     required List<AssetInstanceRecord> assets,
   }) {
+    final isToday =
+        session.plantDay == ref.watch(morningReviewPlantDayProvider);
     final participantsAsync = ref.watch(
       morningReviewParticipantsProvider(session.sessionId),
     );
@@ -192,44 +207,78 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
         action.actionId: action,
       for (final action in currentActions) action.actionId: action,
     };
-    final visibleActions = actionById.values.toList()..sort(_compareActions);
+    final sortedActions = actionById.values.toList()..sort(_compareActions);
+    final visibleActions = MorningReviewRows(sortedActions, [
+      for (final rows in [currentActions, activeActionsAsync.valueOrNull])
+        if (rows is MorningReviewRows)
+          ...(rows as MorningReviewRows).rejectedIds,
+    ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if ([
+          participantsAsync.valueOrNull,
+          entriesAsync.valueOrNull,
+          checksAsync.valueOrNull,
+          visibleActions,
+          concernsAsync.valueOrNull,
+        ].any((rows) => morningReviewRejectedCount(rows) > 0))
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              'Some meeting records could not be read. Valid records are shown; counts and conclusions may be incomplete.',
+            ),
+          ),
+        if (!isToday)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Historical meeting: ${session.plantDay}. Closing it now records today’s closure time; it does not add attendance for that day.',
+            ),
+          ),
         _SessionStrip(
           session: session,
           actor: actor,
           joined: joined,
-          participantCount: participants.length,
+          participantCount:
+              participantsAsync.isLoading ||
+                  participantsAsync.hasError ||
+                  morningReviewRejectedCount(participants) > 0
+              ? null
+              : participants.length,
           openActionCount:
-              visibleActions
-                  .where(
-                    (action) =>
-                        action.status != MorningReviewActionStatus.completed,
-                  )
-                  .length,
+              sessionActionsAsync.isLoading ||
+                  activeActionsAsync.isLoading ||
+                  sessionActionsAsync.hasError ||
+                  activeActionsAsync.hasError ||
+                  morningReviewRejectedCount(currentActions) +
+                          morningReviewRejectedCount(
+                            activeActionsAsync.valueOrNull,
+                          ) >
+                      0
+              ? null
+              : visibleActions.where((action) => !action.isTerminal).length,
           busy: _busy,
-          onJoin:
-              session.isOpen && !joined
-                  ? () => unawaited(_joinReview(session.sessionId))
-                  : null,
+          onJoin: session.isOpen && isToday && !joined
+              ? () => unawaited(_joinReview(session.sessionId))
+              : null,
           onTakeOver:
               session.isOpen &&
-                      joined &&
-                      actor.canFacilitateMorningReview &&
-                      session.facilitatorUid != actor.uid
-                  ? () => unawaited(_takeOver(session))
-                  : null,
+                  (joined || (!isToday && actor.isAdmin)) &&
+                  actor.canFacilitateMorningReview &&
+                  session.facilitatorUid != actor.uid
+              ? () => unawaited(_takeOver(session))
+              : null,
           onFinalize:
               session.isOpen &&
-                      (session.facilitatorUid == actor.uid || actor.isAdmin)
-                  ? () => unawaited(_finalize(session))
-                  : null,
-          onOpenRecord:
-              session.isFinalized
-                  ? () => _openArchive(session.sessionId)
-                  : null,
+                  actor.canFacilitateMorningReview &&
+                  (session.facilitatorUid == actor.uid || actor.isAdmin)
+              ? () => unawaited(_finalize(session))
+              : null,
+          onOpenRecord: session.isFinalized
+              ? () => _openArchive(session.sessionId)
+              : null,
         ),
         Expanded(
           child: TabBarView(
@@ -242,37 +291,34 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                 entriesAsync: entriesAsync,
                 concernsAsync: concernsAsync,
                 checksAsync: checksAsync,
-                onAddEntry:
-                    session.isOpen && joined
-                        ? (fact) => unawaited(
-                          _addEntry(
-                            actor: actor,
-                            session: session,
-                            assets: assets,
-                            sourceFact: fact,
-                          ),
-                        )
-                        : null,
-                onAddConcern:
-                    session.isOpen && joined
-                        ? () => unawaited(_addStandingConcern(session))
-                        : null,
-                onCheckConcern:
-                    session.isOpen && joined
-                        ? (concern) =>
-                            unawaited(_checkStandingConcern(session, concern))
-                        : null,
+                onAddEntry: session.isOpen && isToday && joined
+                    ? (fact) => unawaited(
+                        _addEntry(
+                          actor: actor,
+                          session: session,
+                          assets: assets,
+                          sourceFact: fact,
+                        ),
+                      )
+                    : null,
+                onAddConcern: session.isOpen && isToday && joined
+                    ? () => unawaited(_addStandingConcern(session))
+                    : null,
+                onCheckConcern: session.isOpen && isToday && joined
+                    ? (concern) =>
+                          unawaited(_checkStandingConcern(session, concern))
+                    : null,
                 onResolveConcern:
                     session.isOpen && (actor.isAdmin || actor.isSI)
-                        ? (concern) =>
-                            unawaited(_resolveStandingConcern(session, concern))
-                        : null,
+                    ? (concern) =>
+                          unawaited(_resolveStandingConcern(session, concern))
+                    : null,
                 onAddAddendum:
                     session.isFinalized && (actor.isAdmin || actor.isSI)
-                        ? () => unawaited(
-                          _addAddendum(session: session, assets: assets),
-                        )
-                        : null,
+                    ? () => unawaited(
+                        _addAddendum(session: session, assets: assets),
+                      )
+                    : null,
               ),
               _ActionBoundary(
                 actor: actor,
@@ -284,17 +330,17 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                 loading:
                     sessionActionsAsync.isLoading ||
                     activeActionsAsync.isLoading,
-                canCreate: session.isOpen && joined,
-                onCreate:
-                    () => unawaited(
-                      _createAction(
-                        session: session,
-                        assets: assets,
-                        participants: participants,
-                      ),
-                    ),
+                canCreate: session.isOpen && isToday && joined,
+                onCreate: () => unawaited(
+                  _createAction(
+                    session: session,
+                    assets: assets,
+                    participants: participants,
+                  ),
+                ),
                 onAccept: (action) => unawaited(_acceptAction(action)),
                 onComplete: (action) => unawaited(_completeAction(action)),
+                onAmend: (action) => unawaited(_amendAction(action)),
               ),
               _PeopleBoundary(
                 session: session,
@@ -302,6 +348,7 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                 joined: joined,
                 busy: _busy,
                 participantsAsync: participantsAsync,
+                canJoin: isToday,
                 onJoin: () => unawaited(_joinReview(session.sessionId)),
               ),
               _ArchiveTab(recentAsync: recentAsync, onOpen: _openArchive),
@@ -315,7 +362,14 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
   void _openArchive(String sessionId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => MorningReviewRecordScreen(sessionId: sessionId),
+        builder: (_) =>
+            ref
+                    .read(recentMorningReviewSessionsProvider)
+                    .valueOrNull
+                    ?.any((row) => row.sessionId == sessionId && row.isOpen) ==
+                true
+            ? MorningReviewScreen(sessionId: sessionId)
+            : MorningReviewRecordScreen(sessionId: sessionId),
       ),
     );
   }
@@ -333,6 +387,7 @@ class _NoSessionTabs extends StatelessWidget {
     required this.onOpenArchive,
     required this.onAcceptAction,
     required this.onCompleteAction,
+    required this.onAmendAction,
   });
 
   final AppUser actor;
@@ -345,6 +400,7 @@ class _NoSessionTabs extends StatelessWidget {
   final ValueChanged<String> onOpenArchive;
   final ValueChanged<MorningReviewAction> onAcceptAction;
   final ValueChanged<MorningReviewAction> onCompleteAction;
+  final ValueChanged<MorningReviewAction> onAmendAction;
 
   @override
   Widget build(BuildContext context) => TabBarView(
@@ -367,6 +423,7 @@ class _NoSessionTabs extends StatelessWidget {
         onCreate: null,
         onAccept: onAcceptAction,
         onComplete: onCompleteAction,
+        onAmend: onAmendAction,
       ),
       BafStatePanel.empty(
         title: 'Attendance starts with the meeting',
@@ -409,22 +466,20 @@ class _NoSessionAgenda extends StatelessWidget {
               (concern) => concern.status == MorningReviewConcernStatus.active,
             )
             .toList();
-    final title =
-        adminBypass
-            ? 'Admin start override available'
-            : minute < 480
-            ? 'Today\'s review window has not opened'
-            : missedWindow
-            ? 'Today\'s review was not opened'
-            : 'Ready for today\'s Morning Review';
-    final message =
-        adminBypass
-            ? 'Admin may open today\'s session outside the standard 08:00–10:00 India-time window. The start remains attributed and audited.'
-            : minute < 480
-            ? 'An Admin or SI can open the single daily session between 08:00 and 10:00 India time.'
-            : missedWindow
-            ? 'An Admin or SI can record why the meeting was not held. A late meeting cannot be back-created.'
-            : 'One Admin or SI opens the session. Other approved users join explicitly before contributing.';
+    final title = adminBypass
+        ? 'Admin start override available'
+        : minute < 480
+        ? 'Today\'s review window has not opened'
+        : missedWindow
+        ? 'Today\'s review was not opened'
+        : 'Ready for today\'s Morning Review';
+    final message = adminBypass
+        ? 'Admin may open today\'s session outside the standard 08:00–10:00 India-time window. The start remains attributed and audited.'
+        : minute < 480
+        ? 'An Admin or SI can open the single daily session between 08:00 and 10:00 India time.'
+        : missedWindow
+        ? 'An Admin or SI can record why the meeting was not held. A late meeting cannot be back-created.'
+        : 'One Admin or SI opens the session. Other approved users join explicitly before contributing.';
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -433,23 +488,20 @@ class _NoSessionAgenda extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               BafStatePanel(
-                icon:
-                    canStartNow
-                        ? Icons.schedule_rounded
-                        : Icons.event_busy_outlined,
+                icon: canStartNow
+                    ? Icons.schedule_rounded
+                    : Icons.event_busy_outlined,
                 color: canStartNow ? BafColors.cobalt : BafColors.textSecondary,
                 title: title,
                 message: message,
-                primaryLabel:
-                    canStartNow
-                        ? 'Start Morning Review'
-                        : actor.canStartMorningReview && missedWindow
-                        ? 'Record not held'
-                        : null,
-                primaryIcon:
-                    canStartNow
-                        ? Icons.play_arrow_rounded
-                        : Icons.event_busy_outlined,
+                primaryLabel: canStartNow
+                    ? 'Start Morning Review'
+                    : actor.canStartMorningReview && missedWindow
+                    ? 'Record not held'
+                    : null,
+                primaryIcon: canStartNow
+                    ? Icons.play_arrow_rounded
+                    : Icons.event_busy_outlined,
                 onPrimary: canStartNow ? onStart : onNotHeld,
                 busy: busy,
               ),
@@ -511,8 +563,8 @@ class _SessionStrip extends StatelessWidget {
   final MorningReviewSession session;
   final AppUser actor;
   final bool joined;
-  final int participantCount;
-  final int openActionCount;
+  final int? participantCount;
+  final int? openActionCount;
   final bool busy;
   final VoidCallback? onJoin;
   final VoidCallback? onTakeOver;
@@ -535,10 +587,9 @@ class _SessionStrip extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           _StatusPill(
-            icon:
-                session.isOpen
-                    ? Icons.radio_button_checked
-                    : Icons.verified_outlined,
+            icon: session.isOpen
+                ? Icons.radio_button_checked
+                : Icons.verified_outlined,
             label: session.isOpen ? 'Live' : 'Finalized',
             color: session.isOpen ? BafColors.success : BafColors.cobalt,
           ),
@@ -549,18 +600,23 @@ class _SessionStrip extends StatelessWidget {
           ),
           _StatusPill(
             icon: Icons.groups_outlined,
-            label: '$participantCount joined',
+            label: participantCount == null
+                ? 'Attendance incomplete'
+                : '$participantCount joined',
             color: BafColors.cobalt,
           ),
           _StatusPill(
             icon: Icons.task_alt_outlined,
-            label: '$openActionCount active actions',
+            label: openActionCount == null
+                ? 'Action count unavailable'
+                : '$openActionCount active actions',
             color: openActionCount == 0 ? BafColors.success : BafColors.warning,
           ),
           if (session.isOpen)
             _StatusPill(
-              icon:
-                  joined ? Icons.how_to_reg_rounded : Icons.visibility_outlined,
+              icon: joined
+                  ? Icons.how_to_reg_rounded
+                  : Icons.visibility_outlined,
               label: joined ? 'Attendance recorded' : 'Viewing only',
               color: joined ? BafColors.success : BafColors.textSecondary,
             ),
@@ -670,6 +726,7 @@ class _ActionBoundary extends StatelessWidget {
     required this.onCreate,
     required this.onAccept,
     required this.onComplete,
+    required this.onAmend,
   });
 
   final AppUser actor;
@@ -682,6 +739,7 @@ class _ActionBoundary extends StatelessWidget {
   final VoidCallback? onCreate;
   final ValueChanged<MorningReviewAction> onAccept;
   final ValueChanged<MorningReviewAction> onComplete;
+  final ValueChanged<MorningReviewAction> onAmend;
 
   @override
   Widget build(BuildContext context) {
@@ -697,6 +755,7 @@ class _ActionBoundary extends StatelessWidget {
       onCreate: onCreate,
       onAccept: onAccept,
       onComplete: onComplete,
+      onAmend: onAmend,
     );
   }
 }
@@ -710,6 +769,7 @@ class _ActionTab extends StatelessWidget {
     required this.onCreate,
     required this.onAccept,
     required this.onComplete,
+    required this.onAmend,
   });
 
   final AppUser actor;
@@ -719,6 +779,7 @@ class _ActionTab extends StatelessWidget {
   final VoidCallback? onCreate;
   final ValueChanged<MorningReviewAction> onAccept;
   final ValueChanged<MorningReviewAction> onComplete;
+  final ValueChanged<MorningReviewAction> onAmend;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -730,19 +791,22 @@ class _ActionTab extends StatelessWidget {
             BafScreenIntro(
               title: 'Actions that remain owned',
               subtitle:
-                  'Open actions survive the meeting record and remain here until completion.',
+                  'Open actions remain owned. Recent completions and cancellations stay visible for follow-through.',
               icon: Icons.task_alt_outlined,
               accent: BafColors.warning,
-              trailing:
-                  canCreate
-                      ? FilledButton.icon(
-                        onPressed: busy ? null : onCreate,
-                        icon: const Icon(Icons.assignment_add),
-                        label: const Text('Create action'),
-                      )
-                      : null,
+              trailing: canCreate
+                  ? FilledButton.icon(
+                      onPressed: busy ? null : onCreate,
+                      icon: const Icon(Icons.assignment_add),
+                      label: const Text('Create action'),
+                    )
+                  : null,
             ),
             const SizedBox(height: BafSpacing.xl),
+            if (morningReviewRejectedCount(actions) > 0)
+              const Text(
+                'Some action records could not be read. This list is incomplete.',
+              ),
             if (actions.isEmpty)
               BafStatePanel.empty(
                 title: 'No active Morning Review actions',
@@ -761,6 +825,9 @@ class _ActionTab extends StatelessWidget {
                     busy: busy,
                     onAccept: () => onAccept(action),
                     onComplete: () => onComplete(action),
+                    onAmend: actor.canFacilitateMorningReview
+                        ? () => onAmend(action)
+                        : null,
                   ),
                 ),
               ),
@@ -779,6 +846,7 @@ class _PeopleBoundary extends StatelessWidget {
     required this.busy,
     required this.participantsAsync,
     required this.onJoin,
+    this.canJoin = true,
   });
 
   final MorningReviewSession session;
@@ -787,6 +855,7 @@ class _PeopleBoundary extends StatelessWidget {
   final bool busy;
   final AsyncValue<List<MorningReviewParticipant>> participantsAsync;
   final VoidCallback onJoin;
+  final bool canJoin;
 
   @override
   Widget build(BuildContext context) => participantsAsync.when(
@@ -804,7 +873,7 @@ class _PeopleBoundary extends StatelessWidget {
                     'Only users who select Join appear in the meeting record.',
                 icon: Icons.how_to_reg_outlined,
                 accent: BafColors.cobalt,
-                trailing: session.isOpen && !joined
+                trailing: session.isOpen && canJoin && !joined
                     ? FilledButton.icon(
                         onPressed: busy ? null : onJoin,
                         icon: const Icon(Icons.how_to_reg_outlined),
@@ -856,6 +925,10 @@ class _ArchiveTab extends StatelessWidget {
                 accent: BafColors.audit,
               ),
               const SizedBox(height: BafSpacing.xl),
+              if (morningReviewRejectedCount(sessions) > 0)
+                const Text(
+                  'Some meeting records could not be read. This archive list is incomplete.',
+                ),
               if (sessions.isEmpty)
                 BafStatePanel.empty(
                   title: 'No retained meeting records',
@@ -869,9 +942,7 @@ class _ArchiveTab extends StatelessWidget {
                   (session) => Padding(
                     padding: const EdgeInsets.only(bottom: BafSpacing.sm),
                     child: BafRecordSurface(
-                      onTap: session.isOpen
-                          ? null
-                          : () => onOpen(session.sessionId),
+                      onTap: () => onOpen(session.sessionId),
                       accent: session.isOpen
                           ? BafColors.success
                           : session.status == MorningReviewStatus.notHeld
@@ -971,23 +1042,21 @@ class MorningReviewRecordScreen extends ConsumerWidget {
                   children: [
                     BafScreenIntro(
                       title: document.title,
-                      subtitle:
-                          document.status == MorningReviewStatus.notHeld
-                              ? 'Meeting not held'
-                              : 'Frozen source, attendance and action record',
+                      subtitle: document.status == MorningReviewStatus.notHeld
+                          ? 'Meeting not held'
+                          : 'Frozen source, attendance and action record',
                       icon: Icons.inventory_2_outlined,
                       accent: BafColors.audit,
                       trailing: FilledButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder:
-                                  (_) => StructuredReportPdfPreviewScreen(
-                                    report: buildMorningReviewReport(
-                                      document: document,
-                                      addenda: addenda,
-                                    ),
-                                  ),
+                              builder: (_) => StructuredReportPdfPreviewScreen(
+                                report: buildMorningReviewReport(
+                                  document: document,
+                                  addenda: addenda,
+                                ),
+                              ),
                             ),
                           );
                         },
@@ -1032,12 +1101,12 @@ class MorningReviewRecordScreen extends ConsumerWidget {
                                     '${document.standingConcerns.length} concerns',
                                 color:
                                     document.standingConcerns.any(
-                                          (concern) =>
-                                              concern.status ==
-                                              MorningReviewConcernStatus.active,
-                                        )
-                                        ? BafColors.warning
-                                        : BafColors.success,
+                                      (concern) =>
+                                          concern.status ==
+                                          MorningReviewConcernStatus.active,
+                                    )
+                                    ? BafColors.warning
+                                    : BafColors.success,
                               ),
                               _StatusPill(
                                 icon: Icons.note_add_outlined,
@@ -1067,6 +1136,7 @@ class _ActionCard extends StatelessWidget {
     required this.busy,
     required this.onAccept,
     required this.onComplete,
+    required this.onAmend,
   });
 
   final MorningReviewAction action;
@@ -1074,20 +1144,19 @@ class _ActionCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onAccept;
   final VoidCallback onComplete;
+  final VoidCallback? onAmend;
 
   @override
   Widget build(BuildContext context) {
     final completed = action.status == MorningReviewActionStatus.completed;
-    final owner =
-        action.assigneeRole == null
-            ? action.assigneeName ?? action.assigneeUid ?? 'Unassigned'
-            : morningReviewRoleLabel(action.assigneeRole!);
-    final color =
-        completed
-            ? BafColors.success
-            : action.dueAt?.isBefore(DateTime.now()) == true
-            ? BafColors.danger
-            : BafColors.warning;
+    final owner = action.assigneeRole == null
+        ? action.assigneeName ?? action.assigneeUid ?? 'Unassigned'
+        : morningReviewRoleLabel(action.assigneeRole!);
+    final color = completed
+        ? BafColors.success
+        : action.dueAt?.isBefore(DateTime.now()) == true
+        ? BafColors.danger
+        : BafColors.warning;
     return BafRecordSurface(
       accent: color,
       child: Column(
@@ -1105,12 +1174,11 @@ class _ActionCard extends StatelessWidget {
                 ),
               ),
               _StatusPill(
-                icon:
-                    completed
-                        ? Icons.check_rounded
-                        : action.status == MorningReviewActionStatus.accepted
-                        ? Icons.handshake_outlined
-                        : Icons.schedule_outlined,
+                icon: completed
+                    ? Icons.check_rounded
+                    : action.status == MorningReviewActionStatus.accepted
+                    ? Icons.handshake_outlined
+                    : Icons.schedule_outlined,
                 label: action.status.name,
                 color: color,
               ),
@@ -1130,11 +1198,19 @@ class _ActionCard extends StatelessWidget {
                 : 'Due ${DateFormat('dd MMM yyyy, HH:mm').format(_indiaTime(action.dueAt!))} IST · from ${action.sessionId}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (onAmend != null)
+            TextButton.icon(
+              onPressed: busy ? null : onAmend,
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Correct action'),
+            ),
+          if (action.cancellationReason != null)
+            Text('Cancelled: ${action.cancellationReason}'),
           if (action.completionNote != null) ...[
             const SizedBox(height: BafSpacing.sm),
             Text(action.completionNote!),
           ],
-          if (canMutate && !completed) ...[
+          if (canMutate && !action.isTerminal) ...[
             const SizedBox(height: BafSpacing.sm),
             Wrap(
               spacing: BafSpacing.sm,
@@ -1285,8 +1361,8 @@ int _compareActions(MorningReviewAction left, MorningReviewAction right) {
 
 String _assetLabel(String? assetClassName, String? assetNumber) =>
     assetClassName == null || assetNumber == null
-        ? 'Plant-wide'
-        : '$assetClassName $assetNumber';
+    ? 'Plant-wide'
+    : '$assetClassName $assetNumber';
 
 DateTime _indiaTime(DateTime value) =>
     value.toUtc().add(const Duration(hours: 5, minutes: 30));

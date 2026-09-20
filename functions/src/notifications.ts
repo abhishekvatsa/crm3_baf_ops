@@ -78,6 +78,10 @@ export interface FcmMessage {
   data?: Readonly<Record<string, string>>;
   android?: {
     priority?: "high" | "normal";
+    // Firebase Admin expects Android TTL in milliseconds. A bounded lifetime
+    // prevents a queued workflow message from arriving as if it were still
+    // current after the underlying obligation has changed.
+    ttl?: number;
     notification?: {sound?: string; channelId?: string; tag?: string};
   };
 }
@@ -412,6 +416,7 @@ export async function sendNotification(args: {
   unknownAgencies?: ReadonlyArray<string>;
   androidChannelId?: string;
   androidNotificationTag?: string;
+  androidTtlMs?: number;
   data?: Readonly<Record<string, string>>;
 }): Promise<SendOutcome> {
   const {
@@ -423,8 +428,12 @@ export async function sendNotification(args: {
     unknownAgencies = [],
     androidChannelId = "crm3_baf_ops",
     androidNotificationTag,
+    androidTtlMs = 5 * 60 * 1000,
     data,
   } = args;
+  if (!Number.isSafeInteger(androidTtlMs) || androidTtlMs < 0) {
+    throw new Error("androidTtlMs must be a non-negative safe integer.");
+  }
 
   // Deduplicate by token (a shared device should only buzz once), but
   // remember EVERY uid that pointed at that token. The same dead token
@@ -461,6 +470,7 @@ export async function sendNotification(args: {
       ...(data == null ? {} : {data}),
       android: {
         priority: "high",
+        ttl: androidTtlMs,
         notification: {
           sound: "default",
           channelId: androidChannelId,

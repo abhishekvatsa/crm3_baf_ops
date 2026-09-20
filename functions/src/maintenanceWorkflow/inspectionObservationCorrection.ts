@@ -80,13 +80,21 @@ export async function requireInspectionCorrectionContext(
         !Number.isSafeInteger(row.version) || (row.version as number) < historical.linkageVersion! ||
         (row.active !== true && row.active !== false)) refuse();
     const removedAt = row.removedAt == null ? null : persistedInstantText(row.removedAt);
-    if ((row.active === true && row.removedAt != null) ||
-        (row.active === false && removedAt == null)) refuse();
+    const removedPhysicalAt = row.removedPhysicalAt == null ? null :
+      persistedInstantText(row.removedPhysicalAt);
+    if ((row.active === true && (row.removedAt != null || row.removedPhysicalAt != null)) ||
+        (row.active === false && removedAt == null) ||
+        (row.removedPhysicalAt != null && (removedPhysicalAt == null || removedAt == null ||
+          Date.parse(removedPhysicalAt) > Date.parse(removedAt)))) refuse();
+    // Modern removal separates the physical event from its later recording.
+    // Only the physical boundary can establish where this reading was taken.
+    // Older histories retain their original single-time interpretation.
+    const installationEndedAt = removedPhysicalAt ?? removedAt;
     const originalAt = persistedInstantText(original.observedAt);
     if (originalAt == null || historical.linkedAt == null ||
         Date.parse(originalAt) < Date.parse(historical.linkedAt) ||
-        (removedAt != null && (Date.parse(removedAt) < Date.parse(historical.linkedAt) ||
-          Date.parse(originalAt) >= Date.parse(removedAt) || Date.parse(observedAt) >= Date.parse(removedAt)))) {
+        (installationEndedAt != null && (Date.parse(installationEndedAt) < Date.parse(historical.linkedAt) ||
+          Date.parse(originalAt) >= Date.parse(installationEndedAt) || Date.parse(observedAt) >= Date.parse(installationEndedAt)))) {
       throw new WorkflowError("failed-precondition", "A correction must remain within the original Inner Cover installation.",
         {reasonCode: "inspection-correction-outside-linkage"});
     }

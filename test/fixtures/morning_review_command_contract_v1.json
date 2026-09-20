@@ -84,6 +84,15 @@
       "reason",
       "requestId",
       "sessionId"
+    ],
+    "AMEND_MORNING_REVIEW_ACTION": [
+      "actionCorrection",
+      "actionId",
+      "expectedVersion",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
     ]
   },
   "entryDraftFields": [

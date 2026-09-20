@@ -237,6 +237,9 @@ export const equipmentProjectionWrite = (
     metadata.assetInstanceId,
   );
   if (current != null) assertEquipmentProjectionIdentity(current, identity);
+  const currentState = typeof current?.state === "string" ? current.state : null;
+  const stateChanged = currentState != null && currentState !== projection.state;
+  const observedTransition = stateChanged && !metadata.trigger.startsWith("reconcile:");
   return {
     assetTypeKey: identity.assetTypeKey,
     assetNumber: identity.assetNumber,
@@ -244,17 +247,21 @@ export const equipmentProjectionWrite = (
       assetClassId: identity.assetClassId,
       assetInstanceId: identity.assetInstanceId,
     } : {}),
-    previousState: current?.state ?? "inService",
+    previousState: stateChanged ? currentState : current?.previousState ?? currentState ?? projection.state,
     state: projection.state,
     activeNonRedMaintenanceCount: facts.activeNonRedMaintenanceCount,
     activeRedWorkCount: facts.activeRedWorkCount,
     awaitingPreparationCount: facts.awaitingPreparationCount,
-    transitionTrigger: metadata.trigger,
-    lastTransitionAt: metadata.at,
-    lastTransitionByUid: metadata.actorUid,
-    lastTransitionByName: metadata.actorName,
-    availableSince: projection.state === "available" ? metadata.at : null,
-    inServiceSince: projection.state === "inService" ? (current?.inServiceSince ?? metadata.at) : null,
+    transitionTrigger: stateChanged ? metadata.trigger : current?.transitionTrigger ?? null,
+    lastTransitionAt: observedTransition ? metadata.at : stateChanged ? null : current?.lastTransitionAt ?? null,
+    lastTransitionByUid: observedTransition ? metadata.actorUid : stateChanged ? null : current?.lastTransitionByUid ?? null,
+    lastTransitionByName: observedTransition ? metadata.actorName : stateChanged ? null : current?.lastTransitionByName ?? null,
+    availableSince: projection.state === "available" ?
+      (currentState === "available" ? current?.availableSince ?? null :
+        observedTransition ? metadata.at : null) : null,
+    inServiceSince: projection.state === "inService" ?
+      (currentState === "inService" ? current?.inServiceSince ?? null :
+        observedTransition ? metadata.at : null) : null,
     version: (typeof current?.version === "number" ? current.version : 0) + 1,
     updatedAt: metadata.at,
   };

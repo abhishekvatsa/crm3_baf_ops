@@ -41,17 +41,16 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
   Future<void> _openModuleComposer(AppUser actor) async {
     final output = await Navigator.of(context).push<TemplateComposerOutput>(
       MaterialPageRoute(
-        builder:
-            (_) => ModuleComposerScreen(
-              initialJobTemplateJson: _jobTemplateJsonController.text,
-              initialModuleSnapshotsJson: _moduleSnapshotsJsonController.text,
-              initialFieldDefinitionsJson: _fieldDefinitionsJsonController.text,
-              initialChecklistJson: _checklistJsonController.text,
-              recoveryScopeId:
-                  _selectedPackage?.firestoreId ??
-                  _packageCodeController.text.trim(),
-              canSeedCloudKnowledge: actor.canManageTemplateGovernance,
-            ),
+        builder: (_) => ModuleComposerScreen(
+          initialJobTemplateJson: _jobTemplateJsonController.text,
+          initialModuleSnapshotsJson: _moduleSnapshotsJsonController.text,
+          initialFieldDefinitionsJson: _fieldDefinitionsJsonController.text,
+          initialChecklistJson: _checklistJsonController.text,
+          recoveryScopeId:
+              _selectedPackage?.firestoreId ??
+              _packageCodeController.text.trim(),
+          canSeedCloudKnowledge: actor.canManageTemplateGovernance,
+        ),
       ),
     );
 
@@ -76,24 +75,23 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
     if (!_hasMeaningfulPublisherPayload()) return true;
     final result = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Replace publisher JSON?'),
-            content: const Text(
-              'The Module Composer will replace the current JSON payloads in this draft. Existing pasted JSON will not be deleted from any published version, but the current editor fields will be overwritten.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                onPressed: () => Navigator.pop(context, true),
-                icon: const Icon(Icons.swap_horiz_rounded),
-                label: const Text('Replace JSON'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Replace publisher JSON?'),
+        content: const Text(
+          'The Module Composer will replace the current JSON payloads in this draft. Existing pasted JSON will not be deleted from any published version, but the current editor fields will be overwritten.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text('Replace JSON'),
+          ),
+        ],
+      ),
     );
     return result == true;
   }
@@ -149,16 +147,15 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         });
       }
 
-      final syncOutcome =
-          version.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await ref
-                  .read(syncCoordinatorProvider)
-                  .runFullSyncWithResult(
-                    reason:
-                        'template_governance_draft_archived_from_legacy_publisher',
-                    force: true,
-                  );
+      final syncOutcome = version.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await ref
+                .read(syncCoordinatorProvider)
+                .runFullSyncWithResult(
+                  reason:
+                      'template_governance_draft_archived_from_legacy_publisher',
+                  force: true,
+                );
 
       if (!mounted) return;
       final archiveMessage = switch (syncOutcome) {
@@ -220,16 +217,15 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         reason: reason,
       );
 
-      final syncOutcome =
-          version.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await ref
-                  .read(syncCoordinatorProvider)
-                  .runFullSyncWithResult(
-                    reason:
-                        'template_governance_draft_restored_from_legacy_publisher',
-                    force: true,
-                  );
+      final syncOutcome = version.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await ref
+                .read(syncCoordinatorProvider)
+                .runFullSyncWithResult(
+                  reason:
+                      'template_governance_draft_restored_from_legacy_publisher',
+                  force: true,
+                );
 
       if (!mounted) return;
       final restoreMessage = switch (syncOutcome) {
@@ -267,23 +263,22 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       final repo = ref.read(templateGovernanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       final package = await _ensurePackageSaved(repo, actor);
-      final nextVersionNumber =
-          _workingDraft == null
-              ? await _nextAvailableVersionNumber(repo, package)
-              : null;
+      final nextVersionNumber = _workingDraft == null
+          ? await _nextAvailableVersionNumber(repo, package)
+          : null;
       final version = _buildDraftVersion(
         package,
         versionNumberOverride: nextVersionNumber,
+        forkResumedForPublication: true,
       );
       await repo.saveVersion(version, actor: actor);
       _workingDraft = version;
-      final syncOutcome =
-          version.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'template_governance_draft_saved',
-                force: true,
-              );
+      final syncOutcome = version.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'template_governance_draft_saved',
+              force: true,
+            );
       if (!mounted) return;
       final (message, color) = switch (syncOutcome) {
         SyncRequestOutcome.succeeded => (
@@ -328,61 +323,72 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       final version = _buildDraftVersion(
         package,
         versionNumberOverride: nextVersionNumber,
+        forkResumedForPublication: true,
       );
-      // A draft keeps its own number while it is a draft. Publishing makes it
-      // the package's active version, and the governed store requires a
-      // package's active version to be its latest one, so a draft resumed
-      // after another version was published takes a new number here rather
-      // than one that would leave a package no synchronization can accept.
-      final numbering = templatePublicationNumbering(
-        draftVersionNumber: version.versionNumber,
-        latestPublishedVersionNumber: package.latestVersionNumber,
-        nextAvailableVersionNumber: nextVersionNumber,
-      );
-      final resumedVersionNumber = version.versionNumber;
-      version.versionNumber = numbering.versionNumber;
+      await repo.saveVersion(version, actor: actor);
+      var syncOutcome = version.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'template_governance_draft_saved_before_publish',
+              force: true,
+            );
+      if (syncOutcome != SyncRequestOutcome.succeeded) {
+        _workingDraft = version;
+        if (!mounted) return;
+        _showSnack(
+          'Draft v${version.versionNumber} is saved, but it must synchronize before it can be published.',
+          syncOutcome == SyncRequestOutcome.failed
+              ? BafColors.danger
+              : BafColors.warning,
+        );
+        return;
+      }
+
+      final saved = version.firestoreId?.trim().isNotEmpty == true
+          ? await repo.getVersionByFirestoreId(version.firestoreId!)
+          : await repo.getVersionById(version.id);
+      final publishable = saved ?? version;
+      if (publishable.firestoreId?.trim().isNotEmpty != true ||
+          !publishable.isSynced) {
+        throw StateError(
+          'The saved draft could not be read back as a synchronized governed version.',
+        );
+      }
 
       await repo.publishVersion(
-        version,
+        publishable,
         actor: actor,
         reason: _publishReasonController.text.trim(),
       );
 
-      final syncOutcome =
-          version.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'template_governance_version_published',
-                force: true,
-              );
+      syncOutcome = publishable.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'template_governance_version_published',
+              force: true,
+            );
 
       if (!mounted) return;
-      package.latestVersionNumber = numbering.latestVersionNumber;
-      package.activeVersionFirestoreId = version.firestoreId;
+      package.latestVersionNumber = publishable.versionNumber;
+      package.activeVersionFirestoreId = publishable.firestoreId;
       _selectedPackage = package;
       _selectedPackageId = package.firestoreId;
-      final renumbered =
-          numbering.renumbered
-              ? ' The resumed v$resumedVersionNumber draft was published as '
-                  'v${version.versionNumber}: a package is published forwards, '
-                  'and v$resumedVersionNumber is behind its history.'
-              : '';
       final (message, color) = switch (syncOutcome) {
         SyncRequestOutcome.succeeded => (
           'Published and synchronized ${package.packageCode} '
-          'v${version.versionNumber}.$renumbered',
+              'v${publishable.versionNumber}.',
           BafColors.sync,
         ),
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-          '${package.packageCode} v${version.versionNumber} is saved as '
-          'published on this device; governed synchronization is '
-          'queued.$renumbered',
+          '${package.packageCode} v${publishable.versionNumber} is saved as '
+              'published on this device; governed synchronization is '
+              'queued.',
           BafColors.warning,
         ),
         SyncRequestOutcome.failed => (
-          '${package.packageCode} v${version.versionNumber} is saved as '
-          'published on this device, but governed cloud synchronization '
-          'needs attention.$renumbered',
+          '${package.packageCode} v${publishable.versionNumber} is saved as '
+              'published on this device, but governed cloud synchronization '
+              'needs attention.',
           BafColors.danger,
         ),
       };
@@ -401,10 +407,9 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
     TemplateGovernanceRepository repo,
     AppUser actor,
   ) async {
-    final package =
-        _selectedPackage == null
-            ? TemplatePackage()
-            : _clonePackage(_selectedPackage!);
+    final package = _selectedPackage == null
+        ? TemplatePackage()
+        : _clonePackage(_selectedPackage!);
 
     package
       ..packageCode = _packageCodeController.text.trim()
@@ -447,19 +452,27 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
   TemplateVersion _buildDraftVersion(
     TemplatePackage package, {
     int? versionNumberOverride,
+    bool forkResumedForPublication = false,
   }) {
-    final version =
-        _workingDraft == null
-            ? TemplateVersion()
-            : _cloneVersion(_workingDraft!);
+    final nextNumber =
+        versionNumberOverride ?? _nextVersionNumber(packageOverride: package);
+    final resumedDraft = _workingDraft;
+    final version = resumedDraft == null
+        ? TemplateVersion()
+        : forkResumedForPublication &&
+              resumedDraft.firestoreId?.trim().isNotEmpty == true &&
+              resumedDraft.versionNumber < nextNumber
+        ? _forkDraftVersionForPublication(
+            resumedDraft,
+            versionNumber: nextNumber,
+          )
+        : _cloneVersion(resumedDraft);
 
     version
       ..packageFirestoreId = package.firestoreId
-      ..versionNumber =
-          _workingDraft != null && version.versionNumber > 0
-              ? version.versionNumber
-              : versionNumberOverride ??
-                  _nextVersionNumber(packageOverride: package)
+      ..versionNumber = resumedDraft != null && version.firestoreId != null
+          ? version.versionNumber
+          : nextNumber
       ..versionLabel = _cleanOptional(_versionLabelController.text)
       ..status = TemplateVersionStatus.draft
       ..jobTemplateSnapshotJson = _normalizedJson(
@@ -481,8 +494,17 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
   }
 
   String _buildVersionMetadataJson() {
+    final maintenanceClassBatch =
+        ref.read(maintenanceClassDefinitionsProvider).value;
+    if (_selectedMaintenanceClassId != null &&
+        (maintenanceClassBatch?.isComplete != true ||
+            maintenanceClassBatch?.isServerConfirmed != true)) {
+      throw StateError(
+        'The maintenance catalogue is incomplete; repair it before saving a classified template.',
+      );
+    }
     final definitions =
-        ref.read(maintenanceClassDefinitionsProvider).value ??
+        maintenanceClassBatch?.records ??
         const <MaintenanceClassDefinition>[];
     MaintenanceClassDefinition? selected;
     for (final definition in definitions) {

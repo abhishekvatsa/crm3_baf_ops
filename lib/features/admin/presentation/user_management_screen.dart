@@ -11,7 +11,9 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../providers/user_directory_provider.dart';
-import '../providers/user_authority_command_provider.dart';
+import '../repositories/user_directory_repository.dart';
+import 'saved_authority_decisions.dart';
+import '../providers/user_authority_durable_command_provider.dart';
 import '../services/user_authority_command_service.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -35,18 +37,16 @@ class UserManagementScreen extends ConsumerWidget {
     return ColoredBox(
       color: BafColors.background,
       child: currentUserAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Checking user-management authority',
-              color: BafColors.admin,
-            ),
-        error:
-            (e, _) => _AdminUserStateCard(
-              icon: Icons.error_outline_rounded,
-              color: BafColors.danger,
-              title: 'Could not verify admin access',
-              message: '$e',
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Checking user-management authority',
+          color: BafColors.admin,
+        ),
+        error: (e, _) => _AdminUserStateCard(
+          icon: Icons.error_outline_rounded,
+          color: BafColors.danger,
+          title: 'Could not verify admin access',
+          message: '$e',
+        ),
         data: (currentUser) {
           if (currentUser == null || !currentUser.canManageUsers) {
             return const _AdminUserStateCard(
@@ -60,34 +60,58 @@ class UserManagementScreen extends ConsumerWidget {
           final usersAsync = ref.watch(allUsersProvider);
 
           return usersAsync.when(
-            loading:
-                () => const BafLoadingPanel(
-                  label: 'Loading user directory',
-                  color: BafColors.admin,
-                ),
-            error:
-                (e, _) => _AdminUserStateCard(
-                  icon: Icons.error_outline_rounded,
-                  color: BafColors.danger,
-                  title: 'Could not load users',
-                  message: '$e',
-                ),
+            loading: () => const BafLoadingPanel(
+              label: 'Loading user directory',
+              color: BafColors.admin,
+            ),
+            error: (e, _) => _AdminUserStateCard(
+              icon: Icons.error_outline_rounded,
+              color: BafColors.danger,
+              title: 'Could not load users',
+              message: '$e',
+            ),
             data: (users) {
-              final sortedUsers = [...users]..sort((a, b) {
-                final approvalCompare =
-                    a.isApproved == b.isApproved ? 0 : (a.isApproved ? 1 : -1);
-                if (approvalCompare != 0) return approvalCompare;
-                return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-              });
+              final sortedUsers = [...users]
+                ..sort((a, b) {
+                  final approvalCompare = a.isApproved == b.isApproved
+                      ? 0
+                      : (a.isApproved ? 1 : -1);
+                  if (approvalCompare != 0) return approvalCompare;
+                  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+                });
 
-              final pending = sortedUsers.where((u) => !u.isApproved).toList();
+              final pending = sortedUsers
+                  .where(
+                    (u) => !u.isApproved && u.accessDisposition == 'pending',
+                  )
+                  .toList();
+              final withdrawn = sortedUsers
+                  .where(
+                    (u) => !u.isApproved && u.accessDisposition != 'pending',
+                  )
+                  .toList();
               final approved = sortedUsers.where((u) => u.isApproved).toList();
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
                 children: [
+                  const SavedAuthorityDecisions(),
+                  if (users is UserDirectoryPopulation &&
+                      (!users.isComplete ||
+                          users.fromCache ||
+                          users.hasPendingWrites))
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          '${users.fromCache || users.hasPendingWrites ? "This directory is not server-confirmed. New decisions require an online authority check. " : ""}'
+                          '${!users.isComplete ? "Incomplete directory: ${users.failedIds.length} profile(s) need repair. Affected account IDs: ${users.failedIds.join(", ")}. Counts below cover readable accounts only." : ""}',
+                        ),
+                      ),
+                    ),
                   _UserManagementHeader(
                     pendingCount: pending.length,
+                    withdrawnCount: withdrawn.length,
                     approvedCount: approved.length,
                   ),
                   const SizedBox(height: 18),
@@ -95,13 +119,36 @@ class UserManagementScreen extends ConsumerWidget {
                   if (pending.isNotEmpty) ...[
                     const _SectionHeader(
                       title: 'Pending approval',
-                      subtitle: 'Review and approve new users',
+                      subtitle: 'Review new users before first approval',
                       color: BafColors.warning,
                       icon: Icons.pending_actions_rounded,
                     ),
                     const SizedBox(height: 10),
                     ...pending.map(
-                      (user) => _UserCard(user: user, isPending: true),
+                      (user) => _UserCard(
+                        user: user,
+                        isPending: true,
+                        isWithdrawn: false,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+
+                  if (withdrawn.isNotEmpty) ...[
+                    const _SectionHeader(
+                      title: 'Access restoration / prior status review',
+                      subtitle:
+                          'Review previous decisions and retained roles before restoring access',
+                      color: BafColors.danger,
+                      icon: Icons.person_off_rounded,
+                    ),
+                    const SizedBox(height: 10),
+                    ...withdrawn.map(
+                      (user) => _UserCard(
+                        user: user,
+                        isPending: true,
+                        isWithdrawn: true,
+                      ),
                     ),
                     const SizedBox(height: 18),
                   ],
@@ -123,7 +170,11 @@ class UserManagementScreen extends ConsumerWidget {
                     )
                   else
                     ...approved.map(
-                      (user) => _UserCard(user: user, isPending: false),
+                      (user) => _UserCard(
+                        user: user,
+                        isPending: false,
+                        isWithdrawn: false,
+                      ),
                     ),
                 ],
               );
@@ -141,10 +192,12 @@ class UserManagementScreen extends ConsumerWidget {
 
 class _UserManagementHeader extends StatelessWidget {
   final int pendingCount;
+  final int withdrawnCount;
   final int approvedCount;
 
   const _UserManagementHeader({
     required this.pendingCount,
+    required this.withdrawnCount,
     required this.approvedCount,
   });
 
@@ -204,10 +257,9 @@ class _UserManagementHeader extends StatelessWidget {
                   children: [
                     StatusBadge(
                       label: '$pendingCount pending',
-                      color:
-                          pendingCount > 0
-                              ? BafColors.warning
-                              : BafColors.admin,
+                      color: pendingCount > 0
+                          ? BafColors.warning
+                          : BafColors.admin,
                       icon: Icons.pending_rounded,
                     ),
                     StatusBadge(
@@ -215,6 +267,12 @@ class _UserManagementHeader extends StatelessWidget {
                       color: BafColors.sync,
                       icon: Icons.verified_rounded,
                     ),
+                    if (withdrawnCount > 0)
+                      StatusBadge(
+                        label: '$withdrawnCount withdrawn',
+                        color: BafColors.danger,
+                        icon: Icons.person_off_rounded,
+                      ),
                   ],
                 ),
               ],
@@ -280,8 +338,13 @@ class _SectionHeader extends StatelessWidget {
 class _UserCard extends ConsumerWidget {
   final AppUser user;
   final bool isPending;
+  final bool isWithdrawn;
 
-  const _UserCard({required this.user, required this.isPending});
+  const _UserCard({
+    required this.user,
+    required this.isPending,
+    required this.isWithdrawn,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -332,10 +395,14 @@ class _UserCard extends ConsumerWidget {
               const SizedBox(width: 8),
               if (isPending)
                 FilledButton(
-                  onPressed:
-                      isMutating
-                          ? null
-                          : () => _approveUser(context, ref, user),
+                  onPressed: isMutating
+                      ? null
+                      : () => _approveUser(
+                          context,
+                          ref,
+                          user,
+                          restoring: isWithdrawn,
+                        ),
                   style: FilledButton.styleFrom(
                     backgroundColor: BafColors.sync,
                     foregroundColor: Colors.white,
@@ -349,15 +416,19 @@ class _UserCard extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(BafRadius.small),
                     ),
                   ),
-                  child: const Text(
-                    'APPROVE',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                  child: Text(
+                    isWithdrawn ? 'RESTORE' : 'APPROVE',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 )
               else
                 IconButton(
-                  onPressed:
-                      isMutating ? null : () => _revokeUser(context, ref, user),
+                  onPressed: isMutating
+                      ? null
+                      : () => _revokeUser(context, ref, user),
                   tooltip: 'Revoke access',
                   icon: const Icon(Icons.person_off_rounded),
                   color: BafColors.danger,
@@ -382,10 +453,9 @@ class _UserCard extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
                 avatar: const Icon(Icons.edit_rounded, size: 16),
-                onPressed:
-                    isMutating
-                        ? null
-                        : () => _showRoleDialog(context, ref, user),
+                onPressed: isMutating
+                    ? null
+                    : () => _showRoleDialog(context, ref, user),
                 backgroundColor: BafColors.background,
                 side: const BorderSide(color: BafColors.border),
                 visualDensity: VisualDensity.compact,
@@ -401,9 +471,11 @@ class _UserCard extends ConsumerWidget {
   Future<void> _approveUser(
     BuildContext context,
     WidgetRef ref,
-    AppUser user,
-  ) async {
-    if (_currentAdmin(ref) == null) {
+    AppUser user, {
+    required bool restoring,
+  }) async {
+    final origin = _currentAdmin(ref);
+    if (origin == null) {
       _showAccessDeniedSnackBar(context);
       return;
     }
@@ -416,20 +488,36 @@ class _UserCard extends ConsumerWidget {
 
     final reason = await _requestMutationReason(
       context,
-      title: 'Approve ${user.name}',
-      actionLabel: 'APPROVE',
+      title:
+          '${restoring ? 'Restore' : 'Approve'} ${user.name}\nRoles: ${user.roles.map(_roleLabel).join(', ')}'
+          '${user.lastAuthorityReason == null ? "\nPrevious decision unavailable; review this account carefully." : "\nPrevious decision: ${user.lastAuthorityReason}"}',
+      actionLabel: restoring ? 'RESTORE' : 'APPROVE',
     );
     if (reason == null || !context.mounted) return;
+    if (_currentAdmin(ref)?.uid != origin.uid) {
+      _showValidationSnackBar(
+        context,
+        'The reviewing account changed. Reopen this decision.',
+      );
+      return;
+    }
 
     _setMutationBusy(context, ref, user.uid, true);
     try {
-      await ref
-          .read(userAuthorityCommandServiceProvider)
+      final result = await ref
+          .read(userAuthorityDurableCommandControllerProvider)
           .approve(user, reason: reason);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${user.name} approved'),
+          content: Text(
+            result.currentAuthorityStatus != 'available' ||
+                    result.supersededByLaterChange
+                ? 'The original approval was recovered, check the current directory separately before assuming access is unchanged.'
+                : restoring
+                ? '${user.name} access restored'
+                : '${user.name} approved',
+          ),
           backgroundColor: BafColors.sync,
         ),
       );
@@ -446,26 +534,40 @@ class _UserCard extends ConsumerWidget {
     WidgetRef ref,
     AppUser user,
   ) async {
-    if (_currentAdmin(ref) == null) {
+    final origin = _currentAdmin(ref);
+    if (origin == null) {
       _showAccessDeniedSnackBar(context);
       return;
     }
     final reason = await _requestMutationReason(
       context,
-      title: 'Revoke ${user.name}',
+      title:
+          'Withdraw access for ${user.name}\nAn Admin can restore access after a later review.',
       actionLabel: 'REVOKE',
     );
     if (reason == null || !context.mounted) return;
+    if (_currentAdmin(ref)?.uid != origin.uid) {
+      _showValidationSnackBar(
+        context,
+        'The reviewing account changed. Reopen this decision.',
+      );
+      return;
+    }
 
     _setMutationBusy(context, ref, user.uid, true);
     try {
-      await ref
-          .read(userAuthorityCommandServiceProvider)
+      final result = await ref
+          .read(userAuthorityDurableCommandControllerProvider)
           .revoke(user, reason: reason);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${user.name} access revoked'),
+          content: Text(
+            result.currentAuthorityStatus != 'available' ||
+                    result.supersededByLaterChange
+                ? 'The original revocation was recovered, check the current directory separately before assuming access is unchanged.'
+                : '${user.name} access revoked',
+          ),
           backgroundColor: BafColors.warning,
         ),
       );
@@ -482,7 +584,8 @@ class _UserCard extends ConsumerWidget {
     WidgetRef ref,
     AppUser user,
   ) async {
-    if (!_canManageUsers(ref)) {
+    final origin = _currentAdmin(ref);
+    if (origin == null) {
       _showAccessDeniedSnackBar(context);
       return;
     }
@@ -494,7 +597,7 @@ class _UserCard extends ConsumerWidget {
     if (input == null || !context.mounted) return;
 
     final currentUser = _currentAdmin(ref);
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.uid != origin.uid) {
       _showAccessDeniedSnackBar(context);
       return;
     }
@@ -510,13 +613,18 @@ class _UserCard extends ConsumerWidget {
 
     _setMutationBusy(context, ref, user.uid, true);
     try {
-      await ref
-          .read(userAuthorityCommandServiceProvider)
+      final result = await ref
+          .read(userAuthorityDurableCommandControllerProvider)
           .replaceRoles(user, roles: input.roles, reason: input.reason);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Updated roles for ${user.name}'),
+          content: Text(
+            result.currentAuthorityStatus != 'available' ||
+                    result.supersededByLaterChange
+                ? 'The original role decision was recovered, check the current directory separately before assuming access is unchanged.'
+                : 'Updated roles for ${user.name}',
+          ),
           backgroundColor: BafColors.sync,
         ),
       );
@@ -537,10 +645,6 @@ class _UserCard extends ConsumerWidget {
     return currentUser;
   }
 
-  bool _canManageUsers(WidgetRef ref) {
-    return _currentAdmin(ref) != null;
-  }
-
   void _setMutationBusy(
     BuildContext context,
     WidgetRef ref,
@@ -558,8 +662,8 @@ class _UserCard extends ConsumerWidget {
   }) async {
     return showDialog<String>(
       context: context,
-      builder:
-          (_) => _AuthorityReasonDialog(title: title, actionLabel: actionLabel),
+      builder: (_) =>
+          _AuthorityReasonDialog(title: title, actionLabel: actionLabel),
     );
   }
 
@@ -569,18 +673,17 @@ class _UserCard extends ConsumerWidget {
     Object error,
   ) {
     if (!context.mounted) return;
-    final message =
-        error is UserAuthorityMutationException
-            ? switch (error.reasonCode) {
-              'last-approved-admin-required' =>
-                'At least one approved Admin must remain.',
-              'authority-preimage-mismatch' =>
-                'Authority for $targetName changed. Review the latest record and try again.',
-              'approved-admin-required' =>
-                'Your approved Admin authority changed. Re-open User Management.',
-              _ => error.message,
-            }
-            : 'Could not update $targetName: $error';
+    final message = error is UserAuthorityMutationException
+        ? switch (error.reasonCode) {
+            'last-approved-admin-required' =>
+              'At least one approved Admin must remain.',
+            'authority-preimage-mismatch' =>
+              'Authority for $targetName changed. Review the latest record and try again.',
+            'approved-admin-required' =>
+              'Your approved Admin authority changed. Re-open User Management.',
+            _ => error.message,
+          }
+        : 'Could not update $targetName: $error';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: BafColors.danger),
     );
@@ -731,10 +834,9 @@ class _RoleAssignmentDialogState extends State<_RoleAssignmentDialog> {
     final reason = _reasonController.text.trim();
     if (_selectedRoles.isEmpty || reason.isEmpty) {
       setState(() {
-        _validationMessage =
-            _selectedRoles.isEmpty
-                ? 'Select at least one role.'
-                : 'Enter a reason.';
+        _validationMessage = _selectedRoles.isEmpty
+            ? 'Select at least one role.'
+            : 'Enter a reason.';
       });
       return;
     }
@@ -848,8 +950,9 @@ class _UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPhoto = user.photoUrl != null && user.photoUrl!.trim().isNotEmpty;
-    final fallback =
-        user.name.trim().isNotEmpty ? user.name.trim()[0].toUpperCase() : 'U';
+    final fallback = user.name.trim().isNotEmpty
+        ? user.name.trim()[0].toUpperCase()
+        : 'U';
 
     return CircleAvatar(
       radius: 21,

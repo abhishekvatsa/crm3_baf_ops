@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 3,
+  "requestId": "44444444-4444-4444-8444-444444444444",
+  "baseNumber": 12,
+  "baseAssetClassId": "base-class",
+  "baseAssetInstanceId": "base-12",
+  "baseAssetInstanceVersion": 4,
+  "grade": "CRGO M4",
+  "cycleReference": "Cycle family 7A",
+  "chargeNumbers": [
+    12011,
+    12012
+  ],
+  "reason": "Monitor atmosphere stability for the selected product campaign.",
+  "status": "active",
+  "visibilityState": "active",
+  "visibleUntil": null,
+  "archivedAt": null,
+  "createdAt": "2026-08-14T12:00:00.000Z",
+  "createdByUid": "si-1",
+  "createdByName": "SI One",
+  "closedAt": null,
+  "closedByUid": null,
+  "closedByName": null,
+  "closeReason": null,
+  "updatedAt": "2026-08-14T12:00:00.000Z",
+  "updatedByUid": "si-1",
+  "updatedByName": "SI One",
+  "version": 1,
+  "lastMutationId": "11111111-1111-4111-8111-111111111111"
+}

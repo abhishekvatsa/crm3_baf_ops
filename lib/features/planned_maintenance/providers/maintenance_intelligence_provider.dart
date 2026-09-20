@@ -10,7 +10,7 @@ final maintenanceIntelligenceRepositoryProvider =
     });
 
 final maintenanceClassDefinitionsProvider =
-    StreamProvider<List<MaintenanceClassDefinition>>((ref) {
+    StreamProvider<DecodedSnapshotBatch<MaintenanceClassDefinition>>((ref) {
       return ref
           .watch(maintenanceIntelligenceRepositoryProvider)
           .watchClasses();
@@ -23,13 +23,23 @@ final maintenanceDueStatesProvider =
           .watchDueStates();
     });
 
+/// Keeps visible due/overdue labels current even when Firestore has not
+/// emitted a new snapshot at the deadline boundary.
+final maintenanceCadenceClockProvider = StreamProvider.autoDispose<DateTime>(
+  (ref) => Stream.periodic(
+    const Duration(minutes: 1),
+    (_) => DateTime.now(),
+  ),
+);
+
 final maintenanceCompletionEventsProvider =
-    StreamProvider<List<MaintenanceCompletionEvent>>((ref) {
+    StreamProvider<DecodedSnapshotBatch<MaintenanceCompletionEvent>>((ref) {
       return ref
           .watch(maintenanceIntelligenceRepositoryProvider)
           .watchCompletionEvents();
     });
 
-final maintenancePlansProvider = StreamProvider<List<MaintenancePlan>>((ref) {
+final maintenancePlansProvider =
+    StreamProvider<DecodedSnapshotBatch<MaintenancePlan>>((ref) {
   return ref.watch(maintenanceIntelligenceRepositoryProvider).watchPlans();
 });

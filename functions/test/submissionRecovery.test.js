@@ -325,7 +325,7 @@ test('actual unpinned Morning Review acceptance stays read-only after review and
   });
   const accepted = await mutate('2026-08-31T05:00:00.000Z');
   expect(accepted.sessionId).toBe('2026-08-31');
-  expect(m.store.get(receiptPath('morningReview')).expiresAt.toDate().toISOString()).toBe('2026-09-14T05:00:00.000Z');
+  expect(m.store.get(receiptPath('morningReview')).expiresAt).toBeNull();
   m.store.set('submission_recovery_controls/activation', f.activation());
   const reviewed = f.review('morningReview', {originalActorUid: 'admin'});
   const proof = await finalize(m, reviewed, await invoke(m, reviewed));
@@ -333,7 +333,7 @@ test('actual unpinned Morning Review acceptance stays read-only after review and
   expect(await lookupMorningReviewReceiptWithDb({db: m.db, authUid: 'admin', data: request}))
     .toEqual({...accepted, idempotentReplay: true});
   expect(m.writes).toEqual(beforeLookup);
-  m.store.delete(receiptPath('morningReview')); // Simulates the declared TTL, not a production deletion.
+  m.store.delete(receiptPath('morningReview')); // Simulates missing historical evidence; new acceptance receipts no longer expire.
   const before = f.clone([...m.store]);
   await expect(mutate('2026-09-15T05:00:00.000Z'))
     .rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
@@ -361,4 +361,11 @@ test('actual recovery wire fixture remains compatible with the native saved-evid
   const target = path.resolve(__dirname, '../../test/fixtures/saved_submission_review_actual_handler.json');
   if (process.env.UPDATE_SUBMISSION_REVIEW_WIRE_FIXTURE === 'true') fs.writeFileSync(target, `${JSON.stringify(fixture, null, 2)}\n`);
   expect(JSON.parse(fs.readFileSync(target, 'utf8'))).toEqual(fixture);
+});
+
+test('six-domain activation retains existing recovery but does not activate manual-condition finalization',async()=>{
+ const m=f.memory(); const activation=f.activation();activation.domains=activation.domains.filter(d=>d!=='assetCondition' && d!=='ordinaryDirective');
+ m.store.set('submission_recovery_controls/activation',activation);
+ const old=f.review('morningReview');await expect(finalize(m,old,await invoke(m,old))).resolves.toMatchObject({outcome:'cancelled'});
+ const added=f.review('assetCondition');await expect(finalize(m,added,await invoke(m,added))).rejects.toMatchObject({details:{reasonCode:'submission-recovery-finalization-not-activated'}});
 });

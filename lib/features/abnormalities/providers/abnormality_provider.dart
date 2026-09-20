@@ -110,6 +110,14 @@ abstract class AbnormalityRepository {
     int sourceChargeNo,
   );
 
+  /// Reactive stream of all non-deleted charge abnormalities.
+  ///
+  /// The default keeps lightweight test and legacy repositories compatible;
+  /// persistence-backed repositories override it with their native watcher.
+  Stream<List<ChargeAbnormality>> watchAllAbnormalities() async* {
+    yield await getAllAbnormalities();
+  }
+
   Future<List<ChargeAbnormality>> getAbnormalitiesForCharge(int sourceChargeNo);
 
   Future<List<ChargeAbnormality>> getAllAbnormalities();

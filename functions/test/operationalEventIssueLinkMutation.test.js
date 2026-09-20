@@ -104,6 +104,7 @@ function assetReference(overrides = {}) {
     scope: 'physicalAsset',
     assetClassId: IDS.assetClass,
     assetInstanceId: IDS.asset,
+    assetNumber: 7,
     ...overrides,
   });
 }
@@ -343,6 +344,22 @@ describe('operational event issue-link mutation', () => {
     });
   });
 
+  test('new acceptance replay detects changed occurrence evidence', async () => {
+    const memory = fakeDb(baseSeed());
+    const first = await invoke(memory);
+    const path = `operational_event_issue_links/${first.linkId}`;
+    const link = memory.store.get(path);
+    link.eventOccurrenceStartedAt = new Date('2026-08-14T09:00:00.000Z');
+    memory.store.set(path, link);
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {
+        reasonCode: 'operational-event-issue-link-replay-evidence-drift',
+      },
+    });
+  });
+
   test('requires exact event and issue versions', async () => {
     const memory = fakeDb(baseSeed());
     await expect(invoke(memory, 'ops-1', request({
@@ -367,6 +384,26 @@ describe('operational event issue-link mutation', () => {
       details: {reasonCode: 'operational-event-link-scope-mismatch'},
     });
     expect(memory.writes).toHaveLength(0);
+  });
+
+  test('does not launder contradictory or incomplete schema-3 physical evidence', async () => {
+    for (const reference of [
+      assetReference({assetNumber: 8}),
+      assetReference({assetNumber: undefined}),
+    ]) {
+      const memory = fakeDb(baseSeed({
+        [`maintenance_records/${IDS.issue}`]: persistedIssue({
+          assetHierarchyRefJson: reference,
+        }),
+      }));
+      await expect(invoke(memory)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'operational-event-link-issue-asset-reference-malformed',
+        },
+      });
+      expect(memory.writes).toHaveLength(0);
+    }
   });
 
   test('rejects malformed saved projections and duplicate occurrence links', async () => {

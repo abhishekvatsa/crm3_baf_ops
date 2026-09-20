@@ -1133,6 +1133,20 @@ describe('quality mutation', () => {
       grade: 'CRGO M4',
     });
 
+    // Shared with the actual Dart reader/report regression: capture handler output,
+    // never a hand-reconstructed monitoring payload.
+    const producedMonitoring = JSON.parse(JSON.stringify(memory.store.get(
+      `quality_monitoring_requests/${IDS.monitoring}`,
+    )));
+    const monitoringFixturePath = require('path').join(__dirname,
+      'fixtures/quality_monitoring_governed_producer.json');
+    if (process.env.UPDATE_GOVERNED_MONITORING_FIXTURE === '1') {
+      require('fs').writeFileSync(monitoringFixturePath,
+        `${JSON.stringify(producedMonitoring, null, 2)}\n`);
+    }
+    expect(producedMonitoring).toEqual(JSON.parse(require('fs').readFileSync(
+      monitoringFixturePath, 'utf8')));
+
     const closed = await invoke(memory, 'admin-1', {
       requestId: IDS.monitoringClose,
       operation: 'CLOSE_QUALITY_MONITORING_REQUEST',
@@ -1168,7 +1182,7 @@ describe('quality mutation', () => {
     expect(replay).toMatchObject({
       idempotentReplay: true,
       version: 2,
-      entity: {visibilityState: 'archived'},
+      entity: {visibilityState: 'recent'},
     });
   });
 

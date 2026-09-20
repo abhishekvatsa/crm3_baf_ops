@@ -529,6 +529,10 @@ export async function executeIdempotentNotificationEvent<T>(args: {
     throw new NotificationRetryableDeliveryError();
   }
 
+  // Processing completion is not successful delivery. Known failures and an
+  // empty audience need an owned exception; never resend an entire partial fanout.
+  const needsReview = outcome.attempted === 0 || outcome.failed > 0 ||
+    outcome.unknownAgencies.length > 0 || (outcome.ambiguousFailures ?? 0) > 0;
   try {
     await transition("dispatching", {
       status: "completed",
@@ -543,8 +547,9 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       ambiguousFailureCount: outcome.ambiguousFailures ?? 0,
       staleTokensCleared: outcome.staleTokensCleared,
       unknownAgencies: [...outcome.unknownAgencies],
-      lastError: null,
-      requiresAdjudication: false,
+      lastError: needsReview ? "Notification processing finished with unresolved delivery evidence." : null,
+      requiresAdjudication: needsReview,
+      ...(needsReview ? {adjudicationOwnerRole: "admin", deliveryDisposition: "review-required"} : {}),
     });
   } catch (error) {
     try {

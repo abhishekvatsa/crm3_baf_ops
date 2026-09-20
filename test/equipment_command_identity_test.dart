@@ -5,13 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 EquipmentStatusRecord _custom({
   required String assetClassId,
   required String assetInstanceId,
-}) =>
-    EquipmentStatusRecord()
-      ..firestoreId = 'governedCustom_${assetClassId}_$assetInstanceId'
-      ..assetTypeKey = 'governedCustom'
-      ..assetNumber = 3
-      ..assetClassId = assetClassId
-      ..assetInstanceId = assetInstanceId;
+}) => EquipmentStatusRecord()
+  ..firestoreId = 'governedCustom_${assetClassId}_$assetInstanceId'
+  ..assetTypeKey = 'governedCustom'
+  ..assetNumber = 3
+  ..assetClassId = assetClassId
+  ..assetInstanceId = assetInstanceId;
 
 void main() {
   test('custom equipment commands carry exact physical identity', () {
@@ -48,12 +47,13 @@ void main() {
     expect(furnace.aggregateId, isNot(cooler.aggregateId));
   });
 
-  test('legacy equipment command identity remains type and number based', () {
-    final record =
-        EquipmentStatusRecord()
-          ..firestoreId = 'furnace_3'
-          ..assetTypeKey = 'furnace'
-          ..assetNumber = 3;
+  test('built-in equipment commands preserve registered physical identity', () {
+    final record = EquipmentStatusRecord()
+      ..firestoreId = 'furnace_3'
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 3
+      ..assetClassId = 'class-furnace'
+      ..assetInstanceId = 'asset-furnace-3';
 
     final identity = EquipmentCommandIdentity.fromRecord(record);
 
@@ -61,15 +61,46 @@ void main() {
     expect(identity.payload, <String, Object?>{
       'assetTypeKey': 'furnace',
       'assetNumber': 3,
+      'assetClassId': 'class-furnace',
+      'assetInstanceId': 'asset-furnace-3',
     });
   });
 
+  test(
+    'legacy equipment command remains type and number based when identity is absent',
+    () {
+      final record = EquipmentStatusRecord()
+        ..firestoreId = 'furnace_3'
+        ..assetTypeKey = 'furnace'
+        ..assetNumber = 3;
+
+      final identity = EquipmentCommandIdentity.fromRecord(record);
+
+      expect(identity.payload, <String, Object?>{
+        'assetTypeKey': 'furnace',
+        'assetNumber': 3,
+      });
+    },
+  );
+
+  test('incomplete built-in physical identity fails before dispatch', () {
+    final record = EquipmentStatusRecord()
+      ..firestoreId = 'furnace_3'
+      ..assetTypeKey = 'furnace'
+      ..assetNumber = 3
+      ..assetClassId = 'class-furnace';
+
+    expect(
+      () => EquipmentCommandIdentity.fromRecord(record),
+      throwsFormatException,
+    );
+  });
+
   test('incomplete or inconsistent custom identity fails before dispatch', () {
-    final missing =
-        EquipmentStatusRecord()
-          ..firestoreId = 'governedCustom_3'
-          ..assetTypeKey = 'governedCustom'
-          ..assetNumber = 3;
+    final missing = EquipmentStatusRecord()
+      ..firestoreId = 'governedCustom_3'
+      ..assetTypeKey = 'governedCustom'
+      ..assetNumber = 3;
     final inconsistent = _custom(
       assetClassId: 'class-furnace',
       assetInstanceId: 'asset-furnace-3',

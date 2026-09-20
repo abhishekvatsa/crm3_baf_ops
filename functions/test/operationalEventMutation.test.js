@@ -386,6 +386,34 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(writes);
   });
 
+  test('new acceptance replay detects changed supporting audit content', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', request());
+    const auditPath = `operational_event_audits/operational_event_${IDS.create}`;
+    const audit = memory.store.get(auditPath);
+    audit.after.title = 'Altered after acceptance';
+    memory.store.set(auditPath, audit);
+
+    await expect(invoke(memory, 'ops-1', request())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'operational-event-replay-evidence-drift'},
+    });
+  });
+
+  test('new acceptance replay detects changed timestamp evidence', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', request());
+    const auditPath = `operational_event_audits/operational_event_${IDS.create}`;
+    const audit = memory.store.get(auditPath);
+    audit.after.startedAt = new Date('2026-08-14T11:00:00.000Z');
+    memory.store.set(auditPath, audit);
+
+    await expect(invoke(memory, 'ops-1', request())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'operational-event-replay-evidence-drift'},
+    });
+  });
+
   test('receipt replay still checks current account authority and actor identity', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'ops-1', request());
@@ -711,6 +739,48 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('allows a safe same-kind scope expansion while issues are linked', async () => {
+    const secondAsset = '99999999-9999-4999-8999-999999999999';
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`asset_instances/${secondAsset}`]: {
+        schemaVersion: 1,
+        assetInstanceId: secondAsset,
+        assetClassId: IDS.assetClass,
+        assetNumber: 8,
+        name: 'Furnace 8',
+        status: 'active',
+        version: 1,
+      },
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset],
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Record the additional affected furnace after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset, secondAsset],
+      },
+    })).resolves.toMatchObject({ok: true, version: 2});
+    expect(memory.store.get(`operational_events/${IDS.event}`))
+      .toMatchObject({
+        affectedAssetInstanceIds: [IDS.asset, secondAsset],
+        issueLinkIds: ['event_issue_existing'],
+      });
+  });
+
   function resolvedEvent(overrides = {}) {
     return persistedEvent({
       status: 'resolved',
@@ -976,6 +1046,58 @@ describe('operational event mutation', () => {
         startedAt: new Date('2026-08-14T09:45:00.000Z'),
       },
     });
+  });
+
+  test('refuses an operational-event audit before it exceeds the document limit', async () => {
+    const oversizedText = 'अ'.repeat(2000);
+    const oversizedNote = 'ब'.repeat(1000);
+    const completedIntervals = Array.from({length: 100}, (_, index) => {
+      const startedAt = new Date(
+        Date.UTC(2026, 7, 5, 0) + index * 2 * 60 * 60 * 1000,
+      );
+      const resolvedAt = new Date(startedAt.getTime() + 60 * 60 * 1000);
+      return {
+      eventType: 'powerTrip',
+      title: 'Incoming power interruption',
+      description: oversizedText,
+      severity: 'critical',
+      startedAt,
+      resolvedAt,
+      scope: 'plantWide',
+      affectedAssetClassIds: [],
+      affectedAssetInstanceIds: [],
+      issueLinkIds: [],
+      linkedIssueIds: [],
+      resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One',
+      resolutionNote: oversizedNote,
+      };
+    });
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        completedIntervals,
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the description after reviewing the retained history.',
+      eventDraft: {
+        ...request().eventDraft,
+        description: 'Incoming power was confirmed as a recurring interruption.',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'operational-event-storage-bound',
+        label: expect.stringMatching(/^operational event|operational-event audit$/),
+      },
+    });
+    expect(memory.writes).toHaveLength(0);
   });
 
   test('resolves and reopens with supervisory evidence', async () => {

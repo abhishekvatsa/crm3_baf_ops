@@ -77,7 +77,7 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
               BafScreenIntro(
                 title: widget.session.isOpen
                     ? 'Today\'s room'
-                    : 'Frozen meeting',
+                    : 'Meeting follow-through (live)',
                 subtitle: widget.session.isOpen
                     ? widget.joined
                           ? 'Add updates under your own name; source facts remain read-only.'
@@ -142,7 +142,8 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
                       (subject) => subject.section == section,
                     ) ||
                     (section == MorningReviewSection.safety &&
-                        visibleConcerns.isNotEmpty)) ...[
+                        (visibleConcerns.isNotEmpty ||
+                            widget.onAddConcern != null))) ...[
                   const SizedBox(height: BafSpacing.xl),
                   BafSectionLabel(
                     title: morningReviewSectionLabel(section),
@@ -172,9 +173,12 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
                           concern: concern,
                           check: checksByConcern[concern.concernId],
                           onCheck:
-                              concern.status ==
-                                      MorningReviewConcernStatus.active &&
-                                  checksByConcern[concern.concernId] == null
+                              ((concern.status ==
+                                          MorningReviewConcernStatus.active &&
+                                      checksByConcern[concern.concernId] ==
+                                          null) ||
+                                  (checksByConcern[concern.concernId] != null &&
+                                      widget.onResolveConcern != null))
                               ? widget.onCheckConcern == null
                                     ? null
                                     : () => widget.onCheckConcern!(concern)
@@ -298,7 +302,9 @@ class MorningReviewConcernCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onCheck,
                     icon: const Icon(Icons.fact_check_outlined),
-                    label: const Text('Record today\'s check'),
+                    label: Text(
+                      check == null ? 'Record today\'s check' : 'Correct check',
+                    ),
                   ),
                 if (onResolve != null)
                   TextButton.icon(

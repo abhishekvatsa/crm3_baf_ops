@@ -85,6 +85,7 @@ const requireNoDependencies = async (
       inspectionLinks,
       inspectionFindings,
       cases,
+      continuations,
     ] =
       await Promise.all([
         tx.query("directives", [{
@@ -117,6 +118,13 @@ const requireNoDependencies = async (
         tx.query("furnace_stuckup_cases", [{
           field: "ticketId", op: "==", value: sourceDocumentId,
         }]),
+        // A continuation is retained maintenance meaning, not merely a
+        // sibling ticket. Removing the original ticket would leave the
+        // successor's provenance pointing at a document that no longer
+        // exists, so it must be settled before permanent removal.
+        tx.query("maintenance_records", [{
+          field: "continuesIssueId", op: "==", value: sourceDocumentId,
+        }]),
       ]);
     await requireNoRows(directives, "pilot-record-purge-linked-directive");
     await requireNoRows(abnormalities, "pilot-record-purge-linked-abnormality");
@@ -131,6 +139,10 @@ const requireNoDependencies = async (
       "pilot-record-purge-linked-inspection-finding",
     );
     await requireNoRows(cases, "pilot-record-purge-linked-stuckup-case");
+    await requireNoRows(
+      continuations,
+      "pilot-record-purge-linked-maintenance-continuation",
+    );
     // A classified ticket resets maintenance counters. The completion event,
     // the source projection and the due state it produced outlive the ticket,
     // and the due state carries a next-due date the plant schedules against.

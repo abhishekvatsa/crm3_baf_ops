@@ -259,26 +259,24 @@ void main() {
       );
     });
 
-    test('remote draft payload is authoritative for resumed publish replay', () {
+    test('divergent remote draft payload remains a review conflict', () {
       final source = _read(_syncPath);
 
       expect(
         source,
-        contains('_shouldRestoreRemoteDraftPayloadBeforePublishReplay'),
+        contains('_templateVersionPublishReplayPayloadConflict'),
       );
-      expect(source, contains('_restoreRemoteDraftPayloadForPublishReplay'));
       expect(
         source,
-        contains('..jobTemplateSnapshotJson = remote.jobTemplateSnapshotJson'),
+        isNot(contains('_shouldRestoreRemoteDraftPayloadBeforePublishReplay')),
       );
-      expect(source, contains('remote.jobTemplateSnapshotJson'));
-      expect(source, contains('local.refreshContentHash()'));
       expect(
         source,
-        contains('_templateGovernanceRepo.batchUpsertVersions'),
+        contains('localSnapshot: record.toAuditMap()'),
         reason:
-            'the repaired published record must be persisted locally before replay is marked synced',
+            'divergent reviewed payloads must be retained as conflict evidence',
       );
+      expect(source, contains('remoteSnapshot: remote!.toAuditMap()'));
     });
 
     test('offline draft archive replays draft create before scoped archive', () {

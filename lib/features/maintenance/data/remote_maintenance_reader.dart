@@ -63,13 +63,10 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     source: source,
     emptyAsNull: false,
   );
-  final assetHierarchyReference =
-      assetHierarchyRefJson == null
-          ? null
-          : AssetHierarchyReference.decode(
-            assetHierarchyRefJson,
-            source: source,
-          );
+  final assetHierarchyReference = assetHierarchyRefJson == null
+      ? null
+      : AssetHierarchyReference.decode(assetHierarchyRefJson, source: source);
+  final continuesIssueId = _optionalString(map, 'continuesIssueId', source);
   final hasGovernedAssetIdentity =
       assetHierarchyReference != null &&
       assetHierarchyReference.scope != AssetHierarchyReferenceScope.definition;
@@ -389,15 +386,15 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     mergeFurnaceStuckupIntoMaintenanceMetadata(
       qualityIntent != null || burnerLockout != null
           ? mergeMaintenanceMetadataEnvelopes(
-            existing: _optionalString(
-              map,
-              'metadataJson',
-              source,
-              emptyAsNull: false,
-            ),
-            qualityIntent: qualityIntent?.toMap(),
-            burnerLockout: burnerLockout,
-          )
+              existing: _optionalString(
+                map,
+                'metadataJson',
+                source,
+                emptyAsNull: false,
+              ),
+              qualityIntent: qualityIntent?.toMap(),
+              burnerLockout: burnerLockout,
+            )
           : _optionalString(map, 'metadataJson', source, emptyAsNull: false),
       furnaceStuckup,
     ),
@@ -416,13 +413,12 @@ MaintenanceRecord readRemoteMaintenanceRecord(
         mergedMetadata,
         administrativeClosure,
       );
-  final localMetadata =
-      synchronizedLanePlan == null
-          ? metadataWithClosure
-          : mergeIssueLanePlanIntoMaintenanceMetadata(
-            metadataWithClosure,
-            synchronizedLanePlan,
-          );
+  final localMetadata = synchronizedLanePlan == null
+      ? metadataWithClosure
+      : mergeIssueLanePlanIntoMaintenanceMetadata(
+          metadataWithClosure,
+          synchronizedLanePlan,
+        );
 
   return MaintenanceRecord()
     ..firestoreId = embeddedId
@@ -443,6 +439,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       source: source,
     )
     ..assetHierarchyRefJson = assetHierarchyRefJson
+    ..continuesIssueId = continuesIssueId
     ..maintenanceType = readRequiredPersistedEnum(
       MaintenanceType.values,
       map['maintenanceType'],

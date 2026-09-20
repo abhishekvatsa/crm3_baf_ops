@@ -392,6 +392,7 @@ List<CollectionSchema<dynamic>> _loadRepositoryProvenV3Schemas() =>
 
 CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
   const postV6Fields = <String>{
+    'continuesIssueId',
     'plantConditionContributionActive',
     'plantConditionEffect',
     'reopenReason',
@@ -415,7 +416,8 @@ CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
     );
   }
   final indexes = Map<String, IndexSchema>.from(MaintenanceRecordSchema.indexes)
-    ..remove('plantConditionContributionActive');
+    ..remove('plantConditionContributionActive')
+    ..remove('continuesIssueId');
   return CollectionSchema<MaintenanceRecord>(
     id: MaintenanceRecordSchema.id,
     name: MaintenanceRecordSchema.name,

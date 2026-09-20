@@ -147,6 +147,34 @@ void main() {
     },
   );
 
+  test('retained-concern continuation identity survives client command shaping', () {
+    final record = MaintenanceRecord()
+      ..firestoreId = 'continuation-1'
+      ..assetType = AssetType.furnace
+      ..assetNumber = 7
+      ..component = 'Furnace body'
+      ..maintenanceType = MaintenanceType.breakdown
+      ..description = 'The retained concern is now practical to repair.'
+      ..routedTo = RoutedTo.mechanical
+      ..startDate = DateTime.utc(2026, 8, 17)
+      ..assetHierarchyRefJson =
+          '{"schemaVersion":3,"scope":"physicalAsset",'
+          '"assetClassId":"class-furnace",'
+          '"assetInstanceId":"asset-furnace-7",'
+          '"assetInstanceVersion":4}'
+      ..continuesIssueId = 'closed-still-relevant'
+      ..qualityIntent = const IssueQualityIntent(
+        assessment: IssueQualityAssessment.notSuspected,
+      );
+
+    final command = buildMaintenanceIssueCreateCommand(
+      record,
+      createVersion: 1,
+    );
+    final ticket = command.payload['ticket']! as Map;
+    expect(ticket['continuesIssueId'], 'closed-still-relevant');
+  });
+
   test('client lane fields match the shared server command contract', () {
     final contract = Map<String, Object?>.from(
       jsonDecode(

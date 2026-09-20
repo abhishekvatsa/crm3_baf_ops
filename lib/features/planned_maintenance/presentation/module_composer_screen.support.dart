@@ -210,10 +210,9 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       return;
     }
 
-    final fresh =
-        TemplateComposerDraft.empty()
-          ..localId =
-              'detached_repair_${DateTime.now().toUtc().microsecondsSinceEpoch}';
+    final fresh = TemplateComposerDraft.empty()
+      ..localId =
+          'detached_repair_${DateTime.now().toUtc().microsecondsSinceEpoch}';
     _suppressRecoverySave = true;
     try {
       setState(() {
@@ -267,10 +266,9 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   String _stableDraftLocalId() {
-    final scope =
-        widget.recoveryScopeId.trim().isEmpty
-            ? 'default_scope'
-            : widget.recoveryScopeId.trim();
+    final scope = widget.recoveryScopeId.trim().isEmpty
+        ? 'default_scope'
+        : widget.recoveryScopeId.trim();
     final seed = <String>[
       scope,
       widget.initialJobTemplateJson,
@@ -317,8 +315,8 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       if (loader != null) {
         bundle = await loader();
       } else {
-        bundle =
-            await (_knowledgeRepository ??= BafKnowledgeRepository()).load();
+        bundle = await (_knowledgeRepository ??= BafKnowledgeRepository())
+            .load();
       }
     } catch (e) {
       loadError = e;
@@ -328,10 +326,18 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
 
     final loadedBundle = bundle;
+    final governedEmpty =
+        loadedBundle != null &&
+        loadedBundle.entries.isEmpty &&
+        !loadedBundle.meta.isStaticFallback;
     final usingEmbeddedFallback =
-        loadedBundle == null || loadedBundle.entries.isEmpty;
+        loadedBundle == null ||
+        (loadedBundle.entries.isEmpty && loadedBundle.meta.isStaticFallback);
     _setStateWithoutRecoverySave(() {
-      if (loadedBundle == null || loadedBundle.entries.isEmpty) {
+      if (governedEmpty) {
+        _knowledgeRows = const <BafKnowledgeEntry>[];
+        _matrixMeta = loadedBundle.meta;
+      } else if (loadedBundle == null || loadedBundle.entries.isEmpty) {
         _knowledgeRows = BafKnowledgeLayer.entries;
         _matrixMeta = BafKnowledgeMatrixMeta.staticFallback(
           cloudUnavailable: true,
@@ -351,6 +357,11 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
             : 'Knowledge source unavailable; using embedded safety baseline.',
         BafColors.warning,
       );
+    } else if (governedEmpty) {
+      _showSnack(
+        'The governed knowledge catalogue is empty; no embedded suggestions were restored.',
+        BafColors.warning,
+      );
     }
   }
 
@@ -358,13 +369,14 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     _draft.metadata['matrixVersion'] = _matrixMeta.matrixVersion;
     _draft.metadata['knowledgeSource'] = _matrixMeta.source;
     _draft.metadata['knowledgeSourceLabel'] = _matrixMeta.sourceLabel;
-    _draft.metadata['knowledgeCloudUpdatedAt'] =
-        _matrixMeta.cloudUpdatedAt?.toIso8601String();
-    _draft.metadata['knowledgeLocalCachedAt'] =
-        _matrixMeta.localCachedAt?.toIso8601String();
+    _draft.metadata['knowledgeCloudUpdatedAt'] = _matrixMeta.cloudUpdatedAt
+        ?.toIso8601String();
+    _draft.metadata['knowledgeLocalCachedAt'] = _matrixMeta.localCachedAt
+        ?.toIso8601String();
     _draft.metadata['knowledgeRowCount'] = _knowledgeRows.length;
-    _draft.metadata['knowledgeTagRowCount'] =
-        _knowledgeRows.where((entry) => entry.deviceTags.isNotEmpty).length;
+    _draft.metadata['knowledgeTagRowCount'] = _knowledgeRows
+        .where((entry) => entry.deviceTags.isNotEmpty)
+        .length;
     _draft.metadata['maintenanceManualRef'] = _matrixMeta.maintenanceManualRef;
     _draft.metadata['safetyOperationsManualRef'] =
         _matrixMeta.safetyOperationsManualRef;
@@ -375,8 +387,8 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     final canConfirm = actor?.canManageTemplateGovernance == true;
     _draft.closureReviewConfirmed = value && canConfirm;
     if (value && canConfirm) {
-      _draft.metadata['closureReviewConfirmedAt'] =
-          DateTime.now().toIso8601String();
+      _draft.metadata['closureReviewConfirmedAt'] = DateTime.now()
+          .toIso8601String();
       _draft.metadata['closureReviewConfirmedByUid'] = actor!.uid;
       _draft.metadata['closureReviewConfirmedByName'] = actor.name;
     } else {
@@ -393,26 +405,25 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
     return _knowledgeRows
         .where((entry) {
-          final haystack =
-              <String>[
-                entry.id,
-                entry.moduleCandidateCode,
-                entry.taskText,
-                entry.assetFamilyKey,
-                entry.functionalSection,
-                entry.componentGroup,
-                entry.taskType,
-                entry.frequency.name,
-                entry.discipline.name,
-                entry.sourceLabel,
-                entry.composerReadiness.name,
-                entry.confidence.name,
-                ...entry.ownerDisciplines,
-                ...entry.safetyClasses,
-                ...entry.procedureRefs,
-                ...entry.partRefs,
-                ...entry.deviceTags,
-              ].join(' ').toLowerCase();
+          final haystack = <String>[
+            entry.id,
+            entry.moduleCandidateCode,
+            entry.taskText,
+            entry.assetFamilyKey,
+            entry.functionalSection,
+            entry.componentGroup,
+            entry.taskType,
+            entry.frequency.name,
+            entry.discipline.name,
+            entry.sourceLabel,
+            entry.composerReadiness.name,
+            entry.confidence.name,
+            ...entry.ownerDisciplines,
+            ...entry.safetyClasses,
+            ...entry.procedureRefs,
+            ...entry.partRefs,
+            ...entry.deviceTags,
+          ].join(' ').toLowerCase();
           return haystack.contains(key);
         })
         .toList(growable: false);

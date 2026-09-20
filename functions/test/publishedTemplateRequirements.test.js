@@ -30,7 +30,7 @@ const versionFor = (modules, fields) => {
   return version;
 };
 const furnaceTarget = {assetTypeKey: 'furnace', assetNumber: 7, assetClassId: 'class-furnace', assetInstanceId: 'furnace-7'};
-const resolve = (version, {packageOverrides = {}, auditOverrides = {}, omitAudit = false, duplicateAudit = false, target = furnaceTarget} = {}) => {
+const resolve = (version, {packageOverrides = {}, auditOverrides = {}, omitAudit = false, duplicateAudit = false, registry = {}, target = furnaceTarget} = {}) => {
   const store = new MemoryWorkflowStore();
   store.seed('equipment_prompt_master/furnace_red', {
     assetTypeKey: 'furnace', active: true, redSuccessorTemplateCode: 'RED-FURNACE',
@@ -40,6 +40,42 @@ const resolve = (version, {packageOverrides = {}, auditOverrides = {}, omitAudit
     activeVersionFirestoreId: 'ver1', isDeleted: false, ...packageOverrides,
   }));
   store.seed('template_versions/ver1', version);
+  // Installed-component publication is bound to a complete reviewed physical
+  // subject. Keep the fixture aligned with that admission contract so the
+  // matching-target case exercises RED resolution rather than failing for
+  // absent registry evidence.
+  store.seed('asset_instances/furnace-7', {
+    schemaVersion: 1,
+    assetInstanceId: 'furnace-7',
+    assetClassId: 'class-furnace',
+    assetNumber: 7,
+    status: 'active',
+    version: 1,
+  });
+  store.seed('asset_component_instances/block-7', {
+    schemaVersion: 1,
+    componentInstanceId: 'block-7',
+    status: 'active',
+    assetInstanceId: 'furnace-7',
+    assetClassId: 'class-furnace',
+    assetNumber: 7,
+    version: 1,
+    assetInstanceVersionAtMutation: 1,
+    definitionNodeId: 'burner-block',
+    definitionNodeVersion: 1,
+    componentTag: null,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'RED',
+    accountableRoleKeys: ['refractory'],
+  });
+  store.seed('asset_hierarchy_nodes/burner-block', {
+    schemaVersion: 1,
+    nodeId: 'burner-block',
+    status: 'active',
+    assetClassId: 'class-furnace',
+    version: 1,
+  });
+  for (const [path, value] of Object.entries(registry)) store.seed(path, value);
   const audit = auditFixture({afterHash: version.contentHash, ...auditOverrides});
   if (!omitAudit) store.seed('template_publish_audits/audit1', audit);
   if (duplicateAudit) store.seed('template_publish_audits/audit2', {...audit, firestoreId: 'audit2'});
@@ -188,7 +224,13 @@ test.each([
 test('matching published installed scope retains the current parent physical subject', async () => {
   const version = targetVersion(installedTargetSnapshot());
   expect(() => validatePublishedTemplateTarget(version, furnaceTarget)).not.toThrow();
-  const result = await resolve(version);
+  const result = await resolve(version, {registry: {
+    'asset_instances/furnace-7': {version: 1, status: 'active'},
+    'asset_hierarchy_nodes/burner-block': {schemaVersion: 1, nodeId: 'burner-block', assetClassId: 'class-furnace', version: 1, status: 'active'},
+    'asset_component_instances/block-7': {schemaVersion: 1, componentInstanceId: 'block-7', assetClassId: 'class-furnace', assetInstanceId: 'furnace-7', assetNumber: 7,
+      version: 1, status: 'active', definitionNodeId: 'burner-block', definitionNodeVersion: 1, assetInstanceVersionAtMutation: 1,
+      ownershipStatus: 'confirmed', ownerDiscipline: 'RED', accountableRoleKeys: ['refractory']},
+  }});
   expect(result.contentHash).toBe(version.contentHash);
   expect(result.publicationAuditId).toBe('audit1');
   expect(JSON.parse(result.modules[0].fieldDefinitionsJson)).toHaveLength(1);

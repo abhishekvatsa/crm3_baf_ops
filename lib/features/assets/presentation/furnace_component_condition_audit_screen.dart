@@ -92,7 +92,7 @@ class _FurnaceComponentConditionAuditScreenState
     final uvLifecycleCurrentAsync = ref.watch(
       uvDetectorLifecycleCurrentProvider(actor.uid),
     );
-    final ticketsAsync = ref.watch(openTicketsProvider);
+    final ticketsAsync = ref.watch(plantConditionTicketsProvider);
     final loading = <AsyncValue<Object?>>[
       classesAsync,
       assetsAsync,
@@ -128,7 +128,7 @@ class _FurnaceComponentConditionAuditScreenState
             ref.invalidate(burnerBlockLifecycleCurrentProvider(actor.uid));
             ref.invalidate(uvDetectorLifecycleEventsProvider(actor.uid));
             ref.invalidate(uvDetectorLifecycleCurrentProvider(actor.uid));
-            ref.invalidate(openTicketsProvider);
+            ref.invalidate(plantConditionTicketsProvider);
           },
         ),
       );
@@ -198,14 +198,16 @@ class _FurnaceComponentConditionAuditScreenState
     try {
       for (final furnace in furnaces) {
         final round = latest[furnace.id];
-        final newerRedHot = _newerOpenIssueRedHotObservations(
+        final issueEvidence = FurnaceAuditIssueEvidence.fromTickets(
           tickets: tickets,
-          furnaceNumber: furnace.assetNumber,
+          furnace: furnace,
+          assetClasses: classes,
+          assets: assetsAsync.value!,
           round: round,
         );
         final conditionProjection = projectBurnerBlockCondition(
           round: round,
-          newerRedHotObservations: newerRedHot,
+          newerRedHotObservations: issueEvidence.newerRedHotObservations,
           lifecycleEvents: lifecycleEvents,
           currentLifecycleEvents: lifecycleCurrent,
           uvLifecycleEvents: uvLifecycleEvents,
@@ -217,7 +219,7 @@ class _FurnaceComponentConditionAuditScreenState
         final fresh = FurnaceAuditDraft.fromSources(
           round: round,
           conditionProjection: conditionProjection,
-          openIssueBasis: _openIssueBasis(tickets, furnace.assetNumber),
+          openIssueBasis: issueEvidence.basis,
         );
         if (current == null) {
           _drafts[furnace.id] = fresh;
@@ -234,7 +236,7 @@ class _FurnaceComponentConditionAuditScreenState
         BafStatePanel.error(
           message:
               'Burner-lockout evidence needs repair: ${formatError.message}',
-          onPrimary: () => ref.invalidate(openTicketsProvider),
+          onPrimary: () => ref.invalidate(plantConditionTicketsProvider),
         ),
       );
     }
@@ -572,63 +574,6 @@ class _FurnaceComponentConditionAuditScreenState
       }
     }
   }
-}
-
-Map<int, DateTime> _newerOpenIssueRedHotObservations({
-  required List<MaintenanceRecord> tickets,
-  required int furnaceNumber,
-  required BurnerConditionRound? round,
-}) {
-  final positions = <int, DateTime>{};
-  for (final ticket in tickets) {
-    if (ticket.isDeleted ||
-        ticket.isResolved ||
-        ticket.assetType != AssetType.furnace ||
-        ticket.assetNumber != furnaceNumber) {
-      continue;
-    }
-    for (final position
-        in ticket.burnerLockoutCase?.redHotPositions ?? const <int>[]) {
-      final after = round
-          ?.evidenceFor('burners.$position.redHotObserved')
-          .observedAt;
-      if (after != null && !ticket.createdAt.isAfter(after)) continue;
-      final current = positions[position];
-      if (current == null || ticket.createdAt.isAfter(current)) {
-        positions[position] = ticket.createdAt;
-      }
-    }
-  }
-  return positions;
-}
-
-List<Map<String, dynamic>> _openIssueBasis(
-  List<MaintenanceRecord> tickets,
-  int furnaceNumber,
-) {
-  final relevant =
-      tickets
-          .where(
-            (ticket) =>
-                !ticket.isDeleted &&
-                !ticket.isResolved &&
-                ticket.assetType == AssetType.furnace &&
-                ticket.assetNumber == furnaceNumber &&
-                (ticket.burnerLockoutCase?.redHotPositions.isNotEmpty ?? false),
-          )
-          .toList()
-        ..sort(
-          (left, right) =>
-              (left.firestoreId ?? '').compareTo(right.firestoreId ?? ''),
-        );
-  return [
-    for (final ticket in relevant)
-      {
-        'id': ticket.firestoreId ?? '',
-        'version': ticket.version,
-        'updatedAt': ticket.updatedAt.toUtc().toIso8601String(),
-      },
-  ];
 }
 
 class _AuditStatusBand extends StatelessWidget {

@@ -33,6 +33,7 @@ const _registryMutationOperations = <String>{
   'SET_ASSET_INSTANCE_STATUS',
   'CREATE_COMPONENT_INSTANCE',
   'UPDATE_COMPONENT_INSTANCE',
+  'CORRECT_COMPONENT_INSTANCE',
   'REPLACE_COMPONENT_INSTANCE',
   'SET_COMPONENT_INSTANCE_STATUS',
 };
@@ -49,6 +50,11 @@ const _innerCoverMutationOperations = <String>{
 const _assetConditionMutationOperations = <String>{
   'DECLARE_ASSET_CONDITION',
   'RESTORE_ASSET_CONDITION',
+};
+
+const assetRegistrySubmissionOperations = {
+  ..._hierarchyMutationOperations,
+  ..._registryMutationOperations,
 };
 
 bool _sameStrings(List<String> left, List<String> right) =>
@@ -76,6 +82,7 @@ class AssetTagCollisionException extends AssetHierarchyException {
   final String? existingAssetInstanceId;
   final String? existingAssetInstanceName;
   final String? existingComponentInstanceId;
+  final int? existingComponentVersion;
   final AssetOwnershipStatus? existingOwnershipStatus;
   final String? existingOwnerDiscipline;
   final List<String> existingAccountableRoleKeys;
@@ -91,6 +98,7 @@ class AssetTagCollisionException extends AssetHierarchyException {
     this.existingAssetInstanceId,
     this.existingAssetInstanceName,
     this.existingComponentInstanceId,
+    this.existingComponentVersion,
     this.existingOwnershipStatus,
     this.existingOwnerDiscipline,
     this.existingAccountableRoleKeys = const <String>[],
@@ -141,6 +149,25 @@ class AssetHierarchyMutationReceipt {
   final DateTime committedAt;
   final bool idempotentReplay;
 
+  Map<String, dynamic> toRegistryMap(Map<String, dynamic> request) {
+    if (!assetRegistrySubmissionOperations.contains(operation)) {
+      throw StateError('Not a register receipt.');
+    }
+    return {
+      'ok': true,
+      'requestId': requestId,
+      'operation': operation,
+      'assetClassId': request['assetClassId'],
+      'nodeId': _hierarchyMutationOperations.contains(operation)
+          ? request['nodeId']
+          : entityId,
+      'version': version,
+      'auditId': auditId,
+      'committedAt': committedAt.toUtc().toIso8601String(),
+      'idempotentReplay': idempotentReplay,
+    };
+  }
+
   Map<String, dynamic> toInnerCoverMap() {
     if (!_innerCoverMutationOperations.contains(operation)) {
       throw StateError('This receipt is not an Inner Cover mutation.');
@@ -152,6 +179,27 @@ class AssetHierarchyMutationReceipt {
       'innerCoverId': entityId,
       'version': version,
       'secondaryVersion': secondaryVersion,
+      'auditId': auditId,
+      'committedAt': committedAt.toUtc().toIso8601String(),
+      'idempotentReplay': idempotentReplay,
+    };
+  }
+
+  Map<String, dynamic> toAssetConditionMap({
+    required String assetClassId,
+    required String condition,
+  }) {
+    if (!_assetConditionMutationOperations.contains(operation)) {
+      throw StateError('This receipt is not an asset-condition mutation.');
+    }
+    return {
+      'ok': true,
+      'requestId': requestId,
+      'operation': operation,
+      'assetClassId': assetClassId,
+      'assetInstanceId': entityId,
+      'condition': condition,
+      'version': version,
       'auditId': auditId,
       'committedAt': committedAt.toUtc().toIso8601String(),
       'idempotentReplay': idempotentReplay,
@@ -359,6 +407,27 @@ class AssetHierarchyMutationReceipt {
         );
       }
     }
+    if (assetRegistrySubmissionOperations.contains(expectedOperation)) {
+      final createsEntity =
+          expectedOperation.startsWith('CREATE_') ||
+          expectedOperation == 'REPLACE_COMPONENT_INSTANCE';
+      final expectedVersion = createsEntity
+          ? 1
+          : readRequiredPersistedInt(
+                  request['expectedVersion'],
+                  field: 'request.expectedVersion',
+                  source: source,
+                  minimum: 1,
+                ) +
+                1;
+      if (map['version'] != expectedVersion) {
+        throw PersistedDataFormatException(
+          field: 'version',
+          source: source,
+          detail: 'register receipt does not match the submitted revision',
+        );
+      }
+    }
     final committedAtRaw = map['committedAt'];
     final committedAt = readRequiredPersistedDateTime(
       map['committedAt'],
@@ -438,9 +507,40 @@ class AssetHierarchyRepository {
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
     Uuid uuid = const Uuid(),
+    this.submitRegistry,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _functions = functions,
        _uuid = uuid;
+
+  final Future<AssetHierarchyMutationReceipt> Function(
+    Map<String, dynamic>,
+    AppUser,
+  )?
+  submitRegistry;
+
+  Future<AssetHierarchyMutationReceipt> _invokeRegistry(
+    Map<String, dynamic> request,
+    AppUser actor,
+  ) {
+    final submit = submitRegistry;
+    if (submit == null) {
+      throw const AssetHierarchyException(
+        'Saved register submissions are unavailable. Nothing was sent.',
+      );
+    }
+    return submit(request, actor);
+  }
+
+  Future<AssetHierarchyMutationReceipt> dispatchFrozenRegistry(
+    Map<String, dynamic> request, {
+    required String originActorUid,
+  }) {
+    if (!assetRegistrySubmissionOperations.contains(request['operation']) ||
+        originActorUid.trim().isEmpty) {
+      throw const AssetHierarchyInputRejected('Invalid saved register change.');
+    }
+    return _invoke(request, originActorUid: originActorUid);
+  }
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -487,23 +587,28 @@ class AssetHierarchyRepository {
   }
 
   Stream<List<AssetHierarchyNode>> watchNodes(String assetClassId) {
-    return _nodes
-        .where('assetClassId', isEqualTo: assetClassId)
-        .snapshots()
-        .map((snapshot) {
-          final records = decodeSnapshotDocuments(
-            snapshot,
-            AssetHierarchyNode.fromMap,
-            source: 'AssetHierarchyNode',
-          ).toList();
-          records.sort((left, right) {
-            final order = left.sortOrder.compareTo(right.sortOrder);
-            return order != 0
-                ? order
-                : left.name.toLowerCase().compareTo(right.name.toLowerCase());
-          });
-          return List<AssetHierarchyNode>.unmodifiable(records);
-        });
+    return _nodes.where('assetClassId', isEqualTo: assetClassId).snapshots().map((
+      snapshot,
+    ) {
+      final batch = decodeSnapshotBatch(
+        snapshot,
+        AssetHierarchyNode.fromMap,
+        source: 'AssetHierarchyNode',
+      );
+      if (!batch.isComplete) {
+        throw const AssetHierarchyException(
+          'The asset register is incomplete because one or more hierarchy definitions could not be read. Reconcile the malformed records before making changes.',
+        );
+      }
+      final records = batch.records.toList();
+      records.sort((left, right) {
+        final order = left.sortOrder.compareTo(right.sortOrder);
+        return order != 0
+            ? order
+            : left.name.toLowerCase().compareTo(right.name.toLowerCase());
+      });
+      return List<AssetHierarchyNode>.unmodifiable(records);
+    });
   }
 
   Stream<List<AssetInstanceRecord>> watchAssetInstances(String assetClassId) {
@@ -610,6 +715,61 @@ class AssetHierarchyRepository {
       );
     }
     return profile;
+  }
+
+  Future<AssetInstanceRecord> readAssetInstanceFromServer(
+    String assetInstanceId, {
+    int? minimumVersion,
+  }) async {
+    final snapshot = await _assetInstances
+        .doc(assetInstanceId)
+        .get(const GetOptions(source: Source.server));
+    final data = snapshot.data();
+    if (!snapshot.exists ||
+        data == null ||
+        snapshot.metadata.isFromCache ||
+        snapshot.metadata.hasPendingWrites) {
+      throw const AssetHierarchyException(
+        'The current asset record could not be confirmed from the server.',
+      );
+    }
+    final asset = AssetInstanceRecord.fromMap(data, snapshot.id);
+    if (asset.id != assetInstanceId ||
+        (minimumVersion != null && asset.version < minimumVersion)) {
+      throw const AssetHierarchyException(
+        'The asset record has not reached the confirmed revision. Check again.',
+      );
+    }
+    return asset;
+  }
+
+  Future<AssetOperationalConditionRecord> readAssetConditionFromServer(
+    String assetInstanceId, {
+    int? minimumVersion,
+  }) async {
+    final snapshot = await _assetConditions
+        .doc(assetInstanceId)
+        .get(const GetOptions(source: Source.server));
+    final data = snapshot.data();
+    if (!snapshot.exists ||
+        data == null ||
+        snapshot.metadata.isFromCache ||
+        snapshot.metadata.hasPendingWrites) {
+      throw const AssetHierarchyException(
+        'The asset condition could not be confirmed from the server.',
+      );
+    }
+    final condition = AssetOperationalConditionRecord.fromMap(
+      data,
+      snapshot.id,
+    );
+    if (condition.assetInstanceId != assetInstanceId ||
+        (minimumVersion != null && condition.version < minimumVersion)) {
+      throw const AssetHierarchyException(
+        'The asset condition has not reached the confirmed revision. Check again.',
+      );
+    }
+    return condition;
   }
 
   Stream<List<BaseInnerCoverAssignment>> watchInnerCoverAssignments() {
@@ -787,16 +947,22 @@ class AssetHierarchyRepository {
         .where('assetInstanceId', isEqualTo: assetInstanceId)
         .snapshots()
         .map((snapshot) {
-          final records =
-              decodeSnapshotDocuments(
-                snapshot,
-                InstalledComponentRecord.fromMap,
-                source: 'InstalledComponentRecord',
-              ).toList()..sort(
-                (left, right) => left.definitionName.toLowerCase().compareTo(
-                  right.definitionName.toLowerCase(),
-                ),
-              );
+          final batch = decodeSnapshotBatch(
+            snapshot,
+            InstalledComponentRecord.fromMap,
+            source: 'InstalledComponentRecord',
+          );
+          if (!batch.isComplete) {
+            throw const AssetHierarchyException(
+              'The installed-component register is incomplete because one or more records could not be read. Reconcile the malformed records before making changes.',
+            );
+          }
+          final records = batch.records.toList()
+            ..sort(
+              (left, right) => left.definitionName.toLowerCase().compareTo(
+                right.definitionName.toLowerCase(),
+              ),
+            );
           return List<InstalledComponentRecord>.unmodifiable(records);
         });
   }
@@ -907,7 +1073,7 @@ class AssetHierarchyRepository {
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Physical asset is not valid.');
     final assetInstanceId = _uuid.v4();
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'CREATE_ASSET_INSTANCE',
       'assetClassId': assetClass.id,
@@ -915,7 +1081,7 @@ class AssetHierarchyRepository {
       'expectedAssetClassVersion': assetClass.version,
       'reason': _validateReason(reason),
       'assetDraft': _assetDraftMap(normalized),
-    });
+    }, actor);
     return assetInstanceId;
   }
 
@@ -933,7 +1099,7 @@ class AssetHierarchyRepository {
         'Asset number is permanent. Create a new asset if the identity changes.',
       );
     }
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'UPDATE_ASSET_INSTANCE',
       'assetClassId': before.assetClassId,
@@ -941,7 +1107,7 @@ class AssetHierarchyRepository {
       'expectedVersion': before.version,
       'reason': _validateReason(reason),
       'assetDraft': _assetDraftMap(normalized),
-    });
+    }, actor);
   }
 
   Future<void> setAssetInstanceStatus({
@@ -951,8 +1117,12 @@ class AssetHierarchyRepository {
     required String reason,
   }) async {
     if (before.status == status) return;
-    _requireAdmin(actor);
-    await _invoke(<String, dynamic>{
+    if (!(status == AssetHierarchyStatus.retired &&
+        actor.isApproved &&
+        actor.isSI)) {
+      _requireAdmin(actor);
+    }
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'SET_ASSET_INSTANCE_STATUS',
       'assetClassId': before.assetClassId,
@@ -960,7 +1130,7 @@ class AssetHierarchyRepository {
       'expectedVersion': before.version,
       'status': status.name,
       'reason': _validateReason(reason),
-    });
+    }, actor);
   }
 
   Future<String> registerInnerCover({
@@ -1281,12 +1451,13 @@ class AssetHierarchyRepository {
     required String reason,
     bool allowTagTransfer = false,
     String? expectedTagOwnerComponentId,
+    int? expectedTagOwnerComponentVersion,
   }) async {
     _requireAdmin(actor);
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Installed component is not valid.');
     final componentInstanceId = _uuid.v4();
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'CREATE_COMPONENT_INSTANCE',
       'assetClassId': asset.assetClassId,
@@ -1296,8 +1467,9 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+      'expectedTagOwnerComponentVersion': expectedTagOwnerComponentVersion,
       'componentDraft': _componentDraftMap(normalized),
-    });
+    }, actor);
     return componentInstanceId;
   }
 
@@ -1306,15 +1478,19 @@ class AssetHierarchyRepository {
     required InstalledComponentDraft draft,
     required AppUser actor,
     required String reason,
+    bool correctInstallationFacts = false,
     bool allowTagTransfer = false,
     String? expectedTagOwnerComponentId,
+    int? expectedTagOwnerComponentVersion,
   }) async {
     _requireAdmin(actor);
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Installed component is not valid.');
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
-      'operation': 'UPDATE_COMPONENT_INSTANCE',
+      'operation': correctInstallationFacts
+          ? 'CORRECT_COMPONENT_INSTANCE'
+          : 'UPDATE_COMPONENT_INSTANCE',
       'assetClassId': before.assetClassId,
       'assetInstanceId': before.assetInstanceId,
       'componentInstanceId': before.id,
@@ -1322,8 +1498,9 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+      'expectedTagOwnerComponentVersion': expectedTagOwnerComponentVersion,
       'componentDraft': _componentDraftMap(normalized),
-    });
+    }, actor);
   }
 
   Future<String> replaceInstalledComponent({
@@ -1334,6 +1511,7 @@ class AssetHierarchyRepository {
     required String reason,
     bool allowTagTransfer = false,
     String? expectedTagOwnerComponentId,
+    int? expectedTagOwnerComponentVersion,
     ComponentReplacementEvidenceReference? evidenceReference,
   }) async {
     _requireAdmin(actor);
@@ -1358,7 +1536,7 @@ class AssetHierarchyRepository {
       );
     }
     final replacementComponentInstanceId = _uuid.v4();
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'REPLACE_COMPONENT_INSTANCE',
       'assetClassId': before.assetClassId,
@@ -1370,10 +1548,11 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+      'expectedTagOwnerComponentVersion': expectedTagOwnerComponentVersion,
       if (evidenceReference != null)
         'evidenceReference': evidenceReference.toMap(),
       'componentDraft': _componentDraftMap(normalized),
-    });
+    }, actor);
     return replacementComponentInstanceId;
   }
 
@@ -1384,10 +1563,11 @@ class AssetHierarchyRepository {
     required String reason,
     bool allowTagTransfer = false,
     String? expectedTagOwnerComponentId,
+    int? expectedTagOwnerComponentVersion,
   }) async {
     if (before.status == status) return;
     _requireAdmin(actor);
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'SET_COMPONENT_INSTANCE_STATUS',
       'assetClassId': before.assetClassId,
@@ -1398,8 +1578,61 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
-    });
+      'expectedTagOwnerComponentVersion': expectedTagOwnerComponentVersion,
+    }, actor);
   }
+
+  Map<String, dynamic> buildDeclareAssetConditionRequest({
+    required AssetInstanceRecord asset,
+    required AssetOperationalCondition condition,
+    required Set<AssetConditionCause> causes,
+    required AssetConditionBasis basis,
+    required AssetHierarchyReference? componentReference,
+    required String reason,
+    required List<String> linkedIssueIds,
+    required int expectedVersion,
+    required String requestId,
+  }) {
+    if (condition == AssetOperationalCondition.available || causes.isEmpty) {
+      throw const AssetHierarchyException(
+        'Choose Down or Unfit and at least one cause.',
+      );
+    }
+    if (basis == AssetConditionBasis.innerCoverUnavailable
+        ? componentReference != null
+        : componentReference == null) {
+      throw const AssetHierarchyException(
+        'Choose the affected governed component, except when the Inner Cover is unavailable.',
+      );
+    }
+    return <String, dynamic>{
+      'requestId': requestId,
+      'operation': 'DECLARE_ASSET_CONDITION',
+      'assetClassId': asset.assetClassId,
+      'assetInstanceId': asset.id,
+      'expectedVersion': expectedVersion,
+      'condition': condition.name,
+      'causeKeys': causes.map((cause) => cause.name).toList()..sort(),
+      'basis': basis.name,
+      'componentHierarchyRefJson': componentReference?.encode(),
+      'reason': _validateConditionReason(reason),
+      'linkedIssueIds': linkedIssueIds.toSet().toList()..sort(),
+    };
+  }
+
+  Map<String, dynamic> buildRestoreAssetConditionRequest({
+    required AssetInstanceRecord asset,
+    required AssetOperationalConditionRecord current,
+    required String reason,
+    required String requestId,
+  }) => <String, dynamic>{
+    'requestId': requestId,
+    'operation': 'RESTORE_ASSET_CONDITION',
+    'assetClassId': asset.assetClassId,
+    'assetInstanceId': asset.id,
+    'expectedVersion': current.version,
+    'reason': _validateConditionReason(reason),
+  };
 
   Future<void> declareAssetCondition({
     required AssetInstanceRecord asset,
@@ -1417,31 +1650,19 @@ class AssetHierarchyRepository {
         'Your role cannot declare an asset down or unfit.',
       );
     }
-    if (condition == AssetOperationalCondition.available || causes.isEmpty) {
-      throw const AssetHierarchyException(
-        'Choose Down or Unfit and at least one cause.',
-      );
-    }
-    if (basis == AssetConditionBasis.innerCoverUnavailable
-        ? componentReference != null
-        : componentReference == null) {
-      throw const AssetHierarchyException(
-        'Choose the affected governed component, except when the Inner Cover is unavailable.',
-      );
-    }
-    await _invoke(<String, dynamic>{
-      'requestId': _uuid.v4(),
-      'operation': 'DECLARE_ASSET_CONDITION',
-      'assetClassId': asset.assetClassId,
-      'assetInstanceId': asset.id,
-      'expectedVersion': current?.version ?? 0,
-      'condition': condition.name,
-      'causeKeys': causes.map((cause) => cause.name).toList()..sort(),
-      'basis': basis.name,
-      'componentHierarchyRefJson': componentReference?.encode(),
-      'reason': _validateConditionReason(reason),
-      'linkedIssueIds': linkedIssueIds.toSet().toList()..sort(),
-    });
+    await _invoke(
+      buildDeclareAssetConditionRequest(
+        asset: asset,
+        condition: condition,
+        causes: causes,
+        basis: basis,
+        componentReference: componentReference,
+        reason: reason,
+        linkedIssueIds: linkedIssueIds,
+        expectedVersion: current?.version ?? 0,
+        requestId: _uuid.v4(),
+      ),
+    );
   }
 
   Future<void> restoreAssetCondition({
@@ -1455,14 +1676,14 @@ class AssetHierarchyRepository {
         'Only a Shift Supervisor, SI, or Admin can restore availability.',
       );
     }
-    await _invoke(<String, dynamic>{
-      'requestId': _uuid.v4(),
-      'operation': 'RESTORE_ASSET_CONDITION',
-      'assetClassId': asset.assetClassId,
-      'assetInstanceId': asset.id,
-      'expectedVersion': current.version,
-      'reason': _validateConditionReason(reason),
-    });
+    await _invoke(
+      buildRestoreAssetConditionRequest(
+        asset: asset,
+        current: current,
+        reason: reason,
+        requestId: _uuid.v4(),
+      ),
+    );
   }
 
   Future<String> createAssetClass({
@@ -1474,13 +1695,13 @@ class AssetHierarchyRepository {
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Asset class is not valid.');
     final assetClassId = _uuid.v4();
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'CREATE_CLASS',
       'assetClassId': assetClassId,
       'reason': _validateReason(reason),
       'classDraft': _classDraftMap(normalized),
-    });
+    }, actor);
     return assetClassId;
   }
 
@@ -1498,14 +1719,14 @@ class AssetHierarchyRepository {
         'Class code is permanent. Change the name or create a new class.',
       );
     }
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'UPDATE_CLASS',
       'assetClassId': before.id,
       'expectedVersion': before.version,
       'reason': _validateReason(reason),
       'classDraft': _classDraftMap(normalized),
-    });
+    }, actor);
   }
 
   Future<void> setAssetClassStatus({
@@ -1516,14 +1737,14 @@ class AssetHierarchyRepository {
   }) async {
     if (before.status == status) return;
     _requireAdmin(actor);
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'SET_CLASS_STATUS',
       'assetClassId': before.id,
       'expectedVersion': before.version,
       'status': status.name,
       'reason': _validateReason(reason),
-    });
+    }, actor);
   }
 
   Future<String> createNode({
@@ -1537,7 +1758,7 @@ class AssetHierarchyRepository {
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Hierarchy node is not valid.');
     final nodeId = _uuid.v4();
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'CREATE_NODE',
       'assetClassId': assetClass.id,
@@ -1546,7 +1767,7 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'nodeDraft': _nodeDraftMap(normalized),
-    });
+    }, actor);
     return nodeId;
   }
 
@@ -1560,7 +1781,7 @@ class AssetHierarchyRepository {
     _requireAdmin(actor);
     final normalized = draft.normalized();
     _validate(normalized.validate(), 'Hierarchy node is not valid.');
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'UPDATE_NODE',
       'assetClassId': before.assetClassId,
@@ -1569,7 +1790,7 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'nodeDraft': _nodeDraftMap(normalized),
-    });
+    }, actor);
   }
 
   Future<void> setNodeStatus({
@@ -1581,7 +1802,7 @@ class AssetHierarchyRepository {
   }) async {
     if (before.status == status) return;
     _requireAdmin(actor);
-    await _invoke(<String, dynamic>{
+    await _invokeRegistry(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'SET_NODE_STATUS',
       'assetClassId': before.assetClassId,
@@ -1590,7 +1811,7 @@ class AssetHierarchyRepository {
       'status': status.name,
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
-    });
+    }, actor);
   }
 
   /// Sends already frozen acceptance data through the authenticated-origin
@@ -1621,6 +1842,20 @@ class AssetHierarchyRepository {
         request['operation'] == 'ACCEPT_INNER_COVER') {
       throw const AssetHierarchyInputRejected(
         'The saved Inner Cover lifecycle request needs review before it can be sent.',
+      );
+    }
+    return _invoke(request, originActorUid: originActorUid);
+  }
+
+  Future<AssetHierarchyMutationReceipt> dispatchFrozenAssetCondition(
+    Map<String, dynamic> request, {
+    required String originActorUid,
+  }) async {
+    if (originActorUid.trim().isEmpty ||
+        originActorUid.trim() != originActorUid ||
+        !_assetConditionMutationOperations.contains(request['operation'])) {
+      throw const AssetHierarchyInputRejected(
+        'The saved asset-condition request needs review before it can be sent.',
       );
     }
     return _invoke(request, originActorUid: originActorUid);
@@ -1675,6 +1910,9 @@ class AssetHierarchyRepository {
               ?.toString(),
           existingComponentInstanceId: map['existingComponentInstanceId']
               ?.toString(),
+          existingComponentVersion: map['existingComponentVersion'] is int
+              ? map['existingComponentVersion'] as int
+              : null,
           existingOwnershipStatus: AssetOwnershipStatus.values
               .where(
                 (status) =>
@@ -1695,6 +1933,39 @@ class AssetHierarchyRepository {
       // Only explicit pre-acceptance refusals unlock the retained inspection
       // draft. Unknown failures and historical receipt/reconciliation problems
       // keep the frozen request even when their transport code is precondition.
+      const registerRefusalReasons = {
+        'asset-registry-version-mismatch',
+        'asset-hierarchy-version-mismatch',
+        'asset-component-replaced-terminal',
+        'asset-tag-transfer-owner-changed',
+        'asset-instance-number-collision',
+        'asset-instance-active-components',
+        'asset-instance-open-condition-ticket',
+        'asset-component-definition-kind-invalid',
+        'asset-component-installation-future',
+        'asset-component-owner-mismatch',
+        'asset-component-correction-scope-invalid',
+        'asset-component-replacement-definition-mismatch',
+        'asset-component-installation-chronology-invalid',
+        'asset-component-installation-history-malformed',
+        'asset-class-legacy-role-collision',
+        'asset-class-operational-role-migration-required',
+        'asset-class-code-collision',
+        'asset-class-active-nodes',
+        'asset-class-active-instances',
+        'asset-class-live-inner-covers',
+        'asset-hierarchy-node-class-mismatch',
+        'asset-hierarchy-node-retired',
+        'asset-hierarchy-active-children',
+      };
+      if (assetRegistrySubmissionOperations.contains(request['operation']) &&
+          registerRefusalReasons.contains(map['reasonCode'])) {
+        throw AssetHierarchyCommandRefused(
+          error.message ?? 'The register change was refused.',
+          code: error.code,
+          reasonCode: map['reasonCode'] as String,
+        );
+      }
       final editableAcceptanceRefusal =
           request['operation'] == 'ACCEPT_INNER_COVER' &&
           ((error.code == 'invalid-argument' &&
@@ -1724,7 +1995,11 @@ class AssetHierarchyRepository {
       // acceptance. Keep unknown/replay failures frozen, and never broaden the
       // dedicated acceptance contract above.
       const lifecycleRefusalReasons = <String, Set<String>>{
-        'aborted': {'inner-cover-version-mismatch'},
+        'aborted': {
+          'inner-cover-version-mismatch',
+          'asset-condition-version-mismatch',
+          'asset-condition-component-definition-changed',
+        },
         'already-exists': {
           'inner-cover-serial-collision',
           'inner-cover-donor-part-already-consumed',
@@ -1744,6 +2019,19 @@ class AssetHierarchyRepository {
           'inner-cover-reacceptance-required',
           'inner-cover-replacement-target-changed',
           'inner-cover-not-installed',
+          'asset-condition-asset-class-invalid',
+          'asset-condition-asset-invalid',
+          'asset-condition-administratively-out-of-service',
+          'asset-condition-inner-cover-still-linked',
+          'asset-condition-not-active',
+          'asset-condition-linked-issue-asset-mismatch',
+          'asset-condition-linked-issue-deleted',
+          'asset-condition-linked-issue-resolved',
+          'asset-condition-linked-issue-unbound',
+          'asset-condition-linked-issue-lifecycle-malformed',
+          'asset-condition-linked-issue-inner-cover-malformed',
+          'asset-condition-component-definition-changed',
+          'asset-condition-legacy-writer-cannot-downgrade',
         },
       };
       if (request['operation'] != 'ACCEPT_INNER_COVER' &&

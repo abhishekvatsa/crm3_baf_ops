@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
@@ -27,6 +28,7 @@ void main() {
   late AppUser actor;
   Future<void> Function(String)? capability;
   var probes = 0;
+  var clock = DateTime.utc(2026, 9, 20);
 
   AppUser manager([String uid = 'assigner-1']) => AppUser(
     uid: uid,
@@ -62,7 +64,7 @@ void main() {
       name: 'assignment_submission',
       inspector: false,
     );
-    store = DurableSubmissionRepository(database);
+    store = DurableSubmissionRepository(database, now: () => clock);
     controller = PublishedTemplateAssignmentSubmissionController(
       store: store,
       server: server,
@@ -152,6 +154,35 @@ void main() {
       expect(await database.jobModuleInstances.count(), 1);
     },
   );
+
+  test('late original reply and later replay share one acceptance without rolling back newer work', () async {
+    final saved = await prepare();
+    final started = Completer<void>();
+    final original = Completer<Map<String, dynamic>>();
+    var calls = 0;
+    final initial = retainedAssignmentReceipt(saved.requestId);
+    final later = Map<String, dynamic>.from(jsonDecode(jsonEncode(initial)) as Map);
+    (later['modules'] as List).single['version'] = 2;
+    (later['modules'] as List).single['updatedAt'] = '2026-09-20T06:00:00.000Z';
+    (later['modules'] as List).single['status'] = 'inProgress';
+    server.responseOverride = (_) {
+      if (calls++ == 0) { started.complete(); return original.future; }
+      return Future.value(later);
+    };
+    final first = controller.check(saved.submissionId);
+    await started.future;
+    clock = clock.add(const Duration(minutes: 10));
+    await controller.check(saved.submissionId);
+    final retainedHash = (await store.read(saved.submissionId))!.receiptSha256;
+    original.complete(initial);
+    await first;
+    expect((await store.read(saved.submissionId))!.receiptSha256, retainedHash);
+    expect((await database.jobModuleInstances.where().findAll()).single.version, 2);
+    await reopen();
+    await controller.check(saved.submissionId);
+    expect((await database.jobModuleInstances.where().findAll()).single.version, 2);
+    expect(server.created, 0);
+  });
 
   test(
     'newer dirty execution and module are retained inside atomic acceptance adoption',
@@ -485,9 +516,11 @@ class _AssignmentServer extends PublishedTemplateAssignmentServerService {
   int created = 0;
   String receiptActor = 'assigner-1';
   void Function()? beforeReturn;
+  Future<Map<String, dynamic>> Function(String)? responseOverride;
   @override
   Future<Map<String, dynamic>> assignFrozenEnvelope(String envelopeJson) async {
     envelopes.add(envelopeJson);
+    if (responseOverride != null) return responseOverride!(envelopeJson);
     final request = (jsonDecode(envelopeJson) as Map)['request'] as Map;
     final id = request['requestId'] as String;
     final prior = accepted.containsKey(id);

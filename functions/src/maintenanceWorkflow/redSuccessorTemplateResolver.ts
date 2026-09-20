@@ -5,8 +5,10 @@ import {
   compilePublishedTemplateRequirements,
   validatePublishedTemplatePublication,
   validatePublishedTemplateTarget,
+  revalidatePublishedInstalledComponent,
 } from "../publishedTemplateAssignment";
 import {WorkflowError} from "./errors";
+import {FrozenMaintenanceClass} from "./maintenanceIntelligence";
 import {EquipmentIdentity} from "./paths";
 import {WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
@@ -163,6 +165,7 @@ export const resolveRedSuccessorTemplate = async (
       },
       packageData,
       versionData,
+      enforceClientAppVersion: false,
     });
     const auditRows = await tx.query("template_publish_audits", [
       {field: "versionFirestoreId", op: "==", value: versionId},
@@ -173,6 +176,10 @@ export const resolveRedSuccessorTemplate = async (
       data: () => row.data ?? undefined,
     }))).id;
     validatePublishedTemplateTarget(versionData, target);
+    await revalidatePublishedInstalledComponent(versionData, target, async (path) => {
+      const value = await tx.get(path);
+      return {id: documentId(path), exists: value.exists, data: () => value.data ?? undefined};
+    });
   } catch (error) {
     if (error instanceof AssignmentValidationError) {
       throw new WorkflowError(
@@ -185,6 +192,14 @@ export const resolveRedSuccessorTemplate = async (
   const packageTitle = text(packageData.title) ?? templateCodes[0];
   const templateName = firstText(compiled.jobSnapshot, ["jobName", "templateName", "title", "name"]) ?? packageTitle;
   const modules = compiled.modules.map(({snapshot, code, fields}, index) => {
+    const discipline = ["discipline", "defaultDiscipline", "assignedDiscipline", "ownerDiscipline"]
+      .map((key) => firstText(snapshot, [key]))
+      .find((value) => value != null && value.trim().toLowerCase() !== "refractory");
+    if (discipline != null) {
+      throw new WorkflowError("red-successor-template-unconfigured",
+        "The automatic RED successor requires refractory modules. Publish a compatible package instead of changing its recorded ownership.",
+        {reasonCode: "red-successor-discipline-incompatible", moduleCode: code, discipline});
+    }
     return {
       templateModuleId: firstText(snapshot, ["templateModuleId", "moduleId", "id", "key"]),
       moduleCode: code,
@@ -233,8 +248,14 @@ export const buildRedSuccessorModule = (args: {
   readonly actorUid: string;
   readonly actorName: string;
   readonly at: string;
+  readonly maintenanceClassification?: FrozenMaintenanceClass | null;
+  readonly maintenanceClassificationRevision?: number | null;
 }): {id: string; data: JsonMap} => {
-  const {template, module, index, executionId, assetTypeKey, assetNumber, actorUid, actorName, at} = args;
+  const {
+    template, module, index, executionId, assetTypeKey, assetNumber,
+    actorUid, actorName, at, maintenanceClassification,
+    maintenanceClassificationRevision,
+  } = args;
   const code = text(module.moduleCode) ?? `RED-${index + 1}`;
   const id = moduleId(executionId, index, code);
   return {
@@ -321,6 +342,10 @@ export const buildRedSuccessorModule = (args: {
         versionFirestoreId: template.versionId,
         contentHash: template.contentHash,
         moduleIndex: index,
+        ...(maintenanceClassification == null ? {} : {
+          maintenanceClassification,
+          maintenanceClassificationRevision: maintenanceClassificationRevision ?? 1,
+        }),
       }),
     },
   };

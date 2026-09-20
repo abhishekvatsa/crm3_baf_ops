@@ -272,6 +272,8 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
     execution,
     executionId: historicalRecordId,
     sourceType: "historicalMaintenance",
+    datePrecision: "date",
+    cadenceApplicability: asset.data!.status === "retired" ? "historicalOnly" : "operational",
     completedAt,
     completedBy: {uid: null, name: performedByName},
     recordedAt,

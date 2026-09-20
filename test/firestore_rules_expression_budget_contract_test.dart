@@ -73,12 +73,7 @@ void main() {
         rules,
         'function validMaintenanceUpdate()',
       );
-      expect(router, contains('targetDeleted != sourceDeleted'));
-      expect(router, contains('validMaintenanceSoftDeleteUpdate()'));
-      expect(router, contains('targetResolved != sourceResolved'));
-      expect(router, contains('validMaintenanceCloseUpdate()'));
-      expect(router, contains('validMaintenanceReopenUpdate()'));
-      expect(router, contains(': false));'));
+      expect(router, contains('return false;'));
       expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
     });
 

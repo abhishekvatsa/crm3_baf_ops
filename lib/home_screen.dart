@@ -1,3 +1,4 @@
+import 'features/admin/presentation/saved_authority_decisions.dart';
 // FILE: lib/home_screen.dart
 
 import 'dart:async';
@@ -275,8 +276,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             operationalEventsAsync.valueOrNull == null;
         final qualityWarningsUnavailable =
             qualityWarningsAsync.valueOrNull == null;
-        final qualityMonitoringUnavailable =
-            qualityMonitoringAsync.valueOrNull == null;
+        final qualityMonitoringUnavailable = !monitoringPopulationIsQualified(
+          qualityMonitoringAsync.valueOrNull,
+        );
         final attentionDataUnavailable =
             ticketCountAsync.valueOrNull == null ||
             directiveCountAsync.valueOrNull == null ||
@@ -327,11 +329,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final body = BafPageCanvas(
-              child: _LazyIndexedStack(
-                index: safeIndex,
-                itemCount: tabs.length,
-                itemBuilder: (context, index) =>
-                    tabs[index].buildScreen(context),
+              child: Column(
+                children: [
+                  const SavedAuthorityDecisions(),
+                  Expanded(
+                    child: _LazyIndexedStack(
+                      index: safeIndex,
+                      itemCount: tabs.length,
+                      itemBuilder: (context, index) =>
+                          tabs[index].buildScreen(context),
+                    ),
+                  ),
+                ],
               ),
             );
             final useRail = constraints.maxWidth >= 900;

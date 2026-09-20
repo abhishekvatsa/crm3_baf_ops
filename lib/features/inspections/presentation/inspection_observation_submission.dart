@@ -86,7 +86,30 @@ Future<void> _recordObservation(
   List<AssetHierarchyNode> nodes, {
   InspectionObservation? correction,
   String? initialTargetKey,
+  String? followUpFindingId,
 }) async {
+  final originUid = ref.read(currentAppUserProvider).value?.uid;
+  if (originUid == null) return;
+  final historical =
+      correction != null &&
+      (campaign.status == InspectionCampaignStatus.closed ||
+          campaign.targets.any(
+            (target) =>
+                target.targetKey == correction.targetKey &&
+                target.lastObservationId != correction.id,
+          ));
+  String? amendmentReason;
+  if (historical) {
+    amendmentReason = await showDialog<String>(
+      context: context,
+      builder: (_) => const _InspectionReasonDialog(
+        title: 'Amend historical reading',
+        message:
+            'The original reading and any later readings remain in history. Explain the correction; affected findings will require review.',
+      ),
+    );
+    if (amendmentReason == null || !context.mounted) return;
+  }
   final draft = await showDialog<_InspectionObservationDraft>(
     context: context,
     builder: (_) => _InspectionObservationEditor(
@@ -94,6 +117,7 @@ Future<void> _recordObservation(
       nodes: nodes,
       correction: correction,
       initialTargetKey: initialTargetKey,
+      lockTarget: followUpFindingId != null,
     ),
   );
   if (draft == null || !context.mounted) return;
@@ -105,11 +129,17 @@ Future<void> _recordObservation(
       type: WorkflowCommandType.recordInspectionObservation,
       aggregateId: campaign.id,
       expectedVersion: campaign.version,
-      payload: draft.toPayload(),
+      payload: {
+        ...draft.toPayload(),
+        if (amendmentReason != null)
+          'historicalAmendmentReason': amendmentReason,
+        if (followUpFindingId != null) 'followUpFindingId': followUpFindingId,
+      },
     ),
     correction == null
         ? 'Inspection reading recorded.'
         : 'Correction recorded.',
+    originUid: originUid,
   );
   if (receipt?.result['issueRecommended'] == true && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

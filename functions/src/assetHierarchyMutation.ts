@@ -763,6 +763,22 @@ export async function mutateAssetHierarchyWithDb(args: {
           guardData, "legacyRole", role, request.requestId,
         )});
       }
+      if (request.operation === "UPDATE_CLASS" &&
+          currentClass != null && oldRole !== desiredRole) {
+        const populatedAssets = querySnapshot(await transaction.get(
+          assets.where("assetClassId", "==", request.assetClassId).limit(1),
+        ), "Asset-class role migration asset lookup");
+        const populatedNodes = querySnapshot(await transaction.get(
+          nodes.where("assetClassId", "==", request.assetClassId).limit(1),
+        ), "Asset-class role migration node lookup");
+        if (populatedAssets.docs.length > 0 || populatedNodes.docs.length > 0) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "An operational class role cannot change while its asset or component history is populated. Create a reviewed migration first.",
+            {reasonCode: "asset-class-operational-role-migration-required"},
+          );
+        }
+      }
     }
     let activeClassNodes: QuerySnapshotLike | null = null;
     let activeClassAssets: QuerySnapshotLike | null = null;
@@ -854,6 +870,17 @@ export async function mutateAssetHierarchyWithDb(args: {
             .where("status", "==", "active").limit(1),
         ),
         "Active component-installation lookup",
+      );
+    }
+    if (currentNode != null && request.operation === "UPDATE_NODE" &&
+        request.nodeDraft != null &&
+        request.nodeDraft.nodeType !== currentNode.nodeType) {
+      activeInstallations = querySnapshot(
+        await transaction.get(
+          installedComponents.where("definitionNodeId", "==", request.nodeId)
+            .where("status", "==", "active").limit(1),
+        ),
+        "Active component-installation lookup for definition-kind change",
       );
     }
 
@@ -987,6 +1014,13 @@ export async function mutateAssetHierarchyWithDb(args: {
         if (currentNode == null) {
           throw new AssetHierarchyMutationError("not-found", "Hierarchy node was not found.");
         }
+        if (currentNode.assetClassId !== request.assetClassId) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "The hierarchy node belongs to a different asset class.",
+            {reasonCode: "asset-hierarchy-node-class-mismatch"},
+          );
+        }
         if (request.operation === "UPDATE_NODE" && currentNode.status !== "active") {
           throw new AssetHierarchyMutationError(
             "failed-precondition",
@@ -1012,8 +1046,12 @@ export async function mutateAssetHierarchyWithDb(args: {
       if (activeInstallations != null && activeInstallations.docs.length > 0) {
         throw new AssetHierarchyMutationError(
           "failed-precondition",
-          "Retire installed components before retiring this definition.",
-          {reasonCode: "asset-definition-active-installations"},
+          request.operation === "UPDATE_NODE" ?
+            "Retire installed components before changing this definition's kind." :
+            "Retire installed components before retiring this definition.",
+          {reasonCode: request.operation === "UPDATE_NODE" ?
+            "asset-definition-kind-change-active-installations" :
+            "asset-definition-active-installations"},
         );
       }
       const draft = request.nodeDraft ?? {

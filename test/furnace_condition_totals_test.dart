@@ -17,6 +17,8 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -164,6 +166,19 @@ void main() {
     expect(find.text('Burner blocks (0)'), findsNothing);
     expect(find.byTooltip('Condition totals'), findsNothing);
   });
+
+  testWidgets(
+    'retained unresolved red-hot concern stays visible after administrative closure',
+    (tester) async {
+      await _pump(
+        tester,
+        rounds: Stream.value({}),
+        conditionTickets: Stream.value([_redHotConcern()]),
+      );
+      expect(find.text('Burner blocks (1)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('category confirmation requires the same evidence it reviewed', (
     tester,
@@ -314,6 +329,7 @@ Future<void> _pump(
   double scale = 1,
   List<int> furnaceNumbers = const [1, 2, 3, 27],
   Stream<Map<String, BurnerConditionRound>>? rounds,
+  Stream<List<MaintenanceRecord>>? conditionTickets,
   GlobalKey? boundary,
 }) async {
   tester.view.physicalSize = size;
@@ -393,6 +409,9 @@ Future<void> _pump(
           (ref, actor) => Stream.value([]),
         ),
         openTicketsProvider.overrideWith((ref) => Stream.value([])),
+        plantConditionTicketsProvider.overrideWith(
+          (ref) => conditionTickets ?? Stream.value([]),
+        ),
         latestBurnerConditionRoundsProvider.overrideWith(
           (ref, query) => rounds ?? Stream.value(_initialRounds()),
         ),
@@ -552,3 +571,29 @@ class _AuditReadService extends BurnerConditionRoundService {
   @override
   Future<List<DurableSubmission>> pending() async => [];
 }
+
+MaintenanceRecord _redHotConcern() => MaintenanceRecord()
+  ..firestoreId = 'retained-concern'
+  ..version = 2
+  ..isSynced = true
+  ..assetType = AssetType.furnace
+  ..assetNumber = 1
+  ..classification = burnerLockoutClassification
+  ..status = TicketStatus.closedWithoutResolution
+  ..isResolved = true
+  ..administrativeClosure = const IssueAdministrativeClosure(
+    disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+    reason: 'The unresolved burner condition requires follow-up.',
+  )
+  ..createdAt = _now
+  ..updatedAt = _now.add(const Duration(hours: 1))
+  ..burnerLockoutCase = BurnerLockoutCase(
+    positions: const [3],
+    redHotPositions: const [3],
+    commonMode: false,
+    cycleStage: BurnerCycleStage.firing,
+    flameObservation: BurnerObservation.notChecked,
+    sparkObservation: BurnerObservation.notChecked,
+    relightAttempts: 0,
+    remainsLockedOut: true,
+  );

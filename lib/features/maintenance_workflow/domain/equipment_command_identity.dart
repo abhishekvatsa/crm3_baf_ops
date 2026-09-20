@@ -19,15 +19,27 @@ class EquipmentCommandIdentity {
       'assetTypeKey': assetTypeKey,
       'assetNumber': record.assetNumber,
     };
+    final assetClassId = record.assetClassId?.trim();
+    final assetInstanceId = record.assetInstanceId?.trim();
+    if ((assetClassId == null) != (assetInstanceId == null) ||
+        (assetClassId != null && assetClassId.isEmpty) ||
+        (assetInstanceId != null && assetInstanceId.isEmpty)) {
+      throw const FormatException(
+        'Equipment command physical identity is incomplete.',
+      );
+    }
     if (assetTypeKey != 'governedCustom') {
+      if (assetClassId != null && assetInstanceId != null) {
+        payload
+          ..['assetClassId'] = assetClassId
+          ..['assetInstanceId'] = assetInstanceId;
+      }
       return EquipmentCommandIdentity._(
         aggregateId: 'equipment_${assetTypeKey}_${record.assetNumber}',
         payload: Map<String, Object?>.unmodifiable(payload),
       );
     }
 
-    final assetClassId = record.assetClassId?.trim();
-    final assetInstanceId = record.assetInstanceId?.trim();
     final firestoreId = record.firestoreId?.trim();
     if (assetClassId == null ||
         assetClassId.isEmpty ||

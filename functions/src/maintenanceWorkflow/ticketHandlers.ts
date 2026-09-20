@@ -1,4 +1,6 @@
+import {PILOT_PURGE_MANIFEST_COLLECTION, pilotPurgeReceiptId} from "../pilotRecordPurge";
 import {WorkflowError} from "./errors";
+import {verifyMaintenanceAcceptanceDigest} from "./ticketAcceptanceEvidence";
 import {HandlerArgs, HandlerResult} from "./handlerTypes";
 import {compliancePath, maintenancePath, workflowPath} from "./paths";
 import {
@@ -482,6 +484,9 @@ const burnerResolutionProjection = (
   ticketId: string,
   ticket: JsonMap,
   actions: readonly JsonMap[],
+  workStartedAt: Date,
+  endDate: Date,
+  attendanceRevision: number | null = null,
 ): {readonly attended: number[]; readonly evidence: JsonMap} | null => {
   if (ticket.classification !== BURNER_LOCKOUT_CLASSIFICATION) return null;
   const positions = ticket.burnerPositions;
@@ -500,6 +505,26 @@ const burnerResolutionProjection = (
   }>();
   for (const action of actions) {
     if (action.burnerPosition == null) continue;
+    const performedAt = requiredPersistedInstantDate(
+      action.createdAt,
+      "burner action createdAt",
+    );
+    if (performedAt.getTime() < workStartedAt.getTime() ||
+        performedAt.getTime() > endDate.getTime() + 5 * 60 * 1000) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Burner attendance time must fall within the issue work period.",
+        {reasonCode: "maintenance-ticket-burner-action-time-invalid"},
+      );
+    }
+    if (typeof action.performedBy !== "string" ||
+        action.performedBy.trim().length === 0) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Burner attendance must retain the physical performer.",
+        {reasonCode: "maintenance-ticket-burner-action-performer-missing"},
+      );
+    }
     const position = action.burnerPosition;
     const actionCode = action.burnerActionCode;
     const outcome = action.burnerOutcome;
@@ -507,10 +532,10 @@ const burnerResolutionProjection = (
     const normalizedReading = reading == null ? null : reading as number;
     if (!Number.isSafeInteger(position) ||
         !positions.includes(position as number) ||
-        action.attendanceSessionId !== burnerAttendanceSessionId(
+        action.attendanceSessionId !== (burnerAttendanceSessionId(
           ticketId,
           position as number,
-        ) ||
+        ) + (attendanceRevision == null ? "" : `_r${attendanceRevision}`)) ||
         typeof actionCode !== "string" ||
         !BURNER_ACTION_CODES.has(actionCode) ||
         typeof outcome !== "string" ||
@@ -1173,8 +1198,15 @@ const requireBaseVacantAtIssueStart = async (args: {
         linkage.removedAt,
         "innerCoverLinkage.removedAt",
       ).getTime();
+    const removedPhysicalAt = linkage.removedPhysicalAt == null ? null :
+      requiredPersistedInstantDate(
+        linkage.removedPhysicalAt,
+        "innerCoverLinkage.removedPhysicalAt",
+      ).getTime();
     if ((linkage.active === true) !== (removedAt == null) ||
-        (removedAt != null && removedAt < installedAt)) {
+        (removedAt != null && removedAt < installedAt) ||
+        (removedPhysicalAt != null && (removedAt == null ||
+          removedPhysicalAt < installedAt || removedPhysicalAt > removedAt))) {
       throw new WorkflowError(
         "failed-precondition",
         "The Base Inner Cover linkage interval is malformed.",
@@ -1191,7 +1223,7 @@ const requireBaseVacantAtIssueStart = async (args: {
       }
       activeLinkage = linkage;
     }
-    intervals.push({linkage, installedAt, removedAt});
+    intervals.push({linkage, installedAt, removedAt: removedPhysicalAt ?? removedAt});
   }
   const assignmentSnapshot = await args.tx.get(
     `base_inner_cover_assignments/${args.baseAssetInstanceId}`,
@@ -1437,7 +1469,12 @@ export const canonicalGovernedClosureActions = async (args: {
           {reasonCode: "maintenance-ticket-burner-action-out-of-scope"},
         );
       }
-      canonicalRows.push(row);
+      if (args.contractVersion === 1) {
+        boundedText(row.performedBy, "performedBy", 1, 500);
+        canonicalRows.push({...row, performedBy: args.actor.name});
+      } else {
+        canonicalRows.push(row);
+      }
       continue;
     }
 
@@ -1789,6 +1826,7 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   component: ticket.component ?? null,
   subsystem: ticket.subsystem ?? null,
   tag: ticket.tag ?? null,
+  continuesIssueId: ticket.continuesIssueId ?? null,
   classification: ticket.classification ?? null,
   otherDepartment: ticket.otherDepartment ?? null,
   remarks: ticket.remarks ?? null,
@@ -1808,6 +1846,13 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   teamsInvolved: ticket.teamsInvolved ?? null,
   actionsJson: ticket.actionsJson ?? null,
   resolutionHistoryJson: ticket.resolutionHistoryJson ?? null,
+  metadataJson: ticket.metadataJson ?? null,
+  assetHierarchyRefJson: ticket.assetHierarchyRefJson ?? null,
+  isDeleted: ticket.isDeleted ?? false,
+  deletedAt: instantText(ticket.deletedAt),
+  deletedByUid: ticket.deletedByUid ?? null,
+  deletedByName: ticket.deletedByName ?? null,
+  deleteReason: ticket.deleteReason ?? null,
   reopenedByUid: ticket.reopenedByUid ?? null,
   reopenedByName: ticket.reopenedByName ?? null,
   reopenedAt: instantText(ticket.reopenedAt),
@@ -1829,7 +1874,6 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
     ticket.issueClosureRelevanceEndedByName ?? null,
   issueClosureRelevanceEndReason:
     ticket.issueClosureRelevanceEndReason ?? null,
-  isDeleted: ticket.isDeleted ?? null,
 });
 
 const requireTicket = async (
@@ -2252,14 +2296,27 @@ async function assertContinuesRetainedConcern(args: {
         );
       }
     }
+    // Revisions prove that the reference was current when it was captured;
+    // they are not the physical identity of the retained subject. A
+    // continuation may therefore carry a newer reviewed reference for the
+    // same asset/component. Stable IDs and the actual Inner Cover linkage
+    // remain part of the comparison, while revision counters are deliberately
+    // left to requireFreshAssetReference above.
     return stableJson({
       assetClassId,
       assetInstanceId,
-      assetInstanceVersion,
       assetNumber: assetNumber as number,
       scope,
-      ...component,
-      innerCoverAssociation: association,
+      nodeId: component.nodeId,
+      componentInstanceId: component.componentInstanceId,
+      innerCoverAssociation: association == null ? null : {
+        baseAssetInstanceId: association.baseAssetInstanceId,
+        baseAssetNumber: association.baseAssetNumber,
+        positionState: association.positionState,
+        innerCoverId: association.innerCoverId,
+        innerCoverSerialNumber: association.innerCoverSerialNumber,
+        linkageId: association.linkageId,
+      },
     });
   };
   const originalSubject = physicalSubject(
@@ -2316,6 +2373,10 @@ export const createMaintenanceTicket = async ({
       "Maintenance ticket creation requires a new valid aggregate identity.",
       {reasonCode: "maintenance-ticket-create-envelope-invalid"},
     );
+  }
+  const removedIdentity = await tx.get(`${PILOT_PURGE_MANIFEST_COLLECTION}/${pilotPurgeReceiptId("maintenance_records", command.aggregateId)}`);
+  if (removedIdentity.exists) {
+    throw new WorkflowError("failed-precondition", "This issue identity was permanently removed. New work requires a new identity.", {reasonCode: "maintenance-ticket-identity-permanently-removed"});
   }
   const input = record(command.payload.ticket, "ticket");
   const burner = input.classification === BURNER_LOCKOUT_CLASSIFICATION;
@@ -2847,6 +2908,10 @@ export const createMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-create-orphan-evidence"},
     );
   }
+  if (directive != null && (await tx.get(`${PILOT_PURGE_MANIFEST_COLLECTION}/${pilotPurgeReceiptId("directives", directiveId)}`)).exists) {
+    throw new WorkflowError("failed-precondition", "The linked directive identity was permanently removed.",
+      {reasonCode: "maintenance-ticket-directive-permanently-removed"});
+  }
   await requireVacantAudit(tx, command.commandId);
   if (hasContinuedIssue) {
     await assertContinuesRetainedConcern({
@@ -3254,16 +3319,14 @@ export const resolveMaintenanceTicket = async ({
     command.payload,
     "actionTargetContractVersion",
   );
-  exactKeys(
-    command.payload,
-    hasActionTargetContract ?
-      [
-        "endDate", "remarks", "teamsInvolved", "actionsJson",
-        "actionTargetContractVersion",
-      ] :
-      ["endDate", "remarks", "teamsInvolved", "actionsJson"],
-    "payload",
-  );
+  const hasAttendanceContract = "burnerAttendanceContractVersion" in command.payload;
+  exactKeys(command.payload, ["endDate", "remarks", "teamsInvolved", "actionsJson",
+    ...(hasActionTargetContract ? ["actionTargetContractVersion"] : []),
+    ...(hasAttendanceContract ? ["burnerAttendanceContractVersion", "attendanceOnly"] : [])], "payload");
+  if (hasAttendanceContract && (command.payload.burnerAttendanceContractVersion !== 1 ||
+      typeof command.payload.attendanceOnly !== "boolean")) {
+    throw new WorkflowError("invalid-argument", "Invalid burner attendance contract.");
+  }
   const actionTargetContractVersion = hasActionTargetContract ?
     requiredInteger(
       command.payload.actionTargetContractVersion,
@@ -3325,7 +3388,18 @@ export const resolveMaintenanceTicket = async ({
     command.aggregateId,
     ticket,
     actions.rows,
+    episodeStartedAt,
+    endDate,
+    hasAttendanceContract ? version : null,
   );
+  const restorationIncomplete = burner != null && Object.values(burner.evidence)
+    .some((entry) => (entry as JsonMap).outcome !== "returnedToService");
+  const attendanceOnly = hasAttendanceContract && command.payload.attendanceOnly === true;
+  if ((restorationIncomplete && !attendanceOnly) || (attendanceOnly && burner == null)) {
+    throw new WorkflowError("failed-precondition",
+      "Attendance that leaves a burner restricted must be saved as attendance, keeping the issue active.",
+      {reasonCode: "maintenance-ticket-burner-restoration-incomplete"});
+  }
   if (burner != null && actions.rows.length === 0) {
     throw new WorkflowError(
       "failed-precondition",
@@ -3366,6 +3440,35 @@ export const resolveMaintenanceTicket = async ({
       plan.assigned.includes("instrumentation"),
   });
 
+  if (attendanceOnly) {
+    const metadata = ticket.metadataJson == null ? {} : record(JSON.parse(String(ticket.metadataJson)), "metadataJson");
+    const previous = metadata.burnerAttendanceHistory ?? [];
+    if (!Array.isArray(previous) || previous.length >= 50) {
+      throw new WorkflowError("failed-precondition", "Burner attendance history requires supervised reconciliation before adding another session.");
+    }
+    const attendance = {requestId: command.commandId, performedAt: endDate.toISOString(),
+      recordedAt: iso(context.serverNow), recordedByUid: context.actor.uid,
+      recordedByName: context.actor.name, remarks, actionsJson: actions.text, outcomes: burner!.evidence};
+    const metadataJson = stableJson({...metadata, burnerAttendanceHistory: [...previous, attendance]});
+    if (Buffer.byteLength(metadataJson, "utf8") > 500000) {
+      throw new WorkflowError("failed-precondition", "The retained attendance history is full; supervised archival is required.");
+    }
+    const nextVersion = version + 1;
+    const update = {metadataJson, status: "inProgress", updatedAt: iso(context.serverNow),
+      ...ticketLaneProjection({...plan, acknowledged: [...plan.assigned]}),
+      acknowledgedByUid: ticket.acknowledgedByUid ?? context.actor.uid,
+      acknowledgedByName: ticket.acknowledgedByName ?? context.actor.name,
+      acknowledgedAt: ticket.acknowledgedAt ?? iso(context.serverNow),
+      updatedByUid: context.actor.uid, updatedByName: context.actor.name, version: nextVersion};
+    const id = writeAudit({tx, command, actor: context.actor, at: context.serverNow,
+      reason: remarks, summary: "Burner attendance recorded; issue remains active", severity: "medium",
+      before: ticketSnapshot(ticket), after: ticketSnapshot({...ticket, ...update}), resultVersion: nextVersion});
+    tx.update(maintenancePath(command.aggregateId), update);
+    applyBurnerBlockLifecycleWritePlan(tx, burnerBlockLifecyclePlan);
+    applyUvDetectorLifecycleWritePlan(tx, uvDetectorLifecyclePlan);
+    return {resultKey: "maintenance-ticket-attendance-recorded", aggregateVersion: nextVersion,
+      result: {ticketId: command.aggregateId, auditId: id, completedLanes: []}};
+  }
   const nextPlan = {
     ...plan,
     acknowledged: [...plan.assigned],
@@ -3402,7 +3505,10 @@ export const resolveMaintenanceTicket = async ({
     ...(plan.acknowledged.length === 0 ? {
       acknowledgedByUid: context.actor.uid,
       acknowledgedByName: context.actor.name,
-      acknowledgedAt: endDate.toISOString(),
+      // No lane was acknowledged before closure. This is an implicit
+      // acknowledgement recorded when the closure was entered, not a claim
+      // that somebody acknowledged the issue at the physical end time.
+      acknowledgedAt: iso(context.serverNow),
     } : {}),
     ...(burner == null ? {} : {
       burnerAttendedPositions: burner.attended,
@@ -3893,7 +3999,8 @@ export const reconfigureMaintenanceTicketLanes = async ({
   command,
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
-  exactKeys(command.payload, ["lanes", "otherDepartment", "reason"], "payload");
+  exactKeys(command.payload, ["lanes", "otherDepartment", "reason",
+    ...("departmentChangeKind" in command.payload ? ["departmentChangeKind"] : [])], "payload");
   const reason = boundedText(command.payload.reason, "reason", 1, 2000);
   const lanes = requestedTicketLanes(command.payload.lanes);
   const otherDepartment = optionalBoundedText(
@@ -3945,14 +4052,26 @@ export const reconfigureMaintenanceTicketLanes = async ({
   }
   const plan = ticketLanePlan(ticket);
   const selected = new Set(lanes);
+  const departmentChanged = plan.assigned.includes("others") && lanes.includes("others") &&
+    (ticket.otherDepartment ?? null) !== otherDepartment;
+  const changeKind = command.payload.departmentChangeKind ?? "transfer";
+  if (changeKind !== "transfer" && changeKind !== "labelCorrection") {
+    throw new WorkflowError("invalid-argument", "Department change must be a transfer or reviewed label correction.");
+  }
+  if (changeKind === "labelCorrection" && (!departmentChanged ||
+      (!context.actor.roles.has("admin") && !context.actor.roles.has("si")))) {
+    throw new WorkflowError("permission-denied", "Only Admin or SI can correct the label of the same accountable department.");
+  }
+  const retainsObligation = (lane: string) => selected.has(lane) &&
+    !(lane === "others" && departmentChanged && changeKind === "transfer");
   const nextPlan = {
     revision: plan.revision + 1,
     assigned: lanes,
-    acknowledged: plan.acknowledged.filter((lane) => selected.has(lane)),
-    completed: plan.completed.filter((lane) => selected.has(lane)),
+    acknowledged: plan.acknowledged.filter(retainsObligation),
+    completed: plan.completed.filter(retainsObligation),
     completionEvidence: Object.fromEntries(
       Object.entries(plan.completionEvidence)
-        .filter(([lane]) => selected.has(lane) && plan.completed.includes(lane)),
+        .filter(([lane]) => retainsObligation(lane) && plan.completed.includes(lane)),
     ),
   };
   if (JSON.stringify(plan.assigned) === JSON.stringify(lanes) &&
@@ -4081,19 +4200,101 @@ export const correctMaintenanceTicket = async ({
   command,
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
-  exactKeys(command.payload, ["corrections", "reason"], "payload");
+  const targetCorrection = "targetReferenceJson" in command.payload;
+  const withdrawal = "withdrawInError" in command.payload;
+  exactKeys(command.payload, ["corrections", "reason",
+    ...(targetCorrection ? ["targetReferenceJson"] : []),
+    ...(withdrawal ? ["withdrawInError"] : [])], "payload");
   const reason = boundedText(command.payload.reason, "reason", 1, 2000);
-  const corrections = normalizeCorrections(
-    record(command.payload.corrections, "corrections"),
-  );
+  const rawCorrections = record(command.payload.corrections, "corrections");
+  const corrections = (targetCorrection || withdrawal) && Object.keys(rawCorrections).length === 0 ? {} :
+    normalizeCorrections(rawCorrections);
   const {ticket, version} = await requireTicket(tx, command);
   await requireVacantAudit(tx, command.commandId);
+  if (withdrawal) {
+    if (command.payload.withdrawInError !== true || targetCorrection || Object.keys(corrections).length > 0) {
+      throw new WorkflowError("invalid-argument", "Withdrawal cannot be combined with other corrections.");
+    }
+    if (!context.actor.roles.has("admin")) {
+      throw new WorkflowError("permission-denied", "Only Admin may withdraw an erroneous issue.");
+    }
+    await requireReleasedTicketCoordination({tx, ticket, ticketId: command.aggregateId});
+    const update = {isDeleted: true, deletedAt: iso(context.serverNow),
+      deletedByUid: context.actor.uid, deletedByName: context.actor.name, deleteReason: reason,
+      updatedAt: iso(context.serverNow), updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name, version: version + 1};
+    const id = writeAudit({tx, command, actor: context.actor, at: context.serverNow,
+      reason, summary: "Erroneous maintenance issue withdrawn; original evidence retained",
+      severity: "medium", before: ticketSnapshot(ticket), after: ticketSnapshot({...ticket, ...update}),
+      resultVersion: version + 1});
+    tx.update(maintenancePath(command.aggregateId), update);
+    return {resultKey: "maintenance-ticket-withdrawn", aggregateVersion: version + 1,
+      result: {ticketId: command.aggregateId, auditId: id}};
+  }
   const currentLanePlan = ticketLanePlan(ticket, {
     allowOtherDepartmentRepair: true,
   });
-  const changed: {[key: string]: string | boolean | null} = {};
+  const changed: {-readonly [key in keyof JsonMap]: JsonMap[key]} = {};
   for (const [key, value] of Object.entries(corrections)) {
     if ((ticket[key] ?? null) !== value) changed[key] = value;
+  }
+  if (!targetCorrection && ticket.assetHierarchyRefJson != null &&
+      ["component", "subsystem", "tag"].some((key) => key in changed)) {
+    throw new WorkflowError("failed-precondition",
+      "Registered equipment identity requires an explicit target correction and reason.",
+      {reasonCode: "maintenance-ticket-target-correction-required"});
+  }
+  if (targetCorrection) {
+    if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) {
+      throw new WorkflowError("permission-denied", "Admin or SI must review an equipment correction.");
+    }
+    // Retargeting physical work or dependent findings is not a label edit.
+    // Keep their original scope until a separate dependent-evidence review.
+    const dependents = await tx.query("maintenance_records", [
+      {field: "continuesIssueId", op: "==", value: command.aggregateId},
+    ]);
+    const eventLinks = await tx.query("operational_event_issue_links", [
+      {field: "issueId", op: "==", value: command.aggregateId},
+    ]);
+    const inspectionLinks = await tx.query("inspection_issue_links", [
+      {field: "ticketId", op: "==", value: command.aggregateId},
+    ]);
+    if (ticket.status !== "open" || ticket.isResolved === true ||
+        ticket.classification === BURNER_LOCKOUT_CLASSIFICATION ||
+        ticket.classification === FURNACE_STUCKUP_CLASSIFICATION ||
+        ticket.classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION ||
+        currentLanePlan.acknowledged.length > 0 ||
+        savedClosureActionPayload(ticket.actionsJson).rows.length > 0 ||
+        ticket.continuesIssueId != null || ticket.workflowAggregateId != null ||
+        ticket.qualityWarningId != null || ticket.sourceInspectionObservationId != null ||
+        dependents.length > 0 || eventLinks.length > 0 || inspectionLinks.length > 0) {
+      throw new WorkflowError("failed-precondition",
+        "This issue has work or linked evidence. Preserve its target and review the dependent records before correcting physical scope.",
+        {reasonCode: "maintenance-ticket-target-dependent-evidence"});
+    }
+    const rawReference = boundedText(command.payload.targetReferenceJson, "targetReferenceJson", 1, 50000);
+    const requestedReference = record(JSON.parse(rawReference), "targetReferenceJson");
+    const canonicalText = await requireFreshAssetReference({
+      tx, raw: rawReference, assetType: String(ticket.assetType),
+      assetNumber: requiredInteger(ticket.assetNumber, "assetNumber", 1, 2147483647),
+      tag: optionalText(requestedReference.componentTag, "componentTag", 160),
+      startDate: requiredPersistedInstantDate(ticket.startDate, "startDate").toISOString(),
+      actor: context.actor, serverNow: context.serverNow,
+    });
+    const reference = record(JSON.parse(canonicalText), "targetReferenceJson");
+    const path = persistedStringList(reference.hierarchyPath, "hierarchyPath", 20, 200);
+    changed.assetHierarchyRefJson = canonicalText;
+    changed.component = reference.nodeName;
+    changed.subsystem = path.length > 1 ? path[path.length - 2] : null;
+    changed.tag = reference.componentTag ?? null;
+    changed.hierarchyPath = path;
+  }
+  if (Object.prototype.hasOwnProperty.call(changed, "otherDepartment") &&
+      typeof ticket.otherDepartment === "string" && ticket.otherDepartment.trim().length > 0 &&
+      (currentLanePlan.acknowledged.includes("others") || currentLanePlan.completed.includes("others"))) {
+    throw new WorkflowError("failed-precondition",
+      "Use the accountable-lane review to transfer responsibility or correct the department label.",
+      {reasonCode: "maintenance-ticket-department-review-required"});
   }
   const currentClassification = ticket.classification ?? null;
   const nextClassification = Object.prototype.hasOwnProperty.call(
@@ -4378,6 +4579,7 @@ export const verifyMaintenanceTicketAudit = async (args: {
       {reasonCode: "maintenance-ticket-replay-audit-invalid"},
     );
   }
+  await verifyMaintenanceAcceptanceDigest(args.tx, args.command.commandId, data);
   if (args.command.commandType === "acknowledgeMaintenanceTicket" ||
       args.command.commandType === "completeMaintenanceTicketLane") {
     const resultLane = args.receipt.result.lane;
@@ -4422,9 +4624,41 @@ export const verifyMaintenanceTicketAudit = async (args: {
     );
   }
   if (args.command.commandType === "resolveMaintenanceTicket") {
+    if (args.command.payload.attendanceOnly === true) {
+      const metadata = parsedAuditObject(after.metadataJson);
+      const history = metadata?.burnerAttendanceHistory;
+      const session = Array.isArray(history) ? history[history.length - 1] as JsonMap : null;
+      if (after.isResolved !== false || after.status !== "inProgress" ||
+          args.receipt.resultKey !== "maintenance-ticket-attendance-recorded" ||
+          session?.requestId !== args.command.commandId || session?.recordedByUid !== args.actor.uid ||
+          session?.remarks !== args.command.payload.remarks ||
+          instantText(session?.performedAt) !== instantText(args.command.payload.endDate)) {
+        throw new WorkflowError("failed-precondition", "The accepted attendance no longer matches its retained evidence.",
+          {reasonCode: "maintenance-ticket-replay-content-invalid"});
+      }
+      return;
+    }
     const completed = after.issueCompletedLanes;
     const assigned = after.issueAssignedLanes;
+    const requestedActions = closureActionPayload(args.command.payload.actionsJson);
+    const acceptedActions = savedClosureActionPayload(after.actionsJson);
+    const businessAction = (row: JsonMap): JsonMap => {
+      const value = {...row};
+      // These descriptive fields are normalized by the accepted registry
+      // lookup. Stable target IDs and every work/evidence value still match.
+      for (const field of ["asset", "component", "hierarchyPath", "system", "subsystem", "tag", "performedBy", "assetHierarchyRef"]) delete value[field];
+      const ref = row.assetHierarchyRef as JsonMap | undefined;
+      return {...value, physicalTarget: ref == null ? null : {
+        assetInstanceId: ref.assetInstanceId, nodeId: ref.nodeId ?? null,
+        componentInstanceId: ref.componentInstanceId ?? null,
+        innerCoverAssociation: ref.innerCoverAssociation ?? null,
+      }};
+    };
     if (args.receipt.result.ticketId !== args.command.aggregateId ||
+        after.remarks !== boundedText(args.command.payload.remarks, "remarks", 1, 4000) ||
+        instantText(after.endDate) !== instantText(args.command.payload.endDate) ||
+        requestedActions.rows.length !== acceptedActions.rows.length ||
+        requestedActions.rows.some((row, index) => stableJson(businessAction(row)) !== stableJson(businessAction(acceptedActions.rows[index]))) ||
         after.status !== "resolved" || after.isResolved !== true ||
         after.closedByUid !== args.actor.uid ||
         after.version !== args.receipt.aggregateVersion ||
@@ -4437,6 +4671,22 @@ export const verifyMaintenanceTicketAudit = async (args: {
         "Maintenance ticket resolution receipt no longer matches its immutable audit.",
         {reasonCode: "maintenance-ticket-replay-resolution-invalid"},
       );
+    }
+  }
+  if (args.command.commandType === "correctMaintenanceTicket") {
+    if (args.command.payload.withdrawInError === true) {
+      if (args.receipt.resultKey !== "maintenance-ticket-withdrawn" || after.isDeleted !== true ||
+          after.deletedByUid !== args.actor.uid || after.deleteReason !== args.command.payload.reason) {
+        throw new WorkflowError("failed-precondition", "Withdrawal acceptance evidence is inconsistent.",
+          {reasonCode: "maintenance-ticket-replay-content-invalid"});
+      }
+      return;
+    }
+    const raw = record(args.command.payload.corrections, "corrections");
+    const changes = "targetReferenceJson" in args.command.payload && Object.keys(raw).length === 0 ? {} : normalizeCorrections(raw);
+    if (Object.entries(changes).some(([key, value]) => (after[key] ?? null) !== value)) {
+      throw new WorkflowError("failed-precondition", "The accepted correction differs from its original request.",
+        {reasonCode: "maintenance-ticket-replay-content-invalid"});
     }
   }
   if (args.command.commandType ===
@@ -4470,7 +4720,8 @@ export const verifyMaintenanceTicketAudit = async (args: {
       after.issueClosureReason === before.issueClosureReason &&
       typeof after.issueClosureRelevanceEndedAt === "string" &&
       after.issueClosureRelevanceEndedByUid === args.actor.uid &&
-      after.issueClosureRelevanceEndedByName === args.actor.name &&
+      typeof after.issueClosureRelevanceEndedByName === "string" &&
+      after.issueClosureRelevanceEndedByName.trim().length > 0 &&
       after.issueClosureRelevanceEndReason === reason &&
       cancelledCoordination === false && workflowId == null &&
       complianceId == null;

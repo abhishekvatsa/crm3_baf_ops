@@ -17,7 +17,17 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     final existing = entry.firestoreId == null
         ? null
         : await _entries.doc(entry.firestoreId).get();
-    final isCreate = existing == null || !existing.exists;
+    // A missing Firestore document is not a safe edit-to-create fallback. It
+    // would silently sever the original diary identity and could duplicate a
+    // note after a delayed pull or a deleted record. Creation has no identity;
+    // an identified entry must still be present.
+    final isCreate = entry.firestoreId == null;
+    if (!isCreate &&
+        (existing == null || !existing.exists || existing.data() == null)) {
+      throw StateError(
+        'The identified planned-maintenance diary entry is no longer present. Refresh before editing.',
+      );
+    }
     if (isCreate) {
       if (!actor.canCreateJobDiaryEntry) {
         throw StateError('Not authorized to create planned-job diary entries.');
@@ -33,53 +43,19 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       bumpVersion: false,
     );
 
-    entry.isSynced = true;
+    entry.updatedByUid = actor.uid;
+    entry.updatedByName = actor.name;
     if (isCreate) {
-      await _entries
-          .doc(entry.firestoreId)
-          .set(entry.toMap(), SetOptions(merge: true));
+      if (entry.createdByUid != actor.uid) {
+        throw StateError('The diary author must match the current account.');
+      }
+      entry.retainReviewedServerVersion(0);
     } else {
-      // The stored entry is read as the precondition for writing, inside the
-      // transaction that writes, for the same reason the on-device writer
-      // does it: an edit made against an older revision must not replace what
-      // was written while it was open.
-      final reference = _entries.doc(entry.firestoreId);
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final snapshot = await transaction.get(reference);
-        final data = snapshot.data();
-        final refusal = jobDiarySaveRefusal(
-          openedAtVersion: openedAtVersion,
-          storedVersion: snapshot.exists && data != null
-              ? readRequiredPersistedInt(data['version'], field: 'version')
-              : null,
-          storedIsDeleted: data?['isDeleted'] == true,
-        );
-        if (refusal != null) {
-          throw StateError(jobDiarySaveRefusalMessage(refusal));
-        }
-        entry.version = openedAtVersion + 1;
-        transaction.set(reference, entry.toMap(), SetOptions(merge: true));
-      });
+      entry.retainReviewedServerVersion(openedAtVersion);
+      entry.version = openedAtVersion + 1;
     }
-
-    if (auditContext != null) {
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'planned_job_diary_entry',
-            entityId: entry.firestoreId!,
-            action: AuditAction.create,
-            context: auditContext.copyWith(
-              after: entry.toAuditMap(),
-              summary:
-                  auditContext.summary ??
-                  'Saved planned-maintenance diary entry',
-            ),
-          ),
-        ),
-      );
-    }
+    await batchUpsertEntries([entry]);
+    entry.isSynced = true;
   }
 
   @override
@@ -101,7 +77,8 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       if (limit != null) query = query.limit(limit);
 
       final snap = await query.get();
-      return snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+      return snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
           .toList();
     }
 
@@ -137,7 +114,8 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobDiaryEntry.fromMap, source: 'JobDiaryEntry')
+      (snap) => snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
           .toList(),
     );
   }
@@ -175,19 +153,17 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
           : null;
 
       final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'planned_job_diary_entry',
-            entityId: docId,
-            action: AuditAction.delete,
-            context: auditContext.copyWith(
-              before: before.toAuditMap(),
-              after: after?.toAuditMap(),
-              summary:
-                  auditContext.summary ??
-                  'Deleted planned-maintenance diary entry',
-            ),
+      await auditRepo.log(
+        AuditEvent.fromContext(
+          entityType: 'planned_job_diary_entry',
+          entityId: docId,
+          action: AuditAction.delete,
+          context: auditContext.copyWith(
+            before: before.toAuditMap(),
+            after: after?.toAuditMap(),
+            summary:
+                auditContext.summary ??
+                'Deleted planned-maintenance diary entry',
           ),
         ),
       );
@@ -264,7 +240,8 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedDiaryResult(
-      records: snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+      records: snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -289,26 +266,63 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
 
   @override
   Future<void> batchUpsertEntries(List<JobDiaryEntry> records) async {
-    if (records.isEmpty) return;
-
-    final firestore = FirebaseFirestore.instance;
-    for (var i = 0; i < records.length; i += 500) {
-      final chunk = records.sublist(
-        i,
-        i + 500 > records.length ? records.length : i + 500,
-      );
-      final batch = firestore.batch();
-
-      for (final record in chunk) {
-        if (_cleanOptionalText(record.firestoreId) == null) continue;
-        batch.set(
-          _entries.doc(record.firestoreId),
-          record.toMap(),
-          SetOptions(merge: true),
+    // Each diary intent and its exact accepted before/after evidence share a
+    // transaction. Local edit count cannot substitute for the reviewed basis.
+    for (final record in records) {
+      final id = _cleanOptionalText(record.firestoreId);
+      if (id == null) throw StateError('Diary identity is missing.');
+      final reference = _entries.doc(id);
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final snapshot = await transaction.get(reference);
+        final data = snapshot.data();
+        final before = data == null ? null : JobDiaryEntry.fromMap(data, id);
+        final afterMap = record.toMap();
+        if (before != null &&
+            persistedJsonEquivalent(
+              jsonEncode(before.toMap()),
+              jsonEncode(afterMap),
+            )) {
+          return;
+        }
+        final basis = record.reviewedServerVersion;
+        if (basis == null ||
+            (before == null ? basis != 0 : basis != before.version) ||
+            before?.isDeleted == true) {
+          throw StateError(
+            'Diary server evidence changed or its original basis is unavailable. The saved note is retained for review.',
+          );
+        }
+        final beforeJson = before == null
+            ? null
+            : jsonEncode(before.toAuditMap());
+        final afterJson = jsonEncode(record.toAuditMap());
+        if ((beforeJson?.length ?? 0) > 20000 || afterJson.length > 20000) {
+          throw StateError(
+            'Diary evidence is too large for one audited amendment.',
+          );
+        }
+        transaction.set(
+          FirebaseFirestore.instance
+              .collection('audit_logs')
+              .doc('diary_revision_${id}_${record.version}'),
+          {
+            'entityType': 'planned_job_diary_entry',
+            'entityId': id,
+            'action': before == null ? 'create' : 'update',
+            'performedByUid': record.updatedByUid,
+            'performedByName': record.updatedByName,
+            'timestamp': FieldValue.serverTimestamp(),
+            'severity': 'low',
+            'summary': 'Accepted diary revision ${record.version}',
+            'reasonNotes': record.syncReviewMetadata['diaryAmendmentReason'],
+            'beforeJson': beforeJson,
+            'afterJson': afterJson,
+            'beforeState': data,
+            'afterState': {...?data, ...afterMap},
+          },
         );
-      }
-
-      await batch.commit();
+        transaction.set(reference, afterMap, SetOptions(merge: true));
+      });
     }
   }
 }

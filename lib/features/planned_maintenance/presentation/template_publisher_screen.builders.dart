@@ -10,9 +10,14 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
 
     final validation = _buildValidation();
     final selectedPackageId = _selectedPackage?.firestoreId;
+    final maintenanceClassBatch =
+        ref.watch(maintenanceClassDefinitionsProvider).value;
     final maintenanceClasses =
-        ref.watch(maintenanceClassDefinitionsProvider).value ??
-        const <MaintenanceClassDefinition>[];
+        maintenanceClassBatch?.records ?? const <MaintenanceClassDefinition>[];
+    final maintenanceCatalogueIncomplete =
+        maintenanceClassBatch != null &&
+        (!maintenanceClassBatch.isComplete ||
+            !maintenanceClassBatch.isServerConfirmed);
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -58,6 +63,15 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
                       validation: validation,
                       onOpenComposer: () => _openModuleComposer(actor),
                     ),
+                    if (maintenanceCatalogueIncomplete) ...[
+                      const SizedBox(height: BafSpacing.sm),
+                      const StatusBadge(
+                        label:
+                            'Maintenance catalogue is incomplete; classified publishing is paused until it is repaired',
+                        color: BafColors.danger,
+                        icon: Icons.report_gmailerrorred_rounded,
+                      ),
+                    ],
                     const SizedBox(height: BafSpacing.lg),
                     _PackageSection(
                       packages: packages,

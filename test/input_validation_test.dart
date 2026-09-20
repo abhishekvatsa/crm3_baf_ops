@@ -225,6 +225,19 @@ void main() {
   });
 
   group('UserInputValidator', () {
+    test(
+      'accepts rule-admitted short and long names with canonical short UID',
+      () {
+        for (final name in ['A', 'N' * 160]) {
+          expect(
+            UserInputValidator.validateApprovalTarget(
+              _user(uid: 'u', name: name, isApproved: false),
+            ).isValid,
+            isTrue,
+          );
+        }
+      },
+    );
     test('accepts a sane pending approval target', () {
       final result = UserInputValidator.validateApprovalTarget(
         _user(isApproved: false),

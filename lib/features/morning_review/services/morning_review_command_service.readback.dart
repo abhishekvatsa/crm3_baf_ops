@@ -59,6 +59,9 @@ extension _MorningReviewReadback on MorningReviewCommandService {
     }
 
     switch (operation) {
+      case MorningReviewCommand.amendAction:
+        // Corrections require the immutable, exact-request acceptance proof.
+        fail();
       case MorningReviewCommand.start:
       case MorningReviewCommand.recordNotHeld:
       case MorningReviewCommand.takeOver:

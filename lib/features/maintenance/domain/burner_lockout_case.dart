@@ -527,14 +527,16 @@ ComponentAction buildBurnerComponentAction({
   required BurnerResolutionOutcome outcome,
   required String performedBy,
   required DateTime performedAt,
+  int? attendanceRevision,
   double? microampReading,
   String? remarks,
 }) {
   if (microampReading != null) {
     _validateMicroampReading(microampReading, position: burnerPosition);
   }
+  final session = '${burnerActionSessionId(ticketId, burnerPosition)}${attendanceRevision == null ? '' : '_r$attendanceRevision'}';
   return ComponentAction(
-    id: '${burnerActionSessionId(ticketId, burnerPosition)}_${code.name}',
+    id: '${session}_${code.name}',
     asset: 'Furnace $furnaceNumber',
     component: 'Burner $burnerPosition',
     system: 'Combustion system',
@@ -554,7 +556,7 @@ ComponentAction buildBurnerComponentAction({
     severity: ActionSeverity.high,
     performedBy: performedBy,
     updatedAt: performedAt,
-    attendanceSessionId: burnerActionSessionId(ticketId, burnerPosition),
+    attendanceSessionId: session,
     burnerPosition: burnerPosition,
     burnerActionCode: code.name,
     burnerOutcome: outcome.name,

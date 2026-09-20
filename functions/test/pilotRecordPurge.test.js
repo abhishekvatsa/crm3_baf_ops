@@ -70,6 +70,66 @@ function fakeReceiptDb(store) {
   };
 }
 
+function producerFixture() {
+  const current = fixture();
+  current.store = new MemoryWorkflowStore();
+  current.service = new MaintenanceWorkflowCommandService(current.store);
+  current.store.seed('users/actor-1', {
+    isApproved: true, roles: ['admin'], name: 'Approved Actor',
+  });
+  current.store.seed('asset_classes/class-furnace', {
+    schemaVersion: 1, assetClassId: 'class-furnace', status: 'active',
+    legacyAssetTypeKey: 'furnace', code: 'FR', name: 'Furnace',
+  });
+  current.store.seed('asset_instances/asset-furnace-7', {
+    schemaVersion: 1, assetInstanceId: 'asset-furnace-7',
+    assetClassId: 'class-furnace', assetClassCode: 'FR', assetClassName: 'Furnace',
+    assetNumber: 7, name: 'Furnace 7', status: 'active', version: 4,
+    ownershipStatus: 'confirmed', ownerDiscipline: 'Operations',
+    accountableRoleKeys: ['operations'],
+  });
+  return current;
+}
+
+function createTicketCommand(id, continuesIssueId) {
+  return {
+    commandId: `create_${id}`, commandType: 'createMaintenanceTicket',
+    aggregateId: id, expectedVersion: 0,
+    payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 7,
+      component: 'Furnace body', subsystem: null, tag: null,
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset',
+        assetClassId: 'class-furnace', assetInstanceId: 'asset-furnace-7', assetInstanceVersion: 4}),
+      maintenanceType: 'breakdown', classification: null,
+      description: 'Furnace shell temperature is above the expected range.',
+      routedTo: 'mechanical', otherDepartment: null, isCritical: false,
+      startDate: '2026-08-25T10:00:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected',
+      qualityWarningReason: null,
+      ...(continuesIssueId == null ? {} : {continuesIssueId}),
+    }},
+  };
+}
+
+async function withdrawAndStamp(current, id) {
+  const path = `maintenance_records/${id}`;
+  const before = current.store.read(path);
+  await current.service.execute({
+    commandId: `withdraw_${id}`, commandType: 'correctMaintenanceTicket',
+    aggregateId: id, expectedVersion: before.version,
+    payload: {withdrawInError: true, corrections: {}, reason: 'Duplicate of the verified issue.'},
+  }, current.context);
+  const after = current.store.read(path);
+  const ref = {update: async (stamp) => current.store.runTransaction(async (tx) => tx.update(path, stamp))};
+  expect(await applyGlobalPullServerClock({
+    collectionId: 'maintenance_records',
+    change: {before: {exists: true, data: () => before, ref}, after: {exists: true, data: () => after, ref}},
+    serverTimestamp: () => now.toISOString(),
+  })).toBe('stamped');
+  return current.store.read(path);
+}
+
 describe('Admin-only permanent pilot record removal', () => {
   test.each(['maintenance_records', 'directives', 'job_templates'])(
     'removes an already-deleted %s record with immutable exact evidence',
@@ -210,6 +270,69 @@ describe('Admin-only permanent pilot record removal', () => {
       current.service.execute(current.command, current.context),
     ).rejects.toMatchObject({code: 'failed-precondition'});
     expect(current.store.read('maintenance_records/record-1')).not.toBeNull();
+  });
+
+  test('preserves a ticket referenced by a same-collection continuation', async () => {
+    const current = fixture();
+    current.store.seed('maintenance_records/successor-1', {
+      firestoreId: 'successor-1',
+      continuesIssueId: 'record-1',
+      version: 1,
+      isDeleted: false,
+    });
+
+    await expect(
+      current.service.execute(current.command, current.context),
+    ).rejects.toMatchObject({
+      details: {reasonCode: 'pilot-record-purge-linked-maintenance-continuation'},
+    });
+    expect(current.store.read('maintenance_records/record-1')).not.toBeNull();
+  });
+
+  test('actual retained-concern successor prevents purging its withdrawn predecessor', async () => {
+    const current = producerFixture();
+    await current.service.execute(createTicketCommand('record-1'), current.context);
+    const created = current.store.read('maintenance_records/record-1');
+    await current.service.execute({
+      commandId: 'retain_record-1', commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'record-1', expectedVersion: created.version,
+      payload: {disposition: 'stillRelevant', reason: 'The charge ended, but engineering must review this unresolved condition.'},
+    }, current.context);
+    await current.service.execute(createTicketCommand('successor-1', 'record-1'), current.context);
+    const successor = current.store.read('maintenance_records/successor-1');
+    expect(successor).toMatchObject({continuesIssueId: 'record-1', isDeleted: false});
+    const beforePurge = await withdrawAndStamp(current, 'record-1');
+    const beforeEntries = current.store.entries();
+    await expect(current.service.execute({...current.command, expectedVersion: beforePurge.version}, current.context))
+      .rejects.toMatchObject({details: {reasonCode: 'pilot-record-purge-linked-maintenance-continuation'}});
+    expect(current.store.entries()).toEqual(beforeEntries);
+    expect(current.store.read('maintenance_records/successor-1')).toEqual(successor);
+  });
+
+  test('actual purge permanently prevents both restored original and fresh create commands after receipt expiry', async () => {
+    const current = producerFixture();
+    const original = createTicketCommand('record-1');
+    await current.service.execute(original, current.context);
+    const tombstone = await withdrawAndStamp(current, 'record-1');
+    const purge = {...current.command, expectedVersion: tombstone.version};
+    await current.service.execute(purge, current.context);
+    // Expiring normal command receipts must not expire the permanent manifest.
+    await current.store.runTransaction(async (tx) => {
+      for (const [path] of current.store.entries()) {
+        if (path.startsWith('maintenance_workflow_command_receipts/')) tx.delete(path);
+      }
+    });
+    const manifestPath = `${PILOT_PURGE_MANIFEST_COLLECTION}/${pilotPurgeReceiptId('maintenance_records', 'record-1')}`;
+    const manifest = current.store.read(manifestPath);
+    expect(manifest).toMatchObject({sourceDocumentId: 'record-1', sourceVersion: tombstone.version});
+    expect(manifest.expiresAt).toBeUndefined();
+    const restoredService = new MaintenanceWorkflowCommandService(current.store);
+    for (const command of [original, {...original, commandId: 'new_create_identity'}]) {
+      await expect(restoredService.execute(command, {...current.context, serverNow: new Date('2027-08-25T12:00:00.000Z')}))
+        .rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-identity-permanently-removed'}});
+      expect(current.store.read('maintenance_records/record-1')).toBeNull();
+      expect(current.store.read(manifestPath)).toEqual(manifest);
+    }
   });
 
   test.each([

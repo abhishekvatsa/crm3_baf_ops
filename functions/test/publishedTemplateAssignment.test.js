@@ -2213,7 +2213,7 @@ describe("published TemplateVersion server assignment", () => {
           key: "vibration",
           label: "Vibration",
           type: "number",
-          unit: "MM/S",
+          unit: "mm/s",
           required: true,
         },
       ]),
@@ -2292,6 +2292,178 @@ describe("published TemplateVersion server assignment", () => {
       details: {reasonCode: "too-many-modules"},
     });
     expect(oversizedDb.writes).toHaveLength(0);
+  });
+
+  test("refuses conflicting later embedded field aliases", async () => {
+    const version = rehashedVersion({
+      moduleSnapshotsJson: JSON.stringify([{
+        moduleCode: "M-01",
+        moduleTitle: "Inspect fan",
+        requiredForClosure: true,
+        fields: [{
+          key: "vibration",
+          label: "Vibration",
+          type: "number",
+          isRequired: true,
+        }],
+        fieldDefinitions: [{
+          key: "vibration",
+          label: "Vibration",
+          type: "text",
+          isRequired: true,
+        }],
+      }]),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: fixture.db,
+        authUid: "supervisor1",
+        data: requestFixture({expectedContentHash: version.contentHash}),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {reasonCode: "module-field-definitions-conflict"},
+    });
+    expect(fixture.writes).toHaveLength(0);
+
+    const malformed = rehashedVersion({
+      moduleSnapshotsJson: JSON.stringify([{
+        moduleCode: "M-01",
+        moduleTitle: "Inspect fan",
+        fields: [{
+          key: "vibration",
+          label: "Vibration",
+          type: "number",
+          isRequired: true,
+        }],
+        fieldDefinitions: "not-json",
+      }]),
+    });
+    const malformedFixture = fakeAssignmentDb({
+      versionData: malformed,
+      audits: [auditFixture({afterHash: malformed.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: malformedFixture.db,
+        authUid: "supervisor1",
+        data: requestFixture({expectedContentHash: malformed.contentHash}),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {reasonCode: "invalid-snapshot-json"},
+    });
+    expect(malformedFixture.writes).toHaveLength(0);
+  });
+
+  test("does not publish checklist obligations the runtime cannot enforce", async () => {
+    const assignment = async (version, expectedCode) => {
+      const fixture = fakeAssignmentDb({
+        versionData: version,
+        audits: [auditFixture({afterHash: version.contentHash})],
+      });
+      await expect(
+        assignPublishedTemplateVersionWithDb({
+          db: fixture.db,
+          authUid: "supervisor1",
+          data: requestFixture({expectedContentHash: version.contentHash}),
+        }),
+      ).rejects.toMatchObject({
+        code: "failed-precondition",
+        details: {reasonCode: expectedCode},
+      });
+      expect(fixture.writes).toHaveLength(0);
+    };
+
+    await assignment(
+      rehashedVersion({
+        checklistJson: JSON.stringify([{
+          title: "Independent safety confirmation",
+          isRequired: true,
+        }]),
+      }),
+      "required-checklist-not-executable",
+    );
+    await assignment(
+      rehashedVersion({
+        fieldDefinitionsJson: JSON.stringify([{
+          key: "vibration",
+          label: "Vibration",
+          moduleCode: "M-01",
+          type: "number",
+          isRequired: false,
+        }]),
+        checklistJson: JSON.stringify([{
+          title: "Confirm vibration",
+          moduleCode: "M-01",
+          linkedFieldKey: "vibration",
+          required: true,
+        }]),
+      }),
+      "required-checklist-not-executable",
+    );
+
+    const referenceOnly = rehashedVersion({
+      checklistJson: JSON.stringify([{
+        title: "Reference note",
+        isRequired: false,
+      }]),
+    });
+    const referenceFixture = fakeAssignmentDb({
+      versionData: referenceOnly,
+      audits: [auditFixture({afterHash: referenceOnly.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: referenceFixture.db,
+        authUid: "supervisor1",
+        data: requestFixture({expectedContentHash: referenceOnly.contentHash}),
+      }),
+    ).resolves.toMatchObject({ok: true});
+  });
+
+  test("enforces a published minimum app version at assignment admission", async () => {
+    const version = rehashedVersion({minAppVersion: "2.0.0"});
+    const attempt = async (clientAppVersion, reasonCode) => {
+      const fixture = fakeAssignmentDb({
+        versionData: version,
+        audits: [auditFixture({afterHash: version.contentHash})],
+      });
+      await expect(
+        assignPublishedTemplateVersionWithDb({
+          db: fixture.db,
+          authUid: "supervisor1",
+          data: requestFixture({
+            expectedContentHash: version.contentHash,
+            ...(clientAppVersion == null ? {} : {clientAppVersion}),
+          }),
+        }),
+      ).rejects.toMatchObject({
+        code: "failed-precondition",
+        details: {reasonCode},
+      });
+    };
+    await attempt(null, "client-app-version-required");
+    await attempt("1.9.9", "client-app-version-too-old");
+
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: fixture.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: version.contentHash,
+          clientAppVersion: "2.0.0",
+        }),
+      }),
+    ).resolves.toMatchObject({ok: true});
   });
 
   test("forced failure before multi-module writes leaves no execution, child, or receipt residue", async () => {

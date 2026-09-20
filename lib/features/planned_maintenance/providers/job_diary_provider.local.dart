@@ -49,39 +49,43 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
         if (refusal != null) {
           throw StateError(jobDiarySaveRefusalMessage(refusal));
         }
-        beforeSnapshot = existing?.toAuditMap();
+        if (existing!.isSynced) {
+          entry.retainReviewedServerVersion(existing.version);
+        } else if (existing.reviewedServerVersion != null) {
+          entry.retainReviewedServerVersion(existing.reviewedServerVersion!);
+        } else {
+          throw StateError(
+            'This older saved edit has no retained server basis. Preserve it for reviewed reconciliation before editing again.',
+          );
+        }
+        beforeSnapshot = existing.toAuditMap();
         entry.version = openedAtVersion + 1;
       }
 
+      if (isCreate) entry.retainReviewedServerVersion(0);
+      entry.updatedByUid = actor.uid;
+      entry.updatedByName = actor.name;
+      if (isCreate && entry.createdByUid != actor.uid) {
+        throw StateError('The diary author must match the signed-in account.');
+      }
       await isar.jobDiaryEntrys.put(entry);
       afterSnapshot = entry.toAuditMap();
       entityId = entry.firestoreId ?? entry.id.toString();
-    });
-
-    if (auditContext != null && afterSnapshot != null && entityId != null) {
-      final action = beforeSnapshot == null
-          ? AuditAction.create
-          : AuditAction.update;
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'planned_job_diary_entry',
-            entityId: entityId!,
-            action: action,
-            context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
-              summary:
-                  auditContext.summary ??
-                  (action == AuditAction.create
-                      ? 'Added planned-maintenance diary entry'
-                      : 'Updated planned-maintenance diary entry'),
-            ),
-          ),
-        ),
+      final event = AuditEvent(
+        entityType: 'planned_job_diary_entry',
+        entityId: entityId!,
+        action: isCreate ? AuditAction.create : AuditAction.update,
+        performedByUid: actor.uid,
+        performedByName: actor.name,
+        summary: 'Saved local diary intent; server acceptance remains pending.',
+        reasonNotes: auditContext?.reasonNotes,
+        severity: AuditSeverity.low,
+        before: beforeSnapshot,
+        after: afterSnapshot,
       );
-    }
+      event.isSynced = false;
+      await isar.auditEvents.put(event);
+    });
   }
 
   @override

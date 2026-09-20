@@ -261,15 +261,30 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
     batch.set(db.collection('inner_cover_profiles').doc(IDS.donor),
       acceptedProfile(IDS.donor, 'GR20'));
     await batch.commit();
-    const results = await Promise.allSettled([
-      invoke(linkRequest(IDS.cover, IDS.link)),
-      invoke(linkRequest(IDS.donor, IDS.delink)),
-    ]);
+    const requests = [linkRequest(IDS.cover, IDS.link), linkRequest(IDS.donor, IDS.delink)];
+    const results = await Promise.allSettled(requests.map((request) => invoke(request)));
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.find((result) => result.status === 'rejected').reason)
-      .toMatchObject({details: {reasonCode: 'inner-cover-target-base-occupied'}});
-    const assignment = (await db.collection('base_inner_cover_assignments')
-      .doc(IDS.base).get()).data();
+    const loserIndex = results.findIndex((result) => result.status === 'rejected');
+    const initialRefusal = results[loserIndex].reason;
+    // The emulator sometimes closes the losing transaction while its sibling
+    // queries are still in flight. This exact native refusal is uncertain
+    // transport, not evidence of the business outcome. All other errors must
+    // already be the explicit occupied refusal, and the same retained request
+    // must establish that refusal on a fresh transaction without another write.
+    if (initialRefusal?.details !== 'Transaction is invalid or closed.') {
+      expect(initialRefusal).toMatchObject({details: {reasonCode: 'inner-cover-target-base-occupied'}});
+    }
+    const assignmentRef = db.collection('base_inner_cover_assignments').doc(IDS.base);
+    const loserRef = db.collection('inner_cover_profiles').doc(requests[loserIndex].innerCoverId);
+    const [beforeAssignment, beforeLoser] = await Promise.all([assignmentRef.get(), loserRef.get()]);
+    await expect(invoke(requests[loserIndex])).rejects.toMatchObject({code: 'already-exists',
+      details: {reasonCode: 'inner-cover-target-base-occupied'}});
+    const [afterAssignment, afterLoser] = await Promise.all([assignmentRef.get(), loserRef.get()]);
+    expect(afterAssignment.updateTime.isEqual(beforeAssignment.updateTime)).toBe(true);
+    expect(afterLoser.updateTime.isEqual(beforeLoser.updateTime)).toBe(true);
+    expect(afterLoser.data()).toMatchObject({lifecycleState: 'available', version: 2, currentBaseAssetInstanceId: null});
+    const assignment = afterAssignment.data();
+    expect(assignment.innerCoverId).toBe(requests[1 - loserIndex].innerCoverId);
     const installed = await db.collection('inner_cover_profiles')
       .where('currentBaseAssetInstanceId', '==', IDS.base).get();
     expect(installed.size).toBe(1);

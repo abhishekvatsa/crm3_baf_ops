@@ -66,7 +66,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = operationsReportPlantTime(DateTime.now());
     _endDate = DateTime(now.year, now.month, now.day);
     _startDate = _endDate.subtract(const Duration(days: 29));
   }
@@ -245,6 +245,30 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   });
                 },
               ),
+              if (selection.requiresHistoricalReview) ...[
+                const SizedBox(height: BafSpacing.sm),
+                const BafSectionSurface(
+                  padding: EdgeInsets.all(BafSpacing.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.history_toggle_off_outlined,
+                        color: BafColors.warning,
+                        size: 18,
+                      ),
+                      SizedBox(width: BafSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'This scope refers to a retired physical identity. '
+                          'The report remains limited to that identity for historical review; it has not been broadened to the whole class.',
+                          style: TextStyle(fontSize: 11, height: 1.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
               OperationsReportViewSelector(
                 selected: _view,
@@ -577,7 +601,7 @@ class _Metric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(metric.icon, color: metric.color, size: 21),
-        const Spacer(),
+        const SizedBox(height: 10),
         Text(
           '${metric.value}',
           style: TextStyle(

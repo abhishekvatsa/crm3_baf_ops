@@ -144,25 +144,24 @@ class KnowledgeGovernanceFilter {
       if (onlyUnsynced && row.isSynced) return false;
 
       if (lower.isEmpty) return true;
-      final haystack =
-          <String>[
-            row.rowCode,
-            row.taskText,
-            row.componentGroup,
-            row.functionalSection,
-            row.assetFamily,
-            row.discipline,
-            row.taskType,
-            row.frequency,
-            row.moduleCandidateCode,
-            row.consultQuestion,
-            ...row.safetyClasses,
-            ...row.ownerDisciplines,
-            ...row.deviceTags,
-            ...row.procedureRefs,
-            ...row.partRefs,
-            ...row.targetRefs,
-          ].join(' ').toLowerCase();
+      final haystack = <String>[
+        row.rowCode,
+        row.taskText,
+        row.componentGroup,
+        row.functionalSection,
+        row.assetFamily,
+        row.discipline,
+        row.taskType,
+        row.frequency,
+        row.moduleCandidateCode,
+        row.consultQuestion,
+        ...row.safetyClasses,
+        ...row.ownerDisciplines,
+        ...row.deviceTags,
+        ...row.procedureRefs,
+        ...row.partRefs,
+        ...row.targetRefs,
+      ].join(' ').toLowerCase();
       return haystack.contains(lower);
     });
   }
@@ -188,6 +187,10 @@ class KnowledgeRowDraft {
   List<String> deviceTags;
   List<String> targetRefs;
   List<String> suggestedFields;
+
+  /// Structured field definitions, retained when the source row provides
+  /// them. The label list remains for compatibility with older exports.
+  List<Map<String, dynamic>>? suggestedFieldPresets;
   String requiredForClosure;
   String resolverImpact;
   ComposerReadiness composerReadiness;
@@ -217,6 +220,7 @@ class KnowledgeRowDraft {
     required this.deviceTags,
     required this.targetRefs,
     required this.suggestedFields,
+    this.suggestedFieldPresets,
     required this.requiredForClosure,
     required this.resolverImpact,
     required this.composerReadiness,
@@ -231,6 +235,7 @@ class KnowledgeRowDraft {
   });
 
   factory KnowledgeRowDraft.fromRow(BafKnowledgeRow row) {
+    final entry = row.toEntry(0);
     return KnowledgeRowDraft(
       rowCode: row.rowCode,
       taskText: row.taskText,
@@ -247,7 +252,12 @@ class KnowledgeRowDraft {
       partRefs: List<String>.from(row.partRefs),
       deviceTags: List<String>.from(row.deviceTags),
       targetRefs: List<String>.from(row.targetRefs),
-      suggestedFields: List<String>.from(row.suggestedFields),
+      suggestedFields: entry.suggestedFields
+          .map((field) => field.label)
+          .toList(),
+      suggestedFieldPresets: entry.suggestedFields
+          .map((field) => field.toMap())
+          .toList(),
       requiredForClosure: row.requiredForClosure,
       resolverImpact: row.resolverImpact,
       composerReadiness: _readiness(row.composerReadiness),
@@ -281,6 +291,7 @@ class KnowledgeRowDraft {
       deviceTags: <String>[],
       targetRefs: <String>[],
       suggestedFields: <String>[],
+      suggestedFieldPresets: null,
       requiredForClosure: 'consult',
       resolverImpact: 'no',
       composerReadiness: ComposerReadiness.needsReview,
@@ -316,6 +327,8 @@ class KnowledgeRowDraft {
     'deviceTags': deviceTags.map((tag) => tag.toUpperCase()).toList(),
     'targetRefs': targetRefs,
     'suggestedFields': suggestedFields,
+    if (suggestedFieldPresets != null)
+      'suggestedFieldPresets': suggestedFieldPresets,
     'requiredForClosure': requiredForClosure,
     'resolverImpact': resolverImpact,
     'composerReadiness': composerReadiness.name,
@@ -353,6 +366,20 @@ class KnowledgeRowDraft {
     if (deviceTags.any((tag) => tag.trim().isEmpty)) {
       warnings.add('Empty device tag entry will be dropped on save.');
     }
+    if (suggestedFieldPresets != null) {
+      final presetLabels = suggestedFieldPresets!
+          .map((preset) => (preset['label'] ?? '').toString().trim())
+          .toList();
+      final labels = suggestedFields.map((field) => field.trim()).toList();
+      if (presetLabels.length != labels.length ||
+          presetLabels.asMap().entries.any(
+            (entry) => entry.value != labels[entry.key],
+          )) {
+        errors.add(
+          'Structured suggested-field presets and labels disagree. Edit the typed field definition, or restore the original labels.',
+        );
+      }
+    }
     if (composerReadiness == ComposerReadiness.consultRequired &&
         requiredForClosure == 'yes') {
       warnings.add(
@@ -361,6 +388,24 @@ class KnowledgeRowDraft {
     }
     if (lifecycleStatus != KnowledgeLifecycleStatus.active && isCreate) {
       errors.add('A new row must start in lifecycle state "active".');
+    }
+    try {
+      final at = DateTime.utc(2000);
+      BafKnowledgeRow.fromCloudMap({
+        ...toEntryMap(),
+        'schemaVersion': 1,
+        'version': 1,
+        'isDeleted': false,
+        'createdAt': at,
+        'updatedAt': at,
+        'createdByUid': 'validation',
+        'createdByName': 'Validation',
+        'updatedByUid': 'validation',
+        'updatedByName': 'Validation',
+        'changeSummary': changeSummary.trim(),
+      }, rowCode);
+    } catch (error) {
+      errors.add('The proposed instruction cannot be read safely: $error');
     }
     return KnowledgeRowDraftValidation(errors: errors, warnings: warnings);
   }

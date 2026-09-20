@@ -12,10 +12,9 @@ ReportProvenance readApplicationReportProvenance(
   final syncHealth = ref.read(syncRunHealthProvider);
   final pendingWrites = ref.read(syncPendingCountsProvider).asData?.value.total;
   return ReportProvenance(
-    sourceMode:
-        kIsWeb
-            ? ReportSourceMode.cloudApplicationSnapshot
-            : ReportSourceMode.hybridApplicationSnapshot,
+    sourceMode: kIsWeb
+        ? ReportSourceMode.cloudApplicationSnapshot
+        : ReportSourceMode.hybridApplicationSnapshot,
     lastSyncCompletedAt: kIsWeb ? null : syncHealth.lastCompletedAt,
     lastSyncSucceeded: kIsWeb ? null : syncHealth.lastSucceeded,
     pendingLocalWrites: kIsWeb ? null : pendingWrites,

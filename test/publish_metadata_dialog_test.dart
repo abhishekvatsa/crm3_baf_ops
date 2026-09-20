@@ -29,18 +29,17 @@ void main() {
   );
 
   test('domain builder rejects moving a resumed draft across packages', () {
-    final existing =
-        TemplateVersion()
-          ..firestoreId = 'version-draft-42'
-          ..packageFirestoreId = 'pkg-original'
-          ..versionNumber = 6
-          ..status = TemplateVersionStatus.draft
-          ..jobTemplateSnapshotJson = '{}'
-          ..moduleSnapshotsJson = '[]'
-          ..fieldDefinitionsJson = '[]'
-          ..checklistJson = '[]'
-          ..createdAt = DateTime(2026, 6, 1)
-          ..updatedAt = DateTime(2026, 6, 2);
+    final existing = TemplateVersion()
+      ..firestoreId = 'version-draft-42'
+      ..packageFirestoreId = 'pkg-original'
+      ..versionNumber = 6
+      ..status = TemplateVersionStatus.draft
+      ..jobTemplateSnapshotJson = '{}'
+      ..moduleSnapshotsJson = '[]'
+      ..fieldDefinitionsJson = '[]'
+      ..checklistJson = '[]'
+      ..createdAt = DateTime(2026, 6, 1)
+      ..updatedAt = DateTime(2026, 6, 2);
     final targetPackage = _package()..firestoreId = 'pkg-other';
 
     expect(
@@ -63,24 +62,23 @@ void main() {
   });
 
   test('domain builder preserves exact saved payload for publish', () {
-    final existing =
-        TemplateVersion()
-          ..firestoreId = 'version-draft-42'
-          ..packageFirestoreId = 'pkg-std'
-          ..versionNumber = 6
-          ..status = TemplateVersionStatus.draft
-          ..jobTemplateSnapshotJson =
-              '{"title":"persisted","composer":{"closureReviewConfirmed":true}}'
-          ..moduleSnapshotsJson = '[{"moduleCode":"PERSISTED"}]'
-          ..fieldDefinitionsJson = '[{"key":"persisted_field"}]'
-          ..checklistJson = '[{"id":"persisted_item"}]'
-          ..targetRefs = <String>['persisted-target']
-          ..deviceTagRefs = <String>['persisted-tag']
-          ..procedureRefs = <String>['persisted-procedure']
-          ..operationalStatePreconditions = <String>['persisted-precondition']
-          ..safetyClass = 'gasRisk'
-          ..createdAt = DateTime(2026, 6, 1)
-          ..updatedAt = DateTime(2026, 6, 2);
+    final existing = TemplateVersion()
+      ..firestoreId = 'version-draft-42'
+      ..packageFirestoreId = 'pkg-std'
+      ..versionNumber = 6
+      ..status = TemplateVersionStatus.draft
+      ..jobTemplateSnapshotJson =
+          '{"title":"persisted","composer":{"closureReviewConfirmed":true}}'
+      ..moduleSnapshotsJson = '[{"moduleCode":"PERSISTED"}]'
+      ..fieldDefinitionsJson = '[{"key":"persisted_field"}]'
+      ..checklistJson = '[{"id":"persisted_item"}]'
+      ..targetRefs = <String>['persisted-target']
+      ..deviceTagRefs = <String>['persisted-tag']
+      ..procedureRefs = <String>['persisted-procedure']
+      ..operationalStatePreconditions = <String>['persisted-precondition']
+      ..safetyClass = 'gasRisk'
+      ..createdAt = DateTime(2026, 6, 1)
+      ..updatedAt = DateTime(2026, 6, 2);
 
     final result = buildTemplateVersionForPublish(
       input: _publishInput(),
@@ -89,10 +87,15 @@ void main() {
       nextVersionNumber: 99,
       existingVersion: existing,
       preserveExistingPayload: true,
+      createSuccessorForPublication: true,
       actor: _admin(),
     );
 
-    expect(result, same(existing));
+    expect(result, isNot(same(existing)));
+    expect(existing.versionNumber, 6);
+    expect(result.firestoreId, isNull);
+    expect(result.sourceVersionFirestoreId, 'version-draft-42');
+    expect(result.versionNumber, 99);
     expect(result.jobTemplateSnapshotJson, contains('persisted'));
     expect(result.moduleSnapshotsJson, contains('PERSISTED'));
     expect(result.fieldDefinitionsJson, contains('persisted_field'));
@@ -180,7 +183,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(published, isNotNull);
-    expect(savedDraft, isNull);
+    expect(savedDraft, isNotNull);
+    expect(published, same(savedDraft));
     expect(capturedReason, 'Adequate publish reason text');
     expect(published!.packageFirestoreId, 'pkg-std');
     expect(published!.versionNumber, 3);
@@ -278,22 +282,21 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     });
 
-    final existing =
-        TemplateVersion()
-          ..id = 42
-          ..firestoreId = 'version-draft-42'
-          ..packageFirestoreId = 'pkg-std'
-          ..versionNumber = 6
-          ..versionLabel = 'Existing draft'
-          ..status = TemplateVersionStatus.draft
-          ..jobTemplateSnapshotJson = '{}'
-          ..moduleSnapshotsJson = '[]'
-          ..fieldDefinitionsJson = '[]'
-          ..checklistJson = '[]'
-          ..createdAt = DateTime(2026, 6, 1)
-          ..updatedAt = DateTime(2026, 6, 2)
-          ..createdByUid = 'si1'
-          ..createdByName = 'SI User';
+    final existing = TemplateVersion()
+      ..id = 42
+      ..firestoreId = 'version-draft-42'
+      ..packageFirestoreId = 'pkg-std'
+      ..versionNumber = 6
+      ..versionLabel = 'Existing draft'
+      ..status = TemplateVersionStatus.draft
+      ..jobTemplateSnapshotJson = '{}'
+      ..moduleSnapshotsJson = '[]'
+      ..fieldDefinitionsJson = '[]'
+      ..checklistJson = '[]'
+      ..createdAt = DateTime(2026, 6, 1)
+      ..updatedAt = DateTime(2026, 6, 2)
+      ..createdByUid = 'si1'
+      ..createdByName = 'SI User';
 
     TemplateVersion? saved;
     final actions = PublishMetadataDialogActions(
@@ -335,20 +338,19 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     });
 
-    final existing =
-        TemplateVersion()
-          ..firestoreId = 'version-draft-42'
-          ..packageFirestoreId = 'pkg-std'
-          ..versionNumber = 6
-          ..versionLabel = 'Pending draft'
-          ..status = TemplateVersionStatus.draft
-          ..jobTemplateSnapshotJson = '{}'
-          ..moduleSnapshotsJson = '[]'
-          ..fieldDefinitionsJson = '[]'
-          ..checklistJson = '[]'
-          ..createdAt = DateTime(2026, 6, 1)
-          ..updatedAt = DateTime(2026, 6, 2)
-          ..isSynced = false;
+    final existing = TemplateVersion()
+      ..firestoreId = 'version-draft-42'
+      ..packageFirestoreId = 'pkg-std'
+      ..versionNumber = 6
+      ..versionLabel = 'Pending draft'
+      ..status = TemplateVersionStatus.draft
+      ..jobTemplateSnapshotJson = '{}'
+      ..moduleSnapshotsJson = '[]'
+      ..fieldDefinitionsJson = '[]'
+      ..checklistJson = '[]'
+      ..createdAt = DateTime(2026, 6, 1)
+      ..updatedAt = DateTime(2026, 6, 2)
+      ..isSynced = false;
 
     final actions = PublishMetadataDialogActions(
       savePackage: (package, actor) async {},
@@ -396,19 +398,18 @@ void main() {
         await tester.binding.setSurfaceSize(null);
       });
 
-      final existing =
-          TemplateVersion()
-            ..firestoreId = 'version-draft-42'
-            ..packageFirestoreId = 'pkg-std'
-            ..versionNumber = 6
-            ..versionLabel = 'Existing draft'
-            ..status = TemplateVersionStatus.draft
-            ..jobTemplateSnapshotJson = '{}'
-            ..moduleSnapshotsJson = '[]'
-            ..fieldDefinitionsJson = '[]'
-            ..checklistJson = '[]'
-            ..createdAt = DateTime(2026, 6, 1)
-            ..updatedAt = DateTime(2026, 6, 2);
+      final existing = TemplateVersion()
+        ..firestoreId = 'version-draft-42'
+        ..packageFirestoreId = 'pkg-std'
+        ..versionNumber = 6
+        ..versionLabel = 'Existing draft'
+        ..status = TemplateVersionStatus.draft
+        ..jobTemplateSnapshotJson = '{}'
+        ..moduleSnapshotsJson = '[]'
+        ..fieldDefinitionsJson = '[]'
+        ..checklistJson = '[]'
+        ..createdAt = DateTime(2026, 6, 1)
+        ..updatedAt = DateTime(2026, 6, 2);
 
       final actions = PublishMetadataDialogActions(
         savePackage: (package, actor) async {},
@@ -461,18 +462,17 @@ void main() {
         await tester.binding.setSurfaceSize(null);
       });
 
-      final published =
-          TemplateVersion()
-            ..firestoreId = 'version-published-7'
-            ..packageFirestoreId = 'pkg-std'
-            ..versionNumber = 7
-            ..status = TemplateVersionStatus.published
-            ..jobTemplateSnapshotJson = '{}'
-            ..moduleSnapshotsJson = '[]'
-            ..fieldDefinitionsJson = '[]'
-            ..checklistJson = '[]'
-            ..createdAt = DateTime(2026, 6, 1)
-            ..updatedAt = DateTime(2026, 6, 2);
+      final published = TemplateVersion()
+        ..firestoreId = 'version-published-7'
+        ..packageFirestoreId = 'pkg-std'
+        ..versionNumber = 7
+        ..status = TemplateVersionStatus.published
+        ..jobTemplateSnapshotJson = '{}'
+        ..moduleSnapshotsJson = '[]'
+        ..fieldDefinitionsJson = '[]'
+        ..checklistJson = '[]'
+        ..createdAt = DateTime(2026, 6, 1)
+        ..updatedAt = DateTime(2026, 6, 2);
 
       final actions = PublishMetadataDialogActions(
         savePackage: (package, actor) async {},
@@ -562,25 +562,23 @@ Future<void> _pumpDialog(
   await tester.pumpWidget(
     MaterialApp(
       home: Builder(
-        builder:
-            (context) => Scaffold(
-              body: Center(
-                child: FilledButton(
-                  onPressed:
-                      () => PublishMetadataDialog.show(
-                        context,
-                        actor: actor,
-                        draft: draft,
-                        existingPackages: packages,
-                        actions: actions,
-                        initialPackageFirestoreId: initialPackageFirestoreId,
-                        initialVersion: initialVersion,
-                        hasUnsavedComposerChanges: hasUnsavedComposerChanges,
-                      ),
-                  child: const Text('Open'),
-                ),
+        builder: (context) => Scaffold(
+          body: Center(
+            child: FilledButton(
+              onPressed: () => PublishMetadataDialog.show(
+                context,
+                actor: actor,
+                draft: draft,
+                existingPackages: packages,
+                actions: actions,
+                initialPackageFirestoreId: initialPackageFirestoreId,
+                initialVersion: initialVersion,
+                hasUnsavedComposerChanges: hasUnsavedComposerChanges,
               ),
+              child: const Text('Open'),
             ),
+          ),
+        ),
       ),
     ),
   );
@@ -672,16 +670,15 @@ ComposerModuleDraft _module({bool unresolvedMerge = false}) {
     sourceReadiness: ComposerReadiness.readyPreset,
     confidence: KnowledgeConfidence.confirmedManual,
     authoringNotes: 'Test fixture.',
-    metadata:
-        unresolvedMerge
-            ? <String, dynamic>{
-              mergeConflictWorkspaceMetadataKey: <String, dynamic>{
-                'status': 'unresolved',
-                'conflicts': <Map<String, dynamic>>[
-                  <String, dynamic>{'summary': 'Resolve fixture conflict.'},
-                ],
-              },
-            }
-            : const <String, dynamic>{'source': 'test'},
+    metadata: unresolvedMerge
+        ? <String, dynamic>{
+            mergeConflictWorkspaceMetadataKey: <String, dynamic>{
+              'status': 'unresolved',
+              'conflicts': <Map<String, dynamic>>[
+                <String, dynamic>{'summary': 'Resolve fixture conflict.'},
+              ],
+            },
+          }
+        : const <String, dynamic>{'source': 'test'},
   );
 }

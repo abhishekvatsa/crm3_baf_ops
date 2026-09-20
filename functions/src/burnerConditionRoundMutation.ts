@@ -943,6 +943,7 @@ export async function mutateBurnerConditionRoundWithDb(args: {
     }
     if (request.observedFields != null) {
       await verifyConditionBasis({db, transaction, request: {
+        assetClassId: request.assetClassId,
         assetInstanceId: request.assetInstanceId,
         expectedInstallationBasis: request.expectedInstallationBasis,
         expectedOpenIssueBasis: request.expectedOpenIssueBasis,

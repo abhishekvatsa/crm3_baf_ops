@@ -116,23 +116,27 @@ class _GovernedInspectionTargetField extends StatelessWidget {
                   ],
                 );
               }
-              return Row(children: [Expanded(child: heading), choose]);
+              return Row(
+                children: [
+                  Expanded(child: heading),
+                  choose,
+                ],
+              );
             },
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(
             options.isEmpty
                 ? installedInnerCovers
-                    ? 'No active Base and installed Inner Cover pair is available.'
-                    : 'No active governed asset is available for this definition.'
+                      ? 'No active Base and installed Inner Cover pair is available.'
+                      : 'No active governed asset is available for this definition.'
                 : selected.isEmpty
                 ? 'No target selected.'
                 : '$preview${remainder > 0 ? ' · +$remainder more' : ''}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color:
-                  options.isEmpty || selected.isEmpty
-                      ? BafColors.danger
-                      : BafColors.textSecondary,
+              color: options.isEmpty || selected.isEmpty
+                  ? BafColors.danger
+                  : BafColors.textSecondary,
             ),
           ),
           const SizedBox(height: BafSpacing.xs),
@@ -216,12 +220,11 @@ class _InspectionTargetPickerDialogState
                 Text('${_selected.length} selected'),
                 const Spacer(),
                 TextButton(
-                  onPressed:
-                      () => setState(
-                        () => _selected.addAll(
-                          widget.options.map((item) => item.number),
-                        ),
-                      ),
+                  onPressed: () => setState(
+                    () => _selected.addAll(
+                      widget.options.map((item) => item.number),
+                    ),
+                  ),
                   child: const Text('All'),
                 ),
                 TextButton(
@@ -241,12 +244,11 @@ class _InspectionTargetPickerDialogState
                     title: Text(option.label),
                     subtitle: Text(option.detail),
                     controlAffinity: ListTileControlAffinity.leading,
-                    onChanged:
-                        (checked) => setState(() {
-                          checked == true
-                              ? _selected.add(option.number)
-                              : _selected.remove(option.number);
-                        }),
+                    onChanged: (checked) => setState(() {
+                      checked == true
+                          ? _selected.add(option.number)
+                          : _selected.remove(option.number);
+                    }),
                   );
                 },
               ),
@@ -360,11 +362,9 @@ class _AddInspectionTargetsDialogState
               TextFormField(
                 controller: _reason,
                 decoration: const InputDecoration(labelText: 'Reason'),
-                validator:
-                    (value) =>
-                        (value?.trim().isNotEmpty ?? false)
-                            ? null
-                            : 'Record a reason.',
+                validator: (value) => (value?.trim().isNotEmpty ?? false)
+                    ? null
+                    : 'Record a reason.',
               ),
             ],
           ),
@@ -401,11 +401,10 @@ class _AddInspectionTargetsDialogState
   Future<void> _chooseTargets() async {
     final selected = await showDialog<Set<int>>(
       context: context,
-      builder:
-          (_) => _InspectionTargetPickerDialog(
-            options: widget.availableOptions,
-            selectedNumbers: _selectedNumbers,
-          ),
+      builder: (_) => _InspectionTargetPickerDialog(
+        options: widget.availableOptions,
+        selectedNumbers: _selectedNumbers,
+      ),
     );
     if (selected == null || !mounted) return;
     setState(() {

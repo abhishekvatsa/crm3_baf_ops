@@ -34,9 +34,9 @@ bool _needsAbnormalityIdentity(
   _ReportAssetIdentityMatcher identity,
 ) =>
     warning.sourceType == QualityWarningSourceType.abnormality &&
-    warning.createdAt.isBefore(filter.endExclusive) &&
     (warning.closedAt == null ||
-        warning.closedAt!.isAfter(filter.startInclusive)) &&
+        (warning.createdAt.isBefore(filter.endExclusive) &&
+            warning.closedAt!.isAfter(filter.startInclusive))) &&
     warning.affectedAssets.any(
       (asset) =>
           asset.assetType == 'governedCustom' &&
@@ -53,10 +53,17 @@ class _ReportAssetIdentityMatcher {
     this.assetInstances,
     List<InnerCoverProfile> innerCoverProfiles,
   ) : assetInstanceId = filter.assetInstanceId,
+      subjectKind = filter.subjectKind,
       assetsById = {for (final asset in assetInstances) asset.id: asset},
       innerCoversById = {
         for (final cover in innerCoverProfiles) cover.id: cover,
       } {
+    if (filter.assetClassId != null &&
+        !assetClasses.any((item) => item.id == filter.assetClassId)) {
+      throw StateError(
+        'The selected report class is unavailable. Refresh or explicitly change the scope.',
+      );
+    }
     final selectedAsset = assetsById[assetInstanceId];
     final selectedCover = innerCoversById[assetInstanceId];
     final serialSubject =
@@ -105,6 +112,7 @@ class _ReportAssetIdentityMatcher {
   }
 
   final String? assetInstanceId;
+  final OperationsReportSubjectKind subjectKind;
   final List<AssetInstanceRecord> assetInstances;
   final Map<String, AssetInstanceRecord> assetsById;
   final Map<String, InnerCoverProfile> innerCoversById;
@@ -115,6 +123,46 @@ class _ReportAssetIdentityMatcher {
     if (effectiveClassId != null && classId != effectiveClassId) return false;
     if (assetInstanceId != null && assetId != assetInstanceId) return false;
     return true;
+  }
+
+  bool matchesTicket(
+    MaintenanceRecord ticket,
+    String? classId,
+    String? assetId,
+  ) {
+    if (subjectKind == OperationsReportSubjectKind.innerCover &&
+        assetInstanceId != null) {
+      // Use the retained event-time association, never today's Base occupant.
+      return ticket
+              .assetHierarchyReference
+              ?.innerCoverAssociation
+              ?.innerCoverId ==
+          assetInstanceId;
+    }
+    return matchesIdentity(classId, assetId);
+  }
+
+  /// An Inner Cover assignment is physically stored against its Base so that
+  /// the work can survive cover replacement. A report selected by serial must
+  /// still include that assignment, but only when the immutable assignment
+  /// position names the selected cover.
+  bool matchesExecution(
+    JobExecution execution,
+    String? classId,
+    String? assetId,
+  ) {
+    if (subjectKind == OperationsReportSubjectKind.innerCover &&
+        assetInstanceId != null) {
+      final position = execution.assignmentInnerCoverPositionReadResult;
+      if (position.error != null) {
+        throw StateError(
+          'Execution ${execution.firestoreId ?? execution.id} has unreadable '
+          'Inner Cover assignment identity.',
+        );
+      }
+      return position.position?.innerCoverId == assetInstanceId;
+    }
+    return matchesIdentity(classId, assetId);
   }
 
   ({String? classId, String? assetId}) legacyIdentity(String type, int number) {

@@ -1,5 +1,6 @@
 // FILE: lib/features/planned_maintenance/data/job_diary_model.dart
 
+import 'dart:convert';
 import 'package:isar_community/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
@@ -330,6 +331,25 @@ class JobDiaryEntry {
     }
   }
 
+  @ignore
+  Map<String, dynamic> get syncReviewMetadata {
+    if (metadataJson == null) return {};
+    return Map<String, dynamic>.from(jsonDecode(metadataJson!) as Map);
+  }
+
+  @ignore
+  int? get reviewedServerVersion {
+    final value = syncReviewMetadata['diaryReviewedServerVersion'];
+    return value is int && value >= 0 ? value : null;
+  }
+
+  void retainReviewedServerVersion(int value) {
+    metadataJson = jsonEncode({
+      ...syncReviewMetadata,
+      'diaryReviewedServerVersion': value,
+    });
+  }
+
   // ─── Audit snapshot ────────────────────────────────────────
   Map<String, dynamic> toAuditMap() => {
     'id': id,
@@ -338,14 +358,39 @@ class JobDiaryEntry {
     'moduleInstanceFirestoreId': moduleInstanceFirestoreId,
     'assetType': assetType.name,
     'assetNumber': assetNumber,
+    'chargeNoAtEvent': chargeNoAtEvent,
+    'templateFirestoreId': templateFirestoreId,
+    'templateName': templateName,
     'kind': kind.name,
     'discipline': discipline.name,
     'laneKey': _laneKeyForDiaryDiscipline(discipline),
+    'severity': severity.name,
     'isBlocker': isBlocker,
     'isHandover': isHandover,
     'blockerStatus': blockerStatus?.name,
+    'functionalSection': functionalSection,
+    'componentGroup': componentGroup,
+    'targetRef': targetRef,
+    'procedureRef': procedureRef,
+    'tags': List<String>.from(tags),
+    'title': title,
+    'note': note,
+    'actionTaken': actionTaken,
+    'pendingIssue': pendingIssue,
     'requiresFollowUp': requiresFollowUp,
+    'createdByUid': createdByUid,
+    'createdByName': createdByName,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedByUid': updatedByUid,
+    'updatedByName': updatedByName,
+    'updatedAt': updatedAt.toIso8601String(),
     'isDeleted': isDeleted,
+    'deletedAt': deletedAt?.toIso8601String(),
+    'deletedByUid': deletedByUid,
+    'deletedByName': deletedByName,
+    'deleteReason': deleteReason,
+    'version': version,
+    'metadataJson': metadataJson,
   };
 
   // ─── Firestore serialization ───────────────────────────────
@@ -369,8 +414,10 @@ class JobDiaryEntry {
     'componentGroup': _cleanOptionalText(componentGroup),
     'targetRef': _cleanOptionalText(targetRef),
     'procedureRef': _cleanOptionalText(procedureRef),
-    'tags':
-        tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
+    'tags': tags
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList(),
     'title': _cleanOptionalText(title),
     'note': note.trim(),
     'actionTaken': _cleanOptionalText(actionTaken),
@@ -388,6 +435,10 @@ class JobDiaryEntry {
     'deletedByName': _cleanOptionalText(deletedByName),
     'deleteReason': _cleanOptionalText(deleteReason),
     'version': version,
+    if (reviewedServerVersion != null)
+      'reviewedServerVersion': reviewedServerVersion,
+    if (syncReviewMetadata['diaryAmendmentReason'] != null)
+      'amendmentReason': syncReviewMetadata['diaryAmendmentReason'],
     'metadataJson': _cleanOptionalText(metadataJson),
   };
 
@@ -487,107 +538,106 @@ class JobDiaryEntry {
       source: source,
     );
 
-    final entry =
-        JobDiaryEntry()
-          ..firestoreId = embeddedId
-          ..jobExecutionFirestoreId = readOptionalPersistedString(
-            map['jobExecutionFirestoreId'],
-            field: 'jobExecutionFirestoreId',
+    final entry = JobDiaryEntry()
+      ..firestoreId = embeddedId
+      ..jobExecutionFirestoreId = readOptionalPersistedString(
+        map['jobExecutionFirestoreId'],
+        field: 'jobExecutionFirestoreId',
+        source: source,
+      )
+      // Device-local Isar ids are never imported from Firestore.
+      ..jobExecutionLocalId = null
+      ..moduleInstanceFirestoreId = readOptionalPersistedString(
+        map['moduleInstanceFirestoreId'],
+        field: 'moduleInstanceFirestoreId',
+        source: source,
+      )
+      ..moduleInstanceLocalId = null
+      ..assetType = assetType
+      ..assetNumber = assetNumber
+      ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
+        map['chargeNoAtEvent'],
+        field: 'chargeNoAtEvent',
+        source: source,
+      )
+      ..templateFirestoreId = readOptionalPersistedString(
+        map['templateFirestoreId'],
+        field: 'templateFirestoreId',
+        source: source,
+      )
+      ..templateName = readOptionalPersistedString(
+        map['templateName'],
+        field: 'templateName',
+        source: source,
+      )
+      ..kind = parsedKind
+      ..discipline = _parseDiscipline(map['discipline'], source: source)
+      ..severity = _enumByNameOr(
+        JobDiarySeverity.values,
+        map['severity'],
+        JobDiarySeverity.medium,
+        field: 'severity',
+        source: source,
+      )
+      ..blockerStatus = parsedBlockerStatus
+      ..isBlocker = isBlocker
+      ..isHandover = isHandover
+      ..functionalSection = _readOptional(map, 'functionalSection', source)
+      ..componentGroup = _readOptional(map, 'componentGroup', source)
+      ..targetRef = _readOptional(map, 'targetRef', source)
+      ..procedureRef = _readOptional(map, 'procedureRef', source)
+      ..tags = readOptionalPersistedStringList(
+        map['tags'],
+        field: 'tags',
+        source: source,
+      )
+      ..title = _readOptional(map, 'title', source)
+      ..note = readRequiredPersistedString(
+        map['note'],
+        field: 'note',
+        source: source,
+      )
+      ..actionTaken = _readOptional(map, 'actionTaken', source)
+      ..pendingIssue = _readOptional(map, 'pendingIssue', source)
+      ..requiresFollowUp =
+          readOptionalPersistedBool(
+            map['requiresFollowUp'],
+            field: 'requiresFollowUp',
             source: source,
-          )
-          // Device-local Isar ids are never imported from Firestore.
-          ..jobExecutionLocalId = null
-          ..moduleInstanceFirestoreId = readOptionalPersistedString(
-            map['moduleInstanceFirestoreId'],
-            field: 'moduleInstanceFirestoreId',
-            source: source,
-          )
-          ..moduleInstanceLocalId = null
-          ..assetType = assetType
-          ..assetNumber = assetNumber
-          ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
-            map['chargeNoAtEvent'],
-            field: 'chargeNoAtEvent',
-            source: source,
-          )
-          ..templateFirestoreId = readOptionalPersistedString(
-            map['templateFirestoreId'],
-            field: 'templateFirestoreId',
-            source: source,
-          )
-          ..templateName = readOptionalPersistedString(
-            map['templateName'],
-            field: 'templateName',
-            source: source,
-          )
-          ..kind = parsedKind
-          ..discipline = _parseDiscipline(map['discipline'], source: source)
-          ..severity = _enumByNameOr(
-            JobDiarySeverity.values,
-            map['severity'],
-            JobDiarySeverity.medium,
-            field: 'severity',
-            source: source,
-          )
-          ..blockerStatus = parsedBlockerStatus
-          ..isBlocker = isBlocker
-          ..isHandover = isHandover
-          ..functionalSection = _readOptional(map, 'functionalSection', source)
-          ..componentGroup = _readOptional(map, 'componentGroup', source)
-          ..targetRef = _readOptional(map, 'targetRef', source)
-          ..procedureRef = _readOptional(map, 'procedureRef', source)
-          ..tags = readOptionalPersistedStringList(
-            map['tags'],
-            field: 'tags',
-            source: source,
-          )
-          ..title = _readOptional(map, 'title', source)
-          ..note = readRequiredPersistedString(
-            map['note'],
-            field: 'note',
-            source: source,
-          )
-          ..actionTaken = _readOptional(map, 'actionTaken', source)
-          ..pendingIssue = _readOptional(map, 'pendingIssue', source)
-          ..requiresFollowUp =
-              readOptionalPersistedBool(
-                map['requiresFollowUp'],
-                field: 'requiresFollowUp',
-                source: source,
-              ) ??
-              false
-          ..createdByUid = readRequiredPersistedString(
-            map['createdByUid'],
-            field: 'createdByUid',
-            source: source,
-          )
-          ..createdByName = _readOptional(map, 'createdByName', source)
-          ..createdAt = timestamps.createdAt
-          ..updatedByUid = readRequiredPersistedString(
-            map['updatedByUid'],
-            field: 'updatedByUid',
-            source: source,
-          )
-          ..updatedByName = _readOptional(map, 'updatedByName', source)
-          ..updatedAt = timestamps.updatedAt
-          ..isDeleted = isDeleted
-          ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = _readOptional(map, 'deletedByUid', source)
-          ..deletedByName = _readOptional(map, 'deletedByName', source)
-          ..deleteReason = _readOptional(map, 'deleteReason', source)
-          ..version = readRequiredPersistedInt(
-            map['version'],
-            field: 'version',
-            source: source,
-            minimum: 1,
-          )
-          ..metadataJson = _readOptional(
-            map,
-            'metadataJson',
-            source,
-            emptyAsNull: false,
-          )
-          ..isSynced = true;
+          ) ??
+          false
+      ..createdByUid = readRequiredPersistedString(
+        map['createdByUid'],
+        field: 'createdByUid',
+        source: source,
+      )
+      ..createdByName = _readOptional(map, 'createdByName', source)
+      ..createdAt = timestamps.createdAt
+      ..updatedByUid = readRequiredPersistedString(
+        map['updatedByUid'],
+        field: 'updatedByUid',
+        source: source,
+      )
+      ..updatedByName = _readOptional(map, 'updatedByName', source)
+      ..updatedAt = timestamps.updatedAt
+      ..isDeleted = isDeleted
+      ..deletedAt = timestamps.deletedAt
+      ..deletedByUid = _readOptional(map, 'deletedByUid', source)
+      ..deletedByName = _readOptional(map, 'deletedByName', source)
+      ..deleteReason = _readOptional(map, 'deleteReason', source)
+      ..version = readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      )
+      ..metadataJson = _readOptional(
+        map,
+        'metadataJson',
+        source,
+        emptyAsNull: false,
+      )
+      ..isSynced = true;
 
     if (entry.isDeleted) {
       requireRemoteTombstoneDeletedAt(

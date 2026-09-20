@@ -14,10 +14,11 @@ export type RequirementContract = {
   readonly options: readonly string[];
   readonly validation: unknown;
   readonly evidence: unknown;
+  readonly instructions: unknown;
 };
 
 export type RequirementContractDifference = {
-  readonly field: "type" | "required" | "unit" | "options" | "validation" | "evidence";
+  readonly field: "type" | "required" | "unit" | "options" | "validation" | "evidence" | "instructions";
   readonly left: unknown;
   readonly right: unknown;
 };
@@ -162,11 +163,17 @@ export function requirementContractForField(
     type: canonicalRequirementType(row.type ?? row.fieldType),
     required: row.required === true || row.isRequired === true,
     unit: typeof row.unit === "string" && row.unit.trim().length > 0
-      ? normalizeText(row.unit)
+      ? row.unit.trim().replace(/\s+/g, " ")
       : null,
     options: optionsContract(row),
     validation: parseJsonObject(row.validation ?? row.validationJson),
     evidence: evidenceContract(row),
+    instructions: canonicalJsonValue(Object.fromEntries(
+      ["instructionText", "procedureRef", "procedureRefs", "procedureRevision"]
+        .filter((name) => row[name] != null)
+        .map((name) => [name, typeof row[name] === "string"
+          ? (row[name] as string).trim().replace(/\s+/g, " ") : row[name]]),
+    )),
   };
 }
 
@@ -191,6 +198,7 @@ export function compareRequirementContracts(
     ["options", a.options, b.options],
     ["validation", a.validation, b.validation],
     ["evidence", a.evidence, b.evidence],
+    ["instructions", a.instructions, b.instructions],
   ];
   for (const [field, valueA, valueB] of comparisons) {
     if (!equalContractValue(valueA, valueB)) {

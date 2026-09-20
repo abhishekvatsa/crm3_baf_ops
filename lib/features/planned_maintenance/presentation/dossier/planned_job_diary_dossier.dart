@@ -4,20 +4,23 @@ class _DiaryDossier extends StatelessWidget {
   final AsyncValue<List<JobDiaryEntry>> entriesAsync;
   final bool isOpenJob;
   final VoidCallback? onAddEntry;
+  final ValueChanged<JobDiaryEntry>? onReview;
+  final bool Function(JobDiaryEntry)? canReview;
 
   const _DiaryDossier({
     required this.entriesAsync,
     required this.isOpenJob,
     required this.onAddEntry,
+    this.onReview,
+    this.canReview,
   });
 
   @override
   Widget build(BuildContext context) {
     return entriesAsync.when(
       loading: () => const _InlineLoadingRow(label: 'Loading diary entries'),
-      error:
-          (error, _) =>
-              _WarningBox(text: 'Could not load diary entries: $error'),
+      error: (error, _) =>
+          _WarningBox(text: 'Could not load diary entries: $error'),
       data: (entries) {
         if (entries.isEmpty) {
           return Column(
@@ -29,14 +32,16 @@ class _DiaryDossier extends StatelessWidget {
                     'No diary, handover or blocker entries are attached to this job yet.',
                 color: BafColors.admin,
               ),
-              if (isOpenJob && onAddEntry != null) ...[
+              if (onAddEntry != null) ...[
                 const SizedBox(height: BafSpacing.md),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: OutlinedButton.icon(
                     onPressed: onAddEntry,
                     icon: const Icon(Icons.add_comment_rounded),
-                    label: const Text('Add diary entry'),
+                    label: Text(
+                      isOpenJob ? 'Add diary entry' : 'Add post-closure note',
+                    ),
                   ),
                 ),
               ],
@@ -46,9 +51,10 @@ class _DiaryDossier extends StatelessWidget {
 
         final blockers = entries.where((entry) => entry.isOpenBlocker).length;
         final handovers = entries.where((entry) => entry.isHandover).length;
-        final followUps =
-            entries.where((entry) => entry.requiresFollowUp).length;
-        final visibleEntries = isOpenJob ? entries.take(8) : entries;
+        final followUps = entries
+            .where((entry) => entry.requiresFollowUp)
+            .length;
+        final visibleEntries = entries;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,26 +90,24 @@ class _DiaryDossier extends StatelessWidget {
               ],
             ),
             const SizedBox(height: BafSpacing.md),
-            ...visibleEntries.map(_DiaryEntryCard.new),
-            if (isOpenJob && entries.length > 8) ...[
-              const SizedBox(height: BafSpacing.sm),
-              Text(
-                'Showing latest 8 of ${entries.length} diary entries.',
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+            ...visibleEntries.map(
+              (entry) => _DiaryEntryCard(
+                entry,
+                onReview: canReview?.call(entry) == true
+                    ? () => onReview?.call(entry)
+                    : null,
               ),
-            ],
-            if (isOpenJob && onAddEntry != null) ...[
+            ),
+            if (onAddEntry != null) ...[
               const SizedBox(height: BafSpacing.md),
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
                   onPressed: onAddEntry,
                   icon: const Icon(Icons.add_comment_rounded),
-                  label: const Text('Add diary entry'),
+                  label: Text(
+                    isOpenJob ? 'Add diary entry' : 'Add post-closure note',
+                  ),
                 ),
               ),
             ],
@@ -117,7 +121,8 @@ class _DiaryDossier extends StatelessWidget {
 class _DiaryEntryCard extends StatelessWidget {
   final JobDiaryEntry entry;
 
-  const _DiaryEntryCard(this.entry);
+  final VoidCallback? onReview;
+  const _DiaryEntryCard(this.entry, {this.onReview});
 
   @override
   Widget build(BuildContext context) {
@@ -180,10 +185,9 @@ class _DiaryEntryCard extends StatelessWidget {
                         if (entry.blockerStatus != null)
                           StatusBadge(
                             label: _blockerStatusLabel(entry.blockerStatus!),
-                            color:
-                                entry.blockerStatus == JobBlockerStatus.open
-                                    ? BafColors.danger
-                                    : BafColors.sync,
+                            color: entry.blockerStatus == JobBlockerStatus.open
+                                ? BafColors.danger
+                                : BafColors.sync,
                           ),
                         if (entry.requiresFollowUp)
                           const StatusBadge(
@@ -220,6 +224,12 @@ class _DiaryEntryCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: BafSpacing.sm),
+          if (onReview != null && (entry.isBlocker || entry.requiresFollowUp))
+            OutlinedButton.icon(
+              onPressed: onReview,
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Review follow-up'),
+            ),
           _CompactInfoGrid(
             rows: [
               _InfoPair('By', entry.createdByName),
@@ -378,19 +388,18 @@ class _AddDiaryEntrySheetState extends State<_AddDiaryEntrySheet> {
                       initialValue: _kind,
                       isExpanded: true,
                       decoration: _sheetInputDecoration('Type'),
-                      items:
-                          JobDiaryKind.values
-                              .map(
-                                (kind) => DropdownMenuItem(
-                                  value: kind,
-                                  child: Text(
-                                    _diaryKindLabel(kind),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      items: JobDiaryKind.values
+                          .map(
+                            (kind) => DropdownMenuItem(
+                              value: kind,
+                              child: Text(
+                                _diaryKindLabel(kind),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (value) {
                         if (value == null) return;
                         setState(() {
@@ -409,19 +418,18 @@ class _AddDiaryEntrySheetState extends State<_AddDiaryEntrySheet> {
                       initialValue: _discipline,
                       isExpanded: true,
                       decoration: _sheetInputDecoration('Lane'),
-                      items:
-                          JobDiaryDiscipline.values
-                              .map(
-                                (discipline) => DropdownMenuItem(
-                                  value: discipline,
-                                  child: Text(
-                                    _disciplineLabel(discipline),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      items: JobDiaryDiscipline.values
+                          .map(
+                            (discipline) => DropdownMenuItem(
+                              value: discipline,
+                              child: Text(
+                                _disciplineLabel(discipline),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (value) {
                         if (value == null) return;
                         setState(() => _discipline = value);
@@ -435,19 +443,18 @@ class _AddDiaryEntrySheetState extends State<_AddDiaryEntrySheet> {
                 initialValue: _severity,
                 isExpanded: true,
                 decoration: _sheetInputDecoration('Severity'),
-                items:
-                    JobDiarySeverity.values
-                        .map(
-                          (severity) => DropdownMenuItem(
-                            value: severity,
-                            child: Text(
-                              _titleCase(severity.name),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
+                items: JobDiarySeverity.values
+                    .map(
+                      (severity) => DropdownMenuItem(
+                        value: severity,
+                        child: Text(
+                          _titleCase(severity.name),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() => _severity = value);
@@ -465,8 +472,8 @@ class _AddDiaryEntrySheetState extends State<_AddDiaryEntrySheet> {
                 minLines: 4,
                 maxLines: 7,
                 decoration: _sheetInputDecoration('Diary note *'),
-                validator:
-                    (value) => _hasText(value) ? null : 'Enter the note.',
+                validator: (value) =>
+                    _hasText(value) ? null : 'Enter the note.',
               ),
               const SizedBox(height: BafSpacing.md),
               Row(

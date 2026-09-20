@@ -244,8 +244,8 @@ beforeAll(async () => {
     projectId: PROJECT_ID,
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')[0],
+      port: Number((process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')[1]),
     },
   });
 }, 120000);
@@ -823,6 +823,25 @@ describe("charge abnormality governed admin mutations", () => {
 });
 
 describe("users", () => {
+  test.each([{name: '   '}, {authorityRevision: 7}, {accessDisposition: 'revoked'}, {lastAuthorityDecision: {reason: 'invented'}}])('registration refuses invalid identity or invented authority metadata %j', async (extra) => {
+    await assertFails(setDoc(doc(dbAs('newUser', {email:'new@test.local',email_verified:true}), 'users/newUser'), {
+      name:'New user', email:'new@test.local', roles:['operations'],isApproved:false,createdAt:Timestamp.now(),...extra,
+    }));
+  });
+  test('governed profile remains refreshable without allowing metadata reset', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/existing'), {...userDoc('existing', ['operations'], false),
+        email:'existing@test.local', authorityRevision:5, accessDisposition:'revoked',
+        lastAuthorityDecision:{reason:'Temporary restriction'},
+      });
+    });
+    const db=dbAs('existing', {email:'existing@test.local',email_verified:true});
+    await assertSucceeds(updateDoc(doc(db,'users/existing'), {photoUrl:'https://example.com/photo'}));
+    await assertFails(updateDoc(doc(db,'users/existing'), {authorityRevision:0}));
+    await assertFails(updateDoc(doc(db,'users/existing'), {accessDisposition:'pending'}));
+    await assertFails(updateDoc(doc(db,'users/existing'), {lastAuthorityDecision:{reason:'rewritten'}}));
+  });
+
   test("pending user can create only self as unapproved operations", async () => {
     const db = dbAs("newUser", {
       email: "new@test.local",
@@ -1335,7 +1354,7 @@ describe("maintenance_records", () => {
         updatedAt: validClose.updatedAt,
       }
     );
-    await assertSucceeds(validCloseBatch.commit());
+    await assertFails(validCloseBatch.commit());
 
     await seedDoc("maintenance_records/burnerResetOnly", {
       ...ticket,
@@ -1412,7 +1431,7 @@ describe("maintenance_records", () => {
     await assertFails(invalidMicroampBatch.commit());
   });
 
-  test("workflow-released production-shaped burner issue accepts complete closure", async () => {
+  test("direct production-shaped burner closure is denied even after workflow release", async () => {
     const db = dbAs("admin1");
     const ticketId = "workflowReleasedBurner";
     const sourceCreatedAt = Timestamp.fromDate(
@@ -1577,7 +1596,7 @@ describe("maintenance_records", () => {
       updatedAt: closedAt,
     });
 
-    await assertSucceeds(closureBatch.commit());
+    await assertFails(closureBatch.commit());
   });
 
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {
@@ -1616,7 +1635,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("senior can close maintenance ticket using mobile resolution fields", async () => {
+  test("legacy mobile closure requires the governed command even for a senior", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = createdAt;
     const closedAt = new Date().toISOString();
@@ -1640,7 +1659,7 @@ describe("maintenance_records", () => {
 
     const db = dbAs("seniorMech");
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketCloseMobile"), {
         isResolved: true,
         status: "resolved",
@@ -1659,7 +1678,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("multi-lane closure is supervisory and requires a complete lane projection", async () => {
+  test("direct multi-lane closure is denied even with a complete supervisory projection", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const closedAt = new Date().toISOString();
     await seedDoc("maintenance_records/ticketMultiLane", {
@@ -1755,7 +1774,7 @@ describe("maintenance_records", () => {
         },
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(dbAs("supervisor1"), "maintenance_records/ticketMultiLane"), {
         ...close,
         closedByUid: "supervisor1",
@@ -1765,7 +1784,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("reopen clears active lane evidence after archiving the closure", async () => {
+  test("direct reopen is denied even when it archives and clears lane evidence", async () => {
     const closedAt = new Date(Date.now() - 60000).toISOString();
     const reopenedAt = new Date().toISOString();
     const completionEvidence = {
@@ -1856,7 +1875,7 @@ describe("maintenance_records", () => {
     );
 
     await assertFails(updateDoc(reference, reopen));
-    await assertSucceeds(
+    await assertFails(
       updateDoc(reference, {
         ...reopen,
         issueLaneCompletionEvidence: {},
@@ -1921,7 +1940,7 @@ describe("maintenance_records", () => {
     await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketOtherBlank"), close)
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketOtherConcise"), close)
     );
   });
@@ -2151,7 +2170,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("admin can soft-delete maintenance ticket only through delete fields", async () => {
+  test("Admin direct soft-delete is denied; withdrawal requires an atomic command audit", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = createdAt;
 
@@ -2192,7 +2211,7 @@ describe("maintenance_records", () => {
       })
     );
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketDelete"), {
         isDeleted: true,
         deletedAt: new Date().toISOString(),
@@ -2205,7 +2224,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("operations can reopen using mobile reopen fields and resolution history", async () => {
+  test("Operations direct mobile reopen is denied even with resolution history", async () => {
     const closedAt = new Date(Date.now() - 60000).toISOString();
 
     await seedDoc("maintenance_records/ticketReopenMobile", {
@@ -2250,7 +2269,7 @@ describe("maintenance_records", () => {
       })
     );
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
         isResolved: false,
         status: "open",
@@ -2461,7 +2480,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("operations can reopen maintenance ticket without changing resolution evidence", async () => {
+  test("Operations direct legacy reopen is denied even with unchanged resolution evidence", async () => {
     const closedAt = new Date(Date.now() - 60000).toISOString();
 
     await seedDoc("maintenance_records/ticketReopen", {
@@ -2493,7 +2512,7 @@ describe("maintenance_records", () => {
     const db = dbAs("ops1");
     const reopenedAt = new Date().toISOString();
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopen"), {
         isResolved: false,
         status: "open",
@@ -2769,6 +2788,24 @@ describe("template_versions", () => {
         isDeleted: false,
       })
     );
+  });
+
+  test("original publisher can finish historical publication audit after supersession or retirement", async () => {
+    await seedDoc("template_packages/historyPkg", {firestoreId: "historyPkg", latestVersionNumber: 2,
+      activeVersionFirestoreId: "newer", lifecycleStatus: "active", isDeleted: false});
+    await seedDoc("template_versions/historical", {...draftVersion, firestoreId: "historical", packageFirestoreId: "historyPkg",
+      status: "retired", publishedByUid: "si1", publishedAt: new Date(2000).toISOString(), version: 3});
+    const db = dbAs("si1");
+    const audit = {firestoreId: "historyAudit", packageFirestoreId: "historyPkg", versionFirestoreId: "historical",
+      action: "published", afterHash: draftVersion.contentHash, performedByUid: "si1",
+      performedAt: new Date(2100).toISOString(), updatedAt: new Date(2100).toISOString(), version: 1, isDeleted: false};
+    await assertSucceeds(setDoc(doc(db, "template_publish_audits/historyAudit"), audit));
+    await assertFails(setDoc(doc(db, "template_publish_audits/wrongHash"), {...audit, firestoreId: "wrongHash",
+      afterHash: "tg2-sha256:" + "b".repeat(64)}));
+    await seedUser("otherPublisher", ["si"]);
+    await assertFails(setDoc(doc(dbAs("otherPublisher"), "template_publish_audits/wrongActor"),
+      {...audit, firestoreId: "wrongActor", performedByUid: "otherPublisher"}));
+    await assertFails(updateDoc(doc(db, "template_versions/historical"), {versionNumber: 3, version: 4}));
   });
 
   test("SI can publish draft only without mutating frozen JSON payload", async () => {
@@ -3603,139 +3640,68 @@ describe("job_modules", () => {
 });
 
 describe("job_diary_entries", () => {
-  beforeEach(async () => {
-    await seedUser("seniorMech", ["seniorMechanical"]);
-    await seedUser("ops1", ["operations"]);
-    await seedDoc("job_executions/jobDiaryOpen", {
-      isDeleted: false,
-      isCompleted: false,
-      isCancelled: false,
-    });
-    await seedDoc("job_executions/executionA", {
-      isDeleted: false,
-      isCompleted: false,
-      isCancelled: false,
-    });
+  const parent = {assetType: "furnace", assetNumber: 7, isDeleted: false, isCompleted: false, isCancelled: false};
+  const entry = (id, overrides = {}) => ({
+    firestoreId: id, jobExecutionFirestoreId: "diary-job", assetType: "furnace", assetNumber: 7,
+    note: "Original leak observation", kind: "blocker", discipline: "mechanical", laneKey: "mech", severity: "medium",
+    isBlocker: true, isHandover: false, blockerStatus: "open", requiresFollowUp: true,
+    createdByUid: "seniorMech", updatedByUid: "seniorMech",
+    createdAt: Timestamp.fromMillis(1000), updatedAt: Timestamp.fromMillis(1000),
+    version: 1, reviewedServerVersion: 0, isDeleted: false, ...overrides,
   });
-
-  test("creator can update diary only with version advance", async () => {
-    await seedDoc("job_diary_entries/diary1", {
-      firestoreId: "diary1",
-      note: "Initial note",
-      jobExecutionFirestoreId: "jobDiaryOpen",
-      createdByUid: "seniorMech",
-      updatedByUid: "seniorMech",
-      createdAt: Timestamp.fromMillis(1000),
-      updatedAt: Timestamp.fromMillis(1000),
-      version: 1,
-      isDeleted: false,
+  async function commit(data, {audit = true, wrongAfter = false} = {}) {
+    const db = dbAs("seniorMech"); const batch = writeBatch(db);
+    const previous = await getDoc(doc(db, `job_diary_entries/${data.firestoreId}`));
+    batch.set(doc(db, `job_diary_entries/${data.firestoreId}`), data);
+    if (audit) batch.set(doc(db, `audit_logs/diary_revision_${data.firestoreId}_${data.version}`), {
+      entityType: "planned_job_diary_entry", entityId: data.firestoreId, action: data.version === 1 ? "create" : "update",
+      performedByUid: "seniorMech", timestamp: serverTimestamp(), severity: "low", beforeJson: "{}", afterJson: JSON.stringify(data),
+      beforeState: previous.exists() ? previous.data() : null, afterState: wrongAfter ? {...data, note: "Forged"} : data,
     });
-
-    const db = dbAs("seniorMech");
-
-    await assertFails(
-      updateDoc(doc(db, "job_diary_entries/diary1"), {
-        note: "Same version overwrite",
-        updatedByUid: "seniorMech",
-        updatedAt: Timestamp.now(),
-        version: 1,
-      })
-    );
-
-    await assertSucceeds(
-      updateDoc(doc(db, "job_diary_entries/diary1"), {
-        note: "Version advanced",
-        updatedByUid: "seniorMech",
-        updatedAt: Timestamp.now(),
-        version: 2,
-      })
-    );
+    return batch.commit();
+  }
+  beforeEach(async () => { await seedUser("seniorMech", ["seniorMechanical"]); await seedDoc("job_executions/diary-job", parent); });
+  test("rejects an audit that describes different accepted content", async () => {
+    await seedDoc("job_executions/diary-job", parent);
+    await assertFails(commit(entry("forged-audit"), {wrongAfter: true}));
   });
-
-  test("diary creation and editing require an open parent execution", async () => {
-    await seedDoc("job_executions/jobDiaryCompleted", {
-      isDeleted: false,
-      isCompleted: true,
-      isCancelled: false,
-    });
-    await seedDoc("job_executions/jobDiaryCancelled", {
-      isDeleted: false,
-      isCompleted: false,
-      isCancelled: true,
-    });
-
-    const db = dbAs("seniorMech");
-    const entry = (id, executionId) => ({
-      firestoreId: id,
-      jobExecutionFirestoreId: executionId,
-      note: "Shift handover note",
-      createdByUid: "seniorMech",
-      updatedByUid: "seniorMech",
-      createdAt: Timestamp.fromMillis(1000),
-      updatedAt: Timestamp.fromMillis(1000),
-      version: 1,
-      isDeleted: false,
-    });
-
-    await assertSucceeds(
-      setDoc(
-        doc(db, "job_diary_entries/diaryOpen"),
-        entry("diaryOpen", "jobDiaryOpen"),
-      ),
-    );
-    await assertFails(
-      setDoc(
-        doc(db, "job_diary_entries/diaryCompleted"),
-        entry("diaryCompleted", "jobDiaryCompleted"),
-      ),
-    );
-    await assertFails(
-      setDoc(
-        doc(db, "job_diary_entries/diaryCancelled"),
-        entry("diaryCancelled", "jobDiaryCancelled"),
-      ),
-    );
-
-    await seedDoc("job_diary_entries/terminalDiary", {
-      ...entry("terminalDiary", "jobDiaryCancelled"),
-    });
-    await assertFails(
-      updateDoc(doc(db, "job_diary_entries/terminalDiary"), {
-        note: "Late edit after cancellation",
-        updatedByUid: "seniorMech",
-        updatedAt: Timestamp.now(),
-        version: 2,
-      }),
-    );
+  test("creation requires its atomic audit and registered parent identity", async () => {
+    await assertFails(commit(entry("missing-audit"), {audit: false}));
+    await assertFails(commit(entry("wrong-asset", {assetNumber: 8})));
+    await assertFails(commit(entry("bad-flags", {isBlocker: false})));
+    await assertSucceeds(commit(entry("valid")));
   });
-
-  test("creator cannot relink diary entry while editing note", async () => {
-    await seedDoc("job_diary_entries/diaryRelink", {
-      firestoreId: "diaryRelink",
-      note: "Initial note",
-      jobExecutionFirestoreId: "executionA",
-      templateFirestoreId: "templateA",
-      createdByUid: "seniorMech",
-      updatedByUid: "seniorMech",
-      createdAt: Timestamp.fromMillis(1000),
-      updatedAt: Timestamp.fromMillis(1000),
-      version: 1,
-      isDeleted: false,
-    });
-
-    const db = dbAs("seniorMech");
-
-    await assertFails(
-      updateDoc(doc(db, "job_diary_entries/diaryRelink"), {
-        note: "Relink attempt",
-        jobExecutionFirestoreId: "executionB",
-        updatedByUid: "seniorMech",
-        updatedAt: Timestamp.now(),
-        version: 2,
-      })
-    );
+  test.each(["isCompleted", "isCancelled"])("post-closure notes and dispositions preserve physical %s", async (terminal) => {
+    await seedDoc("job_executions/diary-job", {...parent, [terminal]: true});
+    await assertSucceeds(commit(entry("closed-note")));
+    await assertSucceeds(commit(entry("closed-note", {version: 2, reviewedServerVersion: 1,
+      blockerStatus: "resolved", requiresFollowUp: false, amendmentReason: "Repair verified; this follow-up is resolved."})));
+    expect((await getDoc(doc(dbAs("seniorMech"), "job_executions/diary-job"))).data()[terminal]).toBe(true);
   });
-
+  test("multiple offline edits before first sync retain their version and exact audit", async () => {
+    await assertSucceeds(commit(entry("new-offline", {version: 3, reviewedServerVersion: 0,
+      note: "Draft revised twice before its first publication"})));
+  });
+  test("multiple offline edits publish when their reviewed server version is still current", async () => {
+    await assertSucceeds(commit(entry("entry1")));
+    await assertSucceeds(commit(entry("entry1", {version: 3, reviewedServerVersion: 1,
+      note: "Two local amendments", amendmentReason: "Reviewed the original server evidence"})));
+  });
+  test("two offline edits cannot overtake an intervening server edit", async () => {
+    await seedDoc("job_diary_entries/entry1", entry("entry1", {version: 2, note: "Other author's current evidence"}));
+    await assertFails(commit(entry("entry1", {version: 3, reviewedServerVersion: 1, note: "Two offline edits", amendmentReason: "Reviewed only original v1"})));
+    await assertSucceeds(commit(entry("entry1", {version: 3, reviewedServerVersion: 2, note: "Reviewed current v2", amendmentReason: "Verified current evidence before amendment"})));
+  });
+  test("amendment needs a reason and cannot relink parent or mutate physical identity", async () => {
+    await seedDoc("job_diary_entries/entry1", entry("entry1"));
+    await assertFails(commit(entry("entry1", {version: 2, reviewedServerVersion: 1})));
+    await seedDoc("job_executions/another-job", parent);
+    await assertFails(commit(entry("entry1", {version: 2, reviewedServerVersion: 1, amendmentReason: "Attempt relink", jobExecutionFirestoreId: "another-job"})));
+  });
+  test("unbound old writer remains held instead of silently overwriting", async () => {
+    await seedDoc("job_diary_entries/entry1", entry("entry1"));
+    await assertFails(updateDoc(doc(dbAs("seniorMech"), "job_diary_entries/entry1"), {version: 4, note: "Collapsed old draft"}));
+  });
 });
 
 describe("directives", () => {
@@ -3752,6 +3718,7 @@ describe("directives", () => {
     title: "Check furnace purge status",
     description: "Verify purge permissive before restart.",
     status: "open",
+    priority: "medium", isActive: true, closedWithoutAcknowledgement: false,
     directedTo: "operations",
     createdByUid: "supervisor1",
     issuedByUid: "supervisor1",
@@ -3764,6 +3731,36 @@ describe("directives", () => {
     version: 1,
     isDeleted: false,
   };
+
+  test.each(['priority','isActive','closedWithoutAcknowledgement'])('directive create rejects missing %s',async(field)=>{
+    const candidate={...directiveBase}; delete candidate[field];
+    await assertFails(setDoc(doc(dbAs('supervisor1'),'directives/dir1'),candidate));
+  });
+  test('directive create rejects invalid calendar dates',async()=>{
+    await assertFails(setDoc(doc(dbAs('supervisor1'),'directives/dir1'),{...directiveBase,createdAt:'2026-02-30T00:00:00.000Z',updatedAt:'2026-02-30T00:00:00.000Z'}));
+  });
+  test('command-managed instruction cannot be changed directly even by Admin',async()=>{
+    await seedDoc('directives/dir1',{...directiveBase,commandProtocol:'ordinaryDirective.v1',lastCommandId:'original'});
+    await assertFails(updateDoc(doc(dbAs('admin1'),'directives/dir1'),{title:'Bypass audit',version:2,updatedAt:new Date().toISOString()}));
+  });
+  test('Admin can close an open legacy directive without inventing acknowledgement',async()=>{
+    await seedDoc('directives/dir1',directiveBase);const at=new Date().toISOString();
+    await assertSucceeds(updateDoc(doc(dbAs('admin1'),'directives/dir1'),{status:'closed',isActive:false,closedByUid:'admin1',closedByName:'Admin',closedAt:at,closedWithoutAcknowledgement:true,updatedAt:at,version:2}));
+  });
+  test('closure cannot keep isActive true or contradict existing acknowledgement',async()=>{
+    await seedDoc('directives/dir1',directiveBase);const at=new Date().toISOString();
+    const update={status:'closed',isActive:true,closedByUid:'supervisor1',closedByName:'Supervisor',closedAt:at,closedWithoutAcknowledgement:true,updatedAt:at,version:2};
+    await assertFails(updateDoc(doc(dbAs('supervisor1'),'directives/dir1'),update));
+    await seedDoc('directives/dir1',{...directiveBase,status:'acknowledged',acknowledgedByUid:'ops1',acknowledgedByName:'Operations',acknowledgedAt:directiveBase.createdAt});
+    await assertFails(updateDoc(doc(dbAs('supervisor1'),'directives/dir1'),{...update,isActive:false}));
+  });
+
+  test("a permanent-removal manifest fences an older direct writer", async () => {
+    const digest = require("node:crypto").createHash("sha256").update("directives/dir1").digest("hex");
+    await seedDoc(`pilot_record_purge_manifests/purge_${digest}`, {sourceCollection: "directives", sourceDocumentId: "dir1"});
+    await assertFails(setDoc(doc(dbAs("supervisor1"), "directives/dir1"), directiveBase));
+    await assertSucceeds(setDoc(doc(dbAs("supervisor1"), "directives/fresh"), {...directiveBase, firestoreId: "fresh"}));
+  });
 
   test("shift supervisor can create directive targeting operations", async () => {
     const db = dbAs("supervisor1");
@@ -3821,12 +3818,12 @@ describe("directives", () => {
         isActive: true,
         acknowledgedByUid: "ops1",
         acknowledgedByName: "Operations One",
-        acknowledgedAt: Timestamp.now(),
+        acknowledgedAt: new Date().toISOString(),
         closedByUid: null,
         closedByName: null,
         closedAt: null,
         closedWithoutAcknowledgement: false,
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -3849,13 +3846,13 @@ describe("directives", () => {
         isActive: true,
         acknowledgedByUid: "ops1",
         acknowledgedByName: "Operations One",
-        acknowledgedAt: Timestamp.now(),
+        acknowledgedAt: new Date().toISOString(),
         closedByUid: null,
         closedByName: null,
         closedAt: null,
         closedWithoutAcknowledgement: false,
         description: "Purge check was not required after all.",
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -3876,13 +3873,13 @@ describe("directives", () => {
         isActive: true,
         acknowledgedByUid: "ops1",
         acknowledgedByName: "Operations One",
-        acknowledgedAt: Timestamp.now(),
+        acknowledgedAt: new Date().toISOString(),
         closedByUid: null,
         closedByName: null,
         closedAt: null,
         closedWithoutAcknowledgement: false,
         priority: "urgent",
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -3900,9 +3897,9 @@ describe("directives", () => {
       updateDoc(doc(db, "directives/dirCloseEdit"), {
         status: "closed",
         closedByUid: "supervisor1",
-        closedAt: Timestamp.now(),
+        closedAt: new Date().toISOString(),
         title: "Something else entirely",
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -3924,10 +3921,10 @@ describe("directives", () => {
         isActive: false,
         closedByUid: "supervisor1",
         closedByName: "Supervisor One",
-        closedAt: Timestamp.now(),
+        closedAt: new Date().toISOString(),
         closedWithoutAcknowledgement: true,
         remarks: "Purge permissive confirmed on the panel.",
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -3944,9 +3941,11 @@ describe("directives", () => {
     await assertSucceeds(
       updateDoc(doc(db, "directives/dirClose"), {
         status: "closed",
+        isActive: false,
         closedByUid: "supervisor1",
-        closedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        closedWithoutAcknowledgement: true,
+        closedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -4020,13 +4019,13 @@ describe("directives", () => {
           isActive: true,
           acknowledgedByUid: "ia1",
           acknowledgedByName: "Instrumentation One",
-          acknowledgedAt: Timestamp.now(),
+          acknowledgedAt: new Date().toISOString(),
           closedByUid: null,
           closedByName: null,
           closedAt: null,
           closedWithoutAcknowledgement: false,
           ...lifecycleMutation,
-          updatedAt: Timestamp.now(),
+          updatedAt: new Date().toISOString(),
           version: 2,
         })
       );
@@ -4036,8 +4035,8 @@ describe("directives", () => {
         updateDoc(doc(dbAs(uid), `directives/${burnerDirectiveId}`), {
           status: "closed",
           closedByUid: uid,
-          closedAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
+          closedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           version: 2,
         })
       );
@@ -4045,7 +4044,7 @@ describe("directives", () => {
     await assertFails(
       updateDoc(doc(dbAs("admin1"), `directives/${burnerDirectiveId}`), {
         firestoreId: "ordinary-directive",
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -4064,12 +4063,12 @@ describe("directives", () => {
         isActive: true,
         acknowledgedByUid: "ia1",
         acknowledgedByName: "Instrumentation One",
-        acknowledgedAt: Timestamp.now(),
+        acknowledgedAt: new Date().toISOString(),
         closedByUid: null,
         closedByName: null,
         closedAt: null,
         closedWithoutAcknowledgement: false,
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -4099,7 +4098,7 @@ describe("directives", () => {
         isActive: true,
         acknowledgedByUid: "ia1",
         acknowledgedByName: "Instrumentation One",
-        acknowledgedAt: Timestamp.now(),
+        acknowledgedAt: new Date().toISOString(),
         closedByUid: null,
         closedByName: null,
         closedAt: null,
@@ -4111,7 +4110,7 @@ describe("directives", () => {
           burnerPositions: [4],
           automaticPlantActuation: false,
         }),
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );
@@ -4163,6 +4162,16 @@ describe("directives", () => {
 
 
 describe("knowledge_base", () => {
+  test("SI reads scoped knowledge audit history without unrelated administrative audits", async () => {
+    await seedUser("si1", ["si"]);
+    await seedDoc("audit_logs/knowledge", {entityType: "knowledge_base", entityId: "KB-001", timestamp: Timestamp.now()});
+    await seedDoc("audit_logs/private", {entityType: "user", entityId: "some-user", timestamp: Timestamp.now()});
+    const db = dbAs("si1");
+    await assertSucceeds(getDocs(query(collection(db, "audit_logs"), where("entityType", "==", "knowledge_base"))));
+    await assertFails(getDocs(collection(db, "audit_logs")));
+    await assertFails(getDoc(doc(db, "audit_logs/private")));
+  });
+
   beforeEach(async () => {
     await seedUser("admin1", ["admin"]);
     await seedUser("si1", ["si"]);
@@ -4203,6 +4212,31 @@ describe("knowledge_base", () => {
     await assertSucceeds(
       setDoc(doc(db, "knowledge_base/KB-001"), knowledgeRow())
     );
+  });
+
+  test("knowledge revision audit identity requires the matching atomic row transition", async () => {
+    const db = dbAs("admin1");
+    const audit = (version) => auditEventPayload({
+      entityType: "knowledge_base", entityId: "KB-001", performedByUid: "admin1",
+      timestamp: serverTimestamp(), action: version === 1 ? "create" : "update",
+    });
+    const initial = writeBatch(db);
+    initial.set(doc(db, "knowledge_base/KB-001"), knowledgeRow());
+    initial.set(doc(db, "audit_logs/knowledge_revision_KB-001_1"), audit(1));
+    await assertSucceeds(initial.commit());
+
+    await assertFails(setDoc(doc(db, "audit_logs/knowledge_revision_KB-001_2"), audit(2)));
+    const wrong = writeBatch(db);
+    wrong.update(doc(db, "knowledge_base/KB-001"), {version: 2, updatedAt: serverTimestamp(),
+      changeSummary: "Reviewed second revision with exact audit identity."});
+    wrong.set(doc(db, "audit_logs/knowledge_revision_KB-001_3"), audit(2));
+    await assertFails(wrong.commit());
+
+    const update = writeBatch(db);
+    update.update(doc(db, "knowledge_base/KB-001"), {version: 2, updatedAt: serverTimestamp(),
+      changeSummary: "Reviewed second revision with exact audit identity."});
+    update.set(doc(db, "audit_logs/knowledge_revision_KB-001_2"), audit(2));
+    await assertSucceeds(update.commit());
   });
 
   test("approved non-governor cannot create knowledge row", async () => {
@@ -4317,6 +4351,19 @@ describe("audit_logs", () => {
   beforeEach(async () => {
     await seedUser("ops1", ["operations"]);
     await seedUser("admin1", ["admin"]);
+  });
+
+
+  test("approved clients cannot preempt deterministic revision audit identities", async () => {
+    for (const actor of ["ops1", "admin1"]) {
+      const db = dbAs(actor);
+      for (const auditId of ["knowledge_revision_KB-001_1", "diary_revision_diary-1_1"]) {
+        await assertFails(setDoc(doc(db, `audit_logs/${auditId}`), auditEventPayload({
+          performedByUid: actor,
+          timestamp: serverTimestamp(),
+        })));
+      }
+    }
   });
 
   test("Admin can read and list shared audit events", async () => {
@@ -5395,9 +5442,10 @@ describe("R-04 private notification installation registry", () => {
     await assertSucceeds(deleteDoc(ref));
   });
 
-  test("installation tokens cannot be read by the owner or another user", async () => {
+  test("installation tokens allow owner point reads but deny other users and listing", async () => {
     await seedUser("owner1", ["operations"]);
     await seedUser("other1", ["operations"]);
+    await seedUser("admin1", ["admin"]);
     await seedDoc(
       `users/owner1/notification_installations/${installationId}`,
       {
@@ -5408,7 +5456,7 @@ describe("R-04 private notification installation registry", () => {
       }
     );
 
-    await assertFails(
+    await assertSucceeds(
       getDoc(
         doc(
           dbAs("owner1"),
@@ -5416,14 +5464,38 @@ describe("R-04 private notification installation registry", () => {
         )
       )
     );
-    await assertFails(
-      getDoc(
-        doc(
-          dbAs("other1"),
-          `users/owner1/notification_installations/${installationId}`
-        )
-      )
-    );
+    for (const uid of ["other1", "admin1"]) {
+      await assertFails(getDoc(doc(dbAs(uid),
+        `users/owner1/notification_installations/${installationId}`)));
+    }
+    for (const uid of ["owner1", "other1", "admin1"]) {
+      await assertFails(getDocs(collection(dbAs(uid),
+        "users/owner1/notification_installations")));
+    }
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(),
+      `users/owner1/notification_installations/${installationId}`)));
+  });
+
+  test("owner sign-out transaction preserves a refreshed token and removes the matching registration", async () => {
+    await seedUser("owner1", ["operations"]);
+    const db = dbAs("owner1");
+    const userRef = doc(db, "users/owner1");
+    const ref = doc(db, `users/owner1/notification_installations/${installationId}`);
+    await assertSucceeds(setDoc(ref, notificationInstallationPayload({token: "new-token"})));
+    const remove = (expectedToken) => runTransaction(db, async (transaction) => {
+      const user = await transaction.get(userRef);
+      const installation = await transaction.get(ref);
+      if (installation.exists() && installation.data().token !== expectedToken) return;
+      transaction.delete(ref);
+      if (user.exists() && user.data().fcmToken === expectedToken) {
+        transaction.update(userRef, {fcmToken: null});
+      }
+    });
+    await assertSucceeds(remove("old-token"));
+    expect((await getDoc(ref)).data().token).toBe("new-token");
+    await assertSucceeds(remove("new-token"));
+    expect((await getDoc(ref)).exists()).toBe(false);
+    await assertSucceeds(remove("new-token"));
   });
 
   test("one user cannot create or delete another user's installation", async () => {

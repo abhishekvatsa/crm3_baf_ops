@@ -32,14 +32,14 @@ const baseInnerCoverUnavailableClassification = 'baseInnerCoverUnavailable';
 const baseInnerCoverAvailabilityComponent = 'Inner Cover availability';
 const baseInnerCoverAvailabilitySubsystem = 'Base / Inner Cover association';
 
-String maintenanceIssueClassificationLabel(
-  String classification,
-) => switch (classification) {
-  burnerLockoutClassification => 'Furnace burner lockout',
-  furnaceStuckupClassification => 'Furnace stuck-up',
-  baseInnerCoverUnavailableClassification => 'Base unavailable: no Inner Cover',
-  _ => classification,
-};
+String maintenanceIssueClassificationLabel(String classification) =>
+    switch (classification) {
+      burnerLockoutClassification => 'Furnace burner lockout',
+      furnaceStuckupClassification => 'Furnace stuck-up',
+      baseInnerCoverUnavailableClassification =>
+        'Base unavailable: no Inner Cover',
+      _ => classification,
+    };
 
 extension MaintenanceIssuePlantConditionEffectLabel
     on MaintenanceIssuePlantConditionEffect {
@@ -277,10 +277,9 @@ ValidatedResolutionHistoryPayload readValidatedResolutionHistoryPayload(
     for (var index = 0; index < rows.length; index++)
       ResolutionHistory.fromMap(
         rows[index],
-        source:
-            source == null
-                ? 'resolutionHistoryJson[$index]'
-                : '$source resolutionHistoryJson[$index]',
+        source: source == null
+            ? 'resolutionHistoryJson[$index]'
+            : '$source resolutionHistoryJson[$index]',
       ),
   ];
   return ValidatedResolutionHistoryPayload(rows: rows, entries: entries);
@@ -342,17 +341,21 @@ class MaintenanceRecord {
   List<String>? hierarchyPath;
   String? assetHierarchyRefJson;
 
+  /// Stable link to the administratively retained concern this issue
+  /// continues. Ordinary issues leave this absent.
+  @Index()
+  String? continuesIssueId;
+
   @ignore
   AssetHierarchyReference? get assetHierarchyReference =>
       assetHierarchyRefJson == null
-          ? null
-          : AssetHierarchyReference.decode(
-            assetHierarchyRefJson!,
-            source:
-                firestoreId == null
-                    ? 'local maintenance record $id'
-                    : 'maintenance record $firestoreId',
-          );
+      ? null
+      : AssetHierarchyReference.decode(
+          assetHierarchyRefJson!,
+          source: firestoreId == null
+              ? 'local maintenance record $id'
+              : 'maintenance record $firestoreId',
+        );
 
   // ── Fault Classification ─────────────────────────────────────────────────
   @Enumerated(EnumType.name)
@@ -431,10 +434,9 @@ class MaintenanceRecord {
     required bool isCanonical,
     bool allowOtherDepartmentRepair = false,
   }) {
-    final source =
-        firestoreId == null
-            ? 'local maintenance record $id'
-            : 'maintenance record $firestoreId';
+    final source = firestoreId == null
+        ? 'local maintenance record $id'
+        : 'maintenance record $firestoreId';
     final cleanOtherDepartment = otherDepartment?.trim();
     final hasValidOtherDepartment =
         cleanOtherDepartment != null &&
@@ -442,8 +444,8 @@ class MaintenanceRecord {
         cleanOtherDepartment.length <= 80;
     final otherDepartmentMatches =
         plan.assignedLanes.contains(RoutedTo.others.name)
-            ? hasValidOtherDepartment
-            : otherDepartment == null;
+        ? hasValidOtherDepartment
+        : otherDepartment == null;
     if (plan.primaryLane != routedTo.name ||
         (!allowOtherDepartmentRepair && !otherDepartmentMatches)) {
       throw PersistedDataFormatException(
@@ -670,20 +672,18 @@ class MaintenanceRecord {
     if (isBurnerLockout && value == null) {
       throw PersistedDataFormatException(
         field: 'burnerLockout',
-        source:
-            firestoreId == null
-                ? 'local maintenance $id'
-                : 'maintenance $firestoreId',
+        source: firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
         detail: 'classified burner-lockout record requires complete evidence',
       );
     }
     if (!isBurnerLockout && value != null) {
       throw PersistedDataFormatException(
         field: 'classification',
-        source:
-            firestoreId == null
-                ? 'local maintenance $id'
-                : 'maintenance $firestoreId',
+        source: firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
         detail: 'burner-lockout evidence requires its governed classification',
       );
     }
@@ -717,10 +717,9 @@ class MaintenanceRecord {
     if (isStuckup != (value != null)) {
       throw PersistedDataFormatException(
         field: 'furnaceStuckup',
-        source:
-            firestoreId == null
-                ? 'local maintenance $id'
-                : 'maintenance $firestoreId',
+        source: firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
         detail:
             'Furnace stuck-up classification and evidence must be present together',
       );
@@ -756,19 +755,17 @@ class MaintenanceRecord {
   @ignore
   List<ComponentAction> get actions => ComponentAction.decode(
     actionsJson,
-    source:
-        firestoreId == null
-            ? 'local maintenance $id'
-            : 'maintenance $firestoreId',
+    source: firestoreId == null
+        ? 'local maintenance $id'
+        : 'maintenance $firestoreId',
   );
 
   @ignore
   ComponentActionReadResult get actionsReadResult => ComponentAction.tryDecode(
     actionsJson,
-    source:
-        firestoreId == null
-            ? 'local maintenance $id'
-            : 'maintenance $firestoreId',
+    source: firestoreId == null
+        ? 'local maintenance $id'
+        : 'maintenance $firestoreId',
   );
 
   set actions(List<ComponentAction> value) {
@@ -781,10 +778,9 @@ class MaintenanceRecord {
   @ignore
   List<ResolutionHistory> get resolutionHistory => decodeResolutionHistoryJson(
     resolutionHistoryJson,
-    source:
-        firestoreId == null
-            ? 'local maintenance $id'
-            : 'maintenance $firestoreId',
+    source: firestoreId == null
+        ? 'local maintenance $id'
+        : 'maintenance $firestoreId',
   );
 
   @ignore
@@ -909,6 +905,7 @@ class MaintenanceRecord {
     'isDeleted': isDeleted,
     'component': component,
     'tag': tag,
+    'continuesIssueId': continuesIssueId,
     'frequentIssueDefinitionId': frequentIssueSelection?.definitionId,
     'issueClosureDisposition': administrativeClosure?.disposition.name,
     'issueClosureReason': administrativeClosure?.reason,

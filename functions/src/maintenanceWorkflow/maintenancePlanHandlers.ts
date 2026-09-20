@@ -1,15 +1,18 @@
+import {createHash} from "crypto";
 import {WorkflowError} from "./errors";
 import {CommandHandler, HandlerArgs, HandlerResult} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
   assertMaintenanceClassApplies,
   dueStatePath,
+  completionSourcePath,
+  dueProjectionFromSource,
   parseFrozenMaintenanceClass,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
 import {frozenMaintenanceClassFromDefinition} from "./maintenanceClassHandlers";
 import {JsonMap} from "./types";
-import {cleanText, iso, stableJson} from "./utils";
+import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 
 const planPath = (id: string): string => `maintenance_plans/${id}`;
 const auditPath = (commandId: string): string => `maintenance_plan_audits/${commandId}`;
@@ -237,6 +240,7 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
     command.payload.sourceDueStateId,
     "sourceDueStateId",
   );
+  let sourceDueStateEvidence: JsonMap | null = null;
   if (sourceDueStateId != null) {
     const claimedPath = `maintenance_due_states/${sourceDueStateId}`;
     const ownCounterPaths = classification.resetCounters.map((counter) =>
@@ -253,6 +257,64 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
         },
       );
     }
+    const due = source.data;
+    const fail = (): never => { throw new WorkflowError(
+      "failed-precondition", "The due counter's supporting evidence is incomplete or requires review.",
+      {reasonCode: "maintenance-plan-source-due-state-unverified", sourceDueStateId},
+    ); };
+    if (due == null || due.schemaVersion !== 1 || due.dueStateId !== sourceDueStateId ||
+        due.assetIdentityKey !== identity.assetIdentityKey ||
+        due.assetClassId !== identity.assetClassId || due.assetInstanceId !== identity.assetInstanceId ||
+        due.assetTypeKey !== identity.assetTypeKey || due.assetNumber !== identity.assetNumber ||
+        due.classificationPending === true || typeof due.counterKey !== "string" ||
+        typeof due.lastCompletionEventId !== "string" || due.lastCompletionEventId.includes("/") ||
+        typeof due.lastCompletionSourceType !== "string" || typeof due.lastCompletionSourceId !== "string") fail();
+    const verified = due!;
+    if (dueStatePath(String(identity.assetIdentityKey), String(verified.counterKey)) !== claimedPath ||
+        persistedInstantText(verified.lastCompletionAt) == null ||
+        (verified.nextDueAt !== null && persistedInstantText(verified.nextDueAt) == null)) fail();
+    const [event, basis, population] = await Promise.all([
+      tx.get(`maintenance_completion_events/${verified.lastCompletionEventId}`),
+      tx.get(completionSourcePath(String(verified.lastCompletionSourceType), String(verified.lastCompletionSourceId))),
+      tx.query("maintenance_completion_sources", identity.assetNumber == null ? [
+        {field: "assetIdentityKey", op: "==", value: identity.assetIdentityKey!},
+      ] : [
+        {field: "assetTypeKey", op: "==", value: identity.assetTypeKey!},
+        {field: "assetNumber", op: "==", value: identity.assetNumber!},
+      ]),
+    ]);
+    if (event.data == null || basis.data == null ||
+        event.data.eventId !== verified.lastCompletionEventId ||
+        basis.data.currentEventId !== verified.lastCompletionEventId ||
+        event.data.assetIdentityKey !== identity.assetIdentityKey ||
+        event.data.sourceId !== verified.lastCompletionSourceId ||
+        event.data.sourceType !== verified.lastCompletionSourceType ||
+        event.data.sourceRevision !== basis.data.sourceRevision ||
+        stableJson(event.data.maintenanceClass as JsonMap) !== stableJson(basis.data.maintenanceClass as JsonMap) ||
+        persistedInstantText(event.data.completedAt) !== persistedInstantText(verified.lastCompletionAt)) fail();
+    const rebuilt = dueProjectionFromSource(claimedPath, String(verified.counterKey),
+      population.filter((row) => row.data != null).map((row) => ({path: row.path, data: row.data!})),
+      iso(context.serverNow), {
+        assetIdentityKey: String(identity.assetIdentityKey), assetTypeKey: String(identity.assetTypeKey),
+        assetNumber: identity.assetNumber as number | null,
+        assetClassId: identity.assetClassId as string | null,
+        assetInstanceId: identity.assetInstanceId as string | null,
+        assetDisplayName: null, counterLabel: "Review required", thresholdDays: null,
+      });
+    if (rebuilt.classificationPending === true ||
+        rebuilt.lastCompletionEventId !== verified.lastCompletionEventId ||
+        rebuilt.thresholdDays !== verified.thresholdDays ||
+        persistedInstantText(rebuilt.nextDueAt) !== persistedInstantText(verified.nextDueAt)) fail();
+    const evidence: JsonMap = {
+      dueStateId: sourceDueStateId, assetIdentityKey: identity.assetIdentityKey,
+      counterKey: verified.counterKey, thresholdDays: verified.thresholdDays,
+      lastCompletionEventId: verified.lastCompletionEventId,
+      lastCompletionAt: persistedInstantText(verified.lastCompletionAt),
+      nextDueAt: persistedInstantText(verified.nextDueAt),
+      sourceRevision: basis.data!.sourceRevision,
+    };
+    sourceDueStateEvidence = {...evidence,
+      sha256: createHash("sha256").update(stableJson(evidence), "utf8").digest("hex")};
   }
   const now = iso(context.serverNow);
   const nextVersion = currentVersion + 1;
@@ -273,6 +335,7 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
     targetWindowStart,
     targetWindowEnd,
     sourceDueStateId,
+    sourceDueStateEvidence,
     templatePackageId: packageId,
     templateVersionId: versionId,
     templateContentHash: contentHash,
@@ -406,6 +469,9 @@ const revalidateReadyPlanSubject = async (
   current: JsonMap,
   reason: string,
 ): Promise<HandlerResult> => {
+  if (current.assetTypeKey !== "innerCover") {
+    return revalidateReadyOrdinarySubject({tx, command, context}, current, reason);
+  }
   const raw = command.payload.revalidation;
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new WorkflowError("invalid-argument", "revalidation must be an exact subject snapshot.");
@@ -506,6 +572,97 @@ const revalidateReadyPlanSubject = async (
     result: {planId: command.aggregateId, status: "ready",
       assetInstanceVersion: reviewed.assetInstanceVersion,
       originalAssetInstanceVersion: baseline, auditId: command.commandId}};
+};
+
+/** A reviewed registry-version refresh for ordinary equipment. The version
+ * fence remains strict; this is an explicit, auditable adoption of the same
+ * physical subject after a harmless registry edit. */
+const revalidateReadyOrdinarySubject = async (
+  {tx, command, context}: HandlerArgs,
+  current: JsonMap,
+  reason: string,
+): Promise<HandlerResult> => {
+  const raw = command.payload.revalidation;
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new WorkflowError("invalid-argument", "revalidation must be an exact subject snapshot.");
+  }
+  const reviewed = raw as JsonMap;
+  exactKeys(reviewed, ["assetClassId", "assetInstanceId", "assetInstanceVersion",
+    "assetNumber", "assetName"], "revalidation");
+  if (current.schemaVersion !== 2 || current.assetTypeKey === "innerCover" ||
+      !Number.isSafeInteger(current.assetNumber) ||
+      !Number.isSafeInteger(current.assetInstanceVersion) ||
+      reviewed.assetClassId !== current.assetClassId ||
+      reviewed.assetInstanceId !== current.assetInstanceId ||
+      reviewed.assetNumber !== current.assetNumber ||
+      !Number.isSafeInteger(reviewed.assetInstanceVersion) ||
+      (reviewed.assetInstanceVersion as number) <= (current.assetInstanceVersion as number)) {
+    throw new WorkflowError("failed-precondition",
+      "Review must bind a newer revision of the same physical asset.",
+      {reasonCode: "maintenance-plan-subject-revalidation-invalid"});
+  }
+  const assetName = cleanText(reviewed.assetName, "revalidation.assetName");
+  if (assetName.length > 160) {
+    throw new WorkflowError("invalid-argument", "revalidation.assetName is too long.");
+  }
+  const [assetClass, asset, audit] = await Promise.all([
+    tx.get(`asset_classes/${current.assetClassId}`),
+    tx.get(`asset_instances/${current.assetInstanceId}`),
+    tx.get(auditPath(command.commandId)),
+  ]);
+  if (audit.exists) {
+    throw new WorkflowError("failed-precondition", "Maintenance-plan audit evidence is orphaned.");
+  }
+  if (!assetClass.exists || assetClass.data == null ||
+      assetClass.data.assetClassId !== current.assetClassId ||
+      assetClass.data.status !== "active" || assetClass.data.isDeleted === true) {
+    throw new WorkflowError("failed-precondition", "The asset class is no longer valid.");
+  }
+  if (!asset.exists || asset.data == null ||
+      asset.data.schemaVersion !== 1 || asset.data.assetInstanceId !== current.assetInstanceId ||
+      asset.data.assetClassId !== current.assetClassId || asset.data.assetNumber !== current.assetNumber ||
+      asset.data.version !== reviewed.assetInstanceVersion || asset.data.status !== "active" ||
+      asset.data.isDeleted === true || asset.data.name !== assetName) {
+    throw new WorkflowError("aborted", "The physical asset changed after the reviewed snapshot. Review it again.",
+      {reasonCode: "maintenance-plan-reviewed-subject-changed"});
+  }
+  const classification = parseFrozenMaintenanceClass(current.maintenanceClass);
+  assertMaintenanceClassApplies(classification, {
+    assetIdentityKey: current.assetIdentityKey as string,
+    assetTypeKey: current.assetTypeKey as string,
+    assetNumber: current.assetNumber as number,
+    assetClassId: current.assetClassId as string,
+    assetInstanceId: current.assetInstanceId as string,
+  });
+  const at = iso(context.serverNow);
+  const nextVersion = command.expectedVersion + 1;
+  const update: JsonMap = {
+    assetInstanceVersion: reviewed.assetInstanceVersion,
+    assetInstanceName: assetName,
+    version: nextVersion,
+    subjectReview: {
+      schemaVersion: 1,
+      ...reviewed,
+      previousAssetInstanceVersion: current.assetInstanceVersion,
+      reviewedByUid: context.actor.uid,
+      reviewedByName: context.actor.name,
+      reviewedAt: at,
+      reason,
+      auditId: command.commandId,
+    },
+    updatedAt: at,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+  };
+  tx.update(planPath(command.aggregateId), update);
+  writeAudit({tx, commandId: command.commandId, planId: command.aggregateId,
+    operation: "revalidate-subject", actorUid: context.actor.uid,
+    actorName: context.actor.name, at, reason, before: current,
+    after: {...current, ...update}});
+  return {resultKey: "maintenance-plan-subject-revalidated", aggregateVersion: nextVersion,
+    result: {planId: command.aggregateId, status: "ready",
+      assetInstanceVersion: reviewed.assetInstanceVersion,
+      auditId: command.commandId}};
 };
 
 export const completeMaintenancePlan: CommandHandler = async ({tx, command, context}) => {

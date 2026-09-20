@@ -432,8 +432,7 @@ void main() {
     expect(find.text('New Directive'), findsOneWidget);
     expect(find.text('Directives'), findsNWidgets(2));
     expect(find.text('Inspect furnace seal'), findsOneWidget);
-    expect(find.text('Verify cooler alignment'), findsOneWidget);
-
+    // The second instruction may be below the phone viewport; searching must reveal it.
     await tester.enterText(
       find.byKey(const ValueKey('directives-search')),
       'cooler',

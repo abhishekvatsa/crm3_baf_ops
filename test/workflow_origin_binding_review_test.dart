@@ -180,6 +180,68 @@ void main() {
     expect(gateway.envelopes, isEmpty);
   });
 
+  for (final type in [
+    WorkflowCommandType.recordInspectionObservation,
+    WorkflowCommandType.linkInspectionObservationIssue,
+    WorkflowCommandType.verifyInspectionFinding,
+    WorkflowCommandType.adjudicateInspectionFinding,
+    WorkflowCommandType.revalidateInspectionTargetContext,
+    WorkflowCommandType.setInspectionCampaignStatus,
+  ]) {
+    test(
+      'inspection ${type.name} preserves original intent across native reopen and account switch',
+      () async {
+        // This exercises the production native journal/retry boundary, not the
+        // server's business validation (covered by actual-handler tests).
+        final command = WorkflowCommand(
+          commandId: 'inspection-${type.name}',
+          type: type,
+          aggregateId: 'survey-1',
+          expectedVersion: 7,
+          payload: const {
+            'observationId': 'reading-1',
+            'findingId': 'finding-1',
+            'historicalAmendmentReason':
+                'Correct the original instrument reading.',
+            'followUpFindingId': 'finding-1',
+            'value': {'numericValue': 2.8},
+          },
+        );
+        gateway.failure = const WorkflowException(
+          WorkflowErrorCode.unavailable,
+          'Reply lost after dispatch',
+        );
+        await expectLater(
+          executor().execute(command),
+          throwsA(isA<WorkflowException>()),
+        );
+        final original = gateway.envelopes.single;
+        final bytes = (await repository.getRetryCommand(
+          command.commandId,
+        ))!.payloadJson;
+        await database.close();
+        await open();
+        gateway.failure = null;
+        actor = 'actor-b';
+        clock = clock.add(const Duration(minutes: 6));
+        await retry().retryDueCommands();
+        expect(gateway.envelopes, [original]);
+        expect(
+          (await repository.getRetryCommand(command.commandId))!.payloadJson,
+          bytes,
+        );
+        actor = 'actor-a';
+        clock = clock.add(const Duration(minutes: 6));
+        expect((await retry().retryDueCommands()).applied, [command.commandId]);
+        expect(gateway.envelopes, [original, original]);
+        expect(await repository.getRetryCommand(command.commandId), isNull);
+        await executor().execute(command);
+        expect(gateway.envelopes, [original, original]);
+        expect(gateway.legacyCalls, 0);
+      },
+    );
+  }
+
   test('nested request input is detached before the first await', () async {
     final nested = <String, Object?>{'note': 'original'};
     final gate = Completer<List<ConnectivityResult>>();

@@ -384,6 +384,18 @@ void main() {
     'open-event window preserves old active events and removes duplicates',
     () {
       final open = OperationalEvent.fromMap(record(), 'event-1');
+      final newerResolved = OperationalEvent.fromMap(
+        record(
+            status: 'resolved',
+            resolvedAt: DateTime.utc(2026, 8, 14, 11),
+            resolvedByUid: 'shift-1',
+            resolvedByName: 'Shift One',
+            resolutionNote: 'Supply remained stable after restoration checks.',
+          )
+          ..['version'] = 2
+          ..['updatedAt'] = DateTime.utc(2026, 8, 14, 11),
+        'event-1',
+      );
       final resolved = OperationalEvent.fromMap(
         record(
           status: 'resolved',
@@ -394,8 +406,13 @@ void main() {
         )..['eventId'] = 'event-2',
         'event-2',
       );
-      final merged = mergeOperationalEventWindows([open], [resolved, open]);
+      final merged = mergeOperationalEventWindows(
+        [open],
+        [resolved, open, newerResolved],
+      );
       expect(merged.map((event) => event.eventId), ['event-1', 'event-2']);
+      expect(merged.first.status, OperationalEventStatus.resolved);
+      expect(merged.first.version, 2);
     },
   );
 

@@ -108,6 +108,19 @@ function execute(runtime, overrides = {}) {
 }
 
 describe("notification event receipts", () => {
+  test.each([
+    {attempted: 0, succeeded: 0, failed: 0},
+    {attempted: 2, succeeded: 1, failed: 1},
+    {attempted: 1, succeeded: 0, failed: 1, ambiguousFailures: 1},
+  ])("non-delivery is retained for an Admin without replaying successes: %j", async (counts) => {
+    const h = harness();
+    const send = jest.fn(async () => ({...outcome, ...counts}));
+    const first = await execute(h.runtime, {dispatch: send});
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, first.receiptId)).toMatchObject({requiresAdjudication: true, adjudicationOwnerRole: "admin", deliveryDisposition: "review-required"});
+    await execute(h.runtime, {dispatch: send});
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   test("receipt identity is deterministic and trigger-scoped", () => {
     const first = notificationEventReceiptId("onTicketCreated", "event-1");
     expect(first).toMatch(/^[0-9a-f]{64}$/);

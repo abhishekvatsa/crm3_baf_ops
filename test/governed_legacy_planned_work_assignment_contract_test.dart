@@ -8,7 +8,7 @@ void main() {
       final source =
           File(
             'lib/features/planned_maintenance/presentation/assign_job_screen.dart',
-          ).readAsStringSync();
+          ).readAsStringSync() + File('lib/features/planned_maintenance/presentation/assign_job_screen.submission.dart').readAsStringSync();
 
       expect(source, contains('GovernedPlannedWorkAssetSelector('));
       expect(source, contains("'assignmentSchemaVersion': 2"));

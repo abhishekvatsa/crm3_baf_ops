@@ -1,27 +1,14 @@
 part of 'operational_directive_provider.dart';
 
 class FirestoreDirectiveRepository implements DirectiveRepository {
-  final AuditRepository _auditRepo;
+  final OrdinaryDirectiveCommands _ordinary;
 
-  FirestoreDirectiveRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  FirestoreDirectiveRepository({
+    AuditRepository? auditRepository,
+    OrdinaryDirectiveCommands? ordinaryCommands,
+  }) : _ordinary = ordinaryCommands ?? OrdinaryDirectiveCommands(web: true);
 
   final _col = FirebaseFirestore.instance.collection('directives');
-
-  Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
-    if (data == null) return null;
-    final sanitized = <String, dynamic>{};
-    data.forEach((key, value) {
-      if (value is Timestamp) {
-        sanitized[key] = value.toDate().toIso8601String();
-      } else if (value is FieldValue) {
-        sanitized[key] = value.toString();
-      } else {
-        sanitized[key] = value;
-      }
-    });
-    return sanitized;
-  }
 
   @override
   Stream<List<OperationalDirective>> watchAllDirectives({int? limit}) {
@@ -34,7 +21,7 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     }
 
     return query.snapshots().map(
-      (snap) => snap.docs.map((doc) => _mapDirective(doc)).toList(),
+      (snap) => _decodeDirectiveSnapshot(snap, source: 'all directives'),
     );
   }
 
@@ -51,7 +38,9 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
         .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) => _mapDirective(doc)).toList());
+        .map(
+          (snap) => _decodeDirectiveSnapshot(snap, source: 'open directives'),
+        );
   }
 
   @override
@@ -68,6 +57,15 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
       bumpVersion: false,
       markUnsynced: false,
     );
+    if (!isGovernedBurnerRoundDirectiveId(d.firestoreId)) {
+      await _ordinary.save(
+        actor: actor,
+        action: 'create',
+        after: d,
+        reason: 'Issue the reviewed instruction.',
+      );
+      return;
+    }
     d.isSynced = true;
     await _col
         .doc(d.firestoreId)
@@ -87,13 +85,13 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
         .where('isDeleted', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .get();
-    return snap.docs.map((doc) => _mapDirective(doc)).toList();
+    return _decodeDirectiveSnapshot(snap, source: 'open directives');
   }
 
   @override
   Future<List<OperationalDirective>> getAllDirectives() async {
     final snap = await _col.where('isDeleted', isEqualTo: false).get();
-    return snap.docs.map((doc) => _mapDirective(doc)).toList();
+    return _decodeDirectiveSnapshot(snap, source: 'all directives');
   }
 
   @override
@@ -125,9 +123,16 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
       return PaginatedDirectivesResult(records: [], lastDoc: null);
     }
 
+    final batch = decodeSnapshotBatch(
+      snap,
+      (data, id) => readRemoteOperationalDirective(data, documentId: id),
+      source: 'directive pull',
+    );
     return PaginatedDirectivesResult(
-      records: snap.docs.map((doc) => _mapDirective(doc)).toList(),
+      records: batch.records,
       lastDoc: snap.docs.last,
+      rejectedIds: batch.rejectedDocumentIds,
+      rawCount: snap.docs.length,
     );
   }
 
@@ -136,47 +141,36 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     OperationalDirective directive, {
     required AppUser actor,
   }) async {
+    final current = await getByFirestoreId(directive.firestoreId!);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != directive.version) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      final reason = directive.amendmentReason ?? '';
+      final after = _ordinaryChange(
+        current,
+        actor,
+        'amend',
+        reason: reason,
+        draft: directive,
+      );
+      await _ordinary.save(
+        actor: actor,
+        action: 'amend',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
+    }
+
     if (directive.firestoreId == null) return;
-    _requireCanAdminMutateDirective(actor, 'edit');
-    _normalizeDirectiveForLocalWrite(
-      directive,
-      bumpVersion: false,
-      markUnsynced: false,
+    throw StateError(
+      'This automatic Burner/UV instruction must use its governed workflow; ordinary editing or deletion is not permitted.',
     );
-    directive.isSynced = true;
-    final updateMap = <String, dynamic>{
-      'title': directive.title,
-      'description': directive.description,
-      'directedTo': directive.directedTo.name,
-      'assetType': directive.assetType?.name,
-      'assetNumber': directive.assetNumber,
-      'component': directive.component,
-      'subsystem': directive.subsystem,
-      'tag': directive.tag,
-      'hierarchyPath': directive.hierarchyPath,
-      'priority': directive.priority.name,
-      'status': directive.status.name,
-      'isActive': directive.isActive,
-      'createdByUid': directive.createdByUid,
-      'createdByName': directive.createdByName,
-      'issuedByUid': directive.issuedByUid,
-      'issuedByName': directive.issuedByName,
-      'issuedAt': directive.issuedAt?.toIso8601String(),
-      'acknowledgedByUid': directive.acknowledgedByUid,
-      'acknowledgedByName': directive.acknowledgedByName,
-      'acknowledgedAt': directive.acknowledgedAt?.toIso8601String(),
-      'closedByUid': directive.closedByUid,
-      'closedByName': directive.closedByName,
-      'closedAt': directive.closedAt?.toIso8601String(),
-      'closedWithoutAcknowledgement': directive.closedWithoutAcknowledgement,
-      'remarks': directive.remarks,
-      'linkedMaintenanceFirestoreId': directive.linkedMaintenanceFirestoreId,
-      'linkedExecutionFirestoreId': directive.linkedExecutionFirestoreId,
-      'metadataJson': directive.metadataJson,
-      'updatedAt': directive.updatedAt.toIso8601String(),
-      'version': FieldValue.increment(1),
-    };
-    await _col.doc(directive.firestoreId!).update(updateMap);
   }
 
   @override
@@ -185,57 +179,32 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     required AppUser actor,
     AuditContext? auditContext,
   }) async {
-    _requireCanAdminMutateDirective(actor, 'delete');
-    final docId = id as String;
-
-    final beforeDoc = await _col.doc(docId).get();
-
-    Map<String, dynamic>? beforeSnapshot;
-    if (beforeDoc.exists) {
-      beforeSnapshot = _sanitizeForAudit(beforeDoc.data());
-    }
-
-    final now = DateTime.now().toIso8601String();
-    final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
-    final nextVersion = currentVersion + 1;
-
-    await _col.doc(docId).update({
-      'isDeleted': true,
-      'deletedAt': now,
-      'deletedByUid': auditContext?.performedByUid,
-      'deletedByName': auditContext?.performedByName,
-      'deleteReason': auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      'updatedAt': now,
-      'version': nextVersion,
-    });
-
-    final afterSnapshot = {
-      ...?beforeSnapshot,
-      'isDeleted': true,
-      'deletedAt': now,
-      'deletedByUid': auditContext?.performedByUid,
-      'deletedByName': auditContext?.performedByName,
-      'deleteReason': auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      'updatedAt': now,
-      'version': nextVersion,
-    };
-
-    if (auditContext != null) {
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'directive',
-            entityId: docId,
-            action: AuditAction.delete,
-            context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
-            ),
-          ),
-        ),
+    final current = await getByFirestoreId(id as String);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (auditContext?.performedByUid != actor.uid ||
+          auditContext?.before?['version'] != current.version) {
+        throw StateError(
+          'The directive changed. Review it again before deletion.',
+        );
+      }
+      final reason = auditContext?.reasonNotes?.trim().isNotEmpty == true
+          ? auditContext!.reasonNotes!
+          : auditContext?.reason?.name ?? '';
+      final after = _ordinaryChange(current, actor, 'delete', reason: reason);
+      await _ordinary.save(
+        actor: actor,
+        action: 'delete',
+        before: current,
+        after: after,
+        reason: reason,
       );
+      return;
     }
+
+    throw StateError(
+      'This automatic Burner/UV instruction must use its governed workflow; ordinary editing or deletion is not permitted.',
+    );
   }
 
   @override
@@ -253,27 +222,60 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   Future<void> acknowledgeDirective(
     dynamic id, {
     required AppUser actor,
+    required int expectedVersion,
   }) async {
-    final firestoreId = id as String;
-    final current = await getByFirestoreId(firestoreId);
-    if (current == null) {
-      throw StateError('Directive not found.');
+    final current = await getByFirestoreId(id as String);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      const reason = 'Received the reviewed instruction.';
+      final after = _ordinaryChange(
+        current,
+        actor,
+        'acknowledge',
+        reason: reason,
+      );
+      await _ordinary.save(
+        actor: actor,
+        action: 'acknowledge',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
     }
-    _requireCanAcknowledgeDirective(actor, current);
 
-    final now = DateTime.now().toIso8601String();
-    await _col.doc(firestoreId).update({
-      'status': DirectiveStatus.acknowledged.name,
-      'isActive': true,
-      'acknowledgedByUid': actor.uid,
-      'acknowledgedByName': actor.name,
-      'acknowledgedAt': now,
-      'closedByUid': null,
-      'closedByName': null,
-      'closedAt': null,
-      'closedWithoutAcknowledgement': false,
-      'updatedAt': now,
-      'version': FieldValue.increment(1),
+    final firestoreId = id;
+    final reference = _col.doc(firestoreId);
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final snapshot = await transaction.get(reference);
+      if (!snapshot.exists) throw StateError('Directive not found.');
+      final current = _mapDirective(snapshot);
+      _requireCanAcknowledgeDirective(actor, current);
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed while acknowledgement was being reviewed. Refresh before acknowledging.',
+        );
+      }
+
+      final now = DateTime.now().toIso8601String();
+      transaction.update(reference, {
+        'status': DirectiveStatus.acknowledged.name,
+        'isActive': true,
+        'acknowledgedByUid': actor.uid,
+        'acknowledgedByName': actor.name,
+        'acknowledgedAt': now,
+        'closedByUid': null,
+        'closedByName': null,
+        'closedAt': null,
+        'closedWithoutAcknowledgement': false,
+        'updatedAt': now,
+        'version': FieldValue.increment(1),
+      });
     });
   }
 
@@ -281,32 +283,67 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   Future<void> closeDirective(
     dynamic id, {
     required AppUser actor,
+    required int expectedVersion,
     String? remarks,
     bool wasUnacknowledged = false,
   }) async {
-    final firestoreId = id as String;
-    final current = await getByFirestoreId(firestoreId);
-    if (current == null) {
-      throw StateError('Directive not found.');
+    final current = await getByFirestoreId(id as String);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      final reason = remarks?.trim().isNotEmpty == true
+          ? remarks!.trim()
+          : 'Close the reviewed instruction.';
+      final after = _ordinaryChange(current, actor, 'close', reason: reason);
+      await _ordinary.save(
+        actor: actor,
+        action: 'close',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
     }
-    _requireCanCloseDirective(actor, current);
 
-    final now = DateTime.now().toIso8601String();
-    final cleanedRemarks = _cleanOptionalDirectiveText(remarks);
-    final updateMap = <String, dynamic>{
-      'status': DirectiveStatus.closed.name,
-      'isActive': false,
-      'closedByUid': actor.uid,
-      'closedByName': actor.name,
-      'closedAt': now,
-      'closedWithoutAcknowledgement': wasUnacknowledged,
-      'updatedAt': now,
-      'version': FieldValue.increment(1),
-    };
-    if (cleanedRemarks != null) {
-      updateMap['remarks'] = cleanedRemarks;
-    }
-    await _col.doc(firestoreId).update(updateMap);
+    final firestoreId = id;
+    final reference = _col.doc(firestoreId);
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final snapshot = await transaction.get(reference);
+      if (!snapshot.exists) throw StateError('Directive not found.');
+      final current = _mapDirective(snapshot);
+      _requireCanCloseDirective(actor, current);
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed while closure was being reviewed. Refresh before closing.',
+        );
+      }
+      final expectedWithoutAcknowledgement =
+          current.acknowledgedAt == null && current.acknowledgedByUid == null;
+      if (wasUnacknowledged != expectedWithoutAcknowledgement) {
+        throw StateError(
+          'The directive acknowledgement changed while closure was being reviewed.',
+        );
+      }
+
+      final now = DateTime.now().toIso8601String();
+      final cleanedRemarks = _cleanOptionalDirectiveText(remarks);
+      final updateMap = <String, dynamic>{
+        'status': DirectiveStatus.closed.name,
+        'isActive': false,
+        'closedByUid': actor.uid,
+        'closedByName': actor.name,
+        'closedAt': now,
+        'closedWithoutAcknowledgement': expectedWithoutAcknowledgement,
+        'updatedAt': now,
+        'version': FieldValue.increment(1),
+      };
+      if (cleanedRemarks != null) updateMap['remarks'] = cleanedRemarks;
+      transaction.update(reference, updateMap);
+    });
   }
 
   @override
@@ -373,7 +410,9 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
         i + 30 > firestoreIds.length ? firestoreIds.length : i + 30,
       );
       final snap = await _col.where(FieldPath.documentId, whereIn: chunk).get();
-      results.addAll(snap.docs.map(_mapDirective));
+      results.addAll(
+        _decodeAuthoritativeDirectiveSnapshot(snap, source: 'directive lookup'),
+      );
     }
     return results;
   }
@@ -436,6 +475,37 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   OperationalDirective _mapDirective(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return readRemoteOperationalDirective(data, documentId: doc.id);
+  }
+
+  List<OperationalDirective> _decodeDirectiveSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String source,
+  }) => DirectivePopulation(
+    decodeSnapshotBatch(
+      snapshot,
+      (data, id) => readRemoteOperationalDirective(data, documentId: id),
+      source: source,
+    ),
+  );
+
+  List<OperationalDirective> _decodeAuthoritativeDirectiveSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String source,
+  }) {
+    final batch = decodeSnapshotBatch(
+      snapshot,
+      (data, documentId) =>
+          readRemoteOperationalDirective(data, documentId: documentId),
+      source: source,
+    );
+    if (!batch.isComplete) {
+      throw StateError(
+        'The authoritative $source is incomplete; refused to advance or '
+        'reconcile past malformed directive documents: '
+        '${batch.rejectedDocumentIds.join(', ')}',
+      );
+    }
+    return batch.records;
   }
 }
 

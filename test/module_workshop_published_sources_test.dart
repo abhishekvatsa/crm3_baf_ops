@@ -170,6 +170,7 @@ TemplateVersion _publishedVersion() {
         'moduleCode': 'BASE-FAN-VIB',
         'id': 'BASE-FAN-VIB-item-1',
         'title': 'Confirm vibration reading captured',
+        'linkedFieldKey': 'vt_reading',
         'isRequired': true,
         'order': 1,
         'safetyClasses': ['rotatingEquipment'],

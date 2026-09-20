@@ -55,6 +55,7 @@ const seedLegacyAssignmentAuthority = (
     assetInstanceId,
     assetClassId: 'base-class',
     assetNumber,
+    serviceState: 'inService',
     status: 'active',
     version: 1,
   });
@@ -824,6 +825,25 @@ describe('maintenance workflow command integration', () => {
     });
     seedFurnaceActionHierarchy(store);
     seedRedSuccessorTemplate(store, 'furnace');
+    const inheritedClassification = {
+      schemaVersion: 1,
+      definitionId: 'furnace-red-maintenance',
+      definitionVersion: 4,
+      code: 'FURNACE_RED_MAINTENANCE',
+      title: 'Furnace RED maintenance',
+      assetTypeKeys: ['furnace'],
+      assetClassIds: [],
+      resetCounters: [{key: 'FURNACE_ANY', label: 'Furnace maintenance', thresholdDays: 30}],
+      principalLaneKey: 'red',
+    };
+    store.seed('job_executions/wf1-exec', {
+      ...store.read('job_executions/wf1-exec'),
+      assetType: 'furnace', assetNumber: 7,
+      metadataJson: JSON.stringify({
+        maintenanceClassification: inheritedClassification,
+        maintenanceClassificationRevision: 3,
+      }),
+    });
     const service = serviceFor(store);
     const requestedActionsJson = JSON.stringify([{
       asset: 'untrusted', component: 'untrusted', actionType: 'inspection',
@@ -846,7 +866,11 @@ describe('maintenance workflow command integration', () => {
       isCancelled: false,
     });
     expect(JSON.parse(store.read(`job_executions/${successorExecutionId}`).metadataJson))
-      .toMatchObject({publicationAuditId: 'audit-ver-red-furnace'});
+      .toMatchObject({
+        publicationAuditId: 'audit-ver-red-furnace',
+        maintenanceClassification: inheritedClassification,
+        maintenanceClassificationRevision: 3,
+      });
     expect(store.entries().filter(([path]) => path.startsWith('job_modules/red_module_'))).toHaveLength(1);
     const completedExecution = store.read('job_executions/wf1-exec');
     expect(completedExecution).toMatchObject({
@@ -1479,6 +1503,8 @@ describe('maintenance workflow command integration', () => {
   test('equipment deployment uses optimistic version and reconciliation is Admin/SI only', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('equipment_status/furnace_15', {state: 'available', version: 4});
+    store.seed('asset_classes/furnace-class', {schemaVersion:1,assetClassId:'furnace-class',status:'active',legacyAssetTypeKey:'furnace'});
+    store.seed('asset_instances/furnace-15', {schemaVersion:1,assetClassId:'furnace-class',assetInstanceId:'furnace-15',assetNumber:15,status:'active',serviceState:'inService'});
     const service = serviceFor(store);
     await expect(service.execute({commandId: 'stale-deploy', commandType: 'deployEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 3, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:00:00Z')})).rejects.toMatchObject({code: 'workflow-version-conflict'});
     await service.execute({commandId: 'deploy', commandType: 'deployEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 4, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:01:00Z')});
@@ -1494,6 +1520,7 @@ describe('maintenance workflow command integration', () => {
       assetClassId: 'furnace-class',
       assetInstanceId: 'furnace-16',
     });
+    store.seed('asset_classes/furnace-class', {schemaVersion:1,assetClassId:'furnace-class',status:'active',legacyAssetTypeKey:'furnace'});
     store.seed('asset_instances/furnace-16', {
       schemaVersion: 1,
       assetClassId: 'furnace-class',
@@ -1538,6 +1565,7 @@ describe('maintenance workflow command integration', () => {
       assetClassId: 'furnace-class',
       assetInstanceId: 'furnace-17',
     });
+    store.seed('asset_classes/furnace-class', {schemaVersion:1,assetClassId:'furnace-class',status:'active',legacyAssetTypeKey:'furnace'});
     store.seed('asset_instances/furnace-17', {
       schemaVersion: 1,
       assetClassId: 'furnace-class',

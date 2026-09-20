@@ -13,6 +13,7 @@ void _overwriteLocalMaintenanceRecord(
     ..tag = remote.tag
     ..hierarchyPath = remote.hierarchyPath
     ..assetHierarchyRefJson = remote.assetHierarchyRefJson
+    ..continuesIssueId = remote.continuesIssueId
     ..maintenanceType = remote.maintenanceType
     ..classification = remote.classification
     ..description = remote.description

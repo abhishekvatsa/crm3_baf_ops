@@ -1,7 +1,106 @@
+import '../../maintenance/data/maintenance_model.dart';
+import '../data/asset_hierarchy_model.dart';
+import '../data/asset_registry_model.dart';
 import '../data/burner_block_condition_projection.dart';
 import '../data/burner_block_lifecycle_event.dart';
 import '../data/burner_condition_round.dart';
 import '../data/uv_detector_lifecycle_event.dart';
+
+/// Retained issue observations keep their original observation time. An
+/// administrative closure does not establish a new physical condition check.
+class FurnaceAuditIssueEvidence {
+  FurnaceAuditIssueEvidence.fromTickets({
+    required List<MaintenanceRecord> tickets,
+    required AssetInstanceRecord furnace,
+    required List<AssetClassRecord> assetClasses,
+    required List<AssetInstanceRecord> assets,
+    required BurnerConditionRound? round,
+  }) {
+    for (final ticket in tickets) {
+      if (ticket.assetType != AssetType.furnace ||
+          !ticket.canStillAffectPlantCondition) {
+        continue;
+      }
+      final redHot = ticket.burnerLockoutCase?.redHotPositions ?? const <int>[];
+      if (redHot.isEmpty) continue;
+      final reference = ticket.assetHierarchyReference;
+      if (reference?.scope == AssetHierarchyReferenceScope.definition &&
+          [
+            reference!.assetInstanceId,
+            reference.assetInstanceVersion,
+            reference.assetNumber,
+            reference.assetInstanceName,
+            reference.componentInstanceId,
+            reference.componentInstanceVersion,
+            reference.componentTag,
+            reference.innerCoverAssociation,
+          ].any((value) => value != null)) {
+        throw const FormatException(
+          'A definition-only burner issue cannot claim a physical asset identity.',
+        );
+      }
+      if (reference?.scope == AssetHierarchyReferenceScope.physicalAsset &&
+          reference!.nodeId != reference.assetInstanceId) {
+        throw const FormatException(
+          'A burner issue has conflicting physical asset identity.',
+        );
+      }
+      if (reference?.assetNumber != null &&
+          reference!.assetNumber != ticket.assetNumber) {
+        throw const FormatException(
+          'A burner issue has conflicting physical asset numbers.',
+        );
+      }
+      if (reference != null && reference.assetClassId != furnace.assetClassId) {
+        continue;
+      }
+      if (reference?.assetInstanceId != null) {
+        if (reference!.assetInstanceId != furnace.id) continue;
+      } else if (ticket.assetNumber != furnace.assetNumber) {
+        continue;
+      } else {
+        final legacyClasses = assetClasses.where(
+          (row) => row.legacyAssetTypeKey == AssetType.furnace.name,
+        );
+        final matches = assets.where(
+          (row) =>
+              row.assetClassId == furnace.assetClassId &&
+              row.assetNumber == ticket.assetNumber,
+        );
+        if ((reference == null &&
+                (legacyClasses.length != 1 ||
+                    legacyClasses.single.id != furnace.assetClassId)) ||
+            matches.length != 1 ||
+            matches.single.id != furnace.id) {
+          throw const FormatException(
+            'A legacy burner issue has an ambiguous physical Furnace identity.',
+          );
+        }
+      }
+      basis.add({
+        'id': ticket.firestoreId ?? '',
+        'version': ticket.version,
+        'updatedAt': ticket.updatedAt.toUtc().toIso8601String(),
+      });
+      for (final position in redHot) {
+        final after = round
+            ?.evidenceFor('burners.$position.redHotObserved')
+            .observedAt;
+        if (after != null && !ticket.createdAt.isAfter(after)) continue;
+        final current = newerRedHotObservations[position];
+        if (current == null || ticket.createdAt.isAfter(current)) {
+          newerRedHotObservations[position] = ticket.createdAt;
+        }
+      }
+    }
+    basis.sort(
+      (left, right) => (left['id'] as String).compareTo(right['id'] as String),
+    );
+  }
+
+  final Map<int, DateTime> newerRedHotObservations = {};
+  final List<Map<String, dynamic>> basis = [];
+}
 
 /// What one furnace's condition audit currently says on screen, before it is
 /// recorded.

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "98E133903A49B807054ABCB4C9F717FAFA97D68ED1131B85C20C13261716F48C",
+  "inventoryDigest": "7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "63D04D5A148AF8D5173B4F3E72D67F708B1CFA33F97C2510528F209D9D8FF8A3",
+  "a05ManifestSha256": "0C44EAA98DFC413A6A470418F1A7595A0B72D1CD9C3A7E2ED76EED4A93949037",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -802,9 +802,9 @@
       "file": "lib/features/auth/data/user_model.dart",
       "classification": "REMOTE_AUTHORITY_RECORD",
       "authorityBoundary": "approved-user identity and roles",
-      "malformedDisposition": "fail closed; malformed roles force unapproved authority",
+      "malformedDisposition": "Reject malformed profile/revision/disposition; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority.",
       "compatibility": "none for identity; unknown roles deny authority",
-      "regression": "test/user_model_test.dart"
+      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart"
     },
     {
       "id": "asset-availability-record",
@@ -895,6 +895,15 @@
       "malformedDisposition": "fail closed",
       "compatibility": "declared historical aliases only",
       "regression": "test/a05_baf_knowledge_integrity_test.dart"
+    },
+    {
+      "id": "burner-attendance-history",
+      "file": "lib/features/maintenance/domain/burner_attendance_history.dart",
+      "classification": "PERSISTED_BUSINESS_EVIDENCE",
+      "authorityBoundary": "Read-only typed history of server-audited burner attendance while restoration remains incomplete; it grants no closure authority.",
+      "malformedDisposition": "Reject malformed list, missing identity/time/actor/action, or duplicate attendance; UI displays incomplete evidence and dossier export refuses it.",
+      "compatibility": "Absent attendance history means no sessions recorded by this feature; existing maintenance metadata is preserved.",
+      "regression": "test/reactive_burner_attendance_test.dart"
     },
     {
       "id": "burner-block-correction-durable-command",
@@ -1203,6 +1212,15 @@
       "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js"
     },
     {
+      "id": "inspection-report-and-corrective-review-reader",
+      "file": "lib/features/inspections/repositories/inspection_repository.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "server-only repair preview and strict independent finding creation history compared with the campaign's prospective creation manifest before report completeness is asserted",
+      "malformedDisposition": "invalid, missing, duplicate or inconsistent creation evidence refuses the report; cached, pending, deleted, malformed or mismatched maintenance records refuse scope review; malformed campaign browse rows remain explicitly incomplete",
+      "compatibility": "legacy campaigns without a manifest still require retained independent creation events; no historical reconciliation or silent manifest backfill is inferred; backend rechecks reviewed repair version and subject transactionally",
+      "regression": "test/inspection_campaign_report_test.dart; test/inspection_audit_board_test.dart; functions/test/inspectionFindingIntegrity.test.js"
+    },
+    {
       "id": "inspection-server-context-review-reader",
       "file": "lib/features/inspections/repositories/inspection_target_context_reader.dart",
       "classification": "REMOTE_AUTHORITY_READ",
@@ -1251,10 +1269,10 @@
       "id": "job-diary-write-precondition",
       "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "stored job diary revision read inside the transaction that writes over it",
+      "authorityBoundary": "Complete stored diary row decoded inside the writing transaction; reviewedServerVersion must match before.version while version can advance across multiple offline edits.",
       "malformedDisposition": "fail closed",
       "compatibility": "none; a diary entry without a readable version is not written over",
-      "regression": "test/job_diary_save_precondition_test.dart"
+      "regression": "test/job_diary_save_precondition_test.dart; test/remaining_diary_local_test.dart; test/firestore.rules.test.js"
     },
     {
       "id": "job-module-native-save-baseline",
@@ -1302,6 +1320,15 @@
       "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_template_composer_integrity_test.dart; test/a05_response_payload_integrity_test.dart"
     },
     {
+      "id": "knowledge-accepted-content-adoption",
+      "file": "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "authorityBoundary": "Accepted content retained by the revision controller is compared to a strict server decode and exact local adoption before settlement.",
+      "malformedDisposition": "Malformed retained content, unavailable rows, wrong version or contradictory accepted fields prevent adoption and retain pending settlement.",
+      "compatibility": "Server timestamps are excluded before retaining accepted content; all retained non-timestamp values must match.",
+      "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_revision_settlement_test.dart"
+    },
+    {
       "id": "knowledge-correction-snapshot",
       "file": "lib/features/planned_maintenance/domain/knowledge_correction_promoter.dart",
       "classification": "OPTIONAL_NON_MUTATING_DERIVATION",
@@ -1318,6 +1345,15 @@
       "malformedDisposition": "reject import with diagnostics",
       "compatibility": "supported CSV and JSON import formats",
       "regression": "test/knowledge_governance_export_test.dart"
+    },
+    {
+      "id": "maintenance-creation-owner",
+      "file": "lib/features/maintenance/services/maintenance_creation_owner.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Original actor and exact journal envelope own creation through uncertain dispatch and native restart; mutable local successors do not replace original request bytes.",
+      "malformedDisposition": "Reject unreadable or unbound pending/accepted evidence before dispatch; retain native bytes and successor draft for review.",
+      "compatibility": "Absent journal admits first dispatch; legacy rows without proven origin require review.",
+      "regression": "test/maintenance_creation_owner_test.dart"
     },
     {
       "id": "maintenance-intelligence-records",
@@ -1350,7 +1386,7 @@
       "id": "maintenance-lifecycle-replay-receipt",
       "file": "lib/core/services/sync_service.tickets_templates.dart",
       "classification": "REMOTE_COMMAND_RECEIPT",
-      "authorityBoundary": "exact Firestore lifecycle replay readback and creation-recovery admission before generic ticket writes; governed deletion holds and decomposed lifecycle dispatch errors are recorded per ticket and cannot fall through to a generic write; completed closure may adopt a later observed revision only when the reconstructed original closure, pinned subject, actor and history match both fresh reads, with actor rechecked before local adoption",
+      "authorityBoundary": "Production uses durable origin-bound backend commands for creation, queued closure/reopen and Admin withdrawal. Acceptance and exact server readback precede unchanged-local adoption. Legacy direct-write adapter is retained only for compatibility tests; Firestore Rules refuse all direct client mutations.",
       "malformedDisposition": "retain local work and block the affected ticket after contradictory or unavailable creation acceptance evidence; a contradiction uses the existing permanent sync hold",
       "compatibility": "a synchronized replay requires the exact observed version and updatedAt receipt; closure rebased over an intervening acknowledgement may converge after restart with unchanged saved closure evidence, while reopen retains exact revision; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
@@ -1426,6 +1462,24 @@
       "malformedDisposition": "strict result parsing refuses malformed evidence; the native dispatch owner retains an uncertain original command, or retains an already accepted receipt for readback only, and never invents success",
       "compatibility": "exact authoritative result fields; only the non-authoritative idempotentReplay observation is normalized to false in stored canonical acceptance, leaving every business field unchanged",
       "regression": "test/morning_review_command_contract_test.dart; functions/test/morningReviewMutation.test.js; test/morning_review_durable_submission_test.dart; test/morning_review_saved_change_ui_test.dart"
+    },
+    {
+      "id": "morning-review-durable-recovery-proof",
+      "file": "lib/features/morning_review/services/morning_review_command_service.durable.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Origin-bound native request and receipt reconciliation with exact server acceptance or permanent non-execution fence.",
+      "malformedDisposition": "Preserve original local bytes and unresolved state; reject mismatched request, actor, result, entity or refusal proof.",
+      "compatibility": "Original actor, request bytes and accepted receipts remain bound; legacy acceptance requires a matching stored request fingerprint. Invalid rows do not become empty or complete populations.",
+      "regression": "test/morning_review_recovery_regression_test.dart"
+    },
+    {
+      "id": "morning-review-partial-feed-rows",
+      "file": "lib/features/morning_review/data/morning_review_rows.dart",
+      "classification": "PARTIAL_REMOTE_FEED",
+      "authorityBoundary": "Live list presentation only; frozen document decoding remains strict.",
+      "malformedDisposition": "Keep valid rows and rejected identities; propagate incompleteness across merged feeds; never use partial data to certify finalization.",
+      "compatibility": "Original actor, request bytes and accepted receipts remain bound; legacy acceptance requires a matching stored request fingerprint. Invalid rows do not become empty or complete populations.",
+      "regression": "test/morning_review_recovery_regression_test.dart"
     },
     {
       "id": "morning-review-records",
@@ -1525,6 +1579,15 @@
       "malformedDisposition": "withhold the optional display enrichment; mutation authority remains derived from approved user and server-governed execution state",
       "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
       "regression": "test/ui_business_alignment_test.dart"
+    },
+    {
+      "id": "published-assignment-acceptance-identity",
+      "file": "lib/features/planned_maintenance/services/published_assignment_acceptance_identity.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Called only after full receipt decoding and binding; compares immutable assignment origin while separately reconciling mutable server projections",
+      "malformedDisposition": "Parsing failure propagates; retained receipt is never overwritten by a changed response",
+      "compatibility": "Same accepted command may return newer mutable execution and module state; immutable source identities must match",
+      "regression": "test/published_template_assignment_submission_test.dart"
     },
     {
       "id": "published-assignment-native-adoption-origin",

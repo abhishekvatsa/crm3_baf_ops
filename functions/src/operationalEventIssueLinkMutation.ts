@@ -331,6 +331,21 @@ function assetReference(value: unknown, assetNumber: number): {
   }
   const schemaVersion = row.schemaVersion;
   const scope = schemaVersion === 1 ? "definition" : row.scope;
+  // A schema-3 physical reference is a known current-shaped record, not a
+  // harmless legacy alias. If its strong contract failed, accepting it on the
+  // old shape-only path would allow a displayed asset number to disagree with
+  // the retained physical instance. Older definition references remain
+  // supported, but an incomplete/contradictory physical reference is held.
+  if (schemaVersion === 3 && scope === "physicalAsset" &&
+      (row.assetNumber !== assetNumber ||
+        typeof row.assetInstanceId !== "string" ||
+        row.assetInstanceId.trim().length === 0)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The maintenance issue has incomplete or contradictory physical evidence.",
+      {reasonCode: "operational-event-link-issue-asset-reference-malformed"},
+    );
+  }
   if (![1, 2, 3].includes(schemaVersion as number) ||
       !["definition", "physicalAsset", "installedComponent"].includes(
         scope as string,
@@ -428,6 +443,34 @@ function linkIdentity(eventId: string, startedAt: Date, issueId: string): string
     .update(`${eventId}\n${startedAt.toISOString()}\n${issueId}`, "utf8")
     .digest("hex");
   return `event_issue_${digest.slice(0, 48)}`;
+}
+
+function operationalEventIssueLinkEvidenceDigest(
+  link: JsonMap,
+  audit: JsonMap,
+): string {
+  const canonicalEvidenceValue = (value: unknown): unknown => {
+    const date = timestampDate(value);
+    if (date != null) return date.toISOString();
+    if (Array.isArray(value)) return value.map(canonicalEvidenceValue);
+    if (value != null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as JsonMap).map(([key, entry]) => [
+          key,
+          canonicalEvidenceValue(entry),
+        ]),
+      );
+    }
+    return value;
+  };
+  const linkEvidence = {...link};
+  delete linkEvidence.evidenceDigest;
+  const auditEvidence = {...audit};
+  delete auditEvidence.evidenceDigest;
+  return createHash("sha256").update(stableJson({
+    link: canonicalEvidenceValue(linkEvidence),
+    audit: canonicalEvidenceValue(auditEvidence),
+  }), "utf8").digest("hex");
 }
 
 function resultFromReceipt(
@@ -558,6 +601,19 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
           "The issue-link receipt no longer matches its immutable audit and link evidence.",
           {reasonCode: "operational-event-issue-link-replay-evidence-drift"},
         );
+      }
+      const receiptData = receiptValue.data() ?? {};
+      if (receiptData.evidenceDigest != null) {
+        const digest = receiptData.evidenceDigest;
+        if (typeof digest !== "string" || linkData.evidenceDigest !== digest ||
+            auditData.evidenceDigest !== digest ||
+            operationalEventIssueLinkEvidenceDigest(linkData, auditData) !== digest) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "The issue-link receipt no longer matches its committed evidence.",
+            {reasonCode: "operational-event-issue-link-replay-evidence-drift"},
+          );
+        }
       }
       return replay;
     }
@@ -721,6 +777,9 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       performedByUid: actorUid,
       performedByName: actorName(actorData),
     };
+    const evidenceDigest = operationalEventIssueLinkEvidenceDigest(link, audit);
+    link.evidenceDigest = evidenceDigest;
+    audit.evidenceDigest = evidenceDigest;
     const receipt: JsonMap = {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -735,6 +794,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       auditId,
       committedAt,
       committedAtIso: committed.toISOString(),
+      evidenceDigest,
     };
     transaction.set(eventRef as unknown as DocumentRefLike, {
       ...event,

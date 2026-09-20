@@ -114,22 +114,33 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
               }
 
               final openTicketsAsync = ref.watch(openTicketsProvider);
+              final feedDiagnostics = ref.watch(
+                maintenanceFeedDiagnosticsProvider('open'),
+              );
 
               return openTicketsAsync.when(
                 loading: _buildLoadingState,
-                error:
-                    (error, _) => _buildErrorState(
-                      title: 'Could not load issues',
-                      message: '$error',
-                    ),
+                error: (error, _) => _buildErrorState(
+                  title: 'Could not load issues',
+                  message: '$error',
+                ),
                 data: (allTickets) {
                   final tickets = _visibleTickets(allTickets, appUser);
 
                   if (tickets.isEmpty) {
-                    return _buildEmptyState(appUser, syncStatus);
+                    return _buildEmptyState(
+                      appUser,
+                      syncStatus,
+                      feedDiagnostics: feedDiagnostics,
+                    );
                   }
 
-                  return _buildTicketList(tickets, appUser, syncStatus);
+                  return _buildTicketList(
+                    tickets,
+                    appUser,
+                    syncStatus,
+                    feedDiagnostics: feedDiagnostics,
+                  );
                 },
               );
             },
@@ -155,10 +166,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(outcome.manualSyncMessage),
-          backgroundColor:
-              outcome.isFailure
-                  ? BafColors.danger
-                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
+          backgroundColor: outcome.isFailure
+              ? BafColors.danger
+              : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {
@@ -237,8 +247,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   Widget _buildTicketList(
     List<MaintenanceRecord> tickets,
     AppUser appUser,
-    SyncStatus syncStatus,
-  ) {
+    SyncStatus syncStatus, {
+    required MaintenanceFeedDiagnostics feedDiagnostics,
+  }) {
     final filtered = _filterTickets(tickets, _query);
 
     return _BoundedIssuesContent(
@@ -264,6 +275,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             onSyncNow: _refreshTickets,
           ),
           const SizedBox(height: BafSpacing.md),
+          if (feedDiagnostics.isIncomplete)
+            _MaintenanceIncompleteNotice(
+              count: feedDiagnostics.malformedDocumentIds.length,
+            ),
+          if (feedDiagnostics.isIncomplete)
+            const SizedBox(height: BafSpacing.md),
           if (filtered.isEmpty)
             const _NoMatchingIssuesState()
           else
@@ -314,21 +331,20 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
                   ticket: ticket,
-                  onViewDetails:
-                      () => _openTicketDetails(
-                        ticket,
-                        canCorrect:
-                            appUser.canCorrectMaintenanceTicket &&
-                            hasGovernedServerState,
-                      ),
+                  onViewDetails: () => _openTicketDetails(
+                    ticket,
+                    canCorrect:
+                        appUser.canCorrectMaintenanceTicket &&
+                        hasGovernedServerState,
+                  ),
                   canResolve: canResolveThis && !ticket.isWorkflowActionBlocked,
                   onResolve: () => _openResolve(ticket),
                   canCloseWithoutResolution:
                       appUser.canCloseMaintenanceIssueWithoutResolution &&
                       laneRead.isValid &&
                       hasGovernedServerState,
-                  onCloseWithoutResolution:
-                      () => _closeWithoutResolution(ticket),
+                  onCloseWithoutResolution: () =>
+                      _closeWithoutResolution(ticket),
                   canAcknowledge: canAcknowledge,
                   isBusy: _busyTicketId == ticketId,
                   onAcknowledge: () => _acknowledgeTicket(ticket),
@@ -466,7 +482,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         ) ==
         null) {
       return;
-        }
+    }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -562,7 +578,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         ) ==
         null) {
       return;
-        }
+    }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -696,6 +712,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     final change = await showIssueLaneManagementDialog(
       context,
       ticket: ticket,
+      allowDepartmentLabelCorrection: actor.isAdmin || actor.isSI,
       guard: (dialog) => CurrentActorDialogGuard(
         originUid: actor.uid,
         permission: (user) => user.canManageMaintenanceIssueLanes,
@@ -709,7 +726,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         ) ==
         null) {
       return;
-        }
+    }
     setState(() => _busyTicketId = ticketId);
     try {
       final command = WorkflowCommandFactory.create(
@@ -719,6 +736,8 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         payload: <String, Object?>{
           'lanes': change.lanes.map((lane) => lane.name).toList(),
           'otherDepartment': change.otherDepartment,
+          if (change.departmentChangeKind == 'labelCorrection')
+            'departmentChangeKind': change.departmentChangeKind,
           'reason': change.reason,
         },
       );
@@ -840,7 +859,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         ) ==
         null) {
       return;
-        }
+    }
     final workflowId = WorkflowCommandFactory.uniqueId('issue_coordination');
     final complianceId = WorkflowCommandFactory.uniqueId('issue_compliance');
     setState(() => _busyTicketId = ticketId);
@@ -894,7 +913,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     }
   }
 
-  Widget _buildEmptyState(AppUser appUser, SyncStatus syncStatus) {
+  Widget _buildEmptyState(
+    AppUser appUser,
+    SyncStatus syncStatus, {
+    required MaintenanceFeedDiagnostics feedDiagnostics,
+  }) {
     return _BoundedIssuesContent(
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -913,6 +936,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             onSyncNow: _refreshTickets,
           ),
           const SizedBox(height: BafSpacing.xl),
+          if (feedDiagnostics.isIncomplete)
+            _MaintenanceIncompleteNotice(
+              count: feedDiagnostics.malformedDocumentIds.length,
+            ),
+          if (feedDiagnostics.isIncomplete)
+            const SizedBox(height: BafSpacing.lg),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: BafSpacing.xl),
             child: Column(
@@ -946,163 +975,6 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BoundedIssuesContent extends StatelessWidget {
-  final Widget child;
-
-  const _BoundedIssuesContent({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _IssuesHeader extends StatelessWidget {
-  final int count;
-  final int totalCount;
-  final bool canSeeAll;
-  final bool canSeeAssigned;
-  final bool isSyncing;
-  final String query;
-  final ValueChanged<String> onQueryChanged;
-  final VoidCallback onRaiseIssue;
-  final VoidCallback onViewResolved;
-  final Future<void> Function() onSyncNow;
-
-  const _IssuesHeader({
-    required this.count,
-    required this.totalCount,
-    required this.canSeeAll,
-    required this.canSeeAssigned,
-    required this.isSyncing,
-    required this.query,
-    required this.onQueryChanged,
-    required this.onRaiseIssue,
-    required this.onViewResolved,
-    required this.onSyncNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        BafScreenIntro(
-          title: 'Open issues',
-          subtitle:
-              canSeeAll
-                  ? 'Issues needing attention across the floor.'
-                  : canSeeAssigned
-                  ? 'Issues raised by you or routed to your team.'
-                  : 'Issues raised by you and still active.',
-          icon: Icons.report_problem_outlined,
-          accent: BafColors.maintenance,
-        ),
-        const SizedBox(height: BafSpacing.md),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final search = BafSearchField(
-              fieldKey: const ValueKey('issues-search'),
-              hintText: 'Search asset, component or description',
-              onChanged: onQueryChanged,
-            );
-            final sync = Tooltip(
-              message: isSyncing ? 'Sync in progress' : 'Refresh issues',
-              child: OutlinedButton.icon(
-                key: const ValueKey('issues-sync-now'),
-                onPressed: isSyncing ? null : () => onSyncNow(),
-                icon:
-                    isSyncing
-                        ? const SizedBox.square(
-                          dimension: 17,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.refresh_rounded, size: 19),
-                label: const Text('Sync'),
-                style: _compactIssueActionStyle(),
-              ),
-            );
-            final raise = FilledButton.icon(
-              key: const ValueKey('issues-raise-issue'),
-              onPressed: onRaiseIssue,
-              icon: const Icon(Icons.add_rounded, size: 19),
-              label: const Text('Raise'),
-              style: _compactIssueActionStyle(
-                backgroundColor: BafColors.maintenance,
-                foregroundColor: Colors.white,
-              ),
-            );
-            final resolved = OutlinedButton.icon(
-              key: const ValueKey('issues-view-resolved'),
-              onPressed: onViewResolved,
-              icon: const Icon(Icons.task_alt_rounded, size: 19),
-              label: const Text('Resolved'),
-              style: _compactIssueActionStyle(),
-            );
-            final actions = Row(
-              children: [
-                Expanded(child: sync),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(child: resolved),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(child: raise),
-              ],
-            );
-            if (constraints.maxWidth < 720) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  search,
-                  const SizedBox(height: BafSpacing.sm),
-                  actions,
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: search),
-                const SizedBox(width: BafSpacing.md),
-                SizedBox(width: 368, child: actions),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: BafSpacing.sm),
-        Text(
-          query.trim().isEmpty
-              ? '$totalCount open'
-              : '$count of $totalCount matching',
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  ButtonStyle _compactIssueActionStyle({
-    Color? backgroundColor,
-    Color? foregroundColor,
-  }) {
-    return OutlinedButton.styleFrom(
-      backgroundColor: backgroundColor,
-      foregroundColor: foregroundColor,
-      minimumSize: const Size(0, 48),
-      padding: const EdgeInsets.symmetric(horizontal: BafSpacing.sm),
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -1216,10 +1088,9 @@ class _TicketCard extends StatelessWidget {
             color: BafColors.card,
             borderRadius: BorderRadius.circular(BafRadius.large),
             border: Border.all(
-              color:
-                  ticket.isCritical
-                      ? BafColors.danger.withValues(alpha: 0.42)
-                      : BafColors.border,
+              color: ticket.isCritical
+                  ? BafColors.danger.withValues(alpha: 0.42)
+                  : BafColors.border,
             ),
             boxShadow: BafShadows.subtle,
           ),
@@ -1273,12 +1144,12 @@ class _TicketCard extends StatelessWidget {
                                   ),
                                   icon:
                                       lanePlan.completedLanes.contains(laneName)
-                                          ? Icons.task_alt_rounded
-                                          : lanePlan.acknowledgedLanes.contains(
-                                            laneName,
-                                          )
-                                          ? Icons.verified_rounded
-                                          : Icons.schedule_rounded,
+                                      ? Icons.task_alt_rounded
+                                      : lanePlan.acknowledgedLanes.contains(
+                                          laneName,
+                                        )
+                                      ? Icons.verified_rounded
+                                      : Icons.schedule_rounded,
                                 )
                             else
                               const StatusBadge(
@@ -1313,32 +1184,27 @@ class _TicketCard extends StatelessWidget {
                                 icon: Icons.warning_amber_rounded,
                               ),
                             StatusBadge(
-                              label:
-                                  ticket.status == TicketStatus.acknowledged
-                                      ? 'Acknowledged'
-                                      : ticket.status == TicketStatus.inProgress
-                                      ? 'In progress'
-                                      : 'Open $elapsedText',
-                              color:
-                                  ticket.status == TicketStatus.acknowledged
-                                      ? BafColors.warning
-                                      : BafColors.maintenance,
-                              icon:
-                                  ticket.status == TicketStatus.acknowledged
-                                      ? Icons.verified_rounded
-                                      : Icons.timer_outlined,
+                              label: ticket.status == TicketStatus.acknowledged
+                                  ? 'Acknowledged'
+                                  : ticket.status == TicketStatus.inProgress
+                                  ? 'In progress'
+                                  : 'Open $elapsedText',
+                              color: ticket.status == TicketStatus.acknowledged
+                                  ? BafColors.warning
+                                  : BafColors.maintenance,
+                              icon: ticket.status == TicketStatus.acknowledged
+                                  ? Icons.verified_rounded
+                                  : Icons.timer_outlined,
                             ),
                             if (ticket.isWorkflowLinked)
                               StatusBadge(
                                 label: ticket.workflowStateLabel,
-                                color:
-                                    ticket.workflowDeferred
-                                        ? BafColors.warning
-                                        : BafColors.audit,
-                                icon:
-                                    ticket.workflowDeferred
-                                        ? Icons.pause_circle_outline_rounded
-                                        : Icons.account_tree_outlined,
+                                color: ticket.workflowDeferred
+                                    ? BafColors.warning
+                                    : BafColors.audit,
+                                icon: ticket.workflowDeferred
+                                    ? Icons.pause_circle_outline_rounded
+                                    : Icons.account_tree_outlined,
                               ),
                             if (ticket.operationalEventIssueLinkIds.isNotEmpty)
                               StatusBadge(
@@ -1439,10 +1305,9 @@ class _TicketCard extends StatelessWidget {
                 const SizedBox(height: 5),
                 _MetaRow(
                   icon: Icons.layers_outlined,
-                  text:
-                      innerCover.innerCoverSerialNumber == null
-                          ? 'At event: no Inner Cover linked'
-                          : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
+                  text: innerCover.innerCoverSerialNumber == null
+                      ? 'At event: no Inner Cover linked'
+                      : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
                 ),
               ],
               if (ticket.acknowledgedByName?.trim().isNotEmpty == true) ...[
@@ -1482,13 +1347,12 @@ class _TicketCard extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: isBusy ? null : onAcknowledge,
-                    icon:
-                        isBusy
-                            ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.verified_rounded, size: 20),
+                    icon: isBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.verified_rounded, size: 20),
                     label: Text(isBusy ? 'Acknowledging...' : 'Acknowledge'),
                   ),
                 ),
@@ -1510,13 +1374,12 @@ class _TicketCard extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: isBusy ? null : onCoordinate,
-                    icon:
-                        isBusy
-                            ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.handshake_outlined, size: 20),
+                    icon: isBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.handshake_outlined, size: 20),
                     label: Text(
                       isBusy
                           ? 'Starting coordination...'

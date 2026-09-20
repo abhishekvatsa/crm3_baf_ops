@@ -16,6 +16,7 @@ StructuredReportDocument buildInspectionCampaignReport({
   required InspectionCampaign campaign,
   required List<InspectionObservation> observations,
   required List<InspectionFinding> findings,
+  List<String>? createdFindingIds,
   required DateTime generatedAt,
   required String generatedByName,
   required ReportProvenance provenance,
@@ -38,6 +39,7 @@ StructuredReportDocument buildInspectionCampaignReport({
     campaign: campaign,
     observations: observations,
     findings: findings,
+    createdFindingIds: createdFindingIds,
   ).isInternallyComplete) {
     throw StateError(
       'The complete inspection record must be verified before it is reported.',
@@ -66,6 +68,15 @@ StructuredReportDocument buildInspectionCampaignReport({
           ? asset
           : left.latestObservedAt.compareTo(right.latestObservedAt);
     });
+  final outstandingFindings = findings
+      .where(
+        (finding) => !const {
+          InspectionFindingStatus.verifiedResolved,
+          InspectionFindingStatus.acceptedCondition,
+          InspectionFindingStatus.invalidated,
+        }.contains(finding.status),
+      )
+      .length;
 
   return StructuredReportDocument(
     title: 'Inspection audit dossier',
@@ -84,7 +95,12 @@ StructuredReportDocument buildInspectionCampaignReport({
           StructuredReportMetric(
             label: 'Status',
             value: _enumLabel(campaign.status.name),
-            tone: campaign.status == InspectionCampaignStatus.closed
+            detail: campaign.status == InspectionCampaignStatus.closed
+                ? 'Survey closed; findings retain their own follow-through.'
+                : null,
+            tone:
+                campaign.status == InspectionCampaignStatus.closed &&
+                    outstandingFindings == 0
                 ? StructuredReportMetricTone.positive
                 : StructuredReportMetricTone.warning,
           ),
@@ -109,7 +125,8 @@ StructuredReportDocument buildInspectionCampaignReport({
           StructuredReportMetric(
             label: 'Findings',
             value: '${findings.length}',
-            tone: findings.any((finding) => finding.blocksCampaignClosure)
+            detail: '$outstandingFindings outstanding',
+            tone: outstandingFindings > 0
                 ? StructuredReportMetricTone.danger
                 : StructuredReportMetricTone.neutral,
           ),

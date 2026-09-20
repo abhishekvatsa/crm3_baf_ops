@@ -704,6 +704,27 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       aggregateVersion: 3,
     });
 
+    const acceptedAudit = audit.data();
+    for (const alteration of [
+      {timestamp: new admin.firestore.Timestamp(acceptedAudit.timestamp.seconds,
+        acceptedAudit.timestamp.nanoseconds + 1000)},
+      {performedByName: 'Altered acceptance actor'},
+      {beforeJson: JSON.stringify({...JSON.parse(acceptedAudit.beforeJson), description: 'Altered original description'})},
+      {afterJson: JSON.stringify({...JSON.parse(acceptedAudit.afterJson), description: 'Altered accepted description'})},
+    ]) {
+      await audit.ref.set({...acceptedAudit, ...alteration});
+      if (alteration.timestamp != null) {
+        // Firestore persists microseconds; a one-nanosecond write would be
+        // rounded away and would not actually alter the accepted evidence.
+        expect((await audit.ref.get()).data().timestamp.isEqual(acceptedAudit.timestamp)).toBe(false);
+      }
+      await expect(service.execute(command, {actor, serverNow: new Date('2026-08-14T17:01:30.000Z')}))
+        .rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-replay-content-invalid'}});
+    }
+    await audit.ref.set(acceptedAudit);
+    await expect(service.execute(command, {actor, serverNow: new Date('2026-08-14T17:01:45.000Z')}))
+      .resolves.toEqual(first);
+
     await audit.ref.delete();
     await expect(service.execute(command, {
       actor,

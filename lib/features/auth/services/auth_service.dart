@@ -12,6 +12,18 @@ import '../../../core/services/local_recovery_session_guard.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'notification_installation_registry.dart';
 
+final signOutInProgressProvider = StateProvider<bool>((ref) => false);
+
+const Duration _notificationCleanupTimeout = Duration(seconds: 8);
+
+class ProfileNameRequiredException implements Exception {
+  const ProfileNameRequiredException();
+
+  @override
+  String toString() =>
+      'A display name of 1 to 160 characters is required before the pending profile can be created.';
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -54,25 +66,40 @@ class AuthService {
   }
 
   /// Ensures the signed-in Firebase user has a safe pending/approved app profile.
-  Future<void> ensureUserDocument({User? firebaseUser}) async {
+  Future<void> ensureUserDocument({
+    User? firebaseUser,
+    String? profileName,
+  }) async {
     final user = firebaseUser ?? _auth.currentUser;
     if (user == null) return;
 
     final userRef = _firestore.collection('users').doc(user.uid);
+    final suppliedName = _cleanProfileText(profileName);
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(userRef);
 
       if (!snapshot.exists) {
-        transaction.set(userRef, _pendingUserPayload(user));
+        final name = suppliedName.isNotEmpty
+            ? suppliedName
+            : _cleanProfileText(user.displayName);
+        if (name.isEmpty || name.length > 160) {
+          throw const ProfileNameRequiredException();
+        }
+        transaction.set(userRef, _pendingUserPayload(user, name: name));
         return;
       }
 
-      transaction.update(userRef, <String, dynamic>{
-        'name': _cleanProfileText(user.displayName),
-        'email': _cleanProfileText(user.email),
-        'photoUrl': _cleanOptionalText(user.photoURL),
-      });
+      transaction.update(
+        userRef,
+        existingUserProfileRefresh(
+          snapshot.data() ?? {},
+          suppliedName: suppliedName,
+          providerName: user.displayName,
+          providerEmail: user.email,
+          providerPhotoUrl: user.photoURL,
+        ),
+      );
     });
 
     await syncNotificationInstallation(
@@ -83,10 +110,12 @@ class AuthService {
 
   Future<void> signOut() async {
     await _recoverySessionGuard.beginSessionEnd();
+    _ref.read(signOutInProgressProvider.notifier).state = true;
     try {
       await _performSignOut();
     } finally {
       _recoverySessionGuard.endSessionEnd();
+      _ref.read(signOutInProgressProvider.notifier).state = false;
     }
   }
 
@@ -96,7 +125,9 @@ class AuthService {
     final user = _auth.currentUser;
     if (user != null) {
       try {
-        await _notificationRegistry.removeCurrentInstallation(uid: user.uid);
+        await _notificationRegistry
+            .removeCurrentInstallation(uid: user.uid)
+            .timeout(_notificationCleanupTimeout);
       } catch (error, stackTrace) {
         debugPrint(
           'Could not remove notification installation during sign out: $error',
@@ -116,7 +147,7 @@ class AuthService {
     await _auth.signOut();
 
     try {
-      await _googleSignIn.signOut();
+      await _googleSignIn.signOut().timeout(_notificationCleanupTimeout);
     } catch (error, stackTrace) {
       debugPrint(
         'Google sign-out cleanup failed after Firebase sign-out: $error',
@@ -130,7 +161,9 @@ class AuthService {
     }
 
     try {
-      await _notificationRegistry.retireMessagingToken();
+      await _notificationRegistry.retireMessagingToken().timeout(
+        _notificationCleanupTimeout,
+      );
     } catch (error, stackTrace) {
       debugPrint('Could not retire the local messaging token: $error');
       AppLogger.warning(
@@ -161,13 +194,15 @@ class AuthService {
     }
   }
 
-  Map<String, dynamic> _pendingUserPayload(User user) {
+  Map<String, dynamic> _pendingUserPayload(User user, {required String name}) {
     return {
-      'name': _cleanProfileText(user.displayName),
+      'name': name,
       'email': _cleanProfileText(user.email),
       'photoUrl': _cleanOptionalText(user.photoURL),
       'roles': [AppRole.operations.name],
       'isApproved': false,
+      'authorityRevision': 0,
+      'accessDisposition': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -202,4 +237,29 @@ Future<void> syncNotificationInstallation({
       },
     );
   }
+}
+
+/// A provider refresh may repair a missing display name but never replace an
+/// access decision or an administrator-curated name.
+Map<String, dynamic> existingUserProfileRefresh(
+  Map<String, dynamic> stored, {
+  String? suppliedName,
+  String? providerName,
+  String? providerEmail,
+  String? providerPhotoUrl,
+}) {
+  String clean(String? value) => value?.trim() ?? '';
+  final storedName = stored['name'];
+  final needsName = storedName is! String || storedName.trim().isEmpty;
+  final replacement = clean(suppliedName).isNotEmpty
+      ? clean(suppliedName)
+      : clean(providerName);
+  return <String, dynamic>{
+    if (needsName && replacement.isNotEmpty) 'name': replacement,
+    'email': clean(providerEmail),
+    'photoUrl': clean(providerPhotoUrl).isEmpty
+        ? null
+        : clean(providerPhotoUrl),
+    if (!stored.containsKey('authorityRevision')) 'authorityRevision': 0,
+  };
 }

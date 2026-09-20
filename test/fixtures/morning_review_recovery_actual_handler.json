@@ -1,0 +1,320 @@
+{
+  "provenance": {
+    "generator": "tool/test_support/capture_morning_review_recovery_fixtures.cjs",
+    "sourceSha256": "c0e12383e92106cb99103354fca8275e4d7e6eb353bcb62d9b29488577cdf0a9",
+    "recoverySha256": "7177b0abedff41cda2ed10375595b97f71f3454b2207de8437fe3eec57dd60ea",
+    "note": "Actual handler and native recovery consumers; this fixture does not prove Firestore concurrency."
+  },
+  "actorUid": "admin-1",
+  "openSession": {
+    "schemaVersion": 1,
+    "sessionId": "2026-08-31",
+    "plantDay": "2026-08-31",
+    "status": "open",
+    "version": 1,
+    "openedAt": "2026-08-31T03:00:00.000Z",
+    "openedByUid": "admin-1",
+    "openedByName": "Admin One",
+    "facilitatorUid": "admin-1",
+    "facilitatorName": "Admin One",
+    "facilitatorRoleKeys": [
+      "admin"
+    ],
+    "facilitatorHistory": [],
+    "sourceCapturedAt": "2026-08-31T03:00:00.000Z",
+    "sourceFacts": [
+      {
+        "factId": "critical_alarms/alarm-1",
+        "section": "safety",
+        "sourceType": "criticalAlarm",
+        "sourceCollection": "critical_alarms",
+        "sourceDocumentId": "alarm-1",
+        "title": "Fire",
+        "summary": "raised: Fire alarm near the furnace bay.",
+        "status": "raised",
+        "assetClassId": null,
+        "assetClassName": null,
+        "assetInstanceId": null,
+        "assetNumber": null,
+        "observedAtIso": "2026-08-30T03:15:00.000Z"
+      },
+      {
+        "factId": "maintenance_records/ticket-1",
+        "section": "furnace",
+        "sourceType": "maintenanceIssue",
+        "sourceCollection": "maintenance_records",
+        "sourceDocumentId": "ticket-1",
+        "title": "Draft seal requires inspection.",
+        "summary": "open",
+        "status": "open",
+        "assetClassId": null,
+        "assetClassName": "Furnace",
+        "assetInstanceId": null,
+        "assetNumber": "12",
+        "observedAtIso": "2026-08-30T06:00:00.000Z"
+      }
+    ],
+    "sourceFactDigest": "morningreviewsource1-sha256:3993472bb44d6635a6567cf13f265aa096f251b254865800ba80ff0a1f36fc78",
+    "sourceFactCount": 2,
+    "sourceCaptureState": "complete",
+    "sourceCollectionsAtLimit": [],
+    "finalizedAt": null,
+    "finalizedByUid": null,
+    "finalizedByName": null,
+    "finalSummary": null,
+    "documentDigest": null,
+    "updatedAt": "2026-08-31T03:00:00.000Z",
+    "updatedByUid": "admin-1",
+    "updatedByName": "Admin One",
+    "expiresAt": null,
+    "lastMutationId": "12345678-0000-4000-8000-000000000100"
+  },
+  "normalizedRequest": {
+    "requestId": "12345678-0000-4000-8000-000000000101",
+    "operation": "CREATE_MORNING_REVIEW_ACTION",
+    "recoveryVersion": 1,
+    "sessionId": "2026-08-31",
+    "actionDraft": {
+      "section": "furnace",
+      "text": "Original exact action wording",
+      "assigneeUid": null,
+      "assigneeRole": "operations",
+      "assetClassId": "furnace-class",
+      "assetClassName": "Old registry label",
+      "assetInstanceId": "furnace-12",
+      "assetNumber": "012",
+      "dueAt": null
+    }
+  },
+  "normalizedReceipt": {
+    "ok": true,
+    "requestId": "12345678-0000-4000-8000-000000000101",
+    "operation": "CREATE_MORNING_REVIEW_ACTION",
+    "sessionId": "2026-08-31",
+    "entityId": "12345678-0000-4000-8000-000000000101",
+    "status": "open",
+    "version": 1,
+    "committedAt": "2026-08-31T03:00:00.000Z",
+    "idempotentReplay": false
+  },
+  "normalizedAction": {
+    "schemaVersion": 1,
+    "actionId": "12345678-0000-4000-8000-000000000101",
+    "sessionId": "2026-08-31",
+    "originPlantDay": "2026-08-31",
+    "section": "furnace",
+    "text": "Original exact action wording",
+    "assetClassId": "furnace-class",
+    "assetClassName": "Furnace",
+    "assetInstanceId": "furnace-12",
+    "assetNumber": "12",
+    "assigneeUid": null,
+    "assigneeName": null,
+    "assigneeRole": "operations",
+    "dueAt": null,
+    "status": "open",
+    "version": 1,
+    "acceptedAt": null,
+    "acceptedByUid": null,
+    "acceptedByName": null,
+    "completedAt": null,
+    "completedByUid": null,
+    "completedByName": null,
+    "completionNote": null,
+    "createdAt": "2026-08-31T03:00:00.000Z",
+    "createdByUid": "admin-1",
+    "createdByName": "Admin One",
+    "updatedAt": "2026-08-31T03:00:00.000Z",
+    "updatedByUid": "admin-1",
+    "updatedByName": "Admin One",
+    "expiresAt": null,
+    "lastMutationId": "12345678-0000-4000-8000-000000000101"
+  },
+  "normalizationProof": {
+    "schemaVersion": 1,
+    "receipt": {
+      "ok": true,
+      "requestId": "12345678-0000-4000-8000-000000000101",
+      "operation": "CREATE_MORNING_REVIEW_ACTION",
+      "sessionId": "2026-08-31",
+      "entityId": "12345678-0000-4000-8000-000000000101",
+      "status": "open",
+      "version": 1,
+      "committedAt": "2026-08-31T03:00:00.000Z",
+      "idempotentReplay": true
+    },
+    "acceptanceBasis": {
+      "schemaVersion": 1,
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "12345678-0000-4000-8000-000000000101",
+        "operation": "CREATE_MORNING_REVIEW_ACTION",
+        "recoveryVersion": 1,
+        "sessionId": "2026-08-31",
+        "actionDraft": {
+          "section": "furnace",
+          "text": "Original exact action wording",
+          "assigneeUid": null,
+          "assigneeRole": "operations",
+          "assetClassId": "furnace-class",
+          "assetClassName": "Old registry label",
+          "assetInstanceId": "furnace-12",
+          "assetNumber": "012",
+          "dueAt": null
+        }
+      },
+      "result": {
+        "requestId": "12345678-0000-4000-8000-000000000101",
+        "operation": "CREATE_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "entityId": "12345678-0000-4000-8000-000000000101",
+        "status": "open",
+        "version": 1,
+        "committedAt": "2026-08-31T03:00:00.000Z"
+      },
+      "canonicalAsset": {
+        "assetClassId": "furnace-class",
+        "assetClassName": "Furnace",
+        "assetInstanceId": "furnace-12",
+        "assetNumber": "12"
+      }
+    }
+  },
+  "cancelRequest": {
+    "requestId": "12345678-0000-4000-8000-000000000102",
+    "operation": "AMEND_MORNING_REVIEW_ACTION",
+    "recoveryVersion": 1,
+    "sessionId": "2026-08-31",
+    "actionId": "12345678-0000-4000-8000-000000000101",
+    "expectedVersion": 1,
+    "reason": "Duplicate planning item",
+    "actionCorrection": {
+      "kind": "cancel",
+      "assigneeUid": null,
+      "assigneeRole": null
+    }
+  },
+  "cancelReceipt": {
+    "ok": true,
+    "requestId": "12345678-0000-4000-8000-000000000102",
+    "operation": "AMEND_MORNING_REVIEW_ACTION",
+    "sessionId": "2026-08-31",
+    "entityId": "12345678-0000-4000-8000-000000000101",
+    "status": "cancelled",
+    "version": 2,
+    "committedAt": "2026-08-31T03:00:00.000Z",
+    "idempotentReplay": false
+  },
+  "cancelProof": {
+    "schemaVersion": 1,
+    "receipt": {
+      "ok": true,
+      "requestId": "12345678-0000-4000-8000-000000000102",
+      "operation": "AMEND_MORNING_REVIEW_ACTION",
+      "sessionId": "2026-08-31",
+      "entityId": "12345678-0000-4000-8000-000000000101",
+      "status": "cancelled",
+      "version": 2,
+      "committedAt": "2026-08-31T03:00:00.000Z",
+      "idempotentReplay": true
+    },
+    "acceptanceBasis": {
+      "schemaVersion": 1,
+      "actorUid": "admin-1",
+      "request": {
+        "requestId": "12345678-0000-4000-8000-000000000102",
+        "operation": "AMEND_MORNING_REVIEW_ACTION",
+        "recoveryVersion": 1,
+        "sessionId": "2026-08-31",
+        "actionId": "12345678-0000-4000-8000-000000000101",
+        "expectedVersion": 1,
+        "reason": "Duplicate planning item",
+        "actionCorrection": {
+          "kind": "cancel",
+          "assigneeUid": null,
+          "assigneeRole": null
+        }
+      },
+      "result": {
+        "requestId": "12345678-0000-4000-8000-000000000102",
+        "operation": "AMEND_MORNING_REVIEW_ACTION",
+        "sessionId": "2026-08-31",
+        "entityId": "12345678-0000-4000-8000-000000000101",
+        "status": "cancelled",
+        "version": 2,
+        "committedAt": "2026-08-31T03:00:00.000Z"
+      },
+      "canonicalAsset": null
+    }
+  },
+  "cancelledAction": {
+    "schemaVersion": 1,
+    "actionId": "12345678-0000-4000-8000-000000000101",
+    "sessionId": "2026-08-31",
+    "originPlantDay": "2026-08-31",
+    "section": "furnace",
+    "text": "Original exact action wording",
+    "assetClassId": "furnace-class",
+    "assetClassName": "Furnace",
+    "assetInstanceId": "furnace-12",
+    "assetNumber": "12",
+    "assigneeUid": null,
+    "assigneeName": null,
+    "assigneeRole": "operations",
+    "dueAt": null,
+    "status": "cancelled",
+    "version": 2,
+    "acceptedAt": null,
+    "acceptedByUid": null,
+    "acceptedByName": null,
+    "completedAt": null,
+    "completedByUid": null,
+    "completedByName": null,
+    "completionNote": null,
+    "createdAt": "2026-08-31T03:00:00.000Z",
+    "createdByUid": "admin-1",
+    "createdByName": "Admin One",
+    "updatedAt": "2026-08-31T03:00:00.000Z",
+    "updatedByUid": "admin-1",
+    "updatedByName": "Admin One",
+    "expiresAt": "2026-09-14T03:00:00.000Z",
+    "lastMutationId": "12345678-0000-4000-8000-000000000102",
+    "cancellation": {
+      "at": "2026-08-31T03:00:00.000Z",
+      "actorUid": "admin-1",
+      "actorName": "Admin One",
+      "reason": "Duplicate planning item"
+    }
+  },
+  "refusedRequest": {
+    "requestId": "12345678-0000-4000-8000-000000000103",
+    "operation": "FINALIZE_MORNING_REVIEW",
+    "recoveryVersion": 1,
+    "sessionId": "2026-08-31",
+    "expectedVersion": 999,
+    "summary": "Carefully written original summary"
+  },
+  "refusal": {
+    "code": "aborted",
+    "message": "The Morning Review changed before finalization.",
+    "details": {
+      "reasonCode": "morning-review-session-version-mismatch",
+      "morningReviewRefusal": {
+        "schemaVersion": 1,
+        "actorUid": "admin-1",
+        "request": {
+          "requestId": "12345678-0000-4000-8000-000000000103",
+          "operation": "FINALIZE_MORNING_REVIEW",
+          "recoveryVersion": 1,
+          "sessionId": "2026-08-31",
+          "expectedVersion": 999,
+          "summary": "Carefully written original summary"
+        },
+        "code": "aborted",
+        "reasonCode": "morning-review-session-version-mismatch",
+        "message": "The Morning Review changed before finalization.",
+        "refusedAt": "2026-08-31T03:00:00.000Z"
+      }
+    }
+  }
+}

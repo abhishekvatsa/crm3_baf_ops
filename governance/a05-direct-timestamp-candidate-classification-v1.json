@@ -63,6 +63,11 @@
           "file": "lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart",
           "expression": "DateTime.tryParse(",
           "occurrence": 1
+        },
+        {
+          "file": "lib/features/morning_review/services/morning_review_command_service.durable.dart",
+          "expression": "DateTime.tryParse(",
+          "occurrence": 1
         }
       ]
     },
@@ -349,6 +354,54 @@
         {
           "file": "lib/features/planned_maintenance/services/workflow_module_reopen_timestamps.dart",
           "expression": "DateTime.fromMicrosecondsSinceEpoch(",
+          "occurrence": 1
+        }
+      ]
+    },
+    {
+      "id": "ordinary-directive-typed-wire-time",
+      "classification": "TYPED_COMMAND_WIRE_SERIALIZATION",
+      "owner": "ordinary-directives",
+      "purpose": "Normalize timestamps emitted from an already decoded OperationalDirective.toMap for frozen request and content comparison.",
+      "authorityBoundary": "Typed model serialization only; invalid typed map values throw and never receive replacement dates.",
+      "regression": "test/ordinary_directive_commands_test.dart",
+      "reArmCondition": "Parser fallback, saved chronology, receipt authority or recovery admission semantics change.",
+      "sites": [
+        {
+          "file": "lib/features/directives/services/ordinary_directive_commands.dart",
+          "expression": "DateTime.parse(",
+          "occurrence": 1
+        }
+      ]
+    },
+    {
+      "id": "ordinary-directive-receipt-time",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "ordinary-directives",
+      "purpose": "Reject absent, non-string or unparseable server receipt commit times before accepting an exact request-bound directive response.",
+      "authorityBoundary": "Request ID, operation, entity ID, next version and accepted entity are independently checked; the commit time does not order resource ownership.",
+      "regression": "test/ordinary_directive_commands_test.dart",
+      "reArmCondition": "Parser fallback, saved chronology, receipt authority or recovery admission semantics change.",
+      "sites": [
+        {
+          "file": "lib/features/directives/services/ordinary_directive_commands.dart",
+          "expression": "DateTime.tryParse(",
+          "occurrence": 1
+        }
+      ]
+    },
+    {
+      "id": "ordinary-directive-web-recovery-sentinel",
+      "classification": "NON_PERSISTED_RUNTIME_SENTINEL",
+      "owner": "ordinary-directives",
+      "purpose": "Represent unavailable local journal timestamps in a transient web recovery view of an exactly retained command.",
+      "authorityBoundary": "The epoch sentinel is not business event time, not persisted receipt evidence, and does not settle or reorder the uncertain command.",
+      "regression": "test/ordinary_directive_commands_test.dart",
+      "reArmCondition": "Parser fallback, saved chronology, receipt authority or recovery admission semantics change.",
+      "sites": [
+        {
+          "file": "lib/features/directives/services/ordinary_directive_commands.dart",
+          "expression": "DateTime.fromMillisecondsSinceEpoch(",
           "occurrence": 1
         }
       ]

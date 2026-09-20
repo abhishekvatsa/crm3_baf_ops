@@ -26,6 +26,81 @@ TemplateVersionSnapshotBundle _bundle({
 }
 
 void main() {
+  for (final change in ['unit', 'instructionText', 'required', 'extra']) {
+    test(
+      'conflicting embedded requirements reject $change before publication',
+      () {
+        final field = <String, dynamic>{
+          'key': 'reading',
+          'label': 'Reading',
+          'moduleCode': 'M',
+          'type': 'number',
+          'unit': 'mS',
+          'required': true,
+          'instructionText': 'Measure before isolation',
+        };
+        final changed = {...field};
+        if (change == 'unit') changed['unit'] = 'ms';
+        if (change == 'instructionText') {
+          changed['instructionText'] = 'Measure after isolation';
+        }
+        if (change == 'required') changed['required'] = false;
+        if (change == 'extra') changed['key'] = 'second_reading';
+        final bundle = _bundle(
+          modules: [
+            {
+              'moduleCode': 'M',
+              'moduleTitle': 'Measure',
+              'requiredForClosure': false,
+              'fields': [field],
+              'fieldDefinitions': [changed],
+            },
+          ],
+          fields: [field],
+        );
+        expect(
+          bundle.validate().errors.any(
+            (e) => e.contains('conflicting field definitions'),
+          ),
+          isTrue,
+        );
+      },
+    );
+  }
+  test('required checklist cannot depend on an optional response', () {
+    final bundle = _bundle(
+      modules: [
+        {
+          'moduleCode': 'M',
+          'moduleTitle': 'Measure',
+          'requiredForClosure': false,
+        },
+      ],
+      fields: [
+        {
+          'key': 'reading',
+          'label': 'Reading',
+          'moduleCode': 'M',
+          'type': 'number',
+          'required': false,
+        },
+      ],
+      checklist: [
+        {
+          'title': 'Measure',
+          'moduleCode': 'M',
+          'linkedFieldKey': 'reading',
+          'required': true,
+        },
+      ],
+    );
+    expect(
+      bundle.validate().errors.any(
+        (e) => e.contains('required executable response'),
+      ),
+      isTrue,
+    );
+  });
   group('TemplateVersionSnapshotBundle validation', () {
     test('blocks closure-critical publish when closure review is missing', () {
       final bundle = _bundle(
@@ -148,6 +223,7 @@ void main() {
           {
             'moduleCode': 'TIMESTAMP-02',
             'moduleTitle': 'Optional timestamp validation',
+            'requiredForClosure': false,
             'discipline': 'operations',
           },
         ],
@@ -454,6 +530,7 @@ void main() {
 const _minimalModules = <Map<String, dynamic>>[
   {
     'moduleCode': 'VALID-01',
+    'requiredForClosure': false,
     'moduleTitle': 'Valid module',
     'discipline': 'mechanical',
   },

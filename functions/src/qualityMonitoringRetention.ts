@@ -8,6 +8,8 @@ import {UserAuthorityJsonMap} from "./userAuthority";
 
 const PAGE_SIZE = 200;
 const MAX_PER_SWEEP = 2000;
+const MAX_SCAN_PER_SWEEP = 10000;
+const MAX_REJECTED_PER_SWEEP = 200;
 const TRANSACTION_CONCURRENCY = 20;
 
 export interface QualityMonitoringRetentionResult {
@@ -63,25 +65,66 @@ export const planQualityMonitoringArchive = (args: {
   };
 };
 
+type ArchiveCursor = {id: string; value?: unknown} | null;
+const checkpointPath = "quality-monitoring-archive-v1";
+
 const fetchDue = async (
   db: admin.firestore.Firestore,
   now: admin.firestore.Timestamp,
-): Promise<admin.firestore.DocumentReference[]> => {
+): Promise<{refs: admin.firestore.DocumentReference[]; capped: boolean;
+  generation: number; cursors: {due: ArchiveCursor; legacy: ArchiveCursor}}> => {
+  const checkpoint = (await db.collection("_maintenance_cursors").doc(checkpointPath).get()).data();
+  const generation = checkpoint?.generation ?? 0;
+  if (!Number.isSafeInteger(generation) || generation < 0) throw new Error("invalid-monitoring-retention-checkpoint");
   const refs: admin.firestore.DocumentReference[] = [];
-  let cursor: admin.firestore.QueryDocumentSnapshot | null = null;
-  while (refs.length < MAX_PER_SWEEP) {
-    let query = db.collection("quality_monitoring_requests")
-      .where("visibleUntil", "<=", now)
-      .orderBy("visibleUntil")
-      .orderBy(admin.firestore.FieldPath.documentId())
-      .limit(Math.min(PAGE_SIZE, MAX_PER_SWEEP - refs.length));
-    if (cursor != null) query = query.startAfter(cursor);
-    const page = await query.get();
-    refs.push(...page.docs.map((snapshot) => snapshot.ref));
-    if (page.size < PAGE_SIZE) break;
-    cursor = page.docs[page.docs.length - 1];
+  const seen = new Set<string>();
+  let capped = false;
+  const cursors: {due: ArchiveCursor; legacy: ArchiveCursor} = {due: null, legacy: null};
+  // Each population gets its own budget and durable cursor. A poison prefix
+  // cannot consume every subsequent run or starve the legacy population.
+  for (const lane of ["due", "legacy"] as const) {
+    let cursor: ArchiveCursor = checkpoint?.[lane] ?? null;
+    if (cursor != null && (typeof cursor.id !== "string" || cursor.id.includes("/"))) {
+      throw new Error("invalid-monitoring-retention-cursor");
+    }
+    let scanned = 0;
+    let eligible = 0;
+    let rejected = 0;
+    const scanBudget = MAX_SCAN_PER_SWEEP / 2;
+    const writeBudget = MAX_PER_SWEEP / 2;
+    while (scanned < scanBudget && eligible < writeBudget) {
+      const count = Math.min(PAGE_SIZE, scanBudget - scanned, writeBudget - eligible);
+      let query: admin.firestore.Query = lane === "due" ?
+        db.collection("quality_monitoring_requests").where("visibleUntil", "<=", now)
+          .orderBy("visibleUntil").orderBy(admin.firestore.FieldPath.documentId()) :
+        db.collection("quality_monitoring_requests").where("schemaVersion", "==", 1)
+          .orderBy(admin.firestore.FieldPath.documentId());
+      if (cursor != null) query = lane === "due" ?
+        query.startAfter(cursor.value, cursor.id) : query.startAfter(cursor.id);
+      const page = await query.limit(count).get();
+      for (const snapshot of page.docs) {
+        scanned += 1;
+        cursor = lane === "due" ? {id: snapshot.id, value: snapshot.data().visibleUntil} : {id: snapshot.id};
+        if (seen.has(snapshot.ref.path)) continue;
+        seen.add(snapshot.ref.path);
+        try {
+          if (planQualityMonitoringArchive({data: snapshot.data(), requestId: snapshot.id,
+            now: now.toDate()}) == null) continue;
+          refs.push(snapshot.ref);
+          eligible += 1;
+        } catch (_) {
+          if (rejected < MAX_REJECTED_PER_SWEEP / 2) {
+            refs.push(snapshot.ref);
+            rejected += 1;
+          }
+        }
+      }
+      if (page.size < count) { cursor = null; break; }
+    }
+    if (cursor != null) capped = true;
+    cursors[lane] = cursor;
   }
-  return refs;
+  return {refs, capped, generation, cursors};
 };
 
 const processCandidate = async (
@@ -116,7 +159,8 @@ export const archiveDueQualityMonitoringRequests = async (args: {
   readonly db: admin.firestore.Firestore;
   readonly now: admin.firestore.Timestamp;
 }): Promise<QualityMonitoringRetentionResult> => {
-  const refs = await fetchDue(args.db, args.now);
+  const fetched = await fetchDue(args.db, args.now);
+  const refs = fetched.refs;
   let next = 0;
   let archived = 0;
   let rejected = 0;
@@ -134,10 +178,19 @@ export const archiveDueQualityMonitoringRequests = async (args: {
     },
   );
   await Promise.all(runners);
+  // Advance only after processing. A crashed worker retries its range; an
+  // older concurrent worker cannot overwrite a newer worker's checkpoint.
+  await args.db.runTransaction(async (tx) => {
+    const ref = args.db.collection("_maintenance_cursors").doc(checkpointPath);
+    const current = await tx.get(ref);
+    if ((current.data()?.generation ?? 0) !== fetched.generation) return;
+    tx.set(ref, {schemaVersion: 1, generation: fetched.generation + 1,
+      ...fetched.cursors, updatedAt: args.now});
+  });
   return {
     candidates: refs.length,
     archived,
     rejected,
-    capped: refs.length >= MAX_PER_SWEEP,
+    capped: fetched.capped,
   };
 };

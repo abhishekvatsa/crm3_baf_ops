@@ -79,7 +79,12 @@ class WorkflowOnlineExecutor {
   Future<WorkflowCommandReceipt> execute(
     WorkflowCommand command, {
     DateTime? claimedAt,
+    void Function(WorkflowCommandReceipt)? validateReceipt,
   }) async {
+    WorkflowCommandReceipt checked(WorkflowCommandReceipt receipt) {
+      validateReceipt?.call(receipt);
+      return receipt;
+    }
     // Capture both actor and nested input before any platform or store await.
     final capturedOrigin = _captureOrigin();
     if (capturedOrigin != null) {
@@ -104,7 +109,7 @@ class WorkflowOnlineExecutor {
       final evidence = await _acceptedOutcomeFor(command, capturedOrigin);
       _assertOrigin(capturedOrigin);
       final settled = evidence.receipt;
-      if (settled != null) return _receiptFrom(settled);
+      if (settled != null) return checked(_receiptFrom(settled));
       throw WorkflowException(
         WorkflowErrorCode.unavailable,
         evidence.isUnavailable
@@ -134,7 +139,7 @@ class WorkflowOnlineExecutor {
       final evidence = await _acceptedOutcomeFor(command, capturedOrigin);
       _assertOrigin(capturedOrigin);
       final settled = evidence.receipt;
-      if (settled != null) return _receiptFrom(settled);
+      if (settled != null) return checked(_receiptFrom(settled));
 
       final existing = await repository.getRetryCommand(command.commandId);
       _assertOrigin(capturedOrigin);
@@ -151,7 +156,7 @@ class WorkflowOnlineExecutor {
           acceptedDuringHold != null) {
         _validateAcceptedCommand(acceptedDuringHold, command, capturedOrigin);
         _assertOrigin(capturedOrigin);
-        return _receiptFrom(acceptedDuringHold);
+        return checked(_receiptFrom(acceptedDuringHold));
       }
       final held = hold?.wasRecorded ?? false;
       // The message must describe what actually happened to the work. Telling
@@ -191,7 +196,7 @@ class WorkflowOnlineExecutor {
     );
     if (ownership.receipt != null) {
       _assertOrigin(capturedOrigin);
-      return _receiptFrom(ownership.receipt!);
+      return checked(_receiptFrom(ownership.receipt!));
     }
     try {
       _assertOrigin(capturedOrigin);
@@ -202,6 +207,7 @@ class WorkflowOnlineExecutor {
           'The command may have been accepted, but its receipt identity is invalid.',
         );
       }
+      validateReceipt?.call(receipt);
       try {
         // Storing the receipt and clearing the retry row together means the
         // command is never both accepted and outstanding, which is the state
@@ -246,7 +252,7 @@ class WorkflowOnlineExecutor {
         // not a transport failure, and must not be reported as one.
         _validateAcceptedCommand(accepted, command, capturedOrigin);
         _assertOrigin(capturedOrigin);
-        return _receiptFrom(accepted);
+        return checked(_receiptFrom(accepted));
       }
       rethrow;
     } catch (_) {

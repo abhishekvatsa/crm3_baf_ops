@@ -98,6 +98,7 @@ void main() {
           campaign: campaign,
           observations: observations,
           findings: findings,
+          createdFindingIds: findings.map((row) => row.id).toList(),
         ).isInternallyComplete,
         isTrue,
       );

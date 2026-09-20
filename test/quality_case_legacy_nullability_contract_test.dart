@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 String _read(String path) {
   final file = File(path);
   if (!file.existsSync()) throw StateError('missing $path');
-  return file.readAsStringSync();
+  return file.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// The quoted entries of a `new Set([...])` constant in a TypeScript source.

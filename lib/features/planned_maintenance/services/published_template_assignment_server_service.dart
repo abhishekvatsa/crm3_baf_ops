@@ -28,6 +28,7 @@ class PublishedTemplateAssignmentRequest {
   final String versionFirestoreId;
   final int expectedVersionNumber;
   final String expectedContentHash;
+  final String? clientAppVersion;
   final AssetType assetType;
   final int assetNumber;
   final String? assetClassId;
@@ -43,6 +44,7 @@ class PublishedTemplateAssignmentRequest {
     required this.versionFirestoreId,
     required this.expectedVersionNumber,
     required this.expectedContentHash,
+    this.clientAppVersion,
     required this.assetType,
     required this.assetNumber,
     this.assetClassId,
@@ -72,6 +74,7 @@ class PublishedTemplateAssignmentRequest {
       'sourcePlanExpectedVersion',
       'chargeNoAtEvent',
       'remarks',
+      'clientAppVersion',
     };
     if (!raw.keys.toSet().containsAll(requiredKeys) ||
         raw.keys.any(
@@ -111,6 +114,9 @@ class PublishedTemplateAssignmentRequest {
       versionFirestoreId: text('versionId'),
       expectedVersionNumber: positive('expectedVersionNumber'),
       expectedContentHash: text('expectedContentHash'),
+      clientAppVersion: raw.containsKey('clientAppVersion')
+          ? text('clientAppVersion')
+          : null,
       assetType: type,
       assetNumber: positive('assetNumber'),
       assetClassId: raw.containsKey('assetClassId')
@@ -142,6 +148,8 @@ class PublishedTemplateAssignmentRequest {
       'versionId': versionFirestoreId,
       'expectedVersionNumber': expectedVersionNumber,
       'expectedContentHash': expectedContentHash,
+      if (_clean(clientAppVersion) != null)
+        'clientAppVersion': _clean(clientAppVersion),
       'assetType': assetType.name,
       'assetNumber': assetNumber,
       if (_clean(assetClassId) != null) 'assetClassId': _clean(assetClassId),

@@ -18,7 +18,10 @@ import {
   parseFrozenMaintenanceClass,
 } from "./maintenanceWorkflow/maintenanceIntelligence";
 import {stableJson} from "./stableJson";
-import {compareRequirementContracts} from "./requirementContract";
+import {
+  compareRequirementContracts,
+  requirementContractForField,
+} from "./requirementContract";
 import {normalizeSemanticKey} from "./semanticKeys";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
@@ -136,6 +139,7 @@ interface ParsedAssignmentRequest {
   versionId: string;
   expectedVersionNumber: number;
   expectedContentHash: string;
+  clientAppVersion?: string | null;
   assetType: string;
   assetNumber: number;
   assetClassId: string | null;
@@ -371,6 +375,26 @@ export function assignmentRequestPayloadFingerprint(data: {
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
+function parseComparableAppVersion(value: unknown): [number, number, number] | null {
+  const text = cleanOptionalText(value);
+  if (text == null) return null;
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/.exec(text);
+  if (match == null) return null;
+  const parts = match.slice(1, 4).map((part) => Number(part));
+  if (parts.some((part) => !Number.isSafeInteger(part))) return null;
+  return [parts[0], parts[1], parts[2]];
+}
+
+function compareComparableAppVersions(
+  left: [number, number, number],
+  right: [number, number, number],
+): number {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+}
+
 export function parsePublishedTemplateAssignmentRequest(
   raw: AssignmentJsonMap,
 ): ParsedAssignmentRequest {
@@ -398,6 +422,14 @@ export function parsePublishedTemplateAssignmentRequest(
       "invalid-argument",
       "expectedContentHash is not a governed tg2 SHA-256 hash.",
       {reasonCode: "invalid-content-hash"},
+    );
+  }
+  const clientAppVersion = cleanOptionalText(raw.clientAppVersion);
+  if (clientAppVersion != null && clientAppVersion.length > 64) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "clientAppVersion is too long.",
+      {reasonCode: "field-too-long", field: "clientAppVersion", maxLength: 64},
     );
   }
   const assetType = assertNonEmptyString(raw.assetType, "assetType", 64);
@@ -479,6 +511,7 @@ export function parsePublishedTemplateAssignmentRequest(
     versionId,
     expectedVersionNumber,
     expectedContentHash,
+    clientAppVersion,
     assetType,
     assetNumber,
     assetClassId,
@@ -722,6 +755,7 @@ function canonicalSnapshotAssetType(value: string | null): string | null {
 }
 
 type ValidatedAssignmentHierarchyReference = {
+  reference: AssignmentJsonMap;
   scope: "definition" | "installedComponent";
   assetClassId: string;
   assetInstanceId: string | null;
@@ -853,6 +887,7 @@ function validateHierarchyReferenceContract(
   }
   return {
     scope,
+    reference,
     assetClassId: requiredHierarchyString(reference.assetClassId)!,
     assetInstanceId,
     assetNumber,
@@ -1492,6 +1527,49 @@ async function resolveAssignmentEquipmentIdentity(
   );
 }
 
+/** Fresh installed-specific work must resolve the complete reviewed subject.
+ * Historical receipt recovery deliberately does not call this admission check. */
+export async function revalidatePublishedInstalledComponent(
+  version: AssignmentJsonMap, target: EquipmentIdentity,
+  read: (path: string) => Promise<AssignmentDocumentSnapshotLike>,
+): Promise<void> {
+  const hierarchy = validateAssignmentSnapshotTarget(parseSnapshotBundle(version), {
+    assetType: target.assetTypeKey, assetNumber: target.assetNumber,
+  });
+  if (hierarchy?.scope !== "installedComponent") return;
+  const parent = await read(`asset_instances/${target.assetInstanceId}`);
+  if (hierarchy?.scope === "installedComponent") {
+    const reference = hierarchy.reference;
+    const componentId = assertDocumentId(reference.componentInstanceId, "componentInstanceId");
+    const nodeId = assertDocumentId(reference.nodeId, "nodeId");
+    const componentSnapshot = await read(`asset_component_instances/${componentId}`);
+    const nodeSnapshot = await read(`asset_hierarchy_nodes/${nodeId}`);
+    const component = componentSnapshot.data();
+    const node = nodeSnapshot.data();
+    if (!parent.exists || parent.data()?.status !== "active" || parent.data()?.isDeleted === true ||
+        !componentSnapshot.exists || !nodeSnapshot.exists || component == null || node == null ||
+        component.isDeleted === true || node.isDeleted === true ||
+        component.schemaVersion !== 1 || component.componentInstanceId !== componentId ||
+        component.status !== "active" || component.assetInstanceId !== target.assetInstanceId ||
+        component.assetClassId !== target.assetClassId || component.assetNumber !== target.assetNumber ||
+        component.version !== reference.componentInstanceVersion ||
+        parent.data()?.version !== reference.assetInstanceVersion ||
+        component.assetInstanceVersionAtMutation !== reference.assetInstanceVersion ||
+        component.definitionNodeId !== nodeId || component.definitionNodeVersion !== reference.nodeVersion ||
+        component.componentTag !== reference.componentTag ||
+        component.ownershipStatus !== "confirmed" ||
+        component.ownerDiscipline !== reference.ownerDiscipline ||
+        JSON.stringify(stringList(component.accountableRoleKeys).sort()) !==
+          JSON.stringify(stringList(reference.accountableRoleKeys).sort()) ||
+        node.schemaVersion !== 1 || node.nodeId !== nodeId || node.status !== "active" ||
+        node.assetClassId !== target.assetClassId || node.version !== reference.nodeVersion) {
+      throw new AssignmentValidationError("failed-precondition",
+        "The published installed component or its reviewed ownership has changed. Review and publish the current target before fresh assignment.",
+        {reasonCode: "assignment-installed-component-changed", componentInstanceId: componentId});
+    }
+  }
+}
+
 async function revalidateAssignmentEquipmentIdentity(
   transaction: AssignmentTransactionLike,
   db: AssignmentFirestoreLike,
@@ -1565,6 +1643,10 @@ async function revalidateAssignmentEquipmentIdentity(
       ? hierarchy.assetInstanceId
       : null,
   );
+  await revalidatePublishedInstalledComponent(versionData, actual, async (path) => {
+    const [collection, id] = path.split("/");
+    return await transaction.get(db.collection(collection).doc(id)) as AssignmentDocumentSnapshotLike;
+  });
   if (!sameEquipmentIdentity(actual, expected)) {
     throw new AssignmentValidationError(
       "aborted",
@@ -1744,11 +1826,88 @@ function assertEmbeddedFieldsAgree(
   }
 }
 
+function assertEmbeddedFieldListsAgree(
+  left: readonly AssignmentJsonMap[],
+  right: readonly AssignmentJsonMap[],
+  code: string | null,
+  leftSource: string,
+  rightSource: string,
+): void {
+  const leftByKey = new Map<string, AssignmentJsonMap>();
+  const rightByKey = new Map<string, AssignmentJsonMap>();
+  const add = (
+    target: Map<string, AssignmentJsonMap>,
+    fields: readonly AssignmentJsonMap[],
+    source: string,
+  ): void => {
+    for (const field of fields) {
+      const key = stringFrom(field, FIELD_KEY_ALIASES);
+      if (key == null) continue;
+      const normalized = normalizeKey(key);
+      if (target.has(normalized)) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Module ${code ?? "unknown"} repeats field "${key}" in its ` +
+          `${source} representation.`,
+          {
+            reasonCode: "module-field-definitions-conflict",
+            moduleCode: code ?? null,
+            field: key,
+            source,
+          },
+        );
+      }
+      target.set(normalized, field);
+    }
+  };
+  add(leftByKey, left, leftSource);
+  add(rightByKey, right, rightSource);
+
+  const conflict = (field: string, message: string): never => {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `Module ${code ?? "unknown"} describes ${field} twice and the two ` +
+      `descriptions disagree: ${message}. Republish the template with one ` +
+      "account of this module's fields.",
+      {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: code ?? null,
+        field,
+        source: `${leftSource},${rightSource}`,
+      },
+    );
+  };
+
+  for (const [normalized, leftField] of leftByKey) {
+    const key = stringFrom(leftField, FIELD_KEY_ALIASES) ?? normalized;
+    const rightField = rightByKey.get(normalized);
+    if (rightField == null) conflict(key, `${rightSource} omits it`);
+    const difference = compareRequirementContracts(leftField, rightField);
+    if (difference != null) {
+      conflict(
+        key,
+        `${leftSource} and ${rightSource} disagree about ` +
+        `${difference.field} (${JSON.stringify(difference.left)} versus ` +
+        `${JSON.stringify(difference.right)})`,
+      );
+    }
+  }
+  for (const [normalized, rightField] of rightByKey) {
+    if (leftByKey.has(normalized)) continue;
+    const key = stringFrom(rightField, FIELD_KEY_ALIASES) ?? normalized;
+    conflict(key, `${leftSource} omits it`);
+  }
+}
+
 function fieldsForModule(
   bundle: ParsedSnapshotBundle,
   module: AssignmentJsonMap,
 ): AssignmentJsonMap[] {
   const code = moduleCode(module);
+  const embeddedRepresentations: Array<{
+    source: string;
+    fields: AssignmentJsonMap[];
+  }> = [];
 
   for (const key of [
     "fields",
@@ -1764,7 +1923,7 @@ function fieldsForModule(
       );
       if (parsed.length > 0) {
         assertEmbeddedFieldsAgree(parsed, bundle, code, key);
-        return parsed;
+        embeddedRepresentations.push({source: key, fields: parsed});
       }
     }
     if (Array.isArray(value)) {
@@ -1786,9 +1945,23 @@ function fieldsForModule(
       });
       if (parsed.length > 0) {
         assertEmbeddedFieldsAgree(parsed, bundle, code, key);
-        return parsed;
+        embeddedRepresentations.push({source: key, fields: parsed});
       }
     }
+  }
+
+  if (embeddedRepresentations.length > 0) {
+    const first = embeddedRepresentations[0];
+    for (const representation of embeddedRepresentations.slice(1)) {
+      assertEmbeddedFieldListsAgree(
+        first.fields,
+        representation.fields,
+        code,
+        first.source,
+        representation.source,
+      );
+    }
+    return first.fields;
   }
 
   const hasLinkedGlobalFields = bundle.fieldDefinitions.some((field) => {
@@ -1964,7 +2137,21 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
 
   bundle.checklistItems.forEach((item, index) => {
     const linkedCode = fieldModuleCode(bundle, item);
-    if (linkedCode == null) return;
+    const required = boolFrom(item, ["isRequired", "required"], false);
+    if (linkedCode == null) {
+      if (required) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Required checklist item #${index + 1} is not linked to a ` +
+          "runtime module field.",
+          {
+            reasonCode: "required-checklist-not-executable",
+            checklistIndex: index,
+          },
+        );
+      }
+      return;
+    }
     const knownKeys = fieldKeysByModule.get(normalizeKey(linkedCode));
     if (knownKeys == null) {
       throw new AssignmentValidationError(
@@ -1981,6 +2168,17 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
       "fieldKey",
       "fieldId",
     ]);
+    if (required && linkedField == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `Required checklist item #${index + 1} is not linked to a ` +
+        "runtime module field.",
+        {
+          reasonCode: "required-checklist-not-executable",
+          checklistIndex: index,
+        },
+      );
+    }
     if (
       linkedField != null &&
       !knownKeys.has(normalizeKey(linkedField))
@@ -1993,6 +2191,31 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
           checklistIndex: index,
         },
       );
+    }
+    if (required && linkedField != null) {
+      const linkedDefinition = bundle.fieldDefinitions.find(
+        (field) =>
+          normalizeKey(fieldModuleCode(bundle, field)) ===
+            normalizeKey(linkedCode) &&
+          normalizeKey(stringFrom(field, FIELD_KEY_ALIASES)) ===
+            normalizeKey(linkedField),
+      );
+      if (
+        linkedDefinition == null ||
+        !requirementContractForField(linkedDefinition).required
+      ) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Required checklist item #${index + 1} is not backed by a ` +
+          "required runtime field.",
+          {
+            reasonCode: "required-checklist-not-executable",
+            checklistIndex: index,
+            moduleCode: linkedCode,
+            fieldKey: linkedField,
+          },
+        );
+      }
     }
   });
 }
@@ -2043,7 +2266,7 @@ function deriveClosureState(
         "required",
         "isRequired",
       ],
-      false,
+      true,
     ),
   ).length;
   const declaredCount =
@@ -2382,6 +2605,10 @@ function workflowFactsFromSnapshot(
   let awaitingPreparationCount = 0;
   for (const row of queryDocs(snapshot)) {
     const data = row.data() ?? {};
+    // Issue-coordination work is an administrative hand-off, not an open
+    // equipment-maintenance contribution. Reconciliation and assignment must
+    // apply the same contribution contract.
+    if (data.workflowKind === "issueCoordination") continue;
     if (identity.assetClassId != null && identity.assetInstanceId != null) {
       const assetClassId = cleanOptionalText(data.assetClassId);
       const assetInstanceId = cleanOptionalText(data.assetInstanceId);
@@ -2725,16 +2952,23 @@ function selectPublicationAudit(
  */
 export function validatePublishedTemplatePublication(args: {
   request: Pick<ParsedAssignmentRequest,
-    "packageId" | "versionId" | "expectedVersionNumber" | "expectedContentHash">;
+    "packageId" | "versionId" | "expectedVersionNumber" | "expectedContentHash" |
+    "clientAppVersion">;
   packageData: AssignmentJsonMap;
   versionData: AssignmentJsonMap;
+  enforceClientAppVersion?: boolean;
 }): {
   contentHash: string;
   requireAudit: (auditSnapshots: AssignmentDocumentSnapshotLike[]) => {
     id: string; data: AssignmentJsonMap;
   };
 } {
-  const {request, packageData, versionData} = args;
+  const {
+    request,
+    packageData,
+    versionData,
+    enforceClientAppVersion = true,
+  } = args;
   if (
     cleanOptionalText(packageData.firestoreId) !== request.packageId
   ) {
@@ -2782,6 +3016,44 @@ export function validatePublishedTemplatePublication(args: {
       "Only a published, non-deleted TemplateVersion can be assigned.",
       {reasonCode: "version-not-published"},
     );
+  }
+  const minimumAppVersion = cleanOptionalText(versionData.minAppVersion);
+  if (enforceClientAppVersion && minimumAppVersion != null) {
+    const minimum = parseComparableAppVersion(minimumAppVersion);
+    if (minimum == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "The published TemplateVersion has an invalid minimum app version.",
+        {reasonCode: "minimum-app-version-invalid"},
+      );
+    }
+    const clientText = cleanOptionalText(request.clientAppVersion);
+    if (clientText == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "This published work requires an app version that the client did not identify.",
+        {reasonCode: "client-app-version-required", minimumAppVersion},
+      );
+    }
+    const client = parseComparableAppVersion(clientText);
+    if (client == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "This client cannot prove a comparable app version for the published work.",
+        {reasonCode: "client-app-version-invalid", clientAppVersion: clientText},
+      );
+    }
+    if (compareComparableAppVersions(client, minimum) < 0) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `This published work requires app version ${minimumAppVersion} or newer.`,
+        {
+          reasonCode: "client-app-version-too-old",
+          minimumAppVersion,
+          clientAppVersion: clientText,
+        },
+      );
+    }
   }
   if (
     cleanOptionalText(versionData.packageFirestoreId) !==
@@ -3016,7 +3288,12 @@ function buildCanonicalAssignment(args: {
       versionNumber: request.expectedVersionNumber,
       versionLabel: cleanOptionalText(versionData.versionLabel),
       contentHash: request.expectedContentHash,
-      ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
+      ...(maintenanceClassification == null ? {} : {
+        maintenanceClassification,
+        // Published template classification starts the execution at revision
+        // one; later reviewed corrections increment this marker.
+        maintenanceClassificationRevision: 1,
+      }),
       ...(equipmentIdentity.assetClassId != null ? {
         assignmentAssetIdentity: {
           assetClassId: equipmentIdentity.assetClassId,

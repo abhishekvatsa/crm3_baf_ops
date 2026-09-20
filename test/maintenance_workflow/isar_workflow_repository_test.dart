@@ -312,6 +312,8 @@ void main() {
       await scoped.expectCount(1);
 
       outside.stateKey = 'inService';
+      outside.version = 3;
+      outside.updatedAt = _time(3);
       await repository.upsertEquipmentFromRemote(outside);
       expect(_equipmentIds(await scoped.at(1)), [
         'base-one',
@@ -321,6 +323,8 @@ void main() {
       ]);
 
       outside.stateKey = 'outOfService';
+      outside.version = 4;
+      outside.updatedAt = _time(4);
       await repository.upsertEquipmentFromRemote(outside);
       expect(_equipmentIds(await scoped.at(2)), [
         'base-one',
@@ -409,6 +413,59 @@ void main() {
       expect(await repository.getEquipment('base', 99), isNull);
     },
   );
+
+  test('equipment pull ignores a stale remote projection', () async {
+    final current = _equipment(
+      'base-7',
+      type: 'base',
+      number: 7,
+      state: 'underMaintenance',
+    )
+      ..version = 4
+      ..updatedAt = _time(20);
+    await repository.upsertEquipmentFromRemote(current);
+
+    final stale = _equipment(
+      'base-7',
+      type: 'base',
+      number: 7,
+      state: 'inService',
+    )
+      ..version = 3
+      ..updatedAt = _time(21);
+    await repository.upsertEquipmentFromRemote(stale);
+
+    expect(
+      (await repository.getEquipment('base', 7))?.stateKey,
+      'underMaintenance',
+    );
+    expect((await repository.getEquipment('base', 7))?.version, 4);
+  });
+
+  test('equipment pull quarantines a conflicting same-version projection', () async {
+    final current = _equipment(
+      'base-8',
+      type: 'base',
+      number: 8,
+      state: 'inService',
+    )
+      ..version = 2
+      ..updatedAt = _time(20);
+    await repository.upsertEquipmentFromRemote(current);
+
+    final conflicting = _equipment(
+      'base-8',
+      type: 'base',
+      number: 8,
+      state: 'underMaintenance',
+    )
+      ..version = 2
+      ..updatedAt = _time(20);
+    await expectLater(
+      repository.upsertEquipmentFromRemote(conflicting),
+      throwsA(isA<StateError>()),
+    );
+  });
 
   test(
     'retry queries preserve the due boundary, nulls, and manual-review policy',

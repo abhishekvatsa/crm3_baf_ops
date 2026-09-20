@@ -83,6 +83,8 @@ export const A05_DECISIONS = Object.freeze({
 });
 
 export const A05_COLLECTION_REGISTRY = Object.freeze({
+  _maintenance_cursors: 'STRICT_SERVER_CONTROL',
+  ordinary_directive_receipts: 'STRICT_SERVER_CONTROL',
   submission_recovery_decisions: 'SERVER_CONTROL_RECORD',
   submission_recovery_fences: 'SERVER_CONTROL_RECORD',
   submission_recovery_controls: 'SERVER_CONTROL_RECORD',
@@ -188,6 +190,11 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   morning_review_documents: 'DART_RECONCILIATION_REQUIRED',
   morning_review_entries: 'DART_RECONCILIATION_REQUIRED',
   morning_review_mutation_receipts: 'SERVER_CONTROL_RECORD',
+  morning_review_refusals: 'SERVER_CONTROL_RECORD',
+  morning_review_population_manifests: 'SERVER_CONTROL_RECORD',
+  morning_review_corrections: 'SERVER_CONTROL_RECORD',
+  morning_review_action_history: 'SERVER_CONTROL_RECORD',
+  morning_review_concern_history: 'SERVER_CONTROL_RECORD',
   morning_review_participants: 'DART_RECONCILIATION_REQUIRED',
   morning_review_sessions: 'DART_RECONCILIATION_REQUIRED',
   morning_review_standing_concerns: 'DART_RECONCILIATION_REQUIRED',
@@ -288,6 +295,118 @@ export function validateGlobalPullRuntimeContract(documentId, data) {
   return reasons;
 }
 
+function plainRecord(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value) &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(value));
+}
+
+function exactKeys(value, keys) {
+  return plainRecord(value) && Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key));
+}
+
+function documentKey(value) {
+  return typeof value === 'string' && value.length > 0 &&
+    !/[\/\x00-\x1f]/.test(value);
+}
+
+// Matches the server's stableJson receipt digest without loading compiled
+// Functions or making any callable request during this read-only inventory.
+function receiptJson(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(receiptJson).join(',')}]`;
+  return `{${Object.keys(value).sort().map(
+    (key) => `${JSON.stringify(key)}:${receiptJson(value[key])}`,
+  ).join(',')}}`;
+}
+
+function receiptDigest(value) {
+  return createHash('sha256').update(receiptJson(value)).digest('hex');
+}
+
+export function validateMaintenanceCursor(documentId, data) {
+  const reasons = [];
+  if (documentId !== 'quality-monitoring-archive-v1') {
+    reasons.push('unsupported-maintenance-cursor');
+  }
+  if (!exactKeys(data, ['schemaVersion', 'generation', 'due', 'legacy', 'updatedAt'])) {
+    return [...reasons, 'invalid-maintenance-cursor-key-set'];
+  }
+  if (data.schemaVersion !== 1) reasons.push('maintenance-cursor-schema-mismatch');
+  if (!Number.isSafeInteger(data.generation) || data.generation < 1) {
+    reasons.push('invalid-maintenance-cursor-generation');
+  }
+  if (!hasTimestampShape(data.updatedAt)) reasons.push('invalid-maintenance-cursor-updated-at');
+  for (const lane of ['due', 'legacy']) {
+    const cursor = data[lane];
+    if (cursor === null) continue;
+    if (!exactKeys(cursor, lane === 'due' ? ['id', 'value'] : ['id']) ||
+        !documentKey(cursor.id) ||
+        lane === 'due' && !hasTimestampShape(cursor.value)) {
+      reasons.push(`invalid-maintenance-cursor-${lane}`);
+    }
+  }
+  return reasons;
+}
+
+export function validateOrdinaryDirectiveReceipt(documentId, data, audit) {
+  const reasons = [];
+  if (!exactKeys(data, [
+    'schemaVersion', 'requestId', 'actorUid', 'fingerprint', 'result',
+    'resultSha256', 'auditSha256',
+  ])) return ['invalid-directive-receipt-key-set'];
+  if (data.schemaVersion !== 1) reasons.push('directive-receipt-schema-mismatch');
+  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(documentId) || data.requestId !== documentId) {
+    reasons.push('directive-receipt-request-mismatch');
+  }
+  if (!documentKey(data.actorUid)) reasons.push('invalid-directive-receipt-actor');
+  for (const key of ['fingerprint', 'resultSha256', 'auditSha256']) {
+    if (typeof data[key] !== 'string' || !/^[0-9a-f]{64}$/.test(data[key])) {
+      reasons.push(`invalid-directive-${key}`);
+    }
+  }
+  const result = data.result;
+  if (!exactKeys(result, [
+    'ok', 'requestId', 'operation', 'entityId', 'version', 'committedAt',
+    'idempotentReplay', 'entity',
+  ])) return [...reasons, 'invalid-directive-receipt-result-key-set'];
+  if (result.ok !== true || result.idempotentReplay !== false ||
+      result.requestId !== documentId || result.operation !== 'APPLY_ORDINARY_DIRECTIVE' ||
+      typeof result.entityId !== 'string' ||
+      !/^[a-zA-Z0-9_-]{1,160}$/.test(result.entityId ?? '') ||
+      result.entityId.startsWith('burner_round_') ||
+      !Number.isSafeInteger(result.version) || result.version < 1 ||
+      typeof result.committedAt !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(result.committedAt) ||
+      !Number.isFinite(Date.parse(result.committedAt)) ||
+      new Date(result.committedAt).toISOString() !== result.committedAt ||
+      !plainRecord(result.entity) || result.entity.firestoreId !== result.entityId ||
+      result.entity.version !== result.version) {
+    reasons.push('invalid-directive-receipt-result');
+  }
+  if (receiptDigest(result) !== data.resultSha256) reasons.push('directive-result-digest-mismatch');
+  // The immutable accepted audit, not today's directive or today's actor role,
+  // is the authority for this historical receipt. Later edits remain valid.
+  if (!plainRecord(audit)) return [...reasons, 'directive-receipt-audit-missing'];
+  if (receiptDigest(audit) !== data.auditSha256) reasons.push('directive-audit-digest-mismatch');
+  if (audit.schemaVersion !== 1 || audit.entityType !== 'directive' ||
+      audit.requestId !== documentId || audit.entityId !== result.entityId ||
+      audit.performedByUid !== data.actorUid || audit.timestamp !== result.committedAt ||
+      audit.resultVersion !== result.version || audit.expectedVersion !== result.version - 1 ||
+      !['create', 'update', 'resolve', 'delete'].includes(audit.action)) {
+    reasons.push('directive-receipt-audit-binding-mismatch');
+  }
+  try {
+    if (typeof audit.afterJson !== 'string' ||
+        receiptJson(JSON.parse(audit.afterJson)) !== receiptJson(result.entity)) {
+      reasons.push('directive-receipt-after-image-mismatch');
+    }
+  } catch (_) {
+    reasons.push('directive-receipt-after-image-mismatch');
+  }
+  return reasons;
+}
+
 export function rulesRootCollections(rulesSource) {
   const result = new Set();
   const pattern = /^\s*match \/([^/{]+)\/\{[^}]+\}\s*\{/gm;
@@ -363,6 +482,9 @@ export function classifyA05Inventory({
   const warnings = [];
   const collectionCounts = {};
   const collectionDispositions = {};
+  const ordinaryDirectiveAudits = new Map(
+    (documentsByCollection.audit_logs ?? []).map((document) => [document.id, document.data]),
+  );
   const registeredRoots = new Set(Object.keys(A05_COLLECTION_REGISTRY));
   const reconciliationBySubject = new Map(
     dartReconciliationResults.map((result) => [
@@ -431,6 +553,24 @@ export function classifyA05Inventory({
       collectionDispositions[collection] = findingCount === 0
         ? 'STRICT_DECODER_PASS'
         : 'STRICT_DECODER_FINDINGS';
+    } else if (mode === 'STRICT_SERVER_CONTROL') {
+      let findingCount = 0;
+      for (const document of documents) {
+        const subjectPseudonym = pseudonymizeSubject(
+          hmacKey, `firestore:${collection}`, document.id,
+        );
+        const reasons = collection === '_maintenance_cursors'
+          ? validateMaintenanceCursor(document.id, document.data)
+          : validateOrdinaryDirectiveReceipt(document.id, document.data,
+            ordinaryDirectiveAudits.get(`server_ordinary_directive_${document.id}`));
+        for (const reason of reasons) {
+          blockingFindings.push({collection, subjectPseudonym, reason});
+          findingCount += 1;
+        }
+      }
+      collectionDispositions[collection] = documents.length === 0
+        ? 'EMPTY_NO_REPAIR_REQUIRED'
+        : findingCount === 0 ? 'STRICT_SERVER_CONTROL_PASS' : 'STRICT_SERVER_CONTROL_FINDINGS';
     } else if (mode === 'DART_RECONCILIATION_REQUIRED') {
       if (documents.length === 0) {
         collectionDispositions[collection] = 'EMPTY_NO_REPAIR_REQUIRED';

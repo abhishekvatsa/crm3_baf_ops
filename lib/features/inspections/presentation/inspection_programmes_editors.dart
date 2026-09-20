@@ -907,12 +907,14 @@ class _InspectionObservationEditor extends StatefulWidget {
     required this.nodes,
     required this.correction,
     required this.initialTargetKey,
+    this.lockTarget = false,
   });
 
   final InspectionCampaign campaign;
   final List<AssetHierarchyNode> nodes;
   final InspectionObservation? correction;
   final String? initialTargetKey;
+  final bool lockTarget;
 
   @override
   State<_InspectionObservationEditor> createState() =>
@@ -1036,7 +1038,7 @@ class _InspectionObservationEditorState
                           ),
                         )
                         .toList(),
-                    onChanged: locked
+                    onChanged: locked || widget.lockTarget
                         ? null
                         : (value) => setState(() => _targetKey = value),
                   ),
@@ -1325,6 +1327,8 @@ class _InspectionObservationEditorState
     return widget.campaign.targets
         .where(
           (target) =>
+              (!widget.lockTarget ||
+                  target.targetKey == widget.initialTargetKey) &&
               target.disposition !=
                   InspectionTargetDisposition.excludedWithReason &&
               target.disposition != InspectionTargetDisposition.unavailable,

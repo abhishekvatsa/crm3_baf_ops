@@ -1,6 +1,6 @@
 import {WorkflowError} from "./errors";
 import {JsonMap} from "./types";
-import {persistedInstantText} from "./utils";
+import {persistedInstantText, stableJson} from "./utils";
 
 const text = (value: unknown): value is string => typeof value === "string" &&
   value.length > 0 && value === value.trim();
@@ -25,7 +25,7 @@ const mismatch = (): never => {
  * Version/name changes do not change physical identity. Insufficient legacy
  * evidence requires review rather than a number-only compatibility fallback.
  */
-export function requireInspectionCorrectiveSubject(
+function requireInspectionSameAsset(
   ticket: JsonMap, ticketId: string, observation: JsonMap,
 ): void {
   if (ticket.firestoreId !== ticketId || ticket.isDeleted !== false ||
@@ -67,4 +67,60 @@ export function requireInspectionCorrectiveSubject(
       Date.parse(eventAt) < Date.parse(linkedAt)) return review();
   if (association.innerCoverId !== observation.assetInstanceId ||
       association.innerCoverSerialNumber !== observation.subjectSerialNumber) return mismatch();
+}
+
+function scopeKey(ticket: JsonMap): string {
+  const ref = JSON.parse(ticket.assetHierarchyRefJson as string) as JsonMap;
+  return stableJson({scope: ref.scope, assetClassId: ref.assetClassId,
+    assetInstanceId: ref.assetInstanceId, nodeId: ref.nodeId ?? null,
+    componentInstanceId: ref.componentInstanceId ?? null,
+    innerCoverId: object(ref.innerCoverAssociation) ? ref.innerCoverAssociation.innerCoverId : null});
+}
+
+/** A definition is not an installed serial or a position. Broader work may
+ * cover the target only through an explicit, immutable supervisor review. */
+export function requireInspectionCorrectiveSubject(
+  ticket: JsonMap, ticketId: string, observation: JsonMap, scopeReview?: unknown,
+): void {
+  requireInspectionSameAsset(ticket, ticketId, observation);
+  const ref = JSON.parse(ticket.assetHierarchyRefJson as string) as JsonMap;
+  const exactScope = observation.physicalPosition == null &&
+    (observation.componentNodeId == null ? ref.scope === "physicalAsset" :
+      ref.scope === "componentDefinitionOnAsset" && ref.nodeId === observation.componentNodeId);
+  if (exactScope) return;
+  if (object(scopeReview) && scopeReview.schemaVersion === 1 &&
+      scopeReview.ticketId === ticketId && scopeReview.targetKey === observation.targetKey &&
+      scopeReview.componentNodeId === (observation.componentNodeId ?? null) &&
+      scopeReview.physicalPosition === (observation.physicalPosition ?? null) &&
+      scopeReview.ticketScopeKey === scopeKey(ticket) &&
+      scopeReview.ticketDescription === (ticket.description ?? null) &&
+      text(scopeReview.reviewedByUid) && text(scopeReview.reason) &&
+      positive(scopeReview.reviewedTicketVersion) &&
+      persistedInstantText(scopeReview.reviewedAt) != null) return;
+  throw new WorkflowError("failed-precondition",
+    "This repair does not establish the exact inspected component and position. A supervisor must review and record how the work covers this target.",
+    {reasonCode: "inspection-corrective-scope-review-required"});
+}
+
+export function inspectionCorrectiveScopeReview(
+  ticket: JsonMap, ticketId: string, observation: JsonMap,
+  request: unknown, roles: ReadonlySet<string>, uid: string, name: string, at: string,
+): JsonMap | null {
+  requireInspectionSameAsset(ticket, ticketId, observation);
+  if (request == null) return null;
+  if (!["admin", "si", "contractSupervisor", "shiftSupervisor"].some((role) => roles.has(role))) {
+    throw new WorkflowError("permission-denied", "A supervisor must review corrective-work applicability.");
+  }
+  if (!object(request) || Object.keys(request).sort().join(",") !== "expectedTicketVersion,reason" ||
+      !positive(request.expectedTicketVersion) || !text(request.reason) || request.reason.length > 1000) {
+    throw new WorkflowError("invalid-argument", "Corrective scope review needs the reviewed ticket version and a reason.");
+  }
+  if (ticket.version !== request.expectedTicketVersion) {
+    throw new WorkflowError("aborted", "The maintenance issue changed after review. Review it again.");
+  }
+  return {schemaVersion: 1, ticketId, targetKey: observation.targetKey,
+    componentNodeId: observation.componentNodeId ?? null, physicalPosition: observation.physicalPosition ?? null,
+    ticketScopeKey: scopeKey(ticket), ticketDescription: ticket.description ?? null,
+    reviewedTicketVersion: ticket.version, reviewedByUid: uid, reviewedByName: name,
+    reviewedAt: at, reason: request.reason};
 }

@@ -11,6 +11,33 @@ import '../data/workflow_command_record.dart';
 import '../data/workflow_event_record.dart';
 import 'workflow_repository.dart';
 
+bool _sameInstant(DateTime? left, DateTime? right) =>
+    left?.toUtc() == right?.toUtc();
+
+bool _sameEquipmentProjection(
+  EquipmentStatusRecord left,
+  EquipmentStatusRecord right,
+) =>
+    left.firestoreId == right.firestoreId &&
+    left.assetTypeKey == right.assetTypeKey &&
+    left.assetNumber == right.assetNumber &&
+    left.assetClassId == right.assetClassId &&
+    left.assetInstanceId == right.assetInstanceId &&
+    left.stateKey == right.stateKey &&
+    left.openMaintenanceCount == right.openMaintenanceCount &&
+    left.openRedCount == right.openRedCount &&
+    left.awaitingPreparationCount == right.awaitingPreparationCount &&
+    left.previousStateKey == right.previousStateKey &&
+    left.transitionTrigger == right.transitionTrigger &&
+    left.activeExecutionIdsJson == right.activeExecutionIdsJson &&
+    _sameInstant(left.availableSince, right.availableSince) &&
+    _sameInstant(left.inServiceSince, right.inServiceSince) &&
+    _sameInstant(left.lastTransitionAt, right.lastTransitionAt) &&
+    left.lastTransitionByUid == right.lastTransitionByUid &&
+    left.lastTransitionByName == right.lastTransitionByName &&
+    _sameInstant(left.updatedAt, right.updatedAt) &&
+    left.metadataJson == right.metadataJson;
+
 /// Isar-backed workflow projection repository.
 ///
 /// Scoped reads use the generated index queries so unrelated records are not
@@ -164,8 +191,34 @@ class IsarWorkflowRepository implements WorkflowRepository {
   ) => isar.writeTxn(() async => isar.complianceAttemptRecords.put(record));
 
   @override
-  Future<void> upsertEquipmentFromRemote(EquipmentStatusRecord record) =>
-      isar.writeTxn(() async => isar.equipmentStatusRecords.put(record));
+  Future<void> upsertEquipmentFromRemote(EquipmentStatusRecord record) {
+    return isar.writeTxn(() async {
+      final firestoreId = record.firestoreId;
+      final current = firestoreId == null
+          ? null
+          : await isar.equipmentStatusRecords
+                .where()
+                .firestoreIdEqualTo(firestoreId)
+                .findFirst();
+      if (current != null) {
+        if (record.version < current.version) {
+          return;
+        }
+        if (record.version == current.version) {
+          if (!_sameEquipmentProjection(record, current)) {
+            throw StateError(
+              'Conflicting equipment projections share revision ${record.version}.',
+            );
+          }
+          return;
+        }
+        // Keep the local primary key stable while adopting a newer remote
+        // projection. This also makes the version fence apply to watchers.
+        record.id = current.id;
+      }
+      await isar.equipmentStatusRecords.put(record);
+    });
+  }
 
   @override
   Future<void> upsertPromptFromRemote(EquipmentPromptRecord record) =>
@@ -190,11 +243,10 @@ class IsarWorkflowRepository implements WorkflowRepository {
   Future<void> settleAccepted(WorkflowCommandReceiptRecord receipt) {
     return isar.writeTxn(() async {
       await isar.workflowCommandReceiptRecords.put(receipt);
-      final row =
-          await isar.workflowCommandRecords
-              .where()
-              .commandIdEqualTo(receipt.commandId)
-              .findFirst();
+      final row = await isar.workflowCommandRecords
+          .where()
+          .commandIdEqualTo(receipt.commandId)
+          .findFirst();
       if (row != null) {
         await isar.workflowCommandRecords.delete(row.id);
       }
@@ -213,22 +265,20 @@ class IsarWorkflowRepository implements WorkflowRepository {
       // written, or lands after this transaction, in which case its own
       // settlement clears whatever this wrote. Either ordering leaves one
       // coherent state; reading beforehand did not.
-      final receipt =
-          await isar.workflowCommandReceiptRecords
-              .where()
-              .commandIdEqualTo(commandId)
-              .findFirst();
+      final receipt = await isar.workflowCommandReceiptRecords
+          .where()
+          .commandIdEqualTo(commandId)
+          .findFirst();
       if (receipt != null) {
         return WorkflowRetryTransition(
           WorkflowRetryTransitionOutcome.alreadyAccepted,
           receipt: receipt,
         );
       }
-      final current =
-          await isar.workflowCommandRecords
-              .where()
-              .commandIdEqualTo(commandId)
-              .findFirst();
+      final current = await isar.workflowCommandRecords
+          .where()
+          .commandIdEqualTo(commandId)
+          .findFirst();
       final next = build(current);
       if (next == null) {
         return const WorkflowRetryTransition(
@@ -278,27 +328,25 @@ class IsarWorkflowRepository implements WorkflowRepository {
       // already in `sending` or does not see them at all. Reading first and
       // writing after would leave exactly the window that produces two
       // submissions for one action.
-      final due =
-          await isar.workflowCommandRecords
-              .where()
-              .stateKeyEqualTo('uncertainOutcome')
-              .filter()
-              .nextRetryAtIsNotNull()
-              .nextRetryAtLessThan(now, include: true)
-              .sortByCreatedLocallyAt()
-              .findAll();
+      final due = await isar.workflowCommandRecords
+          .where()
+          .stateKeyEqualTo('uncertainOutcome')
+          .filter()
+          .nextRetryAtIsNotNull()
+          .nextRetryAtLessThan(now, include: true)
+          .sortByCreatedLocallyAt()
+          .findAll();
 
       // A caller that died mid-send leaves a row in `sending` with nobody
       // working it. Reclaiming only after the lease has expired keeps that
       // from stranding the command, without racing a caller still in flight.
-      final abandoned =
-          await isar.workflowCommandRecords
-              .where()
-              .stateKeyEqualTo('sending')
-              .filter()
-              .lastAttemptAtLessThan(leaseFloor)
-              .sortByCreatedLocallyAt()
-              .findAll();
+      final abandoned = await isar.workflowCommandRecords
+          .where()
+          .stateKeyEqualTo('sending')
+          .filter()
+          .lastAttemptAtLessThan(leaseFloor)
+          .sortByCreatedLocallyAt()
+          .findAll();
 
       final claimed = <WorkflowCommandRecord>[...due, ...abandoned]
           .where((record) => !exclude.contains(record.commandId))
@@ -322,11 +370,10 @@ class IsarWorkflowRepository implements WorkflowRepository {
     DateTime? nextRetryAt,
   }) {
     return isar.writeTxn(() async {
-      final record =
-          await isar.workflowCommandRecords
-              .where()
-              .commandIdEqualTo(commandId)
-              .findFirst();
+      final record = await isar.workflowCommandRecords
+          .where()
+          .commandIdEqualTo(commandId)
+          .findFirst();
       // Only a live claim is released. If the command already reached an
       // outcome, that outcome is authoritative and must not be reopened.
       if (record == null || record.stateKey != 'sending') return;
@@ -341,10 +388,8 @@ class IsarWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<WorkflowOutcomeInventory> readOutcomeInventory() async {
-    Future<int> count(String stateKey) => isar.workflowCommandRecords
-        .filter()
-        .stateKeyEqualTo(stateKey)
-        .count();
+    Future<int> count(String stateKey) =>
+        isar.workflowCommandRecords.filter().stateKeyEqualTo(stateKey).count();
     return WorkflowOutcomeInventory(
       retrying: await count('uncertainOutcome') + await count('ready'),
       sending: await count('sending'),

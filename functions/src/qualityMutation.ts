@@ -20,7 +20,9 @@ export type QualityMutationOperation =
   | "CLOSE_QUALITY_WARNING"
   | "REOPEN_QUALITY_WARNING"
   | "CREATE_QUALITY_MONITORING_REQUEST"
-  | "CLOSE_QUALITY_MONITORING_REQUEST";
+  | "CLOSE_QUALITY_MONITORING_REQUEST"
+  | "CORRECT_QUALITY_MONITORING_REQUEST"
+  | "CANCEL_QUALITY_MONITORING_REQUEST";
 
 export function qualityAuditActionForOperation(
   operation: QualityMutationOperation,
@@ -29,9 +31,11 @@ export function qualityAuditActionForOperation(
   case "REQUEST_QUALITY_WARNING_CLOSURE":
   case "DECLARE_QUALITY_CASE_RA_REQUIRED":
   case "RECORD_QUALITY_CASE_RA_COMPLETED":
+  case "CORRECT_QUALITY_MONITORING_REQUEST":
     return "update";
   case "CLOSE_QUALITY_WARNING":
   case "CLOSE_QUALITY_MONITORING_REQUEST":
+  case "CANCEL_QUALITY_MONITORING_REQUEST":
     return "resolve";
   case "REOPEN_QUALITY_WARNING":
     return "reopen";
@@ -93,7 +97,8 @@ export type QualityMutationFirestoreLike = {
 type WarningOperation = Exclude<
   QualityMutationOperation,
   "CREATE_QUALITY_MONITORING_REQUEST" |
-  "CLOSE_QUALITY_MONITORING_REQUEST"
+  "CLOSE_QUALITY_MONITORING_REQUEST" |
+  "CORRECT_QUALITY_MONITORING_REQUEST" | "CANCEL_QUALITY_MONITORING_REQUEST"
 >;
 
 type ParsedWarningRequest = {
@@ -111,7 +116,9 @@ type ParsedMonitoringRequest = {
   requestId: string;
   operation:
     | "CREATE_QUALITY_MONITORING_REQUEST"
-    | "CLOSE_QUALITY_MONITORING_REQUEST";
+    | "CLOSE_QUALITY_MONITORING_REQUEST"
+  | "CORRECT_QUALITY_MONITORING_REQUEST"
+  | "CANCEL_QUALITY_MONITORING_REQUEST";
   monitoringRequestId: string;
   expectedVersion: number;
   reason: string;
@@ -150,6 +157,8 @@ const OPERATIONS = new Set<QualityMutationOperation>([
   "REOPEN_QUALITY_WARNING",
   "CREATE_QUALITY_MONITORING_REQUEST",
   "CLOSE_QUALITY_MONITORING_REQUEST",
+  "CORRECT_QUALITY_MONITORING_REQUEST",
+  "CANCEL_QUALITY_MONITORING_REQUEST",
 ]);
 export const QUALITY_MONITORING_OPERATIONAL_RETENTION_MS =
   7 * 24 * 60 * 60 * 1000;
@@ -304,6 +313,12 @@ const WARNING_FIELDS = new Set([
   "lastMutationId",
   "_globalPullServerUpdatedAt",
 ]);
+const MONITORING_REVIEW_FIELDS = new Set(["monitoringDisposition", "originalMonitoringContext"]);
+const MONITORING_CONTEXT_FIELDS = ["baseNumber", "baseAssetClassId", "baseAssetInstanceId",
+  "baseAssetInstanceVersion", "grade", "cycleReference", "chargeNumbers", "reason"];
+const monitoringContext = (row: UserAuthorityJsonMap): UserAuthorityJsonMap =>
+  Object.fromEntries(MONITORING_CONTEXT_FIELDS.map((key) => [key, row[key] ?? null]));
+
 const MONITORING_FIELDS = new Set([
   "schemaVersion",
   "requestId",
@@ -496,13 +511,14 @@ export function parseQualityMutationRequest(
   if (operation.includes("MONITORING_REQUEST")) {
     const monitoringOperation = operation as ParsedMonitoringRequest["operation"];
     const create = operation === "CREATE_QUALITY_MONITORING_REQUEST";
+    const contextChange = create || operation === "CORRECT_QUALITY_MONITORING_REQUEST";
     const allowed = new Set([
       "requestId",
       "operation",
       "monitoringRequestId",
       "expectedVersion",
       "reason",
-      ...(create ? [
+      ...(contextChange ? [
         "baseNumber",
         "baseAssetClassId",
         "baseAssetInstanceId",
@@ -531,13 +547,16 @@ export function parseQualityMutationRequest(
       "baseAssetInstanceId",
       "baseAssetInstanceVersion",
     ];
-    const identityFieldCount = create ? identityKeys.filter((key) =>
+    const identityFieldCount = contextChange ? identityKeys.filter((key) =>
       Object.prototype.hasOwnProperty.call(raw, key)).length : 0;
     if (identityFieldCount !== 0 && identityFieldCount !== identityKeys.length) {
       invalid(
         "baseAssetInstanceId",
         "requires the complete governed Base identity",
       );
+    }
+    if (!create && contextChange && identityFieldCount !== identityKeys.length) {
+      invalid("baseAssetInstanceId", "requires a reviewed exact Base for correction");
     }
     const baseAssetClassId = identityFieldCount === identityKeys.length ?
       documentId(raw.baseAssetClassId, "baseAssetClassId") : null;
@@ -554,11 +573,11 @@ export function parseQualityMutationRequest(
       monitoringRequestId,
       expectedVersion,
       reason,
-      baseNumber: create ? positiveInteger(raw.baseNumber, "baseNumber") : null,
-      grade: create ? requiredString(raw.grade, "grade", 120) : null,
-      cycleReference: create ?
+      baseNumber: contextChange ? positiveInteger(raw.baseNumber, "baseNumber") : null,
+      grade: contextChange ? requiredString(raw.grade, "grade", 120) : null,
+      cycleReference: contextChange ?
         requiredString(raw.cycleReference, "cycleReference", 200) : null,
-      chargeNumbers: create ?
+      chargeNumbers: contextChange ?
         positiveIntegerList(raw.chargeNumbers, "chargeNumbers", 50) : [],
     };
     const fingerprintPayload = baseAssetClassId == null ?
@@ -1355,10 +1374,10 @@ export function validateQualityMonitoringRecord(
   requestId: string,
 ): UserAuthorityJsonMap {
   for (const key of Object.keys(data)) {
-    if (!MONITORING_FIELDS.has(key)) malformed("quality-monitoring", key);
+    if (!MONITORING_FIELDS.has(key) && !(data.schemaVersion === 4 && MONITORING_REVIEW_FIELDS.has(key))) malformed("quality-monitoring", key);
   }
   const schemaVersion = data.schemaVersion;
-  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3) {
+  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3 && schemaVersion !== 4) {
     malformed("quality-monitoring", "schemaVersion");
   }
   const visibilityFieldCount = [...MONITORING_VISIBILITY_FIELDS]
@@ -1370,8 +1389,11 @@ export function validateQualityMonitoringRecord(
         visibilityFieldCount !== MONITORING_VISIBILITY_FIELDS.size)) {
     malformed("quality-monitoring", "visibilityState");
   }
+  // Cancelling a legacy instruction must not invent a registered Base identity.
+  const legacyCancellation = schemaVersion === 4 && data.monitoringDisposition === "cancelled" &&
+    baseIdentityFieldCount === 0;
   if ((schemaVersion < 3 && baseIdentityFieldCount !== 0) ||
-      (schemaVersion === 3 &&
+      (schemaVersion >= 3 && !legacyCancellation &&
         baseIdentityFieldCount !== MONITORING_BASE_IDENTITY_FIELDS.size)) {
     malformed("quality-monitoring", "baseAssetInstanceId");
   }
@@ -1380,7 +1402,7 @@ export function validateQualityMonitoringRecord(
     if (schemaVersion === 1 && MONITORING_VISIBILITY_FIELDS.has(field)) {
       continue;
     }
-    if (schemaVersion < 3 && MONITORING_BASE_IDENTITY_FIELDS.has(field)) {
+    if ((schemaVersion < 3 || legacyCancellation) && MONITORING_BASE_IDENTITY_FIELDS.has(field)) {
       continue;
     }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
@@ -1391,7 +1413,7 @@ export function validateQualityMonitoringRecord(
     malformed("quality-monitoring", "requestId");
   }
   positiveExistingInteger(data.baseNumber, "baseNumber", "quality-monitoring");
-  if (schemaVersion === 3) {
+  if (schemaVersion >= 3 && !legacyCancellation) {
     requiredExistingString(
       data.baseAssetClassId,
       "baseAssetClassId",
@@ -1527,6 +1549,29 @@ export function validateQualityMonitoringRecord(
   } else {
     malformed("quality-monitoring", "visibilityState");
   }
+  if (schemaVersion === 4) {
+    const expected = data.status === "active" ? [null] : ["completed", "cancelled"];
+    if (!Object.prototype.hasOwnProperty.call(data, "monitoringDisposition") ||
+        !(expected as unknown[]).includes(data.monitoringDisposition)) malformed("quality-monitoring", "monitoringDisposition");
+    const context = data.originalMonitoringContext;
+    if (context == null || typeof context !== "object" || Array.isArray(context) ||
+        Object.keys(context).sort().join(",") !== [...MONITORING_CONTEXT_FIELDS].sort().join(",")) {
+      malformed("quality-monitoring", "originalMonitoringContext");
+    }
+    const raw = context as UserAuthorityJsonMap;
+    const identityAbsent = [...MONITORING_BASE_IDENTITY_FIELDS].every((field) => raw[field] === null);
+    if ((raw.baseAssetClassId == null && !identityAbsent) || (legacyCancellation && !identityAbsent)) {
+      malformed("quality-monitoring", "originalMonitoringContext");
+    }
+    // Reuse the established context contract, including legacy null identity.
+    const original: UserAuthorityJsonMap = {...data, ...raw, schemaVersion: raw.baseAssetClassId == null ? 2 : 3};
+    delete original.originalMonitoringContext;
+    delete original.monitoringDisposition;
+    if (raw.baseAssetClassId == null) {
+      delete original.baseAssetClassId; delete original.baseAssetInstanceId; delete original.baseAssetInstanceVersion;
+    }
+    validateQualityMonitoringRecord(original, requestId);
+  }
   return {...data, visibilityState, visibleUntil, archivedAt};
 }
 
@@ -1634,9 +1679,11 @@ async function resolveMonitoringBaseIdentity(args: {
       {reasonCode: "quality-monitoring-base-query-unavailable"},
     );
   }
+  // A legacy number-only request cannot certify uniqueness from a capped
+  // sample. Read the complete number population before deciding whether the
+  // governed Base is missing, unique or ambiguous.
   const candidates = await assets
     .where("assetNumber", "==", baseNumber)
-    .limit(50)
     .get();
   const matches: MonitoringBaseIdentity[] = [];
   for (const snapshot of candidates.docs) {
@@ -1790,6 +1837,9 @@ function replayMonitoringCreation(args: {
   let original: UserAuthorityJsonMap;
   try { original = validateQualityMonitoringRecord(parsed as UserAuthorityJsonMap, request.monitoringRequestId); }
   catch (_) { return fail(); }
+  // Validation may derive visibility fields for schema-1 data, but replay
+  // must preserve the historical payload shape that the old client accepted.
+  const historicalOriginal = {...(parsed as UserAuthorityJsonMap)};
   if (original.version !== 1 || original.status !== "active" || original.lastMutationId !== request.requestId ||
       original.createdByUid !== actorUid || original.updatedByUid !== actorUid ||
       original.createdByName !== audit.performedByName || original.updatedByName !== audit.performedByName ||
@@ -1802,13 +1852,15 @@ function replayMonitoringCreation(args: {
   // closure/archive state cannot rewrite or block acknowledgement of creation A.
   for (const field of ["requestId", "baseNumber", "grade", "cycleReference", "chargeNumbers", "reason",
     "createdByUid", "createdByName", "baseAssetClassId", "baseAssetInstanceId", "baseAssetInstanceVersion"]) {
-    if (stableJson(original[field]) !== stableJson(current[field])) fail();
+    const actual = current.schemaVersion === 4 && MONITORING_CONTEXT_FIELDS.includes(field) ?
+      (current.originalMonitoringContext as UserAuthorityJsonMap)[field] : current[field];
+    if (stableJson(original[field] ?? null) !== stableJson(actual ?? null)) fail();
   }
   if ((current.version as number) < 1 || creationTimeMillis(current.createdAt) !== committed) fail();
   return {ok: true, requestId: request.requestId, operation: request.operation,
     entityId: request.monitoringRequestId, version: 1, auditId,
     committedAt: receipt.committedAtIso as string, idempotentReplay: true,
-    entity: original, linkedAbnormality: null};
+    entity: historicalOriginal, linkedAbnormality: null};
 }
 
 function replayResult(args: {
@@ -1854,6 +1906,106 @@ function replayResult(args: {
   if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST") {
     return replayMonitoringCreation({request: request as ParsedMonitoringRequest,
       actorUid, receipt, audit, current, auditId});
+  }
+  if (request.operation === "CORRECT_QUALITY_MONITORING_REQUEST" || request.operation === "CANCEL_QUALITY_MONITORING_REQUEST") {
+    if (receipt.schemaVersion !== 1 || receipt.requestId !== request.requestId ||
+        audit.schemaVersion !== 1 || audit.eventType !== "qualityMutation" || audit.entityType !== "quality_monitoring_request" ||
+        audit.action !== qualityAuditActionForOperation(request.operation) ||
+        creationTimeMillis(receipt.committedAt) !== creationTimeMillis(receipt.committedAtIso) ||
+        receipt.acceptedEvidenceVersion !== 2 || receipt.acceptedAuditSha256 !== auditEvidenceDigest(audit) ||
+        receipt.resultVersion !== request.expectedVersion + 1 || receipt.expectedVersion !== request.expectedVersion ||
+        receipt.auditId !== auditId || audit.requestId !== request.requestId || audit.entityId !== entityId ||
+        audit.operation !== request.operation || audit.performedByUid !== actorUid ||
+        audit.reasonNotes !== request.reason || typeof audit.afterJson !== "string" ||
+        audit.resultVersion !== receipt.resultVersion || audit.expectedVersion !== request.expectedVersion ||
+        creationTimeMillis(audit.timestamp) !== creationTimeMillis(receipt.committedAtIso)) return qualityReplayEvidenceMalformed();
+    let accepted: UserAuthorityJsonMap;
+    try { accepted = validateQualityMonitoringRecord(JSON.parse(audit.afterJson), entityId); }
+    catch (_) { return qualityReplayEvidenceMalformed(); }
+    if (!sameInstant(accepted.updatedAt, receipt.committedAtIso) || accepted.updatedByName !== audit.performedByName ||
+        accepted.version !== receipt.resultVersion || accepted.lastMutationId !== request.requestId ||
+        accepted.updatedByUid !== actorUid || (current.version as number) < (accepted.version as number) ||
+        current.createdByUid !== accepted.createdByUid || !sameInstant(current.createdAt, accepted.createdAt)) return qualityReplayEvidenceMalformed();
+    if (request.operation === "CANCEL_QUALITY_MONITORING_REQUEST" &&
+        (accepted.monitoringDisposition !== "cancelled" || accepted.closeReason !== request.reason ||
+          accepted.closedByUid !== actorUid || !sameInstant(accepted.closedAt, receipt.committedAtIso))) return qualityReplayEvidenceMalformed();
+    if (request.operation === "CORRECT_QUALITY_MONITORING_REQUEST" &&
+        (accepted.status !== "active" || MONITORING_CONTEXT_FIELDS.filter((field) => field !== "reason").some((field) =>
+          stableJson(accepted[field]) !== stableJson((request as unknown as UserAuthorityJsonMap)[field])))) return qualityReplayEvidenceMalformed();
+    if (current.version === accepted.version && !qualityRecordsMatch(
+      {...accepted, visibilityState: null, visibleUntil: null, archivedAt: null},
+      {...current, visibilityState: null, visibleUntil: null, archivedAt: null},
+      new Set(["createdAt", "updatedAt", "closedAt"]))) return qualityReplayEvidenceMalformed();
+    return {ok: true, requestId: request.requestId, operation: request.operation, entityId,
+      version: accepted.version as number, auditId, committedAt: receipt.committedAtIso as string,
+      idempotentReplay: true, entity: accepted, linkedAbnormality: null};
+  }
+  if (request.operation === "CLOSE_QUALITY_MONITORING_REQUEST") {
+    // A close replay is allowed to observe later archival visibility, but it
+    // must still prove the immutable close accepted by the original command.
+    if (receipt.schemaVersion !== 1 || receipt.requestId !== request.requestId ||
+        receipt.expectedVersion !== request.expectedVersion ||
+        receipt.resultVersion !== request.expectedVersion + 1 || receipt.auditId !== auditId ||
+        audit.schemaVersion !== 1 || audit.eventType !== "qualityMutation" ||
+        audit.entityType !== "quality_monitoring_request" || audit.entityId !== entityId ||
+        audit.requestId !== request.requestId ||
+        creationTimeMillis(receipt.committedAt) !== creationTimeMillis(receipt.committedAtIso) ||
+        (receipt.acceptedEvidenceVersion === 2 &&
+          receipt.acceptedAuditSha256 !== auditEvidenceDigest(audit))) {
+      return qualityReplayEvidenceMalformed();
+    }
+    let acceptedAfter: UserAuthorityJsonMap;
+    try {
+      if (audit.action !== "resolve" ||
+          audit.operation !== request.operation ||
+          audit.performedByUid !== actorUid ||
+          audit.reasonNotes !== request.reason ||
+          audit.expectedVersion !== request.expectedVersion ||
+          audit.resultVersion !== receipt.resultVersion ||
+          typeof audit.afterJson !== "string") {
+        return qualityReplayEvidenceMalformed();
+      }
+      const parsedAfter = JSON.parse(audit.afterJson as string);
+      if (parsedAfter == null || typeof parsedAfter !== "object" || Array.isArray(parsedAfter)) {
+        return qualityReplayEvidenceMalformed();
+      }
+      acceptedAfter = validateQualityMonitoringRecord(
+        parsedAfter as UserAuthorityJsonMap,
+        entityId,
+      );
+    } catch (_) {
+      return qualityReplayEvidenceMalformed();
+    }
+    if (acceptedAfter.status !== "closed" ||
+        acceptedAfter.version !== receipt.resultVersion ||
+        acceptedAfter.closedByUid !== actorUid ||
+        acceptedAfter.closeReason !== request.reason ||
+        creationTimeMillis(acceptedAfter.closedAt) !== creationTimeMillis(receipt.committedAt) ||
+        creationTimeMillis(audit.timestamp) !== creationTimeMillis(receipt.committedAt)) {
+      return qualityReplayEvidenceMalformed();
+    }
+    // Visibility is a projection: archival may change it without changing the
+    // accepted business record. Everything else must still match at this tip.
+    const business = (row: UserAuthorityJsonMap): UserAuthorityJsonMap => {
+      const {visibilityState: _visibility, visibleUntil: _until, archivedAt: _archived, ...rest} = row;
+      return rest;
+    };
+    if (!qualityRecordsMatch(business(acceptedAfter), business(current),
+      new Set(["createdAt", "updatedAt", "closedAt"]))) {
+      return qualityReplayEvidenceMalformed();
+    }
+    return {
+      ok: true,
+      requestId: request.requestId,
+      operation: request.operation,
+      entityId,
+      version: receipt.resultVersion as number,
+      auditId,
+      committedAt: receipt.committedAtIso as string,
+      idempotentReplay: true,
+      entity: acceptedAfter,
+      linkedAbnormality: null,
+    };
   }
   const hasLinkedEvidence = Object.prototype.hasOwnProperty.call(
     receipt,
@@ -2305,7 +2457,7 @@ export async function mutateQualityWithDb(args: {
   actorFromSnapshot(await actorRef.get(), actorUid, request.operation);
   const receiptProbe = await receiptRef.get();
   const monitoringBaseIdentity =
-    request.operation === "CREATE_QUALITY_MONITORING_REQUEST" &&
+    (request.operation === "CREATE_QUALITY_MONITORING_REQUEST" || request.operation === "CORRECT_QUALITY_MONITORING_REQUEST") &&
     !receiptProbe.exists ?
       await resolveMonitoringBaseIdentity({db: args.db, request}) : null;
 
@@ -2355,7 +2507,7 @@ export async function mutateQualityWithDb(args: {
     }
 
     let certifiedMonitoringBaseVersion: number | null = null;
-    if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST") {
+    if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST" || request.operation === "CORRECT_QUALITY_MONITORING_REQUEST") {
       if (monitoringBaseIdentity == null) {
         throw new QualityMutationError(
           "data-loss",
@@ -2736,9 +2888,27 @@ export async function mutateQualityWithDb(args: {
         "quality-monitoring",
       );
       resultVersion = request.expectedVersion + 1;
-      after = {
+      const correcting = request.operation === "CORRECT_QUALITY_MONITORING_REQUEST";
+      const cancelling = request.operation === "CANCEL_QUALITY_MONITORING_REQUEST";
+      if (correcting && (monitoringBaseIdentity == null || certifiedMonitoringBaseVersion == null)) {
+        throw new QualityMutationError("data-loss", "Reviewed Base certification is unavailable.");
+      }
+      after = correcting ? {
+        ...before, schemaVersion: 4,
+        baseNumber: request.baseNumber,
+        baseAssetClassId: monitoringBaseIdentity!.classId,
+        baseAssetInstanceId: monitoringBaseIdentity!.instanceId,
+        baseAssetInstanceVersion: certifiedMonitoringBaseVersion,
+        grade: request.grade, cycleReference: request.cycleReference, chargeNumbers: request.chargeNumbers,
+        monitoringDisposition: null,
+        originalMonitoringContext: before.originalMonitoringContext ?? monitoringContext(before),
+      } : {
         ...before,
-        schemaVersion: before.schemaVersion === 1 ? 2 : before.schemaVersion,
+        schemaVersion: cancelling ? 4 : before.schemaVersion === 1 ? 2 : before.schemaVersion,
+        ...(cancelling || before.schemaVersion === 4 ? {
+          monitoringDisposition: cancelling ? "cancelled" : "completed",
+          originalMonitoringContext: before.originalMonitoringContext ?? monitoringContext(before),
+        } : {}),
         status: "closed",
         visibilityState: "recent",
         visibleUntil: timestampFromDate(new Date(
@@ -2834,7 +3004,7 @@ export async function mutateQualityWithDb(args: {
       ...(creatingMonitoring ? {creationEvidenceVersion: 2,
         creationAuditSha256: auditEvidenceDigest(auditRecord)} : {}),
       // Binds the accepted evidence, so a later retry detects any change to it.
-      ...("warningId" in request ? {acceptedEvidenceVersion: 2,
+      ...(!creatingMonitoring ? {acceptedEvidenceVersion: 2,
         acceptedAuditSha256: auditEvidenceDigest(auditRecord)} : {}),
       expectedVersion: request.expectedVersion,
       resultVersion,

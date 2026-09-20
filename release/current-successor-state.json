@@ -16,13 +16,13 @@
       "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
-        "rulesSha256": "15CF722E201BA1630C6F2681B7D50BB6D417B1D7265E1070BC99539B1CB02636",
-        "indexCount": 66,
-        "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
-        "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
+        "rulesSha256": "6F458FE26357585D935C380E5B903713AED20D0B2A1043AA0604F13005B41F9F",
+        "indexCount": 67,
+        "indexSetSha256": "901BB6BAAB1F0C47A4C202156206BCE1CADEE0FD73008D780783E25E5CC7B626",
+        "indexFileSha256": "DB1A9FB5964FDCF3D885EA829B633231D8356784A018ACB75F5B06406E96F97B",
         "fieldOverrideCount": 8,
         "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
-        "relationshipToDeployedBackend": "RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+        "relationshipToDeployedBackend": "RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
         "productionDeploymentPerformed": false,
         "productionRuntimeUseAuthorized": false
       }
@@ -55,7 +55,7 @@
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionBackendRuntimeAuthorized": true
     },
     "controlledPilot": {

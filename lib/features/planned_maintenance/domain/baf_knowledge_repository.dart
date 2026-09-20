@@ -13,9 +13,10 @@ import '../../../core/serialization/persisted_json_equality.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../data/baf_knowledge_model.dart';
+import '../data/remote_baf_knowledge_reader.dart';
+import '../../audit/models/audit_event_model.dart';
 import 'baf_knowledge_layer.dart';
 import 'module_composer_models.dart';
-import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 /// Source used by the Module Composer knowledge layer.
 ///
@@ -101,8 +102,8 @@ class BafKnowledgeMatrixMeta {
       isStaticFallback: true,
       cloudUnavailable: cloudUnavailable,
       note: cloudUnavailable
-          ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
-          : 'Using embedded safety baseline.',
+          ? 'Knowledge source unavailable. Embedded reference only; current plant governance is unverified.'
+          : 'Embedded reference only; current plant governance is unverified.',
     );
   }
 
@@ -123,6 +124,19 @@ class BafKnowledgeMatrixMeta {
           'emptied.',
     );
   }
+
+  factory BafKnowledgeMatrixMeta.unverified({
+    int rowCount = 0,
+    int tagCount = 0,
+  }) => BafKnowledgeMatrixMeta(
+    matrixVersion: 'unverified',
+    sourceLabel: 'Governed catalogue; edition unverified',
+    source: 'isarCache',
+    knowledgeRowCount: rowCount,
+    tagRowCount: tagCount,
+    note:
+        'Rows are governed individually. No matching catalogue edition has been verified.',
+  );
 
   factory BafKnowledgeMatrixMeta.fromStore(
     BafKnowledgeMatrixMetaStore store, {
@@ -207,6 +221,11 @@ class BafKnowledgeRepository {
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _isar = localIsar ?? (kIsWeb ? null : isar);
 
+  /// The browser's cloud-only catalogue, without a native cache dependency.
+  BafKnowledgeRepository.cloudOnly({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _isar = null;
+
   static const String collectionPath = 'knowledge_base';
   static const String metaPath = 'knowledge_base_meta/current';
   static const int changeReasonMinLength = 1;
@@ -234,7 +253,7 @@ class BafKnowledgeRepository {
     }
 
     var local = await _loadFromIsar();
-    if (local.entries.isNotEmpty) return local;
+    if (local.entries.isNotEmpty || !local.meta.isStaticFallback) return local;
 
     // Seeding is first-use only - the seed itself refuses to run over an
     // existing catalogue - so after it, an empty active set still has to be
@@ -308,7 +327,8 @@ class BafKnowledgeRepository {
     if (kIsWeb || _isar == null) {
       return _firestore.collection(collectionPath).snapshots().map((snap) {
         final rows =
-            decodeSnapshotDocuments(snap, BafKnowledgeRow.fromCloudMap, source: 'BafKnowledgeRow')
+            snap.docs
+                .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
                 .where((row) => includeDeleted || !row.isDeleted)
                 .toList()
               ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
@@ -328,7 +348,8 @@ class BafKnowledgeRepository {
   }) async {
     if (kIsWeb || _isar == null) {
       final snap = await _firestore.collection(collectionPath).get();
-      return snap.docs.map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
+      return snap.docs
+          .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
           .where((row) => includeDeleted || !row.isDeleted)
           .toList()
         ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
@@ -342,7 +363,7 @@ class BafKnowledgeRepository {
     if (kIsWeb || _isar == null) {
       return _firestore.doc(metaPath).snapshots().map((doc) {
         final data = doc.data();
-        if (data == null) return BafKnowledgeMatrixMeta.staticFallback();
+        if (data == null) return BafKnowledgeMatrixMeta.unverified();
         return BafKnowledgeMatrixMeta.fromMap(<String, dynamic>{
           ...data,
           'source': 'cloud',
@@ -357,7 +378,8 @@ class BafKnowledgeRepository {
         if (seeded.isNotEmpty) {
           return BafKnowledgeMatrixMeta.fromStore(seeded.first);
         }
-        return BafKnowledgeMatrixMeta.staticFallback();
+        // Existing governed rows must not borrow the embedded edition label.
+        return BafKnowledgeMatrixMeta.unverified();
       }
       final current = items.firstWhere(
         (item) => item.metaKey == 'current',
@@ -422,19 +444,41 @@ class BafKnowledgeRepository {
           .get(authoritativeGlobalPullReadOptions);
     }
     final metaData = metaDoc.data();
-    final metaStore = metaData == null
+    var metaStore = metaData == null
         ? null
         : BafKnowledgeMatrixMetaStore.fromCloudMap(<String, dynamic>{
             ...metaData,
             'source': 'cloud',
           }, localCachedAt: DateTime.now());
 
-    if (docs.isEmpty) return const BafKnowledgePullResult(skipped: 1);
+    if (docs.isEmpty && metaStore == null) {
+      return const BafKnowledgePullResult(skipped: 1);
+    }
 
     final remotes = [
       for (final doc in docs) BafKnowledgeRow.fromCloudMap(doc.data(), doc.id),
     ];
     final maxFetchedUpdatedAt = _maxUpdatedAt(remotes);
+    if (metaStore == null && remotes.isNotEmpty) {
+      metaStore = BafKnowledgeMatrixMetaStore.staticFallback()
+        ..source = 'isarCache'
+        ..matrixVersion = 'unverified'
+        ..sourceLabel = 'Governed catalogue; edition unverified'
+        ..knowledgeRowCount = remotes
+            .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
+            .length
+        ..tagRowCount = remotes
+            .where(
+              (row) =>
+                  !row.isDeleted &&
+                  row.lifecycleStatus == 'active' &&
+                  row.deviceTags.isNotEmpty,
+            )
+            .length
+        ..note =
+            'No matching catalogue edition has been verified. Rows retain their own governed revisions.';
+    }
+    final acceptedMeta = metaStore;
 
     var inserted = 0;
     var updated = 0;
@@ -454,6 +498,7 @@ class BafKnowledgeRepository {
         }
 
         final remoteWins =
+            isEmbeddedKnowledgeSeed(current) ||
             remote.version > current.version ||
             (remote.version == current.version &&
                 remote.updatedAt.isAfter(current.updatedAt));
@@ -475,10 +520,29 @@ class BafKnowledgeRepository {
         await _rows!.put(remote);
       }
 
-      if (metaStore != null) {
+      // Embedded reference rows are not governed revisions. Once a complete
+      // authoritative population exists, remove only untouched synthetic seeds.
+      // Dirty or real governed records are preserved for explicit reconciliation.
+      if (since == null &&
+          through == null &&
+          (remotes.isNotEmpty || metaStore != null)) {
+        final remoteIds = remotes.map((row) => row.rowCode).toSet();
+        final localRows = await _rows!.where().findAll();
+        await _rows!.deleteAll(
+          localRows
+              .where(
+                (row) =>
+                    isEmbeddedKnowledgeSeed(row) &&
+                    !remoteIds.contains(row.rowCode),
+              )
+              .map((row) => row.id)
+              .toList(),
+        );
+      }
+      if (acceptedMeta != null) {
         final currentMeta = await _currentMetaStore();
-        if (currentMeta != null) metaStore.id = currentMeta.id;
-        await _meta!.put(metaStore);
+        if (currentMeta != null) acceptedMeta.id = currentMeta.id;
+        await _meta!.put(acceptedMeta);
       }
     });
 
@@ -488,6 +552,81 @@ class BafKnowledgeRepository {
       skipped: skipped,
       maxFetchedUpdatedAt: maxFetchedUpdatedAt,
     );
+  }
+
+  Future<void> acceptReviewedCloud({
+    required BafKnowledgeRow reviewedLocal,
+    required int reviewedCloudVersion,
+    required String actorUid,
+    required String actorName,
+  }) async {
+    if (_isar == null) {
+      throw StateError(
+        'Local conflict recovery requires this original device.',
+      );
+    }
+    final snapshot = await _firestore
+        .collection(collectionPath)
+        .doc(reviewedLocal.rowCode)
+        .get(const GetOptions(source: Source.server));
+    if (!snapshot.exists || snapshot.data() == null) {
+      throw StateError('The cloud instruction is no longer available.');
+    }
+    final remote = BafKnowledgeRow.fromCloudMap(snapshot.data()!, snapshot.id);
+    if (remote.version != reviewedCloudVersion) {
+      throw StateError(
+        'Cloud instruction changed after review. Review the conflict again.',
+      );
+    }
+    await _isar.writeTxn(() async {
+      final local = await _rows!
+          .where()
+          .rowCodeEqualTo(reviewedLocal.rowCode)
+          .findFirst();
+      if (local == null ||
+          local.isSynced ||
+          !persistedJsonEquivalent(
+            jsonEncode(
+              strictJsonSafeBafKnowledgeMap(
+                local.toCloudMap(),
+                source: 'local conflict',
+              ),
+            ),
+            jsonEncode(
+              strictJsonSafeBafKnowledgeMap(
+                reviewedLocal.toCloudMap(),
+                source: 'reviewed conflict',
+              ),
+            ),
+          )) {
+        throw StateError(
+          'The local draft changed after review. Nothing was replaced.',
+        );
+      }
+      final event = AuditEvent(
+        entityType: 'knowledge_base',
+        entityId: local.rowCode,
+        action: AuditAction.update,
+        performedByUid: actorUid,
+        performedByName: actorName,
+        reason: AuditReason.manualOverride,
+        reasonNotes:
+            'Explicitly accepted reviewed cloud revision; displaced local draft retained in this event.',
+        severity: AuditSeverity.medium,
+        before: strictJsonSafeBafKnowledgeMap(
+          local.toCloudMap(),
+          source: 'displaced knowledge',
+        ),
+        after: strictJsonSafeBafKnowledgeMap(
+          remote.toCloudMap(),
+          source: 'accepted knowledge',
+        ),
+      );
+      event.isSynced = false;
+      await _isar.auditEvents.put(event);
+      remote.id = local.id;
+      await _rows!.put(remote);
+    });
   }
 
   DateTime? _maxUpdatedAt(Iterable<BafKnowledgeRow> rows) {
@@ -504,7 +643,11 @@ class BafKnowledgeRepository {
   Future<void> seedStaticFallbackIntoLocal() async {
     if (kIsWeb || _isar == null) return;
     final existing = await _rows!.where().findAll();
-    if (existing.isNotEmpty) return;
+    final currentMeta = await _currentMetaStore();
+    if (existing.isNotEmpty ||
+        (currentMeta != null && currentMeta.source != 'staticFallback')) {
+      return;
+    }
 
     final now = DateTime.now();
     final rows = BafKnowledgeLayer.entries
@@ -647,40 +790,52 @@ class BafKnowledgeRepository {
   }
 
   Future<BafKnowledgeBundle> _loadWeb({required bool preferCloud}) async {
+    var cloudUnavailable = false;
     if (preferCloud) {
       try {
         final cloud = await _loadFromCloudOnly();
-        if (cloud.entries.isNotEmpty) return cloud;
+        if (cloud != null) return cloud;
       } on FirebaseException {
-        // Continue to static fallback.
+        cloudUnavailable = true;
       }
     }
     return BafKnowledgeBundle(
       entries: BafKnowledgeLayer.entries,
       meta: BafKnowledgeMatrixMeta.staticFallback(
-        cloudUnavailable: preferCloud,
+        cloudUnavailable: cloudUnavailable,
       ),
       source: BafKnowledgeSource.staticFallback,
     );
   }
 
-  Future<BafKnowledgeBundle> _loadFromCloudOnly() async {
+  Future<BafKnowledgeBundle?> _loadFromCloudOnly() async {
+    // One authoritative population proves both current guidance and withdrawal.
+    // Cache-eligible active rows cannot establish today's governed disposition.
     final rowsSnap = await _firestore
         .collection(collectionPath)
-        .where('lifecycleStatus', isEqualTo: 'active')
-        .get();
+        .get(const GetOptions(source: Source.server));
     final entries = _entriesFromCloudDocs(rowsSnap.docs);
+    BafKnowledgeMatrixMeta? cloudMeta;
+    try {
+      cloudMeta = await fetchCloudMeta();
+    } on FirebaseException {
+      // Read governed rows retain authority even without edition metadata.
+      // In particular, a successfully read withdrawal stays empty.
+      if (rowsSnap.docs.isEmpty) rethrow;
+    }
+    if (rowsSnap.docs.isEmpty && cloudMeta == null) return null;
     final meta =
-        await fetchCloudMeta() ??
+        cloudMeta ??
         BafKnowledgeMatrixMeta(
-          matrixVersion: 'cloud-unversioned',
-          sourceLabel: 'Cloud Knowledge Base',
+          matrixVersion: 'unverified',
+          sourceLabel: 'Governed catalogue; edition unverified',
           source: 'cloud',
           knowledgeRowCount: entries.length,
           tagRowCount: entries
               .where((entry) => entry.deviceTags.isNotEmpty)
               .length,
-          note: 'Cloud rows loaded but metadata document was not found.',
+          note:
+              'Governed rows loaded; catalogue edition metadata is unavailable or absent.',
         );
     return BafKnowledgeBundle(
       entries: entries,
@@ -690,7 +845,9 @@ class BafKnowledgeRepository {
   }
 
   Future<BafKnowledgeMatrixMeta?> fetchCloudMeta() async {
-    final doc = await _firestore.doc(metaPath).get();
+    final doc = await _firestore
+        .doc(metaPath)
+        .get(const GetOptions(source: Source.server));
     final data = doc.data();
     if (data == null) return null;
     return BafKnowledgeMatrixMeta.fromMap(<String, dynamic>{
@@ -711,7 +868,9 @@ class BafKnowledgeRepository {
     final entries = _entriesFromRows(rows);
     final metaStore = await _currentMetaStore();
     final meta = metaStore == null
-        ? BafKnowledgeMatrixMeta.staticFallback()
+        ? (rows.any((row) => !isEmbeddedKnowledgeSeed(row))
+              ? BafKnowledgeMatrixMeta.unverified(rowCount: entries.length)
+              : BafKnowledgeMatrixMeta.staticFallback())
         : BafKnowledgeMatrixMeta.fromStore(
             metaStore,
             sourceOverride: 'isarCache',
@@ -744,7 +903,10 @@ class BafKnowledgeRepository {
     final entries = <BafKnowledgeEntry>[];
     for (var i = 0; i < docs.length; i++) {
       final doc = docs[i];
-      entries.add(BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i));
+      final row = BafKnowledgeRow.fromCloudMap(doc.data(), doc.id);
+      if (!row.isDeleted && row.lifecycleStatus == 'active') {
+        entries.add(row.toEntry(i));
+      }
     }
     entries.sort(
       (a, b) => a.moduleCandidateCode.compareTo(b.moduleCandidateCode),
@@ -781,27 +943,18 @@ class BafKnowledgeRepository {
   }
 
   Future<BafKnowledgeRow> _pushLocalRow(BafKnowledgeRow row) async {
-    final isCreate = row.version <= 1 && row.createdByUid == row.updatedByUid;
-    final map = row.toCloudMap();
-    map['updatedAt'] = FieldValue.serverTimestamp();
-    if (isCreate) map['createdAt'] = FieldValue.serverTimestamp();
-    final reference = _firestore.collection(collectionPath).doc(row.rowCode);
-    DocumentSnapshot<Map<String, dynamic>>? observed;
-    try {
-      await reference.set(map, SetOptions(merge: !isCreate));
-    } catch (_) {
-      observed = await reference.get();
-      if (!observed.exists ||
-          !_knowledgePushReceiptMatches(row, observed.data()!)) {
-        rethrow;
-      }
-    }
-
-    observed ??= await reference.get();
+    // Legacy dirty rows do not retain a reviewed server preimage. Automatically
+    // uploading them can overwrite a revision and cannot supply truthful audit
+    // evidence. Only adopt an already accepted identical server result; other
+    // drafts remain intact for the explicit governance conflict review.
+    final observed = await _firestore
+        .collection(collectionPath)
+        .doc(row.rowCode)
+        .get(const GetOptions(source: Source.server));
     if (!observed.exists ||
         !_knowledgePushReceiptMatches(row, observed.data()!)) {
       throw StateError(
-        'Knowledge row ${row.rowCode} did not match exact post-write readback.',
+        'Knowledge row ${row.rowCode} needs Knowledge Governance review; its original local draft was retained.',
       );
     }
     return BafKnowledgeRow.fromCloudMap(observed.data()!, observed.id);
@@ -876,3 +1029,11 @@ final bafKnowledgeRowsProvider = StreamProvider<List<BafKnowledgeEntry>>((ref) {
 final bafKnowledgeMetaProvider = StreamProvider<BafKnowledgeMatrixMeta>((ref) {
   return ref.watch(bafKnowledgeRepositoryProvider).watchMatrixMeta();
 });
+
+/// Only the original untouched embedded baseline is replaceable as a seed.
+bool isEmbeddedKnowledgeSeed(BafKnowledgeRow row) =>
+    row.isSynced &&
+    row.version == 1 &&
+    row.createdByUid == 'staticFallback' &&
+    row.updatedByUid == 'staticFallback' &&
+    row.changeSummary == 'Embedded BAF Knowledge Matrix safety baseline.';

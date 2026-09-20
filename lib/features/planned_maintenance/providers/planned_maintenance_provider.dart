@@ -4,11 +4,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' as firestore show Query;
 import 'package:isar_community/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
-import '../../../core/utils/combined_record_stream.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
@@ -241,6 +239,28 @@ abstract class PlannedMaintenanceRepository {
             ),
           )
           .toList(growable: false),
+    );
+  }
+
+  /// Report-facing execution snapshot which retains malformed-source
+  /// identities instead of silently treating them as absent.
+  ///
+  /// Repositories that can observe persistence metadata override this method.
+  /// The default preserves compatibility for local/test repositories whose
+  /// existing stream already returns decoded records.
+  Stream<DecodedSnapshotBatch<JobExecution>>
+  watchExecutionsOverlappingPeriodWithCoverage(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    return watchExecutionsOverlappingPeriod(
+      startInclusive,
+      endExclusive,
+    ).map(
+      (records) => DecodedSnapshotBatch<JobExecution>(
+        records: records,
+        rejectedDocumentIds: const [],
+      ),
     );
   }
 

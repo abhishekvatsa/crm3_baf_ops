@@ -117,6 +117,10 @@ const SEVERITIES = new Set<Severity>([
 const SCOPES = new Set<Scope>(["plantWide", "assetClasses", "assets"]);
 const MAX_COMPLETED_INTERVALS = 100;
 const MAX_ISSUE_LINKS = 100;
+// Leave room for Firestore field names, scalar/container overhead and SDK
+// encoding beyond the JSON string-value lower bound. This is a refusal with a
+// reviewable next action, not a truncation or an audit bypass.
+const MAX_OPERATIONAL_EVENT_STORED_BYTES = 900_000;
 const WRITE_ROLES = new Set([
   "admin", "si", "shiftSupervisor", "operations", "contractSupervisor",
 ]);
@@ -665,6 +669,85 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
   };
 }
 
+function operationalEventAuditDigest(audit: JsonMap): string {
+  const canonicalEvidenceValue = (value: unknown): unknown => {
+    const date = timestampDate(value);
+    if (date != null) return date.toISOString();
+    if (Array.isArray(value)) return value.map(canonicalEvidenceValue);
+    if (value != null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as JsonMap).map(([key, entry]) => [
+          key,
+          canonicalEvidenceValue(entry),
+        ]),
+      );
+    }
+    return value;
+  };
+  return createHash("sha256").update(stableJson(canonicalEvidenceValue({
+    schemaVersion: audit.schemaVersion,
+    auditId: audit.auditId,
+    requestId: audit.requestId,
+    operation: audit.operation,
+    eventId: audit.eventId,
+    before: audit.before,
+    after: audit.after,
+    performedAt: audit.performedAt,
+    performedByUid: audit.performedByUid,
+    performedByName: audit.performedByName,
+    reason: audit.reason,
+    resolutionNote: audit.resolutionNote,
+  })), "utf8").digest("hex");
+}
+
+function assertOperationalEventStoredSize(
+  value: JsonMap,
+  label: string,
+): void {
+  let bytes = Number.MAX_SAFE_INTEGER;
+  try {
+    bytes = Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch (_) {
+    // Treat an unmeasurable write as unsafe rather than pretending it is small.
+  }
+  if (bytes > MAX_OPERATIONAL_EVENT_STORED_BYTES) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `The ${label} is too large to retain safely. Record a reviewed bounded correction before continuing.`,
+      {
+        reasonCode: "operational-event-storage-bound",
+        label,
+        bytes,
+        maximumBytes: MAX_OPERATIONAL_EVENT_STORED_BYTES,
+      },
+    );
+  }
+}
+
+function isSafeLinkedScopeExpansion(
+  current: JsonMap,
+  draft: EventDraft,
+): boolean {
+  if (current.scope !== draft.scope) return false;
+  const currentClasses = new Set(
+    Array.isArray(current.affectedAssetClassIds) ?
+      current.affectedAssetClassIds : [],
+  );
+  const draftClasses = new Set(draft.affectedAssetClassIds);
+  const currentInstances = new Set(
+    Array.isArray(current.affectedAssetInstanceIds) ?
+      current.affectedAssetInstanceIds : [],
+  );
+  const draftInstances = new Set(draft.affectedAssetInstanceIds);
+  if (![...currentClasses].every((value) => draftClasses.has(value))) {
+    return false;
+  }
+  if (![...currentInstances].every((value) => draftInstances.has(value))) {
+    return false;
+  }
+  return draft.scope === "assetClasses" || draft.scope === "assets";
+}
+
 function verifyClass(data: JsonMap, classId: string): void {
   if (data.schemaVersion !== 1 || data.assetClassId !== classId ||
       data.status !== "active" || typeof data.name !== "string" ||
@@ -883,6 +966,17 @@ export async function mutateOperationalEventWithDb(args: {
           {reasonCode: "operational-event-replay-evidence-drift"},
         );
       }
+      if (receiptData.evidenceDigest != null) {
+        const digest = receiptData.evidenceDigest;
+        if (typeof digest !== "string" || auditData.evidenceDigest !== digest ||
+            operationalEventAuditDigest(auditData) !== digest) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "The operational-event receipt no longer matches its committed evidence.",
+            {reasonCode: "operational-event-replay-evidence-drift"},
+          );
+        }
+      }
       // Acceptance is historical evidence, not a replacement for the live event.
       return replay;
     }
@@ -1072,11 +1166,12 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-resolved-at-future"},
       );
     }
-    // Linking an issue to an occurrence checks that the issue belongs to the
-    // occurrence's governed scope. Correcting the scope afterwards can make
-    // that untrue, and the event would then list as current a link its own
-    // rule would refuse. A widening to plant-wide keeps every link valid; any
-    // other change is held until the links have been reviewed.
+      // Linking an issue to an occurrence checks that the issue belongs to the
+      // occurrence's governed scope. Correcting the scope afterwards can make
+      // that untrue, and the event would then list as current a link its own
+      // rule would refuse. A proven same-kind superset and plant-wide widening
+      // keep every existing link valid; narrowing or changing reference kind is
+      // held until the links have been reviewed.
     if (draft != null && current != null) {
       const currentScope = stableJson({
         scope: current.scope ?? null,
@@ -1090,8 +1185,9 @@ export async function mutateOperationalEventWithDb(args: {
         instances: [...draft.affectedAssetInstanceIds].sort(),
       });
       const links = (current.issueLinkIds as unknown[] ?? []);
+      const safeExpansion = isSafeLinkedScopeExpansion(current, draft);
       if (currentScope !== draftScope && draft.scope !== "plantWide" &&
-          links.length > 0) {
+          !safeExpansion && links.length > 0) {
         throw new AssetHierarchyMutationError(
           "failed-precondition",
           "This occurrence has maintenance issues linked under its present " +
@@ -1238,6 +1334,9 @@ export async function mutateOperationalEventWithDb(args: {
       reason: request.reason,
       resolutionNote: request.resolutionNote,
     };
+    audit.evidenceDigest = operationalEventAuditDigest(audit);
+    assertOperationalEventStoredSize(next, "operational event");
+    assertOperationalEventStoredSize(audit, "operational-event audit");
     const receipt: JsonMap = {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -1250,6 +1349,7 @@ export async function mutateOperationalEventWithDb(args: {
       auditId,
       committedAt,
       committedAtIso: committed.toISOString(),
+      evidenceDigest: audit.evidenceDigest,
     };
     transaction.set(eventRef as unknown as DocumentRefLike, next);
     transaction.set(auditRef as unknown as DocumentRefLike, audit);

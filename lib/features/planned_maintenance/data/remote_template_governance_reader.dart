@@ -1145,7 +1145,11 @@ bool _readAliasedClosureRequiredFlag(
     }
     result = value;
   }
-  return result ?? false;
+  // A module without an explicit closure flag is governed as closure-critical.
+  // Keep this fallback aligned with the local snapshot derivation and the
+  // backend publication validator so older records cannot be interpreted as
+  // non-critical by one reader and critical by another.
+  return result ?? true;
 }
 
 void _requireClosureReviewAuthority({

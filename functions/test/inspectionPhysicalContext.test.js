@@ -21,7 +21,7 @@ function enrich(store, classId, assetId, code) {
 }
 const link = (campaignId, ticketId, observationId = 'first', expectedVersion = 2) => ({
   commandId: `link-${ticketId}`, commandType: 'linkInspectionObservationIssue', aggregateId: campaignId, expectedVersion,
-  payload: {observationId, ticketId, reason: 'Link repair of this physical subject.'},
+  payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId, ticketId, reason: 'Link repair of this physical subject.'},
 });
 
 async function installed() {
@@ -154,6 +154,43 @@ describe('Explicit same-subject context successor', () => {
     const accepted = f.store.entries(); await f.run(correction); expect(f.store.entries()).toEqual(accepted);
   });
 
+  test('historical correction cannot fall after physical removal while its recording was delayed', async () => {
+    const f = await installed();
+    await f.run(reviewInstalled(f.target, relocate(f)));
+    const path = 'inner_cover_linkages/link-n4-base-205';
+    f.store.seed(path, {...f.store.read(path), removedPhysicalAt: '2026-08-21T05:10:00.000Z'});
+    const correction = f.reading('after-physical-removal', 3, 2.8, '2026-08-21T05:30:00.000Z');
+    correction.payload.targetContextRevision = 1;
+    correction.payload.supersedesObservationId = 'first';
+    const before = f.store.entries();
+    await expect(f.run(correction)).rejects.toMatchObject({code: 'failed-precondition',
+      details: {reasonCode: 'inspection-correction-outside-linkage'}});
+    expect(f.store.entries()).toEqual(before);
+  });
+
+  test.each(['before-physical-removal', 'at-physical-removal', 'physical-after-recording', 'malformed-physical', 'physical-before-installation'])(
+    'historical correction handles %s without inventing a later installation interval', async (mode) => {
+      const f = await installed(); await f.run(reviewInstalled(f.target, relocate(f)));
+      const path = 'inner_cover_linkages/link-n4-base-205';
+      const physicalTime = mode === 'physical-after-recording' ? '2026-08-21T06:00:00.000Z' :
+        mode === 'malformed-physical' ? '2026-02-31T05:10:00.000Z' :
+        mode === 'physical-before-installation' ? '2026-08-21T03:59:00.000Z' : '2026-08-21T05:10:00.000Z';
+      f.store.seed(path, {...f.store.read(path), removedPhysicalAt: physicalTime});
+      const correction = f.reading('review-physical-boundary', 3, 2.8,
+        mode === 'at-physical-removal' ? '2026-08-21T05:10:00.000Z' : '2026-08-21T05:05:00.000Z');
+      correction.payload.targetContextRevision = 1;
+      correction.payload.supersedesObservationId = 'first';
+      const before = f.store.entries();
+      if (mode === 'before-physical-removal') {
+        const accepted = await f.run(correction);
+        expect(accepted.resultKey).toBe('inspection-observation-correction-recorded');
+        const after = f.store.entries(); await f.run(correction); expect(f.store.entries()).toEqual(after);
+      } else {
+        await expect(f.run(correction)).rejects.toMatchObject({code: 'failed-precondition'});
+        expect(f.store.entries()).toEqual(before);
+      }
+    });
+
   async function twiceReviewed() {
     const f = await installed();
     const current = relocate(f); await f.run(reviewInstalled(f.target, current));
@@ -275,7 +312,9 @@ describe('Explicit same-subject context successor', () => {
     expect(recorded).toMatchObject({targetKey: target.targetKey, assetNumber: 206, subjectSerialNumber: 'N4',
       targetContextRevision: 1, targetContextAuditId: 'review-installed', targetContextOriginalLinkageId: 'link-n4-base-205'});
     // The ticket was canonically created on Base 205; identity follows N4.
-    await run(link('installed', 'repair-n4', 'later', 4));
+    const reviewedLink = link('installed', 'repair-n4', 'later', 4);
+    reviewedLink.payload.scopeReview.expectedTicketVersion = 2;
+    await run(reviewedLink);
     const finding = store.read('inspection_findings/inspection-finding-first');
     await run({commandId: 'verify-n4', commandType: 'verifyInspectionFinding', aggregateId: 'installed', expectedVersion: 4,
       payload: {findingId: finding.findingId, observationId: 'later', expectedFindingVersion: finding.version, outcome: 'resolved', reason: 'Same serial repair verified.'}});

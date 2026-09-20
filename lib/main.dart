@@ -1,3 +1,4 @@
+import 'features/auth/services/online_access_gate.dart';
 // FILE: lib/main.dart
 
 import 'dart:async';
@@ -43,6 +44,7 @@ import 'features/auth/domain/navigation_authority_scope.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/pending_approval_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/services/auth_service.dart';
 
 // ── SERVICES / PROVIDERS ─────────────────────────────────────
 import 'core/providers/sync_providers.dart';
@@ -589,6 +591,18 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      ref.read(accessSessionBackgroundedProvider.notifier).state = true;
+    } else if (state == AppLifecycleState.resumed &&
+        ref.read(accessSessionBackgroundedProvider)) {
+      ref.invalidate(onlineAccessCheckProvider);
+      ref.read(accessSessionBackgroundedProvider.notifier).state = false;
+    }
+  }
+
+  @override
   void dispose() {
     _clearPredictiveKeyboardBack();
     _criticalAlarmRouteObserver.dispose();
@@ -892,6 +906,9 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
   }
 
   NavigationAuthorityScope _navigationAuthorityScope() {
+    if (ref.watch(signOutInProgressProvider)) {
+      return NavigationAuthorityScope.authLoading();
+    }
     if (_startupFailure != null) {
       return NavigationAuthorityScope.startupFailure();
     }
@@ -948,10 +965,12 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
         if (_startupFailure != null) {
           return app;
         }
-        return CriticalAlarmHost(
-          navigatorKey: _navigatorKey,
-          launcherObscuredListenable: _criticalAlarmRouteObserver.obscured,
-          child: app,
+        return OnlineAccessGate(
+          child: CriticalAlarmHost(
+            navigatorKey: _navigatorKey,
+            launcherObscuredListenable: _criticalAlarmRouteObserver.obscured,
+            child: app,
+          ),
         );
       },
       home: _buildStartupHome(),
@@ -1055,6 +1074,14 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(signOutInProgressProvider)) {
+      return const _FullScreenStatus(
+        icon: Icons.lock_outline_rounded,
+        title: 'Signing out',
+        message: 'Local access is locked while account cleanup finishes.',
+        showProgress: true,
+      );
+    }
     final authState = ref.watch(authStateProvider);
     if (authState.isLoading) {
       return const _FullScreenStatus(
@@ -1200,6 +1227,8 @@ class _ProfileBootstrapScreenState
     extends ConsumerState<_ProfileBootstrapScreen> {
   bool _started = false;
   bool _isRepairing = false;
+  bool _nameRequired = false;
+  String? _requestedProfileName;
   String? _errorMessage;
 
   @override
@@ -1213,6 +1242,8 @@ class _ProfileBootstrapScreenState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.firebaseUser.uid != widget.firebaseUser.uid) {
       _started = false;
+      _nameRequired = false;
+      _requestedProfileName = null;
       _errorMessage = null;
       _ensureProfileOnce();
     }
@@ -1220,6 +1251,16 @@ class _ProfileBootstrapScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_nameRequired) {
+      return _ProfileNameCompletionScreen(
+        isSubmitting: _isRepairing,
+        onSubmit: (name) {
+          _requestedProfileName = name;
+          _repairProfile();
+        },
+        onSignOut: () => ref.read(authServiceProvider).signOut(),
+      );
+    }
     if (_errorMessage != null) {
       return _ProfileBootstrapErrorScreen(
         message: _errorMessage!,
@@ -1252,12 +1293,16 @@ class _ProfileBootstrapScreenState
 
     setState(() {
       _isRepairing = true;
+      _nameRequired = false;
       _errorMessage = null;
     });
 
     final authService = ref.read(authServiceProvider);
     try {
-      await authService.ensureUserDocument(firebaseUser: widget.firebaseUser);
+      await authService.ensureUserDocument(
+        firebaseUser: widget.firebaseUser,
+        profileName: _requestedProfileName,
+      );
       if (!mounted) {
         return;
       }
@@ -1278,7 +1323,11 @@ class _ProfileBootstrapScreenState
         return;
       }
       setState(() {
-        _errorMessage = '$e';
+        if (e is ProfileNameRequiredException) {
+          _nameRequired = true;
+        } else {
+          _errorMessage = '$e';
+        }
       });
     } finally {
       if (mounted) {
@@ -1625,6 +1674,130 @@ class _AuthErrorScreen extends ConsumerWidget {
       color: BafColors.danger,
       primaryActionLabel: 'Sign Out',
       primaryAction: () => ref.read(authServiceProvider).signOut(),
+    );
+  }
+}
+
+class _ProfileNameCompletionScreen extends StatefulWidget {
+  const _ProfileNameCompletionScreen({
+    required this.isSubmitting,
+    required this.onSubmit,
+    required this.onSignOut,
+  });
+
+  final bool isSubmitting;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onSignOut;
+
+  @override
+  State<_ProfileNameCompletionScreen> createState() =>
+      _ProfileNameCompletionScreenState();
+}
+
+class _ProfileNameCompletionScreenState
+    extends State<_ProfileNameCompletionScreen> {
+  final _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _nameController.text.trim();
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(BafSpacing.xl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(BafSpacing.xl),
+                decoration: BoxDecoration(
+                  color: BafColors.card,
+                  borderRadius: BorderRadius.circular(BafRadius.xLarge),
+                  border: Border.all(color: BafColors.border),
+                  boxShadow: BafShadows.subtle,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const BafBrandLockup(compact: true),
+                    const SizedBox(height: BafSpacing.xl),
+                    const Icon(
+                      Icons.badge_outlined,
+                      size: 52,
+                      color: BafColors.navySoft,
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    const Text(
+                      'Complete your profile',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    const Text(
+                      'A valid display name is needed. Enter the name that should appear in the plant user directory. It will remain pending until an administrator reviews access.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 14,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    TextField(
+                      controller: _nameController,
+                      enabled: !widget.isSubmitting,
+                      maxLength: 160,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) {
+                        if (name.isNotEmpty) widget.onSubmit(name);
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Display name',
+                        hintText: 'Full name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: BafSpacing.md,
+                      children: [
+                        OutlinedButton(
+                          onPressed: widget.isSubmitting
+                              ? null
+                              : widget.onSignOut,
+                          child: const Text('Sign Out'),
+                        ),
+                        FilledButton(
+                          onPressed: widget.isSubmitting || name.isEmpty
+                              ? null
+                              : () => widget.onSubmit(name),
+                          child: Text(
+                            widget.isSubmitting ? 'Saving…' : 'Continue',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -31,11 +31,7 @@ StructuredReportDocument buildMorningReviewReport({
         StructuredReportMetric(
           label: 'Actions',
           value: '${document.actions.length}',
-          tone:
-              document.actions.any(
-                (action) =>
-                    action.status != MorningReviewActionStatus.completed,
-              )
+          tone: document.actions.any((action) => !action.isTerminal)
               ? StructuredReportMetricTone.warning
               : StructuredReportMetricTone.positive,
         ),
@@ -88,7 +84,7 @@ StructuredReportDocument buildMorningReviewReport({
     StructuredReportSection(
       title: 'Actions and ownership',
       subtitle:
-          'Open actions persist beyond the 14-day meeting artifact until completed.',
+          'Action progress is as of finalization, including later follow-through. It is not backdated evidence of discussion or verified physical maintenance completion.',
       tables: [
         StructuredReportTable(
           headers: const [
@@ -107,7 +103,7 @@ StructuredReportDocument buildMorningReviewReport({
                     action.assetClassName,
                     action.assetNumber,
                   ),
-                  action.text,
+                  '${action.text}\nOrigin meeting: ${action.sessionId}',
                   action.assigneeRole ??
                       action.assigneeName ??
                       action.assigneeUid ??
@@ -118,7 +114,9 @@ StructuredReportDocument buildMorningReviewReport({
                       : action.dueAt == null
                       ? 'No due time'
                       : dateTime.format(_indiaTime(action.dueAt!)),
-                  action.completionNote ?? 'Pending',
+                  action.cancellationReason ??
+                      action.completionNote ??
+                      'Pending',
                 ],
               )
               .toList(growable: false),

@@ -20,6 +20,10 @@ import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/data/remote_maintenance_reader.dart';
 import '../../features/maintenance/providers/maintenance_provider.dart';
 import '../../features/maintenance/services/maintenance_issue_create_command.dart';
+import '../../features/maintenance/services/maintenance_creation_owner.dart';
+import '../../features/maintenance/services/maintenance_withdrawal_command.dart';
+import '../../features/maintenance_workflow/domain/workflow_types.dart';
+import '../../features/maintenance_workflow/providers/workflow_providers.dart';
 import '../../features/maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../features/maintenance_workflow/domain/workflow_error.dart';
 import '../../features/maintenance_workflow/services/workflow_command_gateway.dart';
@@ -37,6 +41,7 @@ import '../../features/planned_maintenance/providers/template_governance_provide
 import '../../features/planned_maintenance/models/component_action_model.dart';
 import '../../features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import '../../features/directives/data/operational_directive_model.dart';
+import '../../features/directives/data/governed_directive_acknowledgement.dart';
 import '../../features/directives/providers/operational_directive_provider.dart';
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/abnormalities/domain/charge_abnormality_identity.dart';
@@ -141,6 +146,7 @@ class SyncService {
   final MaintenanceRepository _maintenanceRepo;
   final MaintenanceRepository _firestoreMaintenance;
   final WorkflowCommandGateway _maintenanceCommands;
+  final MaintenanceCreationOwner? _maintenanceCreationOwner;
 
   /// The signed-in actor, resolved on every read rather than captured once.
   ///
@@ -203,6 +209,7 @@ class SyncService {
     required MaintenanceRepository maintenanceRepo,
     required MaintenanceRepository firestoreMaintenance,
     WorkflowCommandGateway? maintenanceCommandGateway,
+    MaintenanceCreationOwner? maintenanceCreationOwner,
     required PlannedMaintenanceRepository plannedRepo,
     required PlannedMaintenanceRepository firestorePlanned,
     required PlannedJobServerCompletionService serverCompletion,
@@ -223,6 +230,7 @@ class SyncService {
     FirebaseAuth? auth,
     DateTime Function()? now,
   }) : _maintenanceRepo = maintenanceRepo,
+       _maintenanceCreationOwner = maintenanceCreationOwner,
        _firestoreMaintenance = firestoreMaintenance,
        _maintenanceCommands =
            maintenanceCommandGateway ?? const FirebaseWorkflowCommandGateway(),
@@ -426,6 +434,11 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(
     maintenanceRepo: ref.read(maintenanceRepositoryProvider),
     firestoreMaintenance: ref.read(firestoreMaintenanceRepo),
+    maintenanceCreationOwner: MaintenanceCreationOwner(
+      repository: ref.read(workflowRepositoryProvider),
+      executor: ref.read(workflowOnlineExecutorProvider),
+      currentActorUid: () => FirebaseAuth.instance.currentUser?.uid,
+    ),
     plannedRepo: ref.read(plannedRepositoryProvider),
     firestorePlanned: ref.read(firestorePlannedRepo),
     serverCompletion: ref.read(plannedJobServerCompletionServiceProvider),

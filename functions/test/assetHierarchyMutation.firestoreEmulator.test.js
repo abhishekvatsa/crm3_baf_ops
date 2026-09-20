@@ -563,20 +563,6 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     };
     const declaration = await invokeCondition(declarationCommand, 'ops-1');
     expect(declaration).toMatchObject({condition: 'down', version: 1});
-    await expect(invokeRegistry({
-      requestId: IDS.assetStatusRequest,
-      operation: 'SET_ASSET_INSTANCE_STATUS',
-      assetClassId: IDS.classId,
-      assetInstanceId: IDS.firstAsset,
-      expectedVersion: 1,
-      status: 'retired',
-      reason: 'Retire the asset after operational closure and review.',
-    })).rejects.toMatchObject({
-      code: 'failed-precondition',
-      details: expect.objectContaining({
-        reasonCode: 'asset-instance-active-operational-condition',
-      }),
-    });
     await expect(invokeCondition({
       requestId: IDS.restorationRequest,
       operation: 'RESTORE_ASSET_CONDITION',
@@ -618,6 +604,24 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       .toEqual(restoredEvidence);
   });
 
+  test('Admin/SI retirement preserves an unresolved manual assessment and immutable history', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({requestId: IDS.firstAssetRequest, assetInstanceId: IDS.firstAsset, assetNumber: 1, name: 'Furnace 1'}));
+    await invokeCondition({requestId: IDS.conditionRequest, operation: 'DECLARE_ASSET_CONDITION', assetClassId: IDS.classId, assetInstanceId: IDS.firstAsset, expectedVersion: 0, condition: 'down', causeKeys: ['breakdown'], reason: 'Permanently damaged drive.', linkedIssueIds: []}, 'ops-1');
+    const before = await collectionEvidence('asset_operational_conditions');
+    const command = {requestId: IDS.assetStatusRequest, operation: 'SET_ASSET_INSTANCE_STATUS', assetClassId: IDS.classId, assetInstanceId: IDS.firstAsset, expectedVersion: 1, status: 'retired', reason: 'Permanently withdraw damaged furnace; no repair was performed.'};
+    await expect(invokeRegistry(command, 'ops-1')).rejects.toMatchObject({code: 'permission-denied'});
+    await db.collection('users').doc('si-1').set({isApproved: true, roles: ['si'], name: 'SI'});
+    await expect(invokeRegistry(command, 'si-1')).resolves.toMatchObject({version: 2});
+    expect(await collectionEvidence('asset_operational_conditions')).toEqual(before);
+    const audit = (await db.collection('asset_hierarchy_audits').doc(`asset_registry_${IDS.assetStatusRequest}`).get()).data();
+    expect(audit.conditionDisposition).toBe('preserved-unresolved-at-retirement');
+    expect(JSON.parse(audit.retainedOperationalConditionJson)).toMatchObject({active: true, condition: 'down', version: 1});
+    await expect(invokeRegistry(command, 'si-1')).resolves.toMatchObject({idempotentReplay: true});
+    expect(await collectionEvidence('asset_operational_conditions')).toEqual(before);
+    await expect(invokeRegistry({...command, requestId: IDS.secondAssetRequest, status: 'active', expectedVersion: 2}, 'si-1')).rejects.toMatchObject({code: 'permission-denied'});
+  });
+
   test('a still-relevant administrative closure keeps blocking retirement', async () => {
     await invoke(classRequest());
     await invokeRegistry(assetRequest({
@@ -637,8 +641,14 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         schemaVersion: 3,
         scope: 'physicalAsset',
         assetClassId: IDS.classId,
-        assetInstanceId: IDS.firstAsset,
-        assetNumber: 1,
+        assetClassCode: 'FURNACE', assetClassName: 'Furnace',
+        nodeId: IDS.firstAsset, nodeVersion: 1, nodeName: 'Furnace 1',
+        assetInstanceId: IDS.firstAsset, assetInstanceVersion: 1,
+        assetNumber: 1, assetInstanceName: 'Furnace 1',
+        componentInstanceId: null, componentInstanceVersion: null, componentTag: null,
+        hierarchyPath: ['Furnace', 'Furnace 1'], ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Mechanical', accountableRoleKeys: ['seniorMechanical'],
+        innerCoverAssociation: null,
       }),
       plantConditionEffect: 'unfit',
       status: 'closedWithoutResolution',
@@ -742,6 +752,17 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   });
 
+  test.each([999, 'number-mismatch'])('retirement rejects invalid current condition reference: %s', async (damage) => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({requestId: IDS.firstAssetRequest, assetInstanceId: IDS.firstAsset, assetNumber: 1, name: 'Furnace 1'}));
+    await db.collection('maintenance_records').doc('bad-reference').set({firestoreId:'bad-reference', assetType:'furnace', assetNumber:1, isResolved:false, isDeleted:false, status:'open', plantConditionEffect:'unfit', assetHierarchyRefJson:JSON.stringify({
+      schemaVersion:damage===999?999:3, scope:'physicalAsset', assetClassId:IDS.classId, assetClassCode:'FURNACE', assetClassName:'Furnace', nodeId:IDS.firstAsset, nodeVersion:1, nodeName:'Furnace 1', assetInstanceId:IDS.firstAsset, assetInstanceVersion:1, assetNumber:damage===999?1:2, assetInstanceName:'Furnace 1', componentInstanceId:null, componentInstanceVersion:null, componentTag:null, hierarchyPath:['Furnace','Furnace 1'], ownershipStatus:'confirmed',ownerDiscipline:'Mechanical',accountableRoleKeys:['seniorMechanical'],innerCoverAssociation:null
+    })});
+    await expect(invokeRegistry({requestId:IDS.assetStatusRequest,operation:'SET_ASSET_INSTANCE_STATUS',assetClassId:IDS.classId,assetInstanceId:IDS.firstAsset,expectedVersion:1,status:'retired',reason:'Reviewed permanent retirement'})).rejects.toMatchObject({details:{reasonCode:'asset-instance-open-condition-ticket-malformed'}});
+    expect((await db.collection('asset_instances').doc(IDS.firstAsset).get()).data()).toMatchObject({status:'active',version:1});
+    expect((await db.collection('asset_hierarchy_mutation_receipts').doc(IDS.assetStatusRequest).get()).exists).toBe(false);
+  });
+
   test('asset retirement waits for its open condition-changing issue to close', async () => {
     await invoke(classRequest());
     await invokeRegistry(assetRequest({
@@ -759,8 +780,14 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         schemaVersion: 3,
         scope: 'physicalAsset',
         assetClassId: IDS.classId,
-        assetInstanceId: IDS.firstAsset,
-        assetNumber: 1,
+        assetClassCode: 'FURNACE', assetClassName: 'Furnace',
+        nodeId: IDS.firstAsset, nodeVersion: 1, nodeName: 'Furnace 1',
+        assetInstanceId: IDS.firstAsset, assetInstanceVersion: 1,
+        assetNumber: 1, assetInstanceName: 'Furnace 1',
+        componentInstanceId: null, componentInstanceVersion: null, componentTag: null,
+        hierarchyPath: ['Furnace', 'Furnace 1'], ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Mechanical', accountableRoleKeys: ['seniorMechanical'],
+        innerCoverAssociation: null,
       }),
       plantConditionEffect: 'unfit',
       status: 'open',
@@ -907,6 +934,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       requestId: '30303030-3030-4303-8303-303030303030',
       allowTagTransfer: true,
       expectedTagOwnerComponentId: IDS.secondComponent,
+      expectedTagOwnerComponentVersion: 1,
     })).rejects.toMatchObject({
       code: 'aborted',
       details: expect.objectContaining({
@@ -920,6 +948,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       ...second,
       allowTagTransfer: true,
       expectedTagOwnerComponentId: IDS.firstComponent,
+      expectedTagOwnerComponentVersion: 1,
     });
     expect(transferred.idempotentReplay).toBe(false);
     const first = (
@@ -986,6 +1015,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     const original = componentRequest({requestId: IDS.firstComponentRequest,
       assetInstanceId: IDS.firstAsset, componentInstanceId: IDS.firstComponent,
       tag: null, allowTagTransfer: false});
+    original.componentDraft.installedOn = '2026-08-01T00:00:00.000Z';
     await invokeRegistry(original);
     const send = (data) => mutateAssetRegistryWithDb({db, authUid: 'admin-1', data,
       now: () => new Date('2026-09-12T10:00:00.000Z'),
@@ -1810,7 +1840,13 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         schemaVersion: 3,
         scope: 'physicalAsset',
         assetClassId: IDS.classId,
-        assetInstanceId: IDS.firstAsset,
+        assetInstanceId: IDS.firstAsset, assetNumber: 1,
+        assetClassCode: 'FURNACE', assetClassName: 'Furnace',
+        nodeId: IDS.firstAsset, nodeVersion: 1, nodeName: 'Furnace 1',
+        assetInstanceVersion: 1, assetInstanceName: 'Furnace 1',
+        componentInstanceId: null, componentInstanceVersion: null, componentTag: null,
+        hierarchyPath: ['Furnace', 'Furnace 1'], ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Mechanical', accountableRoleKeys: ['seniorMechanical'], innerCoverAssociation: null,
       }),
       description: 'Inspect the furnace after crane movement was interrupted.',
       routedTo: 'mechanical',

@@ -42,31 +42,29 @@ class StructuredReportPdfService {
     );
     final pageFormat =
         report.orientation == StructuredReportOrientation.landscape
-            ? PdfPageFormat.a4.landscape
-            : PdfPageFormat.a4;
+        ? PdfPageFormat.a4.landscape
+        : PdfPageFormat.a4;
 
     document.addPage(
       pw.MultiPage(
         pageFormat: pageFormat,
         theme: pw.ThemeData.withFont(base: regularFont, bold: mediumFont),
         margin: const pw.EdgeInsets.fromLTRB(28, 30, 28, 30),
-        header:
-            (_) => _header(
-              report: report,
-              sailLogo: sailLogo,
-              manmithasLogo: manmithasLogo,
-            ),
+        header: (_) => _header(
+          report: report,
+          sailLogo: sailLogo,
+          manmithasLogo: manmithasLogo,
+        ),
         footer: (context) => _footer(context, report),
-        build:
-            (_) => <pw.Widget>[
-              _identity(report),
-              pw.SizedBox(height: 16),
-              for (var index = 0; index < report.sections.length; index++) ...[
-                if (report.sections[index].pageBreakBefore) pw.NewPage(),
-                ..._section(report.sections[index]),
-                if (index < report.sections.length - 1) pw.SizedBox(height: 16),
-              ],
-            ],
+        build: (_) => <pw.Widget>[
+          _identity(report),
+          pw.SizedBox(height: 16),
+          for (var index = 0; index < report.sections.length; index++) ...[
+            if (report.sections[index].pageBreakBefore) pw.NewPage(),
+            ..._section(report.sections[index]),
+            if (index < report.sections.length - 1) pw.SizedBox(height: 16),
+          ],
+        ],
       ),
     );
     return document.save();
@@ -372,20 +370,18 @@ class StructuredReportPdfService {
           ),
         )
         .toList(growable: false);
-    final widths =
-        table.columnFlex == null
-            ? null
-            : <int, pw.TableColumnWidth>{
-              for (var index = 0; index < table.columnFlex!.length; index++)
-                index: pw.FlexColumnWidth(table.columnFlex![index]),
-            };
+    final widths = table.columnFlex == null
+        ? null
+        : <int, pw.TableColumnWidth>{
+            for (var index = 0; index < table.columnFlex!.length; index++)
+              index: pw.FlexColumnWidth(table.columnFlex![index]),
+          };
     final widgets = <pw.Widget>[];
     for (var start = 0; start < rows.length; start += rowsPerBlock) {
       if (widgets.isNotEmpty) widgets.add(pw.SizedBox(height: 6));
-      final end =
-          start + rowsPerBlock < rows.length
-              ? start + rowsPerBlock
-              : rows.length;
+      final end = start + rowsPerBlock < rows.length
+          ? start + rowsPerBlock
+          : rows.length;
       widgets.add(
         pw.TableHelper.fromTextArray(
           headers: table.headers,
@@ -460,8 +456,9 @@ class StructuredReportPdfService {
     var remaining = value;
     while (remaining.length > maximumSegmentCharacters) {
       final wordBoundary = remaining.lastIndexOf(' ', maximumSegmentCharacters);
-      final splitAt =
-          wordBoundary > 0 ? wordBoundary : maximumSegmentCharacters;
+      final splitAt = wordBoundary > 0
+          ? wordBoundary
+          : maximumSegmentCharacters;
       segments.add(remaining.substring(0, splitAt).trimRight());
       remaining = remaining.substring(splitAt).trimLeft();
     }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -98,45 +100,43 @@ void main() {
         updatedAt: now,
         lastMutationId: 'component-mutation',
       );
-      final resolvedIssue =
-          MaintenanceRecord()
-            ..firestoreId = 'issue-pt-1'
-            ..version = 4
-            ..isDeleted = false
-            ..assetType = AssetType.furnace
-            ..assetNumber = asset.assetNumber
-            ..assetHierarchyRefJson =
-                AssetHierarchyReference(
-                  scope: AssetHierarchyReferenceScope.installedComponent,
-                  assetClassId: asset.assetClassId,
-                  assetClassCode: asset.assetClassCode,
-                  assetClassName: asset.assetClassName,
-                  nodeId: definition.id,
-                  nodeVersion: definition.version,
-                  nodeName: definition.name,
-                  assetInstanceId: asset.id,
-                  assetInstanceVersion: asset.version,
-                  assetNumber: asset.assetNumber,
-                  assetInstanceName: asset.name,
-                  componentInstanceId: component.id,
-                  componentInstanceVersion: component.version,
-                  componentTag: component.componentTag,
-                  hierarchyPath: definition.hierarchyPath,
-                  ownershipStatus: AssetOwnershipStatus.confirmed,
-                  ownerDiscipline: 'Instrumentation',
-                  accountableRoleKeys: const ['seniorInstrumentation'],
-                ).encode()
-            ..maintenanceType = MaintenanceType.breakdown
-            ..description = 'Pressure transmitter failed calibration'
-            ..routedTo = RoutedTo.instrumentation
-            ..status = TicketStatus.resolved
-            ..isResolved = true
-            ..closedByUid = 'admin-1'
-            ..closedByName = 'Admin One'
-            ..startDate = now.subtract(const Duration(hours: 4))
-            ..endDate = now.subtract(const Duration(hours: 1))
-            ..createdAt = now.subtract(const Duration(hours: 4))
-            ..updatedAt = now.subtract(const Duration(hours: 1));
+      final resolvedIssue = MaintenanceRecord()
+        ..firestoreId = 'issue-pt-1'
+        ..version = 4
+        ..isDeleted = false
+        ..assetType = AssetType.furnace
+        ..assetNumber = asset.assetNumber
+        ..assetHierarchyRefJson = AssetHierarchyReference(
+          scope: AssetHierarchyReferenceScope.installedComponent,
+          assetClassId: asset.assetClassId,
+          assetClassCode: asset.assetClassCode,
+          assetClassName: asset.assetClassName,
+          nodeId: definition.id,
+          nodeVersion: definition.version,
+          nodeName: definition.name,
+          assetInstanceId: asset.id,
+          assetInstanceVersion: asset.version,
+          assetNumber: asset.assetNumber,
+          assetInstanceName: asset.name,
+          componentInstanceId: component.id,
+          componentInstanceVersion: component.version,
+          componentTag: component.componentTag,
+          hierarchyPath: definition.hierarchyPath,
+          ownershipStatus: AssetOwnershipStatus.confirmed,
+          ownerDiscipline: 'Instrumentation',
+          accountableRoleKeys: const ['seniorInstrumentation'],
+        ).encode()
+        ..maintenanceType = MaintenanceType.breakdown
+        ..description = 'Pressure transmitter failed calibration'
+        ..routedTo = RoutedTo.instrumentation
+        ..status = TicketStatus.resolved
+        ..isResolved = true
+        ..closedByUid = 'admin-1'
+        ..closedByName = 'Admin One'
+        ..startDate = now.subtract(const Duration(hours: 4))
+        ..endDate = now.subtract(const Duration(hours: 1))
+        ..createdAt = now.subtract(const Duration(hours: 4))
+        ..updatedAt = now.subtract(const Duration(hours: 1));
       final audit = InstalledComponentLifecycleAudit(
         id: 'audit-1',
         entityId: component.id,
@@ -147,6 +147,63 @@ void main() {
         performedAt: now,
         requestId: 'request-1',
       );
+      JobExecution completedWork(
+        AssetHierarchyReferenceScope scope, {
+        required bool matching,
+      }) => JobExecution()
+        ..firestoreId = 'planned-${scope.name}-$matching'
+        ..templateName = '${matching ? 'Matching' : 'Unrelated'} ${scope.name}'
+        ..version = 2
+        ..assetType = AssetType.furnace
+        ..assetNumber = asset.assetNumber
+        ..isCompleted = true
+        ..completedAt = now.subtract(const Duration(hours: 2))
+        ..completedByUid = 'admin-1'
+        ..completedByName = 'Admin One'
+        ..metadataJson = jsonEncode({
+          'assignmentAssetIdentity': {
+            'assetClassId': asset.assetClassId,
+            'assetInstanceId': asset.id,
+            'assetNumber': asset.assetNumber,
+          },
+          'jobTemplateSnapshot': {
+            'assetHierarchyRefJson': AssetHierarchyReference(
+              scope: scope,
+              assetClassId: asset.assetClassId,
+              assetClassCode: asset.assetClassCode,
+              assetClassName: asset.assetClassName,
+              nodeId: matching ? definition.id : 'furnace-shell',
+              nodeVersion: 1,
+              nodeName: matching ? definition.name : 'Furnace shell',
+              assetInstanceId: scope == AssetHierarchyReferenceScope.definition
+                  ? null
+                  : asset.id,
+              assetInstanceVersion:
+                  scope == AssetHierarchyReferenceScope.definition
+                  ? null
+                  : asset.version,
+              assetNumber: scope == AssetHierarchyReferenceScope.definition
+                  ? null
+                  : asset.assetNumber,
+              assetInstanceName:
+                  scope == AssetHierarchyReferenceScope.definition
+                  ? null
+                  : asset.name,
+              hierarchyPath: [matching ? definition.name : 'Furnace shell'],
+              ownershipStatus: AssetOwnershipStatus.confirmed,
+              ownerDiscipline: 'Instrumentation',
+              accountableRoleKeys: const ['seniorInstrumentation'],
+            ).encode(),
+          },
+        });
+      final executions = [
+        for (final scope in [
+          AssetHierarchyReferenceScope.definition,
+          AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+        ])
+          for (final matching in [true, false])
+            completedWork(scope, matching: matching),
+      ];
 
       await tester.pumpWidget(
         ProviderScope(
@@ -155,7 +212,7 @@ void main() {
               (ref) => Stream.value(<MaintenanceRecord>[resolvedIssue]),
             ),
             adminExecutionsStreamProvider.overrideWith(
-              (ref) => Stream.value(const <JobExecution>[]),
+              (ref) => Stream.value(executions),
             ),
             assetClassesProvider.overrideWith(
               (ref) => Stream.value([assetClass]),
@@ -196,6 +253,16 @@ void main() {
       expect(
         find.textContaining('Resolved issue · Pressure transmitter'),
         findsOneWidget,
+      );
+      expect(find.textContaining('Matching definition'), findsOneWidget);
+      expect(
+        find.textContaining('Matching componentDefinitionOnAsset'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Unrelated definition'), findsNothing);
+      expect(
+        find.textContaining('Unrelated componentDefinitionOnAsset'),
+        findsNothing,
       );
       await tester.tap(
         find.textContaining('Resolved issue · Pressure transmitter'),

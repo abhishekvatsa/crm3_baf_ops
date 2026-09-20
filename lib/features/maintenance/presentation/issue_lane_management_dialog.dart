@@ -14,29 +14,34 @@ class IssueLaneChange {
     required this.lanes,
     required this.otherDepartment,
     required this.reason,
+    this.departmentChangeKind = 'transfer',
   });
 
   final List<RoutedTo> lanes;
   final String? otherDepartment;
   final String reason;
+  final String departmentChangeKind;
 }
 
 Future<IssueLaneChange?> showIssueLaneManagementDialog(
   BuildContext context, {
   required MaintenanceRecord ticket,
   Widget Function(Widget)? guard,
+  bool allowDepartmentLabelCorrection = false,
 }) => showDialog<IssueLaneChange>(
   context: context,
   builder: (_) {
-    final dialog = _IssueLaneManagementDialog(ticket: ticket);
+    final dialog = _IssueLaneManagementDialog(ticket: ticket,
+      allowDepartmentLabelCorrection: allowDepartmentLabelCorrection);
     return guard?.call(dialog) ?? dialog;
   },
 );
 
 class _IssueLaneManagementDialog extends StatefulWidget {
-  const _IssueLaneManagementDialog({required this.ticket});
+  const _IssueLaneManagementDialog({required this.ticket, required this.allowDepartmentLabelCorrection});
 
   final MaintenanceRecord ticket;
+  final bool allowDepartmentLabelCorrection;
 
   @override
   State<_IssueLaneManagementDialog> createState() =>
@@ -50,6 +55,7 @@ class _IssueLaneManagementDialogState
   late final Set<RoutedTo> _selected;
   late RoutedTo _primary;
   String? _error;
+  bool _labelCorrection = false;
 
   RoutedTo? get _mandatory =>
       widget.ticket.classification == burnerLockoutClassification
@@ -95,6 +101,10 @@ class _IssueLaneManagementDialogState
   void _submit() {
     final reason = _reasonController.text.trim();
     final otherDepartment = _otherDepartmentController.text.trim();
+    if (_labelCorrection && otherDepartment == widget.ticket.otherDepartment?.trim()) {
+      setState(() => _error = 'Enter the corrected name, or clear the name-only correction option.');
+      return;
+    }
     if (reason.isEmpty) {
       setState(() => _error = 'Give a reason for changing the lanes.');
       return;
@@ -127,6 +137,7 @@ class _IssueLaneManagementDialogState
         otherDepartment:
             _selected.contains(RoutedTo.others) ? otherDepartment : null,
         reason: reason,
+        departmentChangeKind: _labelCorrection ? 'labelCorrection' : 'transfer',
       ),
     );
   }
@@ -143,6 +154,12 @@ class _IssueLaneManagementDialogState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (widget.ticket.otherDepartment != null && _selected.contains(RoutedTo.others)) ...[
+                const Text('A department transfer requires fresh acknowledgement and completion. Earlier work remains in history.'),
+                if (widget.allowDepartmentLabelCorrection)
+                  CheckboxListTile(value: _labelCorrection, onChanged: (value) => setState(() => _labelCorrection = value ?? false),
+                    title: const Text('Correct the name only: the same department performed the recorded work')),
+              ],
               const Text(
                 'Select every discipline accountable for this issue. Existing progress is retained only for lanes that remain selected.',
               ),

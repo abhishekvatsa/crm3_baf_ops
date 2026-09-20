@@ -1,6 +1,7 @@
 // FILE: lib/features/planned_maintenance/presentation/assign_job_screen.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,12 +19,16 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../maintenance_workflow/domain/workflow_error.dart';
+import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_policy.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../domain/governed_planned_work_asset_selection.dart';
 import 'governed_planned_work_asset_selector.dart';
+import '../services/legacy_assignment_recovery.dart';
+
+part 'assign_job_screen.submission.dart';
 
 class AssignJobScreen extends ConsumerStatefulWidget {
   final JobTemplate template;
@@ -40,7 +45,12 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
   final _remarksController = TextEditingController();
 
   String? _selectedAssetInstanceId;
+  String? _pendingExecutionId;
+  String? _pendingCommandId;
+  String? _pendingSubmissionFingerprint;
   bool _isSubmitting = false;
+
+  void _setSubmitting(bool value) => setState(() => _isSubmitting = value);
 
   @override
   void dispose() {
@@ -59,141 +69,37 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     );
     final physicalClassId = route.physicalAssetClass?.id;
     if (!route.isAvailable || physicalClassId == null) return null;
-    final assets =
-        ref.read(assetInstancesProvider(physicalClassId)).asData?.value;
+    final assets = ref
+        .read(assetInstancesProvider(physicalClassId))
+        .asData
+        ?.value;
     if (assets == null) return null;
     final routeEligible = eligiblePlannedWorkAssets(
       route: route,
       assets: assets,
     );
-    final linkedBaseIds =
-        route.innerCoverByBase
-            ? ref
-                .read(innerCoverAssignmentsProvider)
-                .asData
-                ?.value
-                .map((assignment) => assignment.baseAssetInstanceId)
-                .toSet()
-            : null;
+    final linkedBaseIds = route.innerCoverByBase
+        ? ref
+              .read(innerCoverAssignmentsProvider)
+              .asData
+              ?.value
+              .map((assignment) => assignment.baseAssetInstanceId)
+              .toSet()
+        : null;
     if (route.innerCoverByBase && linkedBaseIds == null) return null;
-    final eligible =
-        linkedBaseIds == null
-            ? routeEligible
-            : routeEligible
-                .where((asset) => linkedBaseIds.contains(asset.id))
-                .toList(growable: false);
-    final selected =
-        eligible
-            .where((item) => item.id == _selectedAssetInstanceId)
-            .firstOrNull;
+    final eligible = linkedBaseIds == null
+        ? routeEligible
+        : routeEligible
+              .where((asset) => linkedBaseIds.contains(asset.id))
+              .toList(growable: false);
+    final selected = eligible
+        .where((item) => item.id == _selectedAssetInstanceId)
+        .firstOrNull;
     if (selected != null) return selected;
     if (route.fixedAssetInstanceId != null && eligible.length == 1) {
       return eligible.single;
     }
     return null;
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final templateFirestoreId = widget.template.firestoreId?.trim();
-    if (templateFirestoreId == null || templateFirestoreId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cannot assign: template is missing its local sync ID.',
-          ),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-      return;
-    }
-
-    final actorAsync = ref.read(currentAppUserProvider);
-    final appUser =
-        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
-    if (appUser == null || !appUser.canAssignJobExecution) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Not authorized to assign planned jobs.'),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-      return;
-    }
-
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
-
-    try {
-      final selectedAsset = _selectedGovernedAsset();
-      if (selectedAsset == null) {
-        throw const WorkflowException(
-          WorkflowErrorCode.invalidArgument,
-          'Choose an active physical asset from the governed register.',
-        );
-      }
-      final executionId = const Uuid().v4();
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await ref
-          .read(workflowCommandControllerProvider.notifier)
-          .execute(
-            WorkflowCommandFactory.create(
-              type: WorkflowCommandType.createLegacyWorkflowJob,
-              aggregateId: executionId,
-              expectedVersion: 0,
-              payload: <String, Object?>{
-                'assignmentSchemaVersion': 2,
-                'executionId': executionId,
-                'templateFirestoreId': templateFirestoreId,
-                'expectedTemplateVersion': widget.template.version,
-                'assetClassId': selectedAsset.assetClassId,
-                'assetInstanceId': selectedAsset.id,
-                if (_parseOptionalInt(_chargeNoController.text)
-                    case final chargeNo?)
-                  'chargeNoAtEvent': chargeNo,
-                if (_cleanOptionalText(_remarksController.text)
-                    case final remarks?)
-                  'remarks': remarks,
-              },
-            ),
-          );
-
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'workflow_job_assigned',
-          force: true,
-        ),
-      );
-
-      if (!mounted) return;
-
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      Navigator.pop(context);
-      Navigator.pop(context);
-
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Job assigned to ${widget.template.assignedAgencies.map((a) => a.toUpperCase()).join(', ')}',
-          ),
-          backgroundColor: BafColors.sync,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      final message =
-          e is WorkflowException && e.code == WorkflowErrorCode.unavailable
-              ? 'Assignment requires an online connection. Nothing was submitted; your entries remain on this screen.'
-              : 'Failed to assign job: $e';
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: BafColors.danger),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
   }
 
   @override
@@ -230,23 +136,20 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     }
     final assetClassesAsync = ref.watch(assetClassesProvider);
     final assetClasses = assetClassesAsync.asData?.value;
-    final assetRoute =
-        assetClasses == null
-            ? null
-            : resolveGovernedPlannedWorkAssetRoute(
-              assetType: widget.template.applicableAssetType,
-              templateReference: widget.template.assetHierarchyReference,
-              allClasses: assetClasses,
-            );
+    final assetRoute = assetClasses == null
+        ? null
+        : resolveGovernedPlannedWorkAssetRoute(
+            assetType: widget.template.applicableAssetType,
+            templateReference: widget.template.assetHierarchyReference,
+            allClasses: assetClasses,
+          );
     final physicalClassId = assetRoute?.physicalAssetClass?.id;
-    final assetInstancesAsync =
-        physicalClassId == null
-            ? null
-            : ref.watch(assetInstancesProvider(physicalClassId));
-    final innerCoverAssignmentsAsync =
-        assetRoute?.innerCoverByBase == true
-            ? ref.watch(innerCoverAssignmentsProvider)
-            : null;
+    final assetInstancesAsync = physicalClassId == null
+        ? null
+        : ref.watch(assetInstancesProvider(physicalClassId));
+    final innerCoverAssignmentsAsync = assetRoute?.innerCoverByBase == true
+        ? ref.watch(innerCoverAssignmentsProvider)
+        : null;
     final linkedInnerCoversByBase = {
       for (final assignment
           in innerCoverAssignmentsAsync?.asData?.value ??
@@ -255,17 +158,16 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     };
     final routeEligibleAssets =
         assetRoute == null || assetInstancesAsync?.asData == null
-            ? const <AssetInstanceRecord>[]
-            : eligiblePlannedWorkAssets(
-              route: assetRoute,
-              assets: assetInstancesAsync!.requireValue,
-            );
-    final eligibleAssets =
-        assetRoute?.innerCoverByBase == true
-            ? routeEligibleAssets
-                .where((asset) => linkedInnerCoversByBase.containsKey(asset.id))
-                .toList(growable: false)
-            : routeEligibleAssets;
+        ? const <AssetInstanceRecord>[]
+        : eligiblePlannedWorkAssets(
+            route: assetRoute,
+            assets: assetInstancesAsync!.requireValue,
+          );
+    final eligibleAssets = assetRoute?.innerCoverByBase == true
+        ? routeEligibleAssets
+              .where((asset) => linkedInnerCoversByBase.containsKey(asset.id))
+              .toList(growable: false)
+        : routeEligibleAssets;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -308,12 +210,11 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
                   linkedInnerCoversByBase: linkedInnerCoversByBase,
                   eligibleAssets: eligibleAssets,
                   selectedAssetInstanceId: _selectedAssetInstanceId,
-                  onAssetChanged:
-                      _isSubmitting
-                          ? null
-                          : (asset) => setState(
-                            () => _selectedAssetInstanceId = asset?.id,
-                          ),
+                  onAssetChanged: _isSubmitting
+                      ? null
+                      : (asset) => setState(
+                          () => _selectedAssetInstanceId = asset?.id,
+                        ),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -416,17 +317,16 @@ class _AssignJobBottomBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
           ),
-          icon:
-              isSubmitting
-                  ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                  : const Icon(Icons.playlist_add_check_rounded),
+          icon: isSubmitting
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Icon(Icons.playlist_add_check_rounded),
           label: Text(
             isSubmitting ? 'Assigning...' : 'Assign Job',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
@@ -529,7 +429,7 @@ class _OnlineLifecycleNotice extends StatelessWidget {
           SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(
-              'Authoritative assignment requires connectivity. This lifecycle action is not queued offline; if the connection is unavailable, the form remains open and nothing is submitted.',
+              'Assignment requires connectivity. If a reply is lost after sending, the original request is saved for checking; starting another assignment could duplicate work.',
               style: TextStyle(
                 color: BafColors.textPrimary,
                 fontSize: 12,

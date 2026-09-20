@@ -429,6 +429,24 @@ describe('governed remote device recovery', () => {
     ))).rejects.toMatchObject({code: 'aborted'});
   });
 
+  test('request replay reports the current terminal state, not a stale pending queue', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    fixture.store.set(statePath(), {
+      ...fixture.store.get(statePath()),
+      status: 'cancelled',
+    });
+
+    const replay = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, ADMIN, requestData()),
+    );
+    expect(replay).toMatchObject({
+      idempotentReplay: true,
+      status: 'cancelled',
+      notificationQueued: false,
+    });
+  });
+
   test('only the exact target phone can poll and acknowledge', async () => {
     const fixture = fakeDb(seed());
     await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));

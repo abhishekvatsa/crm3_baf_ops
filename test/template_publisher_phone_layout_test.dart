@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -38,7 +39,12 @@ void main() {
             (ref) => Stream.value(const <TemplatePackage>[]),
           ),
           maintenanceClassDefinitionsProvider.overrideWith(
-            (ref) => Stream.value(const <MaintenanceClassDefinition>[]),
+            (ref) => Stream.value(
+              const DecodedSnapshotBatch<MaintenanceClassDefinition>(
+                records: <MaintenanceClassDefinition>[],
+                rejectedDocumentIds: <String>[],
+              ),
+            ),
           ),
         ],
         child: MaterialApp(

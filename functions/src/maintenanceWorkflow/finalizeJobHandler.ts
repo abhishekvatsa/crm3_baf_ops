@@ -22,6 +22,8 @@ import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
+  frozenMaintenanceClassFromExecution,
+  maintenanceClassificationRevisionFromExecution,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
 import {
@@ -221,6 +223,9 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     workflowContribution(workflow),
   );
   const now = iso(context.serverNow);
+  const inheritedMaintenanceClassification = frozenMaintenanceClassFromExecution(currentExecution);
+  const inheritedMaintenanceClassificationRevision = inheritedMaintenanceClassification == null ?
+    null : maintenanceClassificationRevisionFromExecution(currentExecution);
   const nextVersion = version + 1;
   const currentExecutionVersion = typeof currentExecution.version === "number"
     ? currentExecution.version
@@ -320,6 +325,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       actorUid: context.actor.uid,
       actorName: context.actor.name,
       at: now,
+      maintenanceClassification: inheritedMaintenanceClassification,
+      maintenanceClassificationRevision: inheritedMaintenanceClassificationRevision,
     }));
 
     const successorWorkflow = await tx.get(workflowPath(successorWorkflowId));
@@ -488,6 +495,10 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
         packageFirestoreId: successorTemplate.packageId,
         versionFirestoreId: successorTemplate.versionId,
         contentHash: successorTemplate.contentHash,
+        ...(inheritedMaintenanceClassification == null ? {} : {
+          maintenanceClassification: inheritedMaintenanceClassification,
+          maintenanceClassificationRevision: inheritedMaintenanceClassificationRevision ?? 1,
+        }),
       }),
       isDeleted: false,
       createdAt: now,

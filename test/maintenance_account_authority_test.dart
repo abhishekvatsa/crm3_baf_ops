@@ -11,6 +11,8 @@ import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticke
 import 'package:crm3_baf_ops/features/maintenance/presentation/resolve_form.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/closed_ticket_history_service.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -214,7 +216,12 @@ void main() {
             currentAppUserProvider.overrideWith((ref) => actors.stream),
             closedTicketHistoryServiceProvider.overrideWithValue(history),
             maintenanceClassDefinitionsProvider.overrideWith(
-              (ref) => Stream.value([]),
+              (ref) => Stream.value(
+                const DecodedSnapshotBatch<MaintenanceClassDefinition>(
+                  records: <MaintenanceClassDefinition>[],
+                  rejectedDocumentIds: <String>[],
+                ),
+              ),
             ),
           ],
           child: MaterialApp(

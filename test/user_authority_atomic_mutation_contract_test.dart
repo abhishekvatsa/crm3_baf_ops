@@ -9,7 +9,7 @@ void main() {
           'lib/features/admin/presentation/user_management_screen.dart',
         ).readAsStringSync();
 
-    expect(source, contains('userAuthorityCommandServiceProvider'));
+    expect(source, contains('userAuthorityDurableCommandControllerProvider'));
     expect(source, isNot(contains("_isLastApprovedAdmin")));
     expect(source, isNot(contains("arrayContains: AppRole.admin.name")));
     expect(source, isNot(contains("auditRepositoryProvider")));

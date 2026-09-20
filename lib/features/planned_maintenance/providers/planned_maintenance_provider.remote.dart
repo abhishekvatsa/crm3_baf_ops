@@ -66,70 +66,53 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     DateTime startInclusive,
     DateTime endExclusive,
   ) {
+    return watchExecutionsOverlappingPeriodWithCoverage(
+      startInclusive,
+      endExclusive,
+    ).map((batch) => batch.records);
+  }
+
+  @override
+  Stream<DecodedSnapshotBatch<JobExecution>>
+  watchExecutionsOverlappingPeriodWithCoverage(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
     if (!startInclusive.isBefore(endExclusive)) {
-      return Stream<List<JobExecution>>.error(
+      return Stream<DecodedSnapshotBatch<JobExecution>>.error(
         ArgumentError('Report start must precede report end.'),
       );
     }
-    Stream<List<JobExecution>> decode(
-      firestore.Query<Map<String, dynamic>> query,
-    ) => query.snapshots().map(
-      (snapshot) => decodeSnapshotDocuments(snapshot, JobExecution.fromMap, source: 'JobExecution')
-          .toList(growable: false),
-    );
-    final startBound = plannedExecutionReportTimestampBound(startInclusive);
-    final endBound = plannedExecutionReportTimestampBound(endExclusive);
-
-    final startedInPeriod = decode(
-      _executions
-          .where('isDeleted', isEqualTo: false)
-          .where('createdAt', isGreaterThanOrEqualTo: startBound)
-          .where('createdAt', isLessThan: endBound)
-          .orderBy('createdAt', descending: true),
-    );
-    final openCarryIn = decode(
-      _executions
-          .where('isCompleted', isEqualTo: false)
-          .where('isCancelled', isEqualTo: false)
-          .where('isDeleted', isEqualTo: false)
-          .where('createdAt', isLessThan: startBound)
-          .orderBy('createdAt', descending: true),
-    );
-    final completedAcrossStart = decode(
-      _executions
-          .where('isCompleted', isEqualTo: true)
-          .where('isDeleted', isEqualTo: false)
-          .where('completedAt', isGreaterThan: startBound)
-          .orderBy('completedAt', descending: true),
-    );
-    final cancelledAcrossStart = decode(
-      _executions
-          .where('isCancelled', isEqualTo: true)
-          .where('isDeleted', isEqualTo: false)
-          .where('cancelledAt', isGreaterThan: startBound)
-          .orderBy('cancelledAt', descending: true),
-    );
-
-    return combineLatestUniqueRecordStreams<JobExecution>(
-      streams: [
-        startedInPeriod,
-        openCarryIn,
-        completedAcrossStart,
-        cancelledAcrossStart,
-      ],
-      identityOf: (record) => record.firestoreId ?? 'local:${record.id}',
-      compare: (left, right) => right.createdAt.compareTo(left.createdAt),
-    ).map(
-      (records) => records
-          .where(
-            (record) => jobExecutionOverlapsPeriod(
-              record,
-              startInclusive,
-              endExclusive,
-            ),
-          )
-          .toList(growable: false),
-    );
+    // Do not use lexical created/completed/cancelledAt windows here. Older
+    // supported records contain local or no-offset ISO strings, which are
+    // valid domain timestamps but do not compare correctly with UTC bounds.
+    // Read the complete non-deleted population, decode with coverage, and do
+    // the overlap decision on typed DateTime values.
+    return _executions
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          final batch = decodeSnapshotBatch(
+            snapshot,
+            JobExecution.fromMap,
+            source: 'JobExecution',
+          );
+          return DecodedSnapshotBatch<JobExecution>(
+            records: batch.records
+                .where(
+                  (record) => jobExecutionOverlapsPeriod(
+                    record,
+                    startInclusive,
+                    endExclusive,
+                  ),
+                )
+                .toList(growable: false),
+            rejectedDocumentIds: batch.rejectedDocumentIds,
+            isFromCache: batch.isFromCache,
+            hasPendingWrites: batch.hasPendingWrites,
+          );
+        });
   }
 
   @override

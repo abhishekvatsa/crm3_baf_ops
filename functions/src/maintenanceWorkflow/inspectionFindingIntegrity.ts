@@ -228,8 +228,9 @@ export function inspectionObservationBelongsToEpisode(
 }
 
 export function assertInspectionFindingActivation(rows: readonly DocSnapshot[], findingId: string, targetKey: string,
-  campaign: JsonMap, history: InspectionHistory): void {
-  if (campaign.status !== "open") {
+  campaign: JsonMap, history: InspectionHistory, allowHistoricalAmendment = false): void {
+  if (campaign.status !== "open" && !(campaign.status === "closed" &&
+      (allowHistoricalAmendment || rows.some((row) => row.data?.findingId === findingId)))) {
     throw new WorkflowError("failed-precondition", "Reopen the inspection campaign before activating a finding.",
       {reasonCode: "inspection-finding-campaign-not-open", targetKey});
   }

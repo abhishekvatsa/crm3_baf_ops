@@ -899,6 +899,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                   )
                 else
                   JobModuleResponseForm(
+                    inputScopeKey: '${actor?.uid}:${module.firestoreId ?? module.id}',
                     fieldDefinitions: fields,
                     initialResponses: responses,
                     isEditable: canSaveWork,

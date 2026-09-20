@@ -240,3 +240,35 @@ wait for updated readers and a coordinated client rollout or old-reader gate.
 New partial-edit requests also require the matching backend. No extension
 namespace, automatic migration, deployment or installed-client compatibility
 is implied by this inventory passing.
+
+## Inspection evidence-reader inventory addendum, 2026-09-20
+
+The current inventory retains 55 fields and now inherits 104 reviewed decoder
+surfaces, digest
+`E0E2F63AA99338431AF11EBA59D99FCBB9B0040EA8C3D58E565B4A0E075F7A4E`.
+The added inspection repository surface strictly validates independent finding
+creation history against prospective campaign manifests and verifies server
+repair identity/version before scope review. Legacy absent manifests require
+retained creation history; no historical reconciliation or automatic migration
+is asserted. Existing rollout prerequisites and historical custody remain intact.
+
+
+### Morning Review preliminary audit, 20 September 2026
+
+Current source: 55 fields / 106 inherited decoder surfaces, including explicitly classified partial live rows and exact-request durable recovery. Current digest `2742FD4647E42992A8DEE4623B763911837B4115757FCE1CD74BF191F4C55BCC`. Historical receipts above remain unchanged.
+
+### Whole-codebase source review, 21 September 2026
+
+The current generated inventory passes with 55 fields, 49 JSON strings, six
+dynamic values, three bounded extension bags and zero registered extension
+fields. It inherits 110 reviewed A-05 decoder surfaces, with exact digest
+`7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3`.
+The inherited policy now records the complete diary row precondition,
+canonical account authority, strict knowledge import and exact accepted-content
+readback, and durable receipt identity checks. Reviewed decoder error paths
+preserve evidence and block authority when decoding fails.
+
+This addendum records current source validation only. It changes no persisted
+field policy or extension authority and makes no production reconciliation,
+deployment or installed-client compatibility claim. Earlier closure receipts
+remain evidence for their original snapshots.

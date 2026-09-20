@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 
 import {
@@ -16,9 +17,12 @@ import {
   reconcileA05DocumentsWithDart,
   sourceDefinedCollectionNames,
   validateGlobalPullRuntimeContract,
+  validateMaintenanceCursor,
+  validateOrdinaryDirectiveReceipt,
 } from './a05_production_persisted_integrity_sweep.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const require = createRequire(import.meta.url);
 const HMAC_KEY = 'a05-test-key-with-at-least-thirty-two-bytes';
 const ts = {
   seconds: 1785542400,
@@ -1444,6 +1448,147 @@ test('server-only receipts are counted without becoming app decoder evidence', (
     result.collectionDispositions.device_recovery_receipts,
     'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
   );
+});
+
+function monitoringCursor(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    generation: 2,
+    due: {id: 'monitoring-private-id', value: ts},
+    legacy: {id: 'legacy-private-id'},
+    updatedAt: ts,
+    ...overrides,
+  };
+}
+
+async function producedDirectiveEvidence() {
+  // Exercise the actual local producer with an in-memory store. This never
+  // initializes an Admin app or contacts a Firebase project.
+  const {mutateOrdinaryDirectiveWithDb} = require('../../functions/lib/ordinaryDirectiveMutation.js');
+  const {fakeDb} = require('../../functions/test/helpers/qualityMemoryFirestore.cjs');
+  const memory = fakeDb({
+    'users/private-issuer': {isApproved: true, roles: ['si'], name: 'Issuer'},
+    'users/private-recipient': {isApproved: true, roles: ['operations'], name: 'Recipient'},
+  });
+  const id = 'private-instruction';
+  const time = '2026-09-20T06:00:00.000Z';
+  const requestId = 'private-receipt-one';
+  const request = {
+    requestId,
+    operation: 'APPLY_ORDINARY_DIRECTIVE',
+    directiveId: id,
+    expectedVersion: 0,
+    action: 'create',
+    reason: 'Reviewed instruction',
+    before: null,
+    after: {
+      firestoreId: id, title: 'Check cooling', description: 'Inspect temperature',
+      directedTo: 'operations', status: 'open', priority: 'medium',
+      createdByUid: 'private-issuer', createdByName: 'Issuer',
+      issuedByUid: 'private-issuer', issuedByName: 'Issuer', issuedAt: time,
+      isActive: true, closedWithoutAcknowledgement: false, isDeleted: false,
+      createdAt: time, updatedAt: time, version: 1,
+    },
+  };
+  const mutate = (data, authUid) => mutateOrdinaryDirectiveWithDb({
+    db: memory.db, authUid, data, now: () => new Date('2026-09-20T07:00:00Z'),
+  });
+  const accepted = await mutate(request, 'private-issuer');
+  const later = '2026-09-20T06:01:00.000Z';
+  await mutate({
+    ...request, requestId: 'private-receipt-two', expectedVersion: 1,
+    action: 'acknowledge', before: accepted.entity,
+    after: {...accepted.entity, version: 2, status: 'acknowledged',
+      acknowledgedByUid: 'private-recipient', acknowledgedByName: 'Recipient',
+      acknowledgedAt: later, updatedAt: later},
+  }, 'private-recipient');
+  return {
+    id: requestId,
+    receipt: memory.store.get(`ordinary_directive_receipts/${requestId}`),
+    audit: memory.store.get(`audit_logs/server_ordinary_directive_${requestId}`),
+    laterReceipt: memory.store.get('ordinary_directive_receipts/private-receipt-two'),
+    laterAudit: memory.store.get('audit_logs/server_ordinary_directive_private-receipt-two'),
+    current: memory.store.get(`directives/${id}`),
+  };
+}
+
+test('maintenance checkpoint accepts exact produced lanes and rejects unrecognized or malformed controls', () => {
+  const id = 'quality-monitoring-archive-v1';
+  assert.deepEqual(validateMaintenanceCursor(id, monitoringCursor()), []);
+  assert.deepEqual(validateMaintenanceCursor(id, monitoringCursor({due: null, legacy: null})), []);
+  assert.deepEqual(validateMaintenanceCursor('other-task', monitoringCursor()), ['unsupported-maintenance-cursor']);
+  for (const patch of [
+    {schemaVersion: 2}, {generation: 0}, {generation: 1.5},
+    {generation: Number.MAX_SAFE_INTEGER + 1}, {updatedAt: '2026-08-01T00:00:00Z'},
+    {due: {}}, {due: {id: 'nested/id', value: ts}},
+    {due: {id: '', value: ts}}, {due: {id: 'private-id', value: 'yesterday'}},
+    {legacy: {id: 'private-id', value: ts}}, {legacy: []}, {unexpected: true},
+  ]) {
+    assert.ok(validateMaintenanceCursor(id, monitoringCursor(patch)).length > 0);
+  }
+});
+
+test('actual ordinary directive receipts bind original audit and survive later acknowledgement by another actor', async () => {
+  const evidence = await producedDirectiveEvidence();
+  assert.equal(evidence.current.version, 2);
+  assert.deepEqual(validateOrdinaryDirectiveReceipt(evidence.id, evidence.receipt, evidence.audit), []);
+  assert.deepEqual(validateOrdinaryDirectiveReceipt(
+    'private-receipt-two', evidence.laterReceipt, evidence.laterAudit,
+  ), []);
+});
+
+test('directive receipt validation rejects altered envelope, acceptance, actor, and missing or changed audit', async () => {
+  const {id, receipt, audit} = await producedDirectiveEvidence();
+  for (const patch of [
+    {schemaVersion: 2}, {requestId: 'another-request'}, {actorUid: ''},
+    {fingerprint: 'not-a-digest'}, {fingerprint: [receipt.fingerprint]},
+    {resultSha256: '0'.repeat(64)},
+    {auditSha256: '0'.repeat(64)}, {unexpected: true}, {result: null},
+    {result: {...receipt.result, entityId: 123}},
+    {result: {...receipt.result, operation: 'OTHER_OPERATION'}},
+    {result: {...receipt.result, idempotentReplay: true}},
+    {result: {...receipt.result, version: 2}},
+    {result: {...receipt.result, committedAt: '2026-02-30T07:00:00.000Z'}},
+    {result: {...receipt.result, entity: {...receipt.result.entity, title: 'Altered'}}},
+  ]) {
+    assert.ok(validateOrdinaryDirectiveReceipt(id, {...receipt, ...patch}, audit).length > 0);
+  }
+  assert.ok(validateOrdinaryDirectiveReceipt(id, receipt, null).includes('directive-receipt-audit-missing'));
+  for (const changed of [
+    {...audit, requestId: 'another-request'}, {...audit, entityId: 'another-directive'},
+    {...audit, performedByUid: 'another-actor'}, {...audit, resultVersion: 2},
+    {...audit, timestamp: '2026-09-20T08:00:00.000Z'},
+    {...audit, afterJson: '{broken'},
+    {...audit, afterJson: JSON.stringify({...receipt.result.entity, title: 'Altered'})},
+  ]) {
+    assert.ok(validateOrdinaryDirectiveReceipt(id, receipt, changed).length > 0);
+  }
+});
+
+test('new internal collections receive strict server findings without leaking saved identities', async () => {
+  const {id, receipt, audit} = await producedDirectiveEvidence();
+  const documents = {
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    _maintenance_cursors: [{id: 'quality-monitoring-archive-v1', data: monitoringCursor()}],
+    ordinary_directive_receipts: [{id, data: receipt}],
+    audit_logs: [{id: `server_ordinary_directive_${id}`, data: audit}],
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({documentsByCollection: documents, hmacKey: HMAC_KEY});
+  assert.deepEqual(reconciliation.map((row) => row.result), ['PASS']);
+  const result = classify({documents, roots: Object.keys(documents), reconciliation});
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  for (const collection of ['_maintenance_cursors', 'ordinary_directive_receipts']) {
+    assert.equal(A05_COLLECTION_REGISTRY[collection], 'STRICT_SERVER_CONTROL');
+    assert.equal(result.collectionCounts[collection], 1);
+    assert.equal(result.collectionDispositions[collection], 'STRICT_SERVER_CONTROL_PASS');
+  }
+  documents._maintenance_cursors[0].data.generation = -1;
+  documents.ordinary_directive_receipts[0].data.actorUid = 'wrong-private-actor';
+  const held = classify({documents, roots: Object.keys(documents), reconciliation});
+  assert.equal(held.decision, A05_DECISIONS.hold);
+  assert.equal(held.collectionDispositions._maintenance_cursors, 'STRICT_SERVER_CONTROL_FINDINGS');
+  assert.equal(held.collectionDispositions.ordinary_directive_receipts, 'STRICT_SERVER_CONTROL_FINDINGS');
+  assert.ok(!JSON.stringify(held).includes('private-'));
 });
 
 test('runtime contract requires exact shape and activation evidence', () => {

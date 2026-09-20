@@ -1292,49 +1292,54 @@
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewSession.fromMap",
       "requiredFields": [
-        "updatedAt",
-        "expiresAt"
+        "updatedAt"
       ],
       "optionalFields": [
         "openedAt",
         "finalizedAt",
-        "sourceCapturedAt"
+        "sourceCapturedAt",
+        "expiresAt"
       ],
       "owner": "morning-review",
       "purpose": "restore meeting lifecycle, source-capture, revision, and retention chronology",
       "authorityBoundary": "remote-morning-review-session",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review session timestamp or lifecycle schema change"
+      "reArmCondition": "any Morning Review session timestamp or lifecycle schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-participant",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewParticipant.fromMap",
       "requiredFields": [
-        "expiresAt",
         "joinedAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore explicit attendance and retention chronology",
       "authorityBoundary": "remote-morning-review-participant",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review participant timestamp schema change"
+      "reArmCondition": "any Morning Review participant timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-entry",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewEntry.fromMap",
       "requiredFields": [
-        "expiresAt",
         "createdAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore attributed meeting contribution and retention chronology",
       "authorityBoundary": "remote-morning-review-entry",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review entry timestamp schema change"
+      "reArmCondition": "any Morning Review entry timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-action",
@@ -1379,15 +1384,17 @@
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewConcernCheck.fromMap",
       "requiredFields": [
-        "expiresAt",
         "checkedAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore the daily concern-review evidence and retention chronology",
       "authorityBoundary": "remote-morning-review-concern-check",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review concern-check timestamp schema change"
+      "reArmCondition": "any Morning Review concern-check timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-frozen-document",
@@ -1580,6 +1587,21 @@
       "authorityBoundary": "original-account-bound-burner-correction-command-and-receipt",
       "regression": "test/burner_block_correction_command_service_test.dart",
       "reArmCondition": "receipt and frozen command times are coerced or defaulted, or a changed request or actor adopts the retained correction acceptance"
+    },
+    {
+      "id": "burner-attendance-history",
+      "readerFile": "lib/features/maintenance/domain/burner_attendance_history.dart",
+      "readerMarker": "List<BurnerAttendanceEntry> readBurnerAttendanceHistory(",
+      "requiredFields": [
+        "performedAt",
+        "recordedAt"
+      ],
+      "optionalFields": [],
+      "owner": "reactive-maintenance",
+      "purpose": "Keep physical attendance and server recording chronology distinct",
+      "authorityBoundary": "remote-audited-business-evidence",
+      "regression": "test/reactive_burner_attendance_test.dart",
+      "reArmCondition": "Malformed attendance timestamp is defaulted or physical and recording time are conflated."
     }
   ]
 }

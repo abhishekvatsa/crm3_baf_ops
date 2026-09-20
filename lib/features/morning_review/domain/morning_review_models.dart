@@ -29,7 +29,7 @@ enum MorningReviewEntryKind {
   addendum,
 }
 
-enum MorningReviewActionStatus { open, accepted, completed }
+enum MorningReviewActionStatus { open, accepted, completed, cancelled }
 
 enum MorningReviewConcernCriticality { standing, safety }
 
@@ -119,25 +119,30 @@ class MorningReviewSourceFact {
     Map<String, dynamic> map, {
     required String source,
   }) {
-    _requireExactFields(map, const {
-      'factId',
-      'section',
-      'sourceType',
-      'sourceCollection',
-      'sourceDocumentId',
-      'title',
-      'summary',
-      'status',
-      'assetClassId',
-      'assetClassName',
-      'assetInstanceId',
-      'assetNumber',
-      'observedAtIso',
-    }, source, optional: const {
-      'evidenceReviewRequired',
-      'evidenceReviewReason',
-      'effectiveAdverseObservationCount',
-    });
+    _requireExactFields(
+      map,
+      const {
+        'factId',
+        'section',
+        'sourceType',
+        'sourceCollection',
+        'sourceDocumentId',
+        'title',
+        'summary',
+        'status',
+        'assetClassId',
+        'assetClassName',
+        'assetInstanceId',
+        'assetNumber',
+        'observedAtIso',
+      },
+      source,
+      optional: const {
+        'evidenceReviewRequired',
+        'evidenceReviewReason',
+        'effectiveAdverseObservationCount',
+      },
+    );
     final assetClassId = _optionalBoundedText(
       map['assetClassId'],
       field: 'assetClassId',
@@ -245,10 +250,10 @@ class MorningReviewSourceFact {
       // producer fault and fails closed like every other field here.
       evidenceReviewRequired: map.containsKey('evidenceReviewRequired')
           ? readRequiredPersistedBool(
-            map['evidenceReviewRequired'],
-            field: 'evidenceReviewRequired',
-            source: source,
-          )
+              map['evidenceReviewRequired'],
+              field: 'evidenceReviewRequired',
+              source: source,
+            )
           : false,
       evidenceReviewReason: _optionalBoundedText(
         map['evidenceReviewReason'],
@@ -388,7 +393,7 @@ class MorningReviewSession {
   final DateTime updatedAt;
   final String updatedByUid;
   final String updatedByName;
-  final DateTime expiresAt;
+  final DateTime? expiresAt;
   final String lastMutationId;
 
   bool get isOpen => status == MorningReviewStatus.open;
@@ -584,7 +589,7 @@ class MorningReviewSession {
       field: 'updatedAt',
       source: source,
     );
-    final expiresAt = readRequiredPersistedDateTime(
+    final expiresAt = readOptionalPersistedDateTime(
       map['expiresAt'],
       field: 'expiresAt',
       source: source,
@@ -615,7 +620,9 @@ class MorningReviewSession {
           r'^morningreviewdocument1-sha256:[0-9a-f]{64}$',
         ).hasMatch(documentDigest);
     final chronologyValid =
-        expiresAt.isAfter(updatedAt) &&
+        (expiresAt == null
+            ? status == MorningReviewStatus.open
+            : expiresAt.isAfter(updatedAt)) &&
         (openedAt == null || !updatedAt.isBefore(openedAt)) &&
         (sourceCapturedAt == null || !updatedAt.isBefore(sourceCapturedAt)) &&
         (finalizedAt == null || !updatedAt.isBefore(finalizedAt));
@@ -777,7 +784,7 @@ class MorningReviewParticipant {
         detail: 'identity or joined state mismatch',
       );
     }
-    readRequiredPersistedDateTime(
+    readOptionalPersistedDateTime(
       normalized['expiresAt'],
       field: 'expiresAt',
       source: source,
@@ -914,7 +921,7 @@ class MorningReviewEntry {
         detail: 'entry identity or plant day mismatch',
       );
     }
-    readRequiredPersistedDateTime(
+    readOptionalPersistedDateTime(
       normalized['expiresAt'],
       field: 'expiresAt',
       source: source,
@@ -1063,6 +1070,7 @@ class MorningReviewAction {
     required this.completionNote,
     required this.createdAt,
     required this.createdByName,
+    this.cancellationReason,
   });
 
   final String actionId;
@@ -1076,12 +1084,16 @@ class MorningReviewAction {
   final String? assigneeRole;
   final DateTime? dueAt;
   final MorningReviewActionStatus status;
+  bool get isTerminal =>
+      status == MorningReviewActionStatus.completed ||
+      status == MorningReviewActionStatus.cancelled;
   final int version;
   final DateTime? acceptedAt;
   final String? acceptedByName;
   final DateTime? completedAt;
   final String? completedByName;
   final String? completionNote;
+  final String? cancellationReason;
   final DateTime createdAt;
   final String createdByName;
 
@@ -1092,39 +1104,44 @@ class MorningReviewAction {
   }) {
     final normalized = _withoutEmbeddedDocumentId(map, documentId, embedded);
     final source = 'morning_review_actions/$documentId';
-    _requireExactFields(normalized, const {
-      'schemaVersion',
-      'actionId',
-      'sessionId',
-      'originPlantDay',
-      'section',
-      'text',
-      'assetClassId',
-      'assetClassName',
-      'assetInstanceId',
-      'assetNumber',
-      'assigneeUid',
-      'assigneeName',
-      'assigneeRole',
-      'dueAt',
-      'status',
-      'version',
-      'acceptedAt',
-      'acceptedByUid',
-      'acceptedByName',
-      'completedAt',
-      'completedByUid',
-      'completedByName',
-      'completionNote',
-      'createdAt',
-      'createdByUid',
-      'createdByName',
-      'updatedAt',
-      'updatedByUid',
-      'updatedByName',
-      'expiresAt',
-      'lastMutationId',
-    }, source);
+    _requireExactFields(
+      normalized,
+      const {
+        'schemaVersion',
+        'actionId',
+        'sessionId',
+        'originPlantDay',
+        'section',
+        'text',
+        'assetClassId',
+        'assetClassName',
+        'assetInstanceId',
+        'assetNumber',
+        'assigneeUid',
+        'assigneeName',
+        'assigneeRole',
+        'dueAt',
+        'status',
+        'version',
+        'acceptedAt',
+        'acceptedByUid',
+        'acceptedByName',
+        'completedAt',
+        'completedByUid',
+        'completedByName',
+        'completionNote',
+        'createdAt',
+        'createdByUid',
+        'createdByName',
+        'updatedAt',
+        'updatedByUid',
+        'updatedByName',
+        'expiresAt',
+        'lastMutationId',
+      },
+      source,
+      optional: const {'cancellation'},
+    );
     _schemaOne(normalized, source);
     final id = _boundedText(
       normalized['actionId'],
@@ -1314,6 +1331,41 @@ class MorningReviewAction {
       source: source,
       maximum: 80,
     );
+    final cancellation = normalized['cancellation'];
+    if (status == MorningReviewActionStatus.cancelled) {
+      if (cancellation is! Map<String, dynamic>) {
+        throw PersistedDataFormatException(
+          field: 'cancellation',
+          source: source,
+          detail: 'Cancellation evidence is required',
+        );
+      }
+      _requireExactFields(cancellation, const {
+        'at',
+        'actorUid',
+        'actorName',
+        'reason',
+      }, source);
+      readRequiredPersistedDateTime(
+        cancellation['at'],
+        field: 'at',
+        source: source,
+      );
+      for (final field in ['actorUid', 'actorName', 'reason']) {
+        _boundedText(
+          cancellation[field],
+          field: field,
+          source: source,
+          maximum: field == 'reason' ? 1600 : 256,
+        );
+      }
+    } else if (cancellation != null) {
+      throw PersistedDataFormatException(
+        field: 'cancellation',
+        source: source,
+        detail: 'Only a cancelled action may carry cancellation evidence',
+      );
+    }
     if (anyAcceptedEvidence != acceptedEvidence ||
         anyCompletedEvidence != completedEvidence ||
         (status == MorningReviewActionStatus.open &&
@@ -1322,6 +1374,10 @@ class MorningReviewAction {
                 expiresAt != null)) ||
         (status == MorningReviewActionStatus.accepted &&
             (!acceptedEvidence || anyCompletedEvidence || expiresAt != null)) ||
+        (status == MorningReviewActionStatus.cancelled &&
+            (anyCompletedEvidence ||
+                anyAcceptedEvidence ||
+                expiresAt == null)) ||
         (status == MorningReviewActionStatus.completed &&
             (!completedEvidence || expiresAt == null))) {
       throw PersistedDataFormatException(
@@ -1332,6 +1388,9 @@ class MorningReviewAction {
     }
     return MorningReviewAction(
       actionId: id,
+      cancellationReason: cancellation is Map
+          ? cancellation['reason'] as String?
+          : null,
       sessionId: sessionId,
       section: readRequiredPersistedEnum(
         MorningReviewSection.values,
@@ -1653,7 +1712,7 @@ class MorningReviewConcernCheck {
         detail: 'must match the document identity',
       );
     }
-    readRequiredPersistedDateTime(
+    readOptionalPersistedDateTime(
       normalized['expiresAt'],
       field: 'expiresAt',
       source: source,
@@ -1834,7 +1893,7 @@ class MorningReviewDocument {
       map['actions'],
       field: 'actions',
       source: source,
-      maximum: 100,
+      maximum: 320,
     );
     final participants = _objectList(
       map['participants'],
@@ -1852,7 +1911,7 @@ class MorningReviewDocument {
       map['standingConcernChecks'],
       field: 'standingConcernChecks',
       source: source,
-      maximum: 180,
+      maximum: 250,
     );
     final facilitatorHistory = _objectList(
       map['facilitatorHistory'],
@@ -2013,7 +2072,17 @@ class MorningReviewDocument {
             document.standingConcernChecks.length;
     final embeddedIdentityMismatch =
         document.entries.any((entry) => entry.sessionId != sessionId) ||
-        document.actions.any((action) => action.sessionId != sessionId) ||
+        document.actions.any(
+          (action) =>
+              action.sessionId != sessionId &&
+              !document.sourceFacts.any(
+                (fact) =>
+                    fact.sourceType == 'carriedAction' &&
+                    fact.sourceCollection == 'morning_review_actions' &&
+                    fact.sourceDocumentId == action.actionId &&
+                    fact.factId == 'morning_review_actions/${action.actionId}',
+              ),
+        ) ||
         document.participants.any(
           (participant) => participant.sessionId != sessionId,
         ) ||
@@ -2257,8 +2326,8 @@ void _requireExactFields(
   if (!actual.containsAll(expected) ||
       actual.difference(expected).difference(optional).isNotEmpty) {
     final missing = expected.difference(actual).toList()..sort();
-    final extra =
-        actual.difference(expected).difference(optional).toList()..sort();
+    final extra = actual.difference(expected).difference(optional).toList()
+      ..sort();
     throw PersistedDataFormatException(
       field: 'recordShape',
       source: source,

@@ -2,10 +2,30 @@ const {
   MaintenanceWorkflowCommandService,
 } = require('../lib/maintenanceWorkflow/dispatcher');
 const {
+  compareMaintenanceCompletionEvidence,
+} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
+const {
   MemoryWorkflowStore,
 } = require('../lib/maintenanceWorkflow/memoryStore');
 
 const now = new Date('2026-08-21T08:00:00.000Z');
+
+test('maintenance completion reduction is deterministic for equal-time evidence', () => {
+  const first = {
+    completedAt: '2026-08-21T08:00:00.000Z',
+    eventId: 'mce_a', sourceType: 'workflowPlannedJob', sourceId: 'a', sourceRevision: 1,
+  };
+  const second = {
+    completedAt: '2026-08-21T08:00:00.000Z',
+    eventId: 'mce_b', sourceType: 'workflowPlannedJob', sourceId: 'b', sourceRevision: 99,
+  };
+  expect(compareMaintenanceCompletionEvidence(first, second)).toBeGreaterThan(0);
+  expect(compareMaintenanceCompletionEvidence(second, first)).toBeLessThan(0);
+  expect(compareMaintenanceCompletionEvidence(
+    {...first, eventId: 'mce_z', sourceId: 'same', sourceRevision: 1},
+    {...first, eventId: 'mce_a', sourceId: 'same', sourceRevision: 2},
+  )).toBeLessThan(0);
+});
 
 function persistedTimestamp(value) {
   const millis = Date.parse(value);
@@ -267,6 +287,23 @@ describe('classified maintenance completion and planning', () => {
       lastMaintenanceClassCode: 'FURNACE_MID',
       classificationPending: false,
     });
+  });
+
+  test('classifying older work does not invent its unknown original completer', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    store.seed('job_executions/execution-7', {
+      firestoreId: 'execution-7', assetType: 'furnace', assetNumber: 7,
+      workflowSchemaVersion: 1, isCompleted: true,
+      completedAt: '2026-08-01T04:00:00.000Z', metadataJson: '{}', version: 3,
+    });
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    await service.execute(classify(3, 1), {actor: admin, serverNow: now});
+    const event = store.entries().find(([path]) => path.startsWith('maintenance_completion_events/'))[1];
+    expect(event).toMatchObject({completedByUid: null, completedByName: null,
+      interpretedByUid: 'admin-1', interpretedByName: 'admin-1'});
   });
 
   test('classification correction appends evidence and recomputes removed counters', async () => {
@@ -580,14 +617,8 @@ describe('classified maintenance completion and planning', () => {
     const {store, service, supervisor} = await plannedStore();
     const {dueStatePath} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
     const own = dueStatePath('class-furnace:furnace-7', 'FURNACE_MID');
-    store.seed(own, {
-      schemaVersion: 1,
-      dueStateId: own.split('/').at(-1),
-      assetIdentityKey: 'class-furnace:furnace-7',
-      assetClassId: 'class-furnace',
-      assetInstanceId: 'furnace-7',
-      counterKey: 'FURNACE_MID',
-      nextDueAt: '2026-08-20T00:00:00.000Z',
+    await service.execute(historicalMaintenanceCommand(), {
+      actor: {uid: 'admin-1', name: 'admin-1'}, serverNow: now,
     });
 
     const receipt = await service.execute(
@@ -599,6 +630,19 @@ describe('classified maintenance completion and planning', () => {
     expect(store.read('maintenance_plans/plan-furnace-7'))
       .toMatchObject({sourceDueStateId: own.split('/').at(-1)});
   });
+
+  test.each([{}, {schemaVersion: 1, assetIdentityKey: 'wrong'}])(
+    'a named but unverified due body is refused: %j', async (body) => {
+      const {store, service, supervisor} = await plannedStore();
+      const {dueStatePath} = require('../lib/maintenanceWorkflow/maintenanceIntelligence');
+      const own = dueStatePath('class-furnace:furnace-7', 'FURNACE_MID');
+      store.seed(own, body);
+      await expect(service.execute(planWithSource(own.split('/').at(-1)),
+        {actor: supervisor, serverNow: now})).rejects.toMatchObject({
+          details: {reasonCode: 'maintenance-plan-source-due-state-unverified'},
+        });
+      expect(store.read('maintenance_plans/plan-furnace-7')).toBeNull();
+    });
 
   test('a standalone plan still needs no due counter', async () => {
     const {store, service, supervisor} = await plannedStore();
@@ -1162,5 +1206,72 @@ describe('BF04 explicit ready-plan subject revalidation', () => {
     await expect(service.execute(command, {actor: kind === 'wrong actor' ? other : actor, serverNow: now}))
       .rejects.toBeDefined();
     expect(store.entries()).toEqual(before);
+  });
+});
+
+describe('ordinary ready-plan subject revalidation', () => {
+  test('same physical asset can adopt a reviewed registry revision', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-ordinary-review', ['admin']);
+    const actor = seedActor(store, 'supervisor-ordinary-review', ['shiftSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    await service.execute({
+      commandId: 'ordinary-plan-create', commandType: 'upsertMaintenancePlan',
+      aggregateId: 'plan-furnace-7', expectedVersion: 0,
+      payload: {
+        assetTypeKey: 'furnace', assetNumber: 7,
+        assetClassId: 'class-furnace', assetInstanceId: 'furnace-7',
+        assetInstanceVersion: 3,
+        maintenanceClassDefinitionId: 'maintenance-class-furnace-mid',
+        maintenanceClassDefinitionVersion: 1,
+        targetWindowStart: '2026-08-25T02:00:00.000Z',
+        targetWindowEnd: '2026-08-25T10:00:00.000Z',
+        sourceDueStateId: null, templatePackageId: null,
+        templateVersionId: null, templateContentHash: null,
+        planningNotes: 'Reviewed ordinary equipment plan.',
+        reason: 'Create ordinary equipment plan for revalidation.',
+      },
+    }, {actor, serverNow: now});
+    await service.execute({
+      commandId: 'ordinary-scheduled', commandType: 'setMaintenancePlanStatus',
+      aggregateId: 'plan-furnace-7', expectedVersion: 1,
+      payload: {status: 'scheduled', reason: 'Schedule ordinary plan.', executionId: null},
+    }, {
+      actor, serverNow: now,
+    });
+    await service.execute({
+      commandId: 'ordinary-ready', commandType: 'setMaintenancePlanStatus',
+      aggregateId: 'plan-furnace-7', expectedVersion: 2,
+      payload: {status: 'ready', reason: 'Ready ordinary plan.', executionId: null},
+    }, {
+      actor, serverNow: now,
+    });
+    store.seed('asset_instances/furnace-7', {
+      ...store.read('asset_instances/furnace-7'),
+      version: 4,
+      name: 'Furnace 07 Renamed',
+    });
+    const result = await service.execute({
+      commandId: 'ordinary-review', commandType: 'setMaintenancePlanStatus',
+      aggregateId: 'plan-furnace-7', expectedVersion: 3,
+      payload: {
+        status: 'ready', executionId: null,
+        reason: 'Reviewed the same Furnace after a registry description update.',
+        revalidation: {
+          assetClassId: 'class-furnace', assetInstanceId: 'furnace-7',
+          assetInstanceVersion: 4, assetNumber: 7, assetName: 'Furnace 07 Renamed',
+        },
+      },
+    }, {actor, serverNow: now});
+    expect(result).toMatchObject({
+      resultKey: 'maintenance-plan-subject-revalidated', aggregateVersion: 4,
+      result: {assetInstanceVersion: 4, status: 'ready', auditId: 'ordinary-review'},
+    });
+    expect(store.read('maintenance_plans/plan-furnace-7')).toMatchObject({
+      status: 'ready', assetInstanceVersion: 4, assetInstanceName: 'Furnace 07 Renamed',
+      subjectReview: {assetNumber: 7, previousAssetInstanceVersion: 3},
+    });
   });
 });

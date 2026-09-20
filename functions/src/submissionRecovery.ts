@@ -24,6 +24,8 @@ export const SUBMISSION_RECOVERY_COLLECTIONS = Object.freeze({
   controls: "submission_recovery_controls",
 });
 export const SUBMISSION_RECOVERY_DOMAINS = Object.freeze({
+  ordinaryDirective: {endpoint: "mutateAssetHierarchyV2", receipts: "ordinary_directive_receipts"},
+  assetCondition: {endpoint: "mutateAssetHierarchyV2", receipts: "asset_operational_condition_receipts"},
   morningReview: {endpoint: "mutateAssetHierarchyV2", receipts: "morning_review_mutation_receipts"},
   burnerEvidence: {endpoint: "mutateAssetHierarchyV2", receipts: "burner_condition_round_receipts"},
   innerCoverAcceptance: {endpoint: "mutateAssetHierarchyV2", receipts: "inner_cover_lifecycle_receipts"},
@@ -42,6 +44,7 @@ const MORNING_STATUSES: {[operation: string]: readonly string[]} = {
   START_MORNING_REVIEW: ["open"], JOIN_MORNING_REVIEW: ["joined"],
   ADD_MORNING_REVIEW_ENTRY: ["recorded"], CREATE_MORNING_REVIEW_ACTION: ["open"],
   ACCEPT_MORNING_REVIEW_ACTION: ["accepted"], COMPLETE_MORNING_REVIEW_ACTION: ["completed"],
+  AMEND_MORNING_REVIEW_ACTION: ["open", "cancelled"],
   TAKE_OVER_MORNING_REVIEW: ["open"], FINALIZE_MORNING_REVIEW: ["finalized"],
   RECORD_MORNING_REVIEW_NOT_HELD: ["notHeld"], CREATE_MORNING_REVIEW_STANDING_CONCERN: ["active"],
   RESOLVE_MORNING_REVIEW_STANDING_CONCERN: ["resolved"],
@@ -150,7 +153,11 @@ function receiptSummary(domain: Domain, requestId: string, originalActorUid: str
     version = data.versionNumber; committedAt = data.assignedAt; status = "completed";
   } else {
     if (data.requestId !== requestId) return malformed();
-    if (domain === "morningReview") {
+    if (domain === "ordinaryDirective") {
+      const result=data.result;
+      if(data.schemaVersion!==1 || !SHA.test(fingerprint) || !record(result) || result.ok!==true || result.requestId!==requestId || result.operation!=="APPLY_ORDINARY_DIRECTIVE" || !text(result.entityId) || !positive(result.version) || !iso(result.committedAt) || !record(result.entity) || result.entity.firestoreId!==result.entityId || result.entity.version!==result.version || !text(data.resultSha256) || !SHA.test(data.resultSha256) || !text(data.auditSha256) || !SHA.test(data.auditSha256)) return malformed();
+      operation=result.operation; entityId=result.entityId; version=result.version; committedAt=result.committedAt;
+    } else if (domain === "morningReview") {
       const result = data.result;
       if (data.schemaVersion !== 1 || !/^morningreview[12]-sha256:[0-9a-f]{64}$/.test(fingerprint) ||
           !record(result) || result.requestId !== requestId || !text(result.operation) ||
@@ -175,13 +182,29 @@ function receiptSummary(domain: Domain, requestId: string, originalActorUid: str
               Object.keys(data.timestampInstants).join() !== "inspectedOn" ||
               !wireInstant(data.timestampInstants.inspectedOn)))) return malformed();
         operation = data.operation; entityId = data.innerCoverId; version = data.version;
+      } else if (domain === "assetCondition") {
+        if (data.schemaVersion !== 1 ||
+            !["DECLARE_ASSET_CONDITION", "RESTORE_ASSET_CONDITION"].includes(String(data.operation)) ||
+            !/^assetcondition[12]-sha256:[0-9a-f]{64}$/.test(fingerprint) ||
+            !text(data.assetInstanceId) || !text(data.assetClassId) || !positive(data.version) ||
+            data.auditId !== `asset_condition_${requestId}` ||
+            (data.operation === "RESTORE_ASSET_CONDITION" ? data.condition !== "available" :
+              !["down", "unfit"].includes(String(data.condition)))) return malformed();
+        operation = String(data.operation); entityId = data.assetInstanceId; version = data.version;
       } else if (domain === "qualityMonitoring") {
-        if (data.schemaVersion !== 1 || data.operation !== "CREATE_QUALITY_MONITORING_REQUEST" ||
+        const creating = data.operation === "CREATE_QUALITY_MONITORING_REQUEST";
+        const reviewing = ["CLOSE_QUALITY_MONITORING_REQUEST", "CORRECT_QUALITY_MONITORING_REQUEST",
+          "CANCEL_QUALITY_MONITORING_REQUEST"].includes(String(data.operation));
+        if (data.schemaVersion !== 1 || (!creating && !reviewing) ||
             !/^(qualityreq1|qualitycreate2)-sha256:[0-9a-f]{64}$/.test(fingerprint) ||
-            !text(data.entityId) || data.resultVersion !== 1 || data.auditId !== `server_quality_${requestId}` ||
+            !text(data.entityId) || !positive(data.resultVersion) || data.auditId !== `server_quality_${requestId}` ||
+            (creating ? data.resultVersion !== 1 : !positive(data.expectedVersion) ||
+              data.resultVersion !== data.expectedVersion + 1 || !fingerprint.startsWith("qualityreq1-")) ||
             (fingerprint.startsWith("qualitycreate2-") && (data.creationEvidenceVersion !== 2 ||
-              !text(data.creationAuditSha256) || !SHA.test(data.creationAuditSha256)))) return malformed();
-        operation = data.operation; entityId = data.entityId; version = data.resultVersion;
+              !text(data.creationAuditSha256) || !SHA.test(data.creationAuditSha256))) ||
+            (reviewing && ((data.operation !== "CLOSE_QUALITY_MONITORING_REQUEST" || data.acceptedEvidenceVersion != null) &&
+              (data.acceptedEvidenceVersion !== 2 || !text(data.acceptedAuditSha256) || !SHA.test(data.acceptedAuditSha256))))) return malformed();
+        operation = String(data.operation); entityId = data.entityId; version = data.resultVersion;
       } else {
         if (!text(data.assetClassId) || !text(data.assetInstanceId) || data.roundId !== requestId) return malformed();
         if (data.operation === "RECORD_BURNER_CONDITION_ROUND") {
@@ -256,12 +279,16 @@ function validatedProof(data: JsonMap, fence = false): JsonMap {
   }
   return proof;
 }
-function requireActivation(data: JsonMap | undefined, now: Date): void {
+function requireActivation(data: JsonMap | undefined, now: Date, domain: Domain): void {
   const exact = (value: unknown, expected: readonly string[]): boolean => Array.isArray(value) &&
     value.length === expected.length && value.every((item) => typeof item === "string") &&
     [...value].sort().join() === [...expected].sort().join();
   if (data?.schemaVersion !== 1 || data.protocol !== SUBMISSION_RECOVERY_PROTOCOL || data.enabled !== true ||
-      !exact(data.domains, Object.keys(SUBMISSION_RECOVERY_DOMAINS)) ||
+      !(exact(data.domains, Object.keys(SUBMISSION_RECOVERY_DOMAINS)) ||
+        (domain !== "ordinaryDirective" && exact(data.domains,
+          Object.keys(SUBMISSION_RECOVERY_DOMAINS).filter((key) => key !== "ordinaryDirective"))) ||
+        (domain !== "assetCondition" && domain !== "ordinaryDirective" && exact(data.domains,
+          Object.keys(SUBMISSION_RECOVERY_DOMAINS).filter((key) => key !== "assetCondition" && key !== "ordinaryDirective")))) ||
       !exact(data.guardedCallableNames, GUARDED_CALLABLES) || data.legacyWorkersDrained !== true ||
       data.rollbackRetainsFences !== true || !text(data.sourceCommit) || !/^[0-9a-f]{40}$/.test(data.sourceCommit) ||
       !text(data.evidenceSha256) || !SHA.test(data.evidenceSha256) || !iso(data.verifiedAt) ||
@@ -348,7 +375,7 @@ export async function reviewSavedSubmissionWithDb(args: {
     const now = args.now?.() ?? new Date();
     if (!Number.isFinite(now.valueOf())) return invalid();
     const activation = await tx.get(args.db.collection(SUBMISSION_RECOVERY_COLLECTIONS.controls).doc("activation"));
-    requireActivation(activation.exists ? activation.data() : undefined, now);
+    requireActivation(activation.exists ? activation.data() : undefined, now, request.domain);
     const proof = {...binding, outcome: receipt.exists ? "reviewedExisting" : "cancelled",
       decisionId, decidedAt: now.toISOString(), receiptSha256, receiptSummary: summary};
     const storedProof = {...proof, proofSha256: submissionRecoveryEvidenceHash(proof)};
@@ -367,13 +394,15 @@ function originalIdentity(endpoint: string, data: unknown): {domain: Domain; req
   if (endpoint === "assignPublishedTemplateVersion") domain = "publishedTemplateAssignment";
   // A completed review reserves the ID throughout its existing receipt namespace.
   // Changing operation must not create acceptance beside the permanent fence.
-  // Review admission remains limited to the six supported recovery domains.
+  // Review admission remains limited to the explicitly supported recovery domains.
   else if (endpoint === "executeMaintenanceWorkflowCommand") domain = "inspectionCampaign";
   else if (endpoint === "mutateChargeAbnormality" && isQualityMutationOperation(data.operation)) domain = "qualityMonitoring";
   else if (endpoint === "mutateAssetHierarchy") {
-    if (typeof data.operation === "string" && Object.prototype.hasOwnProperty.call(MORNING_STATUSES, data.operation)) domain = "morningReview";
+    if (data.operation === "APPLY_ORDINARY_DIRECTIVE") domain = "ordinaryDirective";
+    else if (typeof data.operation === "string" && Object.prototype.hasOwnProperty.call(MORNING_STATUSES, data.operation)) domain = "morningReview";
     else if (data.operation === "RECORD_BURNER_CONDITION_ROUND" || data.operation === "COMPLETE_BURNER_RED_HOT_DIRECTIVE") domain = "burnerEvidence";
     else if (isInnerCoverLifecycleOperation(data.operation)) domain = "innerCoverAcceptance";
+    else if (data.operation === "DECLARE_ASSET_CONDITION" || data.operation === "RESTORE_ASSET_CONDITION") domain = "assetCondition";
   }
   const rawId = domain === "inspectionCampaign" ? data.commandId : data.requestId;
   if (domain == null || typeof rawId !== "string") return null;

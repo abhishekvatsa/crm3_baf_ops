@@ -46,6 +46,8 @@ class _DocumentRemoval {
 class _RecordingDocumentStore implements NotificationInstallationDocumentStore {
   final List<_DocumentWrite> writes = <_DocumentWrite>[];
   final List<_DocumentRemoval> removals = <_DocumentRemoval>[];
+  Future<void>? upsertGate;
+  bool _gateUsed = false;
 
   @override
   Future<void> upsert({
@@ -62,6 +64,10 @@ class _RecordingDocumentStore implements NotificationInstallationDocumentStore {
         platform: platform,
       ),
     );
+    if (upsertGate != null && !_gateUsed) {
+      _gateUsed = true;
+      await upsertGate;
+    }
   }
 
   @override
@@ -85,11 +91,13 @@ class _FakeTokenSource implements NotificationTokenSource {
       StreamController<String>.broadcast();
   String? token;
   int deleteCount = 0;
+  Future<String?>? tokenGate;
 
   _FakeTokenSource(this.token);
 
   @override
-  Future<String?> currentToken() async => token;
+  Future<String?> currentToken() async =>
+      tokenGate == null ? token : await tokenGate;
 
   @override
   Future<void> deleteToken() async {
@@ -167,6 +175,30 @@ void main() {
     );
 
     test(
+      'concurrent registration is serialized and the latest token wins',
+      () async {
+        final gate = Completer<void>();
+        documentStore.upsertGate = gate.future;
+
+        final first = registry.registerToken(uid: 'user-1', token: 'token-a');
+        await Future<void>.delayed(Duration.zero);
+        final second = registry.registerToken(uid: 'user-1', token: 'token-b');
+        await Future<void>.delayed(Duration.zero);
+        gate.complete();
+
+        final results = await Future.wait([first, second]);
+        expect(results[0], isNotNull);
+        expect(results[1], isNotNull);
+        expect(documentStore.writes, hasLength(2));
+        expect(
+          documentStore.writes.map((entry) => entry.installationId).toSet(),
+          hasLength(1),
+        );
+        expect(documentStore.writes.last.token, 'token-b');
+      },
+    );
+
+    test(
       'a restarted registry reuses the persisted installation identity',
       () async {
         final first = await registry.registerCurrentToken(uid: 'user-1');
@@ -202,6 +234,27 @@ void main() {
       },
     );
 
+    test(
+      'late token acquisition cannot recreate a signed-out registration',
+      () async {
+        final gate = Completer<String?>();
+        tokenSource.tokenGate = gate.future;
+        final old = registry.registerCurrentToken(uid: 'user-1');
+        registry.observeSignedOut();
+        gate.complete('stale-token');
+        expect(await old, isNull);
+        expect(documentStore.writes, isEmpty);
+      },
+    );
+    test('late token acquisition cannot overwrite a newer refresh', () async {
+      final gate = Completer<String?>();
+      tokenSource.tokenGate = gate.future;
+      final old = registry.registerCurrentToken(uid: 'user-1');
+      await registry.registerToken(uid: 'user-1', token: 'new-token');
+      gate.complete('old-token');
+      expect(await old, isNull);
+      expect(documentStore.writes.single.token, 'new-token');
+    });
     test('missing or blank tokens do not create registration state', () async {
       tokenSource.token = null;
       expect(await registry.registerCurrentToken(uid: 'user-1'), isNull);

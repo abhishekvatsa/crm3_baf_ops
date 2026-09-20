@@ -4,6 +4,7 @@ import {
   AssetHierarchyMutationFirestoreLike,
 } from "./assetHierarchyMutation";
 import {evidenceInstant} from "./burnerConditionEvidence";
+import {isValidAffectedAssetHierarchyReference} from "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 
 type JsonMap = {[key: string]: unknown};
@@ -123,18 +124,66 @@ function projectedInstallations(value: unknown, assetId: string,
   }), "currentInstallations");
 }
 
-function openIssues(value: unknown, assetNumber: number): OpenIssue[] {
+function issueTargetsAsset(raw: unknown, issueAssetNumber: number, assetNumber: number,
+  assetClassId: string, assetInstanceId: string, legacyClassUnambiguous: boolean,
+  legacyAssetUnambiguous: boolean): boolean {
+  if (raw == null) {
+    if (issueAssetNumber !== assetNumber) return false;
+    if (!legacyClassUnambiguous || !legacyAssetUnambiguous) invalid("openIssue.legacyAsset");
+    return true;
+  }
+  if (typeof raw !== "string") invalid("openIssue.assetHierarchyRefJson");
+  const reference = object(JSON.parse(raw as string), "openIssue.assetHierarchyRefJson");
+  if ([1, 2, 3].includes(reference.schemaVersion as number) &&
+      (reference.schemaVersion === 1 || reference.scope === "definition")) {
+    // Definition-only historical references identify a class, not a physical
+    // instance. Keep their legacy number dependency without discarding any
+    // stronger identity that the stored reference claims.
+    if ((reference.scope != null && reference.scope !== "definition") ||
+        ["assetInstanceId", "assetInstanceVersion", "assetNumber", "assetInstanceName",
+          "componentInstanceId", "componentInstanceVersion", "innerCoverAssociation"]
+          .some((field) => reference[field] != null) ||
+        !Number.isSafeInteger(reference.nodeVersion) || (reference.nodeVersion as number) < 1) {
+      invalid("openIssue.assetHierarchyRefJson");
+    }
+    id(reference.nodeId, "openIssue.assetHierarchyRefJson.nodeId");
+    if (id(reference.assetClassId, "openIssue.assetHierarchyRefJson.assetClassId") !== assetClassId ||
+        issueAssetNumber !== assetNumber) return false;
+    if (!legacyAssetUnambiguous) invalid("openIssue.legacyAsset");
+    return true;
+  }
+  if (!isValidAffectedAssetHierarchyReference(reference, issueAssetNumber) ||
+      (reference.scope === "physicalAsset" && reference.nodeId !== reference.assetInstanceId)) {
+    invalid("openIssue.assetHierarchyRefJson");
+  }
+  // A reused legacy number cannot transfer a retired Furnace's concern to a
+  // different physical asset. Unreferenced legacy rows remain conservative.
+  return reference.assetClassId === assetClassId && reference.assetInstanceId === assetInstanceId;
+}
+
+function openIssues(value: unknown, assetNumber: number,
+  assetClassId: string, assetInstanceId: string, legacyClassUnambiguous: boolean,
+  legacyAssetUnambiguous: boolean): OpenIssue[] {
   const rows: JsonMap[] = [];
   for (const snapshot of snapshots(value)) {
     const row = snapshot.data();
     if (!snapshot.exists || row == null) invalid("openIssue");
-    if (row.assetType !== "furnace" || row.assetNumber !== assetNumber || row.isDeleted === true) continue;
+    if (row.assetType !== "furnace" || row.isDeleted === true) continue;
     if (row.burnerRedHotPositions == null) continue;
     if (!Array.isArray(row.burnerRedHotPositions)) invalid("openIssue.burnerRedHotPositions");
     if (row.burnerRedHotPositions.length === 0) continue;
-    if (row.status === "resolved" || row.status === "closedWithoutResolution") continue;
-    if (!["open", "acknowledged", "inProgress"].includes(String(row.status)) ||
+    if (row.status === "resolved") continue;
+    if (row.status === "closedWithoutResolution") {
+      // Administrative closure can deliberately retain the physical concern.
+      // Ending its relevance is a later, separately versioned decision.
+      if (row.issueClosureSchemaVersion !== 1 ||
+          row.issueClosureDisposition !== "stillRelevant") continue;
+      if (row.isResolved !== true) invalid("openIssue.status");
+    } else if (!["open", "acknowledged", "inProgress"].includes(String(row.status)) ||
         row.isResolved === true) invalid("openIssue.status");
+    if (!Number.isSafeInteger(row.assetNumber) || (row.assetNumber as number) < 1) invalid("openIssue.assetNumber");
+    if (!issueTargetsAsset(row.assetHierarchyRefJson, row.assetNumber as number,
+      assetNumber, assetClassId, assetInstanceId, legacyClassUnambiguous, legacyAssetUnambiguous)) continue;
     const positions = row.burnerRedHotPositions.map((entry) => position(entry, "openIssue.position"));
     if (new Set(positions).size !== positions.length) invalid("openIssue.position");
     const issueId = id(snapshot.id, "openIssue.id");
@@ -148,16 +197,21 @@ function openIssues(value: unknown, assetNumber: number): OpenIssue[] {
 export async function verifyConditionBasis(args: {
   db: Pick<AssetHierarchyMutationFirestoreLike, "collection">;
   transaction: {get: (query: QueryLike) => Promise<unknown>};
-  request: {assetInstanceId: string; expectedInstallationBasis: unknown; expectedOpenIssueBasis: unknown};
+  request: {assetClassId: string; assetInstanceId: string;
+    expectedInstallationBasis: unknown; expectedOpenIssueBasis: unknown};
   assetNumber: number;
 }): Promise<void> {
   const expected = parseConditionBasis(args.request);
-  const [burner, uv, maintenance] = await Promise.all([
+  const [burner, uv, maintenance, furnaceClasses, numberedAssets] = await Promise.all([
     args.transaction.get(args.db.collection("burner_block_lifecycle_current")
       .where("assetInstanceId", "==", args.request.assetInstanceId)),
     args.transaction.get(args.db.collection("uv_detector_lifecycle_current")
       .where("assetInstanceId", "==", args.request.assetInstanceId)),
     args.transaction.get(args.db.collection("maintenance_records")
+      .where("assetType", "==", "furnace")),
+    args.transaction.get(args.db.collection("asset_classes")
+      .where("legacyAssetTypeKey", "==", "furnace")),
+    args.transaction.get(args.db.collection("asset_instances")
       .where("assetNumber", "==", args.assetNumber)),
   ]);
   let currentInstallations;
@@ -178,7 +232,17 @@ export async function verifyConditionBasis(args: {
   }
   let currentIssues;
   try {
-    currentIssues = openIssues(maintenance, args.assetNumber);
+    const classes = snapshots(furnaceClasses);
+    const legacyClassUnambiguous = classes.length === 1 && classes[0].exists &&
+      classes[0].id === args.request.assetClassId &&
+      classes[0].data()?.assetClassId === args.request.assetClassId;
+    const sameClassAssets = snapshots(numberedAssets)
+      .filter((row) => row.data()?.assetClassId === args.request.assetClassId);
+    const legacyAssetUnambiguous = sameClassAssets.length === 1 && sameClassAssets[0].exists &&
+      sameClassAssets[0].id === args.request.assetInstanceId &&
+      sameClassAssets[0].data()?.assetInstanceId === args.request.assetInstanceId;
+    currentIssues = openIssues(maintenance, args.assetNumber,
+      args.request.assetClassId, args.request.assetInstanceId, legacyClassUnambiguous, legacyAssetUnambiguous);
   } catch (_) {
     throw new AssetHierarchyMutationError("aborted",
       "The open red-hot issues need refresh before this condition update.",

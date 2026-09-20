@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../data/maintenance_model.dart';
@@ -6,18 +9,18 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/maintenance_ticket_correction.dart';
 
-class MaintenanceTicketCorrectionDialog extends StatefulWidget {
+class MaintenanceTicketCorrectionDialog extends ConsumerStatefulWidget {
   const MaintenanceTicketCorrectionDialog({super.key, required this.ticket});
 
   final MaintenanceRecord ticket;
 
   @override
-  State<MaintenanceTicketCorrectionDialog> createState() =>
+  ConsumerState<MaintenanceTicketCorrectionDialog> createState() =>
       _MaintenanceTicketCorrectionDialogState();
 }
 
 class _MaintenanceTicketCorrectionDialogState
-    extends State<MaintenanceTicketCorrectionDialog> {
+    extends ConsumerState<MaintenanceTicketCorrectionDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _description;
   late final TextEditingController _component;
@@ -32,6 +35,8 @@ class _MaintenanceTicketCorrectionDialogState
   late MaintenanceIssuePlantConditionEffect _plantConditionEffect;
   late bool _critical;
   String? _submissionError;
+  String? _targetReferenceJson;
+  String? _targetLabel;
 
   bool get _isBurnerLockout =>
       widget.ticket.classification == burnerLockoutClassification;
@@ -45,7 +50,28 @@ class _MaintenanceTicketCorrectionDialogState
   bool get _isSpecialized => _isBurnerLockout || _isFurnaceStuckup;
 
   bool get _hasImmutableIssueIdentity =>
-      _isSpecialized || _isBaseInnerCoverUnavailable;
+      _isSpecialized || _isBaseInnerCoverUnavailable || widget.ticket.assetHierarchyRefJson != null;
+
+  Future<void> _selectCorrectedTarget() async {
+    try {
+      final original = widget.ticket.assetHierarchyReference;
+      if (original == null) throw StateError('The registered target must be reconciled first.');
+      final repository = ref.read(assetHierarchyRepositoryProvider);
+      final assets = await repository.watchAssetInstances(original.assetClassId).first;
+      final asset = assets.singleWhere((value) => value.id == original.assetInstanceId);
+      final nodes = await repository.watchNodes(original.assetClassId).first;
+      if (!mounted) return;
+      final selection = await showGovernedAssetTargetPicker(context: context, asset: asset,
+        nodes: nodes, selectedNodeId: original.nodeId);
+      if (!mounted || selection?.reference == null) return;
+      setState(() {
+        _targetReferenceJson = selection!.reference!.encode();
+        _targetLabel = selection.node!.name;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _submissionError = '$error');
+    }
+  }
 
   bool get _hasRedHotBurner =>
       widget.ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true;
@@ -134,6 +160,7 @@ class _MaintenanceTicketCorrectionDialogState
         otherDepartment: cleanMaintenanceOptionalText(_otherDepartment.text),
         remarks: cleanMaintenanceOptionalText(_remarks.text),
         reason: _reason.text,
+        targetReferenceJson: _targetReferenceJson,
       );
       Navigator.pop(context, draft);
     } catch (error) {
@@ -333,6 +360,15 @@ class _MaintenanceTicketCorrectionDialogState
                             }
                           },
                 ),
+                if (!_isSpecialized && !_isBaseInnerCoverUnavailable &&
+                    widget.ticket.status == TicketStatus.open && widget.ticket.assetHierarchyRefJson != null)
+                  OutlinedButton.icon(
+                    onPressed: _selectCorrectedTarget,
+                    icon: const Icon(Icons.account_tree_outlined),
+                    label: Text(_targetLabel == null
+                        ? 'Correct wrong registered component on this asset'
+                        : 'Corrected target: $_targetLabel'),
+                  ),
                 TextFormField(
                   key: const ValueKey('ticket-correction-component'),
                   controller: _component,
@@ -358,7 +394,7 @@ class _MaintenanceTicketCorrectionDialogState
                 TextFormField(
                   key: const ValueKey('ticket-correction-subsystem'),
                   controller: _subsystem,
-                  enabled: !_isBaseInnerCoverUnavailable,
+                  enabled: !_hasImmutableIssueIdentity,
                   decoration: const InputDecoration(
                     labelText: 'Subsystem (optional)',
                   ),
@@ -378,7 +414,7 @@ class _MaintenanceTicketCorrectionDialogState
                 TextFormField(
                   key: const ValueKey('ticket-correction-classification'),
                   controller: _classification,
-                  enabled: !_hasImmutableIssueIdentity,
+                  enabled: !_isSpecialized && !_isBaseInnerCoverUnavailable,
                   decoration: const InputDecoration(
                     labelText: 'Classification (optional)',
                   ),

@@ -375,6 +375,61 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
             };
           }
           if (isCriticalAlarmEventType(eventType)) return null;
+          const isEscalation = eventType.endsWith("Escalated") ||
+            eventType === "lane.escalated";
+          if (isEscalation) {
+            const sourceCollection = typeof payload.sourceCollection === "string"
+              ? payload.sourceCollection
+              : "";
+            const sourceDocumentId = typeof payload.sourceDocumentId === "string"
+              ? payload.sourceDocumentId
+              : "";
+            const sourceVersion = typeof payload.sourceVersion === "number"
+              ? payload.sourceVersion
+              : null;
+            const escalationTier = typeof payload.escalationTier === "number"
+              ? payload.escalationTier
+              : null;
+            if ((sourceCollection !== "job_lanes" &&
+                    sourceCollection !== "compliance_requests") ||
+                sourceDocumentId.length === 0 ||
+                sourceVersion == null || escalationTier == null) {
+              logger.warn("Escalation notification has incomplete source binding", {
+                eventId: sourceEventId,
+                eventType,
+              });
+              return null;
+            }
+            const source = await db.collection(sourceCollection)
+              .doc(sourceDocumentId).get();
+            const current = source.data();
+            const currentVersion = typeof current?.version === "number"
+              ? current.version
+              : null;
+            const identityMatches = sourceCollection === "job_lanes"
+              ? current?.workflowId === aggregateId &&
+                current?.laneKey === laneKey &&
+                current?.status === "pending"
+              : current?.linkedWorkflowId === aggregateId &&
+                current?.targetLaneKey === laneKey &&
+                ((eventType === "compliance.acknowledgementEscalated" &&
+                    current?.status === "raised") ||
+                  (eventType === "compliance.completionEscalated" &&
+                    (current?.status === "acknowledged" ||
+                      current?.status === "complied")));
+            if (!source.exists || current == null ||
+                currentVersion !== sourceVersion ||
+                current.escalationTier !== escalationTier ||
+                !identityMatches) {
+              logger.info("Escalation notification is no longer current", {
+                eventId: sourceEventId,
+                sourceCollection,
+                sourceDocumentId,
+                eventType,
+              });
+              return null;
+            }
+          }
           let roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -394,8 +449,6 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
             notificationDb(db),
             roles,
           );
-          const isEscalation = eventType.endsWith("Escalated") ||
-            eventType === "lane.escalated";
           const isEquipmentEvent = eventType.startsWith("equipment.");
           const assetTypeKey = typeof payload.assetTypeKey === "string"
             ? payload.assetTypeKey
@@ -410,7 +463,7 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               ? `Maintenance escalation T${escalationTier ?? 1}`
               : "Maintenance workflow update",
             body: isEscalation
-              ? `${laneKey?.toUpperCase() ?? "Workflow"} action is overdue`
+              ? `An overdue ${laneKey?.toUpperCase() ?? "workflow"} action was reported. Open the app for its current status.`
               : eventType || "Workflow state changed",
             notificationData: {
               route: isEquipmentEvent

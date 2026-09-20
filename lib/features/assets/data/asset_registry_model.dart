@@ -180,13 +180,6 @@ class AssetTagClaimRecord {
         source: source,
       ),
     );
-    if (record.ownershipStatus != AssetOwnershipStatus.confirmed) {
-      throw PersistedDataFormatException(
-        field: 'ownershipStatus',
-        source: source,
-        detail: 'an active installed-component tag claim must be confirmed',
-      );
-    }
     if (normalizeAssetComponentTag(record.displayTag) != normalizedTag) {
       throw PersistedDataFormatException(
         field: 'displayTag',

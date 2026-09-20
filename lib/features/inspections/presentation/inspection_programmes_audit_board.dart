@@ -248,23 +248,22 @@ class _InspectionAuditBoardState extends State<_InspectionAuditBoard> {
                                               width: cellWidth,
                                               child:
                                                   row.targetsByAxis[axis.key] ==
-                                                          null
-                                                      ? const _InspectionAuditEmptyCell()
-                                                      : _InspectionAuditCell(
-                                                        target:
-                                                            row.targetsByAxis[axis
-                                                                .key]!,
-                                                        observation:
-                                                            currentByTarget[row
-                                                                .targetsByAxis[axis
-                                                                    .key]!
-                                                                .targetKey],
-                                                        canRecord:
-                                                            widget.canRecord,
-                                                        onPressed:
-                                                            widget
-                                                                .onTargetPressed,
-                                                      ),
+                                                      null
+                                                  ? const _InspectionAuditEmptyCell()
+                                                  : _InspectionAuditCell(
+                                                      target:
+                                                          row.targetsByAxis[axis
+                                                              .key]!,
+                                                      observation:
+                                                          currentByTarget[row
+                                                              .targetsByAxis[axis
+                                                                  .key]!
+                                                              .targetKey],
+                                                      canRecord:
+                                                          widget.canRecord,
+                                                      onPressed: widget
+                                                          .onTargetPressed,
+                                                    ),
                                             ),
                                         ],
                                       ),
@@ -315,10 +314,9 @@ List<_InspectionAuditAxis> _auditAxes(
   final result = <String, _InspectionAuditAxis>{};
   for (final target in targets) {
     final key = _inspectionAxisKey(target);
-    final component =
-        target.componentNodeId == null
-            ? null
-            : nodesById[target.componentNodeId!]?.name;
+    final component = target.componentNodeId == null
+        ? null
+        : nodesById[target.componentNodeId!]?.name;
     final label = switch ((component, target.physicalPosition)) {
       (final String component, final String position) =>
         '$component · $position',
@@ -337,29 +335,31 @@ List<_InspectionAuditRow> _auditRows(
 ) {
   final grouped = <String, List<InspectionCampaignTarget>>{};
   for (final target in targets) {
-    final rowKey =
-        target.hasInstalledInnerCoverContext
-            ? '${target.hostAssetInstanceId}|${target.linkageId}'
-            : target.assetInstanceId;
+    final rowKey = target.hasInstalledInnerCoverContext
+        ? '${target.hostAssetInstanceId}|${target.linkageId}'
+        : target.assetInstanceId;
     grouped.putIfAbsent(rowKey, () => <InspectionCampaignTarget>[]).add(target);
   }
-  final rows = grouped.entries
-    .map((entry) {
-      final first = entry.value.first;
-      final byAxis = <String, InspectionCampaignTarget>{
-        for (final target in entry.value) _inspectionAxisKey(target): target,
-      };
-      return _InspectionAuditRow(
-        key: entry.key,
-        label: first.rowLabel,
-        number: first.hostAssetNumber ?? first.assetNumber,
-        targetsByAxis: byAxis,
-      );
-    })
-    .toList(growable: false)..sort((left, right) {
-    final number = left.number.compareTo(right.number);
-    return number != 0 ? number : left.label.compareTo(right.label);
-  });
+  final rows =
+      grouped.entries
+          .map((entry) {
+            final first = entry.value.first;
+            final byAxis = <String, InspectionCampaignTarget>{
+              for (final target in entry.value)
+                _inspectionAxisKey(target): target,
+            };
+            return _InspectionAuditRow(
+              key: entry.key,
+              label: first.rowLabel,
+              number: first.hostAssetNumber ?? first.assetNumber,
+              targetsByAxis: byAxis,
+            );
+          })
+          .toList(growable: false)
+        ..sort((left, right) {
+          final number = left.number.compareTo(right.number);
+          return number != 0 ? number : left.label.compareTo(right.label);
+        });
   return rows;
 }
 

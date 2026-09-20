@@ -21,6 +21,8 @@ function activation() {
 function receipt(domain) {
   const base = {schemaVersion: 1, requestId, actorUid: 'original', committedAt: Timestamp.fromDate(new Date(at)), committedAtIso: at};
   switch (domain) {
+    case 'ordinaryDirective': return {...base, fingerprint: hash, resultSha256: hash, auditSha256: hash, result: {ok:true,requestId,operation:'APPLY_ORDINARY_DIRECTIVE',entityId:'directive',version:1,committedAt:at,entity:{firestoreId:'directive',version:1}}};
+    case 'assetCondition': return {...base, fingerprint: `assetcondition2-sha256:${hash}`, operation: 'DECLARE_ASSET_CONDITION', assetClassId: 'class', assetInstanceId: 'furnace-7', condition: 'down', version: 1, auditId: `asset_condition_${requestId}`};
     case 'morningReview': return {...base, fingerprint: `morningreview1-sha256:${hash}`,
       result: {requestId, operation: 'START_MORNING_REVIEW', sessionId: '2026-09-13', entityId: '2026-09-13', status: 'open', version: 1, committedAt: at}};
     case 'burnerEvidence': return {...base, fingerprint: `burnerround2-sha256:${hash}`,
@@ -48,6 +50,8 @@ function receipt(domain) {
 function original(domain) {
   return domain === 'inspectionCampaign' ? {commandId: requestId, commandType: 'createInspectionCampaign'} :
     {requestId, ...({morningReview: {operation: 'START_MORNING_REVIEW'},
+      ordinaryDirective: {operation: 'APPLY_ORDINARY_DIRECTIVE'},
+      assetCondition: {operation: 'DECLARE_ASSET_CONDITION'},
       burnerEvidence: {operation: 'RECORD_BURNER_CONDITION_ROUND'},
       innerCoverAcceptance: {operation: 'ACCEPT_INNER_COVER'},
       qualityMonitoring: {operation: 'CREATE_QUALITY_MONITORING_REQUEST'}}[domain] || {})};

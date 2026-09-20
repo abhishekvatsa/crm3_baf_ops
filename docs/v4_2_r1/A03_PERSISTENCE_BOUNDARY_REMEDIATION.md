@@ -428,3 +428,23 @@ The existing durable journal owns the original command envelope and local
 acceptance settlement; the workflow backend owns correction and audit writes.
 This inventory refresh records current source boundaries only and does not
 change historical closure or authorize deployment.
+
+## Inspection follow-up inventory addendum, 2026-09-20
+
+The current inventory contains 601 operations and 2,095 sites across 72
+classified surfaces, digest
+`CB61F7EC700C6F0D3F60CF187FE294E981D45E77FBBD8FA590DDDFBB0FB124E0`.
+Inspection repair review adds a server-only maintenance read in the existing
+repository; strict report reads also include independent finding creation
+events. Presentation submits through the existing workflow controller and
+owns no persistence. Historical receipts and production authority are unchanged.
+
+
+### Morning Review preliminary audit, 20 September 2026
+
+Current source: 601 operations / 2,097 sites / 72 surfaces. The additional reads expose unfinished meetings independently of the recent archive window. Current digest `F3DD501B7104AA15C08C1427ED34892E6FC97C1B587D2082FA71207A7F8E5F51`. Historical receipts above remain unchanged.
+
+
+## Current domain-repair inventory, 21 September 2026
+
+Current source has 618 operations / 2,164 sites / 77 classified surfaces. Digest `D07DA8DEB4E167358DFADA0E2C5C0EAB8D0220AECE8C8EA2023356DE3D52D5AE`. Reviewed additions are origin-bound directive recovery, online access checks, complete qualified report feeds and exact knowledge adoption. Presentation continues to delegate persistence. This addendum records current source only; historical closure and production activation evidence remain unchanged.

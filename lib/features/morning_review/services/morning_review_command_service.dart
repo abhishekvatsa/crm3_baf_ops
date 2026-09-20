@@ -34,6 +34,7 @@ enum MorningReviewCommand {
   createAction('CREATE_MORNING_REVIEW_ACTION'),
   acceptAction('ACCEPT_MORNING_REVIEW_ACTION'),
   completeAction('COMPLETE_MORNING_REVIEW_ACTION'),
+  amendAction('AMEND_MORNING_REVIEW_ACTION'),
   takeOver('TAKE_OVER_MORNING_REVIEW'),
   finalize('FINALIZE_MORNING_REVIEW'),
   recordNotHeld('RECORD_MORNING_REVIEW_NOT_HELD'),
@@ -178,6 +179,7 @@ bool _resultStatusMatchesOperation(
   MorningReviewCommand.addEntry => status == 'recorded',
   MorningReviewCommand.acceptAction => status == 'accepted',
   MorningReviewCommand.completeAction => status == 'completed',
+  MorningReviewCommand.amendAction => status == 'open' || status == 'cancelled',
   MorningReviewCommand.finalize => status == 'finalized',
   MorningReviewCommand.recordNotHeld => status == 'notHeld',
   MorningReviewCommand.createStandingConcern => status == 'active',
@@ -313,6 +315,7 @@ class MorningReviewCommandService {
     AppUser Function()? requireActor,
     Future<void> Function(String)? requireCapability,
     Future<Map<String, dynamic>> Function(String, String)? readSubject,
+    bool verifyAcceptanceEvidence = false,
     DateTime Function()? now,
   }) : _functions = functions,
        _actorScope = actorScope,
@@ -323,6 +326,7 @@ class MorningReviewCommandService {
        _requireActor = requireActor,
        _requireCapability = requireCapability,
        _readSubject = readSubject,
+       _verifyAcceptanceEvidence = verifyAcceptanceEvidence,
        _now = now ?? DateTime.now;
 
   final FirebaseFunctions? _functions;
@@ -333,6 +337,7 @@ class MorningReviewCommandService {
   final AppUser Function()? _requireActor;
   final Future<void> Function(String)? _requireCapability;
   final Future<Map<String, dynamic>> Function(String, String)? _readSubject;
+  final bool _verifyAcceptanceEvidence;
   final DateTime Function() _now;
 
   FirebaseFunctions get _client =>
@@ -396,6 +401,27 @@ class MorningReviewCommandService {
     },
   );
 
+  Future<MorningReviewCommandResult> amendAction({
+    required MorningReviewAction action,
+    required String kind,
+    required String reason,
+    String? assigneeRole,
+    String? assigneeUid,
+  }) => _call(
+    MorningReviewCommand.amendAction,
+    sessionId: action.sessionId,
+    extra: {
+      'actionId': action.actionId,
+      'expectedVersion': action.version,
+      'reason': reason.trim(),
+      'actionCorrection': {
+        'kind': kind,
+        'assigneeRole': assigneeRole,
+        'assigneeUid': assigneeUid,
+      },
+    },
+  );
+
   Future<MorningReviewCommandResult> takeOver({
     required MorningReviewSession session,
     required String reason,
@@ -447,6 +473,8 @@ class MorningReviewCommandService {
     required MorningReviewStandingConcern concern,
     required MorningReviewConcernCheckState state,
     required String note,
+    int? expectedVersion,
+    String? correctionReason,
   }) => _call(
     MorningReviewCommand.checkStandingConcern,
     sessionId: sessionId,
@@ -454,6 +482,8 @@ class MorningReviewCommandService {
       'concernId': concern.concernId,
       'checkState': state.name,
       'reason': note.trim(),
+      if (correctionReason != null) 'correctionReason': correctionReason.trim(),
+      if (expectedVersion != null) 'expectedVersion': expectedVersion,
     },
   );
 
@@ -479,6 +509,19 @@ class MorningReviewCommandService {
   Future<MorningReviewCommandResult?> reconcilePending() async {
     final saved = await _restoreDurable();
     return saved == null ? null : _checkDurable(saved);
+  }
+
+  Future<DurableSubmission?> latestRefusedSubmission() async {
+    _actor();
+    final rows = await _store.listForActor(_actorScope, includeTerminal: true);
+    _actor();
+    return rows.reversed
+        .where(
+          (row) =>
+              row.resourceKey == _resource &&
+              row.state == DurableSubmissionState.rejected,
+        )
+        .firstOrNull;
   }
 
   Future<Object?> _invoke(Map<String, dynamic> envelope) async {

@@ -806,8 +806,21 @@ void _expectBefore(String source, String before, String after) {
   );
 }
 
-String _read(String path) =>
-    File(path).readAsStringSync().replaceAll('\r\n', '\n');
+String _read(String path) {
+  final file = File(path);
+  final source = file.readAsStringSync().replaceAll('\r\n', '\n');
+  final parts = RegExp(
+    r"^part '([^']+\.dart)';",
+    multiLine: true,
+  ).allMatches(source);
+  return [
+    source,
+    for (final part in parts)
+      File(
+        '${file.parent.path}/${part[1]}',
+      ).readAsStringSync().replaceAll('\r\n', '\n'),
+  ].join('\n');
+}
 
 String _templatePublisherSource() =>
     _templatePublisherLibraryFiles.map(_read).join('\n');

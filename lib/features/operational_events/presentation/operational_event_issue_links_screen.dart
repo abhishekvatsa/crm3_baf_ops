@@ -66,6 +66,11 @@ class _OperationalEventIssueLinksScreenState
         eventId: event.eventId,
       )),
     );
+    final linkDiagnostics = ref.watch(
+      operationalEventIssueLinkFeedDiagnosticsProvider(
+        'event:${event.eventId}',
+      ),
+    );
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -111,23 +116,62 @@ class _OperationalEventIssueLinksScreenState
                 ),
               )
               .toList(growable: false);
+          final expectedLinkIds = <String>{
+            ...event.issueLinkIds,
+            for (final interval in event.completedIntervals)
+              ...interval.issueLinkIds,
+          };
+          final missingLinkEvidence = expectedLinkIds.difference(
+            records.map((link) => link.linkId).toSet(),
+          );
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
+              if (linkDiagnostics.isIncomplete)
+                _LinkState(
+                  icon: Icons.warning_amber_rounded,
+                  color: BafColors.warning,
+                  title: 'Link evidence incomplete',
+                  message:
+                      '${linkDiagnostics.malformedDocumentIds.length} link '
+                      '${linkDiagnostics.malformedDocumentIds.length == 1 ? 'record could' : 'records could'} '
+                      'not be read. The visible links are not a complete '
+                      'history.',
+                ),
+              if (linkDiagnostics.isIncomplete) const SizedBox(height: 12),
               _EventContext(event: event, currentCount: current.length),
               const SizedBox(height: 18),
+              if (missingLinkEvidence.isNotEmpty) ...[
+                _LinkState(
+                  icon: Icons.warning_amber_rounded,
+                  color: BafColors.warning,
+                  title: 'Link evidence incomplete',
+                  message:
+                      '${missingLinkEvidence.length} projected issue link '
+                      '${missingLinkEvidence.length == 1 ? 'record is' : 'records are'} '
+                      'missing from the link collection. This is not proof '
+                      'that the relationship never existed.',
+                ),
+                const SizedBox(height: 12),
+              ],
               const _SectionTitle(
                 title: 'Current occurrence',
                 icon: Icons.link_rounded,
               ),
               const SizedBox(height: 8),
               if (current.isEmpty)
-                const _LinkState(
+                _LinkState(
                   icon: Icons.link_off_rounded,
                   color: BafColors.textSecondary,
-                  title: 'No issue linked yet',
-                  message:
-                      'Link an existing maintenance issue when it was caused by, responds to, or is affected by this disruption.',
+                  title: missingLinkEvidence.isNotEmpty
+                      ? 'Current link evidence unavailable'
+                      : 'No issue linked yet',
+                  message: missingLinkEvidence.isNotEmpty
+                      ? 'The event projection expects a link, but the '
+                            'corresponding document was not readable.'
+                      : 'Link an existing maintenance issue when it was '
+                            'caused by, responds to, or is affected by this '
+                            'disruption.',
                 )
               else
                 for (final link in current) ...[
@@ -296,6 +340,11 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
       );
     }
     final issueId = issue.firestoreId?.trim();
+    final linkDiagnostics = issueId == null || issueId.isEmpty
+        ? const OperationalEventIssueLinkFeedDiagnostics()
+        : ref.watch(
+            operationalEventIssueLinkFeedDiagnosticsProvider('issue:$issueId'),
+          );
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -332,26 +381,57 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
                     title: 'Could not load event links',
                     message: '$error',
                   ),
-                  data: (links) => ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _IssueContext(issue: issue),
-                      const SizedBox(height: 18),
-                      if (links.isEmpty)
-                        const _LinkState(
-                          icon: Icons.link_off_rounded,
-                          color: BafColors.textSecondary,
-                          title: 'No operational event link',
-                          message:
-                              'This issue was not recorded as part of an operational disruption.',
-                        )
-                      else
-                        for (final link in links) ...[
-                          _EventLinkCard(link: link),
-                          const SizedBox(height: 10),
-                        ],
-                    ],
-                  ),
+                  data: (links) {
+                    final expectedLinkIds = issue.operationalEventIssueLinkIds
+                        .toSet();
+                    final missingLinkEvidence = expectedLinkIds.difference(
+                      links.map((link) => link.linkId).toSet(),
+                    );
+                    return ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        if (linkDiagnostics.isIncomplete)
+                          _LinkState(
+                            icon: Icons.warning_amber_rounded,
+                            color: BafColors.warning,
+                            title: 'Link evidence incomplete',
+                            message:
+                                '${linkDiagnostics.malformedDocumentIds.length} link '
+                                '${linkDiagnostics.malformedDocumentIds.length == 1 ? 'record could' : 'records could'} '
+                                'not be read. The visible links are not a '
+                                'complete history.',
+                          ),
+                        if (linkDiagnostics.isIncomplete)
+                          const SizedBox(height: 12),
+                        _IssueContext(issue: issue),
+                        const SizedBox(height: 18),
+                        if (missingLinkEvidence.isNotEmpty)
+                          _LinkState(
+                            icon: Icons.warning_amber_rounded,
+                            color: BafColors.warning,
+                            title: 'Link evidence incomplete',
+                            message:
+                                '${missingLinkEvidence.length} projected event '
+                                '${missingLinkEvidence.length == 1 ? 'link is' : 'links are'} '
+                                'missing from the link collection. This is not '
+                                'proof that the relationship never existed.',
+                          )
+                        else if (links.isEmpty)
+                          const _LinkState(
+                            icon: Icons.link_off_rounded,
+                            color: BafColors.textSecondary,
+                            title: 'No operational event link',
+                            message:
+                                'This issue was not recorded as part of an operational disruption.',
+                          )
+                        else
+                          for (final link in links) ...[
+                            _EventLinkCard(link: link),
+                            const SizedBox(height: 10),
+                          ],
+                      ],
+                    );
+                  },
                 ),
     );
   }
@@ -616,10 +696,20 @@ class _IssueLinkCard extends StatelessWidget {
       if (showOccurrence)
         'Event occurrence ${_date(link.eventOccurrenceStartedAt)}',
       'Linked by ${link.linkedByName} on ${_date(link.linkedAt)}',
+      _issueLifecycleLabel(link.issueStatusAtLink),
       link.reason,
     ],
   );
 }
+
+String _issueLifecycleLabel(String status) => switch (status) {
+  'resolved' => 'Issue state at link: technically resolved',
+  'closedWithoutResolution' =>
+    'Issue state at link: closed administratively; not technical resolution',
+  'acknowledged' => 'Issue state at link: acknowledged',
+  'inProgress' => 'Issue state at link: in progress',
+  _ => 'Issue state at link: open',
+};
 
 class _EventLinkCard extends StatelessWidget {
   const _EventLinkCard({required this.link});

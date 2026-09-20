@@ -69,10 +69,9 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
       return;
     }
     final packageId = source.packageFirestoreId?.trim();
-    final package =
-        packageId == null || packageId.isEmpty
-            ? null
-            : _findPackageById(packages, packageId);
+    final package = packageId == null || packageId.isEmpty
+        ? null
+        : _findPackageById(packages, packageId);
     if (package == null) {
       _showSnack(
         'The package for this saved draft is not available.',
@@ -217,6 +216,36 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
         source.operationalStatePreconditions,
       )
       ..metadataJson = source.metadataJson;
+  }
+
+  TemplateVersion _forkDraftVersionForPublication(
+    TemplateVersion source, {
+    required int versionNumber,
+  }) {
+    final successor = _cloneVersion(source)
+      ..id = 0
+      ..firestoreId = null
+      ..sourceVersionFirestoreId = source.firestoreId
+      ..versionNumber = versionNumber
+      ..version = 1
+      ..status = TemplateVersionStatus.draft
+      ..isSynced = false
+      ..isDeleted = false
+      ..deletedAt = null
+      ..deletedByUid = null
+      ..deletedByName = null
+      ..deleteReason = null
+      ..publishedByUid = null
+      ..publishedByName = null
+      ..publishedAt = null
+      ..retiredByUid = null
+      ..retiredByName = null
+      ..retiredAt = null
+      ..retireReason = null
+      ..createdAt = DateTime.now()
+      ..updatedAt = DateTime.now();
+    successor.refreshClosureReviewStateFromSnapshots();
+    return successor;
   }
 
   TemplatePackage _clonePackage(TemplatePackage source) {

@@ -45,6 +45,7 @@ import 'job_module_detail_screen.dart';
 import 'widgets/job_module_card.dart';
 import 'widgets/job_module_response_summary.dart';
 
+part 'planned_job_detail_screen.diary_review.dart';
 part 'dossier/planned_job_detail_common.dart';
 part 'dossier/planned_job_diary_dossier.dart';
 part 'dossier/planned_job_module_dossier.dart';
@@ -141,12 +142,11 @@ class _PlannedJobDetailScreenState
 
   bool _ensureExecutionOpen() {
     if (!widget.execution.isTerminal) return true;
-    final status =
-        widget.execution.isDeleted
-            ? 'deleted'
-            : widget.execution.isCancelled
-            ? 'cancelled'
-            : 'completed';
+    final status = widget.execution.isDeleted
+        ? 'deleted'
+        : widget.execution.isCancelled
+        ? 'cancelled'
+        : 'completed';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('This planned job is $status. Its dossier is read-only.'),
@@ -183,72 +183,68 @@ class _PlannedJobDetailScreenState
     }
     String? selectedId = applicable.first.id;
     final reason = TextEditingController(
-      text:
-          execution.isCompleted
-              ? 'Classify completed maintenance against its actual completion time.'
-              : 'Classify this maintenance before completion.',
+      text: execution.isCompleted
+          ? 'Classify completed maintenance against its actual completion time.'
+          : 'Classify this maintenance before completion.',
     );
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setDialogState) => AlertDialog(
-                  title: Text(
-                    execution.isCompleted
-                        ? 'Classify completed work'
-                        : 'Classify maintenance',
-                  ),
-                  content: SizedBox(
-                    width: 520,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Maintenance class',
-                          ),
-                          items:
-                              applicable
-                                  .map(
-                                    (item) => DropdownMenuItem(
-                                      value: item.id,
-                                      child: Text(item.title),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged:
-                              (value) =>
-                                  setDialogState(() => selectedId = value),
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        TextField(
-                          controller: reason,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Classification reason',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Apply'),
-                    ),
-                  ],
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            execution.isCompleted
+                ? 'Classify completed work'
+                : 'Classify maintenance',
           ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: selectedId,
+                  decoration: const InputDecoration(
+                    labelText: 'Maintenance class',
+                  ),
+                  items: applicable
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.id,
+                          child: Text(item.title),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setDialogState(() => selectedId = value),
+                ),
+                const SizedBox(height: BafSpacing.md),
+                TextField(
+                  controller: reason,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Classification reason',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
     );
-    final selected =
-        applicable.where((item) => item.id == selectedId).firstOrNull;
+    final selected = applicable
+        .where((item) => item.id == selectedId)
+        .firstOrNull;
     final rationale = reason.text.trim();
     reason.dispose();
     if (confirmed != true ||
@@ -296,7 +292,7 @@ class _PlannedJobDetailScreenState
   }
 
   Future<void> _openAddDiaryEntrySheet() async {
-    if (!_ensureExecutionOpen()) return;
+    if (widget.execution.isDeleted) return;
     AppUser? actor;
     try {
       actor = await ref.read(currentAppUserProvider.future);
@@ -346,43 +342,41 @@ class _PlannedJobDetailScreenState
 
     final execution = widget.execution;
     final now = DateTime.now();
-    final entry =
-        JobDiaryEntry()
-          ..jobExecutionFirestoreId = _cleanOptionalString(
-            execution.firestoreId,
-          )
-          ..jobExecutionLocalId = kIsWeb ? null : execution.id
-          ..assetType = execution.assetType
-          ..assetNumber = execution.assetNumber
-          ..chargeNoAtEvent = execution.chargeNoAtEvent
-          ..templateFirestoreId = _cleanOptionalString(
-            execution.templateFirestoreId,
-          )
-          ..templateName = _cleanOptionalString(
-            execution.templateName ?? _template?.jobName,
-          )
-          ..kind = draft.kind
-          ..discipline = draft.discipline
-          ..severity = draft.severity
-          ..isBlocker = draft.kind == JobDiaryKind.blocker
-          ..isHandover = draft.kind == JobDiaryKind.handover
-          ..blockerStatus =
-              draft.kind == JobDiaryKind.blocker ? JobBlockerStatus.open : null
-          ..functionalSection = draft.functionalSection
-          ..componentGroup = draft.componentGroup
-          ..targetRef = draft.targetRef
-          ..procedureRef = draft.procedureRef
-          ..title = draft.title
-          ..note = draft.note
-          ..actionTaken = draft.actionTaken
-          ..pendingIssue = draft.pendingIssue
-          ..requiresFollowUp = draft.requiresFollowUp
-          ..createdByUid = actor.uid
-          ..createdByName = actor.name
-          ..createdAt = now
-          ..updatedByUid = actor.uid
-          ..updatedByName = actor.name
-          ..updatedAt = now;
+    final entry = JobDiaryEntry()
+      ..jobExecutionFirestoreId = _cleanOptionalString(execution.firestoreId)
+      ..jobExecutionLocalId = kIsWeb ? null : execution.id
+      ..assetType = execution.assetType
+      ..assetNumber = execution.assetNumber
+      ..chargeNoAtEvent = execution.chargeNoAtEvent
+      ..templateFirestoreId = _cleanOptionalString(
+        execution.templateFirestoreId,
+      )
+      ..templateName = _cleanOptionalString(
+        execution.templateName ?? _template?.jobName,
+      )
+      ..kind = draft.kind
+      ..discipline = draft.discipline
+      ..severity = draft.severity
+      ..isBlocker = draft.kind == JobDiaryKind.blocker
+      ..isHandover = draft.kind == JobDiaryKind.handover
+      ..blockerStatus = draft.kind == JobDiaryKind.blocker
+          ? JobBlockerStatus.open
+          : null
+      ..functionalSection = draft.functionalSection
+      ..componentGroup = draft.componentGroup
+      ..targetRef = draft.targetRef
+      ..procedureRef = draft.procedureRef
+      ..title = draft.title
+      ..note = draft.note
+      ..actionTaken = draft.actionTaken
+      ..pendingIssue = draft.pendingIssue
+      ..requiresFollowUp = draft.requiresFollowUp
+      ..createdByUid = actor.uid
+      ..createdByName = actor.name
+      ..createdAt = now
+      ..updatedByUid = actor.uid
+      ..updatedByName = actor.name
+      ..updatedAt = now;
 
     try {
       await ref
@@ -419,11 +413,8 @@ class _PlannedJobDetailScreenState
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => JobModuleDetailScreen(
-              execution: widget.execution,
-              module: module,
-            ),
+        builder: (_) =>
+            JobModuleDetailScreen(execution: widget.execution, module: module),
       ),
     );
   }
@@ -468,17 +459,15 @@ class _PlannedJobDetailScreenState
         version: version,
         package: package,
         assetType: execution.assetType,
-        existingModuleCodes:
-            currentModules
-                .map((module) => module.moduleCode?.trim())
-                .whereType<String>()
-                .where((code) => code.isNotEmpty)
-                .toSet(),
-        existingTemplateModuleIds:
-            currentModules
-                .map((module) => module.templateModuleId?.trim() ?? '')
-                .where((id) => id.isNotEmpty)
-                .toSet(),
+        existingModuleCodes: currentModules
+            .map((module) => module.moduleCode?.trim())
+            .whereType<String>()
+            .where((code) => code.isNotEmpty)
+            .toSet(),
+        existingTemplateModuleIds: currentModules
+            .map((module) => module.templateModuleId?.trim() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet(),
       );
 
       return _PublishedRuntimeCatalogueLoad(candidates: candidates);
@@ -667,26 +656,26 @@ class _PlannedJobDetailScreenState
   Widget build(BuildContext context) {
     final execution = widget.execution;
     final isTerminal = execution.isTerminal;
-    final terminalSectionLabel =
-        execution.isDeleted
-            ? 'Deleted'
-            : execution.isCancelled
-            ? 'Cancelled'
-            : 'Closed';
-    final terminalEventLabel =
-        execution.isDeleted
-            ? 'deletion'
-            : execution.isCancelled
-            ? 'cancellation'
-            : 'closure';
+    final terminalSectionLabel = execution.isDeleted
+        ? 'Deleted'
+        : execution.isCancelled
+        ? 'Cancelled'
+        : 'Closed';
+    final terminalEventLabel = execution.isDeleted
+        ? 'deletion'
+        : execution.isCancelled
+        ? 'cancellation'
+        : 'closure';
     final actionRead = execution.actionsReadResult;
     final responseRead = execution.responsesReadResult;
     final innerCoverPositionRead =
         execution.assignmentInnerCoverPositionReadResult;
     final actor = ref.watch(currentAppUserProvider).value;
+    final maintenanceClassBatch = ref
+        .watch(maintenanceClassDefinitionsProvider)
+        .value;
     final maintenanceClasses =
-        ref.watch(maintenanceClassDefinitionsProvider).value ??
-        const <MaintenanceClassDefinition>[];
+        maintenanceClassBatch?.records ?? const <MaintenanceClassDefinition>[];
     final frozenMaintenanceClass = _maintenanceClassFromMetadata(
       execution.metadataJson,
     );
@@ -707,14 +696,13 @@ class _PlannedJobDetailScreenState
         innerCoverPositionRead.isValid;
     final showBottomActions =
         !isTerminal && (canAddDiaryEntry || canCompleteJob);
-    final statusColor =
-        execution.isDeleted
-            ? BafColors.textSecondary
-            : execution.isCompleted
-            ? BafColors.sync
-            : execution.isCancelled
-            ? BafColors.warning
-            : BafColors.planned;
+    final statusColor = execution.isDeleted
+        ? BafColors.textSecondary
+        : execution.isCompleted
+        ? BafColors.sync
+        : execution.isCancelled
+        ? BafColors.warning
+        : BafColors.planned;
     final diaryAsync = ref.watch(
       jobDiaryEntriesProvider(
         JobDiaryQueryKey(
@@ -815,12 +803,11 @@ class _PlannedJobDetailScreenState
                 ),
               ] else ...[
                 _WarningBox(
-                  text:
-                      execution.isCancelled
-                          ? 'This cancelled job has no frozen maintenance class. Classification is locked because no maintenance completion occurred.'
-                          : execution.isCompleted
-                          ? 'Classification pending. This completion has not reset a preventive-maintenance counter.'
-                          : 'No maintenance class is frozen yet. Completion will remain classification pending.',
+                  text: execution.isCancelled
+                      ? 'This cancelled job has no frozen maintenance class. Classification is locked because no maintenance completion occurred.'
+                      : execution.isCompleted
+                      ? 'Classification pending. This completion has not reset a preventive-maintenance counter.'
+                      : 'No maintenance class is frozen yet. Completion will remain classification pending.',
                 ),
               ],
               if (canClassify) ...[
@@ -828,7 +815,9 @@ class _PlannedJobDetailScreenState
                 Align(
                   alignment: Alignment.centerRight,
                   child: OutlinedButton.icon(
-                    onPressed: () => _classifyMaintenance(maintenanceClasses),
+                    onPressed: maintenanceClassBatch?.isComplete == true
+                        ? () => _classifyMaintenance(maintenanceClasses)
+                        : null,
                     icon: const Icon(Icons.edit_calendar_outlined),
                     label: Text(
                       frozenMaintenanceClass == null
@@ -902,14 +891,13 @@ class _PlannedJobDetailScreenState
               ],
               _InfoRow(
                 label: 'Status',
-                value:
-                    execution.isDeleted
-                        ? 'Deleted'
-                        : execution.isCompleted
-                        ? 'Completed'
-                        : execution.isCancelled
-                        ? 'Cancelled'
-                        : 'Open / Pending',
+                value: execution.isDeleted
+                    ? 'Deleted'
+                    : execution.isCompleted
+                    ? 'Completed'
+                    : execution.isCancelled
+                    ? 'Cancelled'
+                    : 'Open / Pending',
               ),
               _InfoRow(
                 label: 'Assigned on',
@@ -970,8 +958,9 @@ class _PlannedJobDetailScreenState
                 label: 'Teams involved',
                 values: execution.teamsInvolved,
                 colorFor: _agencyColor,
-                emptyText:
-                    isTerminal ? 'No teams recorded' : 'Not submitted yet',
+                emptyText: isTerminal
+                    ? 'No teams recorded'
+                    : 'Not submitted yet',
               ),
               _InfoRow(
                 label: 'Last updated',
@@ -979,10 +968,9 @@ class _PlannedJobDetailScreenState
               ),
               _InfoRow(
                 label: 'Sync state',
-                value:
-                    execution.isSynced || kIsWeb
-                        ? 'Remote-backed / synced'
-                        : 'Saved locally · pending sync',
+                value: execution.isSynced || kIsWeb
+                    ? 'Remote-backed / synced'
+                    : 'Saved locally · pending sync',
               ),
             ],
           ),
@@ -1000,14 +988,12 @@ class _PlannedJobDetailScreenState
           ],
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
-            title:
-                isTerminal
-                    ? '$terminalSectionLabel process modules'
-                    : 'Process modules',
-            subtitle:
-                isTerminal
-                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before $terminalEventLabel.'
-                    : 'Published governed runtime-add catalogue first, with Emergency/manual seed catalogue fallback.',
+            title: isTerminal
+                ? '$terminalSectionLabel process modules'
+                : 'Process modules',
+            subtitle: isTerminal
+                ? 'Read-only module evidence, lifecycle decisions and structured responses captured before $terminalEventLabel.'
+                : 'Published governed runtime-add catalogue first, with Emergency/manual seed catalogue fallback.',
             icon: Icons.account_tree_rounded,
             children: [
               _ProcessModuleDossier(
@@ -1021,34 +1007,39 @@ class _PlannedJobDetailScreenState
           ),
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
-            title:
-                isTerminal
-                    ? '$terminalSectionLabel diary / handover'
-                    : 'Live diary / handover',
-            subtitle:
-                isTerminal
-                    ? 'Read-only running notes, blockers and handovers preserved with the terminal dossier.'
-                    : 'Running notes, blockers and shift handovers attached to this planned job.',
+            title: isTerminal
+                ? '$terminalSectionLabel diary / handover'
+                : 'Live diary / handover',
+            subtitle: isTerminal
+                ? 'Read-only running notes, blockers and handovers preserved with the terminal dossier.'
+                : 'Running notes, blockers and shift handovers attached to this planned job.',
             icon: Icons.forum_rounded,
             children: [
               _DiaryDossier(
                 entriesAsync: diaryAsync,
                 isOpenJob: !isTerminal,
-                onAddEntry: canAddDiaryEntry ? _openAddDiaryEntrySheet : null,
+                onAddEntry: canAddDiaryEntry && !execution.isDeleted
+                    ? _openAddDiaryEntrySheet
+                    : null,
+                canReview: (entry) =>
+                    !execution.isDeleted &&
+                    (actor?.canEditJobDiaryEntry(
+                          createdByUid: entry.createdByUid,
+                        ) ??
+                        false),
+                onReview: _reviewDiaryFollowUp,
               ),
             ],
           ),
           if (!execution.isGovernedTemplateAssignment) ...[
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
-              title:
-                  isTerminal
-                      ? '$terminalSectionLabel checklist responses'
-                      : 'Checklist responses',
-              subtitle:
-                  isTerminal
-                      ? 'Legacy checklist responses preserved as read-only terminal evidence.'
-                      : 'Template fields and submitted responses for this job.',
+              title: isTerminal
+                  ? '$terminalSectionLabel checklist responses'
+                  : 'Checklist responses',
+              subtitle: isTerminal
+                  ? 'Legacy checklist responses preserved as read-only terminal evidence.'
+                  : 'Template fields and submitted responses for this job.',
               icon: Icons.fact_check_rounded,
               children: [
                 if (!responseRead.isValid)
@@ -1068,14 +1059,12 @@ class _PlannedJobDetailScreenState
           ],
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
-            title:
-                isTerminal
-                    ? '$terminalSectionLabel actions / observations'
-                    : 'Actions / observations',
-            subtitle:
-                isTerminal
-                    ? 'Cross-module observations and work notes retained before $terminalEventLabel.'
-                    : 'Cross-module observations and work to record at completion.',
+            title: isTerminal
+                ? '$terminalSectionLabel actions / observations'
+                : 'Actions / observations',
+            subtitle: isTerminal
+                ? 'Cross-module observations and work notes retained before $terminalEventLabel.'
+                : 'Cross-module observations and work to record at completion.',
             icon: Icons.build_circle_rounded,
             children: [
               if (!actionRead.isValid)
@@ -1096,16 +1085,14 @@ class _PlannedJobDetailScreenState
           ),
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
-            title:
-                isTerminal
-                    ? '$terminalSectionLabel remarks and raw dossier notes'
-                    : 'Remarks and raw dossier notes',
-            subtitle:
-                isTerminal
-                    ? 'Remarks and raw metadata preserved with the terminal job dossier.'
-                    : execution.isGovernedTemplateAssignment
-                    ? 'Assignment context, final remarks and governed lineage metadata.'
-                    : 'Legacy remarks are preserved here alongside diary and final closure notes.',
+            title: isTerminal
+                ? '$terminalSectionLabel remarks and raw dossier notes'
+                : 'Remarks and raw dossier notes',
+            subtitle: isTerminal
+                ? 'Remarks and raw metadata preserved with the terminal job dossier.'
+                : execution.isGovernedTemplateAssignment
+                ? 'Assignment context, final remarks and governed lineage metadata.'
+                : 'Legacy remarks are preserved here alongside diary and final closure notes.',
             icon: Icons.notes_rounded,
             children: [
               if (_hasText(execution.remarks))
@@ -1124,13 +1111,14 @@ class _PlannedJobDetailScreenState
           ),
         ],
       ),
-      bottomNavigationBar:
-          !showBottomActions
-              ? null
-              : _OpenJobBottomBar(
-                onAddEntry: canAddDiaryEntry ? _openAddDiaryEntrySheet : null,
-                onComplete: canCompleteJob ? _openCompletionScreen : null,
-              ),
+      bottomNavigationBar: !showBottomActions
+          ? null
+          : _OpenJobBottomBar(
+              onAddEntry: canAddDiaryEntry && !execution.isDeleted
+                  ? _openAddDiaryEntrySheet
+                  : null,
+              onComplete: canCompleteJob ? _openCompletionScreen : null,
+            ),
     );
   }
 }
@@ -1172,8 +1160,9 @@ String _governedTemplateVersionLabel(JobExecution execution) {
     execution.templatePackageCode,
     fallback: 'Governed catalogue',
   );
-  final versionText =
-      versionNumber == null ? 'published version' : 'v$versionNumber';
+  final versionText = versionNumber == null
+      ? 'published version'
+      : 'v$versionNumber';
   return label.isEmpty
       ? '$packageCode · $versionText'
       : '$packageCode · $versionText · $label';

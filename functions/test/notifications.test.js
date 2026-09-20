@@ -1069,6 +1069,7 @@ describe('sendNotification', () => {
     expect(messagesSent).toHaveLength(1);
     expect(messagesSent[0].android).toEqual({
       priority: 'high',
+      ttl: 300000,
       notification: {
         sound: 'default',
         channelId: 'crm3_critical_safety',

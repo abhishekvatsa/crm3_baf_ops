@@ -14,11 +14,14 @@
 //   4. Write to Firestore (`knowledge_base/{rowCode}`) with monotonic
 //      version + change reason + server timestamp. The Firestore rule
 //      `validKnowledgeBaseUpdate(...)` is the final authority.
-//   5. On success, write a structured audit event into `audit_logs`.
-//   6. Pull the updated row back into the local Isar via the existing
-//      `BafKnowledgeRepository.pullCloudToLocal(...)`.
+//   5. Commit the structured `audit_logs` event in the same transaction.
+//   6. Pull the updated row and verify the exact accepted content was adopted
+//      without overwriting retained local work.
 
 import 'dart:async';
+import 'dart:convert';
+import '../../../core/serialization/persisted_json_equality.dart';
+import '../data/remote_baf_knowledge_reader.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -127,12 +130,12 @@ class KnowledgeGovernanceController {
     final ref = _firestore.collection(_collectionPath).doc(draft.rowCode);
     final diff = KnowledgeGovernanceDiff.between(before: null, after: draft);
     final reason = draft.changeSummary.trim();
+    late String acceptedContent;
     final versionAfter = await _firestore.runTransaction<int>((
       transaction,
     ) async {
       final existing = await transaction.get(ref);
-      final data = existing.data();
-      if (existing.exists && data?['isDeleted'] != true) {
+      if (existing.exists) {
         throw KnowledgeGovernanceException(
           'Row ${draft.rowCode} already exists. Use Edit instead.',
         );
@@ -143,6 +146,16 @@ class KnowledgeGovernanceController {
         actor: actor,
         isCreate: true,
         reason: reason,
+      );
+      acceptedContent = _revisionContent(cloudMap);
+      _writeRevisionAudit(
+        transaction,
+        draft: draft,
+        actor: actor,
+        version: 1,
+        before: null,
+        action: AuditAction.create,
+        governanceAction: governanceAction,
       );
       transaction.set(ref, cloudMap);
       return 1;
@@ -155,14 +168,8 @@ class KnowledgeGovernanceController {
       performedAt: DateTime.now(),
     );
     final adoption = await settleCommittedKnowledgeRevision(
-      recordAudit: () => _logAudit(
-        action: AuditAction.create,
-        result: result,
-        actor: actor,
-        reason: reason,
-        severity: _severityFor(draft, isCreate: true),
-      ),
-      adoptLocally: _knowledge.pullCloudToLocal,
+      adoptLocally: () =>
+          _adoptAndVerify(draft.rowCode, versionAfter, acceptedContent),
     );
     return result.settledAs(adoption);
   }
@@ -202,6 +209,7 @@ class KnowledgeGovernanceController {
       );
     }
     final ref = _firestore.collection(_collectionPath).doc(before.rowCode);
+    late String acceptedContent;
     final newVersion = await _firestore.runTransaction<int>((
       transaction,
     ) async {
@@ -224,6 +232,14 @@ class KnowledgeGovernanceController {
           'Row ${before.rowCode} changed in cloud from v${before.version} to v$cloudVersion. Refresh before editing.',
         );
       }
+      if (!persistedJsonEquivalent(
+        jsonEncode(before.toEntryMap()),
+        jsonEncode(cloudRow.toEntryMap()),
+      )) {
+        throw const KnowledgeGovernanceException(
+          'The reviewed instruction differs from the cloud pre-image. Review the current content before applying this draft.',
+        );
+      }
       final nextVersion = cloudVersion + 1;
       final cloudMap = _draftToCloudMap(
         draft: draft,
@@ -231,6 +247,18 @@ class KnowledgeGovernanceController {
         actor: actor,
         isCreate: false,
         reason: reason,
+      );
+      acceptedContent = _revisionContent(cloudMap);
+      _writeRevisionAudit(
+        transaction,
+        draft: draft,
+        actor: actor,
+        version: nextVersion,
+        before: cloudRow,
+        action: AuditAction.update,
+        governanceAction:
+            governanceAction ??
+            _resolveLifecycleAction(before: before, after: draft),
       );
       transaction.set(ref, cloudMap, SetOptions(merge: true));
       return nextVersion;
@@ -245,21 +273,10 @@ class KnowledgeGovernanceController {
       action: action,
       performedAt: DateTime.now(),
     );
-    // The revision is committed. Its audit belongs with it and is settled
-    // first; reading it back into the local copy is this device catching up.
+    // The revision and audit are committed. Readback proves local adoption.
     final adoption = await settleCommittedKnowledgeRevision(
-      recordAudit: () => _logAudit(
-        action:
-            action == KnowledgeGovernanceAction.retired ||
-                    action == KnowledgeGovernanceAction.archived
-                ? AuditAction.delete
-                : AuditAction.update,
-        result: result,
-        actor: actor,
-        reason: reason,
-        severity: _severityFor(draft, isCreate: false, lifecycle: action),
-      ),
-      adoptLocally: _knowledge.pullCloudToLocal,
+      adoptLocally: () =>
+          _adoptAndVerify(before.rowCode, newVersion, acceptedContent),
     );
     return result.settledAs(adoption);
   }
@@ -352,21 +369,42 @@ class KnowledgeGovernanceController {
       }
       try {
         final existing = byCode[draft.rowCode];
-        final result =
-            existing == null
-                ? await createRow(
-                  draft: draft,
-                  actor: actor,
-                  governanceAction:
-                      KnowledgeGovernanceAction.importedFromExternal,
-                )
-                : await updateRow(
-                  before: existing,
-                  draft: draft,
-                  actor: actor,
-                  governanceAction:
-                      KnowledgeGovernanceAction.importedFromExternal,
-                );
+        final reviewedVersion = entry.sourceVersion;
+        if (existing != null &&
+            (entry.sourceEntryJson == null ||
+                !persistedJsonEquivalent(
+                  entry.sourceEntryJson!,
+                  jsonEncode(existing.toEntryMap()),
+                ))) {
+          throw const KnowledgeGovernanceException(
+            'This row changed after import review. Review the proposed import against the current row.',
+          );
+        }
+        if (reviewedVersion == null) {
+          if (existing != null) {
+            throw KnowledgeGovernanceException(
+              '${draft.rowCode} appeared after this import was reviewed. Re-export and review it again.',
+            );
+          }
+        } else if (existing == null || existing.version != reviewedVersion) {
+          throw KnowledgeGovernanceException(
+            '${draft.rowCode} changed after this import was reviewed (expected v$reviewedVersion). Re-export and review it again.',
+          );
+        }
+        final result = existing == null
+            ? await createRow(
+                draft: draft,
+                actor: actor,
+                governanceAction:
+                    KnowledgeGovernanceAction.importedFromExternal,
+              )
+            : await updateRow(
+                before: existing,
+                draft: draft,
+                actor: actor,
+                governanceAction:
+                    KnowledgeGovernanceAction.importedFromExternal,
+              );
         writes.add(result);
       } catch (e) {
         rejected++;
@@ -383,11 +421,8 @@ class KnowledgeGovernanceController {
 
   /// Recent governance audit events, used by the conflict-review tab.
   Future<List<AuditEvent>> recentKnowledgeBaseAudits({int limit = 100}) async {
-    final all = await _audit.getRecentLocalEvents(limit: limit * 3);
-    return all
-        .where((event) => event.entityType == 'knowledge_base')
-        .take(limit)
-        .toList();
+    final all = await _audit.getAllEventsForEntityType('knowledge_base');
+    return all;
   }
 
   /// Detect potential sync conflicts: local rows with `isSynced == false`
@@ -400,11 +435,10 @@ class KnowledgeGovernanceController {
     final conflicts = <KnowledgeSyncConflict>[];
     for (final local in unsynced) {
       try {
-        final cloud =
-            await _firestore
-                .collection(_collectionPath)
-                .doc(local.rowCode)
-                .get();
+        final cloud = await _firestore
+            .collection(_collectionPath)
+            .doc(local.rowCode)
+            .get();
         final data = cloud.data();
         if (data == null) continue;
         final cloudRow = BafKnowledgeRow.fromCloudMap(data, local.rowCode);
@@ -422,7 +456,7 @@ class KnowledgeGovernanceController {
           );
         }
       } on FirebaseException {
-        // Network/permission errors are not conflicts.
+        rethrow; // An unavailable comparison is not a verified conflict-free catalogue.
       }
     }
     return conflicts;
@@ -517,36 +551,130 @@ class KnowledgeGovernanceController {
     return AuditSeverity.low;
   }
 
-  Future<void> _logAudit({
-    required AuditAction action,
-    required KnowledgeGovernanceWriteResult result,
+  void _writeRevisionAudit(
+    Transaction transaction, {
+    required KnowledgeRowDraft draft,
     required AppUser actor,
-    required String reason,
-    required AuditSeverity severity,
-  }) async {
-    final event = AuditEvent(
-      entityType: 'knowledge_base',
-      entityId: result.rowCode,
-      action: action,
-      performedByUid: actor.uid,
-      performedByName: actor.name,
-      reason: AuditReason.manualOverride,
-      reasonNotes: reason,
-      summary:
-          '${result.action.displayLabel} ${result.rowCode} (v${result.versionAfter})',
-      severity: severity,
-      after: <String, dynamic>{
-        'governanceAction': result.action.name,
-        'versionAfter': result.versionAfter,
-        'diff': result.diff.toMap(),
+    required int version,
+    required BafKnowledgeRow? before,
+    required AuditAction action,
+    required KnowledgeGovernanceAction governanceAction,
+  }) {
+    final beforeJson = before == null
+        ? null
+        : jsonEncode(
+            strictJsonSafeBafKnowledgeMap(
+              before.toCloudMap(),
+              source: 'knowledge audit before',
+            ),
+          );
+    final afterJson = jsonEncode({
+      ...draft.toEntryMap(),
+      'version': version,
+      'changeSummary': draft.changeSummary.trim(),
+      'governanceAction': governanceAction.name,
+      'versionAfter': version,
+      'diff': KnowledgeGovernanceDiff.between(
+        before: before,
+        after: draft,
+      ).toMap(),
+    });
+    // Match audit admission before committing either side of the transaction.
+    if ((beforeJson?.length ?? 0) > 20000 ||
+        afterJson.length > 20000 ||
+        draft.changeSummary.trim().length > 2000) {
+      throw const KnowledgeGovernanceException(
+        'This revision exceeds the retained audit size. Split the reviewed change before saving.',
+      );
+    }
+    transaction.set(
+      _firestore
+          .collection('audit_logs')
+          .doc('knowledge_revision_${draft.rowCode}_$version'),
+      {
+        'entityType': 'knowledge_base',
+        'entityId': draft.rowCode,
+        'action': action.name,
+        'performedByUid': actor.uid,
+        'performedByName': actor.name,
+        'timestamp': FieldValue.serverTimestamp(),
+        'reason': AuditReason.manualOverride.name,
+        'reasonNotes': draft.changeSummary.trim(),
+        'summary':
+            '${governanceAction.displayLabel} ${draft.rowCode} (v$version)',
+        'severity': _severityFor(
+          draft,
+          isCreate: before == null,
+          lifecycle: governanceAction,
+        ).name,
+        'beforeJson': beforeJson,
+        'afterJson': afterJson,
       },
     );
-    try {
-      await _audit.log(event);
-    } catch (_) {
-      // Audit failures must not block the governance write itself; the
-      // local Isar cache will retry on next sync.
+  }
+
+  // Timestamps are server-generated. Retain every other accepted field before
+  // readback, independently of later editor-draft mutation.
+  String _revisionContent(Map<String, dynamic> cloudMap) => jsonEncode({
+    for (final entry in cloudMap.entries)
+      if (entry.value is! FieldValue) entry.key: entry.value,
+  });
+
+  Future<KnowledgeRevisionAdoption> _adoptAndVerify(
+    String rowCode,
+    int version,
+    String acceptedContent,
+  ) async {
+    final snapshot = await _firestore
+        .collection(_collectionPath)
+        .doc(rowCode)
+        .get(const GetOptions(source: Source.server));
+    final data = snapshot.data();
+    if (data == null) {
+      throw StateError('Accepted knowledge revision is unavailable.');
     }
+    final cloud = BafKnowledgeRow.fromCloudMap(data, rowCode);
+    if (cloud.version != version) {
+      throw StateError(
+        'The catalogue has advanced beyond the accepted revision.',
+      );
+    }
+    final expected = jsonDecode(acceptedContent) as Map<String, dynamic>;
+    final cloudMap = cloud.toCloudMap();
+    if (!persistedJsonEquivalent(
+      acceptedContent,
+      jsonEncode({for (final key in expected.keys) key: cloudMap[key]}),
+    )) {
+      throw StateError('Readback differs from the accepted knowledge content.');
+    }
+    if (kIsWeb) {
+      return KnowledgeRevisionAdoption.adopted;
+    }
+    await _knowledge.pullCloudToLocal();
+    final local = (await _knowledge.getAllLocalRows(
+      includeDeleted: true,
+    )).where((row) => row.rowCode == rowCode).firstOrNull;
+    if (local == null ||
+        !local.isSynced ||
+        !persistedJsonEquivalent(
+          jsonEncode(
+            strictJsonSafeBafKnowledgeMap(
+              local.toCloudMap(),
+              source: 'local knowledge',
+            ),
+          ),
+          jsonEncode(
+            strictJsonSafeBafKnowledgeMap(
+              cloud.toCloudMap(),
+              source: 'cloud knowledge',
+            ),
+          ),
+        )) {
+      throw StateError(
+        'Accepted knowledge is not yet adopted; retained local work needs review.',
+      );
+    }
+    return KnowledgeRevisionAdoption.adopted;
   }
 
   void _assertCanWrite(AppUser actor) {
@@ -642,20 +770,26 @@ final knowledgeRowsViewProvider = StreamProvider<KnowledgeRowsView>((ref) {
     controller.add(KnowledgeRowsView(rows: rows, meta: meta));
   }
 
-  final rowsSub = repository.watchAllKnowledgeRows().listen((rows) {
-    latestRows = rows;
-    emitIfReady();
-  }, onError: (Object error, StackTrace stackTrace) {
-    latestRows = null;
-    if (!controller.isClosed) controller.addError(error, stackTrace);
-  });
-  final metaSub = repository.watchMatrixMeta().listen((meta) {
-    latestMeta = meta;
-    emitIfReady();
-  }, onError: (Object error, StackTrace stackTrace) {
-    latestMeta = null;
-    if (!controller.isClosed) controller.addError(error, stackTrace);
-  });
+  final rowsSub = repository.watchAllKnowledgeRows().listen(
+    (rows) {
+      latestRows = rows;
+      emitIfReady();
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      latestRows = null;
+      if (!controller.isClosed) controller.addError(error, stackTrace);
+    },
+  );
+  final metaSub = repository.watchMatrixMeta().listen(
+    (meta) {
+      latestMeta = meta;
+      emitIfReady();
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      latestMeta = null;
+      if (!controller.isClosed) controller.addError(error, stackTrace);
+    },
+  );
 
   ref.onDispose(() async {
     await rowsSub.cancel();
@@ -667,18 +801,19 @@ final knowledgeRowsViewProvider = StreamProvider<KnowledgeRowsView>((ref) {
 });
 
 /// Synthesised export bundle of the currently visible rows.
-final knowledgeExportBundleProvider = Provider.family<
-  KnowledgeBundleExport,
-  KnowledgeBundleFormat
->((ref, format) {
-  final view = ref.watch(knowledgeRowsViewProvider).valueOrNull;
-  final rows = view?.rows ?? const <BafKnowledgeRow>[];
-  return KnowledgeGovernanceExport.export(
-    rows,
-    format: format,
-    matrixVersion: view?.meta.matrixVersion ?? BafKnowledgeLayer.matrixVersion,
-  );
-});
+final knowledgeExportBundleProvider =
+    Provider.family<KnowledgeBundleExport, KnowledgeBundleFormat>((
+      ref,
+      format,
+    ) {
+      final view = ref.watch(knowledgeRowsViewProvider).requireValue;
+      final rows = view.rows;
+      return KnowledgeGovernanceExport.export(
+        rows,
+        format: format,
+        matrixVersion: view.meta.matrixVersion,
+      );
+    });
 
 /// Recent governance audit log entries (knowledge_base only).
 final knowledgeGovernanceAuditFeedProvider =

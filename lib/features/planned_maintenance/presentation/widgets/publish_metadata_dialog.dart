@@ -412,10 +412,15 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         nextVersionNumber: await widget.actions.nextVersionNumberFor(package),
         existingVersion: widget.initialVersion,
         preserveExistingPayload: widget.initialVersion != null,
+        createSuccessorForPublication: true,
         actor: widget.actor,
       );
-      final published = await widget.actions.publishVersion(
+      final saved = await widget.actions.saveVersionDraft(
         version,
+        widget.actor,
+      );
+      final published = await widget.actions.publishVersion(
+        saved,
         widget.actor,
         _publishReasonController.text.trim(),
       );
@@ -482,8 +487,8 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
                     _hydrateFromSelectedPackage();
                   });
                 },
-                onAssetTypeChanged:
-                    (asset) => setState(() => _assetType = asset),
+                onAssetTypeChanged: (asset) =>
+                    setState(() => _assetType = asset),
                 onDisciplineToggled: (discipline, selected) {
                   setState(() {
                     if (selected) {
@@ -596,11 +601,11 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
           key: const Key('publish-save-draft'),
           onPressed:
               _busy ||
-                      _invalidInitialVersion ||
-                      !canGovern ||
-                      !validation.canSaveDraft
-                  ? null
-                  : _saveDraft,
+                  _invalidInitialVersion ||
+                  !canGovern ||
+                  !validation.canSaveDraft
+              ? null
+              : _saveDraft,
           icon: const Icon(Icons.save_outlined),
           label: const Text('Save Draft'),
         ),
@@ -608,15 +613,15 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
           key: const Key('publish-publish'),
           onPressed:
               _busy ||
-                      _invalidInitialVersion ||
-                      !canGovern ||
-                      (widget.initialVersion != null &&
-                          !widget.initialVersion!.isSynced) ||
-                      (widget.initialVersion != null &&
-                          widget.hasUnsavedComposerChanges) ||
-                      !validation.canPublish
-                  ? null
-                  : _publish,
+                  _invalidInitialVersion ||
+                  !canGovern ||
+                  (widget.initialVersion != null &&
+                      !widget.initialVersion!.isSynced) ||
+                  (widget.initialVersion != null &&
+                      widget.hasUnsavedComposerChanges) ||
+                  !validation.canPublish
+              ? null
+              : _publish,
           icon: const Icon(Icons.rocket_launch_rounded),
           label: const Text('Publish'),
         ),
@@ -725,10 +730,9 @@ class _PackageSection extends StatelessWidget {
               ),
             ],
             selected: <bool>{createNewPackage},
-            onSelectionChanged:
-                packages.isEmpty
-                    ? null
-                    : (value) => onCreateModeChanged(value.first),
+            onSelectionChanged: packages.isEmpty
+                ? null
+                : (value) => onCreateModeChanged(value.first),
           ),
         ),
         const SizedBox(height: BafSpacing.sm),
@@ -822,8 +826,8 @@ class _PackageSection extends StatelessWidget {
                 key: Key('publish-discipline-$discipline'),
                 label: Text(discipline),
                 selected: selectedDisciplines.contains(discipline),
-                onSelected:
-                    (selected) => onDisciplineToggled(discipline, selected),
+                onSelected: (selected) =>
+                    onDisciplineToggled(discipline, selected),
               ),
           ],
         ),

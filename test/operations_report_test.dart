@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:crm3_baf_ops/features/directives/data/directive_population.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -337,30 +339,66 @@ ComplianceRequestRecord complianceRequest({
   ..updatedAt = createdAt;
 
 void main() {
-  testWidgets('report dropdown selects a native serial cover subject', (tester) async {
+  test('plant days have exact timezone-independent half-open bounds', () {
+    final filter = OperationsReportFilter(
+      startDate: DateTime.utc(2026, 9, 1),
+      endDate: DateTime(2026, 9, 1),
+    );
+    expect(filter.startInclusive, DateTime.utc(2026, 8, 31, 18, 30));
+    expect(filter.endExclusive, DateTime.utc(2026, 9, 1, 18, 30));
+  });
+
+  testWidgets('report dropdown selects a native serial cover subject', (
+    tester,
+  ) async {
     final covers = assetClass('covers', 'Inner Cover', 'innerCover');
-    final cover = innerCoverProfile('serial-gr4', covers,
-        InnerCoverLifecycleState.installed);
-    final other = innerCoverProfile('serial-gr19', covers,
-        InnerCoverLifecycleState.available);
-    final actor = AppUser(uid: 'report-manager', name: 'Report manager',
-      email: 'reports@example.com', roles: const [AppRole.admin],
-      isApproved: true, createdAt: DateTime.utc(2026));
+    final cover = innerCoverProfile(
+      'serial-gr4',
+      covers,
+      InnerCoverLifecycleState.installed,
+    );
+    final other = innerCoverProfile(
+      'serial-gr19',
+      covers,
+      InnerCoverLifecycleState.available,
+    );
+    final actor = AppUser(
+      uid: 'report-manager',
+      name: 'Report manager',
+      email: 'reports@example.com',
+      roles: const [AppRole.admin],
+      isApproved: true,
+      createdAt: DateTime.utc(2026),
+    );
     final observed = <OperationsReportFilter>[];
-    await tester.pumpWidget(ProviderScope(overrides: [
-      currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
-      assetClassesProvider.overrideWith((ref) => Stream.value([covers])),
-      allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
-      innerCoverProfilesProvider.overrideWith((ref) => Stream.value([cover, other])),
-      operationsReportProvider.overrideWith((ref, scope) {
-        observed.add(scope.filter);
-        return AsyncData(buildOperationsReport(filter: scope.filter,
-          tickets: const [], executions: const [], events: const [],
-          assetClasses: [covers], assetInstances: const [],
-          innerCoverProfiles: [cover, other],
-          overview: const PlantAssetOverview(classes: [], assets: [])));
-      }),
-    ], child: const MaterialApp(home: FleetStatusScreen())));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+          assetClassesProvider.overrideWith((ref) => Stream.value([covers])),
+          allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
+          innerCoverProfilesProvider.overrideWith(
+            (ref) => Stream.value([cover, other]),
+          ),
+          operationsReportProvider.overrideWith((ref, scope) {
+            observed.add(scope.filter);
+            return AsyncData(
+              buildOperationsReport(
+                filter: scope.filter,
+                tickets: const [],
+                executions: const [],
+                events: const [],
+                assetClasses: [covers],
+                assetInstances: const [],
+                innerCoverProfiles: [cover, other],
+                overview: const PlantAssetOverview(classes: [], assets: []),
+              ),
+            );
+          }),
+        ],
+        child: const MaterialApp(home: FleetStatusScreen()),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Scope and period'));
     await tester.pumpAndSettle();
@@ -404,7 +442,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('report selection clears retired hierarchy records', () {
+  test('report selection preserves retired identity for explicit history', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final furnace7 = asset('furnace-7', furnace, 7);
 
@@ -421,8 +459,9 @@ void main() {
       ],
       assets: [furnace7],
     );
-    expect(retiredClassSelection.assetClassId, isNull);
-    expect(retiredClassSelection.assetInstanceId, isNull);
+    expect(retiredClassSelection.assetClassId, furnace.id);
+    expect(retiredClassSelection.assetInstanceId, furnace7.id);
+    expect(retiredClassSelection.requiresHistoricalReview, isTrue);
 
     final retiredAssetSelection = reconcileOperationsReportSelection(
       assetClassId: furnace.id,
@@ -438,7 +477,8 @@ void main() {
       ],
     );
     expect(retiredAssetSelection.assetClassId, furnace.id);
-    expect(retiredAssetSelection.assetInstanceId, isNull);
+    expect(retiredAssetSelection.assetInstanceId, furnace7.id);
+    expect(retiredAssetSelection.requiresHistoricalReview, isTrue);
   });
 
   test('Burner report scope follows the governed Furnace class mapping', () {
@@ -479,6 +519,45 @@ void main() {
     expect(all.map((item) => item.id), ['shell-1', 'shell-2']);
     expect(selected.map((item) => item.id), ['shell-2']);
   });
+
+  test(
+    'partial or cached directive feed cannot produce a complete operations report',
+    () {
+      for (final batch in [
+        const DecodedSnapshotBatch<OperationalDirective>(
+          records: [],
+          rejectedDocumentIds: ['bad-directive'],
+        ),
+        const DecodedSnapshotBatch<OperationalDirective>(
+          records: [],
+          rejectedDocumentIds: [],
+          isFromCache: true,
+        ),
+      ]) {
+        expect(
+          () => buildOperationsReport(
+            filter: OperationsReportFilter(
+              startDate: DateTime.utc(2026, 9, 1),
+              endDate: DateTime.utc(2026, 9, 20),
+            ),
+            tickets: [],
+            executions: [],
+            events: [],
+            directives: DirectivePopulation(batch),
+            assetClasses: [],
+            assetInstances: [],
+            overview: PlantAssetOverview.build(
+              assetClasses: [],
+              assetInstances: [],
+              operationalConditions: [],
+              workflowStatuses: [],
+            ),
+          ),
+          throwsStateError,
+        );
+      }
+    },
+  );
 
   test('builds dynamic class report with overlap and failure rankings', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
@@ -530,7 +609,9 @@ void main() {
     expect(report.linkedDisruptionIssueCount, 2);
     expect(report.disruptionDuration.inHours, 2);
     expect(report.assetCount, 1);
-    expect(report.availableAssetCount, 1);
+    // No workflow evidence was supplied: availability is unverified.
+    expect(report.assetStates.single.hasUnverifiedWorkflowEvidence, isTrue);
+    expect(report.availableAssetCount, 0);
     expect(report.topComponents.single.label, 'Unmapped legacy component');
     expect(report.topComponents.single.count, 2);
     expect(
@@ -539,14 +620,18 @@ void main() {
     );
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
-    expect(report.assetAvailabilityRate, 1);
+    expect(report.assetAvailabilityRate, 0);
     expect(report.issueClosureRate, 0);
     expect(report.plannedCompletionRate, 0);
-    expect(report.unavailableAssetCount, 0);
+    expect(report.unavailableAssetCount, 1);
     expect(report.actionBacklogCount, 3);
     expect(report.assuranceBacklogCount, 0);
-    expect(report.leadingManagementSignal, '2 issues remain open');
+    expect(
+      report.leadingManagementSignal,
+      '1 asset is outside the available state',
+    );
     expect(report.managementSignals.map((signal) => signal.type), [
+      OperationsManagementSignalType.unavailableAssets,
       OperationsManagementSignalType.openIssues,
       OperationsManagementSignalType.openPlannedWork,
     ]);
@@ -761,7 +846,7 @@ void main() {
         assets: const [],
         innerCovers: const [],
       );
-      expect(stale.assetInstanceId, isNull);
+      expect(stale.assetInstanceId, selection.assetInstanceId);
     },
   );
 
@@ -832,6 +917,28 @@ void main() {
     expect(report.retainedUnresolvedClosureCount, 1);
     expect(report.terminalIssueCount, 3);
     expect(report.issueClosureRate, 1);
+    final oldPeriod = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2025, 1),
+        endDate: DateTime.utc(2025, 1, 31),
+      ),
+      tickets: [retained, expired],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: overview,
+    );
+    expect(oldPeriod.tickets, isEmpty);
+    expect(oldPeriod.retainedUnresolvedClosureCount, 1);
+    expect(
+      oldPeriod.managementSignals.any(
+        (signal) =>
+            signal.type ==
+            OperationsManagementSignalType.retainedUnresolvedClosures,
+      ),
+      isTrue,
+    );
   });
 
   test('management signals rank operational severity before raw count', () {

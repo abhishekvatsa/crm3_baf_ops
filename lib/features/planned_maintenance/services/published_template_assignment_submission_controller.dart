@@ -11,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import 'published_template_assignment_durable_adoption.dart';
 import 'published_template_assignment_idempotency_store.dart';
 import 'published_template_assignment_server_service.dart';
+import 'published_assignment_acceptance_identity.dart';
 
 class PublishedTemplateAssignmentSubmissionController {
   PublishedTemplateAssignmentSubmissionController({
@@ -133,6 +134,7 @@ class PublishedTemplateAssignmentSubmissionController {
       allowCompletedProjection: true,
     );
     final execution = result.execution;
+    if (!execution.createdAt.isAtSameMomentAs(result.assignedAt)) _badReceipt();
     void origin(String? rawMetadata, String? actor) {
       if (rawMetadata == null || actor != saved.actorUid) _badReceipt();
       final metadata = durableSubmissionJsonObject(rawMetadata);
@@ -195,8 +197,8 @@ class PublishedTemplateAssignmentSubmissionController {
       _actor(saved.actorUid);
       final response = await server.assignFrozenEnvelope(saved.envelopeJson);
       _receipt(saved, response);
-      // Canonical acceptance receipt: replay is an observation flag only; all
-      // authoritative request, actor, execution and module evidence is retained.
+      // Retain the first complete observation. Immutable acceptance identity is
+      // compared separately from later execution/module projection versions.
       raw = jsonEncode({...response, 'idempotentReplay': false});
     } catch (_) {
       final outcome = await store.recordOutcome(
@@ -220,16 +222,21 @@ class PublishedTemplateAssignmentSubmissionController {
       submissionId: submissionId,
       envelopeSha256: saved.envelopeSha256,
       receiptJson: raw,
+      sameAcceptance: (retained, incoming) =>
+          publishedAssignmentAcceptanceIdentity(_receipt(saved, retained)) ==
+          publishedAssignmentAcceptanceIdentity(_receipt(saved, incoming)),
       validateReceipt: (value, response) {
         _receipt(value, response);
         return true;
       },
     );
-    return _adopt(accepted);
+    return _adopt(accepted, observation: _receipt(saved, durableSubmissionJsonObject(raw)));
   }
 
   Future<PublishedTemplateAssignmentServerResult> _adopt(
-    DurableSubmission saved,
+    DurableSubmission saved, {
+    PublishedTemplateAssignmentServerResult? observation,
+  }
   ) async {
     _actor(saved.actorUid);
     if (!saved.state.isAccepted ||
@@ -237,14 +244,17 @@ class PublishedTemplateAssignmentSubmissionController {
         saved.receiptSha256 == null) {
       _badReceipt();
     }
-    final result = _receipt(
+    final retained = _receipt(
       saved,
       durableSubmissionJsonObject(saved.receiptJson!),
     );
+    if (observation != null && publishedAssignmentAcceptanceIdentity(retained) != publishedAssignmentAcceptanceIdentity(observation)) _badReceipt();
+    final result = observation ?? retained;
     await store.markReconciled(
       submissionId: saved.submissionId,
       envelopeSha256: saved.envelopeSha256,
       receiptSha256: saved.receiptSha256!,
+      recheckProjection: observation != null,
       adoptInTransaction: (database) =>
           adoptPublishedAssignmentInTransaction(database, result, () {
             _actor(saved.actorUid);

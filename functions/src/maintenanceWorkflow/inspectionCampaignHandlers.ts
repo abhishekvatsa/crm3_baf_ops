@@ -1,7 +1,7 @@
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
-import {requireInspectionCorrectiveSubject} from "./inspectionPhysicalSubject";
+import {requireInspectionCorrectiveSubject, inspectionCorrectiveScopeReview} from "./inspectionPhysicalSubject";
 import {requireInspectionContextReview} from "./inspectionTargetContextHandlers";
 import {requireInspectionCorrectionContext} from "./inspectionObservationCorrection";
 import {activeInspectionFindings, assertInspectionFindingActivation,
@@ -674,6 +674,9 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     expectedPopulation: targetPopulation.length,
     baselineCampaignId,
     baselineRecordedThrough,
+    findingCreationManifest: [],
+    baselineCampaignVersionThrough: baseline?.data == null ? null :
+      baseline.data.closedAtVersion ?? baseline.data.version,
     observerRoleKeys,
     observationCount: 0,
     distinctTargetKeys: [],
@@ -780,6 +783,7 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
     version: nextVersion,
     pausedAt: target === "paused" ? now : current.data.pausedAt ?? null,
     closedAt: target === "closed" ? now : null,
+    ...(target === "closed" ? {closedAtVersion: nextVersion} : {}),
     ...(reopening ? {
       lastClosedAt: previousClosedAt,
       reopenedAt: now,
@@ -1074,7 +1078,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     "unit", "operatingConditions", "chargeNo", "note", "evidenceUrls",
     "supersedesObservationId",
   ], [
-    "targetKey", "targetContextRevision", "historicalAmendmentReason",
+    "targetKey", "targetContextRevision", "historicalAmendmentReason", "followUpFindingId",
   ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
@@ -1093,8 +1097,14 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (campaign.data.version !== command.expectedVersion) {
     throw new WorkflowError("aborted", "The inspection campaign changed before this reading.");
   }
-  if (campaign.data.status !== "open") {
+  const closedFollowUp = campaign.data.status === "closed" &&
+    (command.payload.followUpFindingId != null ||
+      (command.payload.supersedesObservationId != null && command.payload.historicalAmendmentReason != null));
+  if (campaign.data.status !== "open" && !closedFollowUp) {
     throw new WorkflowError("failed-precondition", "Only an open campaign accepts observations.");
+  }
+  if (closedFollowUp && persistedInstantText(campaign.data.closedAt) == null) {
+    throw new WorkflowError("failed-precondition", "The survey closure evidence must be reconciled before follow-up.");
   }
   if (existingObservation.exists) {
     throw new WorkflowError("already-exists", "Observation identity is already used.");
@@ -1361,7 +1371,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       {reasonCode: "inspection-correction-not-current", targetKey},
     );
   }
-  if (amendmentReason != null && correctsCurrentReading) {
+  if (amendmentReason != null && correctsCurrentReading && campaign.data.status !== "closed") {
     throw new WorkflowError(
       "failed-precondition",
       "This reading is the current one, so correct it through the ordinary route rather than as an amendment.",
@@ -1435,7 +1445,13 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
         {reasonCode: "inspection-baseline-observation-chronology-malformed"},
       );
     }
-    return Date.parse(recordedAt) <= Date.parse(baselineCutoff!);
+    const cutoffVersion = campaign.data!.baselineCampaignVersionThrough;
+    if (cutoffVersion != null && (!Number.isSafeInteger(cutoffVersion) || (cutoffVersion as number) < 1 ||
+        !Number.isSafeInteger(row.data.campaignVersionAtObservation))) {
+      throw new WorkflowError("failed-precondition", "The re-audit baseline revision needs reconciliation.");
+    }
+    return Date.parse(recordedAt) <= Date.parse(baselineCutoff!) &&
+      (cutoffVersion == null || (row.data.campaignVersionAtObservation as number) < (cutoffVersion as number));
   });
   const baselineSupersededIds = new Set(eligibleBaselineRows
     .map((row) => row.data?.supersedesObservationId)
@@ -1469,6 +1485,13 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   const comparisonOutcome = baselineObservation == null ? null :
     compareInspectionObservation(value, baselineObservation, definition);
   const activeFindings = activeInspectionFindings(findingRows, targetKey);
+  if (command.payload.followUpFindingId != null) {
+    const followUpId = documentId(command.payload.followUpFindingId, "followUpFindingId");
+    if (!activeFindings.some((row) => row.data?.findingId === followUpId)) {
+      throw new WorkflowError("failed-precondition", "Follow-up must address an existing outstanding finding for this exact target.",
+        {reasonCode: "inspection-follow-up-finding-required"});
+    }
+  }
   if (activeFindings.length > 1) {
     throw new WorkflowError(
       "failed-precondition",
@@ -1481,6 +1504,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     observationId,
     campaignId,
     campaignVersionAtObservation: command.expectedVersion,
+    followUpFindingId: command.payload.followUpFindingId ?? null,
+    surveyClosedAt: closedFollowUp ? persistedInstantText(campaign.data.closedAt) : null,
     definition: definition,
     definitionId: campaign.data.definitionId,
     definitionVersion: campaign.data.definitionVersion,
@@ -1566,7 +1591,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       (effective.outOfRange === true || existingFinding != null)) {
     findingId = typeof existingFinding?.data?.findingId === "string" ?
       existingFinding.data.findingId : `inspection-finding-${effectiveId}`;
-    assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history);
+    assertInspectionFindingActivation(findingRows, findingId, targetKey, campaign.data, history,
+      closedFollowUp && superseded?.data != null && amendmentReason != null);
     const previous = existingFinding?.data ?? null;
     if (previous != null) assertInspectionEvidenceWithinEpisode(history, previous);
     const findingVersion = previous == null ? 1 : Number(previous.version ?? 0) + 1;
@@ -1595,7 +1621,19 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       updatedByUid: context.actor.uid,
       updatedByName: context.actor.name,
     };
-    if (existingFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
+    if (existingFinding == null) {
+      tx.create(`inspection_findings/${findingId}`, finding);
+      const manifest = campaign.data.findingCreationManifest;
+      // Legacy histories are not silently certified by backfilling from
+      // whichever rows happen to survive today.
+      if (manifest != null) {
+        if (!Array.isArray(manifest) || manifest.some((id) => typeof id !== "string" || !id || id.includes("/")) ||
+            new Set(manifest).size !== manifest.length || manifest.includes(findingId)) {
+          throw new WorkflowError("failed-precondition", "The finding creation manifest requires review.");
+        }
+        tx.update(campaignPath(campaignId), {findingCreationManifest: [...manifest, findingId]});
+      }
+    }
     else tx.update(existingFinding.path, finding);
     touchInspectionFindingPopulation(tx, campaignId, campaign.data);
     tx.create(`inspection_finding_events/${command.commandId}`, {
@@ -1622,6 +1660,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   tx.update(campaignPath(campaignId), {
     version: nextVersion,
     observationCount: Number(campaign.data.observationCount ?? 0) + 1,
+    ...(closedFollowUp && campaign.data.closedAtVersion == null ? {closedAtVersion: command.expectedVersion} : {}),
     distinctTargetKeys: distinct,
     targetPopulation: inspectionTargetPopulationJson(observedPopulation),
     targetDispositionCounts: inspectionPopulationCounts(observedPopulation),
@@ -1653,7 +1692,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
 };
 
 export const linkInspectionObservationIssue: CommandHandler = async ({tx, command, context}) => {
-  exactKeys(command.payload, ["observationId", "ticketId", "reason"], "payload");
+  keysWithOptional(command.payload, ["observationId", "ticketId", "reason"], ["scopeReview", "expectedFindingVersion"], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const ticketId = documentId(command.payload.ticketId, "ticketId");
@@ -1683,8 +1722,10 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
   if (!ticket.exists || ticket.data == null || ticket.data.isDeleted === true) {
     throw new WorkflowError("not-found", "Maintenance issue was not found.");
   }
-  requireInspectionCorrectiveSubject(ticket.data, ticketId, observation.data);
-  if (link.exists) {
+  const scopeReview = inspectionCorrectiveScopeReview(ticket.data, ticketId, observation.data,
+    command.payload.scopeReview, context.actor.roles, context.actor.uid, context.actor.name, iso(context.serverNow));
+  requireInspectionCorrectiveSubject(ticket.data, ticketId, observation.data, scopeReview);
+  if (link.exists && scopeReview == null) {
     throw new WorkflowError("already-exists", "This observation and issue are already linked.");
   }
   const findingRows = await tx.query("inspection_findings", [
@@ -1715,7 +1756,8 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     );
   if (findingOwnsObservation &&
       typeof finding!.data!.linkedTicketId === "string" &&
-      finding!.data!.linkedTicketId !== ticketId) {
+      finding!.data!.linkedTicketId !== ticketId &&
+      (scopeReview == null || command.payload.expectedFindingVersion !== finding!.data!.version)) {
     throw new WorkflowError(
       "failed-precondition",
       "This finding is already bound to another corrective maintenance issue.",
@@ -1723,7 +1765,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     );
   }
   const now = iso(context.serverNow);
-  tx.create(issueLinkPath(linkId), {
+  const linkRecord = {
     schemaVersion: 1,
     linkId,
     campaignId,
@@ -1736,7 +1778,12 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     linkedByName: context.actor.name,
     linkedAt: now,
     reason,
-  });
+    scopeReview,
+  };
+  if (!link.exists) tx.create(issueLinkPath(linkId), linkRecord);
+  // Keep the original link immutable. Every reviewed successor is retained
+  // under the original command identity, rather than overwriting its history.
+  else tx.create(`inspection_issue_links/${command.commandId}`, {...linkRecord, linkId: command.commandId, supersedesLinkId: linkId});
   if (findingOwnsObservation) {
     const findingId = documentId(finding!.data!.findingId, "findingId");
     assertInspectionFindingActivation(findingRows, findingId, String(observation.data.targetKey), campaign.data, findingHistory!);
@@ -1745,6 +1792,8 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
       version: Number(finding!.data!.version ?? 0) + 1,
       status: "correctiveActionLinked",
       linkedTicketId: ticketId,
+      correctiveScopeReview: scopeReview,
+      correctiveScopeReviewLinkId: scopeReview == null ? null : link.exists ? command.commandId : linkId,
       linkedAt: now,
       linkedByUid: context.actor.uid,
       linkedByName: context.actor.name,
@@ -1758,6 +1807,8 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
       findingId,
       campaignId,
       operation: "link-corrective-action",
+      previousTicketId: finding!.data!.linkedTicketId ?? null,
+      scopeReview,
       previousStatus: finding!.data!.status,
       resultingStatus: "correctiveActionLinked",
       observationId,

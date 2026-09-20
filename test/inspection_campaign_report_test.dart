@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
+import 'package:crm3_baf_ops/features/inspections/data/inspection_evidence_snapshot.dart';
+import 'package:crm3_baf_ops/features/inspections/repositories/inspection_repository.dart';
 import 'package:crm3_baf_ops/features/inspections/domain/inspection_campaign_report.dart';
 import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
 import 'package:crm3_baf_ops/features/reports/services/structured_report_pdf_service.dart';
@@ -8,6 +10,63 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('campaign freshness does not erase rejected population identities', () {
+    const snapshot = InspectionEvidenceSnapshot<String>(
+      records: ['valid'],
+      isServerVerified: true,
+      rejectedDocumentIds: ['unreadable'],
+    );
+    expect(snapshot.isServerVerified, isTrue);
+    expect(snapshot.isComplete, isFalse);
+    expect(snapshot.rawCount, 2);
+    expect(snapshot.records, ['valid']);
+  });
+
+  test('creation history is strict and keeps terminal episode identities', () {
+    expect(
+      () => readInspectionFindingCreationIds(
+        [],
+        'campaign-1',
+        expectedManifest: ['inspection-finding-missing'],
+      ),
+      throwsStateError,
+    );
+    final create = <String, dynamic>{
+      'schemaVersion': 1,
+      'eventId': 'event-1',
+      'campaignId': 'campaign-1',
+      'findingId': 'inspection-finding-reading-1',
+      'operation': 'create',
+      'observationId': 'reading-1',
+      'previousStatus': null,
+    };
+    expect(
+      readInspectionFindingCreationIds([
+        (id: 'event-1', data: create),
+      ], 'campaign-1'),
+      ['inspection-finding-reading-1'],
+    );
+    for (final bad in [
+      <String, dynamic>{...create, 'findingId': 'wrong'},
+      {...create, 'campaignId': 'other'},
+      {...create, 'operation': 'unknown'},
+    ]) {
+      expect(
+        () => readInspectionFindingCreationIds([
+          (id: 'event-1', data: bad),
+        ], 'campaign-1'),
+        throwsStateError,
+      );
+    }
+    expect(
+      () => readInspectionFindingCreationIds([
+        (id: 'event-1', data: create),
+        (id: 'event-2', data: {...create, 'eventId': 'event-2'}),
+      ], 'campaign-1'),
+      throwsStateError,
+    );
+  });
 
   test('an empty campaign cannot produce an audit report', () {
     final campaign = _campaign();
@@ -114,12 +173,52 @@ void main() {
       campaign: campaign,
       observations: <InspectionObservation>[correction, first],
       findings: <InspectionFinding>[finding],
+      createdFindingIds: <String>[finding.id],
       generatedAt: _time(3),
       generatedByName: 'Admin One',
       provenance: const ReportProvenance.applicationSnapshot(),
     );
 
+    for (final rows in <List<InspectionFinding>>[
+      [],
+      [finding, finding],
+    ]) {
+      expect(
+        InspectionCampaignReportEvidence(
+          campaign: campaign,
+          observations: [correction, first],
+          findings: rows,
+          createdFindingIds: [finding.id],
+        ).isInternallyComplete,
+        isFalse,
+      );
+    }
+    expect(
+      InspectionCampaignReportEvidence(
+        campaign: campaign,
+        observations: [correction, first],
+        findings: [finding],
+        createdFindingIds: [finding.id, 'missing-terminal-episode'],
+      ).isInternallyComplete,
+      isFalse,
+    );
+    expect(
+      InspectionCampaignReportEvidence(
+        campaign: campaign,
+        observations: [correction, first],
+        findings: [finding],
+        createdFindingIds: [],
+      ).isInternallyComplete,
+      isFalse,
+    );
+
     expect(report.sections, hasLength(4));
+    expect(
+      report.sections.first.metrics
+          .singleWhere((metric) => metric.label == 'Findings')
+          .detail,
+      '1 outstanding',
+    );
     final readingRows = report.sections[2].tables.single.rows;
     expect(readingRows.first[2], contains('Superseded'));
     expect(readingRows.last[2], contains('Current'));

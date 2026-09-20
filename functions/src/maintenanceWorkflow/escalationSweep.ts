@@ -150,6 +150,10 @@ const processCandidate = async (
       sourceCollection: candidate.ref.parent.id,
       sourceDocumentId: candidate.ref.id,
       escalationTier: nextTier,
+      // Bind the notification to the exact source revision changed in the
+      // same transaction as the event. A delayed trigger must not describe a
+      // lane or compliance item that has since been completed or reassigned.
+      sourceVersion: Number(data.version ?? 0) + 1,
     },
   });
   const eventRef = db.doc(event.path);

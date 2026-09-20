@@ -591,6 +591,8 @@ EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
       data['lastTransitionAt'],
       'lastTransitionAt',
     )
+    ..availableSince = _optionalDate(data['availableSince'], 'availableSince')
+    ..inServiceSince = _optionalDate(data['inServiceSince'], 'inServiceSince')
     ..lastTransitionByUid = _string(
       data['lastTransitionByUid'],
       'lastTransitionByUid',

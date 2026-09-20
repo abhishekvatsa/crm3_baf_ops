@@ -6,6 +6,8 @@ Future<void> _transitionCampaign(
   InspectionCampaign campaign,
   String status,
 ) async {
+  final originUid = ref.read(currentAppUserProvider).value?.uid;
+  if (originUid == null) return;
   final reopening =
       campaign.status == InspectionCampaignStatus.closed && status == 'open';
   String? reopeningReason;
@@ -13,11 +15,11 @@ Future<void> _transitionCampaign(
     reopeningReason = await showDialog<String>(
       context: context,
       builder: (_) => const _InspectionReasonDialog(
-        title: 'Reopen for verification?',
+        title: 'Reopen survey scope?',
         message:
-            'Reopen this same campaign to record follow-up readings and verify '
-            'its findings. The original closure and readings remain in its '
-            'audit history. Explain why more verification is needed.',
+            'Existing findings already allow follow-up and verification while the survey stays closed. '
+            'Reopen only to resume survey work. The original closure and readings remain in its '
+            'audit history. Explain why the survey itself needs reopening.',
         actionLabel: 'Reopen campaign',
       ),
     );
@@ -41,7 +43,7 @@ Future<void> _transitionCampaign(
             builder: (context) => AlertDialog(
               title: const Text('Close this programme?'),
               content: const Text(
-                'All targets are accounted. New readings stop until a campaign manager reopens it for verification. The closure and existing evidence remain in its audit history.',
+                'All targets are accounted. Outstanding findings and their maintenance work remain open. Follow-up readings and verification can continue from those findings without reopening this survey.',
               ),
               actions: [
                 TextButton(
@@ -72,7 +74,8 @@ Future<void> _transitionCampaign(
       },
     ),
     reopening
-        ? 'Inspection campaign reopened for verification.'
+        ? 'Inspection survey reopened.'
         : 'Inspection campaign moved to $status.',
+    originUid: originUid,
   );
 }

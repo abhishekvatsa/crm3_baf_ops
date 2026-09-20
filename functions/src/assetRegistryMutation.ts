@@ -27,6 +27,7 @@ type RegistryOperation =
   | "UPDATE_ASSET_INSTANCE"
   | "SET_ASSET_INSTANCE_STATUS"
   | "CREATE_COMPONENT_INSTANCE"
+  | "CORRECT_COMPONENT_INSTANCE"
   | "UPDATE_COMPONENT_INSTANCE"
   | "REPLACE_COMPONENT_INSTANCE"
   | "SET_COMPONENT_INSTANCE_STATUS";
@@ -82,6 +83,7 @@ interface RegistryRequest {
   reason: string;
   allowTagTransfer: boolean;
   expectedTagOwnerComponentId: string | null;
+  expectedTagOwnerComponentVersion: number | null;
   evidenceReference: ReplacementEvidenceReference | null;
   assetDraft: AssetDraft | null;
   componentDraft: ComponentDraft | null;
@@ -106,7 +108,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const OPERATIONS = new Set<RegistryOperation>([
   "CREATE_ASSET_INSTANCE", "UPDATE_ASSET_INSTANCE", "SET_ASSET_INSTANCE_STATUS",
   "CREATE_COMPONENT_INSTANCE", "UPDATE_COMPONENT_INSTANCE", "REPLACE_COMPONENT_INSTANCE",
-  "SET_COMPONENT_INSTANCE_STATUS",
+  "SET_COMPONENT_INSTANCE_STATUS", "CORRECT_COMPONENT_INSTANCE",
 ]);
 const SERVICE_STATES = new Set(["inService", "standby", "outOfService"]);
 const OWNERSHIP = new Set(["unassigned", "provisional", "confirmed"]);
@@ -343,7 +345,8 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     "componentInstanceId", "replacementComponentInstanceId", "expectedVersion",
     "expectedAssetClassVersion",
     "expectedAssetInstanceVersion", "status", "reason", "allowTagTransfer",
-    "expectedTagOwnerComponentId", "evidenceReference", "assetDraft", "componentDraft",
+    "expectedTagOwnerComponentId", "expectedTagOwnerComponentVersion",
+    "evidenceReference", "assetDraft", "componentDraft",
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
   const operation = requiredString(raw.operation, "operation", 40) as RegistryOperation;
@@ -371,6 +374,9 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     allowTagTransfer: raw.allowTagTransfer === true,
     expectedTagOwnerComponentId: raw.expectedTagOwnerComponentId == null ? null :
       documentId(raw.expectedTagOwnerComponentId, "expectedTagOwnerComponentId"),
+    expectedTagOwnerComponentVersion: optionalVersion(
+      raw.expectedTagOwnerComponentVersion, "expectedTagOwnerComponentVersion",
+    ),
     evidenceReference: parseReplacementEvidenceReference(raw.evidenceReference),
     assetDraft: raw.assetDraft == null ? null : parseAssetDraft(raw.assetDraft),
     componentDraft: raw.componentDraft == null ? null : parseComponentDraft(raw.componentDraft),
@@ -378,13 +384,24 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
   if (raw.allowTagTransfer != null && typeof raw.allowTagTransfer !== "boolean") {
     invalid("allowTagTransfer", "must be a boolean");
   }
-  if (request.allowTagTransfer !== (request.expectedTagOwnerComponentId != null)) {
+  if (request.allowTagTransfer !== (
+    request.expectedTagOwnerComponentId != null &&
+    request.expectedTagOwnerComponentVersion != null
+  )) {
     invalid(
       "expectedTagOwnerComponentId",
-      "must name the reviewed current owner exactly when tag transfer is approved",
+      "and expectedTagOwnerComponentVersion must name the reviewed current owner exactly when tag transfer is approved",
     );
   }
-  if (!componentOperation && request.expectedTagOwnerComponentId != null) {
+  if ((request.expectedTagOwnerComponentId == null) !==
+      (request.expectedTagOwnerComponentVersion == null)) {
+    invalid(
+      "expectedTagOwnerComponentVersion",
+      "must be supplied together with expectedTagOwnerComponentId",
+    );
+  }
+  if (!componentOperation && (request.expectedTagOwnerComponentId != null ||
+      request.expectedTagOwnerComponentVersion != null)) {
     invalid("expectedTagOwnerComponentId", "is allowed only for installed components");
   }
   if ((request.componentInstanceId != null) !== componentOperation) {
@@ -407,7 +424,7 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
   const assetDraftOperation = operation === "CREATE_ASSET_INSTANCE" ||
     operation === "UPDATE_ASSET_INSTANCE";
   const componentDraftOperation = operation === "CREATE_COMPONENT_INSTANCE" ||
-    operation === "UPDATE_COMPONENT_INSTANCE" || replacementOperation;
+    operation === "UPDATE_COMPONENT_INSTANCE" || operation === "CORRECT_COMPONENT_INSTANCE" || replacementOperation;
   if ((request.assetDraft != null) !== assetDraftOperation) {
     invalid("assetDraft", assetDraftOperation ? "is required" : "is not allowed");
   }
@@ -438,8 +455,27 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     ...legacyRequest,
     replacementComponentInstanceId,
   };
+  // The reviewed-owner version was added after the original registry
+  // fingerprint formats. Keep it out of the compatibility payload when it is
+  // absent so old accepted tag-transfer and replacement receipts remain
+  // replayable; a present version is bound by the modern fingerprint.
+  const {
+    expectedTagOwnerComponentVersion: _legacyOwnerVersion,
+    ...historicalLegacyRequest
+  } = replacementLegacyRequest;
+  const {
+    expectedTagOwnerComponentVersion: _compatibilityOwnerVersion,
+    ...compatibilityRequest
+  } = request;
   const fingerprintPayload = replacementOperation ?
-    (evidenceReference == null ? replacementLegacyRequest : request) : legacyRequest;
+    (evidenceReference == null ? historicalLegacyRequest : compatibilityRequest) :
+    (() => {
+      const {
+        expectedTagOwnerComponentVersion: _legacyAssetOwnerVersion,
+        ...historicalAssetRequest
+      } = legacyRequest;
+      return historicalAssetRequest;
+    })();
   const fingerprintVersion = replacementOperation ?
     (evidenceReference == null ? "assetreg2" : "assetreg3") : "assetreg1";
   const timestampInstants: {[field: string]: string | null} = request.assetDraft != null ? {
@@ -641,16 +677,11 @@ function conditionTicketTargetsAsset(
   // maintenance producer writes for an ordinary component issue as malformed,
   // and a retirement was refused for damaged data rather than for the open
   // condition that actually stands in its way.
-  const governedReference: boolean = Number.isSafeInteger(identity.assetNumber) &&
+  const governedReference: boolean = Number.isSafeInteger(data.assetNumber) &&
     isValidAffectedAssetHierarchyReference(
-      identity, identity.assetNumber as number,
+      identity, data.assetNumber as number,
     );
-  if (!governedReference &&
-      ((identity.scope !== "physicalAsset" &&
-        identity.scope !== "installedComponent") ||
-      typeof identity.assetClassId !== "string" ||
-      typeof identity.assetInstanceId !== "string" ||
-      !Number.isSafeInteger(identity.assetNumber))) {
+  if (!governedReference) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "Reconcile the open condition-changing issue before retiring this asset.",
@@ -669,11 +700,38 @@ function requireReplacementEvidenceIdentity(args: {
   reference: JsonMap;
   asset: JsonMap;
   outgoingComponentInstanceId: string;
+  outgoingDefinitionNodeId: string;
   sourceId: string;
+  allowDefinition?: boolean;
 }): string | null {
-  const {reference, asset, outgoingComponentInstanceId, sourceId} = args;
-  if ((reference.schemaVersion !== 2 && reference.schemaVersion !== 3) ||
-      !["physicalAsset", "installedComponent"].includes(reference.scope as string) ||
+  const {
+    reference, asset, outgoingComponentInstanceId, outgoingDefinitionNodeId, sourceId,
+  } = args;
+  // Assignment freezes a template definition separately from the physical
+  // asset it was assigned to. That stronger definition must not be discarded
+  // in favour of the assignment's broader asset identity.
+  const definitionScope = reference.schemaVersion === 1 ||
+    reference.scope === "definition";
+  if (definitionScope && args.allowDefinition === true) {
+    if (![1, 2, 3].includes(reference.schemaVersion as number) ||
+        (reference.scope != null && reference.scope !== "definition") ||
+        reference.assetClassId !== asset.assetClassId ||
+        reference.nodeId !== outgoingDefinitionNodeId ||
+        (reference.assetInstanceId != null && reference.assetInstanceId !== asset.assetInstanceId) ||
+        (reference.assetNumber != null && reference.assetNumber !== asset.assetNumber) ||
+        reference.componentInstanceId != null || reference.componentInstanceVersion != null) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        `Replacement evidence ${sourceId} identifies a different or malformed component definition.`,
+        {reasonCode: "asset-component-replacement-evidence-definition-mismatch", sourceId},
+      );
+    }
+    return null;
+  }
+  if ((reference.schemaVersion !== 2 && reference.schemaVersion !== 3 &&
+       reference.schemaVersion !== 4) ||
+      !["physicalAsset", "installedComponent", "componentDefinitionOnAsset"]
+        .includes(reference.scope as string) ||
       reference.assetClassId !== asset.assetClassId ||
       reference.assetInstanceId !== asset.assetInstanceId ||
       reference.assetNumber !== asset.assetNumber) {
@@ -684,6 +742,18 @@ function requireReplacementEvidenceIdentity(args: {
         reasonCode: "asset-component-replacement-evidence-asset-mismatch",
         sourceId,
       },
+    );
+  }
+  if ((reference.scope === "physicalAsset" &&
+       (reference.schemaVersion !== 3 || reference.componentInstanceId != null ||
+        reference.componentInstanceVersion != null || reference.componentTag != null ||
+        (reference.nodeId != null && reference.nodeId !== asset.assetInstanceId))) ||
+      (reference.scope === "installedComponent" &&
+       (![2, 3].includes(reference.schemaVersion as number) ||
+        (reference.nodeId != null && reference.nodeId !== outgoingDefinitionNodeId)))) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", `Replacement evidence ${sourceId} has contradictory component identity.`,
+      {reasonCode: "asset-component-replacement-evidence-component-mismatch", sourceId},
     );
   }
   if (reference.scope === "installedComponent" &&
@@ -697,6 +767,20 @@ function requireReplacementEvidenceIdentity(args: {
       },
     );
   }
+  if (reference.scope === "componentDefinitionOnAsset" &&
+      (reference.schemaVersion !== 4 ||
+       reference.nodeId !== outgoingDefinitionNodeId ||
+       reference.componentInstanceId != null || reference.componentInstanceVersion != null ||
+       reference.componentTag != null)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Replacement evidence ${sourceId} identifies a different component definition.`,
+      {
+        reasonCode: "asset-component-replacement-evidence-definition-mismatch",
+        sourceId,
+      },
+    );
+  }
   return reference.scope === "installedComponent" ?
     outgoingComponentInstanceId : null;
 }
@@ -706,8 +790,11 @@ function verifyReplacementEvidence(args: {
   reference: ReplacementEvidenceReference;
   asset: JsonMap;
   outgoingComponentInstanceId: string;
+  outgoingDefinitionNodeId: string;
 }): JsonMap {
-  const {data, reference, asset, outgoingComponentInstanceId} = args;
+  const {
+    data, reference, asset, outgoingComponentInstanceId, outgoingDefinitionNodeId,
+  } = args;
   if (!Number.isSafeInteger(data.version) || data.version !== reference.expectedVersion) {
     throw new AssetHierarchyMutationError(
       "aborted", "The selected replacement evidence changed before commit.",
@@ -786,13 +873,16 @@ function verifyReplacementEvidence(args: {
       );
     }
     const jobSnapshot = metadata.jobTemplateSnapshot;
-    if (jobSnapshot != null && typeof jobSnapshot === "object" && !Array.isArray(jobSnapshot)) {
+    if (jobSnapshot != null) {
+      if (typeof jobSnapshot !== "object" || Array.isArray(jobSnapshot)) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "Replacement evidence has a malformed template snapshot.",
+          {reasonCode: "asset-component-replacement-evidence-malformed", sourceId: reference.sourceId},
+        );
+      }
       const encoded = (jobSnapshot as JsonMap).assetHierarchyRefJson;
       if (encoded != null) {
-        const candidate = parsedJsonObject(encoded, "job assetHierarchyRefJson");
-        if (candidate.scope === "physicalAsset" || candidate.scope === "installedComponent") {
-          hierarchyReference = candidate;
-        }
+        hierarchyReference = parsedJsonObject(encoded, "job assetHierarchyRefJson");
       }
     }
   }
@@ -814,7 +904,9 @@ function verifyReplacementEvidence(args: {
       reference: hierarchyReference,
       asset,
       outgoingComponentInstanceId,
+      outgoingDefinitionNodeId,
       sourceId: reference.sourceId,
+      allowDefinition: reference.sourceType === "plannedJob",
     });
   return {
     sourceType: reference.sourceType,
@@ -824,6 +916,14 @@ function verifyReplacementEvidence(args: {
     assetInstanceId: asset.assetInstanceId,
     assetNumber: asset.assetNumber,
     componentInstanceId,
+    // A completed job on the asset is contextual evidence. It does not invent
+    // a serial-specific replacement action when older work omitted that fact.
+    applicabilitySchemaVersion: 1,
+    applicabilityScope: componentInstanceId != null ? "installedComponent" :
+      hierarchyReference != null && hierarchyReference.scope !== "physicalAsset" ?
+        "componentDefinitionOnAsset" : "assetContext",
+    definitionNodeId: hierarchyReference != null && hierarchyReference.scope !== "physicalAsset" ?
+      outgoingDefinitionNodeId : null,
     summary: summary.trim(),
     completedAtIso,
     completedByUid: completedByUid.trim(),
@@ -980,7 +1080,7 @@ function recordedRegistryAfter(args: {
   const action = source ? "replaced" :
     request.operation === "REPLACE_COMPONENT_INSTANCE" ? "replacement_installed" :
     request.operation.startsWith("CREATE_") ? "create" :
-    request.operation.startsWith("UPDATE_") ? "update" :
+    (request.operation.startsWith("UPDATE_") || request.operation === "CORRECT_COMPONENT_INSTANCE") ? "update" :
     request.status;
   const sameRecordedDate = (value: unknown, expected: Date | null): boolean => {
     if (expected == null) return value == null;
@@ -1057,13 +1157,17 @@ export async function mutateAssetRegistryWithDb(args: {
   const auditId = `asset_registry_${request.requestId}`;
   const auditRef = audits.doc(auditId);
   const replacementSourceAuditRef = audits.doc(`${auditId}_replacement_source`);
+  const tagSourceAuditRef = audits.doc(`${auditId}_tag_source`);
   const evidenceRef = request.evidenceReference == null ? null :
     (request.evidenceReference.sourceType === "maintenanceIssue" ?
       maintenanceIssues : plannedJobs).doc(request.evidenceReference.sourceId);
 
   const preflight = record(await actorRef.get(), "Registry actor");
   const preflightAuthority = canonicalApprovedUserAuthority(preflight);
-  if (preflightAuthority == null || !preflightAuthority.roles.has("admin")) {
+  const isRetirement = request.operation === "SET_ASSET_INSTANCE_STATUS" && request.status === "retired";
+  const permitted = (authority: ReturnType<typeof canonicalApprovedUserAuthority>): boolean =>
+    authority != null && (authority.roles.has("admin") || (isRetirement && authority.roles.has("si")));
+  if (!permitted(preflightAuthority)) {
     throw new AssetHierarchyMutationError(
       "permission-denied", "Only an approved Admin can change the asset registry.",
     );
@@ -1079,7 +1183,7 @@ export async function mutateAssetRegistryWithDb(args: {
       "Registry actor",
     );
     const authority = canonicalApprovedUserAuthority(actor);
-    if (authority == null || !authority.roles.has("admin")) {
+    if (!permitted(authority)) {
       throw new AssetHierarchyMutationError(
         "permission-denied", "Only an approved Admin can change the asset registry.",
       );
@@ -1122,6 +1226,32 @@ export async function mutateAssetRegistryWithDb(args: {
           );
         }
       }
+      if (receiptData.tagSourceAuditEvidenceSha256 != null) {
+        const tagSourceAudit = record(
+          asSnapshot(
+            await transaction.get(tagSourceAuditRef),
+            "Registry tag-source audit lookup",
+          ),
+          "Recorded tag-source audit",
+        );
+        if (tagSourceAudit.schemaVersion !== 1 ||
+            tagSourceAudit.auditId !== `${auditId}_tag_source` ||
+            tagSourceAudit.requestId !== request.requestId ||
+            tagSourceAudit.performedByUid !== actorUid ||
+            tagSourceAudit.action !== "tag_transferred_out" ||
+            tagSourceAudit.fingerprint !== request.fingerprint ||
+            stableJson(tagSourceAudit.timestampInstants) !==
+              stableJson(request.timestampInstants) ||
+            receiptData.tagSourceAuditEvidenceSha256 !==
+              registryAuditEvidenceHash(tagSourceAudit) ||
+            !registryTimeMatches(tagSourceAudit.performedAt, receiptData.committedAtIso)) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "The registry receipt no longer matches its displaced-tag audit evidence.",
+            {reasonCode: "asset-registry-replay-evidence-drift"},
+          );
+        }
+      }
       return replay;
     }
 
@@ -1138,6 +1268,86 @@ export async function mutateAssetRegistryWithDb(args: {
     );
     const componentData = componentSnapshot?.exists === true ?
       componentSnapshot.data() ?? {} : null;
+    const editsInstallation = request.operation === "CORRECT_COMPONENT_INSTANCE" ||
+      request.operation === "UPDATE_COMPONENT_INSTANCE";
+    const proposedInstallation = request.componentDraft?.installedOn;
+    const existingInstallation = componentData?.installedOn;
+    const linkedInstallation = componentData?.replacesComponentInstanceId != null ||
+      componentData?.replacedByComponentInstanceId != null;
+    if (editsInstallation && linkedInstallation && existingInstallation != null && proposedInstallation == null) {
+      throw new AssetHierarchyMutationError("failed-precondition", "A linked installation date cannot be removed; correct it against the retained history.", {reasonCode: "asset-component-installation-chronology-invalid"});
+    }
+    // An unrelated detail edit must not re-adjudicate an unchanged date against
+    // incomplete legacy neighbours. Any actual date change still proves order.
+    let changesInstallation = proposedInstallation != null;
+    if (proposedInstallation != null && existingInstallation != null) {
+      try {
+        changesInstallation = new Date(timestampIso(existingInstallation, "installedOn"))
+          .getTime() !== proposedInstallation.getTime();
+      } catch (error) {
+        // An explicit, version-reviewed correction can repair legacy date-only
+        // or damaged evidence. It still proves every retained neighbour below,
+        // and its audit preserves the original value instead of guessing time.
+        if (request.operation !== "CORRECT_COMPONENT_INSTANCE") throw error;
+      }
+    }
+    if (editsInstallation && componentData != null && proposedInstallation != null && changesInstallation) {
+      for (const [link, reciprocal, direction] of [
+        ["replacesComponentInstanceId", "replacedByComponentInstanceId", -1],
+        ["replacedByComponentInstanceId", "replacesComponentInstanceId", 1],
+      ] as const) {
+        const neighbourId = componentData[link];
+        if (neighbourId == null) continue;
+        const neighbour = record(asSnapshot(await transaction.get(components.doc(documentId(neighbourId, link))), "Linked installation"), "Linked installation");
+        if (neighbour[reciprocal] !== request.componentInstanceId || neighbour.assetInstanceId !== request.assetInstanceId ||
+            neighbour.assetClassId !== request.assetClassId || neighbour.definitionNodeId !== componentData.definitionNodeId ||
+            neighbour.installedOn == null) {
+          throw new AssetHierarchyMutationError("failed-precondition", "Review the linked installation history before correcting this date.", {reasonCode: "asset-component-installation-history-malformed"});
+        }
+        const boundary = new Date(timestampIso(neighbour.installedOn, "linked installedOn")).getTime();
+        if ((proposedInstallation.getTime() - boundary) * direction > 0) {
+          throw new AssetHierarchyMutationError("failed-precondition", "The corrected installation must remain between its predecessor and successor.", {reasonCode: "asset-component-installation-chronology-invalid"});
+        }
+      }
+    }
+    if (request.operation === "CORRECT_COMPONENT_INSTANCE") {
+      if (componentData == null || componentData.assetInstanceId !== request.assetInstanceId || componentData.assetClassId !== request.assetClassId) {
+        throw new AssetHierarchyMutationError("failed-precondition", "Select the original installed-component identity.", {reasonCode: "asset-component-owner-mismatch"});
+      }
+      const draft = request.componentDraft!;
+      for (const field of ["definitionNodeId", "componentTag", "normalizedComponentTag", "serviceState", "ownershipStatus", "ownerDiscipline", "accountableRoleKeys"] as const) {
+        if (stableJson(draft[field]) !== stableJson(componentData[field] ?? null)) {
+          throw new AssetHierarchyMutationError("failed-precondition", "An installation correction cannot change equipment identity, tag, ownership or service state.", {reasonCode: "asset-component-correction-scope-invalid"});
+        }
+      }
+      const nowDate = args.now?.() ?? new Date();
+      if (draft.installedOn == null || draft.installedOn.getTime() > nowDate.getTime() || request.allowTagTransfer) {
+        throw new AssetHierarchyMutationError("failed-precondition", "Record the actual installation time, no later than now.", {reasonCode: "asset-component-installation-future"});
+      }
+      const nextVersion = version(componentData, request.expectedVersion, "Installed component") + 1;
+      const toTimestamp = args.timestampFromDate ?? ((date: Date) => date);
+      const committedAt = toTimestamp(nowDate);
+      const committedAtIso = nowDate.toISOString();
+      const actorName = typeof actor.name === "string" ? actor.name : actorUid;
+      const after = {...componentData, manufacturer: draft.manufacturer, model: draft.model,
+        serialNumber: draft.serialNumber, installedOn: toTimestamp(draft.installedOn),
+        version: nextVersion, updatedAt: committedAt, updatedByUid: actorUid, updatedByName: actorName, lastMutationId: request.requestId};
+      const audit = {schemaVersion: 1, auditId, entityType: "installed_component", entityId: request.componentInstanceId,
+        componentLineageId: componentLineageId(componentData, request.componentInstanceId!), relatedEntityId: null,
+        assetClassId: request.assetClassId, assetInstanceId: request.assetInstanceId, action: "update",
+        reason: request.reason, beforeJson: JSON.stringify(snapshotJson(componentData)), afterJson: JSON.stringify(snapshotJson(after)),
+        performedByUid: actorUid, performedByName: actorName, performedAt: committedAt,
+        requestId: request.requestId, tagTransferApproved: false, fingerprint: request.fingerprint, timestampInstants: request.timestampInstants,
+        correctionScope: "installation-facts-only"};
+      transaction.set(componentRef!, after);
+      transaction.set(auditRef, audit);
+      transaction.set(receiptRef, {schemaVersion: 1, requestId: request.requestId, actorUid, fingerprint: request.fingerprint,
+        timestampInstants: request.timestampInstants, auditEvidenceSha256: registryAuditEvidenceHash(audit),
+        sourceAuditEvidenceSha256: null, tagSourceAuditEvidenceSha256: null, sourceEntityId: null, sourceVersion: null,
+        operation: request.operation, entityId: request.componentInstanceId, version: nextVersion, auditId, committedAt, committedAtIso});
+      return {ok: true, requestId: request.requestId, operation: request.operation, assetClassId: request.assetClassId,
+        nodeId: request.componentInstanceId!, version: nextVersion, auditId, committedAt: committedAtIso, idempotentReplay: false};
+    }
     const replacementComponentSnapshot = replacementComponentRef == null ? null : asSnapshot(
       await transaction.get(replacementComponentRef), "Replacement component lookup",
     );
@@ -1263,29 +1473,36 @@ export async function mutateAssetRegistryWithDb(args: {
               existingOwnershipStatus: displacedOwnership.ownershipStatus,
               existingOwnerDiscipline: displacedOwnership.ownerDiscipline,
               existingAccountableRoleKeys: displacedOwnership.accountableRoleKeys,
+              existingComponentVersion: displacedData.version,
               transferSupported: true,
             },
           );
         }
-        if (request.expectedTagOwnerComponentId !== ownerId) {
+        if (request.expectedTagOwnerComponentId !== ownerId ||
+            request.expectedTagOwnerComponentVersion !== displacedData.version) {
           throw new AssetHierarchyMutationError(
             "aborted", "The reviewed tag owner changed before transfer.",
             {
               reasonCode: "asset-tag-transfer-owner-changed",
               normalizedTag: desiredTag,
               reviewedComponentInstanceId: request.expectedTagOwnerComponentId,
+              reviewedComponentVersion: request.expectedTagOwnerComponentVersion,
               currentComponentInstanceId: ownerId,
+              currentComponentVersion: displacedData.version,
             },
           );
         }
-      } else if (request.expectedTagOwnerComponentId != null) {
+      } else if (request.expectedTagOwnerComponentId != null ||
+          request.expectedTagOwnerComponentVersion != null) {
         throw new AssetHierarchyMutationError(
           "aborted", "The reviewed tag owner changed before transfer.",
           {
             reasonCode: "asset-tag-transfer-owner-changed",
             normalizedTag: desiredTag,
             reviewedComponentInstanceId: request.expectedTagOwnerComponentId,
+            reviewedComponentVersion: request.expectedTagOwnerComponentVersion,
             currentComponentInstanceId: ownerId,
+            currentComponentVersion: null,
           },
         );
       }
@@ -1350,6 +1567,7 @@ export async function mutateAssetRegistryWithDb(args: {
         reference: request.evidenceReference,
         asset: assetData ?? record(assetSnapshot, "Replacement asset"),
         outgoingComponentInstanceId: request.componentInstanceId!,
+        outgoingDefinitionNodeId: componentData?.definitionNodeId as string,
       });
     const acceptedEvidenceFields = acceptedEvidenceSnapshot == null ? {} : {
       acceptedEvidenceType: request.evidenceReference!.sourceType,
@@ -1369,6 +1587,7 @@ export async function mutateAssetRegistryWithDb(args: {
     let nextVersion: number;
     let sourceVersion: number | null = null;
     let sourceAuditEvidenceSha256: string | null = null;
+    let tagSourceAuditEvidenceSha256: string | null = null;
     let action: string;
     let entityType: string;
     let wasActive = false;
@@ -1457,18 +1676,15 @@ export async function mutateAssetRegistryWithDb(args: {
             {reasonCode: "asset-instance-active-components"},
           );
         }
-        if (operationalCondition?.exists === true &&
-            activeAssetOperationalConditionForRegistry(
+        if (operationalCondition?.exists === true) {
+          // Validate before retiring, but preserve the unresolved condition.
+          // Retirement is not evidence of repair or operational restoration.
+          activeAssetOperationalConditionForRegistry(
               operationalCondition.data() ?? {},
               {
                 assetInstanceId: request.assetInstanceId,
                 assetClassId: request.assetClassId,
               },
-            )) {
-          throw new AssetHierarchyMutationError(
-            "failed-precondition",
-            "Restore the active operational condition before retiring this asset.",
-            {reasonCode: "asset-instance-active-operational-condition"},
           );
         }
         const openConditionTicket = openConditionTicketQueries
@@ -1481,7 +1697,7 @@ export async function mutateAssetRegistryWithDb(args: {
         if (openConditionTicket != null) {
           throw new AssetHierarchyMutationError(
             "failed-precondition",
-            "Close or delete the open condition-changing issue before retiring this asset.",
+            "Resolve the condition-changing issue or explicitly end its relevance before retiring this asset.",
             {
               reasonCode: "asset-instance-open-condition-ticket",
               ticketId: openConditionTicket.id ?? null,
@@ -1530,9 +1746,20 @@ export async function mutateAssetRegistryWithDb(args: {
       }
       if (assetData.assetClassId !== request.assetClassId ||
           definitionData?.assetClassId !== request.assetClassId ||
-          definitionData?.status !== "active") {
+          definitionData?.status !== "active" ||
+          !["component", "subcomponent"].includes(definitionData?.nodeType as string)) {
         throw new AssetHierarchyMutationError(
-          "failed-precondition", "The component definition must be active in the asset's class.",
+          "failed-precondition",
+          "The component definition must be an active component or subcomponent in the asset's class.",
+          {reasonCode: "asset-component-definition-kind-invalid"},
+        );
+      }
+      if (componentDraft?.installedOn != null &&
+          componentDraft.installedOn.getTime() > nowDate.getTime()) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "The installed-component time cannot be in the future.",
+          {reasonCode: "asset-component-installation-future"},
         );
       }
       if (componentData != null &&
@@ -1562,6 +1789,27 @@ export async function mutateAssetRegistryWithDb(args: {
             "A replacement must use the same governed component definition.",
             {reasonCode: "asset-component-replacement-definition-mismatch"},
           );
+        }
+        if (componentData.installedOn != null && componentDraft!.installedOn != null) {
+          let previousInstalledOn: Date;
+          try {
+            previousInstalledOn = new Date(
+              timestampIso(componentData.installedOn, "installed component installedOn"),
+            );
+          } catch {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "The outgoing component has malformed installation-time evidence.",
+              {reasonCode: "asset-component-installation-history-malformed"},
+            );
+          }
+          if (componentDraft!.installedOn.getTime() < previousInstalledOn.getTime()) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "A replacement cannot be installed before the outgoing component's recorded installation.",
+              {reasonCode: "asset-component-installation-chronology-invalid"},
+            );
+          }
         }
         const currentComponentVersion = version(
           componentData, request.expectedVersion, "Installed component",
@@ -1781,6 +2029,31 @@ export async function mutateAssetRegistryWithDb(args: {
           performedByName: actorName,
           performedAt: committedAt,
           requestId: request.requestId,
+          fingerprint: request.fingerprint,
+          timestampInstants: request.timestampInstants,
+        });
+        tagSourceAuditEvidenceSha256 = registryAuditEvidenceHash({
+          schemaVersion: 1,
+          auditId: `${auditId}_tag_source`,
+          entityType: "installed_component",
+          entityId: displacedData.componentInstanceId,
+          componentLineageId: componentLineageId(
+            displacedData,
+            displacedData.componentInstanceId as string,
+          ),
+          relatedEntityId: resultEntityId(request),
+          assetClassId: displacedData.assetClassId,
+          assetInstanceId: displacedData.assetInstanceId,
+          action: "tag_transferred_out",
+          reason: request.reason,
+          beforeJson: JSON.stringify(snapshotJson(displacedData)),
+          afterJson: JSON.stringify(snapshotJson(displacedAfter)),
+          performedByUid: actorUid,
+          performedByName: actorName,
+          performedAt: committedAt,
+          requestId: request.requestId,
+          fingerprint: request.fingerprint,
+          timestampInstants: request.timestampInstants,
         });
       }
       if (desiredClaimRef != null && willBeActive) {
@@ -1836,6 +2109,10 @@ export async function mutateAssetRegistryWithDb(args: {
       fingerprint: request.fingerprint,
       timestampInstants: request.timestampInstants,
       ...acceptedEvidenceFields,
+      ...(isRetirement && operationalCondition?.exists === true ? {
+        retainedOperationalConditionJson: JSON.stringify(snapshotJson(operationalCondition.data() ?? {})),
+        conditionDisposition: "preserved-unresolved-at-retirement",
+      } : {}),
     };
     transaction.set(auditRef, acceptedAudit);
     transaction.set(receiptRef, {
@@ -1846,6 +2123,7 @@ export async function mutateAssetRegistryWithDb(args: {
       timestampInstants: request.timestampInstants,
       auditEvidenceSha256: registryAuditEvidenceHash(acceptedAudit),
       sourceAuditEvidenceSha256,
+      tagSourceAuditEvidenceSha256,
       operation: request.operation,
       entityId: resultEntityId(request),
       version: nextVersion,

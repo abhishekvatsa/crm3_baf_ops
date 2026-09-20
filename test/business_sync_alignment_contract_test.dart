@@ -122,7 +122,7 @@ void main() {
       expect(source, contains('final receipt = await _pushLocalRow(row);'));
       expect(source, contains('_applyKnowledgePushReceiptIfUnchanged'));
       expect(source, contains('_knowledgePushReceiptMatches'));
-      expect(source, contains('observed ??= await reference.get();'));
+      expect(source, contains('GetOptions(source: Source.server)'));
       expect(source, contains('BafKnowledgeRow.fromCloudMap'));
       expect(
         source,
@@ -179,6 +179,10 @@ void main() {
 
     test('every callable client has an inventoried response boundary', () {
       final expectedReceiptBoundaries = <String, List<String>>{
+        'lib/features/directives/services/ordinary_directive_commands.dart': [
+          '_receipt(response, request)',
+          'validateDurableSubmissionReviewDecision(',
+        ],
         'lib/core/release/backend_release_identity_service.dart': [
           'BackendReleaseIdentity.fromCallableData',
         ],

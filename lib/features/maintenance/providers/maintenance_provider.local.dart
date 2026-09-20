@@ -1,6 +1,17 @@
 part of 'maintenance_provider.dart';
 
 class IsarMaintenanceRepository extends MaintenanceRepository {
+  @override
+  Stream<int> watchVisibleOpenTicketCount(AppUser actor) {
+    var query = isar.maintenanceRecords.filter().isResolvedEqualTo(false).and().isDeletedEqualTo(false);
+    if (!actor.canSeeAllTickets) query = query.and().loggedByUidEqualTo(actor.uid);
+    return query.watchLazy(fireImmediately: true).asyncMap((_) => query.count()).distinct();
+  }
+
+  @override
+  Stream<List<MaintenanceRecord>> watchContinuations(String issueId) =>
+      isar.maintenanceRecords.where().continuesIssueIdEqualTo(issueId)
+        .filter().isDeletedEqualTo(false).watch(fireImmediately: true);
   final AuditRepository _auditRepo;
 
   IsarMaintenanceRepository({AuditRepository? auditRepository})
@@ -64,23 +75,9 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit}) {
-    if (limit != null) {
-      return isar.maintenanceRecords
-          .filter()
-          .isDeletedEqualTo(false)
-          .sortByCreatedAtDesc()
-          .limit(limit)
-          .watch(fireImmediately: true);
-    }
-
-    return isar.maintenanceRecords
-        .filter()
-        .isDeletedEqualTo(false)
-        .watch(fireImmediately: true)
-        .map((tickets) {
-          tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return tickets;
-        });
+    final query = isar.maintenanceRecords.filter().isDeletedEqualTo(false).sortByCreatedAtDesc();
+    return limit == null ? query.watch(fireImmediately: true)
+        : query.limit(limit).watch(fireImmediately: true);
   }
 
   @override

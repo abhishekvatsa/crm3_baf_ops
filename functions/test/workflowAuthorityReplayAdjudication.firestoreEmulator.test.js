@@ -113,6 +113,17 @@ describeWithEmulator('S-09 workflow authority and replay adjudication', () => {
   }
 
   async function seedEquipment(assetNumber, version) {
+    // Authority/replay tests must first have a deployable governed subject;
+    // an unbound equipment projection is not permission to release equipment.
+    await db.collection('asset_classes').doc('base-class').set({
+      schemaVersion: 1, assetClassId: 'base-class',
+      legacyAssetTypeKey: 'base', status: 'active',
+    });
+    await db.collection('asset_instances').doc(`base-${assetNumber}`).set({
+      schemaVersion: 1, assetInstanceId: `base-${assetNumber}`,
+      assetClassId: 'base-class', assetNumber, name: `Base ${assetNumber}`,
+      serviceState: 'inService', status: 'active', version: 1,
+    });
     await db.collection('equipment_status').doc(`base_${assetNumber}`).set({
       assetTypeKey: 'base',
       assetNumber,
