@@ -1907,7 +1907,15 @@ void main() {
   });
 
   test('records ending at period start do not overlap the report', () {
-    final start = DateTime(2026, 8, 14);
+    final filter = OperationsReportFilter(
+      startDate: DateTime.utc(2026, 8, 14),
+      endDate: DateTime(2026, 8, 14),
+    );
+    // Report controls are plant calendar dates; recorded events are instants.
+    // Device midnight coincides with this boundary only on an IST device.
+    final start = filter.startInclusive;
+    expect(start, DateTime.utc(2026, 8, 13, 18, 30));
+    expect(start, DateTime.parse('2026-08-14T00:00:00+05:30'));
     final boundaryIssue = issue(
       type: AssetType.furnace,
       number: 7,
@@ -1918,7 +1926,7 @@ void main() {
       ..isCompleted = true
       ..completedAt = start;
     final report = buildOperationsReport(
-      filter: OperationsReportFilter(startDate: start, endDate: start),
+      filter: filter,
       tickets: [boundaryIssue],
       executions: [boundaryJob],
       events: [
@@ -1956,6 +1964,35 @@ void main() {
     expect(report.issueCount, 0);
     expect(report.plannedJobCount, 0);
     expect(report.disruptionCount, 0);
+  });
+
+  test('UTC midnight is inside the selected plant day, not its boundary', () {
+    final utcMidnight = DateTime.utc(2026, 8, 14);
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+      ),
+      tickets: [
+        issue(
+          type: AssetType.furnace,
+          number: 7,
+          started: utcMidnight.subtract(const Duration(hours: 4)),
+          resolved: true,
+        ),
+      ],
+      executions: const [],
+      events: const [],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: utcMidnight.add(const Duration(hours: 12)),
+    );
+    expect(
+      operationsReportPlantTime(utcMidnight),
+      DateTime.utc(2026, 8, 14, 5, 30),
+    );
+    expect(report.issueCount, 1);
   });
 
   test(

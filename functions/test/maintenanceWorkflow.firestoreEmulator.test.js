@@ -116,6 +116,92 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     await app.delete();
   });
 
+  async function seedReviewedReplacement() {
+    const oldIds = {assetClassId: 'base-class', assetInstanceId: 'base-101'};
+    const targetIds = {assetClassId: 'replacement-base-class', assetInstanceId: 'replacement-base-101'};
+    const nativeAt = new admin.firestore.Timestamp(1785556800, 123456000);
+    const projection = {assetTypeKey: 'base', assetNumber: 101, ...oldIds, version: 12, state: 'inService',
+      previousState: 'available', inServiceSince: nativeAt, availableSince: null, updatedAt: nativeAt,
+      lastTransitionAt: nativeAt, lastTransitionByUid: 'historical-operator',
+      activeNonRedMaintenanceCount: 0, activeRedWorkCount: 0, awaitingPreparationCount: 0,
+      activeExecutionIdsJson: '["old-job"]', unresolvedRestriction: 'Old subject refractory concern'};
+    await Promise.all([
+      db.doc('asset_classes/base-class').update({status: 'retired'}),
+      db.doc('asset_instances/base-101').update({status: 'retired', serviceState: 'outOfService', version: 5}),
+      db.doc(`asset_classes/${targetIds.assetClassId}`).set({schemaVersion: 1, assetClassId: targetIds.assetClassId,
+        legacyAssetTypeKey: 'base', status: 'active'}),
+      db.doc(`asset_instances/${targetIds.assetInstanceId}`).set({schemaVersion: 1, ...targetIds,
+        assetNumber: 101, name: 'Replacement Base 101', status: 'active', serviceState: 'inService', version: 2}),
+      db.doc('equipment_status/base_101').set(projection),
+      db.doc('asset_operational_conditions/base-101').set({...oldIds, condition: 'unfit', active: true, version: 4}),
+      db.doc('asset_operational_conditions/replacement-base-101').set({...targetIds, condition: 'down', active: true, version: 1}),
+    ]);
+    const command = {commandId: 'reviewed-replacement', commandType: 'reconcileEquipment',
+      aggregateId: 'equipment_base_101', expectedVersion: 12, payload: {assetTypeKey: 'base', assetNumber: 101, ...targetIds,
+        registryRebinding: {previousAssetClassId: oldIds.assetClassId, previousAssetInstanceId: oldIds.assetInstanceId,
+          expectedPreviousAssetVersion: 5, expectedTargetAssetVersion: 2, reason: 'Reviewed retired base replacement.'}}};
+    const run = (request) => service.execute(request, {actor, serverNow: new Date('2026-09-21T04:00:00.000Z')});
+    return {command, run, projection, oldIds, targetIds, nativeAt};
+  }
+
+  test('reviewed equipment rebinding archives native chronology and enables replacement work with stable replay', async () => {
+    const {command, run, projection, targetIds, nativeAt} = await seedReviewedReplacement();
+    const job = createCommand('replacement-job'); Object.assign(job.payload, targetIds);
+    await expect(run(job)).rejects.toMatchObject({details: {reasonCode: 'equipment-projection-identity-mismatch'}});
+    const accepted = await run(command);
+    expect(accepted).toMatchObject({aggregateVersion: 13, result: {...targetIds, rebound: true, state: 'available'}});
+    const stored = (await db.doc('equipment_status/base_101').get()).data();
+    expect(stored).toMatchObject({...targetIds, version: 13, state: 'available', availableSince: null,
+      inServiceSince: null, lastTransitionAt: null, lastTransitionByUid: null});
+    expect(stored.activeExecutionIdsJson).toBeUndefined();
+    expect(stored.unresolvedRestriction).toBeUndefined();
+    const event = (await db.doc('maintenance_workflow_events/reviewed-replacement').get()).data();
+    const evidence = event.payload.registryRebinding;
+    expect(() => JSON.stringify(event.payload)).not.toThrow();
+    expect(JSON.parse(evidence.previousProjectionJson)).toEqual({...projection,
+      ...Object.fromEntries(['inServiceSince', 'updatedAt', 'lastTransitionAt'].map((key) => [key,
+        {type: 'firestoreTimestamp', seconds: nativeAt.seconds, nanoseconds: nativeAt.nanoseconds}]))});
+    expect((await db.doc('asset_operational_conditions/base-101').get()).data()).toMatchObject({condition: 'unfit', version: 4});
+    expect((await db.doc('asset_operational_conditions/replacement-base-101').get()).data()).toMatchObject({condition: 'down', version: 1});
+    await expect(run(job)).resolves.toMatchObject({resultKey: 'workflow-job-created'});
+    const later = (await db.doc('equipment_status/base_101').get()).data();
+    await db.doc('asset_instances/replacement-base-101').update({status: 'retired', version: 3});
+    await expect(run(command)).resolves.toEqual(accepted);
+    expect((await db.doc('equipment_status/base_101').get()).data()).toEqual(later);
+    expect((await db.doc('maintenance_workflow_events/reviewed-replacement').get()).data()).toEqual(event);
+  });
+
+  test.each(['old-version', 'target-version', 'projection-version', 'active-old-work'])(
+    'reviewed equipment rebinding rejects changed review atomically: %s', async (mode) => {
+      const {command, run, oldIds} = await seedReviewedReplacement();
+      if (mode === 'old-version') await db.doc('asset_instances/base-101').update({version: 6});
+      if (mode === 'target-version') await db.doc('asset_instances/replacement-base-101').update({version: 3});
+      if (mode === 'projection-version') await db.doc('equipment_status/base_101').update({version: 13});
+      if (mode === 'active-old-work') await db.doc('maintenance_workflows/retained-old').set({
+        assetTypeKey: 'base', assetNumber: 101, ...oldIds, status: 'inProgress'});
+      const before = (await db.doc('equipment_status/base_101').get()).data();
+      await expect(run(command)).rejects.toBeDefined();
+      expect((await db.doc('equipment_status/base_101').get()).data()).toEqual(before);
+      expect((await db.doc('maintenance_workflow_events/reviewed-replacement').get()).exists).toBe(false);
+      expect((await db.doc('maintenance_workflow_command_receipts/reviewed-replacement').get()).exists).toBe(false);
+    });
+
+  test.each(['archive', 'reviewer', 'sub-ms-event-time', 'receipt-version'])(
+    'reviewed equipment rebinding replay refuses altered acceptance evidence: %s', async (mode) => {
+      const {command, run} = await seedReviewedReplacement();
+      await run(command);
+      const eventRef = db.doc('maintenance_workflow_events/reviewed-replacement');
+      const event = (await eventRef.get()).data();
+      if (mode === 'archive') await eventRef.update({'payload.registryRebinding.previousProjectionJson': '{}'});
+      if (mode === 'reviewer') await eventRef.update({actorName: 'Changed historical reviewer'});
+      if (mode === 'sub-ms-event-time') await eventRef.update({occurredAt:
+        new admin.firestore.Timestamp(event.occurredAt.seconds, event.occurredAt.nanoseconds + 1000)});
+      if (mode === 'receipt-version') await db.doc('maintenance_workflow_command_receipts/reviewed-replacement').update({aggregateVersion: 999});
+      const before = (await db.doc('equipment_status/base_101').get()).data();
+      await expect(run(command)).rejects.toMatchObject({details: {reasonCode: 'equipment-rebinding-replay-evidence-invalid'}});
+      expect((await db.doc('equipment_status/base_101').get()).data()).toEqual(before);
+    });
+
   test.each(['baseline', 'historical-review', 'shifted-audit-time', 'shifted-removal-time'])(
     'inspection correction preserves historical installation through native Timestamp storage: %s', async (mode) => {
       const {MemoryWorkflowStore, seedInstalledInnerCoverHierarchy, upsertDefinition, createCampaign, observation} = require('./helpers/inspectionFixture');

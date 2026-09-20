@@ -23,6 +23,7 @@ import {CommandHandler} from "./handlerTypes";
 import {finalizeLaneSet, acknowledgeLane, addLane, removeLane, terminateLane, closeLane, cancelWorkflow} from "./laneHandlers";
 import {raiseCompliance, acknowledgeCompliance, confirmConditionAndReactivate, markComplianceComplied, returnComplianceForCorrection, confirmComplianceClosed, proposeCounterCondition, decideCounterCondition} from "./complianceHandlers";
 import {deployEquipment, reconcileEquipment} from "./equipmentHandlers";
+import {verifyEquipmentRebindingReplay} from "./equipmentRegistrySubject";
 import {finalizeJob} from "./finalizeJobHandler";
 import {prepareRedLane} from "./redHandlers";
 import {createLegacyWorkflowJob} from "./jobCreationHandler";
@@ -217,6 +218,7 @@ export class MaintenanceWorkflowCommandService {
 
       const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) {
+        await verifyEquipmentRebindingReplay({tx, command, actor, receipt: replay});
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
         await verifyBurnerBlockCorrectionReplay({

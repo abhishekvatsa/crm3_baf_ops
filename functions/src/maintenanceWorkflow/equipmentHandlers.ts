@@ -11,7 +11,9 @@ import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
 import {equipmentIdentity, equipmentPathForIdentity} from "./paths";
 import {cleanText, intValue, iso} from "./utils";
-import {resolveEquipmentRegistrySubject} from "./equipmentRegistrySubject";
+import {equipmentProjectionArchive, equipmentRebindingEvidenceDigest,
+  resolveEquipmentRegistrySubject, resolveReviewedEquipmentRegistryRebinding} from "./equipmentRegistrySubject";
+import {JsonMap} from "./types";
 
 export const reconcileEquipment: CommandHandler = async ({tx, command, context}) => {
   if (!mayReconcileEquipment(context.actor)) throw new WorkflowError("permission-denied", "Only Admin/SI may reconcile equipment state.");
@@ -26,17 +28,20 @@ export const reconcileEquipment: CommandHandler = async ({tx, command, context})
   const path = equipmentPathForIdentity(identity);
   const current = await tx.get(path);
   const currentVersion = assertExpectedVersion(current.data ?? {}, command.expectedVersion);
-  const subject = await resolveEquipmentRegistrySubject(tx, identity, current.data);
+  const rebinding = command.payload.registryRebinding != null;
+  const reviewed = rebinding ? await resolveReviewedEquipmentRegistryRebinding(tx, identity,
+    current.data, command.payload.registryRebinding) : null;
+  const subject = reviewed ?? await resolveEquipmentRegistrySubject(tx, identity, current.data);
   identity = subject.identity;
   const facts = await loadEquipmentFacts(tx, identity);
-  if (current.data != null) assertEquipmentProjectionIdentity(current.data, identity);
-  const operationsDeployed = subject.permitsDeployment && current.data?.state === "inService" &&
+  if (current.data != null && !rebinding) assertEquipmentProjectionIdentity(current.data, identity);
+  const operationsDeployed = !rebinding && subject.permitsDeployment && current.data?.state === "inService" &&
     facts.activeNonRedMaintenanceCount === 0 &&
     facts.activeRedWorkCount === 0 &&
     facts.awaitingPreparationCount === 0;
   const projection = projectEquipment(facts, operationsDeployed);
   const now = iso(context.serverNow);
-  const write = equipmentProjectionWrite(current.data, facts, projection, {
+  const write = {...equipmentProjectionWrite(rebinding ? null : current.data, facts, projection, {
     assetTypeKey,
     assetNumber,
     assetClassId: identity.assetClassId,
@@ -45,11 +50,18 @@ export const reconcileEquipment: CommandHandler = async ({tx, command, context})
     at: now,
     actorUid: context.actor.uid,
     actorName: context.actor.name,
-  });
-  tx.set(path, write, true);
-  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "equipment.reconciled", actor: context.actor, at: context.serverNow, commandId: command.commandId, payload: {assetTypeKey, assetNumber, state: projection.state}});
+  }), version: currentVersion + 1};
+  const eventPayload: JsonMap = {assetTypeKey, assetNumber, state: projection.state,
+    ...(reviewed == null ? {} : {registryRebinding: {...reviewed.evidence,
+      replacementProjectionJson: equipmentProjectionArchive(write)}})};
+  // A replacement starts its own projection. Merge would retain old physical
+  // subject fields that were never assessed for the replacement.
+  tx.set(path, write, !rebinding);
+  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "equipment.reconciled", actor: context.actor, at: context.serverNow, commandId: command.commandId, payload: eventPayload});
   tx.create(event.path, event.data);
-  return {resultKey: "equipment-reconciled", aggregateVersion: currentVersion + 1, result: {state: projection.state, assetTypeKey, assetNumber}};
+  return {resultKey: "equipment-reconciled", aggregateVersion: currentVersion + 1, result: {state: projection.state, assetTypeKey, assetNumber,
+    ...(reviewed == null ? {} : {rebound: true, assetClassId: identity.assetClassId, assetInstanceId: identity.assetInstanceId,
+      auditId: command.commandId, rebindingEvidenceSha256: equipmentRebindingEvidenceDigest(event.data)})}};
 };
 
 export const deployEquipment: CommandHandler = async ({tx, command, context}) => {
