@@ -129,25 +129,24 @@ class WorkflowUncertainRetryService {
         // It still goes through the receipt-aware transition: if the command
         // was accepted in the meantime, it must not be resurrected as
         // outstanding work needing review.
-        final transition = await repository
-            .applyRetryTransitionUnlessAccepted(
-              commandId: row.commandId,
-              build: (current) {
-                if (current == null ||
-                    !mayRecordWorkflowAttemptOutcome(
-                      currentState: current.stateKey,
-                      currentClaimedAt: current.lastAttemptAt,
-                      expectedClaimedAt: claimedAt,
-                    )) {
-                  return null;
-                }
-                return current
-                  ..stateKey = 'manualReview'
-                  ..nextRetryAt = null
-                  ..lastErrorCode = 'malformedLocalCommand'
-                  ..lastErrorMessage = error.toString();
-              },
-            );
+        final transition = await repository.applyRetryTransitionUnlessAccepted(
+          commandId: row.commandId,
+          build: (current) {
+            if (current == null ||
+                !mayRecordWorkflowAttemptOutcome(
+                  currentState: current.stateKey,
+                  currentClaimedAt: current.lastAttemptAt,
+                  expectedClaimedAt: claimedAt,
+                )) {
+              return null;
+            }
+            return current
+              ..stateKey = 'manualReview'
+              ..nextRetryAt = null
+              ..lastErrorCode = 'malformedLocalCommand'
+              ..lastErrorMessage = error.toString();
+          },
+        );
         if (transition.wasRecorded) {
           manualReview.add(row.commandId);
         } else if (!transition.wasAlreadyAccepted) {
@@ -161,12 +160,11 @@ class WorkflowUncertainRetryService {
       try {
         await executor.execute(command, claimedAt: claimedAt);
         applied.add(row.commandId);
-      } on WorkflowException {
+      } on WorkflowException catch (error) {
         // The executor has already classified this failure and written the
-        // resulting state. Read that state rather than assuming every
-        // WorkflowException is retryable: the policy retires permissionDenied
-        // as rejected and internal to manual review, and reporting those as
-        // deferred would tell a caller work is still coming that never is.
+        // resulting state. Authority changes can hold an origin-bound command
+        // without spending its retry budget; they never establish acceptance
+        // for the replacement account, even if its predecessor saved a receipt.
         final settled = await repository.getRetryCommand(row.commandId);
         switch (settled?.stateKey) {
           case 'rejected':
@@ -178,7 +176,11 @@ class WorkflowUncertainRetryService {
             // settled an accepted command - but absence is not a receipt.
             // Only a stored receipt establishes acceptance; without one this
             // stays unverified rather than being counted as applied.
-            if (await repository.getReceipt(row.commandId) != null) {
+            if (executor.originActorUid != null &&
+                (error.code == WorkflowErrorCode.permissionDenied ||
+                    error.code == WorkflowErrorCode.unauthenticated)) {
+              failedVerification.add(row.commandId);
+            } else if (await repository.getReceipt(row.commandId) != null) {
               applied.add(row.commandId);
             } else {
               failedVerification.add(row.commandId);
@@ -188,7 +190,16 @@ class WorkflowUncertainRetryService {
         }
         // Hand the claim back so the next run can pick it up; the release is
         // ignored if the row was settled or another caller has since taken it.
-        await repository.releaseClaim(row.commandId, claimedAt: claimedAt);
+        await repository.releaseClaim(
+          row.commandId,
+          claimedAt: claimedAt,
+          nextRetryAt:
+              executor.originActorUid != null &&
+                  (error.code == WorkflowErrorCode.permissionDenied ||
+                      error.code == WorkflowErrorCode.unauthenticated)
+              ? now().toUtc().add(WorkflowOnlineExecutor.platformBlockHold)
+              : null,
+        );
       } catch (error, stackTrace) {
         // Anything else is not an ordinary transport outcome: a damaged stored
         // receipt, or a fault in the send itself. Reducing it to "nothing was
@@ -222,12 +233,28 @@ class WorkflowUncertainRetryService {
     if (decoded is! Map) {
       throw const FormatException('Workflow command payload is not a map.');
     }
+    final hasOrigin = decoded.containsKey('__workflowOriginBoundV1');
+    final origin = decoded['__workflowOriginBoundV1'];
+    if (hasOrigin &&
+        (decoded.length != 2 ||
+            origin is! String ||
+            origin.isEmpty ||
+            origin.trim() != origin ||
+            decoded['payload'] is! Map)) {
+      throw const FormatException(
+        'Saved workflow origin wrapper is malformed.',
+      );
+    }
+    final storedPayload = hasOrigin ? decoded['payload'] : decoded;
+    if (storedPayload is! Map) {
+      throw const FormatException('Workflow command payload is not a map.');
+    }
     return WorkflowCommand(
       commandId: row.commandId,
       type: type,
       aggregateId: row.aggregateId,
       expectedVersion: row.expectedVersion,
-      payload: Map<String, Object?>.from(decoded),
+      payload: Map<String, Object?>.from(storedPayload),
     );
   }
 }

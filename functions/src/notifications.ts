@@ -78,6 +78,10 @@ export interface FcmMessage {
   data?: Readonly<Record<string, string>>;
   android?: {
     priority?: "high" | "normal";
+    // Firebase Admin expects Android TTL in milliseconds. A bounded lifetime
+    // prevents a queued workflow message from arriving as if it were still
+    // current after the underlying obligation has changed.
+    ttl?: number;
     notification?: {sound?: string; channelId?: string; tag?: string};
   };
 }
@@ -365,6 +369,16 @@ export async function getTokenLookupForInstallation(
 export const FCM_DEAD_TOKEN_CODES: ReadonlyArray<string> = [
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
+];
+
+/**
+ * Firebase returns invalid-argument for a rejected registration and for a
+ * rejected message alike, so on its own it does not establish that the
+ * registration is dead. Retiring a device on this code can silently remove a
+ * working recipient when the real fault is in the message we sent. The
+ * registration is kept and the fault is reported instead.
+ */
+export const FCM_AMBIGUOUS_ERROR_CODES: ReadonlyArray<string> = [
   "messaging/invalid-argument",
 ];
 
@@ -380,6 +394,8 @@ export interface SendOutcome {
   succeeded: number;
   failed: number;
   retryableFailures: number;
+  // Rejections that do not establish a dead device.
+  ambiguousFailures?: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -400,6 +416,7 @@ export async function sendNotification(args: {
   unknownAgencies?: ReadonlyArray<string>;
   androidChannelId?: string;
   androidNotificationTag?: string;
+  androidTtlMs?: number;
   data?: Readonly<Record<string, string>>;
 }): Promise<SendOutcome> {
   const {
@@ -411,8 +428,12 @@ export async function sendNotification(args: {
     unknownAgencies = [],
     androidChannelId = "crm3_baf_ops",
     androidNotificationTag,
+    androidTtlMs = 5 * 60 * 1000,
     data,
   } = args;
+  if (!Number.isSafeInteger(androidTtlMs) || androidTtlMs < 0) {
+    throw new Error("androidTtlMs must be a non-negative safe integer.");
+  }
 
   // Deduplicate by token (a shared device should only buzz once), but
   // remember EVERY uid that pointed at that token. The same dead token
@@ -429,6 +450,7 @@ export async function sendNotification(args: {
       succeeded: 0,
       failed: 0,
       retryableFailures: 0,
+      ambiguousFailures: 0,
       staleTokensCleared: 0,
       unknownAgencies,
     };
@@ -437,6 +459,7 @@ export async function sendNotification(args: {
   let succeeded = 0;
   let failed = 0;
   let retryableFailures = 0;
+  let ambiguousFailures = 0;
   const staleTokens: string[] = [];
 
   for (let i = 0; i < dedupedTokens.length; i += 500) {
@@ -447,6 +470,7 @@ export async function sendNotification(args: {
       ...(data == null ? {} : {data}),
       android: {
         priority: "high",
+        ttl: androidTtlMs,
         notification: {
           sound: "default",
           channelId: androidChannelId,
@@ -469,6 +493,11 @@ export async function sendNotification(args: {
       }
       if (code != null && FCM_RETRYABLE_ERROR_CODES.includes(code)) {
         retryableFailures += 1;
+      }
+      // The recipient stays registered; the message or configuration is
+      // what needs correcting, and the count is reported so it can be seen.
+      if (code != null && FCM_AMBIGUOUS_ERROR_CODES.includes(code)) {
+        ambiguousFailures += 1;
       }
     });
   }
@@ -513,6 +542,7 @@ export async function sendNotification(args: {
     succeeded,
     failed,
     retryableFailures,
+    ambiguousFailures,
     staleTokensCleared: cleared,
     unknownAgencies,
   };

@@ -7,6 +7,69 @@ import '../../../core/serialization/persisted_data_reader.dart';
 
 part 'inspection_target_context_reader.dart';
 
+/// The independently stored create events retain the expected population even
+/// after a finding becomes terminal or its original reading is amended.
+List<String> readInspectionFindingCreationIds(
+  Iterable<({String id, Map<String, dynamic> data})> documents,
+  String campaignId, {
+  Object? expectedManifest,
+}) {
+  final ids = <String>[];
+  final eventIds = <String>{};
+  for (final document in documents) {
+    final data = document.data;
+    final source = 'inspection_finding_events/${document.id}';
+    final findingId = readRequiredPersistedString(
+      data['findingId'],
+      field: 'findingId',
+      source: source,
+    );
+    if (data['schemaVersion'] != 1 ||
+        data['eventId'] != document.id ||
+        data['campaignId'] != campaignId ||
+        !eventIds.add(document.id) ||
+        findingId.contains('/') ||
+        !const {
+          'create',
+          'record-follow-up-observation',
+          'reopen-after-observation-correction',
+          'link-corrective-action',
+          'verify',
+          'adjudicate',
+        }.contains(data['operation'])) {
+      throw StateError(
+        'Inspection finding history could not be verified: $source',
+      );
+    }
+    if (data['operation'] == 'create') {
+      final observationId = readRequiredPersistedString(
+        data['effectiveObservationId'] ?? data['observationId'],
+        field: 'effectiveObservationId',
+        source: source,
+      );
+      if (findingId != 'inspection-finding-$observationId' ||
+          data['previousStatus'] != null ||
+          ids.contains(findingId)) {
+        throw StateError(
+          'Inspection finding creation evidence is inconsistent: $source',
+        );
+      }
+      ids.add(findingId);
+    }
+  }
+  if (expectedManifest != null &&
+      (expectedManifest is! List ||
+          expectedManifest.any((id) => id is! String) ||
+          expectedManifest.length != ids.length ||
+          expectedManifest.toSet().length != ids.length ||
+          !ids.toSet().containsAll(expectedManifest))) {
+    throw StateError(
+      'The finding population differs from its original creation manifest.',
+    );
+  }
+  return List.unmodifiable(ids);
+}
+
 class InspectionRepository {
   InspectionRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -15,6 +78,36 @@ class InspectionRepository {
 
   static const _serverRead = GetOptions(source: Source.server);
   static const _reportReadAttempts = 3;
+
+  Future<Map<String, Object?>> readCorrectiveTicket(String ticketId) async {
+    if (ticketId.trim() != ticketId ||
+        ticketId.isEmpty ||
+        ticketId.contains('/')) {
+      throw StateError('Enter a valid maintenance issue ID.');
+    }
+    final snapshot = await _firestore
+        .collection('maintenance_records')
+        .doc(ticketId)
+        .get(_serverRead);
+    final data = snapshot.data();
+    if (!snapshot.exists ||
+        snapshot.metadata.isFromCache ||
+        snapshot.metadata.hasPendingWrites ||
+        data == null ||
+        data['firestoreId'] != ticketId ||
+        data['isDeleted'] != false ||
+        data['version'] is! int ||
+        (data['version'] as int) < 1 ||
+        data['assetNumber'] is! int ||
+        data['assetType'] is! String ||
+        data['component'] is! String ||
+        data['description'] is! String) {
+      throw StateError(
+        'The maintenance issue could not be verified from the server.',
+      );
+    }
+    return Map<String, Object?>.unmodifiable(data);
+  }
 
   Future<Map<String, Object?>> readTargetContext(
     InspectionCampaignTarget target,
@@ -43,21 +136,21 @@ class InspectionRepository {
           .collection('inspection_campaigns')
           .snapshots(includeMetadataChanges: true)
           .map((snapshot) {
-            final rows =
-                decodeSnapshotDocuments(
-                  snapshot,
-                  InspectionCampaign.fromMap,
-                  source: 'InspectionCampaign',
-                ).toList(growable: false)..sort((left, right) {
-                  final status = left.status.index.compareTo(
-                    right.status.index,
-                  );
-                  return status != 0
-                      ? status
-                      : right.createdAt.compareTo(left.createdAt);
-                });
+            final batch = decodeSnapshotBatch(
+              snapshot,
+              InspectionCampaign.fromMap,
+              source: 'InspectionCampaign',
+            );
+            final rows = batch.records.toList(growable: false)
+              ..sort((left, right) {
+                final status = left.status.index.compareTo(right.status.index);
+                return status != 0
+                    ? status
+                    : right.createdAt.compareTo(left.createdAt);
+              });
             return InspectionEvidenceSnapshot<InspectionCampaign>(
               records: List<InspectionCampaign>.unmodifiable(rows),
+              rejectedDocumentIds: batch.rejectedDocumentIds,
               isServerVerified:
                   !snapshot.metadata.isFromCache &&
                   !snapshot.metadata.hasPendingWrites,
@@ -135,16 +228,26 @@ class InspectionRepository {
           .collection('inspection_findings')
           .where('campaignId', isEqualTo: campaignId)
           .get(_serverRead),
+      _firestore
+          .collection('inspection_finding_events')
+          .where('campaignId', isEqualTo: campaignId)
+          .get(_serverRead),
     ]);
     final campaignSnapshot = reads[0] as DocumentSnapshot<Map<String, dynamic>>;
     final observationSnapshot = reads[1] as QuerySnapshot<Map<String, dynamic>>;
     final findingSnapshot = reads[2] as QuerySnapshot<Map<String, dynamic>>;
+    final eventSnapshot = reads[3] as QuerySnapshot<Map<String, dynamic>>;
     final campaignData = campaignSnapshot.data();
     if (!campaignSnapshot.exists || campaignData == null) {
       throw StateError('The inspection campaign is no longer available.');
     }
     return InspectionCampaignReportEvidence(
       campaign: InspectionCampaign.fromMap(campaignData, campaignSnapshot.id),
+      createdFindingIds: readInspectionFindingCreationIds(
+        eventSnapshot.docs.map((doc) => (id: doc.id, data: doc.data())),
+        campaignId,
+        expectedManifest: campaignData['findingCreationManifest'],
+      ),
       // Strict on purpose. A browse list can show what decoded and say it is
       // incomplete; report evidence claiming a complete campaign cannot. The
       // completeness check validates only the findings that survived

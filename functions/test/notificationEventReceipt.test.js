@@ -108,6 +108,19 @@ function execute(runtime, overrides = {}) {
 }
 
 describe("notification event receipts", () => {
+  test.each([
+    {attempted: 0, succeeded: 0, failed: 0},
+    {attempted: 2, succeeded: 1, failed: 1},
+    {attempted: 1, succeeded: 0, failed: 1, ambiguousFailures: 1},
+  ])("non-delivery is retained for an Admin without replaying successes: %j", async (counts) => {
+    const h = harness();
+    const send = jest.fn(async () => ({...outcome, ...counts}));
+    const first = await execute(h.runtime, {dispatch: send});
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, first.receiptId)).toMatchObject({requiresAdjudication: true, adjudicationOwnerRole: "admin", deliveryDisposition: "review-required"});
+    await execute(h.runtime, {dispatch: send});
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   test("receipt identity is deterministic and trigger-scoped", () => {
     const first = notificationEventReceiptId("onTicketCreated", "event-1");
     expect(first).toMatch(/^[0-9a-f]{64}$/);
@@ -228,8 +241,12 @@ describe("notification event receipts", () => {
     });
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(dispatch).toHaveBeenCalledTimes(1);
-    expect(reportDeliveryUncertain).toHaveBeenCalledTimes(1);
-    expect(reportDeliveryUncertain).toHaveBeenCalledWith({
+    // The interrupted send is reported once when it is detected, and again
+    // when it is seen still unresolved. Nobody has established whether the
+    // alert reached anyone, so a later observation must not pass quietly, and
+    // both reports name the attempt that actually owned the dispatch.
+    expect(reportDeliveryUncertain).toHaveBeenCalledTimes(2);
+    expect(reportDeliveryUncertain).toHaveBeenNthCalledWith(1, {
       receiptId: notificationEventReceiptId(
         identity.triggerName,
         identity.cloudEventId,
@@ -237,6 +254,15 @@ describe("notification event receipts", () => {
       ...identity,
       attemptId: "attempt-1",
       phase: "dispatch-outcome-unknown",
+    });
+    expect(reportDeliveryUncertain).toHaveBeenNthCalledWith(2, {
+      receiptId: notificationEventReceiptId(
+        identity.triggerName,
+        identity.cloudEventId,
+      ),
+      ...identity,
+      attemptId: "attempt-1",
+      phase: "prior-dispatch-unresolved",
     });
     const receipt = h.get(
       NOTIFICATION_RECEIPT_COLLECTION,

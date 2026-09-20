@@ -195,13 +195,22 @@ Stream<AppUser?> _watchCurrentAppUser({
   while (true) {
     try {
       await for (final doc
-          in firestore.collection('users').doc(user.uid).snapshots()) {
+          in firestore
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(includeMetadataChanges: true)) {
         final data = doc.data();
         if (!doc.exists || data == null) {
           yield null;
           continue;
         }
-        yield AppUser.fromFirestore(data, doc.id);
+        yield AppUser.fromFirestore(
+          data,
+          doc.id,
+          fromCache: doc.metadata.isFromCache,
+          hasPendingWrites: doc.metadata.hasPendingWrites,
+          observedAt: DateTime.now().toUtc(),
+        );
       }
       return;
     } on FirebaseException catch (error) {
@@ -270,6 +279,7 @@ final notificationInstallationRegistryProvider =
     });
 
 final notificationInstallationSyncProvider = Provider<void>((ref) {
+  if (ref.watch(signOutInProgressProvider)) return;
   final auth = ref.watch(firebaseAuthProvider);
   final registry = ref.watch(notificationInstallationRegistryProvider);
 

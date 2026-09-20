@@ -1,10 +1,10 @@
 part of 'furnace_component_condition_audit_screen.dart';
 
 class _FurnaceAuditTotals {
-  _FurnaceAuditTotals(Iterable<_FurnaceAuditDraft> drafts)
+  _FurnaceAuditTotals(Iterable<FurnaceAuditDraft> drafts)
     : rows = List.unmodifiable(drafts);
 
-  final List<_FurnaceAuditDraft> rows;
+  final List<FurnaceAuditDraft> rows;
 
   int get redHotBlocks =>
       rows.fold(0, (total, row) => total + row.redHotPositions.length);
@@ -15,19 +15,30 @@ class _FurnaceAuditTotals {
   int get draftSealHotAir =>
       rows.where((row) => row.hotAirAtDraftSealObserved).length;
   int get draftSealFindings => draftSealRedHot + draftSealHotAir;
-  int get affectedFurnaces =>
-      rows
-          .where(
-            (row) =>
-                row.redHotPositions.isNotEmpty ||
-                row.draftSealRedHotObserved ||
-                row.hotAirAtDraftSealObserved ||
-                row.uvByPosition.values.any(
-                  (value) => value != BurnerUvCondition.serviceable,
-                ),
-          )
-          .length;
+  int get affectedFurnaces => rows
+      .where(
+        (row) =>
+            row.redHotPositions.isNotEmpty ||
+            row.draftSealRedHotObserved ||
+            row.hotAirAtDraftSealObserved ||
+            row.uvByPosition.values.any(
+              (value) => value != BurnerUvCondition.serviceable,
+            ),
+      )
+      .length;
   int get withoutEvidence => rows.where((row) => row.sourceAt == null).length;
+  int get withUnknownFields => rows
+      .where(
+        (row) => [
+          for (var position = 1; position <= 8; position++) ...[
+            'burners.$position.redHotObserved',
+            'uv.$position.condition',
+          ],
+          'draftSealRedHotObserved',
+          'hotAirAtDraftSealObserved',
+        ].any((field) => !row.isKnown(field)),
+      )
+      .length;
   int get dirtyCount => rows.where((row) => row.dirty).length;
   int uvCount(BurnerUvCondition condition) => rows.fold(
     0,
@@ -38,10 +49,9 @@ class _FurnaceAuditTotals {
   int uvFurnaces(BurnerUvCondition condition) =>
       rows.where((row) => row.uvByPosition.values.contains(condition)).length;
 
-  String get status =>
-      dirtyCount == 0
-          ? 'Recorded condition findings'
-          : 'Draft totals - includes unsaved changes on $dirtyCount furnace${dirtyCount == 1 ? '' : 's'}';
+  String get status => dirtyCount == 0
+      ? 'Recorded condition findings'
+      : 'Draft totals - includes unsaved changes on $dirtyCount furnace${dirtyCount == 1 ? '' : 's'}';
 
   List<({String label, int findings, int furnaces})> get categories => [
     (
@@ -77,6 +87,7 @@ class _FurnaceAuditTotals {
     status,
     '${rows.length} registered furnaces in scope; $affectedFurnaces with marked faults.',
     '$withoutEvidence furnaces without prior condition evidence.',
+    '$withUnknownFields furnaces have fields with unknown observation ages.',
     for (final category in categories)
       '${category.label}: ${category.findings} finding${category.findings == 1 ? '' : 's'} on ${category.furnaces} furnace${category.furnaces == 1 ? '' : 's'}.',
     'Counts are marked findings, not a declaration that unmarked positions are healthy.',
@@ -88,92 +99,88 @@ Future<void> _showConditionTotals(
   _FurnaceAuditTotals totals,
 ) => showDialog<void>(
   context: context,
-  builder:
-      (dialogContext) => AlertDialog(
-        title: const Text('Condition totals'),
-        titleTextStyle: Theme.of(dialogContext).textTheme.titleLarge,
-        scrollable: true,
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                totals.status,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              Text(
-                '${totals.rows.length} Furnaces / ${totals.affectedFurnaces} with marked faults',
-              ),
-              Text(
-                '${totals.withoutEvidence} without prior condition evidence',
-              ),
-              const SizedBox(height: BafSpacing.md),
-              for (final category in totals.categories)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                  child: Builder(
-                    builder: (context) {
-                      final compact =
-                          MediaQuery.sizeOf(context).width < 520 ||
-                          MediaQuery.textScalerOf(context).scale(1) > 1.3;
-                      final value = Text(
-                        '${category.findings} finding${category.findings == 1 ? '' : 's'} / ${category.furnaces} furnace${category.furnaces == 1 ? '' : 's'}',
-                        textAlign: compact ? TextAlign.start : TextAlign.end,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      );
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [Text(category.label), value],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: Text(category.label)),
-                          const SizedBox(width: BafSpacing.sm),
-                          Flexible(child: value),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-            ],
+  builder: (dialogContext) => AlertDialog(
+    title: const Text('Condition totals'),
+    titleTextStyle: Theme.of(dialogContext).textTheme.titleLarge,
+    scrollable: true,
+    content: SizedBox(
+      width: 480,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            totals.status,
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+          const SizedBox(height: BafSpacing.sm),
+          Text(
+            '${totals.rows.length} Furnaces / ${totals.affectedFurnaces} with marked faults',
           ),
-          IconButton(
-            tooltip: 'Copy condition totals',
-            icon: const Icon(Icons.copy_outlined),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await Clipboard.setData(
-                  ClipboardData(text: totals.copyText(DateTime.now())),
-                );
-                if (!context.mounted) return;
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Condition totals copied.')),
-                );
-              } catch (_) {
-                if (!context.mounted) return;
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not copy condition totals.'),
-                  ),
-                );
-              }
-            },
-          ),
+          Text('${totals.withoutEvidence} without prior condition evidence'),
+          Text('${totals.withUnknownFields} with unknown observation ages'),
+          const SizedBox(height: BafSpacing.md),
+          for (final category in totals.categories)
+            Padding(
+              padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+              child: Builder(
+                builder: (context) {
+                  final compact =
+                      MediaQuery.sizeOf(context).width < 520 ||
+                      MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                  final value = Text(
+                    '${category.findings} finding${category.findings == 1 ? '' : 's'} / ${category.furnaces} furnace${category.furnaces == 1 ? '' : 's'}',
+                    textAlign: compact ? TextAlign.start : TextAlign.end,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  );
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [Text(category.label), value],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Text(category.label)),
+                      const SizedBox(width: BafSpacing.sm),
+                      Flexible(child: value),
+                    ],
+                  );
+                },
+              ),
+            ),
         ],
       ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(dialogContext).pop(),
+        child: const Text('Close'),
+      ),
+      IconButton(
+        tooltip: 'Copy condition totals',
+        icon: const Icon(Icons.copy_outlined),
+        onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          try {
+            await Clipboard.setData(
+              ClipboardData(text: totals.copyText(DateTime.now())),
+            );
+            if (!context.mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Condition totals copied.')),
+            );
+          } catch (_) {
+            if (!context.mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Could not copy condition totals.')),
+            );
+          }
+        },
+      ),
+    ],
+  ),
 );

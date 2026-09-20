@@ -100,6 +100,13 @@ CriticalAlarmLiveSnapshot _stale(List<CriticalAlarm> alarms) =>
       lastVerifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
     );
 
+CriticalAlarmLiveSnapshot _partial(List<CriticalAlarm> alarms) =>
+    CriticalAlarmLiveSnapshot.partiallyVerified(
+      alarms: alarms,
+      malformedDocumentCount: 1,
+      lastVerifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -152,11 +159,10 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -191,11 +197,10 @@ void main() {
           overrides: [currentAppUserProvider.overrideWith((_) => users.stream)],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -234,6 +239,7 @@ void main() {
             showAttempts += 1;
             return showAttempts > 1;
           }
+          if (call.method == 'isNotificationReady') return true;
           if (call.method == 'reconcileActiveNotifications') return 0;
           return null;
         });
@@ -247,11 +253,10 @@ void main() {
         ],
         child: MaterialApp(
           navigatorKey: navigatorKey,
-          builder:
-              (context, child) => CriticalAlarmHost(
-                navigatorKey: navigatorKey,
-                child: child ?? const SizedBox.shrink(),
-              ),
+          builder: (context, child) => CriticalAlarmHost(
+            navigatorKey: navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: const Scaffold(body: Text('Operations')),
         ),
       ),
@@ -267,6 +272,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(showAttempts, 2);
   });
+
+  testWidgets(
+    'notification posting is withheld when device readiness is false',
+    (tester) async {
+      final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(alarmFeed.close);
+      var showAttempts = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            if (call.method == 'isNotificationReady') return false;
+            if (call.method == 'showActiveNotification') {
+              showAttempts += 1;
+              return true;
+            }
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pump();
+      alarmFeed.add(_verified([_raisedAlarm()]));
+      await tester.pumpAndSettle();
+
+      expect(showAttempts, 0);
+    },
+  );
 
   testWidgets(
     'initial cache snapshot does not flash an outage before server verification',
@@ -288,11 +335,10 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -333,11 +379,10 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -376,11 +421,10 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -409,6 +453,7 @@ void main() {
           .setMockMethodCallHandler(_channel, (call) async {
             calls.add(call);
             if (call.method == 'showActiveNotification') return true;
+            if (call.method == 'isNotificationReady') return true;
             if (call.method == 'reconcileActiveNotifications') return 0;
             return null;
           });
@@ -422,11 +467,10 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: const Scaffold(body: Text('Operations')),
           ),
         ),
@@ -435,10 +479,9 @@ void main() {
 
       alarmFeed.add(_verified([_raisedAlarm()]));
       await tester.pumpAndSettle();
-      final verifiedReconciliations =
-          calls
-              .where((call) => call.method == 'reconcileActiveNotifications')
-              .length;
+      final verifiedReconciliations = calls
+          .where((call) => call.method == 'reconcileActiveNotifications')
+          .length;
       expect(verifiedReconciliations, 1);
 
       alarmFeed.add(_stale([_raisedAlarm()]));
@@ -466,6 +509,151 @@ void main() {
     },
   );
 
+  testWidgets(
+    'partial feed notifies valid additions without global reconciliation',
+    (tester) async {
+      final calls = <MethodCall>[];
+      final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(alarmFeed.close);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            calls.add(call);
+            if (call.method == 'isNotificationReady') return true;
+            if (call.method == 'showActiveNotification') return true;
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      alarmFeed.add(_verified(const <CriticalAlarm>[]));
+      await tester.pumpAndSettle();
+      final verifiedReconciliations = calls
+          .where((call) => call.method == 'reconcileActiveNotifications')
+          .length;
+
+      alarmFeed.add(_partial([_raisedAlarm()]));
+      await tester.pumpAndSettle();
+
+      expect(
+        calls.where((call) => call.method == 'showActiveNotification'),
+        hasLength(1),
+      );
+      expect(
+        calls.where((call) => call.method == 'reconcileActiveNotifications'),
+        hasLength(verifiedReconciliations),
+      );
+      expect(
+        calls.where((call) => call.method == 'cancelNotification'),
+        isEmpty,
+      );
+    },
+  );
+
+  for (final loseAuthority in [false, true]) {
+    testWidgets(
+      'partial alarm retries after settings only with current approval: '
+      'authority lost=$loseAuthority',
+      (tester) async {
+        final calls = <MethodCall>[];
+        final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+        final users = StreamController<AppUser?>();
+        addTearDown(alarmFeed.close);
+        addTearDown(users.close);
+        var ready = false;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(_channel, (call) async {
+              calls.add(call);
+              if (call.method == 'isNotificationReady') return ready;
+              if (call.method == 'showActiveNotification') return true;
+              if (call.method == 'reconcileActiveNotifications') return 0;
+              return null;
+            });
+        final navigatorKey = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith((_) => users.stream),
+              activeCriticalAlarmsProvider.overrideWith(
+                (_) => alarmFeed.stream,
+              ),
+            ],
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              builder: (context, child) => CriticalAlarmHost(
+                navigatorKey: navigatorKey,
+                child: child ?? const SizedBox.shrink(),
+              ),
+              home: const Scaffold(body: Text('Operations')),
+            ),
+          ),
+        );
+        users.add(_user());
+        alarmFeed.add(_verified(const <CriticalAlarm>[]));
+        await tester.pumpAndSettle();
+        final reconciliations = calls
+            .where((call) => call.method == 'reconcileActiveNotifications')
+            .length;
+        alarmFeed.add(_partial([_raisedAlarm()]));
+        await tester.pumpAndSettle();
+        expect(
+          calls.where((call) => call.method == 'showActiveNotification'),
+          isEmpty,
+        );
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        if (loseAuthority) {
+          users.addError(StateError('authority verification unavailable'));
+          await tester.pumpAndSettle();
+        }
+        ready = true;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          calls.where((call) => call.method == 'showActiveNotification'),
+          hasLength(loseAuthority ? 0 : 1),
+        );
+        expect(
+          calls.where((call) => call.method == 'reconcileActiveNotifications'),
+          hasLength(reconciliations),
+        );
+        expect(
+          calls.where((call) => call.method == 'cancelNotification'),
+          isEmpty,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          calls.where((call) => call.method == 'showActiveNotification'),
+          hasLength(loseAuthority ? 0 : 1),
+          reason: 'A successful retry must not post the same alarm twice.',
+        );
+      },
+    );
+  }
+
   testWidgets('global alarm launcher yields interaction to modal routes', (
     tester,
   ) async {
@@ -489,29 +677,25 @@ void main() {
         child: MaterialApp(
           navigatorKey: navigatorKey,
           navigatorObservers: <NavigatorObserver>[routeObserver],
-          builder:
-              (context, child) => CriticalAlarmHost(
-                navigatorKey: navigatorKey,
-                launcherObscuredListenable: routeObserver.obscured,
-                child: child ?? const SizedBox.shrink(),
-              ),
+          builder: (context, child) => CriticalAlarmHost(
+            navigatorKey: navigatorKey,
+            launcherObscuredListenable: routeObserver.obscured,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: Builder(
-            builder:
-                (context) => Scaffold(
-                  body: Center(
-                    child: FilledButton(
-                      onPressed:
-                          () => showDialog<void>(
-                            context: context,
-                            builder:
-                                (context) => const AlertDialog(
-                                  title: Text('Governed hierarchy picker'),
-                                ),
-                          ),
-                      child: const Text('Open modal'),
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (context) => const AlertDialog(
+                      title: Text('Governed hierarchy picker'),
                     ),
                   ),
+                  child: const Text('Open modal'),
                 ),
+              ),
+            ),
           ),
         ),
       ),
@@ -562,33 +746,29 @@ void main() {
         child: MaterialApp(
           navigatorKey: navigatorKey,
           navigatorObservers: <NavigatorObserver>[routeObserver],
-          builder:
-              (context, child) => CriticalAlarmHost(
-                navigatorKey: navigatorKey,
-                launcherObscuredListenable: routeObserver.obscured,
-                child: child ?? const SizedBox.shrink(),
-              ),
+          builder: (context, child) => CriticalAlarmHost(
+            navigatorKey: navigatorKey,
+            launcherObscuredListenable: routeObserver.obscured,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: Builder(
-            builder:
-                (context) => Scaffold(
-                  body: Center(
-                    child: FilledButton(
-                      onPressed:
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              settings: const RouteSettings(
-                                name: CriticalAlarmScreen.routeName,
-                              ),
-                              builder:
-                                  (_) => const Scaffold(
-                                    body: Text('Critical safety workspace'),
-                                  ),
-                            ),
-                          ),
-                      child: const Text('Open critical safety'),
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      settings: const RouteSettings(
+                        name: CriticalAlarmScreen.routeName,
+                      ),
+                      builder: (_) => const Scaffold(
+                        body: Text('Critical safety workspace'),
+                      ),
                     ),
                   ),
+                  child: const Text('Open critical safety'),
                 ),
+              ),
+            ),
           ),
         ),
       ),

@@ -132,6 +132,37 @@ void main() {
     },
   );
 
+  test(
+    'remote refresh preserves retained-concern continuation identity',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final time = DateTime.utc(2026, 9, 6, 8);
+        final local = _record(
+          version: 2,
+          updatedAt: time,
+          description: 'Local copy',
+          isSynced: true,
+        );
+        await isar.writeTxn(() => isar.maintenanceRecords.put(local));
+
+        final result = await IsarMaintenanceRepository()
+            .applyMaintenanceRecordFromRemote(
+              _record(
+                version: 3,
+                updatedAt: time.add(const Duration(minutes: 1)),
+                description: 'Remote retained continuation',
+                isSynced: true,
+                continuesIssueId: 'retained-issue-1',
+              ),
+            );
+        final stored = await isar.maintenanceRecords.get(local.id);
+
+        expect(result.applied, isTrue);
+        expect(stored!.continuesIssueId, 'retained-issue-1');
+      });
+    },
+  );
+
   test('pre-existing duplicate identity blocks automatic overwrite', () async {
     await _withMaintenanceIsar((isar) async {
       final localTime = DateTime.utc(2026, 9, 6, 8);
@@ -181,6 +212,7 @@ MaintenanceRecord _record({
   required DateTime updatedAt,
   required String description,
   required bool isSynced,
+  String? continuesIssueId,
 }) {
   return MaintenanceRecord()
     ..firestoreId = 'ticket-remote-1'
@@ -196,7 +228,8 @@ MaintenanceRecord _record({
     ..loggedByName = 'Operator One'
     ..startDate = DateTime.utc(2026, 9, 6, 7)
     ..createdAt = DateTime.utc(2026, 9, 6, 7)
-    ..updatedAt = updatedAt;
+    ..updatedAt = updatedAt
+    ..continuesIssueId = continuesIssueId;
 }
 
 Future<void> _withMaintenanceIsar(Future<void> Function(Isar isar) body) async {

@@ -6,6 +6,7 @@ import {
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {operationalEventDisposition} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -28,7 +29,8 @@ export type OperationalEventOperation =
   | "CREATE_OPERATIONAL_EVENT"
   | "UPDATE_OPERATIONAL_EVENT"
   | "RESOLVE_OPERATIONAL_EVENT"
-  | "REOPEN_OPERATIONAL_EVENT";
+  | "REOPEN_OPERATIONAL_EVENT"
+  | "WITHDRAW_OPERATIONAL_EVENT";
 
 type EventType =
   | "water"
@@ -103,6 +105,7 @@ const OPERATIONS = new Set<OperationalEventOperation>([
   "UPDATE_OPERATIONAL_EVENT",
   "RESOLVE_OPERATIONAL_EVENT",
   "REOPEN_OPERATIONAL_EVENT",
+  "WITHDRAW_OPERATIONAL_EVENT",
 ]);
 const EVENT_TYPES = new Set<EventType>([
   "water", "nitrogen", "mixedGas", "hydrogen", "powerTrip", "crane",
@@ -114,6 +117,10 @@ const SEVERITIES = new Set<Severity>([
 const SCOPES = new Set<Scope>(["plantWide", "assetClasses", "assets"]);
 const MAX_COMPLETED_INTERVALS = 100;
 const MAX_ISSUE_LINKS = 100;
+// Leave room for Firestore field names, scalar/container overhead and SDK
+// encoding beyond the JSON string-value lower bound. This is a refusal with a
+// reviewable next action, not a truncation or an audit bypass.
+const MAX_OPERATIONAL_EVENT_STORED_BYTES = 900_000;
 const WRITE_ROLES = new Set([
   "admin", "si", "shiftSupervisor", "operations", "contractSupervisor",
 ]);
@@ -576,6 +583,21 @@ export function validateCurrentEvent(
     (resolvedAt == null || resolvedAt.getTime() >= startedAt.getTime()) &&
     (latestCompletedAt == null ||
       startedAt.getTime() >= latestCompletedAt.getTime());
+  const disposition = operationalEventDisposition(data);
+  const withdrawalEvidenceValid = disposition === "effective" ?
+    (!Object.prototype.hasOwnProperty.call(data, "withdrawalReason") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnAt") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByUid") &&
+      !Object.prototype.hasOwnProperty.call(data, "withdrawnByName")) :
+    typeof data.isWithdrawn === "boolean" &&
+    typeof data.withdrawalReason === "string" &&
+    data.withdrawalReason.trim().length > 0 &&
+    data.withdrawalReason.length <= 1000 &&
+    isTimestampLike(data.withdrawnAt) &&
+    typeof data.withdrawnByUid === "string" &&
+    data.withdrawnByUid.length > 0 && data.withdrawnByUid.length <= 128 &&
+    typeof data.withdrawnByName === "string" &&
+    data.withdrawnByName.length > 0 && data.withdrawnByName.length <= 200;
   if (data.schemaVersion !== 1 || data.eventId !== eventId ||
       issueLinkIds.length !== linkedIssueIds.length ||
       !EVENT_TYPES.has(data.eventType as EventType) ||
@@ -593,6 +615,9 @@ export function validateCurrentEvent(
       data.updatedByName.length > 200 || !Number.isSafeInteger(data.version) ||
       (data.version as number) < 1 || typeof data.lastMutationId !== "string" ||
       !UUID.test(data.lastMutationId) ||
+      (Object.prototype.hasOwnProperty.call(data, "isWithdrawn") &&
+        typeof data.isWithdrawn !== "boolean") ||
+      !withdrawalEvidenceValid ||
       (data.status === "resolved" &&
         ((data.resolvedByUid as string).length > 128 ||
           (data.resolvedByName as string).length > 200 ||
@@ -629,9 +654,98 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     updatedAt: data.updatedAt,
     updatedByUid: data.updatedByUid,
     updatedByName: data.updatedByName,
+    // Present only once an entry has been withdrawn, so an event that never
+    // was keeps exactly the snapshot shape it has always had - and the audit
+    // of a withdrawal shows the one thing that changed.
+    ...(data.isWithdrawn === true ? {
+      isWithdrawn: true,
+      withdrawalReason: data.withdrawalReason,
+      withdrawnAt: data.withdrawnAt,
+      withdrawnByUid: data.withdrawnByUid,
+      withdrawnByName: data.withdrawnByName,
+    } : {}),
     version: data.version,
     lastMutationId: data.lastMutationId,
   };
+}
+
+function operationalEventAuditDigest(audit: JsonMap): string {
+  const canonicalEvidenceValue = (value: unknown): unknown => {
+    const date = timestampDate(value);
+    if (date != null) return date.toISOString();
+    if (Array.isArray(value)) return value.map(canonicalEvidenceValue);
+    if (value != null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as JsonMap).map(([key, entry]) => [
+          key,
+          canonicalEvidenceValue(entry),
+        ]),
+      );
+    }
+    return value;
+  };
+  return createHash("sha256").update(stableJson(canonicalEvidenceValue({
+    schemaVersion: audit.schemaVersion,
+    auditId: audit.auditId,
+    requestId: audit.requestId,
+    operation: audit.operation,
+    eventId: audit.eventId,
+    before: audit.before,
+    after: audit.after,
+    performedAt: audit.performedAt,
+    performedByUid: audit.performedByUid,
+    performedByName: audit.performedByName,
+    reason: audit.reason,
+    resolutionNote: audit.resolutionNote,
+  })), "utf8").digest("hex");
+}
+
+function assertOperationalEventStoredSize(
+  value: JsonMap,
+  label: string,
+): void {
+  let bytes = Number.MAX_SAFE_INTEGER;
+  try {
+    bytes = Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch (_) {
+    // Treat an unmeasurable write as unsafe rather than pretending it is small.
+  }
+  if (bytes > MAX_OPERATIONAL_EVENT_STORED_BYTES) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `The ${label} is too large to retain safely. Record a reviewed bounded correction before continuing.`,
+      {
+        reasonCode: "operational-event-storage-bound",
+        label,
+        bytes,
+        maximumBytes: MAX_OPERATIONAL_EVENT_STORED_BYTES,
+      },
+    );
+  }
+}
+
+function isSafeLinkedScopeExpansion(
+  current: JsonMap,
+  draft: EventDraft,
+): boolean {
+  if (current.scope !== draft.scope) return false;
+  const currentClasses = new Set(
+    Array.isArray(current.affectedAssetClassIds) ?
+      current.affectedAssetClassIds : [],
+  );
+  const draftClasses = new Set(draft.affectedAssetClassIds);
+  const currentInstances = new Set(
+    Array.isArray(current.affectedAssetInstanceIds) ?
+      current.affectedAssetInstanceIds : [],
+  );
+  const draftInstances = new Set(draft.affectedAssetInstanceIds);
+  if (![...currentClasses].every((value) => draftClasses.has(value))) {
+    return false;
+  }
+  if (![...currentInstances].every((value) => draftInstances.has(value))) {
+    return false;
+  }
+  return draft.scope === "assetClasses" || draft.scope === "assets";
 }
 
 function verifyClass(data: JsonMap, classId: string): void {
@@ -852,6 +966,17 @@ export async function mutateOperationalEventWithDb(args: {
           {reasonCode: "operational-event-replay-evidence-drift"},
         );
       }
+      if (receiptData.evidenceDigest != null) {
+        const digest = receiptData.evidenceDigest;
+        if (typeof digest !== "string" || auditData.evidenceDigest !== digest ||
+            operationalEventAuditDigest(auditData) !== digest) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "The operational-event receipt no longer matches its committed evidence.",
+            {reasonCode: "operational-event-replay-evidence-drift"},
+          );
+        }
+      }
       // Acceptance is historical evidence, not a replacement for the live event.
       return replay;
     }
@@ -909,6 +1034,29 @@ export async function mutateOperationalEventWithDb(args: {
         "failed-precondition",
         "Only a resolved operational event can be reopened.",
         {reasonCode: "operational-event-not-resolved"},
+      );
+    }
+    // An entry recorded by mistake - the same disruption written down twice,
+    // or one that never happened - is withdrawn rather than edited. The
+    // interval stays exactly as it was recorded, because it is evidence of
+    // what somebody entered; what changes is whether it counts as a
+    // disruption. Nothing further happens to it afterwards: reopening a
+    // withdrawn entry would be the fabricated recurrence this route exists to
+    // make unnecessary.
+    if (current?.isWithdrawn === true &&
+        request.operation !== "WITHDRAW_OPERATIONAL_EVENT") {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry was withdrawn as recorded in error. Record a new event instead.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
+    if (request.operation === "WITHDRAW_OPERATIONAL_EVENT" &&
+        current?.isWithdrawn === true) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This entry has already been withdrawn.",
+        {reasonCode: "operational-event-already-withdrawn"},
       );
     }
     if (request.operation === "REOPEN_OPERATIONAL_EVENT" &&
@@ -1018,6 +1166,61 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-resolved-at-future"},
       );
     }
+      // Linking an issue to an occurrence checks that the issue belongs to the
+      // occurrence's governed scope. Correcting the scope afterwards can make
+      // that untrue, and the event would then list as current a link its own
+      // rule would refuse. A proven same-kind superset and plant-wide widening
+      // keep every existing link valid; narrowing or changing reference kind is
+      // held until the links have been reviewed.
+    if (draft != null && current != null) {
+      const currentScope = stableJson({
+        scope: current.scope ?? null,
+        classes: [...(current.affectedAssetClassIds as unknown[] ?? [])].sort(),
+        instances:
+          [...(current.affectedAssetInstanceIds as unknown[] ?? [])].sort(),
+      });
+      const draftScope = stableJson({
+        scope: draft.scope,
+        classes: [...draft.affectedAssetClassIds].sort(),
+        instances: [...draft.affectedAssetInstanceIds].sort(),
+      });
+      const links = (current.issueLinkIds as unknown[] ?? []);
+      const safeExpansion = isSafeLinkedScopeExpansion(current, draft);
+      if (currentScope !== draftScope && draft.scope !== "plantWide" &&
+          !safeExpansion && links.length > 0) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "scope. Review those links before narrowing or moving the scope.",
+          {
+            reasonCode: "operational-event-scope-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
+      // A link's identity is derived from the occurrence start, so correcting
+      // the start leaves every existing link stored under an identity nothing
+      // can reach again: the association is neither current nor relinkable,
+      // and the event goes on listing it. The correction is held while links
+      // exist, naming them, so nobody strands one by correcting a time. The
+      // route through is to review those links first. A durable occurrence
+      // identity that survives a corrected start is the larger repair and is
+      // recorded as still open.
+      const storedStart = timestampDate(current.startedAt);
+      if (links.length > 0 &&
+          (storedStart == null ||
+            storedStart.getTime() !== Date.parse(draft.startedAtIso))) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "This occurrence has maintenance issues linked under its present " +
+          "start time. Review those links before correcting the start.",
+          {
+            reasonCode: "operational-event-start-change-linked-issues",
+            linkedIssueIds: current.linkedIssueIds ?? [],
+          },
+        );
+      }
+    }
     const version = currentVersion + 1;
     let next: JsonMap;
     if (draft != null) {
@@ -1043,6 +1246,22 @@ export async function mutateOperationalEventWithDb(args: {
         resolvedByUid: current?.resolvedByUid ?? null,
         resolvedByName: current?.resolvedByName ?? null,
         resolutionNote: current?.resolutionNote ?? null,
+        version,
+        updatedAt: committedAt,
+        updatedByUid: actorUid,
+        updatedByName: actorName(actorData),
+        lastMutationId: request.requestId,
+      };
+    } else if (request.operation === "WITHDRAW_OPERATIONAL_EVENT") {
+      // Only these four fields change. The interval, its status and every
+      // recorded time stay as they are.
+      next = {
+        ...current!,
+        isWithdrawn: true,
+        withdrawalReason: request.reason,
+        withdrawnAt: committedAt,
+        withdrawnByUid: actorUid,
+        withdrawnByName: actorName(actorData),
         version,
         updatedAt: committedAt,
         updatedByUid: actorUid,
@@ -1115,6 +1334,9 @@ export async function mutateOperationalEventWithDb(args: {
       reason: request.reason,
       resolutionNote: request.resolutionNote,
     };
+    audit.evidenceDigest = operationalEventAuditDigest(audit);
+    assertOperationalEventStoredSize(next, "operational event");
+    assertOperationalEventStoredSize(audit, "operational-event audit");
     const receipt: JsonMap = {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -1127,6 +1349,7 @@ export async function mutateOperationalEventWithDb(args: {
       auditId,
       committedAt,
       committedAtIso: committed.toISOString(),
+      evidenceDigest: audit.evidenceDigest,
     };
     transaction.set(eventRef as unknown as DocumentRefLike, next);
     transaction.set(auditRef as unknown as DocumentRefLike, audit);

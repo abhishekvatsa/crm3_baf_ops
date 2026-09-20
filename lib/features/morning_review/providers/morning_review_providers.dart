@@ -25,6 +25,7 @@ final _morningReviewCommandServiceByActorProvider =
           region: morningReviewCallableRegion,
         ),
         actorScope: actorScope,
+        verifyAcceptanceEvidence: true,
         durableStore: ref.watch(durableSubmissionRepositoryProvider),
         requireActor: () {
           final access = CurrentActorAccess.resolve(
@@ -49,6 +50,7 @@ final _morningReviewCommandServiceByActorProvider =
               'assetHierarchy.v2',
               'morningReviewExpectedPlantDay.v1',
               'morningReviewReceiptLookup.v1',
+              'morningReviewRecoveryEvidence.v1',
             },
           );
         },
@@ -188,4 +190,15 @@ final morningReviewDocumentProvider = StreamProvider.autoDispose
       return ref
           .watch(morningReviewRepositoryProvider)
           .watchDocument(sessionId);
+    });
+
+final historicalMorningReviewSessionProvider = StreamProvider.autoDispose
+    .family<MorningReviewSession?, String>((ref, sessionId) {
+      if (CurrentActorAccess.resolve(
+            ref.watch(currentAppUserProvider),
+          ).actor?.canViewMorningReview !=
+          true) {
+        return Stream.value(null);
+      }
+      return ref.watch(morningReviewRepositoryProvider).watchSession(sessionId);
     });

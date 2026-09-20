@@ -18,10 +18,12 @@ import {
 } from "./types";
 import {WorkflowStore} from "./store";
 import {readExistingReceipt, receiptPath} from "./idempotency";
+import {captureMaintenanceAudit} from "./ticketAcceptanceEvidence";
 import {CommandHandler} from "./handlerTypes";
 import {finalizeLaneSet, acknowledgeLane, addLane, removeLane, terminateLane, closeLane, cancelWorkflow} from "./laneHandlers";
 import {raiseCompliance, acknowledgeCompliance, confirmConditionAndReactivate, markComplianceComplied, returnComplianceForCorrection, confirmComplianceClosed, proposeCounterCondition, decideCounterCondition} from "./complianceHandlers";
 import {deployEquipment, reconcileEquipment} from "./equipmentHandlers";
+import {verifyEquipmentRebindingReplay} from "./equipmentRegistrySubject";
 import {finalizeJob} from "./finalizeJobHandler";
 import {prepareRedLane} from "./redHandlers";
 import {createLegacyWorkflowJob} from "./jobCreationHandler";
@@ -43,6 +45,10 @@ import {
   adjudicateFurnaceStuckup,
   verifyFurnaceStuckupAudit,
 } from "./furnaceStuckupHandlers";
+import {
+  correctBurnerBlockInstallation,
+  verifyBurnerBlockCorrectionReplay,
+} from "./burnerBlockCorrectionHandler";
 import {startIssueCoordination} from "./issueCoordinationHandler";
 import {
   upsertFrequentIssueDefinition,
@@ -149,6 +155,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  correctBurnerBlockInstallation,
   raiseCriticalAlarm,
   provideCriticalAlarmDetails,
   confirmCriticalAlarmSupport,
@@ -201,7 +208,7 @@ export class MaintenanceWorkflowCommandService {
         "";
       const actor: Actor = {
         uid: context.actor.uid,
-        name: storedName.length > 0 ? storedName : context.actor.name,
+        name: storedName.length > 0 ? storedName : context.actor.uid,
         roles: new Set<RoleKey>([...authority.roles] as RoleKey[]),
       };
       const transactionContext: CommandContext = {
@@ -211,8 +218,15 @@ export class MaintenanceWorkflowCommandService {
 
       const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) {
+        await verifyEquipmentRebindingReplay({tx, command, actor, receipt: replay});
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
+        await verifyBurnerBlockCorrectionReplay({
+          tx,
+          command,
+          actor,
+          receipt: replay,
+        });
         await verifyCriticalAlarmReplay({tx, command, actor, receipt: replay});
         await verifyUnusedInspectionCampaignDeletionReplay({
           tx,
@@ -239,8 +253,9 @@ export class MaintenanceWorkflowCommandService {
         command,
       );
       assertWorkflowAuthorityScope(actor, authorityScope);
+      const acceptance = captureMaintenanceAudit(tx, command);
       const handled = await handler({
-        tx,
+        tx: acceptance.tx,
         command,
         context: transactionContext,
       });
@@ -252,6 +267,7 @@ export class MaintenanceWorkflowCommandService {
         appliedAt: iso(transactionContext.serverNow),
       };
       const storedReceipt: StoredWorkflowCommandReceipt = {
+        ...(acceptance.digest() == null ? {} : {maintenanceAuditDigest: acceptance.digest()}),
         receiptSchemaVersion: 2,
         commandId: command.commandId,
         commandType: command.commandType,

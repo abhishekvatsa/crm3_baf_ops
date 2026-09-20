@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/persistence/durable_submission.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -16,6 +17,7 @@ import 'critical_alarm_feed_state.dart';
 import 'critical_alarm_stale_notice.dart';
 
 part 'critical_alarm_screen.feed.dart';
+part 'critical_alarm_screen.recovery.dart';
 
 class CriticalAlarmScreen extends ConsumerWidget {
   const CriticalAlarmScreen({super.key, this.initialAlarmId});
@@ -28,24 +30,22 @@ class CriticalAlarmScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authority = ref.watch(currentAppUserProvider);
     return authority.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Critical safety',
-            appBarSubtitle: 'Live coordination alarms and approved contacts',
-            appBarIcon: Icons.notification_important_outlined,
-            accent: BafColors.danger,
-            label: 'Verifying live alarm access',
-          ),
-      error:
-          (_, _) => BafScreenStateScaffold.error(
-            appBarTitle: 'Critical safety',
-            appBarSubtitle: 'Live coordination alarms and approved contacts',
-            appBarIcon: Icons.notification_important_outlined,
-            accent: BafColors.danger,
-            title: 'Alarm access unavailable',
-            message:
-                'CRM3 could not verify your current approval. No cached authority or alarm state is being shown. Follow the plant emergency procedure.',
-          ),
+      loading: () => BafScreenStateScaffold.loading(
+        appBarTitle: 'Critical safety',
+        appBarSubtitle: 'Live coordination alarms and approved contacts',
+        appBarIcon: Icons.notification_important_outlined,
+        accent: BafColors.danger,
+        label: 'Verifying live alarm access',
+      ),
+      error: (_, _) => BafScreenStateScaffold.error(
+        appBarTitle: 'Critical safety',
+        appBarSubtitle: 'Live coordination alarms and approved contacts',
+        appBarIcon: Icons.notification_important_outlined,
+        accent: BafColors.danger,
+        title: 'Alarm access unavailable',
+        message:
+            'CRM3 could not verify your current approval. No cached authority or alarm state is being shown. Follow the plant emergency procedure.',
+      ),
       data: (user) {
         if (user == null || !user.isApproved) {
           return BafScreenStateScaffold.access(
@@ -82,8 +82,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final recentFeed = ref.watch(criticalAlarmFeedProvider);
     final contacts = ref.watch(criticalAlarmContactsProvider);
     final definitionFeed = ref.watch(criticalAlarmDefinitionsProvider);
+    final definitionSnapshot = definitionFeed.asData?.value;
     final activeDefinitions =
-        definitionFeed.asData?.value
+        definitionSnapshot?.definitions
             .where((definition) => definition.isActive)
             .toList() ??
         const <CriticalAlarmDefinition>[];
@@ -93,8 +94,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final activeAlarmRows = activeFeed.whenData((snapshot) => snapshot.alarms);
     final recentRows = recentFeed.asData?.value ?? const <CriticalAlarm>[];
     final history = recentRows.where((alarm) => !alarm.isActive).toList();
+    final contactSnapshot = contacts.asData?.value;
     final contactRows =
-        contacts.asData?.value ?? const <CriticalAlarmContact>[];
+        contactSnapshot?.contacts ?? const <CriticalAlarmContact>[];
     final linkedAlarmIsHistorical =
         initialAlarmId != null &&
         !active.any((alarm) => alarm.id == initialAlarmId) &&
@@ -119,10 +121,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
             tabAlignment: TabAlignment.start,
             tabs: [
               Tab(
-                text:
-                    activeSnapshot?.isServerVerified == true
-                        ? 'Active (${active.length})'
-                        : 'Active (?)',
+                text: activeSnapshot?.isServerVerified == true
+                    ? 'Active (${active.length})'
+                    : 'Active (?)',
               ),
               Tab(text: 'History (${history.length})'),
               Tab(
@@ -136,6 +137,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
         body: Column(
           children: [
             const _ScopeBoundary(),
+            const _PendingCriticalAlarmCommands(),
             Expanded(
               child: TabBarView(
                 children: [
@@ -148,6 +150,8 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
                     emptyTitle: 'No active alarms',
                     liveAuthority: activeSnapshot?.authority,
                     lastVerifiedAt: activeSnapshot?.lastVerifiedAt,
+                    malformedDocumentCount:
+                        activeSnapshot?.malformedDocumentCount ?? 0,
                   ),
                   _AlarmList(
                     alarms: history,
@@ -155,10 +159,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
                     contacts: contacts,
                     user: user,
                     initialAlarmId: initialAlarmId,
-                    emptyTitle:
-                        initialAlarmId == null
-                            ? 'No recent alarm history'
-                            : 'Alarm not available in recent history',
+                    emptyTitle: initialAlarmId == null
+                        ? 'No recent alarm history'
+                        : 'Alarm not available in recent history',
                   ),
                   const CriticalAlarmContactsPanel(),
                   if (showDefinitions) const CriticalAlarmDefinitionsPanel(),
@@ -172,9 +175,10 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
           backgroundColor: BafColors.danger,
           foregroundColor: Colors.white,
           onPressed:
-              definitionFeed.hasValue && activeDefinitions.isNotEmpty
-                  ? () => _raise(context, ref, activeDefinitions)
-                  : null,
+              definitionSnapshot?.isComplete == true &&
+                  activeDefinitions.isNotEmpty
+              ? () => _raise(context, ref, activeDefinitions)
+              : null,
           icon: const Icon(Icons.notification_important),
           label: const Text('Raise alarm'),
         ),
@@ -197,33 +201,32 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) => AlertDialog(
-            icon: const Icon(
-              Icons.notification_important,
-              color: BafColors.danger,
-              size: 42,
-            ),
-            title: Text('Raise ${draft.definition.name}?'),
-            content: Text(
-              '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\n${draft.details}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. The alarm is sent immediately after confirmation and is never queued offline.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: BafColors.danger,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                icon: const Icon(Icons.notification_important),
-                label: const Text('Confirm and send'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(
+          Icons.notification_important,
+          color: BafColors.danger,
+          size: 42,
+        ),
+        title: Text('Raise ${draft.definition.name}?'),
+        content: Text(
+          '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\n${draft.details}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. If the response is interrupted, the original command is saved on this device for checking.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: BafColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.notification_important),
+            label: const Text('Confirm and send'),
+          ),
+        ],
+      ),
     );
     if (confirmed != true || !context.mounted) return;
     _showProgress(context, 'Sending critical alarm');
@@ -426,43 +429,37 @@ class _AlarmCard extends ConsumerWidget {
                 )
               else
                 Column(
-                  children:
-                      contacts
-                          .map(
-                            (contact) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed:
-                                      () => _dial(
-                                        context,
-                                        ref,
-                                        contact.dialValue,
-                                      ),
-                                  icon: const Icon(Icons.call_outlined),
-                                  label: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        contact.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        contact.dialValue,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ],
+                  children: contacts
+                      .map(
+                        (contact) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _dial(context, ref, contact.dialValue),
+                              icon: const Icon(Icons.call_outlined),
+                              label: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    contact.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
+                                  Text(
+                                    contact.dialValue,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          )
-                          .toList(),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               const SizedBox(height: BafSpacing.md),
               if (!lifecycleActionsEnabled) ...[
@@ -489,12 +486,13 @@ class _AlarmCard extends ConsumerWidget {
                 children: [
                   if (lifecycleActionsEnabled &&
                       alarm.isActive &&
-                      alarm.detailsPending &&
                       _canEditDetails)
                     OutlinedButton.icon(
                       onPressed: () => _provideDetails(context, ref),
                       icon: const Icon(Icons.edit_note_outlined),
-                      label: const Text('Add details'),
+                      label: Text(
+                        alarm.detailsPending ? 'Add details' : 'Update details',
+                      ),
                     ),
                   if (lifecycleActionsEnabled &&
                       alarm.status == CriticalAlarmStatus.raised &&
@@ -544,7 +542,9 @@ class _AlarmCard extends ConsumerWidget {
   Future<void> _provideDetails(BuildContext context, WidgetRef ref) async {
     final value = await _askText(
       context,
-      title: 'Add incident details',
+      title: alarm.detailsPending
+          ? 'Add incident details'
+          : 'Update incident details',
       label: 'What happened and what remains at risk?',
       minimum: 1,
       maximum: 2000,
@@ -694,21 +694,20 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                 labelText: 'Alarm reason',
                 border: OutlineInputBorder(),
               ),
-              items:
-                  widget.definitions
-                      .map(
-                        (definition) => DropdownMenuItem(
-                          value: definition,
-                          child: Text(
-                            '${definition.name} - ${definition.criticalityLabel}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
+              items: widget.definitions
+                  .map(
+                    (definition) => DropdownMenuItem(
+                      value: definition,
+                      child: Text(
+                        '${definition.name} - ${definition.criticalityLabel}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) => setState(() => _definition = value),
-              validator:
-                  (value) => value == null ? 'Select the alarm reason' : null,
+              validator: (value) =>
+                  value == null ? 'Select the alarm reason' : null,
             ),
             const SizedBox(height: BafSpacing.md),
             TextFormField(
@@ -721,11 +720,9 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                 counterText: '',
                 border: OutlineInputBorder(),
               ),
-              validator:
-                  (value) =>
-                      value == null || value.trim().isEmpty
-                          ? 'Enter the location'
-                          : null,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Enter the location'
+                  : null,
             ),
             const SizedBox(height: BafSpacing.md),
             DropdownButtonFormField<String?>(
@@ -815,10 +812,9 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                       definition: _definition!,
                       location: _location.text.trim(),
                       assetTypeKey: _assetTypeKey,
-                      assetNumber:
-                          _assetTypeKey == null
-                              ? null
-                              : int.parse(_assetNumber.text),
+                      assetNumber: _assetTypeKey == null
+                          ? null
+                          : int.parse(_assetNumber.text),
                       details: _details.text.trim(),
                     ),
                   );
@@ -873,18 +869,17 @@ class _SupportDialogState extends State<_SupportDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Confirmation basis',
                 ),
-                items:
-                    CriticalAlarmSupportBasis.values
-                        .map(
-                          (basis) => DropdownMenuItem(
-                            value: basis,
-                            child: Text(
-                              _supportBasisLabel(basis),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
+                items: CriticalAlarmSupportBasis.values
+                    .map(
+                      (basis) => DropdownMenuItem(
+                        value: basis,
+                        child: Text(
+                          _supportBasisLabel(basis),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _basis = value),
                 validator: (value) => value == null ? 'Select a basis' : null,
               ),
@@ -898,11 +893,9 @@ class _SupportDialogState extends State<_SupportDialog> {
                   labelText: 'Responder note',
                   counterText: '',
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.trim().isEmpty
-                            ? 'Enter the support response'
-                            : null,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter the support response'
+                    : null,
               ),
               if (widget.detailsRequired) ...[
                 const SizedBox(height: BafSpacing.sm),
@@ -915,11 +908,9 @@ class _SupportDialogState extends State<_SupportDialog> {
                     labelText: 'Required incident details',
                     counterText: '',
                   ),
-                  validator:
-                      (value) =>
-                          value == null || value.trim().isEmpty
-                              ? 'Incident details are required'
-                              : null,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Incident details are required'
+                      : null,
                 ),
               ],
             ],
@@ -1006,13 +997,12 @@ Future<String?> _askText(
   required int maximum,
 }) => showDialog<String>(
   context: context,
-  builder:
-      (_) => _TextEntryDialog(
-        title: title,
-        label: label,
-        minimum: minimum,
-        maximum: maximum,
-      ),
+  builder: (_) => _TextEntryDialog(
+    title: title,
+    label: label,
+    minimum: minimum,
+    maximum: maximum,
+  ),
 );
 
 class _TextEntryDialog extends StatefulWidget {
@@ -1093,16 +1083,15 @@ void _showProgress(BuildContext context, String label) {
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder:
-        (_) => AlertDialog(
-          content: Row(
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(width: BafSpacing.md),
-              Expanded(child: Text(label)),
-            ],
-          ),
-        ),
+    builder: (_) => AlertDialog(
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: BafSpacing.md),
+          Expanded(child: Text(label)),
+        ],
+      ),
+    ),
   );
 }
 
@@ -1116,10 +1105,9 @@ void _showCommandFailure(
       (error.code == WorkflowErrorCode.unavailable ||
           error.code == WorkflowErrorCode.deadlineExceeded ||
           error.code == WorkflowErrorCode.aborted);
-  final message =
-      dispatch && uncertain
-          ? 'Alarm dispatch could not be confirmed. It will not retry automatically. Check Active alarms and follow the plant emergency procedure.'
-          : '$error';
+  final message = dispatch && uncertain
+      ? 'Alarm dispatch could not be confirmed. The original command is saved on this device; use the recovery banner before raising a new alarm. Check Active alarms and follow the plant emergency procedure.'
+      : '$error';
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(message), backgroundColor: BafColors.danger),
   );

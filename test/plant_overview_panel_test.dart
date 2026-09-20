@@ -22,8 +22,9 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Roboto-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Roboto-Medium.ttf')))
         .load();
-    await (FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
   testWidgets(
     'Home panel shows total, available, maintenance and unavailable',
@@ -64,11 +65,10 @@ void main() {
       final first = asset('furnace-1', 1);
       final second = asset('furnace-2', 2);
       final third = asset('furnace-3', 3);
-      final status =
-          EquipmentStatusRecord()
-            ..assetTypeKey = 'furnace'
-            ..assetNumber = 1
-            ..openMaintenanceCount = 1;
+      final status = EquipmentStatusRecord()
+        ..assetTypeKey = 'furnace'
+        ..assetNumber = 1
+        ..openMaintenanceCount = 1;
       final condition = AssetOperationalConditionRecord(
         assetInstanceId: first.id,
         assetClassId: first.assetClassId,
@@ -123,7 +123,12 @@ void main() {
         assetClasses: [assetClass],
         assetInstances: [first, second, third],
         operationalConditions: [condition, unfitCondition],
-        workflowStatuses: [status],
+        workflowStatuses: [
+          status,
+          EquipmentStatusRecord()
+            ..assetTypeKey = 'furnace'
+            ..assetNumber = 2,
+        ],
       );
       var opened = false;
       AssetConditionFilter? selectedFilter;
@@ -176,29 +181,28 @@ void main() {
       ),
       _assetClass(id: 'furnace', code: 'FURNACE', name: 'Furnace', now: now),
     ];
-    final assets =
-        classes
-            .map(
-              (assetClass) => AssetInstanceRecord(
-                id: '${assetClass.id}-1',
-                assetClassId: assetClass.id,
-                assetClassCode: assetClass.code,
-                assetClassName: assetClass.name,
-                assetNumber: 1,
-                name: '${assetClass.name} 1',
-                serviceState: AssetServiceState.inService,
-                ownershipStatus: AssetOwnershipStatus.confirmed,
-                ownerDiscipline: 'Operations',
-                accountableRoleKeys: const ['operations'],
-                status: AssetHierarchyStatus.active,
-                activeComponentCount: 0,
-                version: 1,
-                createdAt: now,
-                updatedAt: now,
-                lastMutationId: '${assetClass.id}-asset',
-              ),
-            )
-            .toList();
+    final assets = classes
+        .map(
+          (assetClass) => AssetInstanceRecord(
+            id: '${assetClass.id}-1',
+            assetClassId: assetClass.id,
+            assetClassCode: assetClass.code,
+            assetClassName: assetClass.name,
+            assetNumber: 1,
+            name: '${assetClass.name} 1',
+            serviceState: AssetServiceState.inService,
+            ownershipStatus: AssetOwnershipStatus.confirmed,
+            ownerDiscipline: 'Operations',
+            accountableRoleKeys: const ['operations'],
+            status: AssetHierarchyStatus.active,
+            activeComponentCount: 0,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            lastMutationId: '${assetClass.id}-asset',
+          ),
+        )
+        .toList();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -395,13 +399,12 @@ void main() {
                 fontFamily: 'Roboto',
               ),
             ),
-            builder:
-                (context, child) => MediaQuery(
-                  data: MediaQuery.of(
-                    context,
-                  ).copyWith(textScaler: TextScaler.linear(viewport.scale)),
-                  child: child!,
-                ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(viewport.scale)),
+              child: child!,
+            ),
             home: Scaffold(
               body: SingleChildScrollView(
                 child: PlantOverviewPanel(
@@ -423,10 +426,9 @@ void main() {
         isNot(TextOverflow.ellipsis),
       );
       final heading = tester.getTopLeft(find.text('Base')).dy;
-      final counts =
-          tester
-              .getTopLeft(find.byKey(const ValueKey('plant-class-counts-base')))
-              .dy;
+      final counts = tester
+          .getTopLeft(find.byKey(const ValueKey('plant-class-counts-base')))
+          .dy;
       if (viewport.scale == 1) {
         expect(counts, heading);
       } else {

@@ -15,12 +15,15 @@ import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../domain/plant_asset_overview.dart';
+import '../providers/asset_condition_submission_provider.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/plant_asset_overview_provider.dart';
 import 'inner_cover_lifecycle_screen.dart';
 import 'widgets/governed_asset_target_picker.dart';
+import 'widgets/pending_asset_condition.dart';
 
 part 'asset_condition_board.filters.dart';
+part 'asset_condition_board.asset_actions.dart';
 part 'asset_condition_board.summary.dart';
 
 enum AssetConditionFilter {
@@ -102,32 +105,29 @@ class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
             child: overview.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Loading live plant condition',
-                    color: BafColors.assets,
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Loading live plant condition',
+                color: BafColors.assets,
+              ),
               error: (error, _) => _ConditionLoadError(error: error),
-              data:
-                  (value) => _ConditionBoardBody(
-                    overview: value,
-                    user: user,
-                    openTickets: (conditionTickets.value ??
+              data: (value) => _ConditionBoardBody(
+                overview: value,
+                user: user,
+                openTickets:
+                    (conditionTickets.valueOrNull ??
                             const <MaintenanceRecord>[])
                         .where(
                           (ticket) => !ticket.isResolved && !ticket.isDeleted,
                         )
                         .toList(growable: false),
-                    ticketLoadFailed: conditionTickets.hasError,
-                    selectedFilter: _selectedFilter,
-                    selectedAssetClassId: _selectedAssetClassId,
-                    onFilterChanged:
-                        (filter) => setState(() => _selectedFilter = filter),
-                    onAssetClassChanged:
-                        (assetClassId) => setState(
-                          () => _selectedAssetClassId = assetClassId,
-                        ),
-                  ),
+                ticketLoadFailed: conditionTickets.hasError,
+                selectedFilter: _selectedFilter,
+                selectedAssetClassId: _selectedAssetClassId,
+                onFilterChanged: (filter) =>
+                    setState(() => _selectedFilter = filter),
+                onAssetClassChanged: (assetClassId) =>
+                    setState(() => _selectedAssetClassId = assetClassId),
+              ),
             ),
           ),
         ),
@@ -158,170 +158,156 @@ class PlantOverviewPanel extends StatelessWidget {
         boxShadow: BafShadows.subtle,
       ),
       child: overview.when(
-        loading:
-            () => const SizedBox(
-              height: 132,
-              child: Center(child: CircularProgressIndicator()),
+        loading: () => const SizedBox(
+          height: 132,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          child: const Padding(
+            padding: EdgeInsets.all(BafSpacing.lg),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, color: BafColors.danger),
+                SizedBox(width: BafSpacing.md),
+                Expanded(
+                  child: Text(
+                    'Plant condition data needs attention. Open the board for details.',
+                    style: TextStyle(color: BafColors.textPrimary),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded),
+              ],
             ),
-        error:
-            (error, _) => InkWell(
-              onTap: onOpen,
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-              child: const Padding(
-                padding: EdgeInsets.all(BafSpacing.lg),
-                child: Row(
+          ),
+        ),
+        data: (value) => InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          child: Padding(
+            padding: const EdgeInsets.all(BafSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Icon(Icons.error_outline_rounded, color: BafColors.danger),
-                    SizedBox(width: BafSpacing.md),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: BafColors.assets.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(BafRadius.small),
+                      ),
+                      child: const Icon(
+                        Icons.precision_manufacturing_outlined,
+                        color: BafColors.assets,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: BafSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Plant condition data needs attention. Open the board for details.',
-                        style: TextStyle(color: BafColors.textPrimary),
+                        value.evidenceWarnings.isEmpty
+                            ? 'Plant condition'
+                            : 'Plant condition — evidence incomplete',
+                        style: const TextStyle(
+                          color: BafColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
-              ),
-            ),
-        data:
-            (value) => InkWell(
-              onTap: onOpen,
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-              child: Padding(
-                padding: const EdgeInsets.all(BafSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: BafColors.assets.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(
-                              BafRadius.small,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.precision_manufacturing_outlined,
-                            color: BafColors.assets,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: BafSpacing.sm),
-                        const Expanded(
-                          child: Text(
-                            'Plant condition',
-                            style: TextStyle(
-                              color: BafColors.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${value.available}/${value.total}',
-                          style: const TextStyle(
-                            color: BafColors.assets,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: BafSpacing.xs),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: BafColors.textSecondary,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                    if (value.total == 0)
-                      const Text(
-                        'No active physical assets are registered yet.',
-                        style: TextStyle(color: BafColors.textSecondary),
-                      )
-                    else ...[
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = _metricWidth(context, constraints);
-                          return Wrap(
-                            spacing: BafSpacing.xs,
-                            runSpacing: BafSpacing.xs,
-                            children: [
-                              _PlantMetric(
-                                width: width,
-                                value: value.available,
-                                label: 'Available',
-                                color: BafColors.success,
-                                onTap:
-                                    () => _openFilter(
-                                      AssetConditionFilter.available,
-                                    ),
-                              ),
-                              _PlantMetric(
-                                width: width,
-                                value: value.issueUnavailable,
-                                label: 'Unavailable',
-                                color: BafColors.cobalt,
-                                onTap:
-                                    () => _openFilter(
-                                      AssetConditionFilter.unavailable,
-                                    ),
-                              ),
-                              _PlantMetric(
-                                width: width,
-                                value: value.underMaintenance,
-                                label: 'Maintenance',
-                                color: BafColors.maintenance,
-                                onTap:
-                                    () => _openFilter(
-                                      AssetConditionFilter.maintenance,
-                                    ),
-                              ),
-                              _PlantMetric(
-                                width: width,
-                                value: value.temporarilyBlocked,
-                                label: 'Stuck-up',
-                                color: BafColors.instrument,
-                                onTap:
-                                    () => _openFilter(
-                                      AssetConditionFilter.stuckUp,
-                                    ),
-                              ),
-                              _PlantMetric(
-                                width: width,
-                                value: value.down,
-                                label: 'Down',
-                                color: BafColors.danger,
-                                onTap:
-                                    () =>
-                                        _openFilter(AssetConditionFilter.down),
-                              ),
-                              _PlantMetric(
-                                width: width,
-                                value: value.unfit,
-                                label: 'Unfit',
-                                color: BafColors.warning,
-                                onTap:
-                                    () =>
-                                        _openFilter(AssetConditionFilter.unfit),
-                              ),
-                            ],
-                          );
-                        },
+                    Text(
+                      '${value.available}/${value.total}',
+                      style: const TextStyle(
+                        color: BafColors.assets,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(height: BafSpacing.sm),
-                      ...value.classes
-                          .where((summary) => summary.total > 0)
-                          .map(_PlantClassConditionSummary.new),
-                    ],
+                    ),
+                    const SizedBox(width: BafSpacing.xs),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: BafColors.textSecondary,
+                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: BafSpacing.md),
+                if (value.total == 0)
+                  Text(
+                    value.evidenceWarnings.isEmpty ? 'No active physical assets are registered yet.' : 'No active assets could be verified from the available evidence.',
+                    style: const TextStyle(color: BafColors.textSecondary),
+                  )
+                else ...[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = _metricWidth(context, constraints);
+                      return Wrap(
+                        spacing: BafSpacing.xs,
+                        runSpacing: BafSpacing.xs,
+                        children: [
+                          _PlantMetric(
+                            width: width,
+                            value: value.available,
+                            label: 'Available',
+                            color: BafColors.success,
+                            onTap: () =>
+                                _openFilter(AssetConditionFilter.available),
+                          ),
+                          _PlantMetric(
+                            width: width,
+                            value: value.issueUnavailable,
+                            label: 'Unavailable',
+                            color: BafColors.cobalt,
+                            onTap: () =>
+                                _openFilter(AssetConditionFilter.unavailable),
+                          ),
+                          _PlantMetric(
+                            width: width,
+                            value: value.underMaintenance,
+                            label: 'Maintenance',
+                            color: BafColors.maintenance,
+                            onTap: () =>
+                                _openFilter(AssetConditionFilter.maintenance),
+                          ),
+                          _PlantMetric(
+                            width: width,
+                            value: value.temporarilyBlocked,
+                            label: 'Stuck-up',
+                            color: BafColors.instrument,
+                            onTap: () =>
+                                _openFilter(AssetConditionFilter.stuckUp),
+                          ),
+                          _PlantMetric(
+                            width: width,
+                            value: value.down,
+                            label: 'Down',
+                            color: BafColors.danger,
+                            onTap: () => _openFilter(AssetConditionFilter.down),
+                          ),
+                          _PlantMetric(
+                            width: width,
+                            value: value.unfit,
+                            label: 'Unfit',
+                            color: BafColors.warning,
+                            onTap: () =>
+                                _openFilter(AssetConditionFilter.unfit),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  ...value.classes
+                      .where((summary) => summary.total > 0)
+                      .map(_PlantClassConditionSummary.new),
+                ],
+              ],
             ),
+          ),
+        ),
       ),
     );
   }
@@ -359,7 +345,7 @@ class _ConditionBoardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (overview.total == 0) {
+    if (overview.total == 0 && overview.evidenceWarnings.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(BafSpacing.xl),
@@ -397,6 +383,17 @@ class _ConditionBoardBody extends StatelessWidget {
         BafSpacing.xl,
       ),
       children: [
+        if (overview.evidenceWarnings.isNotEmpty)
+          ExpansionTile(
+            title: const Text('Partial evidence — no fleet all-clear'),
+            subtitle: const Text(
+              'Verified rows remain visible. Counts cover the evidence shown, not a full operational clearance.',
+            ),
+            children: [
+              for (final warning in overview.evidenceWarnings)
+                ListTile(title: Text(warning)),
+            ],
+          ),
         const Text(
           'Current asset scenario',
           style: TextStyle(
@@ -431,15 +428,15 @@ class _ConditionBoardBody extends StatelessWidget {
               label: '${overview.issueUnavailable} unavailable',
               color: BafColors.cobalt,
               selected: selectedFilter == AssetConditionFilter.unavailable,
-              onSelected:
-                  () => onFilterChanged(AssetConditionFilter.unavailable),
+              onSelected: () =>
+                  onFilterChanged(AssetConditionFilter.unavailable),
             ),
             _ConditionFilterChip(
               label: '${overview.underMaintenance} maintenance',
               color: BafColors.maintenance,
               selected: selectedFilter == AssetConditionFilter.maintenance,
-              onSelected:
-                  () => onFilterChanged(AssetConditionFilter.maintenance),
+              onSelected: () =>
+                  onFilterChanged(AssetConditionFilter.maintenance),
             ),
             _ConditionFilterChip(
               label: '${overview.temporarilyBlocked} stuck-up',
@@ -447,6 +444,13 @@ class _ConditionBoardBody extends StatelessWidget {
               selected: selectedFilter == AssetConditionFilter.stuckUp,
               onSelected: () => onFilterChanged(AssetConditionFilter.stuckUp),
             ),
+            if (overview.unverifiedWorkflowEvidence > 0)
+              _ConditionFilterChip(
+                label: '${overview.unverifiedWorkflowEvidence} unverified',
+                color: BafColors.warning,
+                selected: false,
+                onSelected: () {},
+              ),
             _ConditionFilterChip(
               label: '${overview.down} down',
               color: BafColors.danger,
@@ -578,265 +582,17 @@ class _AssetClassSection extends StatelessWidget {
               ) {
                 return index.isEven
                     ? _AssetConditionRow(
-                      state: summary.assets[index ~/ 2],
-                      assetClass: summary.assetClass,
-                      user: user,
-                      openTickets: openTickets,
-                    )
+                        state: summary.assets[index ~/ 2],
+                        assetClass: summary.assetClass,
+                        user: user,
+                        openTickets: openTickets,
+                      )
                     : const Divider(height: 1, color: BafColors.border);
               }),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-enum _AssetConditionAction { declareDown, declareUnfit, restore }
-
-class _AssetConditionRow extends ConsumerWidget {
-  final PlantAssetState state;
-  final AssetClassRecord assetClass;
-  final AppUser? user;
-  final List<MaintenanceRecord> openTickets;
-
-  const _AssetConditionRow({
-    required this.state,
-    required this.assetClass,
-    required this.user,
-    required this.openTickets,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canDeclare =
-        user?.canDeclareAssetOperationalCondition == true &&
-        !state.isAdministrativelyOutOfService;
-    final canRestore =
-        user?.canRestoreAssetOperationalCondition == true &&
-        (state.isDown || state.isManuallyUnfit);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        BafSpacing.md,
-        BafSpacing.md,
-        BafSpacing.sm,
-        BafSpacing.md,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _primaryColor(state).withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(BafRadius.small),
-            ),
-            child: Icon(
-              _primaryIcon(state),
-              color: _primaryColor(state),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  state.asset.name,
-                  style: const TextStyle(
-                    color: BafColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.xs),
-                Wrap(
-                  spacing: BafSpacing.xs,
-                  runSpacing: BafSpacing.xs,
-                  children: _stateBadges(state),
-                ),
-                if (state.operationalCondition?.active == true) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  Text(
-                    state.operationalCondition!.reason,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (state.operationalCondition!.basis case final basis?) ...[
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      <String>[
-                        basis.label,
-                        if (state.operationalCondition!.componentReference
-                            case final reference?)
-                          reference.hierarchyPath.join(' › '),
-                      ].join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: BafSpacing.xs),
-                  Text(
-                    'Declared ${DateFormat('dd MMM, HH:mm').format(state.operationalCondition!.declaredAt!.toLocal())} by ${state.operationalCondition!.declaredByName}',
-                    style: const TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-                if (state.issueConditionContributions.isNotEmpty) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  for (final contribution
-                      in state.issueConditionContributions) ...[
-                    Text(
-                      contribution.comment,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color:
-                            contribution.effect ==
-                                    MaintenanceIssuePlantConditionEffect
-                                        .unavailable
-                                ? BafColors.cobalt
-                                : BafColors.warning,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      <String>[
-                        'Raised ${DateFormat('dd MMM, HH:mm').format(contribution.startedAt.toLocal())}',
-                        if (contribution.raisedByName case final name?)
-                          'by $name',
-                      ].join(' '),
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ],
-            ),
-          ),
-          if (canDeclare || canRestore)
-            PopupMenuButton<_AssetConditionAction>(
-              tooltip: 'Asset condition actions',
-              icon: const Icon(Icons.more_vert_rounded),
-              onSelected: (action) => _runAction(context, ref, action),
-              itemBuilder:
-                  (context) => [
-                    if (canDeclare && !state.isDown)
-                      const PopupMenuItem(
-                        value: _AssetConditionAction.declareDown,
-                        child: Text('Declare down'),
-                      ),
-                    if (canDeclare && !state.isManuallyUnfit)
-                      const PopupMenuItem(
-                        value: _AssetConditionAction.declareUnfit,
-                        child: Text('Declare unfit'),
-                      ),
-                    if (canRestore)
-                      const PopupMenuItem(
-                        value: _AssetConditionAction.restore,
-                        child: Text('Restore availability'),
-                      ),
-                  ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _runAction(
-    BuildContext context,
-    WidgetRef ref,
-    _AssetConditionAction action,
-  ) async {
-    final actor = user;
-    if (actor == null) return;
-    if (action == _AssetConditionAction.restore) {
-      final reason = await _showReasonDialog(
-        context,
-        title: 'Restore ${state.asset.name}',
-        actionLabel: 'Restore',
-        hint: 'State the evidence that makes the asset safe and available.',
-      );
-      if (reason == null || !context.mounted) return;
-      await _perform(
-        context,
-        () => ref
-            .read(assetHierarchyRepositoryProvider)
-            .restoreAssetCondition(
-              asset: state.asset,
-              current: state.operationalCondition!,
-              reason: reason,
-              actor: actor,
-            ),
-        'Availability restored.',
-      );
-      return;
-    }
-    final condition =
-        action == _AssetConditionAction.declareDown
-            ? AssetOperationalCondition.down
-            : AssetOperationalCondition.unfit;
-    final List<MaintenanceRecord> linkedTickets;
-    try {
-      linkedTickets = _ticketsForAsset(openTickets, state.asset.id);
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Open issue data could not be verified: $error'),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-      return;
-    }
-    final draft = await showModalBottomSheet<_ConditionDraft>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder:
-          (context) => _DeclareConditionSheet(
-            asset: state.asset,
-            isBase: assetClass.legacyAssetTypeKey == 'base',
-            condition: condition,
-            tickets: linkedTickets,
-          ),
-    );
-    if (draft == null || !context.mounted) return;
-    await _perform(
-      context,
-      () => ref
-          .read(assetHierarchyRepositoryProvider)
-          .declareAssetCondition(
-            asset: state.asset,
-            condition: condition,
-            causes: draft.causes,
-            basis: draft.basis,
-            componentReference: draft.componentReference,
-            reason: draft.reason,
-            linkedIssueIds: draft.linkedIssueIds,
-            actor: actor,
-            current: state.operationalCondition,
-          ),
-      '${condition.label} condition recorded.',
     );
   }
 }
@@ -895,14 +651,14 @@ class _DeclareConditionSheetState
     final nodesAsync = ref.watch(
       assetHierarchyNodesProvider(widget.asset.assetClassId),
     );
-    final assignmentsAsync =
-        widget.isBase ? ref.watch(innerCoverAssignmentsProvider) : null;
-    final linkedInnerCover =
-        assignmentsAsync?.value
-            ?.where(
-              (assignment) => assignment.baseAssetInstanceId == widget.asset.id,
-            )
-            .firstOrNull;
+    final assignmentsAsync = widget.isBase
+        ? ref.watch(innerCoverAssignmentsProvider)
+        : null;
+    final linkedInnerCover = assignmentsAsync?.value
+        ?.where(
+          (assignment) => assignment.baseAssetInstanceId == widget.asset.id,
+        )
+        .firstOrNull;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -958,43 +714,39 @@ class _DeclareConditionSheetState
                     assignment: linkedInnerCover,
                     loading: assignmentsAsync?.isLoading == true,
                     failed: assignmentsAsync?.hasError == true,
-                    onOpenLifecycle:
-                        () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const InnerCoverLifecycleScreen(),
-                          ),
-                        ),
+                    onOpenLifecycle: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const InnerCoverLifecycleScreen(),
+                      ),
+                    ),
                   ),
                 ] else ...[
                   _ComponentConditionTarget(
                     reference: _componentReference,
                     loading: nodesAsync.isLoading,
                     failed: nodesAsync.hasError,
-                    onChoose:
-                        nodesAsync.hasValue
-                            ? () async {
-                              final selection =
-                                  await showGovernedAssetTargetPicker(
-                                    context: context,
-                                    asset: widget.asset,
-                                    nodes:
-                                        nodesAsync.value ??
-                                        const <AssetHierarchyNode>[],
-                                    selectedNodeId: _componentReference?.nodeId,
-                                  );
-                              if (selection?.reference != null && mounted) {
-                                setState(
-                                  () =>
-                                      _componentReference =
-                                          selection!.reference,
+                    onChoose: nodesAsync.hasValue
+                        ? () async {
+                            final selection =
+                                await showGovernedAssetTargetPicker(
+                                  context: context,
+                                  asset: widget.asset,
+                                  nodes:
+                                      nodesAsync.value ??
+                                      const <AssetHierarchyNode>[],
+                                  selectedNodeId: _componentReference?.nodeId,
                                 );
-                              }
+                            if (selection?.reference != null && mounted) {
+                              setState(
+                                () =>
+                                    _componentReference = selection!.reference,
+                              );
                             }
-                            : null,
-                    onClear:
-                        _componentReference == null
-                            ? null
-                            : () => setState(() => _componentReference = null),
+                          }
+                        : null,
+                    onClear: _componentReference == null
+                        ? null
+                        : () => setState(() => _componentReference = null),
                   ),
                 ],
                 const SizedBox(height: BafSpacing.lg),
@@ -1011,12 +763,11 @@ class _DeclareConditionSheetState
                         return FilterChip(
                           label: Text(cause.label),
                           selected: _causes.contains(cause),
-                          onSelected:
-                              (selected) => setState(() {
-                                selected
-                                    ? _causes.add(cause)
-                                    : _causes.remove(cause);
-                              }),
+                          onSelected: (selected) => setState(() {
+                            selected
+                                ? _causes.add(cause)
+                                : _causes.remove(cause);
+                          }),
                         );
                       })
                       .toList(growable: false),
@@ -1057,16 +808,14 @@ class _DeclareConditionSheetState
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              subtitle:
-                                  ticket.component == null
-                                      ? null
-                                      : Text(ticket.component!),
-                              onChanged:
-                                  (selected) => setState(() {
-                                    selected == true
-                                        ? _tickets.add(id)
-                                        : _tickets.remove(id);
-                                  }),
+                              subtitle: ticket.component == null
+                                  ? null
+                                  : Text(ticket.component!),
+                              onChanged: (selected) => setState(() {
+                                selected == true
+                                    ? _tickets.add(id)
+                                    : _tickets.remove(id);
+                              }),
                             );
                           })
                           .toList(growable: false),
@@ -1083,8 +832,8 @@ class _DeclareConditionSheetState
                     style: FilledButton.styleFrom(
                       backgroundColor:
                           widget.condition == AssetOperationalCondition.down
-                              ? BafColors.danger
-                              : BafColors.warning,
+                          ? BafColors.danger
+                          : BafColors.warning,
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                     ),
@@ -1101,17 +850,16 @@ class _DeclareConditionSheetState
   void _submit() {
     final reason = _reason.text.trim();
     final basis = _basis;
-    final linkedAssignment =
-        widget.isBase
-            ? ref
-                .read(innerCoverAssignmentsProvider)
-                .value
-                ?.where(
-                  (assignment) =>
-                      assignment.baseAssetInstanceId == widget.asset.id,
-                )
-                .firstOrNull
-            : null;
+    final linkedAssignment = widget.isBase
+        ? ref
+              .read(innerCoverAssignmentsProvider)
+              .value
+              ?.where(
+                (assignment) =>
+                    assignment.baseAssetInstanceId == widget.asset.id,
+              )
+              .firstOrNull
+        : null;
     if (_causes.isEmpty || reason.isEmpty || basis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1192,10 +940,10 @@ class _ComponentConditionTarget extends StatelessWidget {
           Text(
             selected == null
                 ? failed
-                    ? 'The governed hierarchy could not be verified.'
-                    : loading
-                    ? 'Loading the current governed hierarchy...'
-                    : 'Choose the exact component or subcomponent making this asset unavailable.'
+                      ? 'The governed hierarchy could not be verified.'
+                      : loading
+                      ? 'Loading the current governed hierarchy...'
+                      : 'Choose the exact component or subcomponent making this asset unavailable.'
                 : selected.hierarchyPath.join(' › '),
             style: TextStyle(
               color: failed ? BafColors.danger : BafColors.textSecondary,
@@ -1250,15 +998,13 @@ class _InnerCoverAvailabilityPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(BafSpacing.md),
       decoration: BoxDecoration(
-        color:
-            blocked
-                ? BafColors.warning.withValues(alpha: 0.09)
-                : BafColors.success.withValues(alpha: 0.08),
+        color: blocked
+            ? BafColors.warning.withValues(alpha: 0.09)
+            : BafColors.success.withValues(alpha: 0.08),
         border: Border.all(
-          color:
-              blocked
-                  ? BafColors.warning.withValues(alpha: 0.45)
-                  : BafColors.success.withValues(alpha: 0.35),
+          color: blocked
+              ? BafColors.warning.withValues(alpha: 0.45)
+              : BafColors.success.withValues(alpha: 0.35),
         ),
         borderRadius: BorderRadius.circular(BafRadius.small),
       ),
@@ -1318,9 +1064,8 @@ Future<String?> _showReasonDialog(
 }) {
   return showDialog<String>(
     context: context,
-    builder:
-        (_) =>
-            _ReasonDialog(title: title, actionLabel: actionLabel, hint: hint),
+    builder: (_) =>
+        _ReasonDialog(title: title, actionLabel: actionLabel, hint: hint),
   );
 }
 
@@ -1405,6 +1150,11 @@ Future<void> _perform(
 
 List<Widget> _stateBadges(PlantAssetState state) {
   final output = <Widget>[];
+  if (state.hasUnverifiedWorkflowEvidence) {
+    output.add(
+      const StatusBadge(label: 'Evidence incomplete', color: BafColors.warning),
+    );
+  }
   if (state.isDown) {
     output.add(const StatusBadge(label: 'Down', color: BafColors.danger));
   }
@@ -1442,6 +1192,7 @@ List<Widget> _stateBadges(PlantAssetState state) {
 
 Color _primaryColor(PlantAssetState state) {
   if (state.isTemporarilyBlocked) return BafColors.instrument;
+  if (state.hasUnverifiedWorkflowEvidence) return BafColors.warning;
   if (state.isDown) return BafColors.danger;
   if (state.isIssueUnavailable) return BafColors.cobalt;
   if (state.isUnfit) return BafColors.warning;
@@ -1452,6 +1203,7 @@ Color _primaryColor(PlantAssetState state) {
 
 IconData _primaryIcon(PlantAssetState state) {
   if (state.isTemporarilyBlocked) return Icons.link_off_rounded;
+  if (state.hasUnverifiedWorkflowEvidence) return Icons.help_outline_rounded;
   if (state.isDown) return Icons.power_off_rounded;
   if (state.isIssueUnavailable) return Icons.block_outlined;
   if (state.isUnfit) return Icons.gpp_bad_outlined;

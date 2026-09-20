@@ -108,6 +108,29 @@ Map<String, dynamic>? _acceptanceSummary(
       if (operation != inner['operation']) return null;
       committedAt = receipt['committedAt'];
       switch (domain) {
+        case 'ordinaryDirective':
+          if (row.protocol != 'assetHierarchy.v2' ||
+              operation != 'APPLY_ORDINARY_DIRECTIVE' ||
+              receipt['ok'] != true) {
+            return null;
+          }
+          entity = receipt['entityId'];
+          version = receipt['version'];
+        case 'assetCondition':
+          if (row.protocol != 'assetHierarchy.v2' ||
+              !const {
+                'DECLARE_ASSET_CONDITION',
+                'RESTORE_ASSET_CONDITION',
+              }.contains(operation) ||
+              receipt['assetClassId'] != inner['assetClassId'] ||
+              receipt['condition'] !=
+                  (operation == 'RESTORE_ASSET_CONDITION'
+                      ? 'available'
+                      : inner['condition'])) {
+            return null;
+          }
+          entity = receipt['assetInstanceId'];
+          version = receipt['version'];
         case 'innerCoverAcceptance':
           if (row.protocol != 'assetHierarchy.v2' ||
               operation != 'ACCEPT_INNER_COVER') {
@@ -117,7 +140,12 @@ Map<String, dynamic>? _acceptanceSummary(
           version = receipt['version'];
         case 'qualityMonitoring':
           if (row.protocol != 'chargeAbnormality.v2' ||
-              operation != 'CREATE_QUALITY_MONITORING_REQUEST') {
+              !const {
+                'CREATE_QUALITY_MONITORING_REQUEST',
+                'CLOSE_QUALITY_MONITORING_REQUEST',
+                'CORRECT_QUALITY_MONITORING_REQUEST',
+                'CANCEL_QUALITY_MONITORING_REQUEST',
+              }.contains(operation)) {
             return null;
           }
           entity = receipt['entityId'];

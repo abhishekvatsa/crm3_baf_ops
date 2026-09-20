@@ -62,10 +62,18 @@ export const revalidateInspectionTargetContext: CommandHandler = async ({tx, com
   if (!campaign.exists || campaign.data == null || campaign.data.version !== command.expectedVersion) {
     throw new WorkflowError("aborted", "Inspection campaign is missing or changed.");
   }
-  if (!["open", "paused"].includes(String(campaign.data.status)) || audit.exists) {
+  if (!["open", "paused", "closed"].includes(String(campaign.data.status)) || audit.exists) {
     throw new WorkflowError("failed-precondition", "Reopen the campaign before reviewing its target context.");
   }
   const targets = parseInspectionTargetPopulation(campaign.data.targetPopulation);
+  if (campaign.data.status === "closed") {
+    const findings = await tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId}, {field: "targetKey", op: "==", value: targetKey},
+    ]);
+    if (!findings.some((row) => ["open", "awaitingVerification", "correctiveActionLinked"].includes(String(row.data?.status)))) {
+      throw new WorkflowError("failed-precondition", "A closed survey permits context review only for an outstanding finding.");
+    }
+  }
   const target = targets.find((item) => item.targetKey === targetKey);
   if (target == null || (target.contextReview?.revision ?? 0) !== expectedContextRevision) {
     throw new WorkflowError("aborted", "The selected inspection target context changed. Review it again.");

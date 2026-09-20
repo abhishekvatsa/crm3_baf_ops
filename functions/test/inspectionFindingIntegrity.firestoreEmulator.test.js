@@ -47,6 +47,34 @@ describeLocal('inspection effective history and shared finding activation on rea
   });
   afterAll(async () => { if (app) await app.delete(); });
 
+  test('closed-survey scope review and follow-up survive real Timestamp persistence and receipt replay', async () => {
+    await record('first', '04:50', 1.8);
+    await db.doc('maintenance_records/repair').set(workflowFirestoreDataForTest({firestoreId: 'repair', version: 2,
+      isDeleted: false, isResolved: true, status: 'resolved', assetType: 'furnace', assetNumber: 1,
+      description: 'Pressure control repair', startDate: '2026-08-21T05:00:00.000Z', endDate: '2026-08-21T05:30:00.000Z',
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1, assetNumber: 1})}));
+    await run({commandId: 'review-link', commandType: 'linkInspectionObservationIssue', aggregateId: campaignId,
+      expectedVersion: (await campaign()).version, payload: {observationId: 'first', ticketId: 'repair', reason: 'Corrective work.',
+        scopeReview: {expectedTicketVersion: 2, reason: 'Repair included the pressure transmitter at Gas train.'}}});
+    await run({commandId: 'close-survey', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
+      expectedVersion: (await campaign()).version, payload: {status: 'closed', reason: 'Survey done; verification remains.'}});
+    const closed = await campaign();
+    const followUp = observation({commandId: 'follow-up', observationId: 'follow-up', expectedVersion: closed.version,
+      numericValue: 3, observedAt: '2026-08-21T06:00:00.000Z'});
+    followUp.payload.followUpFindingId = 'inspection-finding-first';
+    const accepted = await run(followUp);
+    const verify = {commandId: 'verify-follow-up', commandType: 'verifyInspectionFinding', aggregateId: campaignId,
+      expectedVersion: (await campaign()).version, payload: {findingId: 'inspection-finding-first',
+        expectedFindingVersion: (await finding()).version, observationId: 'follow-up', outcome: 'resolved', reason: 'Repair effect checked.'}};
+    await run(verify);
+    expect((await finding()).status).toBe('verifiedResolved');
+    expect((await campaign()).status).toBe('closed');
+    expect((await campaign()).closedAt).toEqual(closed.closedAt);
+    expect((await read('inspection_issue_links/first_repair')).scopeReview.reviewedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    const before = await finding(); expect(await run(followUp)).toEqual(accepted); expect(await finding()).toEqual(before);
+  });
+
   test('PBA01: stored Timestamp correction selects surviving adverse evidence; real follow-up can resolve', async () => {
     await record('first', '04:50', 1.8); await record('later-adverse', '05:10', 1.7); await record('mistimed', '05:20', 1.9);
     const original = await read('inspection_observations/mistimed');

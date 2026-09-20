@@ -3736,12 +3736,26 @@ app_database_consumers = [
     for path, source in lib_dart_sources.items()
     if "core/persistence/app_database.dart" in source
 ]
+expected_app_database_consumers = {
+    "lib/main.dart",
+    "lib/features/abnormalities/providers/abnormality_provider.dart",
+    "lib/features/audit/repositories/audit_repository.dart",
+    "lib/features/directives/providers/operational_directive_provider.dart",
+    "lib/features/directives/services/ordinary_directive_commands.dart",
+    "lib/features/maintenance/providers/maintenance_provider.dart",
+    "lib/features/maintenance_workflow/providers/workflow_providers.dart",
+    "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
+    "lib/features/planned_maintenance/providers/job_diary_provider.dart",
+    "lib/features/planned_maintenance/providers/job_module_provider.dart",
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+    "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+}
 check(
     "Dart data layer is main-decoupled and guarded against import cycles",
     "late Isar isar;" in app_database_source
     and "late Isar isar;" not in main_source
     and main_importers == []
-    and len(app_database_consumers) == 11
+    and set(app_database_consumers) == expected_app_database_consumers
     and "lib has no internal Dart import cycles" in dart_import_cycle_test
     and "final lowLinks = <String, int>{};" in dart_import_cycle_test
     and "component.length > 1 || graph[node]!.contains(node)"
@@ -10769,7 +10783,8 @@ check(
         in rules_source
     and (
         "allow create: if !docId.matches('^server_.*')\n"
-        "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();"
+        "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate()\n"
+        "        && validClientAuditIdentity(docId);"
     ) in rules_source
     and "chargeAbnormalityCommandServiceProvider" in s07_screen
     and "repository.updateAbnormality(" not in s07_screen
@@ -11207,6 +11222,9 @@ operational_ux_home = text("lib/home_screen.dart")
 operational_ux_issues = text(
     "lib/features/maintenance/presentation/ticket_screen.dart"
 )
+operational_ux_issue_widgets = text(
+    "lib/features/maintenance/presentation/ticket_screen.shared_widgets.dart"
+)
 operational_ux_work = text(
     "lib/features/planned_maintenance/presentation/templates_screen.dart"
 )
@@ -11262,9 +11280,11 @@ check(
     and "title: 'Plant condition'" in operational_ux_home
     and "title: 'Operations intelligence'" in operational_ux_home
     and "hintText: 'Find a screen or function'" in operational_ux_home
-    and "issues-raise-issue" in operational_ux_issues
-    and "issues-search" in operational_ux_issues
-    and "BoxConstraints(maxWidth: 960)" in operational_ux_issues
+    and "part 'ticket_screen.shared_widgets.dart';" in operational_ux_issues
+    and "part of 'ticket_screen.dart';" in operational_ux_issue_widgets
+    and "issues-raise-issue" in operational_ux_issue_widgets
+    and "issues-search" in operational_ux_issue_widgets
+    and "BoxConstraints(maxWidth: 960)" in operational_ux_issue_widgets
     and "_PlannedWorkView.workflow" in operational_ux_work
     and "canSeeTemplates" in operational_ux_work
     and "WorkflowQueueView(" in operational_ux_work
@@ -11383,14 +11403,37 @@ r04_sign_out_end = r04_auth_service.index(
     r04_sign_out_start,
 )
 r04_sign_out = r04_auth_service[r04_sign_out_start:r04_sign_out_end]
-r04_remove_start = r04_registry.index("Future<void> remove({")
+r04_sign_out_calls = [
+    re.sub(r"\s+", "", match.group(1))
+    for match in re.finditer(
+        r"await\s+(_notificationRegistry\s*\.\s*removeCurrentInstallation|"
+        r"_auth\s*\.\s*signOut|_googleSignIn\s*\.\s*signOut)\s*\(",
+        r04_sign_out,
+    )
+]
+r04_remove_start = r04_registry.index(
+    "Future<void> remove({",
+    r04_registry.index("class FirestoreNotificationInstallationDocumentStore"),
+)
 r04_remove_end = r04_registry.index(
     "abstract interface class NotificationTokenSource",
     r04_remove_start,
 )
 r04_remove = r04_registry[r04_remove_start:r04_remove_end]
+r04_remove_compact = re.sub(r"\s+", "", r04_remove)
+r04_token_mismatch_guard = (
+    "if(installation.exists&&expectedToken!=null&&"
+    "installation.data()?['token']!=expectedToken){return;"
+)
+r04_installation_rules_start = r04_rules.index(
+    "match /notification_installations/{installationId}"
+)
+r04_installation_rules = r04_rules[
+    r04_installation_rules_start:
+    r04_rules.index("\n      }", r04_installation_rules_start)
+]
 check(
-    "R-04 notification registration is source-and-CI closed, private and bounded",
+    "R-04 historical closure is preserved and current private registration requires revalidation",
     len(r04_records) == 1
     and r04_record.get("authorityType") == "SOURCE_AND_CI"
     and r04_record.get("currentStatus") == "CLOSED"
@@ -11475,9 +11518,14 @@ check(
     and all(value is False for value in r04_boundary.values())
     and r04_policy.get("schemaVersion") == 1
     and r04_policy.get("findingId") == "R-04"
-    and r04_policy.get("sourceStatus") == "SOURCE_AND_CI_CLOSED"
+    and r04_policy.get("sourceStatus")
+        == "SOURCE_IMPLEMENTED_CI_REVALIDATION_REQUIRED"
     and r04_policy.get("privacyAndAuthority", {}).get("clientReads")
-        == "DENIED"
+        == "OWNER_POINT_GET_ONLY_NO_LIST"
+    and r04_policy.get("currentSourceRevalidation", {}).get("historicalClosure")
+        == "PR 134 closure remains evidence for its original source and authority only."
+    and r04_policy.get("currentSourceRevalidation", {}).get("requiredEvidence")
+        == "Current-head Rules emulator and release CI, followed by separate production Rules deployment/readback before activation."
     and r04_policy.get("delivery", {}).get(
         "maximumInstallationsReadPerUser"
     ) == 8
@@ -11494,16 +11542,20 @@ check(
     and "removeCurrentInstallation" in r04_registry
     and "retireMessagingToken" in r04_registry
     and "transaction.delete(installationRef)" in r04_remove
-    and "transaction.get(installationRef)" not in r04_remove
+    and "awaittransaction.get(installationRef);" in r04_remove_compact
+    and r04_token_mismatch_guard in r04_remove_compact
+    and r04_remove_compact.index("awaittransaction.get(installationRef);")
+        < r04_remove_compact.index(r04_token_mismatch_guard)
+        < r04_remove_compact.index("transaction.delete(installationRef)")
     and "registry.tokenRefreshes.listen" in r04_auth
     and "FCM token refresh subscription unavailable" in r04_auth
     and "notificationInstallationSyncProvider" in r04_auth
     and "'fcmToken'" not in r04_pending_payload
-    and r04_sign_out.index(
-        "await _notificationRegistry.removeCurrentInstallation"
-    ) < r04_sign_out.index("await _auth.signOut()")
-    and r04_sign_out.index("await _auth.signOut()")
-        < r04_sign_out.index("await _googleSignIn.signOut()")
+    and r04_sign_out_calls == [
+        "_notificationRegistry.removeCurrentInstallation",
+        "_auth.signOut",
+        "_googleSignIn.signOut",
+    ]
     and "ref.watch(notificationInstallationSyncProvider)" in r04_main
     and "MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8"
         in r04_notifications
@@ -11518,11 +11570,13 @@ check(
     and "wrongTimestamp" in r04_notification_test
     and "validNotificationInstallationWrite" in r04_rules
     and "match /notification_installations/{installationId}" in r04_rules
-    and "allow read: if false;" in r04_rules[
-        r04_rules.index("match /notification_installations/{installationId}"):
-        r04_rules.index("match /audit_logs/{docId}")
-    ]
+    and "allow get: if canWriteOwnNotificationInstallation(userId);"
+        in r04_installation_rules
+    and "allow list: if false;" in r04_installation_rules
+    and "allow read:" not in r04_installation_rules
     and "R-04 private notification installation registry" in r04_rules_test
+    and "installation tokens allow owner point reads but deny other users and listing"
+        in r04_rules_test
     and "sign-out removes only this installation" in r04_client_test
     and "R-04 source and CI closure is exact" in r04_contract_test
     and "Status: CLOSED" in r04_decision
@@ -12349,6 +12403,10 @@ a05_decision_4 = text(
 a05_tombstone_guard = text(
     "lib/core/services/remote_tombstone_apply_result.dart"
 )
+a05_maintenance_update_rules = re.search(
+    r"function validMaintenanceUpdate\(\)\s*\{([^{}]*)\}",
+    rules_source,
+)
 a05_tombstone_provider_paths = (
     "lib/features/abnormalities/providers/abnormality_provider.dart",
     "lib/features/directives/providers/operational_directive_provider.dart",
@@ -12672,6 +12730,28 @@ a03_history = [
 a03_manifest = data("governance/a03-persistence-boundaries-v1.json")
 a03_profiles = a03_manifest.get("profiles", {})
 a03_surfaces = a03_manifest.get("surfaces", [])
+a03_dedicated_surface_tests = {
+    "lib/features/planned_maintenance/providers/template_governance_publication.dart": {
+        "test/template_publication_transaction_test.dart",
+    },
+    "lib/features/assets/data/plant_condition_evidence.dart": {
+        "test/equipment_condition_evidence_test.dart",
+        "test/equipment_condition_board_review_test.dart",
+    },
+    "lib/features/assets/providers/plant_asset_overview_provider.dart": {
+        "test/equipment_condition_evidence_test.dart",
+        "test/equipment_condition_board_review_test.dart",
+    },
+    "lib/features/admin/providers/user_authority_durable_command_provider.dart": {
+        "test/user_authority_recovery_test.dart",
+    },
+    "lib/features/directives/services/ordinary_directive_commands.dart": {
+        "test/ordinary_directive_commands_test.dart",
+    },
+    "lib/features/auth/services/online_access_gate.dart": {
+        "test/online_access_gate_test.dart",
+    },
+}
 a03_remediation = text(
     "docs/v4_2_r1/A03_PERSISTENCE_BOUNDARY_REMEDIATION.md"
 )
@@ -12936,23 +13016,28 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 594
-    and a03_inventory_report.get("siteCount") == 2076
+    and a03_inventory_report.get("operationCount") == 618
+    and a03_inventory_report.get("siteCount") == 2164
     and a03_inventory_report.get("inventoryDigest")
-        == "D23545897AC627ECB6F3D8A7DC3CC615519D833D77BB80234E8A5FB4A82B8D96"
+        == "D07DA8DEB4E167358DFADA0E2C5C0EAB8D0220AECE8C8EA2023356DE3D52D5AE"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 70
-    and len({surface.get("path") for surface in a03_surfaces}) == 70
+    and len(a03_surfaces) == 77
+    and len({surface.get("path") for surface in a03_surfaces}) == 77
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
         and surface.get("allowedStores")
         and surface.get("allowedModes")
-        and "test/a03_persistence_boundary_contract_test.dart"
-            in surface.get("regressionTests", [])
+        and (
+            set(surface.get("regressionTests", []))
+                == a03_dedicated_surface_tests[surface["path"]]
+            if surface.get("path") in a03_dedicated_surface_tests
+            else "test/a03_persistence_boundary_contract_test.dart"
+                in surface.get("regressionTests", [])
+        )
         for surface in a03_surfaces
     )
     and all(
@@ -12990,9 +13075,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 98
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 110
     and a04_inventory_report.get("inventoryDigest")
-        == "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3"
+        == "7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13000,8 +13085,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 98
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 98
+    and len(a04_inherited_decoders) == 110
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 110
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13269,16 +13354,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 96
-    and a05_timestamp_inventory_report.get("directCallCount") == 232
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 140
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
+    and a05_timestamp_inventory_report.get("readerCount") == 101
+    and a05_timestamp_inventory_report.get("directCallCount") == 247
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 145
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 99
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 37
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 41
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 15
+    ) == 18
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13286,11 +13371,11 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 96
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 101
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 15
+    ) == 18
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13311,17 +13396,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 98
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 53
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 57
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 48
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 458
+    and a05_decoder_inventory_report.get("surfaceCount") == 110
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 58
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 59
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 54
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 514
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 98
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 53
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 110
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 58
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13382,8 +13467,9 @@ check(
     and "cannot precede createdAt" in a05_baf_reader
     and "non-finite numbers are not supported" in a05_baf_reader
     and "unsupported persisted value" in a05_baf_reader
-    and a05_baf_repository.count("on FirebaseException") == 2
+    and a05_baf_repository.count("on FirebaseException") == 3
     and ".catchError((_) => null)" not in a05_baf_repository
+    and "if (rowsSnap.docs.isEmpty) rethrow;" in a05_baf_repository
     and "await Future.wait<void>(<Future<void>>[" in a05_baf_repository
     and "baseQuery\n          .get(authoritativeGlobalPullReadOptions)"
         in a05_baf_repository
@@ -13393,13 +13479,19 @@ check(
         < a05_baf_repository.index(
             "while (true) {"
         )
-    and "BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)"
+    and "final row = BafKnowledgeRow.fromCloudMap(doc.data(), doc.id);"
         in a05_baf_repository
+    and "if (!row.isDeleted && row.lifecycleStatus == 'active') {\n"
+        "        entries.add(row.toEntry(i));" in a05_baf_repository
     and a05_baf_repository.index("final remotes = [")
         < a05_baf_repository.index("await _isar.writeTxn(() async {")
-    and a05_baf_repository.index("final metaStore =")
+    and a05_baf_repository.index("var metaStore = metaData == null")
+        < a05_baf_repository.index("final acceptedMeta = metaStore;")
         < a05_baf_repository.index("await _isar.writeTxn(() async {")
-    and a05_baf_provider.count("BafKnowledgeRow.fromCloudMap(") == 2
+    and a05_baf_provider.count("BafKnowledgeRow.fromCloudMap(") == 3
+    and "final cloud = BafKnowledgeRow.fromCloudMap(data, rowCode);"
+        in a05_baf_provider
+    and "if (cloud.version != version)" in a05_baf_provider
     and "int _cloudVersionFrom(" not in a05_baf_provider
     and "DateTime.fromMillisecondsSinceEpoch(0" not in a05_workflow_pull
     and "readRequiredPersistedDateTime(" in a05_workflow_pull
@@ -13638,7 +13730,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 37
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 41
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13665,7 +13757,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 37
+    ) == 41
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test
@@ -13705,7 +13797,11 @@ check(
         in a05_maintenance_provider
     and "historyPayload.rows.add(" in a05_maintenance_provider
     and "decodePersistedAuditEvent(" in a05_audit_repository
-    and a05_audit_repository.count("on PersistedDataFormatException") == 3
+    and a05_audit_repository.count("on PersistedDataFormatException") == 4
+    and len(re.findall(
+        r"on PersistedDataFormatException\s*\{\s*rethrow;\s*\}",
+        a05_audit_repository,
+    )) == 4
     and "_safeDecode" not in a05_audit_repository
     and "readOptionalJsonObject(" in a05_audit_model
     and "catch (_)" not in a05_audit_model
@@ -13762,7 +13858,11 @@ check(
     and "Saved responses need repair" in a05_job_history
     and "invalidPersistedEvidence" in a05_closure_guard
     and "readFieldResponsePayload" in a05_finalize_handler
-    and "readFieldDefinitionPayload" in a05_red_resolver
+    and "compiled = compilePublishedTemplateRequirements({" in a05_red_resolver
+    and "export function compilePublishedTemplateRequirements(" in a05_assignment
+    and "fields: validatedFieldsForModule(bundle, snapshot)" in a05_assignment
+    and "return [...readFieldDefinitionPayload(JSON.stringify(fields), {"
+        in a05_assignment
     and "fieldDefinitionsJson must contain a JSON array when present"
         in a05_red_resolver
     and "readFieldDefinitionPayload" in a05_assignment
@@ -13808,7 +13908,11 @@ check(
     )
     and "remote.deletedAt ??" not in a05_tombstone_providers
     and "function targetTombstoneHasDeletionAuthority()" in rules_source
-    and rules_source.count("targetTombstoneHasDeletionAuthority()") >= 6
+    and rules_source.count("targetTombstoneHasDeletionAuthority()") == 5
+    and a05_maintenance_update_rules is not None
+    and re.sub(
+        r"//[^\n]*|\s+", "", a05_maintenance_update_rules.group(1)
+    ) == "returnfalse;"
     and "all deletedAt-bearing remote model decoders fail closed"
         in a05_tombstone_test
     and "provider source contains no remote deletion-time substitution"

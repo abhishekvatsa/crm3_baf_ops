@@ -25,6 +25,8 @@ import '../domain/burner_lockout_case.dart';
 import '../services/maintenance_issue_command_reconciler.dart';
 import '../services/maintenance_issue_resolution_command.dart';
 
+part 'resolve_form_widgets.dart';
+
 class ResolveForm extends ConsumerStatefulWidget {
   final MaintenanceRecord ticket;
   const ResolveForm({super.key, required this.ticket});
@@ -154,6 +156,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
             outcome: resolution.outcomes[position]!,
             performedBy: performedBy,
             performedAt: performedAt,
+            attendanceRevision: widget.ticket.version,
             microampReading: resolution.microampReadings[position],
             remarks: remarks == null || remarks.isEmpty ? null : remarks,
           ),
@@ -167,6 +170,10 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final diff = _endTime.difference(widget.ticket.currentWorkEpisodeStartedAt);
     return diff.inMinutes / 60.0;
   }
+
+  bool get _attendanceOnly => _burnerOutcomes.values.any(
+    (outcome) => outcome != null && outcome != BurnerResolutionOutcome.returnedToService,
+  );
 
   Future<void> _pickEndTime() async {
     final now = DateTime.now();
@@ -511,11 +518,11 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         converged =
             remote != null &&
             remote.version >= receipt.aggregateVersion &&
-            remote.isResolved &&
-            remote.status == TicketStatus.resolved &&
-            remote.closedByUid == appUser.uid &&
             remotePlan != null &&
-            remotePlan.isFullyCompleted;
+            (command.payload['attendanceOnly'] == true
+                ? !remote.isResolved && remote.status == TicketStatus.inProgress
+                : remote.isResolved && remote.status == TicketStatus.resolved &&
+                    remote.closedByUid == appUser.uid && remotePlan.isFullyCompleted);
       } else {
         try {
           await ref
@@ -546,8 +553,10 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       if (!mounted) return;
       final message =
           converged
-              ? 'Issue resolved and verified against the plant system'
-              : 'Issue resolution accepted. Exact device refresh is pending and will retry during sync.';
+              ? (command.payload['attendanceOnly'] == true
+                  ? 'Attendance saved. The issue remains active until the burners return to service.'
+                  : 'Issue resolved and verified against the plant system')
+              : 'Work accepted. Exact device refresh is pending and will retry during sync.';
       final color = converged ? BafColors.sync : BafColors.warning;
       ScaffoldMessenger.maybeOf(
         context,
@@ -899,6 +908,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         ),
       ),
       bottomNavigationBar: _ResolveBottomBar(
+        attendanceOnly: _attendanceOnly,
         isSubmitting: _isSubmitting,
         actingAsName: actingAsName,
         onSubmit: _isSubmitting || accountMessage != null ? null : _submit,
@@ -1180,91 +1190,6 @@ class _BurnerAttendanceEditor extends StatelessWidget {
       borderSide: const BorderSide(color: BafColors.border),
     ),
   );
-}
-
-class _ResolveBottomBar extends StatelessWidget {
-  final bool isSubmitting;
-  final String? actingAsName;
-  final VoidCallback? onSubmit;
-
-  const _ResolveBottomBar({
-    required this.isSubmitting,
-    required this.actingAsName,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final actor = actingAsName?.trim();
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          BafSpacing.lg,
-          BafSpacing.md,
-          BafSpacing.lg,
-          BafSpacing.md,
-        ),
-        decoration: const BoxDecoration(
-          color: BafColors.card,
-          border: Border(top: BorderSide(color: BafColors.border)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (actor != null && actor.isNotEmpty) ...[
-              Text(
-                'Acting as: $actor',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-            ],
-            SizedBox(
-              height: 54,
-              child: FilledButton.icon(
-                onPressed: onSubmit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: BafColors.sync,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: BafColors.border,
-                  disabledForegroundColor: BafColors.textSecondary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(BafRadius.medium),
-                  ),
-                ),
-                icon:
-                    isSubmitting
-                        ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                        : const Icon(Icons.task_alt_rounded),
-                label: Text(
-                  isSubmitting ? 'Resolving...' : 'Mark as Resolved',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _TicketSummaryCard extends StatelessWidget {

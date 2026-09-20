@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/persistence/durable_submission_repository.dart';
+import '../../../core/persistence/durable_submission_review.dart';
 import '../../../core/providers/durable_submission_provider.dart';
 import '../../../core/release/command_capability_service.dart';
 import '../../../core/services/saved_submission_review_service.dart';
@@ -327,10 +328,17 @@ class _SavedSubmissionReviewScreenState
                         ),
                       if (row.state.isUnresolved &&
                           !row.state.isAccepted &&
-                          row.state != DurableSubmissionState.reviewConflict)
+                          row.state != DurableSubmissionState.reviewConflict &&
+                          DurableSubmissionReviewSupport.forRow(row).canReview)
                         FilledButton(
                           onPressed: _busy ? null : () => _review(row),
                           child: const Text('Review this request'),
+                        ),
+                      if (row.state.isUnresolved &&
+                          !row.state.isAccepted &&
+                          !DurableSubmissionReviewSupport.forRow(row).canReview)
+                        Text(
+                          DurableSubmissionReviewSupport.forRow(row).guidance!,
                         ),
                     ],
                   ),
@@ -343,10 +351,19 @@ class _SavedSubmissionReviewScreenState
   }
 
   String _title(String key) => switch (key.split(':').first) {
+    'ordinaryDirective' => 'Directive',
+    'assetCondition' => 'Asset condition',
     'morningReview' => 'Morning Review',
     'burnerEvidence' || 'legacyBurner' => 'Burner / UV evidence',
     'innerCoverAcceptance' => 'Inner Cover acceptance',
-    'qualityMonitoringCreation' => 'Quality monitoring',
+    'qualityMonitoringCreation' ||
+    'qualityMonitoringClosure' => 'Quality monitoring',
+    'assetRegistry' => 'Asset registry',
+    'innerCoverLifecycle' => 'Inner Cover lifecycle',
+    'burnerBlockCorrection' => 'Burner block correction',
+    'workflowModuleReopen' => 'Work reopening',
+    'criticalAlarm' => 'Critical alarm',
+    'userAuthority' => 'User authority',
     'publishedTemplateAssignment' => 'Published job assignment',
     'inspectionCampaignCreation' => 'Inspection programme',
     _ => 'Saved work',

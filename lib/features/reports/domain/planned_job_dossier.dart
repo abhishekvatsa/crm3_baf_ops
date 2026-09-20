@@ -88,10 +88,11 @@ StructuredReportDocument buildPlannedJobDossier({
     );
   }
 
-  final lanes = [...workflowLanes]..sort((left, right) {
-    final order = left.displayOrder.compareTo(right.displayOrder);
-    return order != 0 ? order : left.laneKey.compareTo(right.laneKey);
-  });
+  final lanes = [...workflowLanes]
+    ..sort((left, right) {
+      final order = left.displayOrder.compareTo(right.displayOrder);
+      return order != 0 ? order : left.laneKey.compareTo(right.laneKey);
+    });
   final compliance = [...complianceRequests]
     ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
   final events = [...workflowEvents]
@@ -108,27 +109,26 @@ StructuredReportDocument buildPlannedJobDossier({
   final hierarchy = execution.assignmentAssetHierarchyReference;
   final assetLabel =
       '${_label(execution.assetType.name)} ${execution.assetNumber}';
-  final terminalState =
-      execution.isDeleted
-          ? 'Deleted'
-          : execution.isCancelled
-          ? 'Cancelled'
-          : execution.isCompleted
-          ? 'Completed'
-          : 'Open';
+  final terminalState = execution.isDeleted
+      ? 'Deleted'
+      : execution.isCancelled
+      ? 'Cancelled'
+      : execution.isCompleted
+      ? 'Completed'
+      : 'Open';
   final openModules = modules.where((module) => module.isOpenForWork).length;
-  final openBlockers =
-      diary.where((entry) => !entry.isDeleted && entry.isOpenBlocker).length;
-  final activeCompliance =
-      compliance
-          .where(
-            (request) =>
-                !request.isDeleted &&
-                request.statusKey != 'confirmedClosed' &&
-                request.statusKey != 'superseded' &&
-                request.statusKey != 'cancelled',
-          )
-          .length;
+  final openBlockers = diary
+      .where((entry) => !entry.isDeleted && entry.isOpenBlocker)
+      .length;
+  final activeCompliance = compliance
+      .where(
+        (request) =>
+            !request.isDeleted &&
+            request.statusKey != 'confirmedClosed' &&
+            request.statusKey != 'superseded' &&
+            request.statusKey != 'cancelled',
+      )
+      .length;
 
   return StructuredReportDocument(
     title: 'Planned maintenance dossier',
@@ -147,39 +147,35 @@ StructuredReportDocument buildPlannedJobDossier({
           StructuredReportMetric(
             label: 'State',
             value: terminalState,
-            tone:
-                execution.isCompleted
-                    ? StructuredReportMetricTone.positive
-                    : execution.isCancelled || execution.isDeleted
-                    ? StructuredReportMetricTone.warning
-                    : StructuredReportMetricTone.info,
+            tone: execution.isCompleted
+                ? StructuredReportMetricTone.positive
+                : execution.isCancelled || execution.isDeleted
+                ? StructuredReportMetricTone.warning
+                : StructuredReportMetricTone.info,
           ),
           StructuredReportMetric(
             label: 'Modules',
             value: '${modules.length}',
             detail: '$openModules still open',
-            tone:
-                openModules == 0
-                    ? StructuredReportMetricTone.positive
-                    : StructuredReportMetricTone.warning,
+            tone: openModules == 0
+                ? StructuredReportMetricTone.positive
+                : StructuredReportMetricTone.warning,
           ),
           StructuredReportMetric(
             label: 'Diary',
             value: '${diary.length}',
             detail: '$openBlockers open blockers',
-            tone:
-                openBlockers == 0
-                    ? StructuredReportMetricTone.neutral
-                    : StructuredReportMetricTone.danger,
+            tone: openBlockers == 0
+                ? StructuredReportMetricTone.neutral
+                : StructuredReportMetricTone.danger,
           ),
           StructuredReportMetric(
             label: 'Compliance',
             value: '${compliance.length}',
             detail: '$activeCompliance active',
-            tone:
-                activeCompliance == 0
-                    ? StructuredReportMetricTone.neutral
-                    : StructuredReportMetricTone.warning,
+            tone: activeCompliance == 0
+                ? StructuredReportMetricTone.neutral
+                : StructuredReportMetricTone.warning,
           ),
         ],
         fields: <StructuredReportField>[
@@ -194,10 +190,9 @@ StructuredReportDocument buildPlannedJobDossier({
           ),
           StructuredReportField(
             label: 'Assigned lanes / agencies',
-            value:
-                execution.assignedAgencies.isEmpty
-                    ? 'Not recorded'
-                    : execution.assignedAgencies.map(_label).join(', '),
+            value: execution.assignedAgencies.isEmpty
+                ? 'Not recorded'
+                : execution.assignedAgencies.map(_label).join(', '),
           ),
           StructuredReportField(
             label: 'Created',
@@ -209,10 +204,9 @@ StructuredReportDocument buildPlannedJobDossier({
           ),
           StructuredReportField(
             label: 'Completed',
-            value:
-                execution.completedAt == null
-                    ? 'Not completed'
-                    : '${_dateTime(execution.completedAt!)} by ${_value(execution.completedByName)}',
+            value: execution.completedAt == null
+                ? 'Not completed'
+                : '${_dateTime(execution.completedAt!)} by ${_value(execution.completedByName)}',
           ),
           StructuredReportField(
             label: 'Remarks',
@@ -239,10 +233,9 @@ StructuredReportDocument buildPlannedJobDossier({
           ),
           StructuredReportField(
             label: 'Assignment mode',
-            value:
-                execution.isGovernedTemplateAssignment
-                    ? 'Published governed template version'
-                    : 'Legacy / direct template assignment',
+            value: execution.isGovernedTemplateAssignment
+                ? 'Published governed template version'
+                : 'Legacy / direct template assignment',
           ),
           StructuredReportField(
             label: 'Template reference',
@@ -262,17 +255,15 @@ StructuredReportDocument buildPlannedJobDossier({
           ),
           StructuredReportField(
             label: 'Physical asset identity',
-            value:
-                physicalIdentity == null
-                    ? 'Legacy identity not frozen'
-                    : '${physicalIdentity.assetClassId} / ${physicalIdentity.assetInstanceId}',
+            value: physicalIdentity == null
+                ? 'Legacy identity not frozen'
+                : '${physicalIdentity.assetClassId} / ${physicalIdentity.assetInstanceId}',
           ),
           StructuredReportField(
             label: 'Hierarchy target',
-            value:
-                hierarchy == null
-                    ? 'Not recorded'
-                    : hierarchy.hierarchyPath.join(' > '),
+            value: hierarchy == null
+                ? 'Not recorded'
+                : hierarchy.hierarchyPath.join(' > '),
           ),
           if (innerCover != null)
             StructuredReportField(
@@ -288,10 +279,9 @@ StructuredReportDocument buildPlannedJobDossier({
           ),
           StructuredReportField(
             label: 'Lane set finalised',
-            value:
-                execution.laneSetFinalizedAt == null
-                    ? 'Not recorded'
-                    : '${_dateTime(execution.laneSetFinalizedAt!)} by ${_value(execution.laneSetFinalizedByName)}',
+            value: execution.laneSetFinalizedAt == null
+                ? 'Not recorded'
+                : '${_dateTime(execution.laneSetFinalizedAt!)} by ${_value(execution.laneSetFinalizedByName)}',
           ),
           if (execution.laneMappingReview)
             const StructuredReportField(
@@ -392,10 +382,9 @@ StructuredReportDocument buildPlannedJobDossier({
       ),
       StructuredReportSection(
         title: 'Governed lanes and compliance',
-        subtitle:
-            execution.workflowSchemaVersion == 1
-                ? 'Server-governed lane and coordination projections for this execution.'
-                : 'This legacy execution does not declare the governed workflow schema.',
+        subtitle: execution.workflowSchemaVersion == 1
+            ? 'Server-governed lane and coordination projections for this execution.'
+            : 'This legacy execution does not declare the governed workflow schema.',
         tables: <StructuredReportTable>[
           StructuredReportTable(
             title: 'Lane progress',
@@ -701,10 +690,9 @@ String _label(String value) {
   return spaced
       .split(RegExp(r'\s+'))
       .map(
-        (word) =>
-            word.length <= 2
-                ? word.toUpperCase()
-                : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+        (word) => word.length <= 2
+            ? word.toUpperCase()
+            : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
       )
       .join(' ');
 }

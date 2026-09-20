@@ -228,7 +228,14 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
       asset.data.assetClassId === assetClassId &&
       asset.data.assetNumber === assetNumber &&
       asset.data.version === assetInstanceVersion &&
-      asset.data.status === "active" && asset.data.isDeleted !== true &&
+      // A retired asset is still the asset the work was done on. Recording
+      // maintenance that really happened is not a claim that the plant
+      // operates it now, and refusing it does not make it untrue - it pushes
+      // whoever holds the register towards un-retiring an asset to write down
+      // a fact. The cadence consequence is what matters, and it is withheld
+      // below. A deleted record is different: there is no subject.
+      (asset.data.status === "active" || asset.data.status === "retired") &&
+      asset.data.isDeleted !== true &&
       typeof asset.data.name === "string" && asset.data.name.trim().length > 0;
   if (!physicalAssetValid) {
     throw new WorkflowError(
@@ -265,6 +272,8 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
     execution,
     executionId: historicalRecordId,
     sourceType: "historicalMaintenance",
+    datePrecision: "date",
+    cadenceApplicability: asset.data!.status === "retired" ? "historicalOnly" : "operational",
     completedAt,
     completedBy: {uid: null, name: performedByName},
     recordedAt,
@@ -276,6 +285,11 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
       "Historical maintenance classification was not preserved.",
     );
   }
+  // A retired asset has no next service, so history recorded against it stays
+  // history and resets no counter. Writing one would have the schedule claim
+  // work on something the plant no longer operates.
+  const completionPlan = asset.data!.status === "retired" ?
+    {...completion, dueStates: []} : completion;
 
   const historicalRecord: JsonMap = {
     schemaVersion: 1,
@@ -299,7 +313,7 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
     recordedByName: context.actor.name,
     completionEventId: completion.eventId,
   };
-  applyMaintenanceCompletionWritePlan(tx, completion);
+  applyMaintenanceCompletionWritePlan(tx, completionPlan);
   tx.create(recordPath(historicalRecordId), historicalRecord);
   tx.create(auditPath(command.commandId), {
     schemaVersion: 1,

@@ -38,7 +38,7 @@ class ReportProvenance {
           'and signed-in authority checks at generation time.',
       if (lastSyncCompletedAt != null)
         'The last recorded synchronization completed at '
-            '${lastSyncCompletedAt!.toLocal().toIso8601String()}'
+            '${lastSyncCompletedAt!.toUtc().toIso8601String()} (UTC)'
             '${lastSyncSucceeded == true
                 ? ' successfully'
                 : lastSyncSucceeded == false
@@ -48,8 +48,9 @@ class ReportProvenance {
         pendingLocalWrites == 0
             ? 'No pending local writes were counted when the report was opened.'
             : '$pendingLocalWrites pending local '
-                '${pendingLocalWrites == 1 ? 'write was' : 'writes were'} counted when the report was opened.',
+                  '${pendingLocalWrites == 1 ? 'write was' : 'writes were'} counted when the report was opened.',
       ...completenessNotes,
+      'Sources update independently. The evaluation time is not a common database snapshot cutoff; source-specific server cutoffs are not certified.',
       'This document is not an independently server-certified database extract.',
     ];
     return notes.join(' ');

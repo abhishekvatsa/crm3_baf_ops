@@ -190,16 +190,31 @@ describe('UV-detector lifecycle projection', () => {
       entryPath.startsWith('uv_detector_lifecycle_events/'))).toHaveLength(0);
   });
 
-  test('rejects a receipt time that differs from authoritative closure', async () => {
+  test('rejects a receipt time that precedes authoritative closure', async () => {
     const store = seedStore();
 
     await expect(prepare(store, action(), {
-      recordedAt: '2026-08-28T09:01:00.000Z',
+      recordedAt: '2026-08-28T08:59:00.000Z',
     })).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {
         reasonCode: 'uv-detector-lifecycle-closure-time-mismatch',
       },
+    });
+  });
+
+  test('work entered after it finished keeps both times', async () => {
+    const store = seedStore();
+
+    const plan = await prepare(store, action(), {
+      recordedAt: '2026-08-28T12:00:00.000Z',
+    });
+
+    // When the work finished and when it was entered are different facts, and
+    // a late entry must not read as contemporaneous evidence.
+    expect(plan.events[0].data).toMatchObject({
+      completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T12:00:00.000Z',
     });
   });
 
@@ -430,5 +445,99 @@ describe('UV-detector lifecycle projection', () => {
     const after = store.entries().find(([entryPath]) =>
       entryPath.startsWith('uv_detector_lifecycle_current/'))[1];
     expect(after.sourceId).toBe('execution-second-persisted');
+  });
+});
+
+
+describe('UV-detector parent-scoped physical action identity', () => {
+  const duplicateReferences = (first, second) => [
+    {sourceModuleId: null, discipline: 'instrumentation', actionsJson: JSON.stringify([first])},
+    {sourceModuleId: 'module-1', discipline: 'instrumentation', actionsJson: JSON.stringify([second])},
+  ];
+
+  test.each([
+    ['position', {burnerPosition: 4}],
+    ['physical time', {createdAt: '2026-08-28T07:15:00.000Z'}],
+    ['disposition', {replacement: 'repaired'}],
+    ['performer evidence', {performedBy: 'A different technician'}],
+  ])('one action with conflicting %s refuses the entire plan', async (_, changedFacts) => {
+    const store = seedStore();
+    const before = store.entries();
+    await expect(prepare(store, action(), {
+      actionSources: duplicateReferences(action(), action(changedFacts)),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'uv-detector-lifecycle-action-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a different governed asset cannot manufacture a second identity', async () => {
+    const store = seedStore();
+    const alternateAssetId = 'different-physical-furnace';
+    // Both records pass the individual target validation. The repeated action
+    // must still reject their contradictory physical IDs, even at one number.
+    store.seed(`asset_instances/${alternateAssetId}`, {
+      ...store.read(`asset_instances/${IDS.asset}`),
+      assetInstanceId: alternateAssetId,
+    });
+    const row = action();
+    const alternative = action({
+      assetHierarchyRef: {...row.assetHierarchyRef, assetInstanceId: alternateAssetId},
+    });
+    const before = store.entries();
+    await expect(prepare(store, row, {
+      actionSources: duplicateReferences(row, alternative),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'uv-detector-lifecycle-action-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('exact repeated references count once without rewriting either source payload', async () => {
+    const store = seedStore();
+    const sources = duplicateReferences(action(), action());
+    const retained = JSON.stringify(sources);
+    const plan = await prepare(store, action(), {actionSources: sources});
+    expect(plan.events).toHaveLength(1);
+    expect(plan.currentStates).toHaveLength(1);
+    expect(JSON.stringify(sources)).toBe(retained);
+    expect(sources.map((source) => source.sourceModuleId)).toEqual([null, 'module-1']);
+    expect(sources.every((source) => JSON.parse(source.actionsJson).length === 1)).toBe(true);
+  });
+
+  test('distinct action IDs at the same position and time remain separate installations', async () => {
+    const store = seedStore();
+    const plan = await prepare(store, action(), {
+      actionSources: duplicateReferences(action({id: 'first-action'}), action({id: 'second-action'})),
+    });
+    expect(plan.events).toHaveLength(2);
+    expect(plan.events.map((event) => event.data.sourceActionId)).toEqual(['first-action', 'second-action']);
+  });
+
+  test('legacy rows without action identity are not heuristically coalesced', async () => {
+    const store = seedStore();
+    const plan = await prepare(store, action(), {
+      actionSources: duplicateReferences(action({id: null}), action({id: null})),
+    });
+    expect(plan.events).toHaveLength(2);
+    expect(plan.events.every((event) => event.data.sourceActionId == null)).toBe(true);
+  });
+
+  test('the same local action ID in different parent sources is separate work', async () => {
+    const store = seedStore();
+    const sources = [
+      {sourceType: 'workflowPlannedJob', sourceId: 'parent-a'},
+      {sourceType: 'workflowPlannedJob', sourceId: 'parent-b'},
+      {sourceType: 'maintenanceIssue', sourceId: 'parent-a'},
+    ];
+    const ids = [];
+    for (const source of sources) {
+      const plan = await prepare(store, action(), source);
+      expect(plan.events).toHaveLength(1);
+      ids.push(plan.events[0].data.eventId);
+    }
+    expect(new Set(ids).size).toBe(3);
   });
 });

@@ -235,6 +235,27 @@ describe('asset operational condition mutation', () => {
     expect((await invoke(m, 'ops-1', declareRequest())).ok).toBe(true);
   });
 
+  test('custom asset classes without a legacy type key can declare condition', async () => {
+    const seed = baseSeed();
+    seed[`asset_classes/${IDS.class}`] = assetClass({
+      code: 'SPECIAL_ASSET',
+      name: 'Special Asset',
+      legacyAssetTypeKey: null,
+    });
+    seed[`asset_instances/${IDS.asset}`] = asset({
+      assetClassCode: 'SPECIAL_ASSET',
+      assetClassName: 'Special Asset',
+      name: 'Special Asset 7',
+    });
+    await expect(invoke(fakeDb(seed), 'ops-1', declareRequest({
+      componentHierarchyRefJson: componentReferenceJson({
+        assetClassCode: 'SPECIAL_ASSET',
+        assetClassName: 'Special Asset',
+        assetInstanceName: 'Special Asset 7',
+      }),
+    }))).resolves.toMatchObject({ok: true, version: 1});
+  });
+
   test('historical acceptance remains readable with missing current projection', async () => {
     const memory = fakeDb(baseSeed());
     const first = await invoke(memory, 'ops-1', declareRequest());
@@ -460,6 +481,38 @@ describe('asset operational condition mutation', () => {
     expect(linked.writes).toHaveLength(0);
   });
 
+  test('a component-on-asset issue is valid condition evidence', async () => {
+    const seed = baseSeed();
+    // The shape the maintenance producer writes for an ordinary component
+    // issue on this very asset.
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: IDS.class,
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      nodeId: 'node-cooling-fan',
+      nodeVersion: 2,
+      nodeName: 'Cooling fan',
+      assetInstanceId: IDS.asset,
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Base 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Base', 'Cooling', 'Cooling fan'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: ['seniorMechanical'],
+      innerCoverAssociation: null,
+    });
+    const linked = fakeDb(seed);
+
+    await expect(invoke(linked, 'ops-1', declareRequest()))
+      .resolves.toMatchObject({ok: true});
+  });
+
   test('schema-3 physical asset issue remains valid condition evidence', async () => {
     const seed = baseSeed();
     seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
@@ -485,6 +538,44 @@ describe('asset operational condition mutation', () => {
     });
     await expect(invoke(fakeDb(seed), 'ops-1', declareRequest()))
       .resolves.toMatchObject({condition: 'down', version: 1});
+  });
+
+  test('schema-4 Inner Cover association remains valid condition evidence', async () => {
+    const seed = baseSeed();
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = componentReferenceJson({
+      innerCoverAssociation: {
+        baseAssetInstanceId: IDS.asset,
+        baseAssetNumber: 7,
+        positionState: 'linked',
+        innerCoverId: 'cover-gr26',
+        innerCoverSerialNumber: 'GR26',
+        linkageId: 'link-gr26-base-7',
+        assignmentVersion: 3,
+        linkedAt: '2026-08-01T10:00:00.000Z',
+        eventAt: '2026-08-15T10:00:00.000Z',
+        confirmedAt: '2026-08-15T10:01:00.000Z',
+        confirmedByUid: 'ops-1',
+        confirmedByName: 'Operations One',
+      },
+    });
+    await expect(invoke(fakeDb(seed), 'ops-1', declareRequest()))
+      .resolves.toMatchObject({condition: 'down', version: 1});
+  });
+
+  test('malformed legacy schema-3 scope is not accepted by identity alone', async () => {
+    const seed = baseSeed();
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
+      schemaVersion: 3,
+      scope: 'unknown',
+      assetInstanceId: IDS.asset,
+      assetClassId: IDS.class,
+      assetNumber: 7,
+    });
+    await expect(invoke(fakeDb(seed), 'ops-1', declareRequest()))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'asset-condition-linked-issue-asset-mismatch'},
+      });
   });
 
   test('partial Inner Cover event evidence cannot support a declaration', async () => {
@@ -548,6 +639,27 @@ describe('asset operational condition mutation', () => {
       .rejects.toMatchObject({
         code: 'aborted',
         details: {reasonCode: 'asset-condition-version-mismatch'},
+      });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a new legacy declaration cannot downgrade an existing schema-2 condition', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`asset_operational_conditions/${IDS.asset}`]: persistedCondition({
+        schemaVersion: 2,
+        basis: 'pendingMaintenance',
+        componentHierarchyRefJson: componentReferenceJson(),
+        version: 1,
+      }),
+    });
+    const legacy = declareRequest({expectedVersion: 1});
+    delete legacy.basis;
+    delete legacy.componentHierarchyRefJson;
+    await expect(invoke(memory, 'ops-1', legacy))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'asset-condition-legacy-writer-cannot-downgrade'},
       });
     expect(memory.writes).toHaveLength(0);
   });
@@ -642,4 +754,29 @@ describe('asset operational condition mutation', () => {
     });
     expect(result).toMatchObject({condition: 'available', version: 2});
   });
+});
+
+
+describe('Function 10 reviewed replacement and historical recovery', () => {
+ test('replacement requires exact reviewed assessment and restoration authority',async()=>{
+  const m=fakeDb(baseSeed());await invoke(m,'ops-1',declareRequest());
+  const next=declareRequest({requestId:IDS.restore,expectedVersion:1,condition:'unfit'});
+  await expect(invoke(m,'shift-1',next)).rejects.toMatchObject({details:{reasonCode:'asset-condition-replacement-review-required'}});
+  next.replacesRequestId=IDS.declare;
+  await expect(invoke(m,'ops-1',next)).rejects.toMatchObject({code:'permission-denied'});
+  await expect(invoke(m,'shift-1',next)).resolves.toMatchObject({version:2,condition:'unfit'});
+  expect(m.store.get(`asset_operational_condition_audits/asset_condition_${IDS.restore}`)).toMatchObject({replacesRequestId:IDS.declare,before:{condition:'down'},after:{condition:'unfit'}});
+  const writes=m.writes.length; await invoke(m,'ops-1',declareRequest());expect(m.writes).toHaveLength(writes);
+ });
+ test('same approved origin can recover acceptance after losing fresh-write role and changing display name',async()=>{
+  const m=fakeDb(baseSeed());const first=await invoke(m,'ops-1',declareRequest());
+  m.store.set('users/ops-1',user('contractSupervisor','New display name'));
+  expect(await invoke(m,'ops-1',declareRequest())).toEqual({...first,idempotentReplay:true});
+  await expect(invoke(m,'ops-1',declareRequest({requestId:IDS.restore}))).rejects.toMatchObject({code:'permission-denied'});
+ });
+});
+
+test('administrative recovery recognizes an actual condition handler receipt without mutations',async()=>{
+ const m=fakeDb(baseSeed()); await invoke(m,'ops-1',declareRequest());
+ await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('assetCondition',m.store.get(`asset_operational_condition_receipts/${IDS.declare}`));
 });

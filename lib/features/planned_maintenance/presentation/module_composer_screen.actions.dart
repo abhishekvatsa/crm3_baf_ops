@@ -630,6 +630,8 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
               revisionId: revision.revisionId,
               actor: liveActor,
               reason: reason,
+              reviewedVersion: revision.version,
+              reviewedContentHash: revision.contentHash,
             );
           },
           retireRevision: (liveActor, revision, reason) {

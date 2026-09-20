@@ -22,6 +22,8 @@ import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
+  frozenMaintenanceClassFromExecution,
+  maintenanceClassificationRevisionFromExecution,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
 import {
@@ -221,6 +223,9 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     workflowContribution(workflow),
   );
   const now = iso(context.serverNow);
+  const inheritedMaintenanceClassification = frozenMaintenanceClassFromExecution(currentExecution);
+  const inheritedMaintenanceClassificationRevision = inheritedMaintenanceClassification == null ?
+    null : maintenanceClassificationRevisionFromExecution(currentExecution);
   const nextVersion = version + 1;
   const currentExecutionVersion = typeof currentExecution.version === "number"
     ? currentExecution.version
@@ -309,7 +314,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     const ids = deterministicRedSuccessorIds(command.aggregateId, command.commandId);
     successorWorkflowId = ids.workflowId;
     successorExecutionId = ids.executionId;
-    successorTemplate = await resolveRedSuccessorTemplate(tx, assetTypeKey);
+    successorTemplate = await resolveRedSuccessorTemplate(tx, equipmentIdentity);
     successorModules = successorTemplate.modules.map((module, index) => buildRedSuccessorModule({
       template: successorTemplate!,
       module,
@@ -320,6 +325,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       actorUid: context.actor.uid,
       actorName: context.actor.name,
       at: now,
+      maintenanceClassification: inheritedMaintenanceClassification,
+      maintenanceClassificationRevision: inheritedMaintenanceClassificationRevision,
     }));
 
     const successorWorkflow = await tx.get(workflowPath(successorWorkflowId));
@@ -396,6 +403,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       parentExecutionId: parentExecutionId,
       assetTypeKey,
       assetNumber,
+      assetClassId: equipmentIdentity.assetClassId,
+      assetInstanceId: equipmentIdentity.assetInstanceId,
       status: awaitingPreparation ? "awaitingCompliance" : "assigned",
       version: 1,
       workflowSchemaVersion: 1,
@@ -452,6 +461,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       templatePackageCode: successorTemplate.packageCode,
       assetType: assetTypeKey,
       assetNumber,
+      assetClassId: equipmentIdentity.assetClassId,
+      assetInstanceId: equipmentIdentity.assetInstanceId,
       isCompleted: false,
       isCancelled: false,
       assignedByUid: context.actor.uid,
@@ -478,11 +489,16 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       modulePopulationLastModuleId: successorModules.at(-1)?.id ?? null,
       metadataJson: JSON.stringify({
         source: "server_governed_red_successor",
+        publicationAuditId: successorTemplate.publicationAuditId,
         parentWorkflowId: command.aggregateId,
         parentExecutionId,
         packageFirestoreId: successorTemplate.packageId,
         versionFirestoreId: successorTemplate.versionId,
         contentHash: successorTemplate.contentHash,
+        ...(inheritedMaintenanceClassification == null ? {} : {
+          maintenanceClassification: inheritedMaintenanceClassification,
+          maintenanceClassificationRevision: inheritedMaintenanceClassificationRevision ?? 1,
+        }),
       }),
       isDeleted: false,
       createdAt: now,

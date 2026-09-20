@@ -125,3 +125,37 @@ malformed maps and invalid calendars refuse adoption instead of being rounded.
 These measurements and their source regressions require the current combined
 release checks and exact-source CI. They do not assert production deployment,
 recovery activation, worker drainage, phone validation or distribution authority.
+
+## Current-source inventory addendum, 2026-09-19
+
+The earlier inventories and closure receipts remain historical evidence. The
+current working-source inventory contains 99 decoder surfaces, 58 strict-reader
+files, 48 raw-JSON files, 53 decoder catches and 461 classified risk candidates.
+The inherited timestamp inventory contains 96 readers, 235 direct calls, 140
+required fields and 93 optional fields. The 37 direct parser candidates remain
+covered by 15 classification groups. These are current-source measurements,
+not a replacement production sweep or a new source-admission receipt.
+
+The three additional optional timestamp fields are the Inner Cover physical
+assurance-invalidation instant, its recorded instant, and the operational-event
+withdrawal instant. Their decoders use the shared strict timestamp reader.
+Inner Cover invalidation evidence must be complete together, its physical
+instant cannot follow its recorded instant, and neither may follow the profile
+update. The two added null-aware chronology checks operate on those already
+decoded optional values; they do not turn malformed timestamps into defaults.
+Operational withdrawals require the reason, timestamp and actor together and
+preserve raw event history while excluding the withdrawn event from effective
+views. Missing withdrawal state remains the documented legacy nonwithdrawn
+case.
+
+The hierarchy receipt catch now covers the shared retained lifecycle command
+path. Acceptance keeps its original three exact preacceptance refusal pairs and
+adds the two explicit post-receipt-lookup refusals for stale evidence or
+acceptance before the assurance episode. Other
+lifecycle operations release the retained request only for the explicit
+business-refusal code/reason pairs whose backend checks follow receipt lookup.
+Unknown, malformed, historical-recovery and uncertain outcomes retain the
+original command. The inventory binds this reviewed behavior to the exact
+current catch fingerprint and references the repository classification tests.
+Scanner coverage, strict-reader requirements and historical closure claims are
+unchanged; the current combined tests and exact-source CI still apply.

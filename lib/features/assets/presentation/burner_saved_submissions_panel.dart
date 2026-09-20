@@ -116,6 +116,10 @@ class _BurnerSavedSubmissionsPanelState
         childrenPadding: const EdgeInsets.all(BafSpacing.md),
         children: [
           if (isRound) ...[
+            if (request['observedFields'] is List)
+              Text(
+                'Partial condition update: ${(request['observedFields'] as List).length} fields checked. All other values are retained from the current records at their original observation ages.',
+              ),
             for (final item in observations)
               Align(
                 alignment: Alignment.centerLeft,

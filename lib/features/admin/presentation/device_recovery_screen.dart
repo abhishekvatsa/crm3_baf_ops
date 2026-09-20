@@ -1,3 +1,4 @@
+import '../repositories/user_directory_repository.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -38,16 +39,14 @@ class DeviceRecoveryScreen extends ConsumerWidget {
         ),
       ],
       body: actor.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Checking administrator authority',
-              color: BafColors.admin,
-            ),
-        error:
-            (error, _) => BafStatePanel.error(
-              title: 'Administrator authority unavailable',
-              message: '$error',
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Checking administrator authority',
+          color: BafColors.admin,
+        ),
+        error: (error, _) => BafStatePanel.error(
+          title: 'Administrator authority unavailable',
+          message: '$error',
+        ),
         data: (currentUser) {
           if (currentUser == null ||
               !currentUser.isApproved ||
@@ -62,17 +61,15 @@ class DeviceRecoveryScreen extends ConsumerWidget {
           return ref
               .watch(allUsersProvider)
               .when(
-                loading:
-                    () => const BafLoadingPanel(
-                      label: 'Loading approved users',
-                      color: BafColors.admin,
-                    ),
-                error:
-                    (error, _) => BafStatePanel.error(
-                      title: 'User directory unavailable',
-                      message: '$error',
-                      onPrimary: () => ref.invalidate(allUsersProvider),
-                    ),
+                loading: () => const BafLoadingPanel(
+                  label: 'Loading approved users',
+                  color: BafColors.admin,
+                ),
+                error: (error, _) => BafStatePanel.error(
+                  title: 'User directory unavailable',
+                  message: '$error',
+                  onPrimary: () => ref.invalidate(allUsersProvider),
+                ),
                 data: (users) {
                   final approved =
                       users.where((user) => user.isApproved).toList()..sort(
@@ -83,6 +80,16 @@ class DeviceRecoveryScreen extends ConsumerWidget {
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                     children: [
+                      if (users is UserDirectoryPopulation &&
+                          (!users.isComplete ||
+                              users.fromCache ||
+                              users.hasPendingWrites))
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
+                            'This directory is incomplete or not server-confirmed. Missing accounts must not be treated as absent. Each recovery still requires its own server authorization.',
+                          ),
+                        ),
                       const _RecoverySafeguards(),
                       const SizedBox(height: 22),
                       Row(
@@ -201,10 +208,9 @@ class _RecoveryUserPanelState extends ConsumerState<_RecoveryUserPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final devices =
-        _expanded
-            ? ref.watch(registeredRecoveryDevicesProvider(widget.user.uid))
-            : null;
+    final devices = _expanded
+        ? ref.watch(registeredRecoveryDevicesProvider(widget.user.uid))
+        : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -246,50 +252,44 @@ class _RecoveryUserPanelState extends ConsumerState<_RecoveryUserPanel> {
             ),
             if (_expanded)
               devices!.when(
-                loading:
-                    () => const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 4, 20, 20),
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
-                error:
-                    (error, _) => Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '$error',
-                              style: const TextStyle(color: BafColors.danger),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Retry device inventory',
-                            onPressed: _refresh,
-                            icon: const Icon(Icons.refresh_rounded),
-                          ),
-                        ],
+                loading: () => const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$error',
+                          style: const TextStyle(color: BafColors.danger),
+                        ),
                       ),
-                    ),
-                data:
-                    (installations) =>
-                        installations.isEmpty
-                            ? const Padding(
-                              padding: EdgeInsets.fromLTRB(18, 2, 18, 18),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'No registered phone',
-                                  style: TextStyle(
-                                    color: BafColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            )
-                            : Column(
-                              children: installations
-                                  .map(_buildInstallation)
-                                  .toList(growable: false),
-                            ),
+                      IconButton(
+                        tooltip: 'Retry device inventory',
+                        onPressed: _refresh,
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                data: (installations) => installations.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.fromLTRB(18, 2, 18, 18),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'No registered phone',
+                            style: TextStyle(color: BafColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    : Column(
+                        children: installations
+                            .map(_buildInstallation)
+                            .toList(growable: false),
+                      ),
               ),
           ],
         ),
@@ -387,12 +387,11 @@ class _RecoveryUserPanelState extends ConsumerState<_RecoveryUserPanel> {
   }) async {
     final reason = await showDialog<String>(
       context: context,
-      builder:
-          (_) => _RecoveryConfirmationDialog(
-            user: widget.user,
-            installation: installation,
-            cancel: cancel,
-          ),
+      builder: (_) => _RecoveryConfirmationDialog(
+        user: widget.user,
+        installation: installation,
+        cancel: cancel,
+      ),
     );
     if (reason == null || !mounted) return;
     setState(() => _busyInstallation = installation.installationId);
@@ -517,11 +516,8 @@ class _RecoveryConfirmationDialogState
               maxLength: 500,
               maxLines: 2,
               decoration: const InputDecoration(labelText: 'Audited reason'),
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'Enter a reason.'
-                          : null,
+              validator: (value) =>
+                  (value?.trim().isEmpty ?? true) ? 'Enter a reason.' : null,
             ),
             const SizedBox(height: 8),
             TextFormField(
@@ -530,11 +526,9 @@ class _RecoveryConfirmationDialogState
               decoration: InputDecoration(
                 labelText: 'Type $_requiredConfirmation',
               ),
-              validator:
-                  (value) =>
-                      value?.trim() != _requiredConfirmation
-                          ? 'Enter the exact selected-phone confirmation.'
-                          : null,
+              validator: (value) => value?.trim() != _requiredConfirmation
+                  ? 'Enter the exact selected-phone confirmation.'
+                  : null,
             ),
           ],
         ),
@@ -546,8 +540,9 @@ class _RecoveryConfirmationDialogState
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor:
-                widget.cancel ? BafColors.warning : BafColors.danger,
+            backgroundColor: widget.cancel
+                ? BafColors.warning
+                : BafColors.danger,
             foregroundColor: Colors.white,
           ),
           onPressed: () {

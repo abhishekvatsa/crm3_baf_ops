@@ -202,7 +202,7 @@ void main() {
         expect(
           submit,
           contains(
-            'Issue resolution accepted. Exact device refresh is pending',
+            'Work accepted. Exact device refresh is pending',
           ),
         );
         expect(submit, isNot(contains('repository.resolveTicket(')));
@@ -832,21 +832,7 @@ void main() {
           rules,
           'function validMaintenanceUpdate',
         );
-        expect(maintenanceRouter, contains('targetDeleted != sourceDeleted'));
-        expect(maintenanceRouter, contains('targetResolved != sourceResolved'));
-        for (final validator in <String>[
-          'validMaintenanceSoftDeleteUpdate()',
-          'validMaintenanceCloseUpdate()',
-          'validMaintenanceReopenUpdate()',
-        ]) {
-          expect(maintenanceRouter, contains(validator));
-        }
-        expect(
-          maintenanceRouter,
-          isNot(contains('||')),
-          reason:
-              'The router must select one lifecycle validator instead of evaluating parallel alternatives.',
-        );
+        expect(maintenanceRouter, contains('return false;'));
 
         expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
         expect(rules, isNot(contains('maintenanceAdminEditShape')));

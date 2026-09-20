@@ -16,8 +16,8 @@ class StructuredReportPdfPreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final pageFormat =
         report.orientation == StructuredReportOrientation.landscape
-            ? PdfPageFormat.a4.landscape
-            : PdfPageFormat.a4;
+        ? PdfPageFormat.a4.landscape
+        : PdfPageFormat.a4;
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(

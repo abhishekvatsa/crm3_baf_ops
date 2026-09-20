@@ -4,6 +4,19 @@ import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('exported synchronization time retains its unambiguous UTC basis', () {
+    final provenance = ReportProvenance(
+      sourceMode: ReportSourceMode.hybridApplicationSnapshot,
+      lastSyncCompletedAt: DateTime.parse('2026-09-20T00:15:00+05:30'),
+      lastSyncSucceeded: true,
+    );
+
+    expect(
+      provenance.evidenceStatement,
+      contains('2026-09-19T18:45:00.000Z (UTC) successfully'),
+    );
+  });
+
   test('unknown pending-write evidence is not presented as measured zero', () {
     const provenance = ReportProvenance(
       sourceMode: ReportSourceMode.cloudApplicationSnapshot,

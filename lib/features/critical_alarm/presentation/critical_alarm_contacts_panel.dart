@@ -23,106 +23,117 @@ class CriticalAlarmContactsPanel extends ConsumerWidget {
     final user = ref.watch(currentAppUserProvider).asData?.value;
     final contacts = ref.watch(criticalAlarmContactsProvider);
     final definitionFeed = ref.watch(criticalAlarmDefinitionsProvider);
+    final definitionSnapshot = definitionFeed.asData?.value;
     final definitions =
-        definitionFeed.asData?.value ?? const <CriticalAlarmDefinition>[];
+        definitionSnapshot?.definitions ?? const <CriticalAlarmDefinition>[];
     final definitionNames = {
       for (final definition in definitions) definition.key: definition.name,
     };
-    final canManage = user?.isAdmin == true && definitionFeed.hasValue;
+    final canManageDefinitions =
+        user?.isAdmin == true && definitionSnapshot?.isComplete == true;
     return contacts.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, _) => CriticalAlarmFeedState(
-            icon: Icons.cloud_off_outlined,
-            title: 'Approved contacts unavailable',
-            message:
-                'The live server contact directory could not be verified. Follow the plant emergency procedure.',
-            action: OutlinedButton.icon(
-              onPressed: () => ref.invalidate(criticalAlarmContactsProvider),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry live check'),
-            ),
-          ),
-      data: (allContacts) {
+      error: (error, _) => CriticalAlarmFeedState(
+        icon: Icons.cloud_off_outlined,
+        title: 'Approved contacts unavailable',
+        message:
+            'The live server contact directory could not be verified. Follow the plant emergency procedure.',
+        action: OutlinedButton.icon(
+          onPressed: () => ref.invalidate(criticalAlarmContactsProvider),
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry live check'),
+        ),
+      ),
+      data: (snapshot) {
+        final allContacts = snapshot.contacts;
+        final contactsComplete = snapshot.isComplete;
+        final canManage = canManageDefinitions && contactsComplete;
         final filtered =
             allContacts.where((contact) {
-                if (alarmTypeKey != null &&
-                    !contact.alarmTypeKeys.contains(alarmTypeKey)) {
-                  return false;
-                }
-                return administrationMode || contact.isActive;
-              }).toList()
-              ..sort((left, right) {
-                if (left.isActive != right.isActive) {
-                  return left.isActive ? -1 : 1;
-                }
-                return left.priority.compareTo(right.priority);
-              });
-        if (filtered.isEmpty) {
-          return CriticalAlarmFeedState(
-            icon: Icons.phone_disabled_outlined,
-            title: 'No approved contact configured',
-            message:
-                'Follow the plant emergency procedure. CRM3 will not substitute a contact from another alarm type.',
-            action:
-                canManage
+              if (alarmTypeKey != null &&
+                  !contact.alarmTypeKeys.contains(alarmTypeKey)) {
+                return false;
+              }
+              return administrationMode || contact.isActive;
+            }).toList()..sort((left, right) {
+              if (left.isActive != right.isActive) {
+                return left.isActive ? -1 : 1;
+              }
+              return left.priority.compareTo(right.priority);
+            });
+        final body = filtered.isEmpty
+            ? CriticalAlarmFeedState(
+                icon: Icons.phone_disabled_outlined,
+                title: 'No approved contact configured',
+                message:
+                    'Follow the plant emergency procedure. CRM3 will not substitute a contact from another alarm type.',
+                action: canManage
                     ? FilledButton.icon(
-                      onPressed:
-                          () => showCriticalAlarmContactEditor(
-                            context,
-                            ref,
-                            definitions: definitions,
-                          ),
-                      icon: const Icon(Icons.add_call),
-                      label: const Text('Add contact'),
-                    )
-                    : null,
-          );
-        }
-        return SafeArea(
-          top: false,
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              BafSpacing.md,
-              BafSpacing.md,
-              BafSpacing.md,
-              BafSpacing.xl,
-            ),
-            itemCount: filtered.length + (canManage ? 1 : 0),
-            separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
-            itemBuilder: (context, index) {
-              if (canManage && index == 0) {
-                return SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed:
-                        () => showCriticalAlarmContactEditor(
+                        onPressed: () => showCriticalAlarmContactEditor(
                           context,
                           ref,
                           definitions: definitions,
                         ),
-                    icon: const Icon(Icons.add_call),
-                    label: const Text('Add approved contact'),
+                        icon: const Icon(Icons.add_call),
+                        label: const Text('Add contact'),
+                      )
+                    : null,
+              )
+            : SafeArea(
+                top: false,
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.md,
+                    BafSpacing.md,
+                    BafSpacing.md,
+                    BafSpacing.xl,
                   ),
-                );
-              }
-              final contact = filtered[index - (canManage ? 1 : 0)];
-              return _ContactCard(
-                contact: contact,
-                definitionNames: definitionNames,
-                canManage: canManage,
-                onEdit:
-                    () => showCriticalAlarmContactEditor(
-                      context,
-                      ref,
+                  itemCount: filtered.length + (canManage ? 1 : 0),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: BafSpacing.sm),
+                  itemBuilder: (context, index) {
+                    if (canManage && index == 0) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => showCriticalAlarmContactEditor(
+                            context,
+                            ref,
+                            definitions: definitions,
+                          ),
+                          icon: const Icon(Icons.add_call),
+                          label: const Text('Add approved contact'),
+                        ),
+                      );
+                    }
+                    final contact = filtered[index - (canManage ? 1 : 0)];
+                    return _ContactCard(
                       contact: contact,
-                      definitions: definitions,
-                    ),
-                onStatus: () => _changeStatus(context, ref, contact),
-                onDial: () => _dial(context, ref, contact),
+                      definitionNames: definitionNames,
+                      canManage: canManage,
+                      onEdit: () => showCriticalAlarmContactEditor(
+                        context,
+                        ref,
+                        contact: contact,
+                        definitions: definitions,
+                      ),
+                      onStatus: () => _changeStatus(context, ref, contact),
+                      onDial: () => _dial(context, ref, contact),
+                    );
+                  },
+                ),
               );
-            },
-          ),
+        if (contactsComplete) return body;
+        return Column(
+          children: [
+            CriticalAlarmConfigurationWarning(
+              title: 'Approved contact directory incomplete',
+              message:
+                  '${snapshot.malformedDocumentIds.length} contact record(s) could not be read. Valid records remain visible, but changes are disabled until the complete live set is verified.',
+              onRetry: () => ref.invalidate(criticalAlarmContactsProvider),
+            ),
+            Expanded(child: body),
+          ],
         );
       },
     );
@@ -153,14 +164,13 @@ class CriticalAlarmContactsPanel extends ConsumerWidget {
     WidgetRef ref,
     CriticalAlarmContact contact,
   ) async {
-    final target =
-        contact.isActive
-            ? CriticalAlarmContactStatus.retired
-            : CriticalAlarmContactStatus.active;
+    final target = contact.isActive
+        ? CriticalAlarmContactStatus.retired
+        : CriticalAlarmContactStatus.active;
     final reason = await showDialog<String>(
       context: context,
-      builder:
-          (_) => _ContactStatusReasonDialog(contact: contact, target: target),
+      builder: (_) =>
+          _ContactStatusReasonDialog(contact: contact, target: target),
     );
     if (reason == null || !context.mounted) return;
     try {
@@ -218,13 +228,12 @@ class _ContactStatusReasonDialogState
           counterText: '',
           border: OutlineInputBorder(),
         ),
-        validator:
-            (value) => _bounded(
-              value,
-              minimum: 1,
-              maximum: 500,
-              missingMessage: 'Enter an audit reason',
-            ),
+        validator: (value) => _bounded(
+          value,
+          minimum: 1,
+          maximum: 500,
+          missingMessage: 'Enter an audit reason',
+        ),
       ),
     ),
     actions: [
@@ -308,16 +317,15 @@ class _ContactCard extends StatelessWidget {
               if (canManage)
                 PopupMenuButton<String>(
                   tooltip: 'Contact actions',
-                  onSelected:
-                      (value) => value == 'edit' ? onEdit() : onStatus(),
-                  itemBuilder:
-                      (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        PopupMenuItem(
-                          value: 'status',
-                          child: Text(contact.isActive ? 'Retire' : 'Restore'),
-                        ),
-                      ],
+                  onSelected: (value) =>
+                      value == 'edit' ? onEdit() : onStatus(),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(
+                      value: 'status',
+                      child: Text(contact.isActive ? 'Retire' : 'Restore'),
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -325,19 +333,18 @@ class _ContactCard extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children:
-                contact.alarmTypeKeys
-                    .map(
-                      (key) => Chip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(
-                          definitionNames[key] ??
-                              CriticalAlarmDefinition.byKey[key]?.name ??
-                              key,
-                        ),
-                      ),
-                    )
-                    .toList(),
+            children: contact.alarmTypeKeys
+                .map(
+                  (key) => Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      definitionNames[key] ??
+                          CriticalAlarmDefinition.byKey[key]?.name ??
+                          key,
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           if (contact.notes != null) ...[
             const SizedBox(height: BafSpacing.sm),
@@ -414,11 +421,10 @@ class _ContactEditorState extends State<_ContactEditor> {
     _notes = TextEditingController(text: contact?.notes);
     _reason = TextEditingController();
     _kind = contact?.kind ?? CriticalAlarmContactKind.mobile;
-    final activeKeys =
-        widget.definitions
-            .where((definition) => definition.isActive)
-            .map((definition) => definition.key)
-            .toSet();
+    final activeKeys = widget.definitions
+        .where((definition) => definition.isActive)
+        .map((definition) => definition.key)
+        .toSet();
     _alarmTypes =
         contact?.alarmTypeKeys.where(activeKeys.contains).toSet() ?? <String>{};
   }
@@ -454,28 +460,26 @@ class _ContactEditorState extends State<_ContactEditor> {
                   labelText: 'Contact label',
                   counterText: '',
                 ),
-                validator:
-                    (value) => _bounded(
-                      value,
-                      minimum: 1,
-                      maximum: 120,
-                      missingMessage: 'Enter a contact label',
-                    ),
+                validator: (value) => _bounded(
+                  value,
+                  minimum: 1,
+                  maximum: 120,
+                  missingMessage: 'Enter a contact label',
+                ),
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<CriticalAlarmContactKind>(
                 initialValue: _kind,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Contact type'),
-                items:
-                    CriticalAlarmContactKind.values
-                        .map(
-                          (kind) => DropdownMenuItem(
-                            value: kind,
-                            child: Text(_kindLabel(kind)),
-                          ),
-                        )
-                        .toList(),
+                items: CriticalAlarmContactKind.values
+                    .map(
+                      (kind) => DropdownMenuItem(
+                        value: kind,
+                        child: Text(_kindLabel(kind)),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _kind = value ?? _kind),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -543,13 +547,12 @@ class _ContactEditorState extends State<_ContactEditor> {
                   labelText: 'Audit reason',
                   counterText: '',
                 ),
-                validator:
-                    (value) => _bounded(
-                      value,
-                      minimum: 1,
-                      maximum: 500,
-                      missingMessage: 'Enter an audit reason',
-                    ),
+                validator: (value) => _bounded(
+                  value,
+                  minimum: 1,
+                  maximum: 500,
+                  missingMessage: 'Enter an audit reason',
+                ),
               ),
               if (_alarmTypes.isEmpty)
                 const Padding(

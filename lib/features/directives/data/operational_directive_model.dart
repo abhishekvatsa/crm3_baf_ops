@@ -21,6 +21,9 @@ bool _hasMeaningfulDirectiveText(String? value) =>
 
 @Collection()
 class OperationalDirective {
+  @ignore
+  String? amendmentReason;
+
   Id id = Isar.autoIncrement;
 
   // ── Sync Identity ───────────────────────────────────────────
@@ -169,6 +172,8 @@ class OperationalDirective {
 
   // ─── AUDIT SNAPSHOT ────────────────────────────────────────
   Map<String, dynamic> toAuditMap() => {
+    'linkedMaintenanceFirestoreId': linkedMaintenanceFirestoreId,
+    'linkedExecutionFirestoreId': linkedExecutionFirestoreId,
     'id': id,
     'firestoreId': firestoreId,
     'title': title,
@@ -188,8 +193,22 @@ class OperationalDirective {
     'issuedByUid': issuedByUid,
     'issuedByName': issuedByName,
     'issuedAt': issuedAt?.toIso8601String(),
+    'isActive': isActive,
+    'acknowledgedByUid': acknowledgedByUid,
+    'acknowledgedByName': acknowledgedByName,
+    'acknowledgedAt': acknowledgedAt?.toIso8601String(),
     'closedByUid': closedByUid,
     'closedByName': closedByName,
     'closedAt': closedAt?.toIso8601String(),
+    'closedWithoutAcknowledgement': closedWithoutAcknowledgement,
+    'remarks': remarks,
+    'metadataJson': metadataJson,
+    'deletedAt': deletedAt?.toIso8601String(),
+    'deletedByUid': deletedByUid,
+    'deletedByName': deletedByName,
+    'deleteReason': deleteReason,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'version': version,
   };
 }

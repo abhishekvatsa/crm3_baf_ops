@@ -123,6 +123,21 @@ void main() {
     expect(link.linkedByName, 'Operations One');
   });
 
+  test(
+    'decodes administrative closure without calling it technical repair',
+    () {
+      final link = OperationalEventIssueLink.fromMap(
+        linkRecord()
+          ..['issueStatusAtLink'] = 'closedWithoutResolution'
+          ..['issueResolvedAtLink'] = true,
+        linkId,
+      );
+
+      expect(link.issueStatusAtLink, 'closedWithoutResolution');
+      expect(link.issueResolvedAtLink, isTrue);
+    },
+  );
+
   test('rejects reversed chronology and malformed frozen scope', () {
     expect(
       () => OperationalEventIssueLink.fromMap(
@@ -226,10 +241,9 @@ void main() {
       isApproved: true,
       createdAt: DateTime.utc(2026, 8, 14),
     );
-    final issue =
-        issueForAsset('asset-furnace-7')
-          ..loggedByUid = 'another-user'
-          ..routedTo = RoutedTo.mechanical;
+    final issue = issueForAsset('asset-furnace-7')
+      ..loggedByUid = 'another-user'
+      ..routedTo = RoutedTo.mechanical;
     issue.issueLanePlan = IssueLanePlan.initial(const <String>[
       'mechanical',
       'operations',
@@ -266,13 +280,12 @@ void main() {
     expect(sorted.first.linkedAt, DateTime.utc(2026, 8, 16, 14));
     expect(sorted.last.linkedAt, DateTime.utc(2026, 8, 14, 12));
 
-    final providerSource =
-        File(
-          'lib/features/operational_events/providers/operational_event_provider.dart',
-        ).readAsStringSync();
+    final providerSource = File(
+      'lib/features/operational_events/providers/operational_event_provider.dart',
+    ).readAsStringSync();
     final issueProvider = RegExp(
       r'operationalIssueEventLinksProvider[\s\S]*?'
-      r'_decodeOperationalEventIssueLinks\);',
+      r'_decodeOperationalEventIssueLinksForLive\(',
     ).firstMatch(providerSource);
     expect(issueProvider, isNotNull);
     expect(issueProvider!.group(0), isNot(contains('.limit(')));

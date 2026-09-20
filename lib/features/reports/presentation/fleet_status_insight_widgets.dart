@@ -482,6 +482,13 @@ class OperationsDecisionBrief extends StatelessWidget {
           onOperationalEvents,
         OperationsManagementSignalType.overdueMaintenance =>
           onMaintenanceRhythm,
+        // Incomplete due-state evidence is read where the cadence it
+        // qualifies is read.
+        OperationsManagementSignalType.incompleteDueStateEvidence =>
+          onMaintenanceRhythm,
+        OperationsManagementSignalType.incompletePlannedWorkEvidence =>
+          onPlannedWork,
+        OperationsManagementSignalType.retainedUnresolvedClosures => onIssues,
         OperationsManagementSignalType.inspectionFindings => onInspections,
         OperationsManagementSignalType.qualityWarnings => onQuality,
         OperationsManagementSignalType.workflowObligations => onWorkflow,
@@ -557,6 +564,12 @@ class _DecisionSignalRow extends StatelessWidget {
           Icons.crisis_alert_outlined,
         OperationsManagementSignalType.overdueMaintenance =>
           Icons.event_busy_outlined,
+        OperationsManagementSignalType.incompleteDueStateEvidence =>
+          Icons.report_gmailerrorred_outlined,
+        OperationsManagementSignalType.incompletePlannedWorkEvidence =>
+          Icons.report_gmailerrorred_outlined,
+        OperationsManagementSignalType.retainedUnresolvedClosures =>
+          Icons.history_toggle_off_outlined,
         OperationsManagementSignalType.inspectionFindings =>
           Icons.fact_check_outlined,
         OperationsManagementSignalType.qualityWarnings =>
@@ -643,10 +656,12 @@ class OperationsReportSelection {
   const OperationsReportSelection({
     required this.assetClassId,
     required this.assetInstanceId,
+    this.requiresHistoricalReview = false,
   });
 
   final String? assetClassId;
   final String? assetInstanceId;
+  final bool requiresHistoricalReview;
 
   static const innerCoverPrefix = 'inner_cover_profiles/';
 
@@ -668,14 +683,9 @@ OperationsReportSelection reconcileOperationsReportSelection({
   required List<AssetInstanceRecord> assets,
   List<InnerCoverProfile> innerCovers = const [],
 }) {
-  final activeClassIds = {
-    for (final item in classes)
-      if (item.isActive) item.id,
-  };
-  final resolvedClassId =
-      assetClassId != null && activeClassIds.contains(assetClassId)
-      ? assetClassId
-      : null;
+  final knownClassIds = {for (final item in classes) item.id};
+  // A missing row is unavailable identity, not permission to widen scope.
+  final resolvedClassId = assetClassId;
   final selection = OperationsReportSelection(
     assetClassId: resolvedClassId,
     assetInstanceId: assetInstanceId,
@@ -686,7 +696,7 @@ OperationsReportSelection reconcileOperationsReportSelection({
         .firstOrNull;
     final valid =
         cover != null &&
-        activeClassIds.contains(cover.assetClassId) &&
+        knownClassIds.contains(cover.assetClassId) &&
         classes.any(
           (item) =>
               item.id == cover.assetClassId &&
@@ -695,7 +705,13 @@ OperationsReportSelection reconcileOperationsReportSelection({
         (resolvedClassId == null || cover.assetClassId == resolvedClassId);
     return OperationsReportSelection(
       assetClassId: resolvedClassId,
-      assetInstanceId: valid ? assetInstanceId : null,
+      assetInstanceId: assetInstanceId,
+      requiresHistoricalReview:
+          valid &&
+          !(classes
+              .where((item) => item.id == cover.assetClassId)
+              .single
+              .isActive),
     );
   }
   final selectedAsset = assetInstanceId == null
@@ -703,13 +719,18 @@ OperationsReportSelection reconcileOperationsReportSelection({
       : assets.where((item) => item.id == assetInstanceId).firstOrNull;
   final assetRemainsAvailable =
       selectedAsset != null &&
-      selectedAsset.isActive &&
-      activeClassIds.contains(selectedAsset.assetClassId) &&
+      knownClassIds.contains(selectedAsset.assetClassId) &&
       (resolvedClassId == null ||
           selectedAsset.assetClassId == resolvedClassId);
+  final selectedClass = classes
+      .where((item) => item.id == selectedAsset?.assetClassId)
+      .firstOrNull;
   return OperationsReportSelection(
     assetClassId: resolvedClassId,
-    assetInstanceId: assetRemainsAvailable ? assetInstanceId : null,
+    assetInstanceId: assetInstanceId,
+    requiresHistoricalReview:
+        assetRemainsAvailable &&
+        (!selectedAsset.isActive || selectedClass?.isActive == false),
   );
 }
 

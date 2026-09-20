@@ -102,11 +102,11 @@ bool _originMatchesSource(
   InnerCoverOriginClassification.documentedPurchase =>
     sourceType == InnerCoverSourceType.purchased,
   InnerCoverOriginClassification.documentedFabrication ||
-  InnerCoverOriginClassification
-      .ownerDeclaredFabricated => sourceType == InnerCoverSourceType.fabricated,
+  InnerCoverOriginClassification.ownerDeclaredFabricated =>
+    sourceType == InnerCoverSourceType.fabricated,
   InnerCoverOriginClassification.ownerDeclaredNew ||
-  InnerCoverOriginClassification
-      .legacyUndocumented => sourceType == InnerCoverSourceType.legacyExisting,
+  InnerCoverOriginClassification.legacyUndocumented =>
+    sourceType == InnerCoverSourceType.legacyExisting,
 };
 
 enum InnerCoverTraceabilityGrade {
@@ -289,6 +289,12 @@ class InnerCoverProfile {
   final DateTime? acceptedAt;
   final String? acceptedByUid;
   final String? acceptedByName;
+  final DateTime? assuranceInvalidatedAt;
+  final DateTime? assuranceInvalidatedRecordedAt;
+  final String? assuranceInvalidatedByUid;
+  final String? assuranceInvalidatedByName;
+  final String? assuranceInvalidationReason;
+  final String? assuranceEpisodeId;
   final String? currentBaseAssetInstanceId;
   final int? currentBaseAssetNumber;
   final String? currentBaseAssetName;
@@ -328,6 +334,12 @@ class InnerCoverProfile {
     this.acceptedAt,
     this.acceptedByUid,
     this.acceptedByName,
+    this.assuranceInvalidatedAt,
+    this.assuranceInvalidatedRecordedAt,
+    this.assuranceInvalidatedByUid,
+    this.assuranceInvalidatedByName,
+    this.assuranceInvalidationReason,
+    this.assuranceEpisodeId,
     this.currentBaseAssetInstanceId,
     this.currentBaseAssetNumber,
     this.currentBaseAssetName,
@@ -339,7 +351,15 @@ class InnerCoverProfile {
   });
 
   bool get isInstalled => lifecycleState == InnerCoverLifecycleState.installed;
-  bool get isAvailable => lifecycleState == InnerCoverLifecycleState.available;
+
+  bool get requiresReacceptance =>
+      acceptedAt != null &&
+      assuranceInvalidatedAt != null &&
+      !assuranceInvalidatedAt!.isBefore(acceptedAt!);
+
+  bool get isAvailable =>
+      lifecycleState == InnerCoverLifecycleState.available &&
+      !requiresReacceptance;
 
   factory InnerCoverProfile.fromMap(
     Map<String, dynamic> map,
@@ -545,15 +565,14 @@ class InnerCoverProfile {
       map['traceabilityGrade'],
       source: source,
     );
-    final originClassification =
-        map['originClassification'] == null
-            ? _legacyOriginClassification(sourceType, traceabilityGrade)
-            : readRequiredPersistedEnum(
-              InnerCoverOriginClassification.values,
-              map['originClassification'],
-              field: 'originClassification',
-              source: source,
-            );
+    final originClassification = map['originClassification'] == null
+        ? _legacyOriginClassification(sourceType, traceabilityGrade)
+        : readRequiredPersistedEnum(
+            InnerCoverOriginClassification.values,
+            map['originClassification'],
+            field: 'originClassification',
+            source: source,
+          );
     if (!_originMatchesSource(originClassification, sourceType)) {
       throw PersistedDataFormatException(
         field: 'originClassification',
@@ -622,6 +641,62 @@ class InnerCoverProfile {
         detail: 'acceptance evidence must be complete together',
       );
     }
+    final assuranceInvalidatedAt = readOptionalPersistedDateTime(
+      map['assuranceInvalidatedAt'],
+      field: 'assuranceInvalidatedAt',
+      source: source,
+    );
+    final assuranceInvalidatedRecordedAt = readOptionalPersistedDateTime(
+      map['assuranceInvalidatedRecordedAt'],
+      field: 'assuranceInvalidatedRecordedAt',
+      source: source,
+    );
+    final assuranceInvalidatedByUid = readOptionalPersistedString(
+      map['assuranceInvalidatedByUid'],
+      field: 'assuranceInvalidatedByUid',
+      source: source,
+    );
+    final assuranceInvalidatedByName = readOptionalPersistedString(
+      map['assuranceInvalidatedByName'],
+      field: 'assuranceInvalidatedByName',
+      source: source,
+    );
+    final assuranceInvalidationReason = readOptionalPersistedString(
+      map['assuranceInvalidationReason'],
+      field: 'assuranceInvalidationReason',
+      source: source,
+    );
+    final assuranceEpisodeId = readOptionalPersistedString(
+      map['assuranceEpisodeId'],
+      field: 'assuranceEpisodeId',
+      source: source,
+    );
+    final assuranceEvidence = <Object?>[
+      assuranceInvalidatedAt,
+      assuranceInvalidatedRecordedAt,
+      assuranceInvalidatedByUid,
+      assuranceInvalidatedByName,
+      assuranceInvalidationReason,
+    ];
+    final completeAssuranceEvidence = assuranceEvidence.every(
+      (value) => value != null,
+    );
+    final absentAssuranceEvidence = assuranceEvidence.every(
+      (value) => value == null,
+    );
+    if ((!completeAssuranceEvidence && !absentAssuranceEvidence) ||
+        (completeAssuranceEvidence &&
+            assuranceInvalidatedAt!.isAfter(assuranceInvalidatedRecordedAt!)) ||
+        (assuranceInvalidationReason != null &&
+            assuranceInvalidationReason.isEmpty) ||
+        (assuranceEpisodeId != null && assuranceEpisodeId.isEmpty)) {
+      throw PersistedDataFormatException(
+        field: 'assuranceInvalidatedAt',
+        source: source,
+        detail:
+            'assurance-episode invalidation evidence is incomplete or inconsistent',
+      );
+    }
     final createdAt = readRequiredPersistedDateTime(
       map['createdAt'],
       field: 'createdAt',
@@ -641,6 +716,8 @@ class InnerCoverProfile {
         (acceptedAt?.isAfter(updatedAt) ?? false) ||
         (retiredAt?.isAfter(updatedAt) ?? false) ||
         (returnedToInspectionAt?.isAfter(updatedAt) ?? false) ||
+        (assuranceInvalidatedAt?.isAfter(updatedAt) ?? false) ||
+        (assuranceInvalidatedRecordedAt?.isAfter(updatedAt) ?? false) ||
         (receivedOrCompletedOn != null &&
             acceptedAt != null &&
             receivedOrCompletedOn.isAfter(acceptedAt))) {
@@ -703,6 +780,12 @@ class InnerCoverProfile {
       acceptedAt: acceptedAt,
       acceptedByUid: acceptedByUid,
       acceptedByName: acceptedByName,
+      assuranceInvalidatedAt: assuranceInvalidatedAt,
+      assuranceInvalidatedRecordedAt: assuranceInvalidatedRecordedAt,
+      assuranceInvalidatedByUid: assuranceInvalidatedByUid,
+      assuranceInvalidatedByName: assuranceInvalidatedByName,
+      assuranceInvalidationReason: assuranceInvalidationReason,
+      assuranceEpisodeId: assuranceEpisodeId,
       currentBaseAssetInstanceId: baseId,
       currentBaseAssetNumber: baseNumber,
       currentBaseAssetName: baseName,
@@ -725,16 +808,14 @@ class InnerCoverProfile {
 }
 
 extension InnerCoverPlantCondition on InnerCoverProfile {
-  bool get countsAsAssetInventory =>
-      !const {
-        InnerCoverLifecycleState.fullyConsumedAsDonor,
-        InnerCoverLifecycleState.disposed,
-      }.contains(lifecycleState);
-
-  bool get isAvailableForPlantCondition => const {
-    InnerCoverLifecycleState.available,
-    InnerCoverLifecycleState.installed,
+  bool get countsAsAssetInventory => !const {
+    InnerCoverLifecycleState.fullyConsumedAsDonor,
+    InnerCoverLifecycleState.disposed,
   }.contains(lifecycleState);
+
+  bool get isAvailableForPlantCondition =>
+      const {InnerCoverLifecycleState.installed}.contains(lifecycleState) ||
+      isAvailable;
 
   bool get isUnderMaintenanceForPlantCondition => const {
     InnerCoverLifecycleState.underInspection,
@@ -864,6 +945,7 @@ class InnerCoverLinkage {
   final String installedByUid;
   final String installedByName;
   final DateTime? removedAt;
+  final DateTime? removedPhysicalAt;
   final String? removedByUid;
   final String? removedByName;
   final String? removalAction;
@@ -882,6 +964,7 @@ class InnerCoverLinkage {
     required this.installedByUid,
     required this.installedByName,
     this.removedAt,
+    this.removedPhysicalAt,
     this.removedByUid,
     this.removedByName,
     this.removalAction,
@@ -913,9 +996,19 @@ class InnerCoverLinkage {
       field: 'active',
       source: source,
     );
+    final installedAt = readRequiredPersistedDateTime(
+      map['installedAt'],
+      field: 'installedAt',
+      source: source,
+    );
     final removedAt = readOptionalPersistedDateTime(
       map['removedAt'],
       field: 'removedAt',
+      source: source,
+    );
+    final removedPhysicalAt = readOptionalPersistedDateTime(
+      map['removedPhysicalAt'],
+      field: 'removedPhysicalAt',
       source: source,
     );
     final removedByUid = readOptionalPersistedString(
@@ -940,12 +1033,17 @@ class InnerCoverLinkage {
     );
     if ((active &&
             (removedAt != null ||
+                removedPhysicalAt != null ||
                 removedByUid != null ||
                 removedByName != null ||
                 removalAction != null ||
                 removalReason != null)) ||
         (!active &&
             (removedAt == null ||
+                removedAt.isBefore(installedAt) ||
+                (removedPhysicalAt != null &&
+                    (removedPhysicalAt.isBefore(installedAt) ||
+                        removedPhysicalAt.isAfter(removedAt))) ||
                 removedByUid == null ||
                 removedByName == null ||
                 removalAction == null ||
@@ -985,11 +1083,7 @@ class InnerCoverLinkage {
         field: 'innerCoverSerialNumber',
         source: source,
       ),
-      installedAt: readRequiredPersistedDateTime(
-        map['installedAt'],
-        field: 'installedAt',
-        source: source,
-      ),
+      installedAt: installedAt,
       installedByUid: readRequiredPersistedString(
         map['installedByUid'],
         field: 'installedByUid',
@@ -1001,6 +1095,7 @@ class InnerCoverLinkage {
         source: source,
       ),
       removedAt: removedAt,
+      removedPhysicalAt: removedPhysicalAt,
       removedByUid: removedByUid,
       removedByName: removedByName,
       removalAction: removalAction,

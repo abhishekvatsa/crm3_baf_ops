@@ -44,10 +44,10 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
   final frequentIssueSelection = record.frequentIssueSelection;
   final plantConditionEffect =
       record.plantConditionEffect != MaintenanceIssuePlantConditionEffect.none
-          ? record.plantConditionEffect
-          : record.classification == furnaceStuckupClassification
-          ? MaintenanceIssuePlantConditionEffect.stuckUp
-          : MaintenanceIssuePlantConditionEffect.unfit;
+      ? record.plantConditionEffect
+      : record.classification == furnaceStuckupClassification
+      ? MaintenanceIssuePlantConditionEffect.stuckUp
+      : MaintenanceIssuePlantConditionEffect.unfit;
   _validateBaseInnerCoverAvailabilityCase(
     record,
     plantConditionEffect: plantConditionEffect,
@@ -65,6 +65,8 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'tag': record.tag,
     'hierarchyPath': record.hierarchyPath,
     'assetHierarchyRefJson': assetReference,
+    if (record.continuesIssueId?.trim().isNotEmpty == true)
+      'continuesIssueId': record.continuesIssueId!.trim(),
     'maintenanceType': record.maintenanceType.name,
     'classification': record.classification,
     'description': record.description,
@@ -138,29 +140,28 @@ void validateMaintenanceIssueCreateReceipt({
     );
   }
 
-  final expectedWarningId =
-      ticket['qualityImpactAssessment'] == 'suspected'
-          ? 'issue_${command.aggregateId}'
-          : null;
+  final expectedWarningId = ticket['qualityImpactAssessment'] == 'suspected'
+      ? 'issue_${command.aggregateId}'
+      : null;
   final expectedAbnormalityId =
       ticket['qualityIntentSchemaVersion'] == 2 &&
-              ticket['qualityImpactAssessment'] == 'suspected'
-          ? 'issue_quality_${command.aggregateId}'
-          : null;
+          ticket['qualityImpactAssessment'] == 'suspected'
+      ? 'issue_quality_${command.aggregateId}'
+      : null;
   final redHotPositions = ticket['burnerRedHotPositions'];
   final expectedDirectiveId =
       redHotPositions is List && redHotPositions.isNotEmpty
-          ? 'burner_red_hot_${command.aggregateId}'
-          : null;
+      ? 'burner_red_hot_${command.aggregateId}'
+      : null;
   final expectedStuckupCaseId =
       ticket['classification'] == furnaceStuckupClassification
-          ? command.aggregateId
-          : null;
+      ? command.aggregateId
+      : null;
   final selection = ticket['frequentIssueSelection'];
   final expectedReviewQueueId =
       selection is Map && selection['selectionType'] == 'unlisted'
-          ? command.aggregateId
-          : null;
+      ? command.aggregateId
+      : null;
   if (receipt.result['warningId'] != expectedWarningId ||
       receipt.result['abnormalityId'] != expectedAbnormalityId ||
       receipt.result['directiveId'] != expectedDirectiveId ||

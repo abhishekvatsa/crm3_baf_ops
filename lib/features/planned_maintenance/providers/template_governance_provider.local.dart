@@ -104,65 +104,15 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     required AppUser actor,
     String? reason,
   }) async {
-    _requireTemplateGovernor(actor, 'publish template versions');
-    if (!record.isDraft) {
-      throw StateError('Only draft template versions can be published.');
-    }
-    if (record.firestoreId != null && !record.isSynced) {
-      throw StateError(
-        'A saved TemplateVersion draft must sync successfully before it can be published.',
-      );
-    }
-    await _requireRestoredDraftAuditSynced(record, actionLabel: 'published');
-
-    _validateTemplateVersionSnapshotForPublish(record);
-
-    final beforeHash = record.contentHash;
-    final now = DateTime.now();
+    final published = await _publishReviewedVersion(record, actor: actor, reason: reason);
+    // The caller changes only after all version, pointer and audit writes commit.
+    _copyTemplateVersionLifecycleState(record, published, isSynced: false);
     record
-      ..status = TemplateVersionStatus.published
-      ..publishedByUid = actor.uid
-      ..publishedByName = actor.name
-      ..publishedAt = now
-      ..updatedAt = now;
-    record.refreshContentHash();
-    _normalizeVersionForUserSave(record, actor: actor, markUnsynced: true);
-
-    final audit = _newAudit(
-      action: TemplatePublishAuditAction.published,
-      actor: actor,
-      version: record,
-      reason: reason,
-      beforeHash: beforeHash,
-      afterHash: record.contentHash,
-    );
-
-    await isar.writeTxn(() async {
-      await isar.templateVersions.put(record);
-      await isar.templatePublishAudits.put(audit);
-
-      final packageId = record.packageFirestoreId;
-      if (packageId != null) {
-        final package = await isar.templatePackages
-            .filter()
-            .firestoreIdEqualTo(packageId)
-            .findFirst();
-        if (package != null) {
-          package
-            ..activeVersionFirestoreId = record.firestoreId
-            ..latestVersionNumber =
-                record.versionNumber > package.latestVersionNumber
-                ? record.versionNumber
-                : package.latestVersionNumber;
-          _normalizePackageForUserSave(
-            package,
-            actor: actor,
-            markUnsynced: true,
-          );
-          await isar.templatePackages.put(package);
-        }
-      }
-    });
+      ..id = published.id
+      ..firestoreId = published.firestoreId
+      ..publishedByUid = published.publishedByUid
+      ..publishedByName = published.publishedByName
+      ..publishedAt = published.publishedAt;
   }
 
   @override

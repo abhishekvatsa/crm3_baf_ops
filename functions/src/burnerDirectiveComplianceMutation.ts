@@ -3,6 +3,7 @@ import {createHash} from "crypto";
 import {AssetHierarchyMutationError} from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {conditionProvenance, roundEvidenceHash} from "./burnerConditionEvidence";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -83,6 +84,8 @@ type DirectiveBinding = {
 type RoundState = {
   data: JsonMap;
   roundId: string;
+  /** Whether the round itself carried UV and draft-seal evidence. */
+  extendedEvidenceRecorded: boolean;
   observations: ReadonlyArray<BurnerObservation>;
   uvObservations: ReadonlyArray<UvObservation>;
   draftSealRedHotObserved: boolean;
@@ -467,6 +470,7 @@ function roundState(snapshot: SnapshotLike, request: ParsedRequest): RoundState 
     throwRoundMalformed("identity");
   }
   const observations = data.observations.map(parseStoredObservation);
+  const extendedEvidenceRecorded = data.schemaVersion === 2;
   let uvObservations: ReadonlyArray<UvObservation>;
   let draftSealRedHotObserved = false;
   let hotAirAtDraftSealObserved = false;
@@ -489,6 +493,7 @@ function roundState(snapshot: SnapshotLike, request: ParsedRequest): RoundState 
   return {
     data,
     roundId,
+    extendedEvidenceRecorded,
     observations,
     uvObservations,
     draftSealRedHotObserved,
@@ -538,7 +543,7 @@ function verifyRoundAssetIdentity(round: RoundState, asset: JsonMap): void {
   if (round.data.assetNumber !== asset.assetNumber ||
       round.data.assetClassCode !== asset.assetClassCode ||
       typeof round.data.assetClassName !== "string" || round.data.assetClassName.trim().length === 0 ||
-      round.data.assetName !== asset.name) {
+      typeof round.data.assetName !== "string" || round.data.assetName.trim().length === 0) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "The authoritative burner round belongs to inconsistent asset evidence.",
@@ -890,10 +895,22 @@ function validateReplay(
   roundValue: SnapshotLike,
   closedDirectiveValue: SnapshotLike,
   newDirectiveValue: SnapshotLike,
+  receipt: JsonMap,
+  baselineValue: SnapshotLike,
+  sourceValue: SnapshotLike,
 ): void {
   const round = roundState(roundValue, request);
   const closed = record(closedDirectiveValue, "Closed burner directive");
   const binding = directiveBinding(closed, request.directiveId);
+  if (!baselineValue.exists || !sourceValue.exists) {
+    throw new AssetHierarchyMutationError("data-loss",
+      "Retained burner-compliance baseline evidence is missing.",
+      {reasonCode: "burner-directive-compliance-replay-evidence-drift"});
+  }
+  const baseline = roundState(baselineValue, request);
+  const source = roundState(sourceValue, request);
+  verifySourceRound(source, binding, request.directiveId);
+  const expected = projectCompliance(baseline, request, binding);
   const dispositionPositions = request.dispositions.map((item) => item.position);
   const redHotPositions = positionsWhere(
     round.observations,
@@ -908,18 +925,21 @@ function validateReplay(
     .filter((item) =>
       round.uvObservations[item.position - 1].condition === "serviceable")
     .map((item) => item.position);
-  const dispositionsValid = request.dispositions.every((item) => {
-    const observation = round.observations[item.position - 1];
-    const uv = round.uvObservations[item.position - 1];
-    if (item.disposition === "restoredInService") {
-      return observation.redHotObserved === false &&
-        uv.condition === "serviceable";
-    }
-    return observation.redHotObserved === true &&
-      observation.flameObservation === "notOperating" &&
-      observation.microampReading == null &&
-      uv.condition === dispositionUv(item.disposition);
-  });
+  // Reuse the writer's outcome function against the reviewed current round.
+  // In particular, a non-restored UV disposition preserves a later clear
+  // red-hot reading; the directive's original red-hot value is not its baseline.
+  const dispositionsValid = baseline.roundId === request.expectedCurrentRoundId &&
+    stableJson(round.observations) === stableJson(expected.observations) &&
+    stableJson(round.uvObservations) === stableJson(expected.uvObservations) &&
+    round.draftSealRedHotObserved === baseline.draftSealRedHotObserved &&
+    round.hotAirAtDraftSealObserved === baseline.hotAirAtDraftSealObserved;
+  const evidenceBound = receipt.evidenceVersion == null ?
+    round.data.evidenceKind == null && round.data.evidenceProvenance == null :
+    receipt.evidenceVersion === 1 &&
+      receipt.roundEvidenceSha256 === roundEvidenceHash(round.data) &&
+      receipt.baselineRoundId === request.expectedCurrentRoundId &&
+      receipt.baselineEvidenceSha256 === roundEvidenceHash(baseline.data) &&
+      receipt.sourceRoundEvidenceSha256 === roundEvidenceHash(source.data);
   const roundValid = round.data.schemaVersion === 2 &&
     round.roundId === request.requestId &&
     round.data.assetInstanceVersion === request.expectedAssetVersion &&
@@ -973,7 +993,7 @@ function validateReplay(
       instantIso(successor.issuedAt) === result.committedAt &&
       successor.isDeleted === false;
   }
-  if (!roundValid || !closedValid || !successorValid) {
+  if (!roundValid || !closedValid || !successorValid || !evidenceBound) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "Retained burner-compliance evidence no longer matches its receipt.",
@@ -1051,6 +1071,15 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
         actorUid,
         receiptValue.data() ?? {},
       );
+      const replayBinding = directiveBinding(
+        record(closedDirectiveValue, "Closed burner directive"), request.directiveId,
+      );
+      const baselineValue = asSnapshot(await transaction.get(
+        db.collection("burner_condition_rounds").doc(request.expectedCurrentRoundId),
+      ), "Compliance replay baseline lookup");
+      const sourceValue = asSnapshot(await transaction.get(
+        db.collection("burner_condition_rounds").doc(replayBinding.sourceRoundId),
+      ), "Compliance replay source lookup");
       validateReplay(
         request,
         actorUid,
@@ -1058,6 +1087,9 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
         roundValue,
         closedDirectiveValue,
         successorDirectiveValue,
+        receiptValue.data() ?? {},
+        baselineValue,
+        sourceValue,
       );
       return result;
     }
@@ -1133,6 +1165,23 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
     verifyRoundAssetIdentity(current, asset);
     verifyRoundAssetIdentity(source, asset);
     verifySourceRound(source, binding, request.directiveId);
+    // A round recorded before UV and draft-seal evidence existed carries none.
+    // Compliance would have to supply values for every position it did not
+    // direct, and reading those as "serviceable" would turn a position nobody
+    // examined into one examined and found normal, timed and attributed to the
+    // complying actor. Record a current condition round first instead.
+    if (!current.extendedEvidenceRecorded) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This condition round was recorded before UV and draft-seal evidence " +
+        "was captured. Record a current condition round for this furnace, " +
+        "then complete the directive.",
+        {
+          reasonCode: "burner-directive-compliance-round-evidence-unavailable",
+          currentRoundId: current.roundId,
+        },
+      );
+    }
     const projection = projectCompliance(current, request, binding);
     const redHotPositions = positionsWhere(
       projection.observations,
@@ -1179,6 +1228,21 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
       recordedByName,
       directiveId: newDirectiveId,
       fingerprint: roundFingerprint,
+      evidenceKind: "directiveCompliance",
+      baselineRoundId: current.roundId,
+      evidenceProvenance: conditionProvenance({
+        before: current.data, roundId: request.requestId, observedAt: committedAtIso,
+        actorUid, actorName: recordedByName, kind: "directiveDisposition",
+        assertedFields: new Set(request.dispositions.flatMap((item) => [
+          `uv.${item.position}.condition`, `uv.${item.position}.remarks`,
+          `burners.${item.position}.remarks`,
+          ...(item.disposition === "restoredInService" ?
+            [`burners.${item.position}.redHotObserved`] : [
+              `burners.${item.position}.flameObservation`,
+              `burners.${item.position}.microampReading`,
+            ]),
+        ])),
+      }),
     };
     const closedDirectiveVersion = request.expectedDirectiveVersion + 1;
     const receipt: JsonMap = {
@@ -1195,6 +1259,11 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
       newDirectiveId,
       committedAt,
       committedAtIso,
+      evidenceVersion: 1,
+      roundEvidenceSha256: roundEvidenceHash(round),
+      baselineRoundId: current.roundId,
+      baselineEvidenceSha256: roundEvidenceHash(current.data),
+      sourceRoundEvidenceSha256: roundEvidenceHash(source.data),
     };
 
     transaction.set(roundRef, round);

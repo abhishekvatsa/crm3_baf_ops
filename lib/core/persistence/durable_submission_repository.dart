@@ -31,6 +31,8 @@ class DurableSubmissionRepository {
     'maintenanceWorkflow.v2',
     'chargeAbnormality.v2',
     'publishedTemplateAssignment.v2',
+    'criticalAlarm.v1',
+    'userAuthority.v1',
   };
 
   DateTime get _time => _now().toUtc();
@@ -131,6 +133,21 @@ class DurableSubmissionRepository {
     values.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return values;
   }
+
+  /// Observe this actor's retained rows without a read/subscribe gap. Domain
+  /// callers still gate each emission against live authority before disclosure.
+  Stream<List<DurableSubmission>> watchForActor(String actorUid) => _rows
+      .where()
+      .actorUidEqualTo(actorUid)
+      .watch(fireImmediately: true)
+      .map((rows) {
+        final values = rows
+            .map(_view)
+            .where((row) => row.state.isUnresolved)
+            .toList();
+        values.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return values;
+      });
 
   Future<DurableSubmissionClaim> claim({
     required String submissionId,
@@ -243,6 +260,8 @@ class DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptJson,
     required DurableReceiptValidator validateReceipt,
+    bool Function(Map<String, dynamic> retained, Map<String, dynamic> incoming)?
+    sameAcceptance,
   }) async {
     final receipt = durableSubmissionJsonObject(receiptJson);
     return isar.writeTxn(() async {
@@ -258,7 +277,12 @@ class DurableSubmissionRepository {
         );
       }
       if (view.state.isAccepted) {
-        if (view.receiptJson != receiptJson) {
+        if (view.receiptJson != receiptJson &&
+            !(sameAcceptance?.call(
+                  durableSubmissionJsonObject(view.receiptJson!),
+                  receipt,
+                ) ??
+                false)) {
           _fail(
             'acceptance-conflict',
             'A different acceptance is already retained. Both outcomes need review.',
@@ -388,6 +412,7 @@ class DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptSha256,
     Future<void> Function(Isar transactionStore)? adoptInTransaction,
+    bool recheckProjection = false,
   }) {
     return isar.writeTxn(() async {
       final row = await _required(submissionId);
@@ -399,8 +424,22 @@ class DurableSubmissionRepository {
           'Confirm the retained acceptance before reconciliation.',
         );
       }
-      if (view.state == DurableSubmissionState.reconciled) return view;
-      await _assertSoleOwner(view);
+      if (view.state == DurableSubmissionState.reconciled &&
+          !recheckProjection) {
+        return view;
+      }
+      if (view.state == DurableSubmissionState.reconciled) {
+        // A completed owner is intentionally absent from the unresolved index.
+        // A later reply may refresh its projection only without another owner.
+        if ((await _unresolvedForResource(view.resourceKey)).isNotEmpty) {
+          _fail(
+            'resource-conflict',
+            'Newer saved work must be reviewed before adopting this observation.',
+          );
+        }
+      } else {
+        await _assertSoleOwner(view);
+      }
       await adoptInTransaction?.call(isar);
       row
         ..stateKey = DurableSubmissionState.reconciled.name
@@ -729,7 +768,11 @@ class DurableSubmissionRepository {
     final envelope = durableSubmissionJsonObject(
       data['envelopeJson'] as String,
     );
-    final innerKey = data['protocol'] == 'maintenanceWorkflow.v2'
+    final innerKey =
+        const {
+          'maintenanceWorkflow.v2',
+          'criticalAlarm.v1',
+        }.contains(data['protocol'])
         ? 'command'
         : 'request';
     if (envelope.length != 3 ||
@@ -765,10 +808,16 @@ class DurableSubmissionRepository {
     Map<String, dynamic> inner,
   ) {
     if (protocol == 'maintenanceWorkflow.v2') return 'aggregateId';
+    if (protocol == 'criticalAlarm.v1') return 'aggregateId';
+    if (protocol == 'userAuthority.v1') return 'targetUid';
     if (protocol == 'publishedTemplateAssignment.v2') return 'requestId';
     if (protocol == 'chargeAbnormality.v2') {
-      if (inner['operation'] != 'CREATE_QUALITY_MONITORING_REQUEST' ||
-          inner['expectedVersion'] != 0) {
+      if (!const {
+        'CREATE_QUALITY_MONITORING_REQUEST',
+        'CLOSE_QUALITY_MONITORING_REQUEST',
+        'CORRECT_QUALITY_MONITORING_REQUEST',
+        'CANCEL_QUALITY_MONITORING_REQUEST',
+      }.contains(inner['operation'])) {
         throw const DurableSubmissionException(
           'invalid-protocol',
           'The saved quality request has an unsupported operation or baseline.',
@@ -776,10 +825,20 @@ class DurableSubmissionRepository {
       }
       return 'monitoringRequestId';
     }
+    if (protocol == 'assetHierarchy.v2') {
+      final key = _registryIdentityKeys[inner['operation']];
+      if (key != null) return key;
+    }
+    if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'APPLY_ORDINARY_DIRECTIVE') {
+      return 'directiveId';
+    }
     if (protocol == 'assetHierarchy.v2' &&
         const {
           'RECORD_BURNER_CONDITION_ROUND',
           'COMPLETE_BURNER_RED_HOT_DIRECTIVE',
+          'DECLARE_ASSET_CONDITION',
+          'RESTORE_ASSET_CONDITION',
         }.contains(inner['operation'])) {
       return 'assetInstanceId';
     }
@@ -795,6 +854,23 @@ class DurableSubmissionRepository {
     return 'innerCoverId';
   }
 
+  static const _registryIdentityKeys = {
+    'CREATE_CLASS': 'assetClassId',
+    'UPDATE_CLASS': 'assetClassId',
+    'SET_CLASS_STATUS': 'assetClassId',
+    'CREATE_NODE': 'nodeId',
+    'UPDATE_NODE': 'nodeId',
+    'SET_NODE_STATUS': 'nodeId',
+    'CREATE_ASSET_INSTANCE': 'assetInstanceId',
+    'UPDATE_ASSET_INSTANCE': 'assetInstanceId',
+    'SET_ASSET_INSTANCE_STATUS': 'assetInstanceId',
+    'CORRECT_COMPONENT_INSTANCE': 'componentInstanceId',
+    'CREATE_COMPONENT_INSTANCE': 'componentInstanceId',
+    'UPDATE_COMPONENT_INSTANCE': 'componentInstanceId',
+    'REPLACE_COMPONENT_INSTANCE': 'componentInstanceId',
+    'SET_COMPONENT_INSTANCE_STATUS': 'componentInstanceId',
+  };
+
   static const _morningReviewOperations = {
     'START_MORNING_REVIEW',
     'JOIN_MORNING_REVIEW',
@@ -802,6 +878,7 @@ class DurableSubmissionRepository {
     'CREATE_MORNING_REVIEW_ACTION',
     'ACCEPT_MORNING_REVIEW_ACTION',
     'COMPLETE_MORNING_REVIEW_ACTION',
+    'AMEND_MORNING_REVIEW_ACTION',
     'TAKE_OVER_MORNING_REVIEW',
     'FINALIZE_MORNING_REVIEW',
     'RECORD_MORNING_REVIEW_NOT_HELD',
@@ -816,6 +893,75 @@ class DurableSubmissionRepository {
     Map<String, dynamic> inner,
   ) {
     if (protocol == 'assetHierarchy.v2' &&
+        _registryIdentityKeys.containsKey(inner['operation'])) {
+      final operation = inner['operation'] as String;
+      bool positive(Object? v) => v is int && v >= 1 && v < 9007199254740991;
+      if (operation.startsWith('CREATE_')) {
+        if (inner.containsKey('expectedVersion')) return false;
+        if (operation == 'CREATE_ASSET_INSTANCE') {
+          return positive(inner['expectedAssetClassVersion']);
+        }
+        if (operation == 'CREATE_COMPONENT_INSTANCE') {
+          return positive(inner['expectedAssetInstanceVersion']);
+        }
+        return true;
+      }
+      return positive(inner['expectedVersion']) &&
+          (operation != 'REPLACE_COMPONENT_INSTANCE' ||
+              positive(inner['expectedAssetInstanceVersion']));
+    }
+    if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'APPLY_ORDINARY_DIRECTIVE') {
+      final version = inner['expectedVersion'];
+      return const {
+            'create',
+            'acknowledge',
+            'close',
+            'amend',
+            'delete',
+          }.contains(inner['action']) &&
+          version is int &&
+          version <= 9007199254740990 &&
+          (inner['action'] == 'create' ? version == 0 : version >= 1);
+    }
+    if (protocol == 'userAuthority.v1') {
+      const operations = {'APPROVE', 'REVOKE', 'REPLACE_ROLES'};
+      final operation = inner['operation'];
+      final revision = inner['expectedAuthorityRevision'];
+      final digest = inner['expectedAuthorityDigest'];
+      final targetUid = inner['targetUid'];
+      final reason = inner['reason'];
+      if (!operations.contains(operation) ||
+          targetUid is! String ||
+          targetUid.trim().isEmpty ||
+          reason is! String ||
+          reason.trim().isEmpty ||
+          digest is! String ||
+          !RegExp(r'^auth1-sha256:[0-9a-f]{64}$').hasMatch(digest) ||
+          revision is! int ||
+          revision < 0 ||
+          revision > 9007199254740991) {
+        return false;
+      }
+      if (operation == 'REPLACE_ROLES') {
+        final roles = inner['roles'];
+        if (roles is! List || roles.isEmpty) return false;
+      }
+      return true;
+    }
+    if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'REGISTER_INNER_COVER') {
+      // Registration creates the aggregate, so there is no existing revision
+      // to compare. The backend deliberately rejects a dummy expectedVersion.
+      return !inner.containsKey('expectedVersion');
+    }
+    if (protocol == 'chargeAbnormality.v2') {
+      final value = inner['expectedVersion'];
+      return inner['operation'] == 'CREATE_QUALITY_MONITORING_REQUEST'
+          ? value == 0
+          : value is int && value >= 1 && value <= 9007199254740991;
+    }
+    if (protocol == 'assetHierarchy.v2' &&
         const {
           'RECORD_BURNER_CONDITION_ROUND',
           'COMPLETE_BURNER_RED_HOT_DIRECTIVE',
@@ -826,6 +972,15 @@ class DurableSubmissionRepository {
           positive(inner['expectedAssetVersion']) &&
           (inner['operation'] != 'COMPLETE_BURNER_RED_HOT_DIRECTIVE' ||
               positive(inner['expectedDirectiveVersion']));
+    }
+    if (protocol == 'assetHierarchy.v2' &&
+        const {
+          'DECLARE_ASSET_CONDITION',
+          'RESTORE_ASSET_CONDITION',
+        }.contains(inner['operation'])) {
+      final value = inner['expectedVersion'];
+      final minimum = inner['operation'] == 'DECLARE_ASSET_CONDITION' ? 0 : 1;
+      return value is int && value >= minimum && value <= 9007199254740991;
     }
     if (protocol == 'publishedTemplateAssignment.v2') {
       final value = inner['expectedVersionNumber'];
@@ -838,9 +993,19 @@ class DurableSubmissionRepository {
     var minimum = 0;
     if (protocol == 'assetHierarchy.v2' &&
         _morningReviewOperations.contains(inner['operation'])) {
+      if (inner['operation'] == 'CHECK_MORNING_REVIEW_STANDING_CONCERN' &&
+          inner['correctionReason'] != null) {
+        final value = inner['expectedVersion'];
+        return inner['correctionReason'] is String &&
+            (inner['correctionReason'] as String).trim().isNotEmpty &&
+            value is int &&
+            value >= 1 &&
+            value <= 9007199254740991;
+      }
       if (!const {
         'ACCEPT_MORNING_REVIEW_ACTION',
         'COMPLETE_MORNING_REVIEW_ACTION',
+        'AMEND_MORNING_REVIEW_ACTION',
         'TAKE_OVER_MORNING_REVIEW',
         'FINALIZE_MORNING_REVIEW',
         'RESOLVE_MORNING_REVIEW_STANDING_CONCERN',

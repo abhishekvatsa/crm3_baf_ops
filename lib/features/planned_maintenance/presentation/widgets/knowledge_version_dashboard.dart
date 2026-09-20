@@ -33,8 +33,8 @@ class KnowledgeVersionDashboard extends StatelessWidget {
     final activeSourceColor = meta.isStaticFallback
         ? BafColors.warning
         : meta.source == 'cloud'
-            ? BafColors.success
-            : BafColors.planned;
+        ? BafColors.success
+        : BafColors.planned;
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -49,7 +49,11 @@ class KnowledgeVersionDashboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.memory_rounded, color: BafColors.planned, size: 18),
+              const Icon(
+                Icons.memory_rounded,
+                color: BafColors.planned,
+                size: 18,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -62,7 +66,7 @@ class KnowledgeVersionDashboard extends StatelessWidget {
                 ),
               ),
               StatusBadge(
-                label: 'matrix ${meta.matrixVersion}',
+                label: 'metadata: ${meta.matrixVersion}',
                 color: activeSourceColor,
               ),
             ],
@@ -92,7 +96,8 @@ class KnowledgeVersionDashboard extends StatelessWidget {
                 ),
               if (meta.localCachedAt != null)
                 StatusBadge(
-                  label: 'isar @ ${formatter.format(meta.localCachedAt!.toLocal())}',
+                  label:
+                      'isar @ ${formatter.format(meta.localCachedAt!.toLocal())}',
                   color: BafColors.sync,
                   icon: Icons.save_alt_rounded,
                 ),
@@ -109,6 +114,10 @@ class KnowledgeVersionDashboard extends StatelessWidget {
                   icon: Icons.access_time_rounded,
                 ),
             ],
+          ),
+          const Text(
+            'Catalogue metadata and rows are read separately. This is not a certified snapshot of one edition.',
+            style: TextStyle(fontSize: 11),
           ),
           if (meta.note.isNotEmpty) ...[
             const SizedBox(height: BafSpacing.xs),

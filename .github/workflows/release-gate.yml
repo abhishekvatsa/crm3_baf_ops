@@ -69,6 +69,12 @@ jobs:
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
+      - name: Build Functions producer for A-05 contracts
+        # The real-producer regression needs output in this job's checkout.
+        run: |
+          npm --prefix functions ci
+          npm --prefix functions run build
+
       - name: A-05 read-only production sweep contracts
         run: npm run test:a05-production-sweep
 

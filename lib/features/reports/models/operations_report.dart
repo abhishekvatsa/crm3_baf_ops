@@ -14,6 +14,13 @@ import '../../quality/data/quality_warning.dart';
 
 enum OperationsReportSubjectKind { numberedAsset, innerCover }
 
+// Calendar components in report controls always refer to the BAF plant day,
+// independent of the viewing device's timezone. The plant has no DST.
+const operationsReportTimeZone = 'Asia/Kolkata (UTC+05:30)';
+const _plantOffset = Duration(hours: 5, minutes: 30);
+DateTime operationsReportPlantTime(DateTime instant) =>
+    instant.toUtc().add(_plantOffset);
+
 class OperationsReportFilter {
   const OperationsReportFilter({
     required this.startDate,
@@ -31,14 +38,17 @@ class OperationsReportFilter {
   // represented by a synthetic numbered asset merely to support reporting.
   final OperationsReportSubjectKind subjectKind;
 
-  DateTime get startInclusive =>
-      DateTime(startDate.year, startDate.month, startDate.day);
+  DateTime get startInclusive => DateTime.utc(
+    startDate.year,
+    startDate.month,
+    startDate.day,
+  ).subtract(_plantOffset);
 
-  DateTime get endExclusive => DateTime(
+  DateTime get endExclusive => DateTime.utc(
     endDate.year,
     endDate.month,
     endDate.day,
-  ).add(const Duration(days: 1));
+  ).add(const Duration(days: 1)).subtract(_plantOffset);
 
   @override
   bool operator ==(Object other) =>
@@ -71,6 +81,9 @@ enum OperationsManagementSignalType {
   criticalIssues,
   operationalDisruptions,
   overdueMaintenance,
+  incompleteDueStateEvidence,
+  incompletePlannedWorkEvidence,
+  retainedUnresolvedClosures,
   inspectionFindings,
   qualityWarnings,
   workflowObligations,
@@ -154,10 +167,12 @@ class OperationsReport {
     required this.filter,
     required this.asOf,
     required this.tickets,
+    this.retainedFollowUpTickets,
     required this.executions,
     required this.events,
     required this.eventOccurrences,
     required this.dueStates,
+    this.unreadableDueStateCount = 0,
     required this.inspectionFindings,
     required this.assetStates,
     this.innerCoverProfiles = const [],
@@ -166,6 +181,7 @@ class OperationsReport {
     required this.topSubsystemPaths,
     required this.sourceTicketCount,
     required this.sourceExecutionCount,
+    this.unreadableExecutionCount = 0,
     required this.sourceEventCount,
     required this.sourceDueStateCount,
     required this.sourceInspectionFindingCount,
@@ -196,10 +212,19 @@ class OperationsReport {
   final OperationsReportFilter filter;
   final DateTime asOf;
   final List<MaintenanceRecord> tickets;
+  final List<MaintenanceRecord>? retainedFollowUpTickets;
   final List<JobExecution> executions;
   final List<OperationalEvent> events;
   final List<OperationalEventReportOccurrence> eventOccurrences;
   final List<MaintenanceDueState> dueStates;
+
+  /// How many due-state records in this population could not be read.
+  ///
+  /// The overdue and due-soon counts below describe the records that decoded.
+  /// A record that could not be read may carry an outstanding obligation, so
+  /// while this is above zero, none of those counts is a statement about the
+  /// whole population.
+  final int unreadableDueStateCount;
   final List<InspectionFinding> inspectionFindings;
   final List<PlantAssetState> assetStates;
   final List<InnerCoverProfile> innerCoverProfiles;
@@ -208,6 +233,10 @@ class OperationsReport {
   final List<CountedReportLabel> topSubsystemPaths;
   final int sourceTicketCount;
   final int sourceExecutionCount;
+
+  /// Planned execution documents that could not be decoded in the source
+  /// snapshot. Their status is unknown; they are not equivalent to absence.
+  final int unreadableExecutionCount;
   final int sourceEventCount;
   final int sourceDueStateCount;
   final int sourceInspectionFindingCount;
@@ -241,14 +270,12 @@ class OperationsReport {
       tickets.where((ticket) => ticket.wasTechnicallyResolved).length;
   int get administrativelyClosedIssueCount =>
       tickets.where((ticket) => ticket.wasClosedWithoutResolution).length;
-  int get retainedUnresolvedClosureCount =>
-      tickets
-          .where(
-            (ticket) =>
-                ticket.administrativeClosure?.disposition.name ==
-                'stillRelevant',
-          )
-          .length;
+  int get retainedUnresolvedClosureCount => (retainedFollowUpTickets ?? tickets)
+      .where(
+        (ticket) =>
+            ticket.administrativeClosure?.disposition.name == 'stillRelevant',
+      )
+      .length;
   int get terminalIssueCount =>
       resolvedIssueCount + administrativelyClosedIssueCount;
   int get issueReopenEventCount {
@@ -263,12 +290,12 @@ class OperationsReport {
       }
       for (final entry in history.entries) {
         final reopenedAt = entry.reopenedAt;
-        if (reopenedAt != null) {
+        if (reopenedAt != null && _reopenFallsInPeriod(reopenedAt)) {
           instants.add(reopenedAt.toUtc().microsecondsSinceEpoch);
         }
       }
       final reopenedAt = ticket.reopenedAt;
-      if (reopenedAt != null) {
+      if (reopenedAt != null && _reopenFallsInPeriod(reopenedAt)) {
         instants.add(reopenedAt.toUtc().microsecondsSinceEpoch);
       }
       count += instants.length;
@@ -276,17 +303,25 @@ class OperationsReport {
     return count;
   }
 
-  int get reopenedIssueCount =>
-      tickets.where((ticket) {
-        if (ticket.reopenedAt != null) return true;
-        final history = ticket.resolutionHistoryReadResult;
-        if (!history.isValid) {
-          throw StateError(
-            'Issue ${ticket.firestoreId ?? ticket.id} has invalid resolution history.',
-          );
-        }
-        return history.entries.any((entry) => entry.reopenedAt != null);
-      }).length;
+  int get reopenedIssueCount => tickets.where((ticket) {
+    final history = ticket.resolutionHistoryReadResult;
+    if (!history.isValid) {
+      throw StateError(
+        'Issue ${ticket.firestoreId ?? ticket.id} has invalid resolution history.',
+      );
+    }
+    return (ticket.reopenedAt != null &&
+            _reopenFallsInPeriod(ticket.reopenedAt!)) ||
+        history.entries.any(
+          (entry) =>
+              entry.reopenedAt != null &&
+              _reopenFallsInPeriod(entry.reopenedAt!),
+        );
+  }).length;
+
+  bool _reopenFallsInPeriod(DateTime instant) =>
+      !instant.isBefore(filter.startInclusive) &&
+      instant.isBefore(filter.endExclusive);
 
   Duration get issueImpactDuration {
     var microseconds = 0;
@@ -299,14 +334,12 @@ class OperationsReport {
   Duration issueImpactDurationFor(MaintenanceRecord ticket) {
     var microseconds = 0;
     for (final interval in _issueImpactIntervals(ticket)) {
-      final clippedStart =
-          interval.start.isAfter(filter.startInclusive)
-              ? interval.start
-              : filter.startInclusive;
-      final clippedEnd =
-          interval.end.isBefore(filter.endExclusive)
-              ? interval.end
-              : filter.endExclusive;
+      final clippedStart = interval.start.isAfter(filter.startInclusive)
+          ? interval.start
+          : filter.startInclusive;
+      final clippedEnd = interval.end.isBefore(filter.endExclusive)
+          ? interval.end
+          : filter.endExclusive;
       if (clippedEnd.isAfter(clippedStart)) {
         microseconds += clippedEnd.difference(clippedStart).inMicroseconds;
       }
@@ -359,20 +392,17 @@ class OperationsReport {
   int get cancelledPlannedJobCount =>
       executions.where((job) => job.isCancelled).length;
 
-  int get overdueMaintenanceCount =>
-      dueStates
-          .where(
-            (state) =>
-                state.nextDueAt != null && state.nextDueAt!.isBefore(asOf),
-          )
-          .length;
-  int get dueSoonMaintenanceCount =>
-      dueStates.where((state) {
-        final dueAt = state.nextDueAt;
-        return dueAt != null &&
-            !dueAt.isBefore(asOf) &&
-            !dueAt.isAfter(asOf.add(const Duration(days: 7)));
-      }).length;
+  int get overdueMaintenanceCount => dueStates
+      .where(
+        (state) => state.nextDueAt != null && state.nextDueAt!.isBefore(asOf),
+      )
+      .length;
+  int get dueSoonMaintenanceCount => dueStates.where((state) {
+    final dueAt = state.nextDueAt;
+    return dueAt != null &&
+        !dueAt.isBefore(asOf) &&
+        !dueAt.isAfter(asOf.add(const Duration(days: 7)));
+  }).length;
 
   bool _isActiveFinding(InspectionFinding finding) => {
     InspectionFindingStatus.open,
@@ -382,13 +412,12 @@ class OperationsReport {
 
   int get activeInspectionFindingCount =>
       inspectionFindings.where(_isActiveFinding).length;
-  int get awaitingInspectionVerificationCount =>
-      inspectionFindings
-          .where(
-            (finding) =>
-                finding.status == InspectionFindingStatus.awaitingVerification,
-          )
-          .length;
+  int get awaitingInspectionVerificationCount => inspectionFindings
+      .where(
+        (finding) =>
+            finding.status == InspectionFindingStatus.awaitingVerification,
+      )
+      .length;
 
   List<InspectionFinding> get activeInspectionFindings =>
       List<InspectionFinding>.unmodifiable(
@@ -406,60 +435,50 @@ class OperationsReport {
       criticalAlarms.where((alarm) => alarm.isActive && alarm.isHighest).length;
   int get awaitingCriticalAlarmSupportCount =>
       criticalAlarms.where((alarm) => alarm.isRinging).length;
-  int get resolvedCriticalAlarmCount =>
-      criticalAlarms
-          .where((alarm) => alarm.status == CriticalAlarmStatus.resolved)
-          .length;
-  int get withdrawnCriticalAlarmCount =>
-      criticalAlarms
-          .where(
-            (alarm) => alarm.status == CriticalAlarmStatus.withdrawnInError,
-          )
-          .length;
+  int get resolvedCriticalAlarmCount => criticalAlarms
+      .where((alarm) => alarm.status == CriticalAlarmStatus.resolved)
+      .length;
+  int get withdrawnCriticalAlarmCount => criticalAlarms
+      .where((alarm) => alarm.status == CriticalAlarmStatus.withdrawnInError)
+      .length;
 
   int get openQualityWarningCount =>
       qualityWarnings.where((warning) => warning.isOpen).length;
-  int get qualityClosureRequestCount =>
-      qualityWarnings
-          .where(
-            (warning) =>
-                warning.status == QualityWarningStatus.closureRequested,
-          )
-          .length;
-  int get activeQualityMonitoringCount =>
-      qualityMonitoringRequests
-          .where((request) => request.status == QualityMonitoringStatus.active)
-          .length;
+  int get qualityClosureRequestCount => qualityWarnings
+      .where(
+        (warning) => warning.status == QualityWarningStatus.closureRequested,
+      )
+      .length;
+  int get activeQualityMonitoringCount => qualityMonitoringRequests
+      .where((request) => request.status == QualityMonitoringStatus.active)
+      .length;
 
-  int get highSeverityAbnormalityCount =>
-      abnormalities
-          .where(
-            (record) =>
-                !record.isDeleted &&
-                (record.severity == AbnormalitySeverity.high ||
-                    record.severity == AbnormalitySeverity.critical),
-          )
-          .length;
-  int get pendingReannealingCount =>
-      abnormalities
-          .where(
-            (record) =>
-                !record.isDeleted &&
-                record.reannealingStatus == ReannealingStatus.required,
-          )
-          .length;
+  int get highSeverityAbnormalityCount => abnormalities
+      .where(
+        (record) =>
+            !record.isDeleted &&
+            (record.severity == AbnormalitySeverity.high ||
+                record.severity == AbnormalitySeverity.critical),
+      )
+      .length;
+  int get pendingReannealingCount => abnormalities
+      .where(
+        (record) =>
+            !record.isDeleted &&
+            record.reannealingStatus == ReannealingStatus.required,
+      )
+      .length;
 
   int get activeDirectiveCount =>
       directives.where((directive) => !directive.isClosed).length;
-  int get highPriorityDirectiveCount =>
-      directives
-          .where(
-            (directive) =>
-                !directive.isClosed &&
-                (directive.priority == DirectivePriority.high ||
-                    directive.priority == DirectivePriority.critical),
-          )
-          .length;
+  int get highPriorityDirectiveCount => directives
+      .where(
+        (directive) =>
+            !directive.isClosed &&
+            (directive.priority == DirectivePriority.high ||
+                directive.priority == DirectivePriority.critical),
+      )
+      .length;
 
   bool _isActiveLane(JobLaneRecord lane) =>
       !lane.isDeleted &&
@@ -473,19 +492,17 @@ class OperationsReport {
       }.contains(request.statusKey);
 
   int get activeWorkflowLaneCount => workflowLanes.where(_isActiveLane).length;
-  int get pendingLaneAcknowledgementCount =>
-      workflowLanes
-          .where((lane) => _isActiveLane(lane) && lane.statusKey == 'pending')
-          .length;
+  int get pendingLaneAcknowledgementCount => workflowLanes
+      .where((lane) => _isActiveLane(lane) && lane.statusKey == 'pending')
+      .length;
   int get activeComplianceRequestCount =>
       complianceRequests.where(_isActiveCompliance).length;
-  int get dueComplianceRequestCount =>
-      complianceRequests
-          .where(
-            (request) =>
-                _isActiveCompliance(request) && request.becameDueAt != null,
-          )
-          .length;
+  int get dueComplianceRequestCount => complianceRequests
+      .where(
+        (request) =>
+            _isActiveCompliance(request) && request.becameDueAt != null,
+      )
+      .length;
   int get workflowObligationCount =>
       pendingLaneAcknowledgementCount + dueComplianceRequestCount;
 
@@ -523,7 +540,9 @@ class OperationsReport {
       issueCount == 0 ? null : terminalIssueCount / issueCount;
 
   double? get plannedCompletionRate =>
-      plannedJobCount == 0 ? null : completedPlannedJobCount / plannedJobCount;
+      plannedJobCount == 0 || unreadableExecutionCount > 0
+      ? null
+      : completedPlannedJobCount / plannedJobCount;
 
   int get unavailableAssetCount => assetCount - availableAssetCount;
   int get highRiskUnavailableAssetCount => downAssetCount + unfitAssetCount;
@@ -593,10 +612,9 @@ class OperationsReport {
         OperationsManagementSignal(
           type: OperationsManagementSignalType.unavailableAssets,
           level: OperationsManagementSignalLevel.critical,
-          title:
-              highRiskUnavailableAssetCount == 1
-                  ? '1 asset is down or unfit'
-                  : '$highRiskUnavailableAssetCount assets are down or unfit',
+          title: highRiskUnavailableAssetCount == 1
+              ? '1 asset is down or unfit'
+              : '$highRiskUnavailableAssetCount assets are down or unfit',
           detail:
               '$downAssetCount down, $unfitAssetCount unfit and '
               '$underMaintenanceAssetCount under maintenance',
@@ -617,10 +635,9 @@ class OperationsReport {
         OperationsManagementSignal(
           type: OperationsManagementSignalType.unavailableAssets,
           level: OperationsManagementSignalLevel.warning,
-          title:
-              unavailableAssetCount == 1
-                  ? '1 asset is outside the available state'
-                  : '$unavailableAssetCount assets are outside the available state',
+          title: unavailableAssetCount == 1
+              ? '1 asset is outside the available state'
+              : '$unavailableAssetCount assets are outside the available state',
           detail:
               '$underMaintenanceAssetCount under maintenance; remaining '
               'exceptions include blocks, standby or out-of-service state.',
@@ -635,6 +652,48 @@ class OperationsReport {
               '${overdueMaintenanceCount == 1 ? 'counter is' : 'counters are'} overdue',
           detail: 'Review cadence exposure and planned intervention.',
           count: overdueMaintenanceCount,
+        ),
+      // Raised whatever the overdue count says, including when it is zero. A
+      // due-state record that could not be read may carry an outstanding
+      // obligation, so nothing here may be read as an all-clear while any
+      // record in the population is unreadable.
+      if (unreadableDueStateCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.incompleteDueStateEvidence,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$unreadableDueStateCount maintenance due-state '
+              '${unreadableDueStateCount == 1 ? 'record' : 'records'} could '
+              'not be read',
+          detail:
+              'The overdue and due-soon counts cover the records that could '
+              'be read. Repair the remaining records before treating this '
+              'population as complete.',
+          count: unreadableDueStateCount,
+        ),
+      if (unreadableExecutionCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.incompletePlannedWorkEvidence,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$unreadableExecutionCount planned-work '
+              '${unreadableExecutionCount == 1 ? 'record is' : 'records are'} unreadable',
+          detail:
+              'The planned-work totals and completion rate cover only the '
+              'records that could be read; the missing denominator needs repair.',
+          count: unreadableExecutionCount,
+        ),
+      if (retainedUnresolvedClosureCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.retainedUnresolvedClosures,
+          level: OperationsManagementSignalLevel.attention,
+          title:
+              '$retainedUnresolvedClosureCount administratively closed '
+              '${retainedUnresolvedClosureCount == 1 ? 'issue remains' : 'issues remain'} relevant',
+          detail:
+              'Confirm the owned follow-up or record when the retained '
+              'concern is no longer relevant; administrative closure is not technical resolution.',
+          count: retainedUnresolvedClosureCount,
         ),
       if (workflowObligationCount > 0)
         OperationsManagementSignal(
@@ -685,12 +744,11 @@ class OperationsReport {
         OperationsManagementSignal(
           type: OperationsManagementSignalType.openIssues,
           level: OperationsManagementSignalLevel.attention,
-          title:
-              openCriticalIssueCount == 0
-                  ? '$openIssueCount '
-                      '${openIssueCount == 1 ? 'issue remains' : 'issues remain'} open'
-                  : '${openIssueCount - openCriticalIssueCount} other '
-                      '${openIssueCount - openCriticalIssueCount == 1 ? 'issue remains' : 'issues remain'} open',
+          title: openCriticalIssueCount == 0
+              ? '$openIssueCount '
+                    '${openIssueCount == 1 ? 'issue remains' : 'issues remain'} open'
+              : '${openIssueCount - openCriticalIssueCount} other '
+                    '${openIssueCount - openCriticalIssueCount == 1 ? 'issue remains' : 'issues remain'} open',
           detail: 'Review lane ownership and resolution progress.',
           count: openIssueCount - openCriticalIssueCount,
         ),

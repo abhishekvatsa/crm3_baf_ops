@@ -25,24 +25,21 @@ Future<OperationsReportDocumentRequest?> showOperationsReportComposer({
   useSafeArea: true,
   backgroundColor: BafColors.card,
   showDragHandle: true,
-  builder:
-      (context) => AnimatedPadding(
-        duration: BafMotion.quick,
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: FractionallySizedBox(
-          heightFactor: 0.92,
-          child: _OperationsReportComposer(
-            generatedByName: generatedByName,
-            generatedByEmail: generatedByEmail,
-            hasFurnaceScope: hasFurnaceScope,
-            provenance: provenance,
-            initialPreset: initialPreset,
-          ),
-        ),
+  builder: (context) => AnimatedPadding(
+    duration: BafMotion.quick,
+    curve: Curves.easeOutCubic,
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: FractionallySizedBox(
+      heightFactor: 0.92,
+      child: _OperationsReportComposer(
+        generatedByName: generatedByName,
+        generatedByEmail: generatedByEmail,
+        hasFurnaceScope: hasFurnaceScope,
+        provenance: provenance,
+        initialPreset: initialPreset,
       ),
+    ),
+  ),
 );
 
 class OperationsReportPdfPreviewScreen extends StatelessWidget {
@@ -81,15 +78,14 @@ class OperationsReportPdfPreviewScreen extends StatelessWidget {
       documentSubject: assetLabel.trim().isEmpty
           ? assetClassLabel
           : '$assetClassLabel / $assetLabel',
-      documentBuilder:
-          (_) => OperationsReportPdfService.build(
-            report: report,
-            request: request,
-            assetClassLabel: assetClassLabel,
-            assetLabel: assetLabel,
-            furnaceAssets: furnaceAssets,
-            currentBurnerRounds: currentBurnerRounds,
-          ),
+      documentBuilder: (_) => OperationsReportPdfService.build(
+        report: report,
+        request: request,
+        assetClassLabel: assetClassLabel,
+        assetLabel: assetLabel,
+        furnaceAssets: furnaceAssets,
+        currentBurnerRounds: currentBurnerRounds,
+      ),
     ),
   );
 }
@@ -195,10 +191,9 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
                 const SizedBox(height: 10),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final itemWidth =
-                        constraints.maxWidth < 620
-                            ? constraints.maxWidth
-                            : (constraints.maxWidth - 10) / 2;
+                    final itemWidth = constraints.maxWidth < 620
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 10) / 2;
                     return Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -241,11 +236,10 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: _sections.contains(section) && !unavailable,
-                    onChanged:
-                        unavailable
-                            ? null
-                            : (selected) =>
-                                _toggleSection(section, selected == true),
+                    onChanged: unavailable
+                        ? null
+                        : (selected) =>
+                              _toggleSection(section, selected == true),
                     title: Text(section.label),
                     subtitle: Text(
                       unavailable
@@ -364,16 +358,17 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
 
   void _submit() {
     final title = _titleController.text.trim();
-    final request = OperationsReportDocumentRequest.forPreset(
-      preset: _preset,
-      generatedAt: DateTime.now(),
-      generatedByName: widget.generatedByName,
-      generatedByEmail: widget.generatedByEmail,
-      provenance: widget.provenance,
-    ).copyWith(
-      title: title.isEmpty ? _preset.label : title,
-      sections: _sections,
-    );
+    final request =
+        OperationsReportDocumentRequest.forPreset(
+          preset: _preset,
+          generatedAt: DateTime.now(),
+          generatedByName: widget.generatedByName,
+          generatedByEmail: widget.generatedByEmail,
+          provenance: widget.provenance,
+        ).copyWith(
+          title: title.isEmpty ? _preset.label : title,
+          sections: _sections,
+        );
     Navigator.of(context).pop(request);
   }
 }
@@ -391,8 +386,9 @@ class _ReportPurposeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color:
-        selected ? BafColors.planned.withValues(alpha: 0.08) : BafColors.card,
+    color: selected
+        ? BafColors.planned.withValues(alpha: 0.08)
+        : BafColors.card,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(BafRadius.medium),
       side: BorderSide(

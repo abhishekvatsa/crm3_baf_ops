@@ -29,12 +29,14 @@ class _ReplacementEvidenceOption {
 
 class _InstalledComponentDialog extends StatefulWidget {
   final InstalledComponentRecord? existing;
+  final bool correction;
   final InstalledComponentRecord? replacementFor;
   final List<AssetHierarchyNode> definitions;
   final List<_ReplacementEvidenceOption> evidenceOptions;
 
   const _InstalledComponentDialog({
     this.existing,
+    this.correction = false,
     this.replacementFor,
     required this.definitions,
     this.evidenceOptions = const <_ReplacementEvidenceOption>[],
@@ -77,8 +79,9 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
     _serviceState = value?.serviceState ?? AssetServiceState.inService;
     _ownership = value?.ownershipStatus ?? AssetOwnershipStatus.unassigned;
     _roles = _rolesFromKeys(value?.accountableRoleKeys ?? const <String>[]);
-    _installedOn =
-        _isReplacement ? DateTime.now() : widget.existing?.installedOn;
+    _installedOn = _isReplacement
+        ? DateTime.now()
+        : widget.existing?.installedOn;
   }
 
   @override
@@ -99,7 +102,9 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(
-      _isReplacement
+      widget.correction
+          ? 'Correct installation facts'
+          : _isReplacement
           ? 'Replace installed component'
           : widget.existing == null
           ? 'Add installed component'
@@ -160,34 +165,38 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                 ),
                 const SizedBox(height: 12),
               ],
-              DropdownButtonFormField<String>(
-                initialValue: _definitionId,
-                decoration: const InputDecoration(
-                  labelText: 'Component definition',
-                  border: OutlineInputBorder(),
-                ),
-                isExpanded: true,
-                items:
-                    widget.definitions
-                        .map(
-                          (node) => DropdownMenuItem(
-                            value: node.id,
-                            child: Text(
-                              node.hierarchyPath.join(' › '),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+              if (widget.correction)
+                Text(
+                  'Correction to ${widget.existing!.definitionName}. Status, tag, ownership and physical lineage remain unchanged.',
+                )
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _definitionId,
+                  decoration: const InputDecoration(
+                    labelText: 'Component definition',
+                    border: OutlineInputBorder(),
+                  ),
+                  isExpanded: true,
+                  items: widget.definitions
+                      .map(
+                        (node) => DropdownMenuItem(
+                          value: node.id,
+                          child: Text(
+                            node.hierarchyPath.join(' › '),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                        .toList(),
-                onChanged:
-                    _isReplacement
-                        ? null
-                        : (value) => setState(() => _definitionId = value),
-                validator: (value) => value == null ? 'Required' : null,
-              ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _isReplacement
+                      ? null
+                      : (value) => setState(() => _definitionId = value),
+                  validator: (value) => value == null ? 'Required' : null,
+                ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _tag,
+                enabled: !widget.correction,
                 textCapitalization: TextCapitalization.characters,
                 decoration: const InputDecoration(
                   labelText: 'Physical component tag',
@@ -198,15 +207,15 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
               const SizedBox(height: 12),
               InputDecorator(
                 decoration: InputDecoration(
-                  labelText:
-                      _isReplacement
-                          ? 'Replacement installed on'
-                          : 'Installed on',
+                  labelText: _isReplacement
+                      ? 'Replacement installed on'
+                      : 'Installed on',
                   border: const OutlineInputBorder(),
                   errorText:
-                      _isReplacement && _installedOn == null
-                          ? 'Required for replacement'
-                          : null,
+                      (_isReplacement || widget.correction) &&
+                          _installedOn == null
+                      ? 'Required for replacement'
+                      : null,
                 ),
                 child: Row(
                   children: [
@@ -215,8 +224,8 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                         _installedOn == null
                             ? 'Not recorded'
                             : DateFormat(
-                              'dd MMM yyyy, HH:mm',
-                            ).format(_installedOn!.toLocal()),
+                                'dd MMM yyyy, HH:mm',
+                              ).format(_installedOn!.toLocal()),
                       ),
                     ),
                     IconButton(
@@ -224,7 +233,9 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                       onPressed: _pickInstalledOn,
                       icon: const Icon(Icons.event_rounded),
                     ),
-                    if (_installedOn != null && !_isReplacement)
+                    if (_installedOn != null &&
+                        !_isReplacement &&
+                        !widget.correction)
                       IconButton(
                         tooltip: 'Clear installation date',
                         onPressed: () => setState(() => _installedOn = null),
@@ -268,17 +279,18 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              _OwnershipEditor(
-                serviceState: _serviceState,
-                ownershipStatus: _ownership,
-                ownerController: _owner,
-                roles: _roles,
-                onServiceChanged:
-                    (value) => setState(() => _serviceState = value),
-                onOwnershipChanged:
-                    (value) => setState(() => _ownership = value),
-                onRolesChanged: (value) => setState(() => _roles = value),
-              ),
+              if (!widget.correction)
+                _OwnershipEditor(
+                  serviceState: _serviceState,
+                  ownershipStatus: _ownership,
+                  ownerController: _owner,
+                  roles: _roles,
+                  onServiceChanged: (value) =>
+                      setState(() => _serviceState = value),
+                  onOwnershipChanged: (value) =>
+                      setState(() => _ownership = value),
+                  onRolesChanged: (value) => setState(() => _roles = value),
+                ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _reason,
@@ -314,23 +326,33 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
 
   void _submit() {
     if (!_key.currentState!.validate()) return;
-    if (_isReplacement && _installedOn == null) {
+    if ((_isReplacement || widget.correction) && _installedOn == null) {
       setState(() {});
       return;
     }
-    final draft =
-        InstalledComponentDraft(
-          definitionNodeId: _definitionId!,
-          componentTag: _tag.text,
-          manufacturer: _manufacturer.text,
-          model: _model.text,
-          serialNumber: _serial.text,
-          installedOn: _installedOn,
-          serviceState: _serviceState,
-          ownershipStatus: _ownership,
-          ownerDiscipline: _owner.text,
-          accountableRoleKeys: _roles.map((role) => role.name).toList(),
-        ).normalized();
+    if (_installedOn != null && _installedOn!.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Installation time cannot be in the future.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    final draft = InstalledComponentDraft(
+      definitionNodeId: _definitionId!,
+      componentTag: _tag.text,
+      manufacturer: _manufacturer.text,
+      model: _model.text,
+      serialNumber: _serial.text,
+      installedOn: _installedOn,
+      serviceState: _serviceState,
+      ownershipStatus: _ownership,
+      ownerDiscipline: _owner.text,
+      accountableRoleKeys: widget.correction
+          ? widget.existing!.accountableRoleKeys
+          : _roles.map((role) => role.name).toList(),
+    ).normalized();
     final errors = draft.validate();
     if (errors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -346,21 +368,22 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
       _InstalledComponentDialogResult(
         draft,
         _reason.text.trim(),
-        evidenceReference:
-            widget.evidenceOptions
-                .where((option) => option.key == _evidenceKey)
-                .firstOrNull
-                ?.reference,
+        evidenceReference: widget.evidenceOptions
+            .where((option) => option.key == _evidenceKey)
+            .firstOrNull
+            ?.reference,
       ),
     );
   }
 
   Future<void> _pickInstalledOn() async {
-    final initial = _installedOn?.toLocal() ?? DateTime.now();
+    final now = DateTime.now();
+    final selected = _installedOn?.toLocal();
+    final initial = selected != null && selected.isBefore(now) ? selected : now;
     final date = await showDatePicker(
       context: context,
       firstDate: DateTime(1980),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: now,
       initialDate: initial,
     );
     if (date == null || !mounted) return;
@@ -370,14 +393,13 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
     );
     if (time == null || !mounted) return;
     setState(
-      () =>
-          _installedOn = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          ),
+      () => _installedOn = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      ),
     );
   }
 }
@@ -411,13 +433,12 @@ class _OwnershipEditor extends StatelessWidget {
           labelText: 'Service state',
           border: OutlineInputBorder(),
         ),
-        items:
-            AssetServiceState.values
-                .map(
-                  (value) =>
-                      DropdownMenuItem(value: value, child: Text(value.label)),
-                )
-                .toList(),
+        items: AssetServiceState.values
+            .map(
+              (value) =>
+                  DropdownMenuItem(value: value, child: Text(value.label)),
+            )
+            .toList(),
         onChanged: (value) {
           if (value != null) onServiceChanged(value);
         },
@@ -429,13 +450,12 @@ class _OwnershipEditor extends StatelessWidget {
           labelText: 'Ownership status',
           border: OutlineInputBorder(),
         ),
-        items:
-            AssetOwnershipStatus.values
-                .map(
-                  (value) =>
-                      DropdownMenuItem(value: value, child: Text(value.label)),
-                )
-                .toList(),
+        items: AssetOwnershipStatus.values
+            .map(
+              (value) =>
+                  DropdownMenuItem(value: value, child: Text(value.label)),
+            )
+            .toList(),
         onChanged: (value) {
           if (value != null) onOwnershipChanged(value);
         },
@@ -467,20 +487,19 @@ class _OwnershipEditor extends StatelessWidget {
             child: Wrap(
               spacing: 7,
               runSpacing: 7,
-              children:
-                  AppRole.values
-                      .map(
-                        (role) => FilterChip(
-                          label: Text(_assetOwnerRoleLabel(role)),
-                          selected: roles.contains(role),
-                          onSelected: (selected) {
-                            final next = Set<AppRole>.from(roles);
-                            selected ? next.add(role) : next.remove(role);
-                            onRolesChanged(next);
-                          },
-                        ),
-                      )
-                      .toList(),
+              children: AppRole.values
+                  .map(
+                    (role) => FilterChip(
+                      label: Text(_assetOwnerRoleLabel(role)),
+                      selected: roles.contains(role),
+                      onSelected: (selected) {
+                        final next = Set<AppRole>.from(roles);
+                        selected ? next.add(role) : next.remove(role);
+                        onRolesChanged(next);
+                      },
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -489,13 +508,10 @@ class _OwnershipEditor extends StatelessWidget {
   );
 }
 
-Set<AppRole> _rolesFromKeys(List<String> keys) =>
-    keys
-        .map(
-          (key) => AppRole.values.where((role) => role.name == key).firstOrNull,
-        )
-        .whereType<AppRole>()
-        .toSet();
+Set<AppRole> _rolesFromKeys(List<String> keys) => keys
+    .map((key) => AppRole.values.where((role) => role.name == key).firstOrNull)
+    .whereType<AppRole>()
+    .toSet();
 
 class _OwnershipPill extends StatelessWidget {
   final AssetOwnershipStatus status;
@@ -544,81 +560,79 @@ Future<bool> _confirmTagTransfer(
 ) async {
   return await showDialog<bool>(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              icon: const Icon(
-                Icons.warning_amber_rounded,
-                color: BafColors.warning,
-              ),
-              title: Text('Tag ${collision.normalizedTag} is already assigned'),
-              content: SizedBox(
-                width: 520,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      [
-                        collision.existingAssetClassName,
-                        if (collision.existingAssetInstanceName != null)
-                          collision.existingAssetInstanceName!,
-                        collision.existingNodeName,
-                      ].join(' · '),
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    if (collision.existingPath.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(collision.existingPath.join('  ›  ')),
-                    ],
-                    if (collision.existingOwnershipStatus != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        [
-                          'Current ownership: ${collision.existingOwnershipStatus!.label}',
-                          if (collision.existingOwnerDiscipline != null)
-                            collision.existingOwnerDiscipline!,
-                          if (collision.existingAccountableRoleKeys.isNotEmpty)
-                            collision.existingAccountableRoleKeys
-                                .map(
-                                  (key) =>
-                                      AppRole.values
-                                          .where((role) => role.name == key)
-                                          .map(_assetOwnerRoleLabel)
-                                          .firstOrNull ??
-                                      key,
-                                )
-                                .join(', '),
-                        ].join(' · '),
-                        style: const TextStyle(
-                          color: BafColors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Text(
-                      collision.transferSupported
-                          ? 'Transferring makes this installed component the only current owner of the tag. The tag is removed from the existing component; historical tickets and completed work keep their recorded snapshots.'
-                          : 'This tag is held by a legacy definition record. Reconcile that record before assigning the tag to an installed component.',
-                    ),
-                  ],
+        builder: (context) => AlertDialog(
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: BafColors.warning,
+          ),
+          title: Text('Tag ${collision.normalizedTag} is already assigned'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  [
+                    collision.existingAssetClassName,
+                    if (collision.existingAssetInstanceName != null)
+                      collision.existingAssetInstanceName!,
+                    collision.existingNodeName,
+                  ].join(' · '),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Keep existing owner'),
-                ),
-                FilledButton.icon(
-                  onPressed:
-                      collision.transferSupported
-                          ? () => Navigator.pop(context, true)
-                          : null,
-                  icon: const Icon(Icons.swap_horiz_rounded),
-                  label: const Text('Transfer tag'),
+                if (collision.existingPath.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(collision.existingPath.join('  ›  ')),
+                ],
+                if (collision.existingOwnershipStatus != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    [
+                      'Current ownership: ${collision.existingOwnershipStatus!.label}',
+                      if (collision.existingOwnerDiscipline != null)
+                        collision.existingOwnerDiscipline!,
+                      if (collision.existingAccountableRoleKeys.isNotEmpty)
+                        collision.existingAccountableRoleKeys
+                            .map(
+                              (key) =>
+                                  AppRole.values
+                                      .where((role) => role.name == key)
+                                      .map(_assetOwnerRoleLabel)
+                                      .firstOrNull ??
+                                  key,
+                            )
+                            .join(', '),
+                    ].join(' · '),
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Text(
+                  collision.transferSupported
+                      ? 'Transferring makes this installed component the only current owner of the tag. The tag is removed from the existing component; historical tickets and completed work keep their recorded snapshots.'
+                      : 'This tag is held by a legacy definition record. Reconcile that record before assigning the tag to an installed component.',
                 ),
               ],
             ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep existing owner'),
+            ),
+            FilledButton.icon(
+              onPressed: collision.transferSupported
+                  ? () => Navigator.pop(context, true)
+                  : null,
+              icon: const Icon(Icons.swap_horiz_rounded),
+              label: const Text('Transfer tag'),
+            ),
+          ],
+        ),
       ) ??
       false;
 }

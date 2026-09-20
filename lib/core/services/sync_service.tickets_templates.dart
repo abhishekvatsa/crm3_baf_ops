@@ -134,7 +134,28 @@ extension _SyncServiceTicketsTemplates on SyncService {
             continue;
           }
 
-          recordsToPush.add(record);
+          try {
+            final originalActor = record.deletedByUid;
+            if (originalActor == null || originalActor != _authentication.currentUser?.uid) {
+              throw StateError('Return to the original Admin account to synchronize this withdrawal.');
+            }
+            final command = buildMaintenanceWithdrawalCommand(remote, record.deleteReason ?? '');
+            final executor = _maintenanceCreationOwner?.executor;
+            final receipt = executor == null
+                ? await _maintenanceCommands.execute(command)
+                : await executor.execute(command,
+                    validateReceipt: (receipt) => validateMaintenanceWithdrawalReceipt(command, receipt));
+            validateMaintenanceWithdrawalReceipt(command, receipt);
+            final confirmed = await _firestoreMaintenance.readMaintenanceIssueCommandServerState(record.firestoreId!);
+            if (confirmed == null || !confirmed.isDeleted || confirmed.version < receipt.aggregateVersion) {
+              throw StateError('Withdrawal was accepted; exact server refresh remains pending.');
+            }
+            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            skippedButSyncedRecords.add(record);
+            lastSuccessCount++;
+          } catch (error) {
+            await _recordMaintenancePushFailure(record, error);
+          }
           continue;
         }
 
@@ -437,13 +458,25 @@ extension _SyncServiceTicketsTemplates on SyncService {
       );
     }
     final createVersion = maintenanceCreateReplayVersion(local);
-    final command = buildMaintenanceIssueCreateCommand(
+    var command = buildMaintenanceIssueCreateCommand(
       local,
       createVersion: createVersion,
     );
     WorkflowCommandReceipt? receipt;
     await _retry(() async {
-      receipt = await _maintenanceCommands.execute(command);
+      final owner = _maintenanceCreationOwner;
+      if (owner == null) {
+        receipt = await _maintenanceCommands.execute(command);
+      } else {
+        final original = await owner.execute(draft: command, actorUid: currentUid);
+        command = original.command;
+        receipt = original.receipt;
+        if (original.hasSuccessor) {
+          throw _MaintenanceCreationEvidenceError(
+            'Original issue creation is accepted. Newer local edits remain saved and require a reviewed successor correction; they were not overwritten.',
+          );
+        }
+      }
     }, shouldRetry: _shouldRetryWorkflowCommand);
     final applied = receipt!;
     validateMaintenanceIssueCreateReceipt(
@@ -563,7 +596,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     try {
       late final int createVersion;
-      late final WorkflowCommand command;
+      late WorkflowCommand command;
       try {
         createVersion = maintenanceCreateReplayVersion(local);
         command = buildMaintenanceIssueCreateCommand(
@@ -573,7 +606,15 @@ extension _SyncServiceTicketsTemplates on SyncService {
       } on StateError catch (error) {
         throw _MaintenanceCreationEvidenceError(error.message);
       }
-      final receipt = await _maintenanceCommands.execute(command);
+      final owner = _maintenanceCreationOwner;
+      final original = owner == null ? null : await owner.execute(draft: command, actorUid: currentUid);
+      if (original != null) command = original.command;
+      if (original?.hasSuccessor == true) {
+        throw _MaintenanceCreationEvidenceError(
+          'Original issue creation is accepted. Newer local edits remain saved and require a reviewed successor correction; they were not overwritten.',
+        );
+      }
+      final receipt = original?.receipt ?? await _maintenanceCommands.execute(command);
       try {
         validateMaintenanceIssueCreateReceipt(
           command: command,
@@ -638,7 +679,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
                   error.code == WorkflowErrorCode.failedPrecondition));
       return _blockedMaintenanceRecovery(
         contradiction: contradiction,
-        reason: contradiction
+        reason: error is _MaintenanceCreationEvidenceError
+            ? '${error.message} Manual reconciliation is required.'
+            : contradiction
             ? 'Creation evidence is inconsistent and needs reconciliation.'
             : 'The issue creation outcome could not be verified.',
       );
@@ -822,6 +865,15 @@ extension _SyncServiceTicketsTemplates on SyncService {
     } else {
       return null;
     }
+    final owner = _maintenanceCreationOwner;
+    if (owner != null) {
+      final commandId = 'legacy_${local.wasTechnicallyResolved ? 'close' : 'reopen'}_${local.firestoreId}_v${stepData['version']}';
+      final accepted = await owner.repository.getReceipt(commandId);
+      final pending = await owner.repository.getRetryCommand(commandId);
+      if (accepted != null || pending != null) {
+        return _applyMaintenanceLifecycleReplayStep(local.firestoreId!, stepData);
+      }
+    }
     final observed = await _firestoreMaintenance
         .readRemoteMaintenanceLifecycleReplayFieldsForSync(local.firestoreId!);
     if (_cleanMaintenanceText(_authentication.currentUser?.uid) != currentUid) {
@@ -855,6 +907,45 @@ extension _SyncServiceTicketsTemplates on SyncService {
     Map<String, dynamic> stepData,
   ) async {
     Map<String, dynamic>? observed;
+    final executor = _maintenanceCreationOwner?.executor;
+    if (executor != null) {
+      final closing = stepData['isResolved'] == true;
+      final originalActor = stepData[closing ? 'closedByUid' : 'reopenedByUid'];
+      if (originalActor is! String || originalActor != _authentication.currentUser?.uid) {
+        throw StateError('The original actor must review this saved lifecycle action.');
+      }
+      final version = readRequiredPersistedInt(stepData['version'],
+        field: 'version', source: 'saved maintenance lifecycle', minimum: 2);
+      final command = WorkflowCommand(
+        commandId: 'legacy_${closing ? 'close' : 'reopen'}_${firestoreId}_v$version',
+        type: closing ? WorkflowCommandType.resolveMaintenanceTicket : WorkflowCommandType.reopenMaintenanceTicket,
+        aggregateId: firestoreId, expectedVersion: version - 1,
+        payload: closing ? <String, Object?>{
+          'endDate': stepData['endDate'], 'remarks': stepData['remarks'],
+          'teamsInvolved': stepData['teamsInvolved'] ?? <String>[],
+          'actionsJson': stepData['actionsJson'] ?? '[]', 'actionTargetContractVersion': 1,
+        } : <String, Object?>{'remarks': stepData['reopenReason']},
+      );
+      void validate(WorkflowCommandReceipt receipt) {
+        if (receipt.commandId != command.commandId || receipt.aggregateVersion != version ||
+            receipt.resultKey != (closing ? 'maintenance-ticket-resolved' : 'maintenance-ticket-reopened') ||
+            receipt.result['ticketId'] != firestoreId ||
+            receipt.result['auditId'] != 'server_maintenance_ticket_${command.commandId}') {
+          throw StateError('The saved lifecycle action has no matching server acceptance.');
+        }
+      }
+      final accepted = await executor.execute(command, validateReceipt: validate);
+      validate(accepted);
+      final server = await _firestoreMaintenance.readMaintenanceIssueCommandServerState(firestoreId);
+      if (originalActor != _authentication.currentUser?.uid || server == null || server.isDeleted ||
+          server.version != accepted.aggregateVersion || server.isResolved != closing ||
+          (closing ? server.closedByUid : server.reopenedByUid) != originalActor) {
+        throw StateError('The accepted lifecycle action needs exact server reconciliation. Local evidence is retained.');
+      }
+      return (version: server.version, updatedAt: server.updatedAt.toUtc(), serverRecord: server);
+    }
+    // Explicit legacy adapter for compatibility tests; production always has
+    // the durable, origin-bound executor above and never uses direct writes.
     try {
       await _firestoreMaintenance
           .applyRemoteMaintenanceLifecycleReplayStepForSync(

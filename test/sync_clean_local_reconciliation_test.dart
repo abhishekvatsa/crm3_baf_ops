@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -46,6 +47,44 @@ final _anchor = DateTime.utc(2026, 9, 8, 10);
 
 void main() {
   setUpAll(initializeTestIsarCore);
+
+  test(
+    'malformed directive page retains cursor while valid rows on later pages are adopted',
+    () async {
+      await _withIsar((isar) async {
+        final prefs = await _preparePreferences();
+        final pages = _PartialDirectives();
+        final pull = _pull(
+          _MaintenanceRemote([
+            _record('maintenance-control', 1, _remoteTime, 'Control'),
+          ]),
+          _Audit(),
+          _Knowledge(),
+          directivePages: pages,
+        );
+        await expectLater(
+          pull.pullAndReconcile(),
+          throwsA(
+            isA<GlobalPullCursorException>().having(
+              (e) => e.reasonCode,
+              'reason',
+              'domain-record-processing-failed',
+            ),
+          ),
+        );
+        expect(pages.adopted, ['directive-first', 'directive-second']);
+        expect(pages.calls, 2);
+        final envelope = SharedPreferencesGlobalPullCursorStore(
+          prefs,
+        ).read(actorUid: _actor, databaseGenerationId: _generation)!;
+        expect(
+          envelope.cursorFor(GlobalPullDomain.directives).completedInRun,
+          isFalse,
+        );
+        expect(await DirectiveReadHealth.incomplete(_actor), isTrue);
+      });
+    },
+  );
 
   test(
     'pull retains the failed cursor across restart and audits preserved evidence',
@@ -297,13 +336,14 @@ void main() {
 GlobalPullService _pull(
   _MaintenanceRemote remote,
   _Audit audit,
-  _Knowledge knowledge,
-) {
+  _Knowledge knowledge, {
+  _Directives? directivePages,
+}) {
   final planned = _Planned();
   final diary = _Diary();
   final modules = _Modules();
   final templates = _Templates();
-  final directives = _Directives();
+  final directives = directivePages ?? _Directives();
   final abnormalities = _Abnormalities();
   return GlobalPullService(
     IsarMaintenanceRepository(),
@@ -574,3 +614,38 @@ class _Directives extends _EmptyPages implements FirestoreDirectiveRepository {}
 
 class _Abnormalities extends _EmptyPages
     implements FirestoreAbnormalityRepository {}
+
+class _PartialDirectives extends _Directives {
+  int calls = 0;
+  final adopted = <String>[];
+  @override
+  Future<PaginatedDirectivesResult> getUpdatedDirectives({
+    DateTime? since,
+    DateTime? through,
+    int limit = 500,
+    DocumentSnapshot? startAfter,
+  }) async {
+    calls++;
+    return PaginatedDirectivesResult(
+      records: [
+        OperationalDirective()
+          ..firestoreId = (calls == 1 ? 'directive-first' : 'directive-second'),
+      ],
+      rawCount: calls == 1 ? 500 : 1,
+      rejectedIds: calls == 1 ? ['malformed-row'] : [],
+      lastDoc: _Snapshot('page-$calls', {
+        globalPullServerUpdatedAtField: Timestamp.fromDate(_anchor),
+      }),
+    );
+  }
+
+  @override
+  Future<RemoteRecordApplyResult<OperationalDirective>>
+  applyDirectiveFromRemote(OperationalDirective remote) async {
+    adopted.add(remote.firestoreId!);
+    return RemoteRecordApplyResult<OperationalDirective>(
+      RemoteRecordApplyOutcome.inserted,
+      localRecord: remote,
+    );
+  }
+}

@@ -1,4 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crm3_baf_ops/features/maintenance/services/maintenance_creation_owner.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_receipt_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/isar_workflow_repository.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_online_executor.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
@@ -48,6 +56,7 @@ void main() {
   late IsarMaintenanceRepository local;
   late _Gateway gateway;
   late _Remote remote;
+  late DateTime journalClock;
 
   const ticketId = 'ticket-b0';
   const commandId = 'createMaintenanceTicket_$ticketId';
@@ -57,7 +66,8 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('sync_b0_');
     database = await Isar.open(
-      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema],
+      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema,
+        WorkflowCommandRecordSchema, WorkflowCommandReceiptRecordSchema],
       directory: directory.path,
       inspector: false,
     );
@@ -65,6 +75,7 @@ void main() {
     local = IsarMaintenanceRepository(auditRepository: _SilentAudit());
     gateway = _Gateway();
     remote = _Remote();
+    journalClock = appliedAt;
   });
 
   tearDown(() async {
@@ -138,7 +149,7 @@ void main() {
     return seed;
   }
 
-  SyncService service({String? actor = reporter, FirebaseAuth? auth}) =>
+  SyncService service({String? actor = reporter, FirebaseAuth? auth, bool governed = false}) =>
       SyncService(
         maintenanceRepo: local,
         firestoreMaintenance: remote,
@@ -158,6 +169,11 @@ void main() {
         knowledgeRepo: _u.knowledge,
         auditRepository: _SilentAudit(),
         maintenanceCommandGateway: gateway,
+        maintenanceCreationOwner: governed ? MaintenanceCreationOwner(
+          repository: IsarWorkflowRepository(database), currentActorUid: () => actor,
+          executor: WorkflowOnlineExecutor(connectivity: Connectivity(), gateway: gateway,
+            repository: IsarWorkflowRepository(database), now: () => journalClock,
+            originActorUid: () => actor, checkConnectivity: () async => [ConnectivityResult.wifi])) : null,
         auth: auth ?? _Auth(actor),
         rejectionOwnerUidLookup: () => reporter,
         now: () => appliedAt,
@@ -200,10 +216,24 @@ void main() {
       ),
     ];
 
+  void acceptWithdrawal() {
+    gateway.onExecute = (command) async {
+      expect(command.type, WorkflowCommandType.correctMaintenanceTicket);
+      expect(command.payload['withdrawInError'], isTrue);
+      expect(command.payload['reason'], 'Duplicate issue');
+      remote.serverState = deletion()..isSynced = true;
+      return WorkflowCommandReceipt(commandId: command.commandId,
+        resultKey: 'maintenance-ticket-withdrawn', aggregateVersion: command.expectedVersion + 1,
+        result: {'ticketId': command.aggregateId, 'auditId': 'server_maintenance_ticket_${command.commandId}'},
+        appliedAt: appliedAt);
+    };
+  }
+
   Future<void> reopenDatabase() async {
     await database.close();
     database = await Isar.open(
-      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema],
+      <CollectionSchema<dynamic>>[MaintenanceRecordSchema, SyncRejectionSchema,
+        WorkflowCommandRecordSchema, WorkflowCommandReceiptRecordSchema],
       directory: directory.path,
       inspector: false,
     );
@@ -216,15 +246,47 @@ void main() {
     () async {
       await persist(deletion());
       remote.serverState = serverState();
-      // The lookup is empty but exact server state is active. The successful
-      // batch double proves the service must actually send the deletion.
+      acceptWithdrawal();
+      // Cache absence cannot settle deletion; a validated command must do it.
       await service().syncTicketsForTest();
       expect(remote.calls, contains('readMaintenanceIssueCommandServerState'));
-      expect(remote.batches.single.single.isDeleted, isTrue);
+      expect(remote.batches, isEmpty);
       expect((await storedTicket())!.isSynced, isTrue);
-      expect(gateway.commands, isEmpty);
+      expect(gateway.commands.single.payload['withdrawInError'], isTrue);
     },
   );
+
+  test('native continuation reads use the retained relation and omit withdrawn successors', () async {
+    await persist(serverState()..firestoreId = 'source');
+    await persist(serverState()..firestoreId = 'followup'..continuesIssueId = 'source');
+    await persist(deletion()..firestoreId = 'withdrawn-followup'..continuesIssueId = 'source');
+    final rows = await local.watchContinuations('source').first;
+    expect(rows.map((row) => row.firestoreId), ['followup']);
+    expect((await local.getByFirestoreId('followup'))!.continuesIssueId, 'source');
+  });
+
+  test('accepted original creation preserves newer local edits through native restart', () async {
+    await local.saveTicket(pending());
+    gateway.receipt = acceptedReceipt();
+    // Acceptance is durable, but its server readback is temporarily unavailable.
+    await service(governed: true).syncTicketsForTest();
+    expect(gateway.commands, hasLength(1));
+    expect((await storedTicket())!.isSynced, isFalse);
+    final edited = (await storedTicket())!
+      ..description = 'Newer local evidence B'
+      ..updatedAt = appliedAt.add(const Duration(minutes: 1));
+    await persist(edited);
+    await reopenDatabase();
+    remote.serverState = serverState();
+    remote.existing = [remote.serverState!];
+    final retry = service(governed: true);
+    await retry.syncTicketsForTest();
+    expect(gateway.commands, hasLength(1), reason: 'The saved acceptance owns the original request.');
+    expect(remote.batches, isEmpty);
+    expect((await storedTicket())!.description, 'Newer local evidence B');
+    expect((await storedTicket())!.isSynced, isFalse);
+    expect(retry.lastFailureDetails.single.message, contains('Newer local edits remain saved'));
+  });
 
   test(
     'cached tombstone cannot settle deletion while server remains active',
@@ -232,8 +294,10 @@ void main() {
       await persist(deletion());
       remote.existing = <MaintenanceRecord>[deletion()];
       remote.serverState = serverState();
+      acceptWithdrawal();
       await service().syncTicketsForTest();
-      expect(remote.batches, hasLength(1));
+      expect(remote.batches, isEmpty);
+      expect(gateway.commands.single.payload['withdrawInError'], isTrue);
       expect((await storedTicket())!.isSynced, isTrue);
     },
   );
@@ -256,8 +320,10 @@ void main() {
       expect((await storedTicket())!.isDeleted, isTrue);
       expect((await storedTicket())!.isSynced, isFalse);
       remote.serverState = serverState();
+      acceptWithdrawal();
       await service().syncTicketsForTest();
-      expect(remote.batches.single.single.isDeleted, isTrue);
+      expect(remote.batches, isEmpty);
+      expect(gateway.commands.single.payload['withdrawInError'], isTrue);
       expect((await storedTicket())!.isSynced, isTrue);
     },
   );
@@ -351,6 +417,48 @@ void main() {
       );
     },
   );
+
+  test('production legacy closure recovers a lost command response after native restart', () async {
+    final localClosed = serverState()
+      ..isSynced = false ..version = 2 ..isResolved = true ..status = TicketStatus.resolved
+      ..closedByUid = reporter ..closedByName = 'Operator'
+      ..endDate = appliedAt.add(const Duration(minutes: 10))
+      ..updatedAt = appliedAt.add(const Duration(minutes: 10))
+      ..remarks = 'Checked and restored';
+    await persist(localClosed);
+    remote.serverState = serverState();
+    remote.existing = [remote.serverState!];
+    var loseResponse = true;
+    gateway.onExecute = (command) async {
+      expect(command.type, WorkflowCommandType.resolveMaintenanceTicket);
+      expect(command.payload['remarks'], 'Checked and restored');
+      remote.serverState = serverState()
+        ..isResolved = true ..status = TicketStatus.resolved ..version = 2
+        ..closedByUid = reporter ..closedByName = 'Operator'
+        ..endDate = localClosed.endDate ..remarks = 'Checked and restored'
+        ..updatedAt = appliedAt.add(const Duration(minutes: 20));
+      remote.existing = [remote.serverState!];
+      if (loseResponse) throw const WorkflowException(WorkflowErrorCode.unavailable, 'Lost response');
+      return WorkflowCommandReceipt(commandId: command.commandId,
+        resultKey: 'maintenance-ticket-resolved', aggregateVersion: 2,
+        result: {'ticketId': ticketId, 'auditId': 'server_maintenance_ticket_${command.commandId}', 'completedLanes': ['mechanical']},
+        appliedAt: appliedAt.add(const Duration(minutes: 20)));
+    };
+    await service(governed: true).syncTicketsForTest();
+    expect((await storedTicket())!.isSynced, isFalse);
+    expect(remote.steps, isEmpty);
+    expect(remote.batches, isEmpty);
+    final original = gateway.commands.single.toMap();
+    await reopenDatabase();
+    journalClock = journalClock.add(const Duration(hours: 1));
+    loseResponse = false;
+    await service(governed: true).syncTicketsForTest();
+    expect(gateway.commands.last.toMap(), original);
+    expect((await storedTicket())!.isSynced, isTrue);
+    expect((await storedTicket())!.updatedAt.toUtc(), remote.serverState!.updatedAt.toUtc());
+    expect(remote.steps, isEmpty);
+    expect(remote.batches, isEmpty);
+  });
 
   test(
     'partial lifecycle failure never uses capable batch and resumes after restart',
@@ -1177,7 +1285,17 @@ void main() {
 
 /// Returns a scripted receipt, optionally waiting first so a concurrent local
 /// edit can be made while the request is in flight.
-class _Gateway implements WorkflowCommandGateway {
+class _Gateway implements WorkflowCommandGateway, OriginBoundWorkflowCommandGateway {
+  @override
+  Future<WorkflowCommandReceipt> executeOriginBoundEnvelope(String raw) {
+    final envelope = jsonDecode(raw) as Map;
+    final command = envelope['command'] as Map;
+    return execute(WorkflowCommand(commandId: command['commandId'] as String,
+      type: WorkflowCommandType.values.byName(command['commandType'] as String),
+      aggregateId: command['aggregateId'] as String, expectedVersion: command['expectedVersion'] as int,
+      payload: Map<String, Object?>.from(command['payload'] as Map)));
+  }
+  Future<WorkflowCommandReceipt> Function(WorkflowCommand)? onExecute;
   final List<WorkflowCommand> commands = <WorkflowCommand>[];
   final entered = Completer<void>();
   WorkflowCommandReceipt? receipt;
@@ -1190,6 +1308,7 @@ class _Gateway implements WorkflowCommandGateway {
     if (!entered.isCompleted) entered.complete();
     if (hold != null) await hold;
     if (error != null) throw error!;
+    if (onExecute != null) return onExecute!(command);
     final value = receipt;
     if (value == null) {
       throw const WorkflowException(

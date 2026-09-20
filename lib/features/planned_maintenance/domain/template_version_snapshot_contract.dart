@@ -161,8 +161,9 @@ class TemplateVersionSnapshotBundle {
     for (var i = 0; i < moduleSnapshots.length; i++) {
       final module = moduleSnapshots[i];
       final code = moduleCode(module);
-      final display =
-          code?.trim().isNotEmpty == true ? code! : 'module #${i + 1}';
+      final display = code?.trim().isNotEmpty == true
+          ? code!
+          : 'module #${i + 1}';
       if (code == null || code.trim().isEmpty) {
         errors.add(
           'Module #${i + 1} is missing moduleCode/code. Assignment cannot safely link fields.',
@@ -192,6 +193,11 @@ class TemplateVersionSnapshotBundle {
       final metadata = mapFrom(module['metadata']);
       final owners = stringList(metadata['ownerDisciplines']);
       _validateModuleTypes(module, metadata: metadata);
+      try {
+        fieldsForModule(module);
+      } on TemplateVersionSnapshotException catch (error) {
+        errors.add(error.message);
+      }
       if (discipline == 'shared' && owners.length < 2) {
         warnings.add(
           'Shared module $display has fewer than two owner disciplines.',
@@ -248,10 +254,18 @@ class TemplateVersionSnapshotBundle {
         'fieldId',
       ]);
       _validateChecklistTypes(item);
-      final label =
-          title?.trim().isNotEmpty == true
-              ? title!
-              : 'checklist item #${i + 1}';
+      final label = title?.trim().isNotEmpty == true
+          ? title!
+          : 'checklist item #${i + 1}';
+      final required = boolFrom(item, const [
+        'isRequired',
+        'required',
+      ], fallback: false);
+      if (required && (linkedModuleCode == null || linkedFieldKey == null)) {
+        errors.add(
+          'Required checklist item "$label" needs a linked required response field. Otherwise mark it reference-only.',
+        );
+      }
 
       if (linkedModuleCode == null || linkedModuleCode.trim().isEmpty) {
         warnings.add(
@@ -275,6 +289,32 @@ class TemplateVersionSnapshotBundle {
           errors.add(
             'Checklist item "$label" links to missing field "$linkedFieldKey" in module $linkedModuleCode.',
           );
+        }
+        if (required) {
+          final module = moduleSnapshots
+              .where(
+                (row) => normalizeKey(moduleCode(row)) == normalizedModuleCode,
+              )
+              .firstOrNull;
+          final fields = module == null
+              ? <Map<String, dynamic>>[]
+              : fieldsForModule(module);
+          final field = fields
+              .where((row) => normalizeKey(fieldKey(row)) == normalizedFieldKey)
+              .firstOrNull;
+          if (field == null ||
+              !(boolValue(field['required']) == true ||
+                  boolValue(field['isRequired']) == true) ||
+              const {
+                'sectionheader',
+                'instruction',
+                'safetygate',
+                'safetyconfirmation',
+              }.contains(normalizeKey(field['type'] as String?))) {
+            errors.add(
+              'Required checklist item "$label" must link to a required executable response field.',
+            );
+          }
         }
       }
     }
@@ -347,6 +387,7 @@ class TemplateVersionSnapshotBundle {
 
   List<Map<String, dynamic>> fieldsForModule(Map<String, dynamic> module) {
     final code = moduleCode(module);
+    final sources = <List<Map<String, dynamic>>>[];
 
     for (final key in const [
       'fields',
@@ -360,7 +401,7 @@ class TemplateVersionSnapshotBundle {
           label: 'embedded $key for module ${code ?? 'unknown'}',
           allowEmpty: true,
         );
-        if (parsed.isNotEmpty) return parsed;
+        if (parsed.isNotEmpty) sources.add(parsed);
       }
       if (value is List) {
         final parsed = <Map<String, dynamic>>[];
@@ -373,7 +414,7 @@ class TemplateVersionSnapshotBundle {
           }
           parsed.add(Map<String, dynamic>.from(entry));
         }
-        if (parsed.isNotEmpty) return parsed;
+        if (parsed.isNotEmpty) sources.add(parsed);
       }
     }
 
@@ -384,17 +425,25 @@ class TemplateVersionSnapshotBundle {
 
     if (code != null && code.trim().isNotEmpty) {
       final normalizedCode = normalizeKey(code);
-      final filtered =
-          fieldDefinitions.where((field) {
-            final fieldModule = fieldModuleCode(field);
-            return normalizeKey(fieldModule) == normalizedCode;
-          }).toList();
-      if (filtered.isNotEmpty) return filtered;
+      final filtered = fieldDefinitions.where((field) {
+        final fieldModule = fieldModuleCode(field);
+        return normalizeKey(fieldModule) == normalizedCode;
+      }).toList();
+      if (filtered.isNotEmpty) sources.add(filtered);
     }
-
-    return hasModuleLinkedGlobalFields
-        ? <Map<String, dynamic>>[]
-        : fieldDefinitions;
+    if (!hasModuleLinkedGlobalFields && fieldDefinitions.isNotEmpty) {
+      sources.add(fieldDefinitions);
+    }
+    if (sources.isEmpty) return <Map<String, dynamic>>[];
+    final expected = _fieldContractFingerprint(sources.first);
+    if (sources
+        .skip(1)
+        .any((fields) => _fieldContractFingerprint(fields) != expected)) {
+      throw TemplateVersionSnapshotException(
+        'Module ${code ?? 'unknown'} has conflicting field definitions. Review every embedded and global field list before publication.',
+      );
+    }
+    return sources.first;
   }
 
   static String? moduleCode(Map<String, dynamic> module) {
@@ -423,7 +472,7 @@ class TemplateVersionSnapshotBundle {
       'requiredForCloseout',
       'required',
       'isRequired',
-    ], fallback: false);
+    ], fallback: true);
   }
 
   static String? fieldKey(Map<String, dynamic> field) {
@@ -438,6 +487,100 @@ class TemplateVersionSnapshotBundle {
       'parentModuleCode',
     ]);
   }
+}
+
+// Compare executable meaning, preserving case-sensitive units and instructions.
+// Presentation labels and field ordering do not change the requirement.
+String _fieldContractFingerprint(List<Map<String, dynamic>> fields) {
+  Object? canonical(Object? value) {
+    if (value is Map) {
+      return {
+        for (final key in value.keys.cast<String>().toList()..sort())
+          key: canonical(value[key]),
+      };
+    }
+    if (value is List) return value.map(canonical).toList();
+    return value;
+  }
+
+  const types = {
+    'string': 'text',
+    'plaintext': 'text',
+    'textarea': 'longtext',
+    'numeric': 'number',
+    'numericwithunit': 'number',
+    'yesno': 'boolean',
+    'passfail': 'boolean',
+    'dropdown': 'enum',
+    'devicetagpicklist': 'enum',
+    'procedureref': 'enum',
+    'targetrule': 'enum',
+    'multitag': 'multiselect',
+    'date': 'datetime',
+    'sectionheader': 'display',
+    'instruction': 'display',
+    'safetygate': 'display',
+    'safetyconfirmation': 'display',
+  };
+  final contracts = <String, Object?>{};
+  for (final field in fields) {
+    final key = normalizeKey(TemplateVersionSnapshotBundle.fieldKey(field));
+    if (key.isEmpty || contracts.containsKey(key)) {
+      throw const TemplateVersionSnapshotException(
+        'Field lists require unique non-empty keys.',
+      );
+    }
+    final type = normalizeKey(
+      stringFrom(field, const ['type', 'fieldType']) ?? 'text',
+    );
+    final meta = mapFrom(field['meta']);
+    final validation = field['validation'] ?? field['validationJson'];
+    contracts[key] = {
+      'type': types[type] ?? type,
+      'required':
+          boolValue(field['required']) == true ||
+          boolValue(field['isRequired']) == true,
+      'unit': stringValue(
+        field['unit'],
+      )?.trim().replaceAll(RegExp(r'\s+'), ' '),
+      'options':
+          stringList(field['options'])
+              .map(
+                (v) => v.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' '),
+              )
+              .toList()
+            ..sort(),
+      'validation': validation is String ? jsonDecode(validation) : validation,
+      'evidence': {
+        for (final name in const [
+          'evidence',
+          'evidenceRequirement',
+          'evidenceRole',
+          'evidenceType',
+          'requiresEvidence',
+          'requiresPhoto',
+          'requiresAttachment',
+          'photoRequired',
+          'attachmentRequired',
+        ])
+          if (field.containsKey(name) || meta.containsKey(name))
+            name: field.containsKey(name) ? field[name] : meta[name],
+      },
+      'instructions': {
+        for (final name in const [
+          'instructionText',
+          'procedureRef',
+          'procedureRefs',
+          'procedureRevision',
+        ])
+          if (field[name] != null)
+            name: field[name] is String
+                ? (field[name] as String).trim().replaceAll(RegExp(r'\s+'), ' ')
+                : field[name],
+      },
+    };
+  }
+  return jsonEncode(canonical(contracts));
 }
 
 void _validateModuleTypes(

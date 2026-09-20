@@ -97,12 +97,14 @@ void main() {
         dialog,
         contains('preserveExistingPayload: widget.initialVersion != null'),
       );
+      expect(builder, contains('final source = existingVersion;'));
+      expect(builder, contains('createSuccessorForPublication = false'));
+      expect(builder, contains('_forkTemplateVersionForPublication'));
+      expect(builder, contains('preserveExistingPayload = false'));
       expect(
         builder,
-        contains('final version = existingVersion ?? TemplateVersion()'),
+        contains('sourceVersionFirestoreId = source.firestoreId'),
       );
-      expect(builder, contains('preserveExistingPayload = false'));
-      expect(builder, contains('existingVersion?.versionNumber ??'));
     });
 
     test('save and publish return the same persisted draft context', () {
@@ -169,30 +171,67 @@ void main() {
       );
     });
 
-    test('legacy publisher also resumes and publishes the same draft record', () {
-      final builders = _read(
-        'lib/features/planned_maintenance/presentation/template_publisher_screen.builders.dart',
-      );
-      final support = _read(
-        'lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart',
-      );
-      final actions = _read(
-        'lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart',
-      );
-      final sections = _read(
-        'lib/features/planned_maintenance/presentation/template_publisher_sections.dart',
-      );
+    test(
+      'legacy publisher resumes drafts and forks only when publication needs a new number',
+      () {
+        final builders = _read(
+          'lib/features/planned_maintenance/presentation/template_publisher_screen.builders.dart',
+        );
+        final support = _read(
+          'lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart',
+        );
+        final actions = _read(
+          'lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart',
+        );
+        final sections = _read(
+          'lib/features/planned_maintenance/presentation/template_publisher_sections.dart',
+        );
 
-      expect(builders, contains('onResumeDraft'));
-      expect(sections, contains("label: const Text('Resume draft')"));
-      expect(support, contains('void _resumeDraft('));
-      expect(support, contains('_workingDraft = _cloneVersion(source)'));
-      expect(actions, isNot(contains('allocateFreshVersionNumber: true')));
-      expect(
-        actions,
-        contains('_workingDraft != null && version.versionNumber > 0'),
-      );
-    });
+        expect(builders, contains('onResumeDraft'));
+        expect(sections, contains("label: const Text('Resume draft')"));
+        expect(support, contains('void _resumeDraft('));
+        expect(support, contains('_workingDraft = _cloneVersion(source)'));
+        expect(actions, isNot(contains('allocateFreshVersionNumber: true')));
+        expect(actions, contains('forkResumedForPublication: true'));
+        expect(actions, contains('_forkDraftVersionForPublication'));
+      },
+    );
+
+    test(
+      'publishing a resumed draft saves a governed successor before publication',
+      () {
+        final actions = _read(
+          'lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart',
+        );
+
+        expect(
+          actions,
+          contains('await repo.saveVersion(version, actor: actor)'),
+        );
+        expect(actions, contains('draft_saved_before_publish'));
+        expect(actions, contains('getVersionByFirestoreId'));
+        expect(actions, isNot(contains('templatePublicationNumbering(')));
+        expect(
+          actions,
+          isNot(contains('version.versionNumber = numbering.versionNumber')),
+        );
+        expect(
+          actions,
+          contains('package.latestVersionNumber = publishable.versionNumber'),
+        );
+        expect(
+          actions,
+          isNot(
+            contains(
+              '''if (version.versionNumber > package.latestVersionNumber) {''',
+            ),
+          ),
+          reason:
+              'publishing must not leave the package counter behind the version '
+              'it has just pointed at',
+        );
+      },
+    );
 
     test('resumed drafts cannot be moved across packages', () {
       final dialog = _read(

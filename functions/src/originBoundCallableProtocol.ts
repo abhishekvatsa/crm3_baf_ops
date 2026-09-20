@@ -10,7 +10,7 @@ const CONTRACTS = Object.freeze({
   mutateChargeAbnormalityV2: Object.freeze({
     payloadKey: "request",
     capabilityRevision: "chargeAbnormality.v2.20260913",
-    capabilities: Object.freeze(["chargeAbnormality.v2", "qualityMonitoring.v1", "savedSubmissionReview.v1"]),
+    capabilities: Object.freeze(["chargeAbnormality.v2", "qualityMonitoring.v1", "qualityMonitoring.review.v1", "savedSubmissionReview.v1"]),
   }),
   assignPublishedTemplateVersionV2: Object.freeze({
     payloadKey: "request",
@@ -21,8 +21,9 @@ const CONTRACTS = Object.freeze({
     payloadKey: "request",
     capabilityRevision: "assetHierarchy.v2.20260913",
     capabilities: Object.freeze([
-      "assetHierarchy.v2", "innerCoverAcceptance.v1",
+      "assetHierarchy.v2", "assetRegistry.durable.v1", "ordinaryDirective.v1", "innerCoverAcceptance.v1",
       "morningReviewExpectedPlantDay.v1", "morningReviewReceiptLookup.v1",
+      "morningReviewRecoveryEvidence.v1",
       "savedSubmissionReview.v1",
     ]),
   }),

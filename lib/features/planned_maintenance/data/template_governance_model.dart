@@ -71,7 +71,7 @@ bool _moduleRequiresClosure(
     );
     if (parsed != null) return parsed;
   }
-  return false;
+  return true;
 }
 
 class _TemplateClosureReviewState {
@@ -112,10 +112,9 @@ _TemplateClosureReviewState _deriveClosureReviewState({
     field: 'moduleSnapshotsJson',
     source: source,
   );
-  final actualCriticalCount =
-      modules
-          .where((module) => _moduleRequiresClosure(module, source: source))
-          .length;
+  final actualCriticalCount = modules
+      .where((module) => _moduleRequiresClosure(module, source: source))
+      .length;
   final declaredCriticalCount =
       readOptionalPersistedInt(
         jobSnapshot['closureCriticalCount'],
@@ -124,10 +123,9 @@ _TemplateClosureReviewState _deriveClosureReviewState({
         minimum: 0,
       ) ??
       0;
-  final criticalCount =
-      actualCriticalCount > declaredCriticalCount
-          ? actualCriticalCount
-          : declaredCriticalCount;
+  final criticalCount = actualCriticalCount > declaredCriticalCount
+      ? actualCriticalCount
+      : declaredCriticalCount;
 
   return _TemplateClosureReviewState(
     confirmed:

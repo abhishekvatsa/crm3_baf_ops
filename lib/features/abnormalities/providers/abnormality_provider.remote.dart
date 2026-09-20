@@ -271,6 +271,22 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   }
 
   @override
+  Stream<List<ChargeAbnormality>> watchAllAbnormalities() {
+    return _abnormalities
+        .where('isDeleted', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) {
+          final records = decodeSnapshotDocuments(
+            snapshot,
+            ChargeAbnormality.fromMap,
+            source: 'ChargeAbnormality',
+          );
+          records.sort(_sortAbnormalities);
+          return records;
+        });
+  }
+
+  @override
   Future<List<ChargeAbnormality>> getAbnormalitiesForCharge(
     int sourceChargeNo,
   ) async {

@@ -27,9 +27,11 @@ class OperationalEventsScreen extends ConsumerStatefulWidget {
       _OperationalEventsScreenState();
 }
 
+enum _OperationalEventFilter { open, resolved, withdrawn }
+
 class _OperationalEventsScreenState
     extends ConsumerState<OperationalEventsScreen> {
-  var _showOpen = true;
+  var _filter = _OperationalEventFilter.open;
   var _busy = false;
   var _selectedMonth = _monthStart(DateTime.now());
   OperationalEventType? _selectedTopic;
@@ -124,10 +126,20 @@ class _OperationalEventsScreenState
               ),
               data: (events) {
                 final open = events.where((event) => event.isOpen).toList();
-                final resolved = events
-                    .where((event) => !event.isOpen)
+                final withdrawn = events
+                    .where((event) => event.isWithdrawn)
                     .toList();
-                final visible = _showOpen ? open : resolved;
+                final resolved = events
+                    .where((event) => !event.isOpen && !event.isWithdrawn)
+                    .toList();
+                final visible = switch (_filter) {
+                  _OperationalEventFilter.open => open,
+                  _OperationalEventFilter.resolved => resolved,
+                  _OperationalEventFilter.withdrawn => withdrawn,
+                };
+                final feedDiagnostics = ref.watch(
+                  operationalEventFeedDiagnosticsProvider(actor.uid),
+                );
                 final critical = open
                     .where(
                       (event) =>
@@ -145,8 +157,16 @@ class _OperationalEventsScreenState
                           openCount: open.length,
                           criticalCount: critical,
                           resolvedCount: resolved.length,
+                          withdrawnCount: withdrawn.length,
                         ),
                       ),
+                      if (feedDiagnostics.isIncomplete)
+                        SliverToBoxAdapter(
+                          child: _IncompleteFeedNotice(
+                            malformedDocumentCount:
+                                feedDiagnostics.malformedDocumentCount,
+                          ),
+                        ),
                       SliverToBoxAdapter(
                         child: _EventImpactPanel(
                           eventsAsync: reportEventsAsync,
@@ -182,34 +202,39 @@ class _OperationalEventsScreenState
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: SegmentedButton<bool>(
+                          child: SegmentedButton<_OperationalEventFilter>(
                             key: const ValueKey(
                               'operational-event-status-filter',
                             ),
                             segments: const [
                               ButtonSegment(
-                                value: true,
+                                value: _OperationalEventFilter.open,
                                 icon: Icon(Icons.warning_amber_rounded),
                                 label: Text('Open'),
                               ),
                               ButtonSegment(
-                                value: false,
+                                value: _OperationalEventFilter.resolved,
                                 icon: Icon(Icons.task_alt_rounded),
                                 label: Text('Recent resolved'),
                               ),
+                              ButtonSegment(
+                                value: _OperationalEventFilter.withdrawn,
+                                icon: Icon(Icons.remove_circle_outline),
+                                label: Text('Withdrawn'),
+                              ),
                             ],
-                            selected: {_showOpen},
+                            selected: {_filter},
                             onSelectionChanged: (selection) =>
-                                setState(() => _showOpen = selection.first),
+                                setState(() => _filter = selection.first),
                           ),
                         ),
                       ),
-                      if (!_showOpen)
+                      if (_filter != _OperationalEventFilter.open)
                         const SliverToBoxAdapter(child: _HistoryWindowNotice()),
                       if (visible.isEmpty)
                         SliverFillRemaining(
                           hasScrollBody: false,
-                          child: _EmptyState(showingOpen: _showOpen),
+                          child: _EmptyState(filter: _filter),
                         )
                       else
                         SliverPadding(
@@ -234,6 +259,9 @@ class _OperationalEventsScreenState
                                   actor.canRecordOperationalEvent &&
                                   visible[index].isOpen,
                               canResolve: actor.canResolveOperationalEvent,
+                              canWithdraw:
+                                  actor.canRecordOperationalEvent &&
+                                  !visible[index].isWithdrawn,
                               onEdit: () => _editEvent(
                                 actor: actor,
                                 classes: classes,
@@ -242,6 +270,7 @@ class _OperationalEventsScreenState
                               ),
                               onResolve: () => _resolveEvent(visible[index]),
                               onReopen: () => _reopenEvent(visible[index]),
+                              onWithdraw: () => _withdrawEvent(visible[index]),
                               onIssues: () => Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
@@ -391,6 +420,21 @@ class _OperationalEventsScreenState
     );
   }
 
+  Future<void> _withdrawEvent(OperationalEvent event) async {
+    final reason = await _askForReason(
+      title: 'Withdraw event in error',
+      label: 'Why should this recorded event no longer count as a disruption?',
+      action: 'Withdraw',
+    );
+    if (reason == null || !mounted) return;
+    await _run(
+      () => ref
+          .read(operationalEventServiceProvider)
+          .withdraw(event: event, reason: reason),
+      'Event withdrawn in error. Its raw history remains available.',
+    );
+  }
+
   Future<String?> _askForReason({
     required String title,
     required String label,
@@ -432,9 +476,11 @@ class _EventCard extends StatelessWidget {
     required this.assetNames,
     required this.canEdit,
     required this.canResolve,
+    required this.canWithdraw,
     required this.onEdit,
     required this.onResolve,
     required this.onReopen,
+    required this.onWithdraw,
     required this.onIssues,
   });
 
@@ -444,9 +490,11 @@ class _EventCard extends StatelessWidget {
   final Map<String, String> assetNames;
   final bool canEdit;
   final bool canResolve;
+  final bool canWithdraw;
   final VoidCallback onEdit;
   final VoidCallback onResolve;
   final VoidCallback onReopen;
+  final VoidCallback onWithdraw;
   final VoidCallback onIssues;
 
   @override
@@ -552,12 +600,22 @@ class _EventCard extends StatelessWidget {
           const SizedBox(height: 6),
           _DetailLine(
             icon: Icons.timer_outlined,
-            text:
-                'Total impact ${_formatImpactDuration(event.durationUntil(asOf))} '
-                'across ${event.completedIntervals.length + 1} '
-                '${event.completedIntervals.isEmpty ? 'occurrence' : 'occurrences'}'
-                '${event.isOpen ? ' · ongoing' : ''}',
+            text: event.isWithdrawn
+                ? 'Withdrawn in error · raw history retained; no effective impact'
+                : 'Total impact ${_formatImpactDuration(event.durationUntil(asOf))} '
+                      'across ${event.completedIntervals.length + 1} '
+                      '${event.completedIntervals.isEmpty ? 'occurrence' : 'occurrences'}'
+                      '${event.isOpen ? ' · ongoing' : ''}',
           ),
+          if (event.isWithdrawn && event.withdrawalReason != null) ...[
+            const SizedBox(height: 6),
+            _DetailLine(
+              icon: Icons.info_outline_rounded,
+              text:
+                  'Withdrawal reason: ${event.withdrawalReason}'
+                  '${event.withdrawnByName == null ? '' : ' · by ${event.withdrawnByName}'}',
+            ),
+          ],
           if (event.resolutionNote != null) ...[
             const SizedBox(height: 6),
             _DetailLine(
@@ -614,7 +672,14 @@ class _EventCard extends StatelessWidget {
                   'Issues${event.issueLinkIds.isEmpty ? '' : ' (${event.issueLinkIds.length})'}',
                 ),
               ),
-              if (canResolve)
+              if (canWithdraw)
+                OutlinedButton.icon(
+                  key: ValueKey('operational-event-withdraw-${event.eventId}'),
+                  onPressed: onWithdraw,
+                  icon: const Icon(Icons.visibility_off_outlined),
+                  label: const Text('Withdraw in error'),
+                ),
+              if (canResolve && !event.isWithdrawn)
                 event.isOpen
                     ? FilledButton.icon(
                         key: ValueKey(
@@ -1174,37 +1239,6 @@ class _EventInput {
   const _EventInput({required this.draft, required this.reason});
   final OperationalEventDraft draft;
   final String reason;
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.showingOpen});
-  final bool showingOpen;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            showingOpen ? Icons.check_circle_outline : Icons.history_rounded,
-            size: 44,
-            color: BafColors.textSecondary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            showingOpen ? 'No open operational events' : 'No resolved events',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: BafColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _ErrorState extends StatelessWidget {

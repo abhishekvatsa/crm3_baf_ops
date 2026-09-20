@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crm3_baf_ops/core/persistence/durable_submission.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/domain/critical_alarm_models.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/presentation/critical_alarm_screen.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/providers/critical_alarm_providers.dart';
+import 'package:crm3_baf_ops/features/critical_alarm/services/critical_alarm_command_service.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -134,6 +138,8 @@ Future<void> _pump(
   Stream<AppUser?>? userStream,
   String? initialAlarmId,
   CriticalAlarmLiveSnapshot? activeSnapshot,
+  List<DurableSubmission> pending = const [],
+  CriticalAlarmCommandService? commands,
 }) async {
   await tester.binding.setSurfaceSize(const Size(320, 640));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -154,11 +160,26 @@ Future<void> _pump(
           ),
         ),
         criticalAlarmContactsProvider.overrideWith(
-          (_) => Stream.value(contacts),
+          (_) => Stream.value(
+            CriticalAlarmContactsSnapshot(
+              contacts: contacts,
+              malformedDocumentIds: const <String>[],
+            ),
+          ),
         ),
         criticalAlarmDefinitionsProvider.overrideWith(
-          (_) => Stream.value(CriticalAlarmDefinition.values),
+          (_) => Stream.value(
+            CriticalAlarmDefinitionsSnapshot(
+              definitions: CriticalAlarmDefinition.values,
+              malformedDocumentIds: const <String>[],
+            ),
+          ),
         ),
+        criticalAlarmPendingSubmissionsProvider.overrideWith(
+          (_) => Stream.value(pending),
+        ),
+        if (commands != null)
+          criticalAlarmCommandServiceProvider.overrideWithValue(commands),
       ],
       child: MaterialApp(
         theme: BafAppTheme.light,
@@ -169,7 +190,104 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+class _SavedCommandService implements CriticalAlarmCommandService {
+  final resumedIds = <String>[];
+
+  @override
+  Future<WorkflowCommandReceipt> resume(String submissionId) async {
+    resumedIds.add(submissionId);
+    return WorkflowCommandReceipt(
+      commandId: submissionId,
+      resultKey: 'critical-alarm-raised',
+      aggregateVersion: 1,
+      result: const {},
+      appliedAt: DateTime.utc(2026, 9, 19),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+DurableSubmission _savedRaise() => DurableSubmission(
+  submissionId: 'saved-raise',
+  actorUid: 'operator-1',
+  requestId: 'saved-raise',
+  aggregateId: 'saved-alarm',
+  resourceKey: 'criticalAlarm:saved-alarm',
+  protocol: 'criticalAlarm.v1',
+  envelopeJson: jsonEncode({
+    'protocolVersion': 2,
+    'originActorUid': 'operator-1',
+    'command': {
+      'commandId': 'saved-raise',
+      'commandType': 'raiseCriticalAlarm',
+      'aggregateId': 'saved-alarm',
+      'expectedVersion': 0,
+      'payload': {
+        'alarmTypeKey': 'fire',
+        'location': 'North bay',
+        'initialDetails': 'Flame beside utility gallery',
+      },
+    },
+  }),
+  displayMetadataJson: null,
+  state: DurableSubmissionState.uncertain,
+  attemptCount: 1,
+  createdAt: DateTime.utc(2026, 9, 18, 9),
+  updatedAt: DateTime.utc(2026, 9, 18, 9),
+  claimToken: null,
+  claimExpiresAt: null,
+  nextRetryAt: null,
+  receiptJson: null,
+  receiptSha256: null,
+  lastErrorCode: null,
+  lastErrorMessage: null,
+  legacySourceKey: null,
+  legacySourceBase64: null,
+);
+
 void main() {
+  testWidgets('multiple saved actions leave the alarm workspace usable', (
+    tester,
+  ) async {
+    await _pump(tester, pending: [_savedRaise(), _savedRaise(), _savedRaise()]);
+    expect(find.text('Review and retry'), findsWidgets);
+    expect(find.text('Raise alarm'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Review and retry').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Retry this saved action?'), findsOneWidget);
+    await tester.tap(find.text('Keep saved'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final confirm in [false, true]) {
+    testWidgets('saved action is reviewed before retry; confirm=$confirm', (
+      tester,
+    ) async {
+      final commands = _SavedCommandService();
+      await _pump(tester, pending: [_savedRaise()], commands: commands);
+      expect(commands.resumedIds, isEmpty);
+      await tester.tap(find.text('Review and retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Retry this saved action?'), findsOneWidget);
+      expect(find.textContaining('Location: North bay'), findsOneWidget);
+      expect(
+        find.textContaining('Flame beside utility gallery'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Saved:'), findsOneWidget);
+      expect(find.textContaining('it may take effect now'), findsOneWidget);
+      expect(commands.resumedIds, isEmpty);
+      await tester.tap(find.text(confirm ? 'Confirm and retry' : 'Keep saved'));
+      await tester.pumpAndSettle();
+      expect(commands.resumedIds, confirm ? ['saved-raise'] : isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'raise flow starts blank and requires a governed reason and location',
     (tester) async {
@@ -222,7 +340,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Raise Fire?'), findsOneWidget);
-      expect(find.textContaining('never queued offline'), findsOneWidget);
+      expect(find.textContaining('original command is saved'), findsOneWidget);
       expect(
         tester.takeException(),
         isNull,

@@ -376,3 +376,75 @@ The AST inventory reports PASS with zero unclassified operations or presentation
 persistence. These are current working-source measurements. The earlier source,
 CI, and closure evidence remains historical and does not admit this repair branch
 or provide deployment, production reconciliation, or physical-device evidence.
+
+## Domain-audit remediation addendum, 2026-09-18
+
+This addendum supersedes the current-source totals above. Repairing the domain
+audits added one persistence site and then another: a job diary revision read
+inside the transaction that writes over it, and a count of the local knowledge
+rows so that an empty active catalogue can be told apart from a catalogue that
+was never there. The inventory now contains 595 operations and 2,078 sites
+across 70 classified surfaces, with exact digest
+`FCDCA1B1BCD4BE19717482718DF82ED00F8D530D6CA7DCEA53F8EB0C510D88BE`.
+
+No surface changed profile, store or mode, and one A-02 surface exception was
+removed rather than added, because extracting a screen's draft type took a
+responsibility out of a presentation file. The AST inventory reports PASS with
+zero unclassified operations or presentation persistence. These remain current
+working-source measurements and admit no deployment, production reconciliation
+or physical-device evidence.
+
+## Critical-alarm recovery inventory addendum, 2026-09-19
+
+The current inventory contains 596 operations and 2,081 sites across the same
+70 classified surfaces. Its exact digest is
+`531A9D0BD36D2CA83BEC9590AFDAA58D55FCF273512407AC8EF3919C46462E71`.
+The sole added operation is `DurableSubmissionRepository.watchForActor`, which
+contributes three sites to the structural read inventory. It observes retained
+work for the selected actor and emits the initial population through the same
+watcher, avoiding a read/subscribe gap.
+The critical-alarm provider gates disclosure against live actor authority.
+
+This operation remains inside the existing Isar repository classification;
+no store, mode, profile or presentation persistence allowance changes. The
+native pending-submission tests cover appearance and settlement without manual
+invalidation, account changes and temporary authority failure. The current
+inventory pins bind the new operation; historical closure and production
+evidence remain unchanged and confer no new release authority.
+
+## Burner correction review inventory addendum, 2026-09-20
+
+The current inventory contains 600 operations and 2,091 sites across 72
+classified surfaces, with digest
+`4C92C4B915402B61678724D9D30199C58ACF11CA3BB95F213F11ACAFA7B7361E`.
+The correction provider wires a read-only repository. The repository reads
+the original installation, complete event-scoped correction chain, accepted
+correction and current installation from the server, rejecting cached,
+pending, missing or conflicting evidence. Its explicit profile permits no
+Firestore mutation. Approved Admin/SI admission and remote Rules remain
+independent requirements.
+
+The existing durable journal owns the original command envelope and local
+acceptance settlement; the workflow backend owns correction and audit writes.
+This inventory refresh records current source boundaries only and does not
+change historical closure or authorize deployment.
+
+## Inspection follow-up inventory addendum, 2026-09-20
+
+The current inventory contains 601 operations and 2,095 sites across 72
+classified surfaces, digest
+`CB61F7EC700C6F0D3F60CF187FE294E981D45E77FBBD8FA590DDDFBB0FB124E0`.
+Inspection repair review adds a server-only maintenance read in the existing
+repository; strict report reads also include independent finding creation
+events. Presentation submits through the existing workflow controller and
+owns no persistence. Historical receipts and production authority are unchanged.
+
+
+### Morning Review preliminary audit, 20 September 2026
+
+Current source: 601 operations / 2,097 sites / 72 surfaces. The additional reads expose unfinished meetings independently of the recent archive window. Current digest `F3DD501B7104AA15C08C1427ED34892E6FC97C1B587D2082FA71207A7F8E5F51`. Historical receipts above remain unchanged.
+
+
+## Current domain-repair inventory, 21 September 2026
+
+Current source has 618 operations / 2,164 sites / 77 classified surfaces. Digest `D07DA8DEB4E167358DFADA0E2C5C0EAB8D0220AECE8C8EA2023356DE3D52D5AE`. Reviewed additions are origin-bound directive recovery, online access checks, complete qualified report feeds and exact knowledge adoption. Presentation continues to delegate persistence. This addendum records current source only; historical closure and production activation evidence remain unchanged.

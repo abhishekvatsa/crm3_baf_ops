@@ -4,6 +4,7 @@ import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {
   PersistedWorkPayloadError,
+  FIELD_KEY_ALIASES,
   readFieldDefinitionPayload,
 } from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
@@ -17,6 +18,11 @@ import {
   parseFrozenMaintenanceClass,
 } from "./maintenanceWorkflow/maintenanceIntelligence";
 import {stableJson} from "./stableJson";
+import {
+  compareRequirementContracts,
+  requirementContractForField,
+} from "./requirementContract";
+import {normalizeSemanticKey} from "./semanticKeys";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -133,6 +139,7 @@ interface ParsedAssignmentRequest {
   versionId: string;
   expectedVersionNumber: number;
   expectedContentHash: string;
+  clientAppVersion?: string | null;
   assetType: string;
   assetNumber: number;
   assetClassId: string | null;
@@ -149,6 +156,7 @@ interface ParsedSnapshotBundle {
   moduleSnapshots: AssignmentJsonMap[];
   fieldDefinitions: AssignmentJsonMap[];
   checklistItems: AssignmentJsonMap[];
+  fieldOwners: Map<AssignmentJsonMap, string | null>;
 }
 
 interface CanonicalAssignment {
@@ -367,6 +375,26 @@ export function assignmentRequestPayloadFingerprint(data: {
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
+function parseComparableAppVersion(value: unknown): [number, number, number] | null {
+  const text = cleanOptionalText(value);
+  if (text == null) return null;
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/.exec(text);
+  if (match == null) return null;
+  const parts = match.slice(1, 4).map((part) => Number(part));
+  if (parts.some((part) => !Number.isSafeInteger(part))) return null;
+  return [parts[0], parts[1], parts[2]];
+}
+
+function compareComparableAppVersions(
+  left: [number, number, number],
+  right: [number, number, number],
+): number {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+}
+
 export function parsePublishedTemplateAssignmentRequest(
   raw: AssignmentJsonMap,
 ): ParsedAssignmentRequest {
@@ -394,6 +422,14 @@ export function parsePublishedTemplateAssignmentRequest(
       "invalid-argument",
       "expectedContentHash is not a governed tg2 SHA-256 hash.",
       {reasonCode: "invalid-content-hash"},
+    );
+  }
+  const clientAppVersion = cleanOptionalText(raw.clientAppVersion);
+  if (clientAppVersion != null && clientAppVersion.length > 64) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "clientAppVersion is too long.",
+      {reasonCode: "field-too-long", field: "clientAppVersion", maxLength: 64},
     );
   }
   const assetType = assertNonEmptyString(raw.assetType, "assetType", 64);
@@ -475,6 +511,7 @@ export function parsePublishedTemplateAssignmentRequest(
     versionId,
     expectedVersionNumber,
     expectedContentHash,
+    clientAppVersion,
     assetType,
     assetNumber,
     assetClassId,
@@ -575,6 +612,7 @@ function parseSnapshotBundle(
   version: AssignmentJsonMap,
 ): ParsedSnapshotBundle {
   return {
+    fieldOwners: new Map(),
     jobSnapshot: parseJsonObject(
       version.jobTemplateSnapshotJson,
       "jobTemplateSnapshotJson",
@@ -691,11 +729,7 @@ function stringListFrom(
 }
 
 function normalizeKey(value: string | null): string {
-  return (value ?? "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("&", "and")
-    .replace(/[^a-z0-9]+/g, "");
+  return normalizeSemanticKey(value);
 }
 
 function canonicalSnapshotAssetType(value: string | null): string | null {
@@ -721,6 +755,7 @@ function canonicalSnapshotAssetType(value: string | null): string | null {
 }
 
 type ValidatedAssignmentHierarchyReference = {
+  reference: AssignmentJsonMap;
   scope: "definition" | "installedComponent";
   assetClassId: string;
   assetInstanceId: string | null;
@@ -852,6 +887,7 @@ function validateHierarchyReferenceContract(
   }
   return {
     scope,
+    reference,
     assetClassId: requiredHierarchyString(reference.assetClassId)!,
     assetInstanceId,
     assetNumber,
@@ -860,7 +896,7 @@ function validateHierarchyReferenceContract(
 
 function validateAssignmentSnapshotTarget(
   bundle: ParsedSnapshotBundle,
-  request: ParsedAssignmentRequest,
+  request: Pick<ParsedAssignmentRequest, "assetType" | "assetNumber">,
 ): ValidatedAssignmentHierarchyReference | null {
   const rawSnapshotType = stringFrom(bundle.jobSnapshot, [
     "assetType",
@@ -938,17 +974,38 @@ function validateAssignmentSnapshotTarget(
   return validatedReference;
 }
 
-function legacyAssignmentEquipmentIdentity(
-  request: ParsedAssignmentRequest,
-): AssignmentEquipmentIdentity {
-  return {
-    assetTypeKey: request.assetType,
-    assetNumber: request.assetNumber,
-    assetClassId: null,
-    assetInstanceId: null,
-    assetInstanceVersion: null,
-    innerCoverPosition: null,
-  };
+/** Applies the ordinary published target contract to an already established
+ * physical subject. Explicit hierarchy scope cannot infer an absent parent ID.
+ * Registry lookup and repair remain the caller's existing authority boundary.
+ */
+export function validatePublishedTemplateTarget(
+  version: AssignmentJsonMap,
+  target: EquipmentIdentity,
+): void {
+  const reference = validateAssignmentSnapshotTarget(parseSnapshotBundle(version), {
+    assetType: target.assetTypeKey, assetNumber: target.assetNumber,
+  });
+  if (reference == null) return;
+  if (target.assetClassId == null ||
+      (reference.scope === "installedComponent" && target.assetInstanceId == null)) {
+    throw new AssignmentValidationError(
+      "failed-precondition", "The scoped published template requires the parent's governed physical identity.",
+      {reasonCode: "assignment-target-identity-required"},
+    );
+  }
+  if (reference.assetClassId !== target.assetClassId) {
+    throw new AssignmentValidationError(
+      "failed-precondition", "The published hierarchy class does not match the physical subject.",
+      {reasonCode: "assignment-asset-class-mismatch"},
+    );
+  }
+  if (reference.scope === "installedComponent" &&
+      reference.assetInstanceId !== target.assetInstanceId) {
+    throw new AssignmentValidationError(
+      "failed-precondition", "The installed-component snapshot belongs to a different physical asset.",
+      {reasonCode: "assignment-asset-instance-mismatch"},
+    );
+  }
 }
 
 function expectedPhysicalLegacyClassKey(
@@ -1254,13 +1311,89 @@ function sameEquipmentIdentity(
     left.assetInstanceVersion === right.assetInstanceVersion;
 }
 
+/**
+ * The physical subject a legacy-shaped assignment names.
+ *
+ * An older request carries only an asset type and number. Admitting a fresh one
+ * without resolving that pair against the register let new work be assigned to
+ * an asset the plant does not have, or one already retired, while the same
+ * request carrying explicit governed identity was refused. Accepted requests
+ * are unaffected: a replay is answered from its receipt before this runs.
+ */
+async function requireLegacyAssignmentTarget(
+  db: AssignmentFirestoreLike,
+  request: ParsedAssignmentRequest,
+): Promise<AssignmentEquipmentIdentity> {
+  const legacyKey = expectedPhysicalLegacyClassKey(request);
+  if (legacyKey == null) {
+    throw new AssignmentValidationError(
+      "internal",
+      "A governed custom assignment cannot use the legacy target resolver.",
+    );
+  }
+  const activeRows = (
+    snapshot: AssignmentQuerySnapshotLike,
+  ): AssignmentDocumentSnapshotLike[] => queryDocs(snapshot).filter((row) => {
+    const data = row.data() ?? {};
+    return data.status === "active" && data.isDeleted !== true;
+  });
+  const classRows = activeRows(
+    await db.collection("asset_classes")
+      .where("legacyAssetTypeKey", "==", legacyKey).get(),
+  );
+  if (classRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "No single active governed asset class matches this assignment type.",
+      {
+        reasonCode: "assignment-legacy-asset-class-unresolved",
+        legacyAssetTypeKey: legacyKey,
+      },
+    );
+  }
+  const assetClassId = assertDocumentId(
+    classRows[0].id,
+    "asset class document ID",
+  );
+  const instanceRows = activeRows(
+    await db.collection("asset_instances")
+      .where("assetClassId", "==", assetClassId)
+      .where("assetNumber", "==", request.assetNumber)
+      .get(),
+  );
+  if (instanceRows.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "This asset is not a single active entry in the plant register. " +
+      "Select the asset again so the assignment carries its governed identity.",
+      {
+        reasonCode: "assignment-legacy-asset-not-registered",
+        legacyAssetTypeKey: legacyKey,
+        assetNumber: request.assetNumber,
+      },
+    );
+  }
+  const identity = governedAssetInstanceIdentity(
+    instanceRows[0],
+    request,
+    assetClassId,
+  );
+  if (request.assetType === "innerCover") {
+    return {
+      ...identity,
+      innerCoverPosition: await resolveInnerCoverPosition(db, identity),
+    };
+  }
+  return identity;
+}
+
 async function resolveAssignmentEquipmentIdentity(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
 ): Promise<AssignmentEquipmentIdentity> {
   const hasRequestedGovernedIdentity = request.assetClassId != null;
   if (!hasRequestedGovernedIdentity && request.assetType !== "governedCustom") {
-    return legacyAssignmentEquipmentIdentity(request);
+    return requireLegacyAssignmentTarget(db, request);
   }
   const versionSnapshot = await db
     .collection("template_versions")
@@ -1394,6 +1527,49 @@ async function resolveAssignmentEquipmentIdentity(
   );
 }
 
+/** Fresh installed-specific work must resolve the complete reviewed subject.
+ * Historical receipt recovery deliberately does not call this admission check. */
+export async function revalidatePublishedInstalledComponent(
+  version: AssignmentJsonMap, target: EquipmentIdentity,
+  read: (path: string) => Promise<AssignmentDocumentSnapshotLike>,
+): Promise<void> {
+  const hierarchy = validateAssignmentSnapshotTarget(parseSnapshotBundle(version), {
+    assetType: target.assetTypeKey, assetNumber: target.assetNumber,
+  });
+  if (hierarchy?.scope !== "installedComponent") return;
+  const parent = await read(`asset_instances/${target.assetInstanceId}`);
+  if (hierarchy?.scope === "installedComponent") {
+    const reference = hierarchy.reference;
+    const componentId = assertDocumentId(reference.componentInstanceId, "componentInstanceId");
+    const nodeId = assertDocumentId(reference.nodeId, "nodeId");
+    const componentSnapshot = await read(`asset_component_instances/${componentId}`);
+    const nodeSnapshot = await read(`asset_hierarchy_nodes/${nodeId}`);
+    const component = componentSnapshot.data();
+    const node = nodeSnapshot.data();
+    if (!parent.exists || parent.data()?.status !== "active" || parent.data()?.isDeleted === true ||
+        !componentSnapshot.exists || !nodeSnapshot.exists || component == null || node == null ||
+        component.isDeleted === true || node.isDeleted === true ||
+        component.schemaVersion !== 1 || component.componentInstanceId !== componentId ||
+        component.status !== "active" || component.assetInstanceId !== target.assetInstanceId ||
+        component.assetClassId !== target.assetClassId || component.assetNumber !== target.assetNumber ||
+        component.version !== reference.componentInstanceVersion ||
+        parent.data()?.version !== reference.assetInstanceVersion ||
+        component.assetInstanceVersionAtMutation !== reference.assetInstanceVersion ||
+        component.definitionNodeId !== nodeId || component.definitionNodeVersion !== reference.nodeVersion ||
+        component.componentTag !== reference.componentTag ||
+        component.ownershipStatus !== "confirmed" ||
+        component.ownerDiscipline !== reference.ownerDiscipline ||
+        JSON.stringify(stringList(component.accountableRoleKeys).sort()) !==
+          JSON.stringify(stringList(reference.accountableRoleKeys).sort()) ||
+        node.schemaVersion !== 1 || node.nodeId !== nodeId || node.status !== "active" ||
+        node.assetClassId !== target.assetClassId || node.version !== reference.nodeVersion) {
+      throw new AssignmentValidationError("failed-precondition",
+        "The published installed component or its reviewed ownership has changed. Review and publish the current target before fresh assignment.",
+        {reasonCode: "assignment-installed-component-changed", componentInstanceId: componentId});
+    }
+  }
+}
+
 async function revalidateAssignmentEquipmentIdentity(
   transaction: AssignmentTransactionLike,
   db: AssignmentFirestoreLike,
@@ -1467,6 +1643,10 @@ async function revalidateAssignmentEquipmentIdentity(
       ? hierarchy.assetInstanceId
       : null,
   );
+  await revalidatePublishedInstalledComponent(versionData, actual, async (path) => {
+    const [collection, id] = path.split("/");
+    return await transaction.get(db.collection(collection).doc(id)) as AssignmentDocumentSnapshotLike;
+  });
   if (!sameEquipmentIdentity(actual, expected)) {
     throw new AssignmentValidationError(
       "aborted",
@@ -1504,7 +1684,9 @@ async function revalidateAssignmentEquipmentIdentity(
 }
 
 function moduleCode(module: AssignmentJsonMap): string | null {
-  return stringFrom(module, ["moduleCode", "code", "moduleId", "id"]);
+  return stringFrom(module, [
+    "moduleCode", "code", "templateModuleCode", "moduleId", "id", "key",
+  ]);
 }
 
 function moduleTitle(
@@ -1528,13 +1710,193 @@ function fieldKey(field: AssignmentJsonMap): string | null {
   return stringFrom(field, ["key", "fieldKey", "fieldId", "id"]);
 }
 
-function fieldModuleCode(field: AssignmentJsonMap): string | null {
-  return stringFrom(field, [
-    "moduleCode",
-    "moduleId",
-    "templateModuleId",
-    "parentModuleCode",
-  ]);
+function moduleIdentityAliases(module: AssignmentJsonMap): string[] {
+  return ["templateModuleId", "moduleId", "id", "key"]
+    .map((key) => stringFrom(module, [key]))
+    .filter((value): value is string => value != null);
+}
+
+function fieldModuleCode(
+  bundle: ParsedSnapshotBundle,
+  field: AssignmentJsonMap,
+): string | null {
+  if (bundle.fieldOwners.has(field)) return bundle.fieldOwners.get(field)!;
+  const owners = new Set<AssignmentJsonMap>();
+  const codeAliases = ["moduleCode", "ownerModuleCode", "parentModuleCode"];
+  const idAliases = ["templateModuleId", "moduleId", "ownerModuleId"];
+  for (const alias of [...codeAliases, ...idAliases]) {
+    const value = stringFrom(field, [alias]);
+    if (value == null) continue;
+    // Legacy moduleId/templateModuleId also carried module codes. Admit that
+    // representation only when the code and physical snapshot identity agree
+    // on one module; never choose one interpretation over a conflicting one.
+    const candidates = bundle.moduleSnapshots.filter((module) =>
+      normalizeKey(moduleCode(module)) === normalizeKey(value) ||
+      (idAliases.includes(alias) && moduleIdentityAliases(module).includes(value)));
+    if (candidates.length !== 1) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `Published field ownership ${alias}=${value} is unknown or ambiguous.`,
+        {
+          reasonCode: candidates.length === 0 ? "field-module-unknown" :
+            "field-module-ambiguous",
+          fieldKey: fieldKey(field),
+          moduleCode: value,
+          ownerAlias: alias,
+        },
+      );
+    }
+    owners.add(candidates[0]);
+  }
+  if (owners.size > 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Published field ownership aliases identify different modules.",
+      {reasonCode: "field-module-ambiguous", fieldKey: fieldKey(field)},
+    );
+  }
+  const owner = [...owners][0];
+  const code = owner == null ? null : moduleCode(owner);
+  bundle.fieldOwners.set(field, code);
+  return code;
+}
+
+function globalFieldsLinkedToModule(
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+): AssignmentJsonMap[] {
+  if (code == null || code.trim().length === 0) return [];
+  const normalizedCode = normalizeKey(code);
+  return bundle.fieldDefinitions.filter(
+    (field) => normalizeKey(fieldModuleCode(bundle, field)) === normalizedCode,
+  );
+}
+
+/**
+ * A published template can describe one module's fields in two places: a list
+ * embedded in the module, and the template's own field definitions linked back
+ * by module code. Both are the same template's account of the same module, so
+ * where they disagree the template does not say what has to be recorded.
+ *
+ * Taking the embedded list alone dropped a required global reading, and the
+ * job then closed and issued a closure attestation without it. Nothing is
+ * merged here to repair that: a module's two lists can legitimately describe
+ * alternative modes, and a union would materialise a module nobody published.
+ * Agreeing accounts are materialised exactly as before; a disagreement is
+ * refused before it takes effect, naming the field it is about.
+ */
+function assertEmbeddedFieldsAgree(
+  embedded: readonly AssignmentJsonMap[],
+  bundle: ParsedSnapshotBundle,
+  code: string | null,
+  source: string,
+): void {
+  const conflict = (field: string, message: string): never => {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `Module ${code ?? "unknown"} describes ${field} twice and the two ` +
+      `descriptions disagree: ${message}. Republish the template with one ` +
+      "account of this module's fields.",
+      {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: code ?? null,
+        field,
+        source,
+      },
+    );
+  };
+  for (const linked of globalFieldsLinkedToModule(bundle, code)) {
+    const key = stringFrom(linked, FIELD_KEY_ALIASES);
+    if (key == null) continue;
+    const normalizedKey = normalizeKey(key);
+    const embeddedField = embedded.find((entry) =>
+      normalizeKey(stringFrom(entry, FIELD_KEY_ALIASES)) === normalizedKey);
+    if (embeddedField == null) {
+      conflict(key, `the module's own ${source} omits it`);
+    } else {
+      const difference = compareRequirementContracts(embeddedField, linked);
+      if (difference == null) continue;
+      conflict(
+        key,
+        `the module's own ${source} and the template disagree about ` +
+        `${difference.field} (${JSON.stringify(difference.left)} versus ` +
+        `${JSON.stringify(difference.right)})`,
+      );
+    }
+  }
+}
+
+function assertEmbeddedFieldListsAgree(
+  left: readonly AssignmentJsonMap[],
+  right: readonly AssignmentJsonMap[],
+  code: string | null,
+  leftSource: string,
+  rightSource: string,
+): void {
+  const leftByKey = new Map<string, AssignmentJsonMap>();
+  const rightByKey = new Map<string, AssignmentJsonMap>();
+  const add = (
+    target: Map<string, AssignmentJsonMap>,
+    fields: readonly AssignmentJsonMap[],
+    source: string,
+  ): void => {
+    for (const field of fields) {
+      const key = stringFrom(field, FIELD_KEY_ALIASES);
+      if (key == null) continue;
+      const normalized = normalizeKey(key);
+      if (target.has(normalized)) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Module ${code ?? "unknown"} repeats field "${key}" in its ` +
+          `${source} representation.`,
+          {
+            reasonCode: "module-field-definitions-conflict",
+            moduleCode: code ?? null,
+            field: key,
+            source,
+          },
+        );
+      }
+      target.set(normalized, field);
+    }
+  };
+  add(leftByKey, left, leftSource);
+  add(rightByKey, right, rightSource);
+
+  const conflict = (field: string, message: string): never => {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `Module ${code ?? "unknown"} describes ${field} twice and the two ` +
+      `descriptions disagree: ${message}. Republish the template with one ` +
+      "account of this module's fields.",
+      {
+        reasonCode: "module-field-definitions-conflict",
+        moduleCode: code ?? null,
+        field,
+        source: `${leftSource},${rightSource}`,
+      },
+    );
+  };
+
+  for (const [normalized, leftField] of leftByKey) {
+    const key = stringFrom(leftField, FIELD_KEY_ALIASES) ?? normalized;
+    const rightField = rightByKey.get(normalized);
+    if (rightField == null) conflict(key, `${rightSource} omits it`);
+    const difference = compareRequirementContracts(leftField, rightField);
+    if (difference != null) {
+      conflict(
+        key,
+        `${leftSource} and ${rightSource} disagree about ` +
+        `${difference.field} (${JSON.stringify(difference.left)} versus ` +
+        `${JSON.stringify(difference.right)})`,
+      );
+    }
+  }
+  for (const [normalized, rightField] of rightByKey) {
+    if (leftByKey.has(normalized)) continue;
+    const key = stringFrom(rightField, FIELD_KEY_ALIASES) ?? normalized;
+    conflict(key, `${leftSource} omits it`);
+  }
 }
 
 function fieldsForModule(
@@ -1542,6 +1904,10 @@ function fieldsForModule(
   module: AssignmentJsonMap,
 ): AssignmentJsonMap[] {
   const code = moduleCode(module);
+  const embeddedRepresentations: Array<{
+    source: string;
+    fields: AssignmentJsonMap[];
+  }> = [];
 
   for (const key of [
     "fields",
@@ -1555,7 +1921,10 @@ function fieldsForModule(
         `embedded ${key} for module ${code ?? "unknown"}`,
         true,
       );
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        embeddedRepresentations.push({source: key, fields: parsed});
+      }
     }
     if (Array.isArray(value)) {
       const parsed = value.map((entry, index) => {
@@ -1574,19 +1943,36 @@ function fieldsForModule(
         }
         return {...(entry as AssignmentJsonMap)};
       });
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        assertEmbeddedFieldsAgree(parsed, bundle, code, key);
+        embeddedRepresentations.push({source: key, fields: parsed});
+      }
     }
   }
 
+  if (embeddedRepresentations.length > 0) {
+    const first = embeddedRepresentations[0];
+    for (const representation of embeddedRepresentations.slice(1)) {
+      assertEmbeddedFieldListsAgree(
+        first.fields,
+        representation.fields,
+        code,
+        first.source,
+        representation.source,
+      );
+    }
+    return first.fields;
+  }
+
   const hasLinkedGlobalFields = bundle.fieldDefinitions.some((field) => {
-    const linked = fieldModuleCode(field);
+    const linked = fieldModuleCode(bundle, field);
     return linked != null && linked.trim().length > 0;
   });
 
   if (code != null && code.trim().length > 0) {
     const normalizedCode = normalizeKey(code);
     const filtered = bundle.fieldDefinitions.filter(
-      (field) => normalizeKey(fieldModuleCode(field)) === normalizedCode,
+      (field) => normalizeKey(fieldModuleCode(bundle, field)) === normalizedCode,
     );
     if (filtered.length > 0) return filtered;
   }
@@ -1633,6 +2019,7 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
   }
 
   const moduleCodes = new Map<string, string>();
+  const moduleIdentities = new Set<string>();
   const fieldKeysByModule = new Map<string, Set<string>>();
 
   bundle.moduleSnapshots.forEach((module, index) => {
@@ -1645,6 +2032,21 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
       );
     }
     const normalized = normalizeKey(code);
+    if (normalized.length === 0) {
+      throw new AssignmentValidationError(
+        "failed-precondition", "A module code has no semantic identity.",
+        {reasonCode: "module-code-invalid", moduleCode: code},
+      );
+    }
+    for (const alias of ["moduleCode", "code", "templateModuleCode"]) {
+      const value = stringFrom(module, [alias]);
+      if (value != null && normalizeKey(value) !== normalized) {
+        throw new AssignmentValidationError(
+          "failed-precondition", "Published module code aliases disagree.",
+          {reasonCode: "module-code-ambiguous", moduleCode: code, alias},
+        );
+      }
+    }
     if (moduleCodes.has(normalized)) {
       throw new AssignmentValidationError(
         "failed-precondition",
@@ -1653,6 +2055,15 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
       );
     }
     moduleCodes.set(normalized, code);
+    for (const identity of new Set(moduleIdentityAliases(module))) {
+      if (moduleIdentities.has(identity)) {
+        throw new AssignmentValidationError(
+          "failed-precondition", "Published modules share the same identity.",
+          {reasonCode: "duplicate-module-identity", moduleId: identity},
+        );
+      }
+      moduleIdentities.add(identity);
+    }
     fieldKeysByModule.set(normalized, new Set<string>());
     if (
       stringFrom(module, [
@@ -1674,7 +2085,7 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
   bundle.fieldDefinitions.forEach((field, index) => {
     const key = fieldKey(field);
     const label = stringFrom(field, ["label", "title", "name"]);
-    const linkedCode = fieldModuleCode(field);
+    const linkedCode = fieldModuleCode(bundle, field);
     if (key == null) {
       throw new AssignmentValidationError(
         "failed-precondition",
@@ -1725,8 +2136,22 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
   });
 
   bundle.checklistItems.forEach((item, index) => {
-    const linkedCode = fieldModuleCode(item);
-    if (linkedCode == null) return;
+    const linkedCode = fieldModuleCode(bundle, item);
+    const required = boolFrom(item, ["isRequired", "required"], false);
+    if (linkedCode == null) {
+      if (required) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Required checklist item #${index + 1} is not linked to a ` +
+          "runtime module field.",
+          {
+            reasonCode: "required-checklist-not-executable",
+            checklistIndex: index,
+          },
+        );
+      }
+      return;
+    }
     const knownKeys = fieldKeysByModule.get(normalizeKey(linkedCode));
     if (knownKeys == null) {
       throw new AssignmentValidationError(
@@ -1743,6 +2168,17 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
       "fieldKey",
       "fieldId",
     ]);
+    if (required && linkedField == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `Required checklist item #${index + 1} is not linked to a ` +
+        "runtime module field.",
+        {
+          reasonCode: "required-checklist-not-executable",
+          checklistIndex: index,
+        },
+      );
+    }
     if (
       linkedField != null &&
       !knownKeys.has(normalizeKey(linkedField))
@@ -1756,7 +2192,59 @@ function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
         },
       );
     }
+    if (required && linkedField != null) {
+      const linkedDefinition = bundle.fieldDefinitions.find(
+        (field) =>
+          normalizeKey(fieldModuleCode(bundle, field)) ===
+            normalizeKey(linkedCode) &&
+          normalizeKey(stringFrom(field, FIELD_KEY_ALIASES)) ===
+            normalizeKey(linkedField),
+      );
+      if (
+        linkedDefinition == null ||
+        !requirementContractForField(linkedDefinition).required
+      ) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          `Required checklist item #${index + 1} is not backed by a ` +
+          "required runtime field.",
+          {
+            reasonCode: "required-checklist-not-executable",
+            checklistIndex: index,
+            moduleCode: linkedCode,
+            fieldKey: linkedField,
+          },
+        );
+      }
+    }
   });
+}
+
+/** One requirement compiler for ordinary assignments and automatic successors.
+ * It validates every global owner before selecting fields, then checks any
+ * embedded representation against the same published requirement contract.
+ * Returned snapshots retain the published spelling and values unchanged.
+ */
+export function compilePublishedTemplateRequirements(
+  version: AssignmentJsonMap,
+): {
+  jobSnapshot: AssignmentJsonMap;
+  modules: Array<{
+    code: string;
+    snapshot: AssignmentJsonMap;
+    fields: AssignmentJsonMap[];
+  }>;
+} {
+  const bundle = parseSnapshotBundle(version);
+  validateSnapshotBundle(bundle);
+  return {
+    jobSnapshot: bundle.jobSnapshot,
+    modules: bundle.moduleSnapshots.map((snapshot) => ({
+      code: moduleCode(snapshot)!,
+      snapshot,
+      fields: validatedFieldsForModule(bundle, snapshot),
+    })),
+  };
 }
 
 function deriveClosureState(
@@ -1778,7 +2266,7 @@ function deriveClosureState(
         "required",
         "isRequired",
       ],
-      false,
+      true,
     ),
   ).length;
   const declaredCount =
@@ -2117,6 +2605,10 @@ function workflowFactsFromSnapshot(
   let awaitingPreparationCount = 0;
   for (const row of queryDocs(snapshot)) {
     const data = row.data() ?? {};
+    // Issue-coordination work is an administrative hand-off, not an open
+    // equipment-maintenance contribution. Reconciliation and assignment must
+    // apply the same contribution contract.
+    if (data.workflowKind === "issueCoordination") continue;
     if (identity.assetClassId != null && identity.assetInstanceId != null) {
       const assetClassId = cleanOptionalText(data.assetClassId);
       const assetInstanceId = cleanOptionalText(data.assetInstanceId);
@@ -2454,6 +2946,211 @@ function selectPublicationAudit(
   return selected;
 }
 
+/** Validates immutable publication identity without moving ordinary assignment's
+ * actor/audit check ahead of its existing plan and physical-asset revalidation.
+ * Both ordinary assignment and automatic successors use this same contract.
+ */
+export function validatePublishedTemplatePublication(args: {
+  request: Pick<ParsedAssignmentRequest,
+    "packageId" | "versionId" | "expectedVersionNumber" | "expectedContentHash" |
+    "clientAppVersion">;
+  packageData: AssignmentJsonMap;
+  versionData: AssignmentJsonMap;
+  enforceClientAppVersion?: boolean;
+}): {
+  contentHash: string;
+  requireAudit: (auditSnapshots: AssignmentDocumentSnapshotLike[]) => {
+    id: string; data: AssignmentJsonMap;
+  };
+} {
+  const {
+    request,
+    packageData,
+    versionData,
+    enforceClientAppVersion = true,
+  } = args;
+  if (
+    cleanOptionalText(packageData.firestoreId) !== request.packageId
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplatePackage identity does not match its document identity.",
+      {reasonCode: "package-identity-mismatch"},
+    );
+  }
+  if (
+    cleanOptionalText(versionData.firestoreId) !== request.versionId
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplateVersion identity does not match its document identity.",
+      {reasonCode: "version-identity-mismatch"},
+    );
+  }
+  if (
+    packageData.isDeleted === true ||
+    packageData.lifecycleStatus !== "active"
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Only an active, non-deleted TemplatePackage can be assigned.",
+      {reasonCode: "package-not-active"},
+    );
+  }
+  if (
+    cleanOptionalText(packageData.activeVersionFirestoreId) !==
+    request.versionId
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The selected TemplateVersion is no longer the package active version.",
+      {reasonCode: "version-not-active"},
+    );
+  }
+  if (
+    versionData.isDeleted === true ||
+    versionData.status !== "published"
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Only a published, non-deleted TemplateVersion can be assigned.",
+      {reasonCode: "version-not-published"},
+    );
+  }
+  const minimumAppVersion = cleanOptionalText(versionData.minAppVersion);
+  if (enforceClientAppVersion && minimumAppVersion != null) {
+    const minimum = parseComparableAppVersion(minimumAppVersion);
+    if (minimum == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "The published TemplateVersion has an invalid minimum app version.",
+        {reasonCode: "minimum-app-version-invalid"},
+      );
+    }
+    const clientText = cleanOptionalText(request.clientAppVersion);
+    if (clientText == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "This published work requires an app version that the client did not identify.",
+        {reasonCode: "client-app-version-required", minimumAppVersion},
+      );
+    }
+    const client = parseComparableAppVersion(clientText);
+    if (client == null) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "This client cannot prove a comparable app version for the published work.",
+        {reasonCode: "client-app-version-invalid", clientAppVersion: clientText},
+      );
+    }
+    if (compareComparableAppVersions(client, minimum) < 0) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `This published work requires app version ${minimumAppVersion} or newer.`,
+        {
+          reasonCode: "client-app-version-too-old",
+          minimumAppVersion,
+          clientAppVersion: clientText,
+        },
+      );
+    }
+  }
+  if (
+    cleanOptionalText(versionData.packageFirestoreId) !==
+    request.packageId
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The selected TemplateVersion does not belong to the active package.",
+      {reasonCode: "version-package-mismatch"},
+    );
+  }
+  if (
+    packageData.latestVersionNumber !== request.expectedVersionNumber
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The active package version number does not match its active TemplateVersion.",
+      {
+        reasonCode: "package-version-number-mismatch",
+        packageLatestVersionNumber: packageData.latestVersionNumber,
+        expectedVersionNumber: request.expectedVersionNumber,
+      },
+    );
+  }
+  if (
+    versionData.versionNumber !== request.expectedVersionNumber
+  ) {
+    throw new AssignmentValidationError(
+      "aborted",
+      "The active TemplateVersion number changed. Pull latest governance data and retry.",
+      {
+        reasonCode: "version-number-changed",
+        expected: request.expectedVersionNumber,
+        actual: versionData.versionNumber,
+      },
+    );
+  }
+  const storedHash = cleanOptionalText(versionData.contentHash);
+  if (storedHash !== request.expectedContentHash) {
+    throw new AssignmentValidationError(
+      "aborted",
+      "The active TemplateVersion content hash changed. Pull latest governance data and retry.",
+      {
+        reasonCode: "version-hash-changed",
+        expected: request.expectedContentHash,
+        actual: storedHash,
+      },
+    );
+  }
+  if (
+    typeof storedHash !== "string" ||
+    !CONTENT_HASH_PATTERN.test(storedHash)
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The active TemplateVersion has no valid governed content hash.",
+      {reasonCode: "version-hash-invalid"},
+    );
+  }
+
+  const computedHash = computeTemplateVersionContentHash(versionData);
+  if (computedHash !== storedHash) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The active TemplateVersion payload does not match its governed content hash.",
+      {
+        reasonCode: "version-hash-mismatch",
+        storedHash,
+        computedHash,
+      },
+    );
+  }
+  return {
+    contentHash: storedHash,
+    requireAudit: (auditSnapshots) => {
+      const publishedByUid = cleanOptionalText(
+        versionData.publishedByUid,
+      );
+      if (publishedByUid == null) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          "The published TemplateVersion is missing its publishing actor.",
+          {reasonCode: "published-actor-missing"},
+        );
+      }
+
+      return selectPublicationAudit(
+        auditSnapshots,
+        request.packageId,
+        request.versionId,
+        storedHash,
+        publishedByUid,
+      );
+    },
+  };
+}
+
 function canonicalTemplateName(
   packageData: AssignmentJsonMap,
   jobSnapshot: AssignmentJsonMap,
@@ -2591,7 +3288,12 @@ function buildCanonicalAssignment(args: {
       versionNumber: request.expectedVersionNumber,
       versionLabel: cleanOptionalText(versionData.versionLabel),
       contentHash: request.expectedContentHash,
-      ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
+      ...(maintenanceClassification == null ? {} : {
+        maintenanceClassification,
+        // Published template classification starts the execution at revision
+        // one; later reviewed corrections increment this marker.
+        maintenanceClassificationRevision: 1,
+      }),
       ...(equipmentIdentity.assetClassId != null ? {
         assignmentAssetIdentity: {
           assetClassId: equipmentIdentity.assetClassId,
@@ -3034,125 +3736,9 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       "TemplateVersion",
     );
 
-    if (
-      cleanOptionalText(packageData.firestoreId) !== request.packageId
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The TemplatePackage identity does not match its document identity.",
-        {reasonCode: "package-identity-mismatch"},
-      );
-    }
-    if (
-      cleanOptionalText(versionData.firestoreId) !== request.versionId
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The TemplateVersion identity does not match its document identity.",
-        {reasonCode: "version-identity-mismatch"},
-      );
-    }
-    if (
-      packageData.isDeleted === true ||
-      packageData.lifecycleStatus !== "active"
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "Only an active, non-deleted TemplatePackage can be assigned.",
-        {reasonCode: "package-not-active"},
-      );
-    }
-    if (
-      cleanOptionalText(packageData.activeVersionFirestoreId) !==
-      request.versionId
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The selected TemplateVersion is no longer the package active version.",
-        {reasonCode: "version-not-active"},
-      );
-    }
-    if (
-      versionData.isDeleted === true ||
-      versionData.status !== "published"
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "Only a published, non-deleted TemplateVersion can be assigned.",
-        {reasonCode: "version-not-published"},
-      );
-    }
-    if (
-      cleanOptionalText(versionData.packageFirestoreId) !==
-      request.packageId
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The selected TemplateVersion does not belong to the active package.",
-        {reasonCode: "version-package-mismatch"},
-      );
-    }
-    if (
-      packageData.latestVersionNumber !== request.expectedVersionNumber
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The active package version number does not match its active TemplateVersion.",
-        {
-          reasonCode: "package-version-number-mismatch",
-          packageLatestVersionNumber: packageData.latestVersionNumber,
-          expectedVersionNumber: request.expectedVersionNumber,
-        },
-      );
-    }
-    if (
-      versionData.versionNumber !== request.expectedVersionNumber
-    ) {
-      throw new AssignmentValidationError(
-        "aborted",
-        "The active TemplateVersion number changed. Pull latest governance data and retry.",
-        {
-          reasonCode: "version-number-changed",
-          expected: request.expectedVersionNumber,
-          actual: versionData.versionNumber,
-        },
-      );
-    }
-    const storedHash = cleanOptionalText(versionData.contentHash);
-    if (storedHash !== request.expectedContentHash) {
-      throw new AssignmentValidationError(
-        "aborted",
-        "The active TemplateVersion content hash changed. Pull latest governance data and retry.",
-        {
-          reasonCode: "version-hash-changed",
-          expected: request.expectedContentHash,
-          actual: storedHash,
-        },
-      );
-    }
-    if (
-      typeof storedHash !== "string" ||
-      !CONTENT_HASH_PATTERN.test(storedHash)
-    ) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The active TemplateVersion has no valid governed content hash.",
-        {reasonCode: "version-hash-invalid"},
-      );
-    }
-
-    const computedHash = computeTemplateVersionContentHash(versionData);
-    if (computedHash !== storedHash) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The active TemplateVersion payload does not match its governed content hash.",
-        {
-          reasonCode: "version-hash-mismatch",
-          storedHash,
-          computedHash,
-        },
-      );
-    }
+    const publication = validatePublishedTemplatePublication({
+      request, packageData, versionData,
+    });
     let sourcePlanRelease: {
       ref: AssignmentDocumentRefLike;
       auditRef: AssignmentDocumentRefLike;
@@ -3214,24 +3800,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       assignmentEquipmentIdentity,
     );
 
-    const publishedByUid = cleanOptionalText(
-      versionData.publishedByUid,
-    );
-    if (publishedByUid == null) {
-      throw new AssignmentValidationError(
-        "failed-precondition",
-        "The published TemplateVersion is missing its publishing actor.",
-        {reasonCode: "published-actor-missing"},
-      );
-    }
-
-    const publicationAudit = selectPublicationAudit(
-      queryDocs(auditSnapshot),
-      request.packageId,
-      request.versionId,
-      storedHash,
-      publishedByUid,
-    );
+    const publicationAudit = publication.requireAudit(queryDocs(auditSnapshot));
 
     const assignedAt = now().toISOString();
     const actorName =

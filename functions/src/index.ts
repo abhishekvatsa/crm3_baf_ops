@@ -1,3 +1,4 @@
+import {userCanMutateOrdinaryDirective, isOrdinaryDirectiveOperation, mutateOrdinaryDirectiveWithDb, OrdinaryDirectiveResult} from "./ordinaryDirectiveMutation";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {
   onDocumentCreated,
@@ -57,6 +58,8 @@ import type {
 } from "./backendReleaseIdentity";
 import {
   mutateUserAuthorityWithDb,
+  userAuthorityCallableEnvelope,
+  userCanReplayUserAuthority,
   UserAuthorityMutationError,
   userCanMutateUserAuthority,
 } from "./userAuthorityMutation";
@@ -82,6 +85,8 @@ import type {
   QualityMutationFirestoreLike,
   QualityMutationResult,
 } from "./qualityMutation";
+import {governedCaseRefusalLogFields} from "./governedCaseRefusalLog";
+import {withQualityCaseHealth} from "./qualityCaseHealth";
 import {
   AssetHierarchyMutationError,
   mutateAssetHierarchyWithDb,
@@ -299,6 +304,7 @@ interface AssignPublishedTemplateVersionRequest {
   versionId?: unknown;
   expectedVersionNumber?: unknown;
   expectedContentHash?: unknown;
+  clientAppVersion?: unknown;
   assetType?: unknown;
   assetNumber?: unknown;
   chargeNoAtEvent?: unknown;
@@ -496,6 +502,7 @@ interface MutateUserAuthorityRequest {
   targetUid?: unknown;
   operation?: unknown;
   expectedAuthorityDigest?: unknown;
+  expectedAuthorityRevision?: unknown;
   roles?: unknown;
   reason?: unknown;
 }
@@ -512,15 +519,23 @@ export const mutateUserAuthority = onCall(
   async (request: CallableRequest<MutateUserAuthorityRequest>) => {
     try {
       const db = admin.firestore();
+      const envelope = userAuthorityCallableEnvelope(request.data ?? {}, request.auth?.uid ?? null);
       return await executeAuthorizedMutation({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateUserAuthority",
-        authorize: userCanMutateUserAuthority,
+        authorize: async (userData) =>
+          userCanMutateUserAuthority(userData) ||
+          await userCanReplayUserAuthority({
+            db: db as unknown as UserAuthorityMutationFirestoreLike,
+            authUid: request.auth?.uid ?? null,
+            data: envelope.data,
+          }),
         execute: () => mutateUserAuthorityWithDb({
           db: db as unknown as UserAuthorityMutationFirestoreLike,
           authUid: request.auth?.uid ?? null,
-          data: request.data ?? {},
+          data: envelope.data,
+          confirmationOnly: envelope.confirmationOnly,
           timestampFromDate: admin.firestore.Timestamp.fromDate,
         }),
       });
@@ -588,11 +603,18 @@ export const mutateChargeAbnormality = onCall(
       });
     } catch (error) {
       if (error instanceof HttpsError) throw error;
-      if (error instanceof ChargeAbnormalityMutationError) {
-        throw new HttpsError(error.code, error.message, error.details);
-      }
-      if (error instanceof QualityMutationError) {
-        throw new HttpsError(error.code, error.message, error.details);
+      if (error instanceof ChargeAbnormalityMutationError ||
+          error instanceof QualityMutationError) {
+        // Operators see only the refusal message; keep its structured reason.
+        logger.warn(
+          "Governed quality-case command refused",
+          governedCaseRefusalLogFields(request.data, error),
+        );
+        throw new HttpsError(
+          error.code,
+          error.message,
+          withQualityCaseHealth(error.details),
+        );
       }
       logger.error("mutateChargeAbnormality failed", error);
       throw new HttpsError(
@@ -710,6 +732,7 @@ export const mutateAssetHierarchy = onCall(
         BurnerDirectiveComplianceMutationResult |
         OperationalEventMutationResult |
         OperationalEventIssueLinkMutationResult |
+        OrdinaryDirectiveResult |
         MorningReviewMutationResult |
         DeviceRecoveryMutationResult
       >({
@@ -717,6 +740,7 @@ export const mutateAssetHierarchy = onCall(
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isOrdinaryDirectiveOperation(request.data?.operation) ? userCanMutateOrdinaryDirective(userData) :
           isMorningReviewOperation(request.data?.operation) ?
             userCanMutateMorningReview(
               userData,
@@ -747,6 +771,10 @@ export const mutateAssetHierarchy = onCall(
             ) :
             userCanMutateAssetHierarchy(userData),
         execute: () => {
+          if (isOrdinaryDirectiveOperation(request.data?.operation)) {
+            return mutateOrdinaryDirectiveWithDb({db: db as unknown as AssetHierarchyMutationFirestoreLike,
+              authUid: request.auth?.uid ?? null, data: request.data ?? {}});
+          }
           if (isMorningReviewOperation(request.data?.operation)) {
             return mutateMorningReviewWithDb({
               db: db as unknown as MorningReviewFirestoreLike,

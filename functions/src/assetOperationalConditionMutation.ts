@@ -4,6 +4,8 @@ import {
   AssetHierarchyMutationError,
   AssetHierarchyMutationFirestoreLike,
 } from "./assetHierarchyMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 
@@ -48,6 +50,7 @@ interface ParsedRequest {
   requestContractVersion: 1 | 2;
   reason: string;
   linkedIssueIds: ReadonlyArray<string>;
+  replacesRequestId: string | null;
   fingerprint: string;
 }
 
@@ -148,7 +151,7 @@ export function parseAssetOperationalConditionMutationRequest(
   const allowed = new Set([
     "requestId", "operation", "assetClassId", "assetInstanceId",
     "expectedVersion", "condition", "causeKeys", "basis",
-    "componentHierarchyRefJson", "reason", "linkedIssueIds",
+    "componentHierarchyRefJson", "reason", "linkedIssueIds", "replacesRequestId",
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
 
@@ -218,6 +221,8 @@ export function parseAssetOperationalConditionMutationRequest(
     );
   }
 
+  const replacesRequestId = raw.replacesRequestId == null ? null : requiredString(raw.replacesRequestId, "replacesRequestId", 64);
+  if (replacesRequestId != null && (!UUID.test(replacesRequestId) || operation !== "DECLARE_ASSET_CONDITION")) invalid("replacesRequestId", "must identify the reviewed declaration being replaced");
   const legacyRequest = {
     requestId,
     operation,
@@ -236,12 +241,13 @@ export function parseAssetOperationalConditionMutationRequest(
   };
   const fingerprint = `assetcondition${requestContractVersion}-sha256:${
     createHash("sha256")
-      .update(stableJson(fingerprintRequest), "utf8").digest("hex")
+      .update(stableJson(replacesRequestId == null ? fingerprintRequest : {...fingerprintRequest, replacesRequestId}), "utf8").digest("hex")
   }`;
   return {
     ...legacyRequest,
     basis,
     componentHierarchyRefJson,
+    replacesRequestId,
     requestContractVersion,
     fingerprint,
   };
@@ -276,9 +282,10 @@ function record(value: SnapshotLike, label: string): JsonMap {
 function actor(
   value: SnapshotLike,
   operation: AssetOperationalConditionOperation,
+  recoveryOnly = false,
 ): JsonMap {
   const data = record(value, "Asset-condition actor");
-  if (!userCanMutateAssetOperationalCondition(data, operation)) {
+  if (recoveryOnly ? canonicalApprovedUserAuthority(data) == null : !userCanMutateAssetOperationalCondition(data, operation)) {
     throw new AssetHierarchyMutationError(
       "permission-denied",
       operation === "DECLARE_ASSET_CONDITION" ?
@@ -467,6 +474,40 @@ function conditionSnapshot(data: JsonMap | null): JsonMap | null {
   };
 }
 
+function sameJsonValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (typeof left !== "string" || typeof right !== "string") return false;
+  try {
+    return stableJson(JSON.parse(left)) === stableJson(JSON.parse(right));
+  } catch {
+    return false;
+  }
+}
+
+function replayBusinessEvidenceMatchesRequest(
+  request: ParsedRequest,
+  auditData: JsonMap,
+  after: JsonMap,
+): boolean {
+  if (auditData.reason !== request.reason ||
+      stableJson(auditData.linkedIssueIds ?? []) !==
+        stableJson(request.linkedIssueIds) ||
+      after.assetClassId != null && after.assetClassId !== request.assetClassId ||
+      after.assetInstanceId != null &&
+        after.assetInstanceId !== request.assetInstanceId ||
+      after.condition !== (request.operation === "RESTORE_ASSET_CONDITION" ?
+        "available" : request.condition)) {
+    return false;
+  }
+  if (request.operation !== "DECLARE_ASSET_CONDITION") return true;
+  return after.active === true &&
+    stableJson(after.causeKeys ?? []) === stableJson(request.causeKeys) &&
+    (after.basis == null || after.basis === request.basis) &&
+    (after.componentHierarchyRefJson == null ||
+      sameJsonValue(after.componentHierarchyRefJson,
+        request.componentHierarchyRefJson));
+}
+
 function verifyAsset(data: JsonMap, request: ParsedRequest): void {
   if (data.schemaVersion !== 1 || data.assetInstanceId !== request.assetInstanceId ||
       data.assetClassId !== request.assetClassId ||
@@ -493,11 +534,16 @@ function verifyAsset(data: JsonMap, request: ParsedRequest): void {
 }
 
 function verifyAssetClass(data: JsonMap, asset: JsonMap, request: ParsedRequest): void {
+  const legacyAssetTypeKey = data.legacyAssetTypeKey;
+  const validLegacyAssetTypeKey = legacyAssetTypeKey == null ||
+    (typeof legacyAssetTypeKey === "string" && new Set([
+      "base", "furnace", "forceCooler", "innerCover",
+    ]).has(legacyAssetTypeKey));
   if (data.schemaVersion !== 1 || data.assetClassId !== request.assetClassId ||
       data.status !== "active" || data.code !== asset.assetClassCode ||
       typeof data.name !== "string" || data.name.trim().length === 0 ||
       typeof asset.assetClassName !== "string" || asset.assetClassName.trim().length === 0 ||
-      typeof data.legacyAssetTypeKey !== "string") {
+      !validLegacyAssetTypeKey) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The governed asset class is malformed, changed, or retired.",
@@ -660,8 +706,21 @@ function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void
   }
   const map = reference == null || typeof reference !== "object" ||
       Array.isArray(reference) ? null : reference as JsonMap;
+  // A governed reference is read by the contract that produced it. Reading
+  // only the older schema versions rejected the component-on-asset reference
+  // the maintenance producer writes for an ordinary component issue, so a
+  // current, valid issue looked like a different or malformed asset. The
+  // identity checks below still bind the reference to this very asset.
+  const governedReference: boolean = map != null &&
+    isValidAffectedAssetHierarchyReference(map, asset.assetNumber as number);
+  const recognizedLegacyReference = map != null &&
+    ((map.schemaVersion === 2 && map.scope === "installedComponent") ||
+      (map.schemaVersion === 3 && map.scope === "physicalAsset")) &&
+    map.assetInstanceId === asset.assetInstanceId &&
+    map.assetClassId === asset.assetClassId &&
+    map.assetNumber === asset.assetNumber;
   if (map == null ||
-      (map.schemaVersion !== 2 && map.schemaVersion !== 3) ||
+      (!governedReference && !recognizedLegacyReference) ||
       map.assetInstanceId !== asset.assetInstanceId ||
       map.assetClassId !== asset.assetClassId ||
       map.assetNumber !== asset.assetNumber) {
@@ -695,7 +754,8 @@ function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void
   const linkedAt = serializedInstant(innerCover?.linkedAt);
   const validPosition = positionState === "linked" ? linkedComplete :
     positionState === "noneLinked" && linkedAbsent;
-  if (innerCover == null || map.schemaVersion !== 3 ||
+  if (innerCover == null ||
+      ![3, 4].includes(map.schemaVersion as number) ||
       innerCover.baseAssetInstanceId !== asset.assetInstanceId ||
       innerCover.baseAssetNumber !== asset.assetNumber || !validPosition ||
       eventAt == null || confirmedAt == null || eventAt > confirmedAt ||
@@ -812,7 +872,7 @@ export async function mutateAssetOperationalConditionWithDb(args: {
   const now = args.now ?? (() => new Date());
   const timestampFromDate = args.timestampFromDate ?? ((date: Date) => date);
 
-  actor(await actorRef.get(), request.operation);
+  actor(await actorRef.get(), request.operation, true);
 
   return db.runTransaction(async (rawTransaction) => {
     const transaction = rawTransaction as unknown as TransactionLike;
@@ -827,6 +887,7 @@ export async function mutateAssetOperationalConditionWithDb(args: {
     const actorData = actor(
       asSnapshot(await transaction.get(actorRef), "Asset-condition actor lookup"),
       request.operation,
+      receiptValue.exists,
     );
     if (receiptValue.exists) {
       const replay = resultFromReceipt(request, actorUid, receiptValue.data() ?? {});
@@ -845,6 +906,8 @@ export async function mutateAssetOperationalConditionWithDb(args: {
           timestampMillis(auditData.performedAt) !== Date.parse(replay.committedAt) ||
           after == null || Array.isArray(after) ||
           after.version !== replay.version || after.condition !== replay.condition ||
+          !replayBusinessEvidenceMatchesRequest(request, auditData, after) ||
+          (auditData.replacesRequestId ?? null) !== request.replacesRequestId ||
           (request.expectedVersion === 0 ? before != null :
             before == null || before.version !== request.expectedVersion)) {
         throw new AssetHierarchyMutationError(
@@ -872,6 +935,16 @@ export async function mutateAssetOperationalConditionWithDb(args: {
     const current = conditionValue.exists ? conditionValue.data() ?? {} : null;
     const currentVersion = validateCurrentCondition(current, request);
 
+    if (request.operation === "DECLARE_ASSET_CONDITION" &&
+        request.requestContractVersion === 1 && current != null &&
+        current.schemaVersion === 2) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This condition uses the newer evidence contract. Update the client before editing it.",
+        {reasonCode: "asset-condition-legacy-writer-cannot-downgrade"},
+      );
+    }
+
     const assetData = record(
       asSnapshot(await transaction.get(assetRef), "Asset-condition asset lookup"),
       "Governed asset",
@@ -894,6 +967,17 @@ export async function mutateAssetOperationalConditionWithDb(args: {
           currentVersion,
         },
       );
+    }
+
+    if (request.operation === "DECLARE_ASSET_CONDITION" && current?.active === true) {
+      if (request.replacesRequestId !== current.lastMutationId) {
+        throw new AssetHierarchyMutationError("failed-precondition", "Review the complete current declaration and explicitly confirm its replacement.", {reasonCode: "asset-condition-replacement-review-required"});
+      }
+      if (!userCanMutateAssetOperationalCondition(actorData, "RESTORE_ASSET_CONDITION")) {
+        throw new AssetHierarchyMutationError("permission-denied", "Only an approved restoration authority may replace an active manual assessment.");
+      }
+    } else if (request.replacesRequestId != null) {
+      throw new AssetHierarchyMutationError("aborted", "The reviewed declaration is no longer active.", {reasonCode: "asset-condition-version-mismatch"});
     }
 
     for (const issue of issueRefs) {
@@ -1005,6 +1089,7 @@ export async function mutateAssetOperationalConditionWithDb(args: {
       operation: request.operation,
       assetClassId: request.assetClassId,
       assetInstanceId: request.assetInstanceId,
+      ...(request.replacesRequestId == null ? {} : {replacesRequestId: request.replacesRequestId}),
       before: conditionSnapshot(current),
       after: conditionSnapshot(next),
       performedAt: committedAt,

@@ -18,7 +18,8 @@ import {
   lanePath,
   workflowPath,
 } from "./paths";
-import {iso} from "./utils";
+import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
+import {iso, plusMinutes} from "./utils";
 
 export const prepareRedLane: CommandHandler = async ({tx, command, context}) => {
   if (!mayPrepareRedLane(context.actor)) {
@@ -86,6 +87,18 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
       raisedByName: context.actor.name,
       raisedAt: now,
       becameDueAt: now,
+      // Operations is being asked to do something now, so this handover
+      // carries the same attention clock as any other immediate request.
+      // Without it the sweeper, which queries the next escalation time, never
+      // sees an unacknowledged stand preparation at all.
+      acknowledgementDueAt: plusMinutes(
+        context.serverNow,
+        WORKFLOW_CLOCKS_MINUTES.complianceAcknowledgement,
+      ),
+      nextEscalationAt: plusMinutes(
+        context.serverNow,
+        WORKFLOW_CLOCKS_MINUTES.complianceAcknowledgement,
+      ),
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -93,6 +106,7 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   }
   tx.update(laneId, {
     gatingComplianceRequestId: complianceId,
+    redPreparationComplianceId: complianceId,
     version: (redLane.version ?? 0) + 1,
     updatedAt: now,
   });

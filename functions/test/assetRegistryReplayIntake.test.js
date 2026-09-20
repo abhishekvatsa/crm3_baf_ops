@@ -3,6 +3,8 @@ const path = require('path');
 const {createHash} = require('crypto');
 const {Timestamp} = require('firebase-admin/firestore');
 const {mutateAssetRegistryWithDb, parseAssetRegistryMutationRequest} = require('../lib/assetRegistryMutation');
+const {MaintenanceWorkflowCommandService} = require('../lib/maintenanceWorkflow/dispatcher');
+const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
 const replacementDart = require('./fixtures/component_replacement_dart_request.json');
 const replacementLegacyDart = require('./fixtures/component_replacement_legacy_dart_request.json');
 const legacyReceiptPath = path.join(__dirname, 'fixtures/component_replacement_legacy_receipt.json');
@@ -69,7 +71,7 @@ const invoke = (memory, request, actor = 'admin-1') => mutateAssetRegistryWithDb
 async function replacementMemory(request) {
   const memory = memoryDb();
   memory.store.set(`asset_hierarchy_nodes/${request.componentDraft.definitionNodeId}`, {
-    assetClassId: request.assetClassId, status: 'active', version: 1,
+    assetClassId: request.assetClassId, nodeType: 'component', status: 'active', version: 1,
     name: 'Pressure transmitter', hierarchyPath: ['Pressure transmitter'],
   });
   const asset = create();
@@ -318,5 +320,233 @@ describe('registry timestamp compatibility from actual Dart requests', () => {
   ])('rejects unsupported timestamp grammar: %s', (installedOn) => {
     expect(() => parseAssetRegistryMutationRequest({...replacementDart,
       componentDraft: {...replacementDart.componentDraft, installedOn}})).toThrow(/UTC ISO timestamp/);
+  });
+});
+
+
+describe('installation facts correction without physical reactivation', () => {
+  test('unchanged installation time allows a detail correction with undated legacy predecessor', async () => {
+    const memory = await replacementMemory(replacementDart);
+    await invoke(memory, replacementDart);
+    memory.store.get(`asset_component_instances/${replacementDart.componentInstanceId}`).installedOn = null;
+    const update = replacementUpdate(replacementDart);
+    update.componentDraft.installedOn = replacementDart.componentDraft.installedOn;
+    expect((await invoke(memory, update)).version).toBe(2);
+    expect(memory.store.get(`asset_component_instances/${replacementDart.replacementComponentInstanceId}`).manufacturer).toBe('Reviewed Works');
+  });
+  test.each(['remove', 'change'])('cannot %s a linked installation date with unproved legacy chronology', async (kind) => {
+    const memory = await replacementMemory(replacementDart);
+    await invoke(memory, replacementDart);
+    memory.store.get(`asset_component_instances/${replacementDart.componentInstanceId}`).installedOn = null;
+    const update = replacementUpdate(replacementDart);
+    if (kind === 'remove') update.componentDraft.installedOn = null;
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, update)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect([...memory.store]).toEqual(before);
+  });
+
+  const correction = () => ({requestId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    operation: 'CORRECT_COMPONENT_INSTANCE', assetClassId: replacementDart.assetClassId,
+    assetInstanceId: replacementDart.assetInstanceId, componentInstanceId: replacementDart.componentInstanceId,
+    expectedVersion: 2, reason: 'Correct the original commissioning record against the signed installation log.',
+    componentDraft: {...replacementDart.componentDraft, serialNumber: 'PT-CORRECTED-001', installedOn: '2026-07-31T08:30:00.000Z'}});
+  test('corrects retired predecessor with immutable replay while current installation and counts stay intact', async () => {
+    const memory = await replacementMemory(replacementDart);
+    const replacementReceipt = await invoke(memory, replacementDart);
+    const currentPath = `asset_component_instances/${replacementDart.replacementComponentInstanceId}`;
+    const assetPath = `asset_instances/${replacementDart.assetInstanceId}`;
+    const current = cloneDocument(memory.store.get(currentPath));
+    const asset = cloneDocument(memory.store.get(assetPath));
+    const accepted = await invoke(memory, correction());
+    const previous = memory.store.get(`asset_component_instances/${replacementDart.componentInstanceId}`);
+    expect(previous.status).toBe('retired'); expect(previous.serialNumber).toBe('PT-CORRECTED-001');
+    expect(previous.replacedByComponentInstanceId).toBe(replacementDart.replacementComponentInstanceId);
+    expect(memory.store.get(currentPath)).toEqual(current); expect(memory.store.get(assetPath)).toEqual(asset);
+    expect(await invoke(memory, correction())).toEqual({...accepted, idempotentReplay: true});
+    expect(await invoke(memory, replacementDart)).toEqual({...replacementReceipt, idempotentReplay: true});
+  });
+  test.each(['future', 'after-successor', 'identity', 'stale'])('refuses unsafe %s correction without writes', async (kind) => {
+    const memory = await replacementMemory(replacementDart); await invoke(memory, replacementDart);
+    const input = correction();
+    if (kind === 'future') input.componentDraft.installedOn = '2027-01-01T00:00:00.000Z';
+    if (kind === 'after-successor') input.componentDraft.installedOn = '2026-09-12T09:30:00.000Z';
+    if (kind === 'identity') input.componentDraft.componentTag = 'DIFFERENT-TAG';
+    if (kind === 'stale') input.expectedVersion = 1;
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, input)).rejects.toBeDefined(); expect([...memory.store]).toEqual(before);
+  });
+
+  test('reviewed correction repairs a legacy date-only predecessor while preserving original evidence and replay', async () => {
+    const memory = await replacementMemory(replacementDart);
+    const replacementReceipt = await invoke(memory, replacementDart);
+    const previousPath = `asset_component_instances/${replacementDart.componentInstanceId}`;
+    memory.store.get(previousPath).installedOn = '2026-08-01';
+    const input = correction();
+    const accepted = await invoke(memory, input);
+    const audit = memory.store.get(`asset_hierarchy_audits/${accepted.auditId}`);
+    expect(JSON.parse(audit.beforeJson).installedOn).toBe('2026-08-01');
+    expect(memory.store.get(previousPath).installedOn.toDate().toISOString()).toBe(input.componentDraft.installedOn);
+    expect(memory.store.get(previousPath).status).toBe('retired');
+    expect(await invoke(memory, input)).toEqual({...accepted, idempotentReplay: true});
+    expect(await invoke(memory, replacementDart)).toEqual({...replacementReceipt, idempotentReplay: true});
+  });
+
+  test.each(['2026-09-12T10:00:01.000Z', '2026-07-31T23:59:59.000Z'])('rejects replacement installation outside proved physical chronology: %s', async (installedOn) => {
+    const memory = await replacementMemory(replacementDart);
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, {...replacementDart,
+      componentDraft: {...replacementDart.componentDraft, installedOn}})).rejects.toMatchObject({code: 'failed-precondition'});
+    expect([...memory.store]).toEqual(before);
+  });
+
+  test('date-only predecessor cannot silently become precise replacement chronology', async () => {
+    const memory = await replacementMemory(replacementDart);
+    memory.store.get(`asset_component_instances/${replacementDart.componentInstanceId}`).installedOn = '2026-08-01';
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, replacementDart)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect([...memory.store]).toEqual(before);
+  });
+});
+
+describe('replacement work applicability', () => {
+  function hierarchy(scope = 'definition', overrides = {}) {
+    return {schemaVersion: scope === 'componentDefinitionOnAsset' ? 4 : 2, scope,
+      assetClassId: replacementDart.assetClassId, assetClassCode: 'FURNACE', assetClassName: 'Furnace',
+      nodeId: replacementDart.componentDraft.definitionNodeId, nodeVersion: 1, nodeName: 'Pressure transmitter',
+      assetInstanceId: scope === 'definition' ? null : replacementDart.assetInstanceId,
+      assetInstanceVersion: scope === 'definition' ? null : 2,
+      assetNumber: scope === 'definition' ? null : 1,
+      assetInstanceName: scope === 'definition' ? null : 'Furnace 1',
+      componentInstanceId: scope === 'installedComponent' ? replacementDart.componentInstanceId : null,
+      componentInstanceVersion: scope === 'installedComponent' ? 1 : null, componentTag: null,
+      hierarchyPath: ['Pressure transmitter'], ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Instrumentation', accountableRoleKeys: ['seniorInstrumentation'], ...overrides};
+  }
+
+  async function completedPlannedWork(memory, target) {
+    const workflow = new MemoryWorkflowStore();
+    for (const [path, data] of memory.store) workflow.seed(path, data);
+    workflow.seed(`asset_hierarchy_nodes/${target.nodeId}`, {
+      schemaVersion: 1, nodeId: target.nodeId, assetClassId: target.assetClassId,
+      status: 'active', version: 1, nodeType: 'component', name: target.nodeName,
+      hierarchyPath: target.hierarchyPath, ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Instrumentation', accountableRoleKeys: ['seniorInstrumentation'],
+    });
+    workflow.seed('job_templates/replacement-template', {
+      firestoreId: 'replacement-template', version: 1, jobName: 'Reviewed planned work',
+      applicableAssetType: 'furnace', assignedAgencies: ['instrumentation'],
+      assetHierarchyRefJson: JSON.stringify(target), isActive: true, isDeprecated: false, isDeleted: false,
+    });
+    const service = new MaintenanceWorkflowCommandService(workflow);
+    const actor = {uid: 'admin-1', name: 'Admin One', roles: new Set(['admin'])};
+    const executionId = 'component-work';
+    async function execute(commandType, expectedVersion, payload, minute) {
+      return service.execute({commandId: `component-work-${commandType}`, commandType,
+        aggregateId: executionId, expectedVersion, payload},
+      {actor, serverNow: new Date(`2026-09-12T08:${minute}:00.000Z`)});
+    }
+    await execute('createLegacyWorkflowJob', 0, {assignmentSchemaVersion: 2, executionId,
+      templateFirestoreId: 'replacement-template', expectedTemplateVersion: 1,
+      assetClassId: replacementDart.assetClassId, assetInstanceId: replacementDart.assetInstanceId}, '00');
+    await execute('finalizeLaneSet', 1, {laneKeys: ['inst']}, '05');
+    await execute('acknowledgeLane', 2, {laneKey: 'inst'}, '10');
+    await execute('closeLane', 3, {laneKey: 'inst'}, '15');
+    await execute('finalizeJob', 4, {redRequired: false, actionTargetContractVersion: 1,
+      actionsJson: JSON.stringify([{
+        asset: 'Furnace 1', component: target.nodeName, actionType: 'replacement',
+        isAutoResolved: false, createdAt: '2026-09-12T08:18:00.000Z',
+        severity: 'medium', version: 1, tag: null,
+        assetHierarchyRef: {schemaVersion: 4, scope: 'componentDefinitionOnAsset',
+          assetClassId: target.assetClassId, assetInstanceId: replacementDart.assetInstanceId,
+          assetInstanceVersion: 2, nodeId: target.nodeId, nodeVersion: 1},
+      }])}, '20');
+    const execution = workflow.read(`job_executions/${executionId}`);
+    expect(execution.isCompleted).toBe(true);
+    expect(JSON.parse(execution.actionsJson)[0]).toMatchObject({actionType: 'replacement',
+      performedBy: 'Admin One', assetHierarchyRef: {schemaVersion: 4, nodeId: target.nodeId}});
+    expect(JSON.parse(execution.metadataJson).jobTemplateSnapshot.assetHierarchyRefJson).toBe(JSON.stringify(target));
+    memory.store.set(`job_executions/${executionId}`, execution);
+    return {...replacementDart, evidenceReference: {
+      sourceType: 'plannedJob', sourceId: executionId, expectedVersion: execution.version,
+    }};
+  }
+
+  test('actual assignment and closure for a different definition cannot justify replacement on the same asset', async () => {
+    const memory = await replacementMemory(replacementDart);
+    const request = await completedPlannedWork(memory, hierarchy('definition', {nodeId: 'furnace-shell'}));
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, request)).rejects.toMatchObject({code: 'failed-precondition',
+      details: {reasonCode: 'asset-component-replacement-evidence-definition-mismatch'}});
+    expect([...memory.store]).toEqual(before);
+  });
+
+  test.each([1, 2, 3])('actual definition-schema-%s assignment and closure link their component and replay after a later replacement', async (schemaVersion) => {
+    const memory = await replacementMemory(replacementDart);
+    const request = await completedPlannedWork(memory, hierarchy('definition', {schemaVersion}));
+    const accepted = await invoke(memory, request);
+    const audit = memory.store.get(`asset_hierarchy_audits/${accepted.auditId}`);
+    expect(JSON.parse(audit.acceptedEvidenceSnapshotJson)).toMatchObject({
+      applicabilitySchemaVersion: 1, applicabilityScope: 'componentDefinitionOnAsset',
+      definitionNodeId: replacementDart.componentDraft.definitionNodeId, componentInstanceId: null,
+    });
+    const later = {...replacementDart, requestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      componentInstanceId: replacementDart.replacementComponentInstanceId,
+      replacementComponentInstanceId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      expectedAssetInstanceVersion: 3,
+      componentDraft: {...replacementDart.componentDraft, serialNumber: 'PT-NEWER-003',
+        installedOn: '2026-09-12T09:30:00.000Z'}};
+    await invoke(memory, later);
+    memory.store.delete(`job_executions/${request.evidenceReference.sourceId}`);
+    const beforeReplay = cloneDocument([...memory.store]);
+    expect(await invoke(memory, request)).toEqual({...accepted, idempotentReplay: true});
+    expect([...memory.store]).toEqual(beforeReplay);
+  });
+
+  test.each(['unknown-scope', 'wrong-definition', 'contradictory-serial', 'contradictory-physical-node', 'malformed-snapshot'])('rejects %s instead of silently falling back to asset-only identity', async (kind) => {
+    const memory = await replacementMemory(replacementDart);
+    const request = await completedPlannedWork(memory, hierarchy());
+    const work = memory.store.get(`job_executions/${request.evidenceReference.sourceId}`);
+    const metadata = JSON.parse(work.metadataJson);
+    let reference = hierarchy('componentDefinitionOnAsset');
+    if (kind === 'unknown-scope') reference.scope = 'unrecognizedScope';
+    if (kind === 'wrong-definition') reference.nodeId = 'furnace-shell';
+    if (kind === 'contradictory-serial') reference.componentInstanceVersion = 2;
+    if (kind === 'contradictory-physical-node') reference = hierarchy('physicalAsset', {schemaVersion: 3, nodeId: 'furnace-shell'});
+    metadata.jobTemplateSnapshot = kind === 'malformed-snapshot' ? [] :
+      {...metadata.jobTemplateSnapshot, assetHierarchyRefJson: JSON.stringify(reference)};
+    work.metadataJson = JSON.stringify(metadata);
+    const before = cloneDocument([...memory.store]);
+    await expect(invoke(memory, request)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect([...memory.store]).toEqual(before);
+  });
+
+  test.each(['componentDefinitionOnAsset', 'installedComponent'])('accepts relevant %s issue context with exact scope retained', async (scope) => {
+    const memory = await replacementMemory(replacementDart);
+    memory.store.set('maintenance_records/resolved-component-work', {
+      version: 4, isDeleted: false, isResolved: true, status: 'resolved',
+      description: 'Calibration issue resolved', endDate: '2026-09-12T08:20:00.000Z',
+      closedByUid: 'admin-1', closedByName: 'Admin One',
+      assetHierarchyRefJson: JSON.stringify(hierarchy(scope)),
+    });
+    const accepted = await invoke(memory, {...replacementDart, evidenceReference: {
+      sourceType: 'maintenanceIssue', sourceId: 'resolved-component-work', expectedVersion: 4,
+    }});
+    const snapshot = JSON.parse(memory.store.get(`asset_hierarchy_audits/${accepted.auditId}`).acceptedEvidenceSnapshotJson);
+    expect(snapshot.applicabilityScope).toBe(scope);
+    expect(snapshot.componentInstanceId).toBe(scope === 'installedComponent' ? replacementDart.componentInstanceId : null);
+  });
+
+  test('unscoped legacy planned work remains asset context without claiming serial or definition evidence', async () => {
+    const memory = await replacementMemory(replacementDart);
+    const request = await completedPlannedWork(memory, hierarchy());
+    const work = memory.store.get(`job_executions/${request.evidenceReference.sourceId}`);
+    const metadata = JSON.parse(work.metadataJson);
+    delete metadata.jobTemplateSnapshot;
+    work.metadataJson = JSON.stringify(metadata);
+    const accepted = await invoke(memory, request);
+    expect(JSON.parse(memory.store.get(`asset_hierarchy_audits/${accepted.auditId}`).acceptedEvidenceSnapshotJson)).toMatchObject({
+      applicabilitySchemaVersion: 1, applicabilityScope: 'assetContext',
+      definitionNodeId: null, componentInstanceId: null,
+    });
   });
 });

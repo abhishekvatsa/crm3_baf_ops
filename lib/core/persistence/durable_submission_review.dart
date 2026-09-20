@@ -18,10 +18,13 @@ class DurableSubmissionReviewTarget {
 
   static DurableSubmissionReviewTarget from(DurableSubmission row) {
     final domain = switch (row.resourceKey.split(':').first) {
+      'ordinaryDirective' => 'ordinaryDirective',
+      'assetCondition' => 'assetCondition',
       'morningReview' => 'morningReview',
       'burnerEvidence' || 'legacyBurner' => 'burnerEvidence',
       'innerCoverAcceptance' => 'innerCoverAcceptance',
-      'qualityMonitoringCreation' => 'qualityMonitoring',
+      'qualityMonitoringCreation' ||
+      'qualityMonitoringClosure' => 'qualityMonitoring',
       'publishedTemplateAssignment' => 'publishedTemplateAssignment',
       'inspectionCampaignCreation' => 'inspectionCampaign',
       _ => throw const DurableSubmissionException(
@@ -48,6 +51,8 @@ class DurableSubmissionReviewTarget {
       }
       if (record['requestId'] is! String) _invalid();
       id = record['requestId'] as String;
+    } else {
+      _requireSupportedNativeRequest(row, domain);
     }
     if (id.isEmpty ||
         id == 'unknown' ||
@@ -57,6 +62,101 @@ class DurableSubmissionReviewTarget {
       _invalid();
     }
     return DurableSubmissionReviewTarget(domain, id);
+  }
+}
+
+/// Admission follows the backend's receipt contracts, not its broader fence
+/// namespaces. A retained request outside these contracts still belongs to its
+/// original business workflow and must never be cancelled through this review.
+void _requireSupportedNativeRequest(DurableSubmission row, String domain) {
+  final protocol = switch (domain) {
+    'inspectionCampaign' => 'maintenanceWorkflow.v2',
+    'qualityMonitoring' => 'chargeAbnormality.v2',
+    'publishedTemplateAssignment' => 'publishedTemplateAssignment.v2',
+    _ => 'assetHierarchy.v2',
+  };
+  final envelope = durableSubmissionJsonObject(row.envelopeJson);
+  final command = domain == 'inspectionCampaign';
+  final request = envelope[command ? 'command' : 'request'];
+  if (row.protocol != protocol ||
+      envelope['protocolVersion'] != 2 ||
+      row.actorUid == null ||
+      envelope['originActorUid'] != row.actorUid ||
+      request is! Map<String, dynamic> ||
+      request[command ? 'commandId' : 'requestId'] != row.requestId) {
+    _invalid();
+  }
+  final operation = request[command ? 'commandType' : 'operation'];
+  final supported = switch (domain) {
+    'ordinaryDirective' => operation == 'APPLY_ORDINARY_DIRECTIVE',
+    'assetCondition' => const {
+      'DECLARE_ASSET_CONDITION',
+      'RESTORE_ASSET_CONDITION',
+    }.contains(operation),
+    'morningReview' => const {
+      'START_MORNING_REVIEW',
+      'JOIN_MORNING_REVIEW',
+      'ADD_MORNING_REVIEW_ENTRY',
+      'CREATE_MORNING_REVIEW_ACTION',
+      'ACCEPT_MORNING_REVIEW_ACTION',
+      'COMPLETE_MORNING_REVIEW_ACTION',
+      'AMEND_MORNING_REVIEW_ACTION',
+      'TAKE_OVER_MORNING_REVIEW',
+      'FINALIZE_MORNING_REVIEW',
+      'RECORD_MORNING_REVIEW_NOT_HELD',
+      'CREATE_MORNING_REVIEW_STANDING_CONCERN',
+      'RESOLVE_MORNING_REVIEW_STANDING_CONCERN',
+      'CHECK_MORNING_REVIEW_STANDING_CONCERN',
+      'ADD_MORNING_REVIEW_ADDENDUM',
+    }.contains(operation),
+    'burnerEvidence' => const {
+      'RECORD_BURNER_CONDITION_ROUND',
+      'COMPLETE_BURNER_RED_HOT_DIRECTIVE',
+    }.contains(operation),
+    'innerCoverAcceptance' => operation == 'ACCEPT_INNER_COVER',
+    'qualityMonitoring' => const {
+      'CREATE_QUALITY_MONITORING_REQUEST',
+      'CLOSE_QUALITY_MONITORING_REQUEST',
+      'CORRECT_QUALITY_MONITORING_REQUEST',
+      'CANCEL_QUALITY_MONITORING_REQUEST',
+    }.contains(operation),
+    'publishedTemplateAssignment' => operation == null,
+    'inspectionCampaign' => operation == 'createInspectionCampaign',
+    _ => false,
+  };
+  if (!supported) {
+    throw const DurableSubmissionException(
+      'unsupported-review',
+      'This saved action is not supported by administrative review. Its original evidence is retained.',
+    );
+  }
+}
+
+class DurableSubmissionReviewSupport {
+  const DurableSubmissionReviewSupport._(this.canReview, this.guidance);
+  final bool canReview;
+  final String? guidance;
+
+  factory DurableSubmissionReviewSupport.forRow(DurableSubmission row) {
+    try {
+      DurableSubmissionReviewTarget.from(row);
+      return const DurableSubmissionReviewSupport._(true, null);
+    } on FormatException {
+      return const DurableSubmissionReviewSupport._(
+        false,
+        'The original request cannot be identified safely. Keep this evidence for specialist review.',
+      );
+    } on DurableSubmissionException catch (error) {
+      return DurableSubmissionReviewSupport._(
+        false,
+        error.code == 'unsupported-review'
+            ? 'Administrative review does not support this saved action. '
+                  'Use the original business page and original approved account to check it; '
+                  'retry only if that page offers the retained request. '
+                  'If that route is unavailable, keep this evidence for specialist review.'
+            : 'The original request cannot be identified safely. Keep this evidence for specialist review.',
+      );
+    }
   }
 }
 

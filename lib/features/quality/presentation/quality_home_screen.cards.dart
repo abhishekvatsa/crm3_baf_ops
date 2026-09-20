@@ -14,11 +14,17 @@ class _SummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Expanded(child: _SummaryMetric(label: 'Open', value: open)),
+      Expanded(
+        child: _SummaryMetric(label: 'Open', value: open),
+      ),
       const SizedBox(width: BafSpacing.sm),
-      Expanded(child: _SummaryMetric(label: 'Review', value: review)),
+      Expanded(
+        child: _SummaryMetric(label: 'Review', value: review),
+      ),
       const SizedBox(width: BafSpacing.sm),
-      Expanded(child: _SummaryMetric(label: 'Closed', value: closed)),
+      Expanded(
+        child: _SummaryMetric(label: 'Closed', value: closed),
+      ),
     ],
   );
 }
@@ -190,12 +196,11 @@ class _WarningCard extends ConsumerWidget {
               children: [
                 _Fact(
                   icon: Icons.precision_manufacturing_outlined,
-                  text:
-                      warning.affectedAssets.isEmpty
-                          ? 'No asset recorded'
-                          : warning.affectedAssets
-                              .map((asset) => asset.label)
-                              .join(', '),
+                  text: warning.affectedAssets.isEmpty
+                      ? 'No asset recorded'
+                      : warning.affectedAssets
+                            .map((asset) => asset.label)
+                            .join(', '),
                 ),
                 if (warning.component != null)
                   _Fact(
@@ -263,10 +268,9 @@ class _WarningCard extends ConsumerWidget {
                 if (warning.status == QualityWarningStatus.open &&
                     actor?.canRequestQualityWarningClosure == true)
                   OutlinedButton.icon(
-                    onPressed:
-                        busy || linkedCaseActionBlocked
-                            ? null
-                            : onRequestClosure,
+                    onPressed: busy || linkedCaseActionBlocked
+                        ? null
+                        : onRequestClosure,
                     icon: const Icon(Icons.forward_to_inbox_outlined),
                     label: const Text('Request closure'),
                   ),
@@ -275,14 +279,14 @@ class _WarningCard extends ConsumerWidget {
                   OutlinedButton.icon(
                     onPressed:
                         busy ||
-                                !linkedCaseReady ||
-                                linkedAbnormality == null ||
-                                linkedAbnormality.reannealingStatus ==
-                                    ReannealingStatus.required ||
-                                linkedAbnormality.reannealingStatus ==
-                                    ReannealingStatus.completed
-                            ? null
-                            : onDeclareRaRequired,
+                            !linkedCaseReady ||
+                            linkedAbnormality == null ||
+                            linkedAbnormality.reannealingStatus ==
+                                ReannealingStatus.required ||
+                            linkedAbnormality.reannealingStatus ==
+                                ReannealingStatus.completed
+                        ? null
+                        : onDeclareRaRequired,
                     icon: const Icon(Icons.repeat_rounded),
                     label: const Text('RA required'),
                   ),
@@ -292,28 +296,27 @@ class _WarningCard extends ConsumerWidget {
                     linkedAbnormality?.reannealingStatus ==
                         ReannealingStatus.required)
                   FilledButton.icon(
-                    onPressed:
-                        busy
-                            ? null
-                            : () => onRecordRaCompleted(linkedAbnormality!),
+                    onPressed: busy
+                        ? null
+                        : () => onRecordRaCompleted(linkedAbnormality!),
                     icon: const Icon(Icons.playlist_add_check_rounded),
                     label: const Text('Record RA completion'),
                   ),
                 if (warning.status != QualityWarningStatus.closed &&
                     actor?.canCloseQualityWarning == true)
                   FilledButton.icon(
-                    onPressed:
-                        busy || linkedCaseActionBlocked
-                            ? null
-                            : () => onClose(linkedAbnormality),
+                    onPressed: busy || linkedCaseActionBlocked
+                        ? null
+                        : () => onClose(linkedAbnormality),
                     icon: const Icon(Icons.verified_rounded),
                     label: const Text('Adjudicate'),
                   ),
                 if (warning.status == QualityWarningStatus.closed &&
                     actor?.canCloseQualityWarning == true)
                   OutlinedButton.icon(
-                    onPressed:
-                        busy || linkedCaseActionBlocked ? null : onReopen,
+                    onPressed: busy || linkedCaseActionBlocked
+                        ? null
+                        : onReopen,
                     icon: const Icon(Icons.replay_rounded),
                     label: const Text('Reopen'),
                   ),
@@ -359,12 +362,20 @@ class _MonitoringCard extends StatelessWidget {
     required this.canClose,
     required this.busy,
     required this.onClose,
+    required this.onCorrect,
+    required this.onCancel,
+    required this.onCheckSaved,
+    required this.canCheckSaved,
   });
 
   final QualityMonitoringRequest request;
   final bool canClose;
   final bool busy;
   final VoidCallback onClose;
+  final VoidCallback onCorrect;
+  final VoidCallback onCancel;
+  final VoidCallback onCheckSaved;
+  final bool canCheckSaved;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -399,13 +410,14 @@ class _MonitoringCard extends StatelessWidget {
               Text(
                 request.status == QualityMonitoringStatus.active
                     ? 'Active'
+                    : request.isCancelled
+                    ? 'Cancelled'
                     : 'Closed',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color:
-                      request.status == QualityMonitoringStatus.active
-                          ? BafColors.warning
-                          : BafColors.sync,
+                  color: request.status == QualityMonitoringStatus.active
+                      ? BafColors.warning
+                      : BafColors.sync,
                 ),
               ),
             ],
@@ -448,6 +460,30 @@ class _MonitoringCard extends StatelessWidget {
               style: const TextStyle(color: BafColors.textSecondary),
             ),
           ],
+          if (request.originalMonitoringContext != null) ...[
+            const SizedBox(height: BafSpacing.sm),
+            ExpansionTile(
+              title: const Text('Original monitoring context'),
+              children: [
+                Text(
+                  'Base ${request.originalMonitoringContext!['baseNumber']} · ${request.originalMonitoringContext!['grade']} · ${request.originalMonitoringContext!['cycleReference']}',
+                ),
+                Text(
+                  'Charges: ${(request.originalMonitoringContext!['chargeNumbers'] as List).join(', ')}',
+                ),
+                Text('${request.originalMonitoringContext!['reason']}'),
+              ],
+            ),
+          ],
+          if (request.isCancelled)
+            const Text(
+              'Cancelled instruction. This does not represent completed monitoring.',
+            ),
+          if (canCheckSaved)
+            TextButton(
+              onPressed: busy ? null : onCheckSaved,
+              child: const Text('Check saved change'),
+            ),
           if (request.status == QualityMonitoringStatus.closed) ...[
             const SizedBox(height: BafSpacing.md),
             Container(
@@ -496,6 +532,14 @@ class _MonitoringCard extends StatelessWidget {
               onPressed: busy ? null : onClose,
               icon: const Icon(Icons.check_circle_outline_rounded),
               label: const Text('Complete monitoring'),
+            ),
+            TextButton(
+              onPressed: busy ? null : onCorrect,
+              child: const Text('Correct context'),
+            ),
+            TextButton(
+              onPressed: busy ? null : onCancel,
+              child: const Text('Cancel monitoring'),
             ),
           ],
         ],

@@ -52,7 +52,11 @@ class MorningReviewAgendaSubject {
   final List<MorningReviewAgendaMatter> matters;
   final bool isShared;
 
-  bool get isGovernedAsset => assetClassId != null && assetInstanceId != null;
+  bool get isGovernedAsset =>
+      assetClassId != null &&
+      assetInstanceId != null &&
+      !assetClassId!.startsWith('meeting-provisional:') &&
+      !assetInstanceId!.startsWith('meeting-provisional:');
 
   Set<MorningReviewAgendaFilter> get categories => {
     for (final matter in matters) ...matter.categories,

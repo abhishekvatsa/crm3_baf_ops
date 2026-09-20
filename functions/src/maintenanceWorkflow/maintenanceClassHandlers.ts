@@ -3,6 +3,7 @@ import {CommandHandler} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
   assertMaintenanceClassApplies,
+  dueProjectionFromSource,
   dueStatePath,
   FrozenMaintenanceClass,
   frozenMaintenanceClassFromExecution,
@@ -400,90 +401,6 @@ export const setMaintenanceClassDefinitionStatus: CommandHandler = async ({
   };
 };
 
-const dueProjectionFromSource = (
-  path: string,
-  counterKey: string,
-  sources: readonly {readonly path: string; readonly data: JsonMap}[],
-  now: string,
-  fallback: {
-    readonly assetIdentityKey: string;
-    readonly assetTypeKey: string;
-    readonly assetNumber: number | null;
-    readonly assetClassId: string | null;
-    readonly assetInstanceId: string | null;
-    readonly assetDisplayName: string | null;
-    readonly counterLabel: string;
-    readonly thresholdDays: number | null;
-  },
-): JsonMap => {
-  const candidates = sources
-    .flatMap((source) => {
-      const completedAt = persistedInstantText(source.data.completedAt);
-      return Array.isArray(source.data.resetCounterKeys) &&
-        (source.data.resetCounterKeys as unknown[]).includes(counterKey) &&
-        completedAt != null ? [{...source, completedAt}] : [];
-    })
-    .sort((left, right) => {
-      const byTime = Date.parse(right.completedAt) - Date.parse(left.completedAt);
-      if (byTime !== 0) return byTime;
-      return Number(right.data.sourceRevision ?? 0) - Number(left.data.sourceRevision ?? 0);
-    });
-  const latestCandidate = candidates[0];
-  const latest = latestCandidate?.data;
-  if (latest == null || latestCandidate == null) {
-    return {
-      schemaVersion: 1,
-      dueStateId: path.split("/").at(-1)!,
-      assetIdentityKey: fallback.assetIdentityKey,
-      assetTypeKey: fallback.assetTypeKey,
-      assetNumber: fallback.assetNumber,
-      assetClassId: fallback.assetClassId,
-      assetInstanceId: fallback.assetInstanceId,
-      assetDisplayName: fallback.assetDisplayName,
-      counterKey,
-      counterLabel: fallback.counterLabel,
-      thresholdDays: fallback.thresholdDays,
-      lastCompletionAt: null,
-      nextDueAt: null,
-      lastCompletionEventId: null,
-      lastCompletionSourceType: null,
-      lastCompletionSourceId: null,
-      lastMaintenanceClassCode: null,
-      classificationPending: true,
-      updatedAt: now,
-    };
-  }
-  const classification = parseFrozenMaintenanceClass(latest.maintenanceClass);
-  const counter = classification.resetCounters.find((item) => item.key === counterKey)!;
-  const completedAt = latestCandidate.completedAt;
-  const nextDue = counter.thresholdDays == null ? null : (() => {
-    const date = new Date(completedAt);
-    date.setUTCDate(date.getUTCDate() + counter.thresholdDays!);
-    return date.toISOString();
-  })();
-  return {
-    schemaVersion: 1,
-    dueStateId: path.split("/").at(-1)!,
-    assetIdentityKey: latest.assetIdentityKey,
-    assetTypeKey: latest.assetTypeKey,
-    assetNumber: latest.assetNumber,
-    assetClassId: latest.assetClassId ?? null,
-    assetInstanceId: latest.assetInstanceId ?? null,
-    assetDisplayName: latest.assetDisplayName ?? null,
-    counterKey,
-    counterLabel: counter.label,
-    thresholdDays: counter.thresholdDays,
-    lastCompletionAt: completedAt,
-    nextDueAt: nextDue,
-    lastCompletionEventId: latest.currentEventId,
-    lastCompletionSourceType: latest.sourceType,
-    lastCompletionSourceId: latest.sourceId,
-    lastMaintenanceClassCode: latest.maintenanceClassCode,
-    classificationPending: false,
-    updatedAt: now,
-  };
-};
-
 const classificationRevision = (metadataJson: unknown): number => {
   if (typeof metadataJson !== "string" || metadataJson.trim().length === 0) return 0;
   try {
@@ -594,11 +511,15 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
         "Completed maintenance has no valid completion timestamp.",
       );
     }
-    existingSources = (await tx.query("maintenance_completion_sources", [
+    existingSources = (await tx.query("maintenance_completion_sources", identity.assetNumber == null ? [
       {field: "assetIdentityKey", op: "==", value: identity.assetIdentityKey},
+    ] : [
+      {field: "assetTypeKey", op: "==", value: identity.assetTypeKey},
+      {field: "assetNumber", op: "==", value: identity.assetNumber},
     ])).filter((row) => row.data != null)
       .map((row) => ({path: row.path, data: row.data!}));
     completionPlan = await prepareMaintenanceCompletionWritePlan({
+      interpretedBy: context.actor,
       tx,
       execution: execution.data,
       executionId,
@@ -607,10 +528,9 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
       completedAt,
       completedBy: {
         uid: typeof execution.data.completedByUid === "string" ?
-          execution.data.completedByUid : context.actor.uid,
+          execution.data.completedByUid : null,
         name: typeof execution.data.completedByName === "string" ?
-          execution.data.completedByName : context.actor.name,
-        roles: context.actor.roles,
+          execution.data.completedByName : null,
       },
       recordedAt: now,
       classification,
@@ -829,11 +749,15 @@ export const classifyMaintenanceTicket: CommandHandler = async ({
     now,
     reason,
   );
-  const existingSources = (await tx.query("maintenance_completion_sources", [
+  const existingSources = (await tx.query("maintenance_completion_sources", identity.assetNumber == null ? [
     {field: "assetIdentityKey", op: "==", value: identity.assetIdentityKey},
+  ] : [
+    {field: "assetTypeKey", op: "==", value: identity.assetTypeKey},
+    {field: "assetNumber", op: "==", value: identity.assetNumber},
   ])).filter((row) => row.data != null)
     .map((row) => ({path: row.path, data: row.data!}));
   const completionPlan = await prepareMaintenanceCompletionWritePlan({
+    interpretedBy: context.actor,
     tx,
     execution: completionRecord,
     executionId: ticketId,
@@ -841,10 +765,9 @@ export const classifyMaintenanceTicket: CommandHandler = async ({
     completedAt,
     completedBy: {
       uid: typeof ticket.data.closedByUid === "string" ?
-        ticket.data.closedByUid : context.actor.uid,
+        ticket.data.closedByUid : null,
       name: typeof ticket.data.closedByName === "string" ?
-        ticket.data.closedByName : context.actor.name,
-      roles: context.actor.roles,
+        ticket.data.closedByName : null,
     },
     recordedAt: now,
     classification,

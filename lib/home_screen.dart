@@ -1,3 +1,4 @@
+import 'features/admin/presentation/saved_authority_decisions.dart';
 // FILE: lib/home_screen.dart
 
 import 'dart:async';
@@ -250,8 +251,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 .length ??
             0;
         final overdueMaintenanceCount =
-            maintenanceDueStatesAsync.valueOrNull
-                ?.where((state) => state.isOverdue)
+            maintenanceDueStatesAsync.valueOrNull?.records
+                .where((state) => state.isOverdue)
                 .length ??
             0;
         final activeInspectionFindingCount =
@@ -275,8 +276,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             operationalEventsAsync.valueOrNull == null;
         final qualityWarningsUnavailable =
             qualityWarningsAsync.valueOrNull == null;
-        final qualityMonitoringUnavailable =
-            qualityMonitoringAsync.valueOrNull == null;
+        final qualityMonitoringUnavailable = !monitoringPopulationIsQualified(
+          qualityMonitoringAsync.valueOrNull,
+        );
         final attentionDataUnavailable =
             ticketCountAsync.valueOrNull == null ||
             directiveCountAsync.valueOrNull == null ||
@@ -289,7 +291,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             operationalEventsUnavailable ||
             qualityWarningsUnavailable ||
             qualityMonitoringUnavailable ||
-            maintenanceDueStatesAsync.valueOrNull == null ||
+            // A due-state record that could not be read may carry an
+            // outstanding obligation, so a short population qualifies
+            // this headline exactly as a missing one does.
+            maintenanceDueStatesAsync.valueOrNull?.isComplete != true ||
             inspectionFindingsAsync.valueOrNull == null ||
             criticalAlarmsUnavailable;
 
@@ -324,11 +329,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final body = BafPageCanvas(
-              child: _LazyIndexedStack(
-                index: safeIndex,
-                itemCount: tabs.length,
-                itemBuilder: (context, index) =>
-                    tabs[index].buildScreen(context),
+              child: Column(
+                children: [
+                  const SavedAuthorityDecisions(),
+                  Expanded(
+                    child: _LazyIndexedStack(
+                      index: safeIndex,
+                      itemCount: tabs.length,
+                      itemBuilder: (context, index) =>
+                          tabs[index].buildScreen(context),
+                    ),
+                  ),
+                ],
               ),
             );
             final useRail = constraints.maxWidth >= 900;

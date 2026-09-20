@@ -98,6 +98,53 @@ describe.each(f.domains)('%s administrative recovery', (domain) => {
     m.store.set(path, {...m.store.get(path), originalActorUid: 'invented-origin'});
     await expect(invoke(m, request)).rejects.toMatchObject({code: 'failed-precondition'});
   });
+
+  test('another approved Admin can retrieve the proof without becoming its reviewer', async () => {
+    const m = f.memory(); const request = f.review(domain);
+    m.store.set('users/admin-2', {isApproved: true, roles: ['admin']});
+    m.store.set('submission_recovery_controls/activation', f.activation());
+    const proof = await finalize(m, request, await invoke(m, request));
+    const writes = f.clone(m.writes);
+
+    // The decision was made and is permanent. A second Admin retrieving it
+    // after the first one's response was lost reads the same proof, with the
+    // original reviewer preserved on it.
+    const retrieved = await invoke(m, request, {authUid: 'admin-2'});
+
+    expect(retrieved).toEqual(proof);
+    expect(retrieved.reviewerUid).toBe('admin');
+    expect(m.writes).toEqual(writes);
+  });
+
+  test('a second Admin cannot finalize over an existing decision', async () => {
+    const m = f.memory(); const request = f.review(domain);
+    m.store.set('users/admin-2', {isApproved: true, roles: ['admin']});
+    m.store.set('submission_recovery_controls/activation', f.activation());
+    const observation = await invoke(m, request);
+    await finalize(m, request, observation);
+    const writes = f.clone(m.writes);
+
+    // Retrieval is not re-execution. Deciding again under a different
+    // reviewer is still refused.
+    await expect(invoke(m, {...request, phase: 'finalize',
+      reviewToken: observation.reviewToken}, {authUid: 'admin-2'}))
+      .rejects.toMatchObject({
+        details: {reasonCode: 'submission-recovery-decision-conflict'},
+      });
+    expect(m.writes).toEqual(writes);
+  });
+
+  test('a different Admin still cannot retrieve a proof for other evidence', async () => {
+    const m = f.memory(); const request = f.review(domain);
+    m.store.set('users/admin-2', {isApproved: true, roles: ['admin']});
+    m.store.set('submission_recovery_controls/activation', f.activation());
+    const proof = await finalize(m, request, await invoke(m, request));
+    const path = `submission_recovery_decisions/${proof.decisionId}`;
+    m.store.set(path, {...m.store.get(path), originalActorUid: 'invented-origin'});
+
+    await expect(invoke(m, request, {authUid: 'admin-2'}))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+  });
 });
 
 test.each([null, {isApproved: false, roles: ['admin']}, {isApproved: true, roles: ['operations']}, {approved: true, role: 'admin'}])(
@@ -278,7 +325,7 @@ test('actual unpinned Morning Review acceptance stays read-only after review and
   });
   const accepted = await mutate('2026-08-31T05:00:00.000Z');
   expect(accepted.sessionId).toBe('2026-08-31');
-  expect(m.store.get(receiptPath('morningReview')).expiresAt.toDate().toISOString()).toBe('2026-09-14T05:00:00.000Z');
+  expect(m.store.get(receiptPath('morningReview')).expiresAt).toBeNull();
   m.store.set('submission_recovery_controls/activation', f.activation());
   const reviewed = f.review('morningReview', {originalActorUid: 'admin'});
   const proof = await finalize(m, reviewed, await invoke(m, reviewed));
@@ -286,7 +333,7 @@ test('actual unpinned Morning Review acceptance stays read-only after review and
   expect(await lookupMorningReviewReceiptWithDb({db: m.db, authUid: 'admin', data: request}))
     .toEqual({...accepted, idempotentReplay: true});
   expect(m.writes).toEqual(beforeLookup);
-  m.store.delete(receiptPath('morningReview')); // Simulates the declared TTL, not a production deletion.
+  m.store.delete(receiptPath('morningReview')); // Simulates missing historical evidence; new acceptance receipts no longer expire.
   const before = f.clone([...m.store]);
   await expect(mutate('2026-09-15T05:00:00.000Z'))
     .rejects.toMatchObject({details: {reasonCode: 'saved-submission-reviewed-existing'}});
@@ -314,4 +361,11 @@ test('actual recovery wire fixture remains compatible with the native saved-evid
   const target = path.resolve(__dirname, '../../test/fixtures/saved_submission_review_actual_handler.json');
   if (process.env.UPDATE_SUBMISSION_REVIEW_WIRE_FIXTURE === 'true') fs.writeFileSync(target, `${JSON.stringify(fixture, null, 2)}\n`);
   expect(JSON.parse(fs.readFileSync(target, 'utf8'))).toEqual(fixture);
+});
+
+test('six-domain activation retains existing recovery but does not activate manual-condition finalization',async()=>{
+ const m=f.memory(); const activation=f.activation();activation.domains=activation.domains.filter(d=>d!=='assetCondition' && d!=='ordinaryDirective');
+ m.store.set('submission_recovery_controls/activation',activation);
+ const old=f.review('morningReview');await expect(finalize(m,old,await invoke(m,old))).resolves.toMatchObject({outcome:'cancelled'});
+ const added=f.review('assetCondition');await expect(finalize(m,added,await invoke(m,added))).rejects.toMatchObject({details:{reasonCode:'submission-recovery-finalization-not-activated'}});
 });

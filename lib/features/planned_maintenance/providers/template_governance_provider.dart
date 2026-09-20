@@ -20,6 +20,7 @@ import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'template_governance_provider.local.dart';
+part 'template_governance_publication.dart';
 part 'template_governance_provider.remote.dart';
 
 // ─────────────────────────────────────────────────────────────

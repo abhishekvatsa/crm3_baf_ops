@@ -94,6 +94,61 @@ Map<String, dynamic> complianceResultMap() => <String, dynamic>{
 };
 
 void main() {
+  test(
+    'structured provenance preserves inherited ages and rejects incomplete maps',
+    () {
+      final evidence = <String, dynamic>{
+        for (final field in burnerEvidenceFields)
+          field: {
+            'kind': 'inherited',
+            'sourceRoundId': 'original-round',
+            'observedAt': '2026-08-10T00:00:00.000Z',
+            'observerUid': 'original-ops',
+            'observerName': 'Original Operations',
+          },
+      };
+      final value = {
+        ...roundMapV2(),
+        'evidenceKind': 'partialInspection',
+        'evidenceProvenance': evidence,
+      };
+      final round = BurnerConditionRound.fromMap(value, 'round-1');
+      expect(
+        round.evidenceFor('uv.1.condition').observedAt,
+        DateTime.utc(2026, 8, 10),
+      );
+      expect(
+        round.evidenceFor('burners.1.microampReading').observerUid,
+        'original-ops',
+      );
+      expect(round.isWitnessedInspection, false);
+      for (final malformed in [
+        null,
+        <String, dynamic>{},
+        {...evidence}..remove('uv.1.condition'),
+      ]) {
+        expect(
+          () => BurnerConditionRound.fromMap({
+            ...value,
+            'evidenceProvenance': malformed,
+          }, 'round-1'),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+    },
+  );
+
+  test('legacy directive copies have unknown observation ages', () {
+    final round = BurnerConditionRound.fromMap({
+      ...roundMapV2(),
+      'roundNote':
+          'I&A compliance for directive burner_round_red_hot_original.',
+    }, 'round-1');
+    expect(round.evidenceFor('burners.1.microampReading').kind, 'unknown');
+    expect(round.evidenceFor('uv.1.condition').observedAt, isNull);
+    expect(round.isWitnessedInspection, false);
+  });
+
   test('strict decoder retains complete eight-position round evidence', () {
     final round = BurnerConditionRound.fromMap(roundMap(), 'round-1');
 

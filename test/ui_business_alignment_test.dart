@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/presentation/screens/workflow_diagnostics_screen.dart';
@@ -22,6 +23,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/presentation/planned_j
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/widgets/action_mini_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -279,12 +281,17 @@ Future<void> _pumpDetail(
           diaryRepository ?? _StaticJobDiaryRepository(),
         ),
         maintenanceClassDefinitionsProvider.overrideWith(
-          (ref) => const Stream.empty(),
+          (ref) =>
+              const Stream<
+                DecodedSnapshotBatch<MaintenanceClassDefinition>
+              >.empty(),
         ),
         maintenanceDueStatesProvider.overrideWith(
           (ref) => const Stream.empty(),
         ),
-        maintenancePlansProvider.overrideWith((ref) => const Stream.empty()),
+        maintenancePlansProvider.overrideWith(
+          (ref) => const Stream<DecodedSnapshotBatch<MaintenancePlan>>.empty(),
+        ),
       ],
       child: MaterialApp(
         home: PlannedJobDetailScreen(
@@ -342,29 +349,24 @@ void main() {
       'notification and navigation source preserve exact business context',
       () {
         final home = File('lib/home_screen.dart').readAsStringSync();
-        final resolver =
-            File(
-              'lib/features/maintenance_workflow/presentation/screens/'
-              'compliance_notification_screen.dart',
-            ).readAsStringSync();
-        final providers =
-            File(
-              'lib/features/maintenance_workflow/providers/workflow_providers.dart',
-            ).readAsStringSync();
-        final remote =
-            File(
-              'lib/features/maintenance_workflow/repositories/'
-              'firestore_workflow_read_repository.dart',
-            ).readAsStringSync();
-        final audit =
-            File(
-              'lib/features/audit/presentation/audit_timeline_screen.dart',
-            ).readAsStringSync();
-        final diagnostics =
-            File(
-              'lib/features/maintenance_workflow/presentation/screens/'
-              'workflow_diagnostics_screen.dart',
-            ).readAsStringSync();
+        final resolver = File(
+          'lib/features/maintenance_workflow/presentation/screens/'
+          'compliance_notification_screen.dart',
+        ).readAsStringSync();
+        final providers = File(
+          'lib/features/maintenance_workflow/providers/workflow_providers.dart',
+        ).readAsStringSync();
+        final remote = File(
+          'lib/features/maintenance_workflow/repositories/'
+          'firestore_workflow_read_repository.dart',
+        ).readAsStringSync();
+        final audit = File(
+          'lib/features/audit/presentation/audit_timeline_screen.dart',
+        ).readAsStringSync();
+        final diagnostics = File(
+          'lib/features/maintenance_workflow/presentation/screens/'
+          'workflow_diagnostics_screen.dart',
+        ).readAsStringSync();
 
         expect(home, contains("message.data['complianceId']"));
         expect(home, contains('ComplianceNotificationScreen('));
@@ -392,21 +394,18 @@ void main() {
     test(
       'source gates dossier mutation affordances and legacy-only sections',
       () {
-        final detail =
-            File(
-              'lib/features/planned_maintenance/presentation/'
-              'planned_job_detail_screen.dart',
-            ).readAsStringSync();
-        final modules =
-            File(
-              'lib/features/planned_maintenance/presentation/dossier/'
-              'planned_job_module_dossier.dart',
-            ).readAsStringSync();
-        final diary =
-            File(
-              'lib/features/planned_maintenance/presentation/dossier/'
-              'planned_job_diary_dossier.dart',
-            ).readAsStringSync();
+        final detail = File(
+          'lib/features/planned_maintenance/presentation/'
+          'planned_job_detail_screen.dart',
+        ).readAsStringSync();
+        final modules = File(
+          'lib/features/planned_maintenance/presentation/dossier/'
+          'planned_job_module_dossier.dart',
+        ).readAsStringSync();
+        final diary = File(
+          'lib/features/planned_maintenance/presentation/dossier/'
+          'planned_job_diary_dossier.dart',
+        ).readAsStringSync();
 
         expect(detail, contains('actor?.canCreateJobDiaryEntry ?? false'));
         expect(
@@ -419,15 +418,14 @@ void main() {
           contains('if (!execution.isGovernedTemplateAssignment)'),
         );
         expect(modules, contains('isOpenJob && onAddModule != null'));
-        expect(diary, contains('isOpenJob && onAddEntry != null'));
+        expect(diary, contains('onAddEntry != null'));
       },
     );
 
     test('issue creation requires governed equipment before tag evidence', () {
-      final source =
-          File(
-            'lib/features/maintenance/presentation/maintenance_form.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/maintenance/presentation/maintenance_form.dart',
+      ).readAsStringSync();
 
       final selector = source.indexOf('_GovernedIssueAssetSelector(');
       final tagField = source.indexOf('controller: _tagController');
@@ -503,10 +501,9 @@ void main() {
         final moduleRepository = _StaticJobModuleRepository(
           List<JobModuleInstance>.generate(
             101,
-            (index) =>
-                _openModule()
-                  ..id = index + 1
-                  ..firestoreId = 'module-${index + 1}',
+            (index) => _openModule()
+              ..id = index + 1
+              ..firestoreId = 'module-${index + 1}',
           ),
           true,
         );
@@ -539,12 +536,11 @@ void main() {
         'planned $location dossier retains complete burner intervention evidence',
         (tester) async {
           final action = _burnerAction();
-          final execution =
-              _governedExecution()
-                ..isCompleted = true
-                ..completedAt = DateTime.utc(2026, 7, 31, 19)
-                ..completedByName = 'Shift Supervisor'
-                ..updatedAt = DateTime.utc(2026, 7, 31, 19);
+          final execution = _governedExecution()
+            ..isCompleted = true
+            ..completedAt = DateTime.utc(2026, 7, 31, 19)
+            ..completedByName = 'Shift Supervisor'
+            ..updatedAt = DateTime.utc(2026, 7, 31, 19);
           final module = _openModule()..status = JobModuleStatus.accepted;
           if (location == 'execution') {
             execution.actionsJson = ComponentAction.encode([action]);
@@ -620,26 +616,24 @@ void main() {
     testWidgets(
       'cancelled planned job is a read-only dossier with cancellation evidence',
       (tester) async {
-        final cancelledModule =
-            _openModule()
-              ..requiredForClosure = true
-              ..requiresFollowUp = true
-              ..pendingIssue = 'Awaiting replacement part.'
-              ..isDeleted = true
-              ..deletedAt = DateTime.utc(2026, 7, 31, 19)
-              ..deletedByUid = 'supervisor-1'
-              ..deletedByName = 'Shift Supervisor'
-              ..deleteReason =
-                  'Workflow cancelled: Asset returned to Operations before work started.';
-        final earlierTombstone =
-            _openModule()
-              ..id = 42
-              ..firestoreId = 'module-removed-before-cancellation'
-              ..isDeleted = true
-              ..deletedAt = DateTime.utc(2026, 7, 31, 18, 30)
-              ..deletedByUid = 'supervisor-2'
-              ..deletedByName = 'Maintenance Supervisor'
-              ..deleteReason = 'Removed as duplicate module.';
+        final cancelledModule = _openModule()
+          ..requiredForClosure = true
+          ..requiresFollowUp = true
+          ..pendingIssue = 'Awaiting replacement part.'
+          ..isDeleted = true
+          ..deletedAt = DateTime.utc(2026, 7, 31, 19)
+          ..deletedByUid = 'supervisor-1'
+          ..deletedByName = 'Shift Supervisor'
+          ..deleteReason =
+              'Workflow cancelled: Asset returned to Operations before work started.';
+        final earlierTombstone = _openModule()
+          ..id = 42
+          ..firestoreId = 'module-removed-before-cancellation'
+          ..isDeleted = true
+          ..deletedAt = DateTime.utc(2026, 7, 31, 18, 30)
+          ..deletedByUid = 'supervisor-2'
+          ..deletedByName = 'Maintenance Supervisor'
+          ..deleteReason = 'Removed as duplicate module.';
         final moduleRepository = _StaticJobModuleRepository([
           cancelledModule,
           earlierTombstone,

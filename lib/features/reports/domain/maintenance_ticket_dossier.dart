@@ -1,5 +1,6 @@
 import '../../audit/models/audit_event_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/domain/burner_attendance_history.dart';
 import '../../maintenance/domain/furnace_stuckup_case.dart';
 import '../../maintenance/domain/issue_lane_plan.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
@@ -33,6 +34,7 @@ StructuredReportDocument buildMaintenanceTicketDossier({
   }
 
   final lanePlan = laneRead.value!;
+  final attendance = readBurnerAttendanceHistory(ticket.metadataJson);
   final hierarchy = ticket.assetHierarchyReference;
   final innerCover = hierarchy?.innerCoverAssociation;
   final closure = ticket.administrativeClosure;
@@ -69,24 +71,45 @@ StructuredReportDocument buildMaintenanceTicketDossier({
     scopeLabel: '$assetLabel / ${ticket.firestoreId ?? 'local-${ticket.id}'}',
     provenance: provenance,
     sections: <StructuredReportSection>[
+      if (attendance.isNotEmpty)
+        StructuredReportSection(
+          title: 'Burner attendance before restoration',
+          subtitle:
+              'These visits recorded work while the issue remained active.',
+          tables: [
+            StructuredReportTable(
+              headers: [
+                'Physical work time',
+                'Recorded time / actor',
+                'Work and outcome',
+              ],
+              rows: [
+                for (final entry in attendance)
+                  [
+                    entry.performedAt.toIso8601String(),
+                    '${entry.recordedAt.toIso8601String()} / ${entry.recordedBy}',
+                    '${entry.remarks}\n${entry.summary}',
+                  ],
+              ],
+            ),
+          ],
+        ),
       StructuredReportSection(
         title: 'Issue identity and context',
         metrics: <StructuredReportMetric>[
           StructuredReportMetric(
             label: 'Lifecycle',
             value: ticket.lifecycleSummaryLabel,
-            tone:
-                ticket.isClosed
-                    ? StructuredReportMetricTone.positive
-                    : StructuredReportMetricTone.warning,
+            tone: ticket.isClosed
+                ? StructuredReportMetricTone.positive
+                : StructuredReportMetricTone.warning,
           ),
           StructuredReportMetric(
             label: 'Critical',
             value: ticket.isCritical ? 'Yes' : 'No',
-            tone:
-                ticket.isCritical
-                    ? StructuredReportMetricTone.danger
-                    : StructuredReportMetricTone.neutral,
+            tone: ticket.isCritical
+                ? StructuredReportMetricTone.danger
+                : StructuredReportMetricTone.neutral,
           ),
           StructuredReportMetric(
             label: 'Lane count',
@@ -101,18 +124,20 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         ],
         fields: <StructuredReportField>[
           StructuredReportField(label: 'Asset', value: assetLabel),
+          if (ticket.continuesIssueId != null)
+            StructuredReportField(
+              label: 'Continues retained concern',
+              value: ticket.continuesIssueId!,
+            ),
           StructuredReportField(
             label: 'Maintenance type',
             value: _enumLabel(ticket.maintenanceType.name),
           ),
           StructuredReportField(
             label: 'Classification',
-            value:
-                ticket.classification == null
-                    ? _value(null)
-                    : maintenanceIssueClassificationLabel(
-                      ticket.classification!,
-                    ),
+            value: ticket.classification == null
+                ? _value(null)
+                : maintenanceIssueClassificationLabel(ticket.classification!),
           ),
           StructuredReportField(
             label: 'Description',
@@ -130,10 +155,9 @@ StructuredReportDocument buildMaintenanceTicketDossier({
           if (innerCover != null)
             StructuredReportField(
               label: 'Inner Cover at event',
-              value:
-                  innerCover.innerCoverSerialNumber == null
-                      ? 'No Inner Cover linked to Base ${innerCover.baseAssetNumber}'
-                      : '${innerCover.innerCoverSerialNumber} linked to Base ${innerCover.baseAssetNumber}',
+              value: innerCover.innerCoverSerialNumber == null
+                  ? 'No Inner Cover linked to Base ${innerCover.baseAssetNumber}'
+                  : '${innerCover.innerCoverSerialNumber} linked to Base ${innerCover.baseAssetNumber}',
             ),
         ],
       ),
@@ -144,17 +168,15 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         fields: <StructuredReportField>[
           StructuredReportField(
             label: 'First acknowledgement',
-            value:
-                ticket.acknowledgedAt == null
-                    ? 'Not recorded'
-                    : '${_dateTime(ticket.acknowledgedAt!)} by ${_value(ticket.acknowledgedByName)}',
+            value: ticket.acknowledgedAt == null
+                ? 'Not recorded'
+                : '${_dateTime(ticket.acknowledgedAt!)} by ${_value(ticket.acknowledgedByName)}',
           ),
           StructuredReportField(
             label: 'Teams involved',
-            value:
-                ticket.teamsInvolved.isEmpty
-                    ? 'Not recorded'
-                    : ticket.teamsInvolved.join(', '),
+            value: ticket.teamsInvolved.isEmpty
+                ? 'Not recorded'
+                : ticket.teamsInvolved.join(', '),
           ),
           if (_hasText(ticket.otherDepartment))
             StructuredReportField(
@@ -243,14 +265,13 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         fields: <StructuredReportField>[
           StructuredReportField(
             label: 'Current outcome',
-            value:
-                !ticket.isClosed
-                    ? 'Issue remains open'
-                    : closure == null
-                    ? 'Technically resolved'
-                    : closure.disposition.name == 'stillRelevant'
-                    ? 'Closed without resolution; still relevant'
-                    : 'Closed without resolution; relevance ended',
+            value: !ticket.isClosed
+                ? 'Issue remains open'
+                : closure == null
+                ? 'Technically resolved'
+                : closure.disposition.name == 'stillRelevant'
+                ? 'Closed without resolution; still relevant'
+                : 'Closed without resolution; relevance ended',
           ),
           if (closure != null)
             StructuredReportField(
@@ -277,10 +298,9 @@ StructuredReportDocument buildMaintenanceTicketDossier({
           ),
           StructuredReportField(
             label: 'Coordination workflow',
-            value:
-                ticket.isWorkflowLinked
-                    ? '${ticket.workflowStateLabel} / ${_value(ticket.workflowAggregateId)}'
-                    : 'Independent',
+            value: ticket.isWorkflowLinked
+                ? '${ticket.workflowStateLabel} / ${_value(ticket.workflowAggregateId)}'
+                : 'Independent',
           ),
           StructuredReportField(
             label: 'Operational event links',
@@ -288,12 +308,11 @@ StructuredReportDocument buildMaintenanceTicketDossier({
           ),
           StructuredReportField(
             label: 'Quality assessment',
-            value:
-                qualityIntent == null
-                    ? 'No quality assessment retained'
-                    : '${_enumLabel(qualityIntent.assessment.name)}; '
-                        'reason ${_value(qualityIntent.warningReason)}; '
-                        'abnormality ${_value(qualityIntent.abnormalityTypeId)}',
+            value: qualityIntent == null
+                ? 'No quality assessment retained'
+                : '${_enumLabel(qualityIntent.assessment.name)}; '
+                      'reason ${_value(qualityIntent.warningReason)}; '
+                      'abnormality ${_value(qualityIntent.abnormalityTypeId)}',
           ),
           if (burnerRead.value != null)
             StructuredReportField(
@@ -318,28 +337,28 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         title: 'Audited Admin / SI corrections',
         subtitle:
             'Before-and-after payloads are preserved verbatim from the available audit events.',
-        paragraphs:
-            orderedCorrectionEvents.isEmpty
-                ? const <String>['No governed Admin/SI correction is recorded.']
-                : <String>[
-                  for (
-                    var index = 0;
-                    index < orderedCorrectionEvents.length;
-                    index++
-                  )
-                    _correctionParagraph(
-                      index + 1,
-                      orderedCorrectionEvents[index],
-                    ),
-                ],
+        paragraphs: orderedCorrectionEvents.isEmpty
+            ? const <String>['No governed Admin/SI correction is recorded.']
+            : <String>[
+                for (
+                  var index = 0;
+                  index < orderedCorrectionEvents.length;
+                  index++
+                )
+                  _correctionParagraph(
+                    index + 1,
+                    orderedCorrectionEvents[index],
+                  ),
+              ],
       ),
       StructuredReportSection(
         title: 'Record assurance',
         fields: <StructuredReportField>[
           StructuredReportField(
             label: 'Synchronization',
-            value:
-                ticket.isSynced ? 'Server-synchronized' : 'Pending local write',
+            value: ticket.isSynced
+                ? 'Server-synchronized'
+                : 'Pending local write',
           ),
           StructuredReportField(label: 'Version', value: '${ticket.version}'),
           StructuredReportField(
@@ -382,16 +401,17 @@ List<List<String>> _laneAccountabilityRows(IssueLanePlan lanePlan) => lanePlan
 List<AuditEvent> maintenanceTicketCorrectionEventsInDossierOrder(
   Iterable<AuditEvent> events,
 ) {
-  final ordered = events.toList(growable: false)..sort((left, right) {
-    final timestampOrder = left.timestamp.compareTo(right.timestamp);
-    if (timestampOrder != 0) return timestampOrder;
-    final leftRemoteId = left.remoteDocumentId;
-    final rightRemoteId = right.remoteDocumentId;
-    if (leftRemoteId != null || rightRemoteId != null) {
-      return (leftRemoteId ?? '').compareTo(rightRemoteId ?? '');
-    }
-    return left.id.compareTo(right.id);
-  });
+  final ordered = events.toList(growable: false)
+    ..sort((left, right) {
+      final timestampOrder = left.timestamp.compareTo(right.timestamp);
+      if (timestampOrder != 0) return timestampOrder;
+      final leftRemoteId = left.remoteDocumentId;
+      final rightRemoteId = right.remoteDocumentId;
+      if (leftRemoteId != null || rightRemoteId != null) {
+        return (leftRemoteId ?? '').compareTo(rightRemoteId ?? '');
+      }
+      return left.id.compareTo(right.id);
+    });
   return List<AuditEvent>.unmodifiable(ordered);
 }
 

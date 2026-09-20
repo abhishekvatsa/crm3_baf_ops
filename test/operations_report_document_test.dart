@@ -7,7 +7,6 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intl/intl.dart';
 import 'package:crm3_baf_ops/features/reports/domain/operations_report_document.dart';
 import 'package:crm3_baf_ops/features/reports/domain/maintenance_ticket_dossier.dart';
 import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
@@ -28,10 +27,17 @@ void main() {
       );
 
       expect(request.orderedSections, operationsReportSectionOrder);
-      expect(request.reportId, 'OPS-260829-101112');
+      expect(request.reportId, startsWith('OPS-260829-101112-'));
+      final second = OperationsReportDocumentRequest.forPreset(
+        preset: request.preset,
+        generatedAt: request.generatedAt,
+        generatedByName: request.generatedByName,
+        generatedByEmail: request.generatedByEmail,
+      );
+      expect(second.reportId, isNot(request.reportId));
       expect(
         request.fileName,
-        'crm3_integrated_operations_report_OPS-260829-101112.pdf',
+        'crm3_integrated_operations_report_${request.reportId}.pdf',
       );
     });
 
@@ -106,11 +112,10 @@ void main() {
       );
     });
 
-    test('plant disruption timestamps use the device local timezone', () {
+    test('plant disruption timestamps use the plant timezone', () {
       final startedAt = DateTime.utc(2026, 8, 29, 23, 45);
       final resolvedAt = startedAt.add(const Duration(hours: 2));
       final asOf = startedAt.add(const Duration(hours: 1));
-      final format = DateFormat('dd MMM yyyy, HH:mm');
 
       final closed =
           OperationsReportPdfService.plantDisruptionTimeCellsForTesting(
@@ -127,36 +132,30 @@ void main() {
             isOpen: true,
           );
 
-      expect(closed[0], format.format(startedAt.toLocal()));
-      expect(closed[1], format.format(resolvedAt.toLocal()));
-      expect(open[1], 'Open at ${format.format(asOf.toLocal())}');
+      expect(closed[0], '30 Aug 2026, 05:15');
+      expect(closed[1], '30 Aug 2026, 07:15');
+      expect(open[1], 'Open at 30 Aug 2026, 06:15');
     });
 
-    test('planned-work lifecycle dates use the device local timezone', () {
+    test('planned-work lifecycle dates use the plant timezone', () {
       final assignedAt = DateTime.utc(2026, 8, 29, 23, 45);
       final completedAt = assignedAt.add(const Duration(hours: 2));
-      final job =
-          JobExecution()
-            ..createdAt = assignedAt
-            ..completedAt = completedAt;
-      final format = DateFormat('dd MMM yyyy');
+      final job = JobExecution()
+        ..createdAt = assignedAt
+        ..completedAt = completedAt;
 
       expect(
         OperationsReportPdfService.plannedJobLifecycleDateCellsForTesting(job),
-        <String>[
-          format.format(assignedAt.toLocal()),
-          format.format(completedAt.toLocal()),
-        ],
+        <String>['30 Aug 2026', '30 Aug 2026'],
       );
     });
 
-    test('Burner observation timestamps use the device local timezone', () {
+    test('Burner observation timestamps use the plant timezone', () {
       final observedAt = DateTime.utc(2026, 8, 29, 23, 45);
-      final format = DateFormat('dd MMM yyyy, HH:mm');
 
       expect(
         OperationsReportPdfService.burnerObservationTimeForTesting(observedAt),
-        format.format(observedAt.toLocal()),
+        '30 Aug 2026, 05:15',
       );
     });
 
@@ -301,25 +300,23 @@ void main() {
           'FINAL-RETAINED-EVIDENCE';
       final tickets = List<MaintenanceRecord>.generate(
         120,
-        (index) =>
-            MaintenanceRecord()
-              ..firestoreId = 'pagination-$index'
-              ..assetType = AssetType.furnace
-              ..assetNumber = (index % 26) + 1
-              ..maintenanceType = MaintenanceType.breakdown
-              ..description =
-                  index == 0
-                      ? longNarrative
-                      : 'Governed maintenance summary row $index with enough '
-                          'narrative content to exercise wrapping and bounded '
-                          'table pagination.'
-              ..routedTo = RoutedTo.mechanical
-              ..status = TicketStatus.resolved
-              ..isResolved = true
-              ..startDate = generatedAt.subtract(Duration(hours: index + 2))
-              ..endDate = generatedAt.subtract(Duration(hours: index + 1))
-              ..createdAt = generatedAt.subtract(Duration(hours: index + 2))
-              ..updatedAt = generatedAt.subtract(Duration(hours: index + 1)),
+        (index) => MaintenanceRecord()
+          ..firestoreId = 'pagination-$index'
+          ..assetType = AssetType.furnace
+          ..assetNumber = (index % 26) + 1
+          ..maintenanceType = MaintenanceType.breakdown
+          ..description = index == 0
+              ? longNarrative
+              : 'Governed maintenance summary row $index with enough '
+                    'narrative content to exercise wrapping and bounded '
+                    'table pagination.'
+          ..routedTo = RoutedTo.mechanical
+          ..status = TicketStatus.resolved
+          ..isResolved = true
+          ..startDate = generatedAt.subtract(Duration(hours: index + 2))
+          ..endDate = generatedAt.subtract(Duration(hours: index + 1))
+          ..createdAt = generatedAt.subtract(Duration(hours: index + 2))
+          ..updatedAt = generatedAt.subtract(Duration(hours: index + 1)),
         growable: false,
       );
       final report = OperationsReport(
@@ -347,16 +344,17 @@ void main() {
         openDisruptionCount: 0,
         disruptionDuration: Duration.zero,
       );
-      final request = OperationsReportDocumentRequest.forPreset(
-        preset: OperationsReportDocumentPreset.custom,
-        generatedAt: generatedAt,
-        generatedByName: 'Test Supervisor',
-        generatedByEmail: 'supervisor@example.com',
-      ).copyWith(
-        sections: const <OperationsReportSection>{
-          OperationsReportSection.maintenanceIssues,
-        },
-      );
+      final request =
+          OperationsReportDocumentRequest.forPreset(
+            preset: OperationsReportDocumentPreset.custom,
+            generatedAt: generatedAt,
+            generatedByName: 'Test Supervisor',
+            generatedByEmail: 'supervisor@example.com',
+          ).copyWith(
+            sections: const <OperationsReportSection>{
+              OperationsReportSection.maintenanceIssues,
+            },
+          );
 
       final bytes = await OperationsReportPdfService.build(
         report: report,
@@ -381,22 +379,20 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: Builder(
-              builder:
-                  (context) => Center(
-                    child: FilledButton(
-                      onPressed: () async {
-                        result = await showOperationsReportComposer(
-                          context: context,
-                          generatedByName: 'Test Supervisor',
-                          generatedByEmail: 'supervisor@example.com',
-                          hasFurnaceScope: true,
-                          provenance:
-                              const ReportProvenance.applicationSnapshot(),
-                        );
-                      },
-                      child: const Text('Open composer'),
-                    ),
-                  ),
+              builder: (context) => Center(
+                child: FilledButton(
+                  onPressed: () async {
+                    result = await showOperationsReportComposer(
+                      context: context,
+                      generatedByName: 'Test Supervisor',
+                      generatedByEmail: 'supervisor@example.com',
+                      hasFurnaceScope: true,
+                      provenance: const ReportProvenance.applicationSnapshot(),
+                    );
+                  },
+                  child: const Text('Open composer'),
+                ),
+              ),
             ),
           ),
         ),
@@ -437,19 +433,16 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: Builder(
-              builder:
-                  (context) => FilledButton(
-                    onPressed:
-                        () => showOperationsReportComposer(
-                          context: context,
-                          generatedByName: 'Test Supervisor',
-                          generatedByEmail: 'supervisor@example.com',
-                          hasFurnaceScope: true,
-                          provenance:
-                              const ReportProvenance.applicationSnapshot(),
-                        ),
-                    child: const Text('Open composer'),
-                  ),
+              builder: (context) => FilledButton(
+                onPressed: () => showOperationsReportComposer(
+                  context: context,
+                  generatedByName: 'Test Supervisor',
+                  generatedByEmail: 'supervisor@example.com',
+                  hasFurnaceScope: true,
+                  provenance: const ReportProvenance.applicationSnapshot(),
+                ),
+                child: const Text('Open composer'),
+              ),
             ),
           ),
         ),

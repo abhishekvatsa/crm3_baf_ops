@@ -386,6 +386,34 @@ describe('operational event mutation', () => {
     expect(memory.writes).toHaveLength(writes);
   });
 
+  test('new acceptance replay detects changed supporting audit content', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', request());
+    const auditPath = `operational_event_audits/operational_event_${IDS.create}`;
+    const audit = memory.store.get(auditPath);
+    audit.after.title = 'Altered after acceptance';
+    memory.store.set(auditPath, audit);
+
+    await expect(invoke(memory, 'ops-1', request())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'operational-event-replay-evidence-drift'},
+    });
+  });
+
+  test('new acceptance replay detects changed timestamp evidence', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'ops-1', request());
+    const auditPath = `operational_event_audits/operational_event_${IDS.create}`;
+    const audit = memory.store.get(auditPath);
+    audit.after.startedAt = new Date('2026-08-14T11:00:00.000Z');
+    memory.store.set(auditPath, audit);
+
+    await expect(invoke(memory, 'ops-1', request())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'operational-event-replay-evidence-drift'},
+    });
+  });
+
   test('receipt replay still checks current account authority and actor identity', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'ops-1', request());
@@ -681,12 +709,317 @@ describe('operational event mutation', () => {
     },
   );
 
-  test('audit snapshots preserve every corrected operational field', async () => {
+  test('narrowing scope is held while issues are linked under the present one', async () => {
     const memory = fakeDb({
       ...baseSeed(),
       [`operational_events/${IDS.event}`]: persistedEvent({
         issueLinkIds: ['event_issue_existing'],
         linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the affected scope after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset],
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'operational-event-scope-change-linked-issues',
+      }),
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('allows a safe same-kind scope expansion while issues are linked', async () => {
+    const secondAsset = '99999999-9999-4999-8999-999999999999';
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`asset_instances/${secondAsset}`]: {
+        schemaVersion: 1,
+        assetInstanceId: secondAsset,
+        assetClassId: IDS.assetClass,
+        assetNumber: 8,
+        name: 'Furnace 8',
+        status: 'active',
+        version: 1,
+      },
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset],
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Record the additional affected furnace after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset, secondAsset],
+      },
+    })).resolves.toMatchObject({ok: true, version: 2});
+    expect(memory.store.get(`operational_events/${IDS.event}`))
+      .toMatchObject({
+        affectedAssetInstanceIds: [IDS.asset, secondAsset],
+        issueLinkIds: ['event_issue_existing'],
+      });
+  });
+
+  function resolvedEvent(overrides = {}) {
+    return persistedEvent({
+      status: 'resolved',
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One',
+      resolutionNote: 'Supply restored.',
+      ...overrides,
+    });
+  }
+
+  function withdrawRequest(overrides = {}) {
+    return {
+      requestId: IDS.update,
+      operation: 'WITHDRAW_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Recorded twice by two shifts; this copy never happened.',
+      ...overrides,
+    };
+  }
+
+  test('an entry recorded by mistake is withdrawn without editing it', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    const result = await invoke(memory, 'ops-1', withdrawRequest());
+
+    expect(result).toMatchObject({ok: true});
+    const event = memory.store.get(`operational_events/${IDS.event}`);
+    // The interval is evidence of what was recorded and is not touched. What
+    // changes is whether it counts.
+    expect(event).toMatchObject({
+      status: 'resolved',
+      startedAt: new Date('2026-08-14T10:00:00.000Z'),
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      isWithdrawn: true,
+      withdrawalReason: 'Recorded twice by two shifts; this copy never happened.',
+      withdrawnByUid: 'ops-1',
+    });
+  });
+
+  test('a withdrawal is audited like any other governed change', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    await invoke(memory, 'ops-1', withdrawRequest());
+
+    const audit = memory.store.get(
+      `operational_event_audits/operational_event_${IDS.update}`,
+    );
+    expect(audit).toMatchObject({
+      reason: 'Recorded twice by two shifts; this copy never happened.',
+    });
+    // An event that was never withdrawn carries no withdrawal field at all,
+    // so its shape is exactly what it has always been.
+    expect(audit.before.isWithdrawn).toBeUndefined();
+    expect(audit.after).toMatchObject({isWithdrawn: true});
+  });
+
+  test('a withdrawn entry is not withdrawn twice', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'Already withdrawn once.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        withdrawnByName: 'Operations One',
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', withdrawRequest({
+      requestId: IDS.resolve,
+    }))).rejects.toMatchObject({
+      details: {reasonCode: 'operational-event-already-withdrawn'},
+    });
+  });
+
+  test('malformed withdrawal evidence is rejected before any operation uses it', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'Recorded twice.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        // A withdrawn record without the accountable display name is not a
+        // valid effective-disposition projection.
+        withdrawnByName: null,
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', withdrawRequest({
+      requestId: IDS.resolve,
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-projection-malformed'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a withdrawn entry is not edited, resolved or reopened afterwards',
+    async () => {
+      const memory = fakeDb({
+        ...baseSeed(),
+        [`operational_events/${IDS.event}`]: resolvedEvent({
+          isWithdrawn: true,
+          withdrawalReason: 'Recorded twice.',
+          withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+          withdrawnByUid: 'ops-1',
+          withdrawnByName: 'Operations One',
+        }),
+      });
+
+      // Withdrawing says this entry does not describe anything. Reopening it
+      // would be the fake recurrence the whole route exists to avoid.
+      await expect(invoke(memory, 'ops-1', {
+        requestId: IDS.reopen,
+        operation: 'REOPEN_OPERATIONAL_EVENT',
+        eventId: IDS.event,
+        expectedVersion: 1,
+        reason: 'Trying to work a withdrawn entry.',
+      })).rejects.toMatchObject({
+        details: {reasonCode: 'operational-event-withdrawn'},
+      });
+    });
+
+  test('an ordinary event carries no withdrawal', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: resolvedEvent(),
+    });
+
+    await invoke(memory, 'ops-1', {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'It genuinely happened again.',
+    });
+
+    expect(memory.store.get(`operational_events/${IDS.event}`).isWithdrawn)
+      .toBeUndefined();
+  });
+
+  test('correcting the start is held while issues are linked', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    // A link's identity is derived from the occurrence start. Correcting the
+    // start would leave every existing link stored under an identity nothing
+    // can reach again, so the association is neither current nor relinkable.
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the start time after reviewing the log.',
+      eventDraft: {
+        ...request().eventDraft,
+        startedAt: '2026-08-14T11:15:00.000Z',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'operational-event-start-change-linked-issues',
+      }),
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('correcting the start commits when nothing is linked', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: [],
+        linkedIssueIds: [],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the start time after reviewing the log.',
+      eventDraft: {
+        ...request().eventDraft,
+        startedAt: '2026-08-14T11:15:00.000Z',
+      },
+    })).resolves.toMatchObject({ok: true});
+  });
+
+  test('a correction that leaves the scope alone still commits', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the description after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        description: 'Incoming supply was lost across the annealing shop line.',
+      },
+    })).resolves.toMatchObject({ok: true});
+    // A correction that touches neither the scope nor the start leaves every
+    // link exactly as it was.
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      issueLinkIds: ['event_issue_existing'],
+      linkedIssueIds: ['maintenance_issue_existing'],
+    });
+  });
+
+  test('audit snapshots preserve every corrected operational field', async () => {
+    // No links: correcting a start is held while any exist, because a link's
+    // identity is derived from it. The subject here is the audit snapshot.
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: [],
+        linkedIssueIds: [],
       }),
     });
     await invoke(memory, 'ops-1', {
@@ -713,10 +1046,58 @@ describe('operational event mutation', () => {
         startedAt: new Date('2026-08-14T09:45:00.000Z'),
       },
     });
-    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
-      issueLinkIds: ['event_issue_existing'],
-      linkedIssueIds: ['maintenance_issue_existing'],
+  });
+
+  test('refuses an operational-event audit before it exceeds the document limit', async () => {
+    const oversizedText = 'अ'.repeat(2000);
+    const oversizedNote = 'ब'.repeat(1000);
+    const completedIntervals = Array.from({length: 100}, (_, index) => {
+      const startedAt = new Date(
+        Date.UTC(2026, 7, 5, 0) + index * 2 * 60 * 60 * 1000,
+      );
+      const resolvedAt = new Date(startedAt.getTime() + 60 * 60 * 1000);
+      return {
+      eventType: 'powerTrip',
+      title: 'Incoming power interruption',
+      description: oversizedText,
+      severity: 'critical',
+      startedAt,
+      resolvedAt,
+      scope: 'plantWide',
+      affectedAssetClassIds: [],
+      affectedAssetInstanceIds: [],
+      issueLinkIds: [],
+      linkedIssueIds: [],
+      resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One',
+      resolutionNote: oversizedNote,
+      };
     });
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        completedIntervals,
+      }),
+    });
+
+    await expect(invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the description after reviewing the retained history.',
+      eventDraft: {
+        ...request().eventDraft,
+        description: 'Incoming power was confirmed as a recurring interruption.',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'operational-event-storage-bound',
+        label: expect.stringMatching(/^operational event|operational-event audit$/),
+      },
+    });
+    expect(memory.writes).toHaveLength(0);
   });
 
   test('resolves and reopens with supervisory evidence', async () => {

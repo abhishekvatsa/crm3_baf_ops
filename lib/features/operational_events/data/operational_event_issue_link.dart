@@ -179,7 +179,13 @@ class OperationalEventIssueLink {
       field: 'issueStatusAtLink',
       source: source,
     );
-    const statuses = <String>{'open', 'acknowledged', 'inProgress', 'resolved'};
+    const statuses = <String>{
+      'open',
+      'acknowledged',
+      'inProgress',
+      'resolved',
+      'closedWithoutResolution',
+    };
     if (!statuses.contains(status)) {
       throw PersistedDataFormatException(
         field: 'issueStatusAtLink',
@@ -192,7 +198,9 @@ class OperationalEventIssueLink {
       field: 'issueResolvedAtLink',
       source: source,
     );
-    if ((status == 'resolved') != resolved) {
+    final statusHasResolution =
+        status == 'resolved' || status == 'closedWithoutResolution';
+    if (statusHasResolution != resolved) {
       throw PersistedDataFormatException(
         field: 'issueResolvedAtLink',
         source: source,

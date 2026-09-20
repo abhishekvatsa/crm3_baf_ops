@@ -8,6 +8,7 @@ import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../auth/presentation/current_actor_gate.dart';
 import '../../../directives/data/operational_directive_model.dart';
 import '../../../directives/providers/operational_directive_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
@@ -65,18 +66,16 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
           ),
           Expanded(
             child: directivesAsync.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Loading directive records',
-                    color: BafColors.admin,
-                  ),
-              error:
-                  (err, _) => Center(
-                    child: Text(
-                      'Error: $err',
-                      style: const TextStyle(color: BafColors.danger),
-                    ),
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Loading directive records',
+                color: BafColors.admin,
+              ),
+              error: (err, _) => Center(
+                child: Text(
+                  'Error: $err',
+                  style: const TextStyle(color: BafColors.danger),
+                ),
+              ),
               data: (directives) {
                 final filtered = directives.where(_matchesSearch).toList();
                 if (filtered.isEmpty) {
@@ -90,10 +89,10 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
                     BafSpacing.xl,
                   ),
                   itemCount: filtered.length,
-                  separatorBuilder:
-                      (_, __) => const SizedBox(height: BafSpacing.sm),
-                  itemBuilder:
-                      (ctx, idx) => _DirectiveCard(directive: filtered[idx]),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: BafSpacing.sm),
+                  itemBuilder: (ctx, idx) =>
+                      _DirectiveCard(directive: filtered[idx]),
                 );
               },
             ),
@@ -106,22 +105,21 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
   bool _matchesSearch(OperationalDirective directive) {
     if (_searchQuery.isEmpty) return true;
 
-    final haystack =
-        [
-          directive.title,
-          directive.description,
-          directive.directedTo.name,
-          directive.status.name,
-          directive.priority.name,
-          directive.assetType?.name,
-          directive.assetNumber?.toString(),
-          directive.component,
-          directive.subsystem,
-          directive.tag,
-          directive.hierarchyPath?.join(' '),
-          directiveOwnerName(directive),
-          directive.remarks,
-        ].whereType<String>().join(' ').toLowerCase();
+    final haystack = [
+      directive.title,
+      directive.description,
+      directive.directedTo.name,
+      directive.status.name,
+      directive.priority.name,
+      directive.assetType?.name,
+      directive.assetNumber?.toString(),
+      directive.component,
+      directive.subsystem,
+      directive.tag,
+      directive.hierarchyPath?.join(' '),
+      directiveOwnerName(directive),
+      directive.remarks,
+    ].whereType<String>().join(' ').toLowerCase();
 
     return haystack.contains(_searchQuery);
   }
@@ -249,9 +247,11 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
               IconButton(
                 tooltip: 'Edit directive',
                 icon: const Icon(Icons.edit_rounded, color: BafColors.assets),
-                onPressed: () => _showEditDialog(d),
+                onPressed: d.isClosed || d.isDeleted
+                    ? null
+                    : () => _showEditDialog(d),
               ),
-              if (!d.isDeleted)
+              if (!d.isDeleted && !d.isClosed)
                 IconButton(
                   tooltip: 'Mark directive deleted',
                   icon: const Icon(
@@ -341,18 +341,24 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       return;
     }
 
+    final repository = ref.read(directiveRepositoryProvider);
+    final syncCoordinator = ref.read(syncCoordinatorProvider);
     final updated = await showDialog<OperationalDirective>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AdminEditDirectiveDialog(directive: directive),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: appUser.uid,
+        permission: (actor) => actor.canDeleteDirective,
+        child: AdminEditDirectiveDialog(
+          directive: directive,
+          onSave: (updated) async { await repository.updateDirective(updated, actor: appUser); },
+        ),
+      ),
     );
     if (!mounted || updated == null) return;
 
     try {
-      final repository = ref.read(directiveRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await repository.updateDirective(updated, actor: appUser);
 
       final syncOutcome = await syncCoordinator.runFullSyncWithResult(
         reason: 'admin_directive_edited',
@@ -406,12 +412,11 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
     final decision = await showDialog<AdminDeleteDecision>(
       context: context,
-      builder:
-          (_) => const AdminDeleteReasonDialog(
-            title: 'Mark Directive as Deleted',
-            message:
-                'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
-          ),
+      builder: (_) => const AdminDeleteReasonDialog(
+        title: 'Mark Directive as Deleted',
+        message:
+            'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
+      ),
     );
     if (!mounted || decision == null) return;
 

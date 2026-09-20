@@ -14,6 +14,7 @@ import type {
 import {
   getTokenLookupForInstallation,
   getTokenLookupsForApprovedUsers,
+  getTokenLookupsForUser,
   getTokenLookupsForRoles,
   groupNotificationRecipientsByToken,
   sendNotification,
@@ -144,6 +145,21 @@ async function prepareCriticalAlarmNotification(args: {
   };
 }
 
+async function revalidateCriticalAlarmRecipients(
+  db: admin.firestore.Firestore,
+  recipients: ReadonlyArray<UserTokenLookup>,
+): Promise<ReadonlyArray<UserTokenLookup>> {
+  const uids = [...new Set(recipients.map((recipient) => recipient.uid))];
+  const currentByUid = new Map<string, ReadonlyArray<UserTokenLookup>>();
+  await Promise.all(uids.map(async (uid) => {
+    currentByUid.set(uid, await getTokenLookupsForUser(notificationDb(db), uid));
+  }));
+  return recipients.filter((recipient) =>
+    (currentByUid.get(recipient.uid) ?? []).some((current) =>
+      current.fcmToken === recipient.fcmToken &&
+      current.installationId === recipient.installationId));
+}
+
 async function processCriticalAlarmRaisedNotification(args: {
   db: admin.firestore.Firestore;
   data: admin.firestore.DocumentData;
@@ -164,6 +180,7 @@ async function processCriticalAlarmRaisedNotification(args: {
 
   const plan = await prepareCriticalAlarmNotification({db, data, sourceEventId});
   if (plan == null) return;
+  const alarmId = String(plan.notificationData.alarmId ?? "");
   const recipientGroups = groupNotificationRecipientsByToken(plan.recipients);
 
   const failures: unknown[] = [];
@@ -184,7 +201,30 @@ async function processCriticalAlarmRaisedNotification(args: {
           recipientGroup.fcmToken,
         ),
         sourceDocumentPath: `maintenance_workflow_events/${sourceEventId}`,
-        prepare: async () => recipientPlan,
+        prepare: async () => {
+          // The plan was built before recipients were discovered, and an
+          // emergency alert that is no longer true must not go out. Re-reading
+          // the alarm here narrows that window; it cannot close it, because
+          // nothing spans Firestore and the delivery service.
+          const current = await db.collection("critical_alarms")
+            .doc(alarmId).get();
+          const alarm = current.data();
+          if (!current.exists ||
+              !isNotifiableCriticalAlarmStatus(alarm?.status)) {
+            logger.warn("Critical alarm is no longer notifiable at dispatch", {
+              eventId: sourceEventId,
+              alarmId,
+              status: typeof alarm?.status === "string" ? alarm.status : null,
+            });
+            return null;
+          }
+          const currentRecipients = await revalidateCriticalAlarmRecipients(
+            db,
+            recipientPlan.recipients,
+          );
+          if (currentRecipients.length === 0) return null;
+          return {...recipientPlan, recipients: currentRecipients};
+        },
         dispatch: (prepared): Promise<SendOutcome> => sendNotification({
           db: notificationDb(db),
           messaging: admin.messaging() as unknown as MessagingLike,
@@ -335,6 +375,61 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
             };
           }
           if (isCriticalAlarmEventType(eventType)) return null;
+          const isEscalation = eventType.endsWith("Escalated") ||
+            eventType === "lane.escalated";
+          if (isEscalation) {
+            const sourceCollection = typeof payload.sourceCollection === "string"
+              ? payload.sourceCollection
+              : "";
+            const sourceDocumentId = typeof payload.sourceDocumentId === "string"
+              ? payload.sourceDocumentId
+              : "";
+            const sourceVersion = typeof payload.sourceVersion === "number"
+              ? payload.sourceVersion
+              : null;
+            const escalationTier = typeof payload.escalationTier === "number"
+              ? payload.escalationTier
+              : null;
+            if ((sourceCollection !== "job_lanes" &&
+                    sourceCollection !== "compliance_requests") ||
+                sourceDocumentId.length === 0 ||
+                sourceVersion == null || escalationTier == null) {
+              logger.warn("Escalation notification has incomplete source binding", {
+                eventId: sourceEventId,
+                eventType,
+              });
+              return null;
+            }
+            const source = await db.collection(sourceCollection)
+              .doc(sourceDocumentId).get();
+            const current = source.data();
+            const currentVersion = typeof current?.version === "number"
+              ? current.version
+              : null;
+            const identityMatches = sourceCollection === "job_lanes"
+              ? current?.workflowId === aggregateId &&
+                current?.laneKey === laneKey &&
+                current?.status === "pending"
+              : current?.linkedWorkflowId === aggregateId &&
+                current?.targetLaneKey === laneKey &&
+                ((eventType === "compliance.acknowledgementEscalated" &&
+                    current?.status === "raised") ||
+                  (eventType === "compliance.completionEscalated" &&
+                    (current?.status === "acknowledged" ||
+                      current?.status === "complied")));
+            if (!source.exists || current == null ||
+                currentVersion !== sourceVersion ||
+                current.escalationTier !== escalationTier ||
+                !identityMatches) {
+              logger.info("Escalation notification is no longer current", {
+                eventId: sourceEventId,
+                sourceCollection,
+                sourceDocumentId,
+                eventType,
+              });
+              return null;
+            }
+          }
           let roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -354,8 +449,6 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
             notificationDb(db),
             roles,
           );
-          const isEscalation = eventType.endsWith("Escalated") ||
-            eventType === "lane.escalated";
           const isEquipmentEvent = eventType.startsWith("equipment.");
           const assetTypeKey = typeof payload.assetTypeKey === "string"
             ? payload.assetTypeKey
@@ -370,7 +463,7 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               ? `Maintenance escalation T${escalationTier ?? 1}`
               : "Maintenance workflow update",
             body: isEscalation
-              ? `${laneKey?.toUpperCase() ?? "Workflow"} action is overdue`
+              ? `An overdue ${laneKey?.toUpperCase() ?? "workflow"} action was reported. Open the app for its current status.`
               : eventType || "Workflow state changed",
             notificationData: {
               route: isEquipmentEvent

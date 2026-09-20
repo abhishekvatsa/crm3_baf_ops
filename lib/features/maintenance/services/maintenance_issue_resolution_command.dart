@@ -37,6 +37,10 @@ WorkflowCommand buildMaintenanceIssueResolutionCommand({
   final assigned = laneRead.value!.assignedLanes;
   final teams = <String>{...assigned, ...teamsInvolved}.toList(growable: false);
   final actionList = actions.toList(growable: false);
+  final burnerActions = actionList.where((action) => action.burnerOutcome != null);
+  final attendanceOnly = burnerActions.any(
+    (action) => action.burnerOutcome != 'returnedToService',
+  );
 
   return WorkflowCommandFactory.create(
     type: WorkflowCommandType.resolveMaintenanceTicket,
@@ -49,6 +53,10 @@ WorkflowCommand buildMaintenanceIssueResolutionCommand({
       'teamsInvolved': teams,
       'actionsJson': ComponentAction.encode(actionList),
       'actionTargetContractVersion': 1,
+      if (burnerActions.isNotEmpty) ...{
+        'burnerAttendanceContractVersion': 1,
+        'attendanceOnly': attendanceOnly,
+      },
     },
   );
 }
@@ -59,10 +67,11 @@ void validateMaintenanceIssueResolutionReceipt({
   required Iterable<String> assignedLanes,
 }) {
   final completed = receipt.result['completedLanes'];
-  final expected = assignedLanes.toList(growable: false);
+  final attendanceOnly = command.payload['attendanceOnly'] == true;
+  final expected = attendanceOnly ? <String>[] : assignedLanes.toList(growable: false);
   if (command.type != WorkflowCommandType.resolveMaintenanceTicket ||
       receipt.commandId != command.commandId ||
-      receipt.resultKey != 'maintenance-ticket-resolved' ||
+      receipt.resultKey != (attendanceOnly ? 'maintenance-ticket-attendance-recorded' : 'maintenance-ticket-resolved') ||
       receipt.aggregateVersion != command.expectedVersion + 1 ||
       receipt.result['ticketId'] != command.aggregateId ||
       receipt.result['auditId'] !=

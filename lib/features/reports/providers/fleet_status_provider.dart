@@ -18,10 +18,7 @@ class FleetStatusFilter {
   final AssetType assetType;
   final int? assetNumber;
 
-  const FleetStatusFilter({
-    required this.assetType,
-    this.assetNumber,
-  });
+  const FleetStatusFilter({required this.assetType, this.assetNumber});
 
   bool get hasExactAsset => assetNumber != null;
 
@@ -37,72 +34,83 @@ class FleetStatusFilter {
 }
 
 final fleetStatusProvider =
-StreamProvider.family<List<AssetFleetStatus>, AssetType>((ref, assetType) {
-  final maintenanceRepo = ref.watch(maintenanceRepositoryProvider);
-  final plannedRepo = ref.watch(plannedRepositoryProvider);
-  final workflowRepo = ref.watch(workflowRepositoryProvider);
+    StreamProvider.family<List<AssetFleetStatus>, AssetType>((ref, assetType) {
+      final maintenanceRepo = ref.watch(maintenanceRepositoryProvider);
+      final plannedRepo = ref.watch(plannedRepositoryProvider);
+      final workflowRepo = ref.watch(workflowRepositoryProvider);
 
-  return _combineLatest3<List<MaintenanceRecord>, List<JobExecution>,
-      List<EquipmentStatusRecord>, List<AssetFleetStatus>>(
-    maintenanceRepo.watchOpenTicketsByAssetType(
-      assetType,
-      limit: _fleetStatusOpenTicketLimit,
-    ),
-    plannedRepo.watchExecutionsByAssetType(
-      assetType,
-      limit: _fleetStatusExecutionHistoryLimit,
-    ),
-    workflowRepo.watchEquipmentByState(null),
-    (typeTickets, typeExecutions, equipment) => _buildFleetStatus(
-      assetType: assetType,
-      typeTickets: typeTickets,
-      typeExecutions: typeExecutions,
-      equipment: equipment,
-    ),
-  );
-});
+      return _combineLatest3<
+        List<MaintenanceRecord>,
+        List<JobExecution>,
+        List<EquipmentStatusRecord>,
+        List<AssetFleetStatus>
+      >(
+        maintenanceRepo.watchOpenTicketsByAssetType(
+          assetType,
+          limit: _fleetStatusOpenTicketLimit,
+        ),
+        plannedRepo.watchExecutionsByAssetType(
+          assetType,
+          limit: _fleetStatusExecutionHistoryLimit,
+        ),
+        workflowRepo.watchEquipmentByState(null),
+        (typeTickets, typeExecutions, equipment) => _buildFleetStatus(
+          assetType: assetType,
+          typeTickets: typeTickets,
+          typeExecutions: typeExecutions,
+          equipment: equipment,
+        ),
+      );
+    });
 
 final filteredFleetStatusProvider =
-StreamProvider.family<List<AssetFleetStatus>, FleetStatusFilter>((ref, filter) {
-  final maintenanceRepo = ref.watch(maintenanceRepositoryProvider);
-  final plannedRepo = ref.watch(plannedRepositoryProvider);
-  final workflowRepo = ref.watch(workflowRepositoryProvider);
+    StreamProvider.family<List<AssetFleetStatus>, FleetStatusFilter>((
+      ref,
+      filter,
+    ) {
+      final maintenanceRepo = ref.watch(maintenanceRepositoryProvider);
+      final plannedRepo = ref.watch(plannedRepositoryProvider);
+      final workflowRepo = ref.watch(workflowRepositoryProvider);
 
-  final ticketStream = filter.hasExactAsset
-      ? maintenanceRepo.watchOpenTicketsForAsset(
-          filter.assetType,
-          filter.assetNumber!,
-          limit: _fleetStatusExactAssetOpenTicketLimit,
-        )
-      : maintenanceRepo.watchOpenTicketsByAssetType(
-          filter.assetType,
-          limit: _fleetStatusOpenTicketLimit,
-        );
-  final executionStream = filter.hasExactAsset
-      ? plannedRepo.watchExecutionsForAsset(
-          filter.assetType,
-          filter.assetNumber!,
-          limit: _fleetStatusExactAssetExecutionLimit,
-        )
-      : plannedRepo.watchExecutionsByAssetType(
-          filter.assetType,
-          limit: _fleetStatusExecutionHistoryLimit,
-        );
+      final ticketStream = filter.hasExactAsset
+          ? maintenanceRepo.watchOpenTicketsForAsset(
+              filter.assetType,
+              filter.assetNumber!,
+              limit: _fleetStatusExactAssetOpenTicketLimit,
+            )
+          : maintenanceRepo.watchOpenTicketsByAssetType(
+              filter.assetType,
+              limit: _fleetStatusOpenTicketLimit,
+            );
+      final executionStream = filter.hasExactAsset
+          ? plannedRepo.watchExecutionsForAsset(
+              filter.assetType,
+              filter.assetNumber!,
+              limit: _fleetStatusExactAssetExecutionLimit,
+            )
+          : plannedRepo.watchExecutionsByAssetType(
+              filter.assetType,
+              limit: _fleetStatusExecutionHistoryLimit,
+            );
 
-  return _combineLatest3<List<MaintenanceRecord>, List<JobExecution>,
-      List<EquipmentStatusRecord>, List<AssetFleetStatus>>(
-    ticketStream,
-    executionStream,
-    workflowRepo.watchEquipmentByState(null),
-    (tickets, executions, equipment) => _buildFleetStatus(
-      assetType: filter.assetType,
-      typeTickets: tickets,
-      typeExecutions: executions,
-      equipment: equipment,
-      exactAssetNumber: filter.assetNumber,
-    ),
-  );
-});
+      return _combineLatest3<
+        List<MaintenanceRecord>,
+        List<JobExecution>,
+        List<EquipmentStatusRecord>,
+        List<AssetFleetStatus>
+      >(
+        ticketStream,
+        executionStream,
+        workflowRepo.watchEquipmentByState(null),
+        (tickets, executions, equipment) => _buildFleetStatus(
+          assetType: filter.assetType,
+          typeTickets: tickets,
+          typeExecutions: executions,
+          equipment: equipment,
+          exactAssetNumber: filter.assetNumber,
+        ),
+      );
+    });
 
 List<AssetFleetStatus> _buildFleetStatus({
   required AssetType assetType,
@@ -131,7 +139,7 @@ List<AssetFleetStatus> _buildFleetStatus({
     if (!ticket.isResolved) {
       openTicketCountsByAsset.update(
         ticket.assetNumber,
-            (count) => count + 1,
+        (count) => count + 1,
         ifAbsent: () => 1,
       );
     }
@@ -153,12 +161,17 @@ List<AssetFleetStatus> _buildFleetStatus({
   return sortedNumbers.map((assetNumber) {
     final completedExecutions =
         completedExecutionsByAsset[assetNumber] ?? <JobExecution>[];
-    completedExecutions.sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
+    completedExecutions.sort(
+      (a, b) => b.completedAt!.compareTo(a.completedAt!),
+    );
 
     final recentJobs = completedExecutions.take(3).toList();
-    final lastJob = completedExecutions.isNotEmpty ? completedExecutions.first : null;
-    final daysSince =
-    lastJob == null ? null : now.difference(lastJob.completedAt!).inDays;
+    final lastJob = completedExecutions.isNotEmpty
+        ? completedExecutions.first
+        : null;
+    final daysSince = lastJob == null
+        ? null
+        : now.difference(lastJob.completedAt!).inDays;
 
     return AssetFleetStatus(
       assetNumber: assetNumber,
@@ -205,42 +218,54 @@ Stream<R> _combineLatest3<A, B, C, R>(
 
   controller = StreamController<R>(
     onListen: () {
-      subscriptionA = streamA.listen((value) {
-        latestA = value;
-        hasA = true;
-        emitIfReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        hasA = false;
-        latestA = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      }, onDone: () {
-        doneA = true;
-        closeIfDone();
-      });
-      subscriptionB = streamB.listen((value) {
-        latestB = value;
-        hasB = true;
-        emitIfReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        hasB = false;
-        latestB = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      }, onDone: () {
-        doneB = true;
-        closeIfDone();
-      });
-      subscriptionC = streamC.listen((value) {
-        latestC = value;
-        hasC = true;
-        emitIfReady();
-      }, onError: (Object error, StackTrace stackTrace) {
-        hasC = false;
-        latestC = null;
-        if (!controller.isClosed) controller.addError(error, stackTrace);
-      }, onDone: () {
-        doneC = true;
-        closeIfDone();
-      });
+      subscriptionA = streamA.listen(
+        (value) {
+          latestA = value;
+          hasA = true;
+          emitIfReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          hasA = false;
+          latestA = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+        onDone: () {
+          doneA = true;
+          closeIfDone();
+        },
+      );
+      subscriptionB = streamB.listen(
+        (value) {
+          latestB = value;
+          hasB = true;
+          emitIfReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          hasB = false;
+          latestB = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+        onDone: () {
+          doneB = true;
+          closeIfDone();
+        },
+      );
+      subscriptionC = streamC.listen(
+        (value) {
+          latestC = value;
+          hasC = true;
+          emitIfReady();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          hasC = false;
+          latestC = null;
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+        onDone: () {
+          doneC = true;
+          closeIfDone();
+        },
+      );
     },
     onCancel: () async {
       await subscriptionA?.cancel();

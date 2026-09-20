@@ -2,18 +2,34 @@ part of 'sync_service.dart';
 
 extension _SyncServiceDirectivesAbnormalities on SyncService {
   Future<void> _syncDirectives() async {
-    final unsynced = await _directiveRepo.getUnsyncedDirectives();
+    final ordinaryOwner = OrdinaryDirectiveCommands(
+      actorUid: _rejectionOwnerUidLookup,
+    );
+    final outcomes = _directiveRepo is IsarDirectiveRepository
+        ? await ordinaryOwner.checkAll()
+        : (succeeded: 0, failed: 0);
+    lastSuccessCount += outcomes.succeeded;
+    lastFailureCount += outcomes.failed;
+    final ownedIds = _directiveRepo is IsarDirectiveRepository
+        ? await ordinaryOwner.ownedDirectiveIds()
+        : const <String>{};
+    final unsynced = <OperationalDirective>[];
+    for (final record in await _directiveRepo.getUnsyncedDirectives()) {
+      if (_directiveRepo is IsarDirectiveRepository &&
+          record.firestoreId != null &&
+          ownedIds.contains(record.firestoreId!)) {
+        continue;
+      }
+      unsynced.add(record);
+    }
     if (unsynced.isEmpty) {
       return;
     }
 
     _sortDeletesFirst(unsynced);
 
-    for (var i = 0; i < unsynced.length; i += 500) {
-      final batchRecords = unsynced.sublist(
-        i,
-        i + 500 > unsynced.length ? unsynced.length : i + 500,
-      );
+    for (var i = 0; i < unsynced.length; i += 1) {
+      final batchRecords = unsynced.sublist(i, i + 1);
       final activeBatchRecords = await _recordsEligibleForAutomaticPush(
         entityType: 'directive',
         records: batchRecords,
@@ -22,15 +38,25 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
-      final remoteList = await _firestoreDirective.getDirectivesByFirestoreIds(
-        firestoreIds,
-      );
+      final List<OperationalDirective> remoteList;
+      try {
+        remoteList = await _firestoreDirective.getDirectivesByFirestoreIds(
+          firestoreIds,
+        );
+      } catch (error) {
+        lastFailureCount += activeBatchRecords.length;
+        _recordPushFailuresForBatch(
+          entityType: 'directive',
+          records: activeBatchRecords,
+          error: error,
+        );
+        continue;
+      }
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <OperationalDirective>[];
@@ -60,6 +86,18 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
           convergedRecords.add(record);
           lastSuccessCount++;
+          continue;
+        }
+
+        if (_directiveRepo is IsarDirectiveRepository &&
+            !isGovernedBurnerRoundDirectiveId(record.firestoreId)) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'directive',
+            entityId: record.firestoreId!,
+            error:
+                'Older saved directive evidence has no immutable original command. It is preserved for reviewed reconciliation; automatic upload is held.',
+          );
           continue;
         }
 
@@ -186,11 +224,10 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreAbnormality.getTypesByFirestoreIds(
         firestoreIds,
@@ -351,11 +388,10 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreAbnormality
           .getAbnormalitiesByFirestoreIds(firestoreIds);
@@ -549,10 +585,9 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       localVersion: local.version,
     );
     final snapshot = _syncPushSnapshot(local);
-    final rawReason =
-        operation == ChargeAbnormalityMutationOperation.softDelete
-            ? local.deleteReason ?? 'Deleted charge abnormality'
-            : 'Synchronised privileged charge-abnormality update';
+    final rawReason = operation == ChargeAbnormalityMutationOperation.softDelete
+        ? local.deleteReason ?? 'Deleted charge abnormality'
+        : 'Synchronised privileged charge-abnormality update';
 
     try {
       ChargeAbnormalityMutationResult? result;

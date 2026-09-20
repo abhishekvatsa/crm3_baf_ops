@@ -191,32 +191,6 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
     );
   }
 
-  Future<void> _checkStandingConcern(
-    MorningReviewSession session,
-    MorningReviewStandingConcern concern,
-  ) async {
-    if (!_canBeginChange()) return;
-    final service = _editorCommandService();
-    if (service == null) return;
-    final guard = _morningEditorGuard();
-    final input = await showMorningReviewConcernCheckEditor(
-      context,
-      guard: guard,
-      concern: concern,
-    );
-    if (input == null) return;
-    await _runCommand(
-      () => service.checkStandingConcern(
-        sessionId: session.sessionId,
-        concern: concern,
-        state: input.state,
-        note: input.note,
-      ),
-      success: 'Today\'s standing-concern check recorded.',
-      sessionId: session.sessionId,
-    );
-  }
-
   Future<void> _resolveStandingConcern(
     MorningReviewSession session,
     MorningReviewStandingConcern concern,
@@ -271,14 +245,25 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
     final service = _editorCommandService();
     if (service == null) return;
     final guard = _morningEditorGuard();
+    final refused = await service.latestRefusedSubmission();
+    if (!mounted) return;
+    final refusedRequest = refused?.envelope['request'];
+    final retainedSummary =
+        refusedRequest is Map &&
+            refusedRequest['operation'] ==
+                MorningReviewCommand.finalize.wireName &&
+            refusedRequest['sessionId'] == session.sessionId
+        ? refusedRequest['summary'] as String?
+        : null;
     final summary = await showMorningReviewTextPrompt(
       context,
       guard: guard,
       title: 'Finalize Morning Review',
+      initialValue: retainedSummary,
       label: 'Room conclusion and forward plan',
       actionLabel: 'Finalize meeting',
       supportingText:
-          'This freezes the source snapshot, contributions, attendance and current action register into the meeting document.',
+          'Review the refreshed contributions and action register before confirming. Any refused conclusion is retained below. Later progress is recorded at finalization time, not backdated to the meeting.',
     );
     if (summary == null) return;
     await _runCommand(
@@ -344,6 +329,7 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
     ref.invalidate(activeMorningReviewActionsProvider);
     ref.invalidate(morningReviewStandingConcernsProvider);
     if (sessionId != null) {
+      ref.invalidate(historicalMorningReviewSessionProvider(sessionId));
       ref.invalidate(morningReviewParticipantsProvider(sessionId));
       ref.invalidate(morningReviewEntriesProvider(sessionId));
       ref.invalidate(morningReviewActionsProvider(sessionId));
@@ -369,6 +355,7 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
     if (_reconciliationScheduledFor == actor.uid) return;
     _reconciliationScheduledFor = actor.uid;
     _savedChange = null;
+    _refusedChange = null;
     _savedChangeError = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_loadPendingChange());
@@ -383,6 +370,7 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
     try {
       final service = ref.read(morningReviewCommandServiceProvider);
       final saved = await service.pendingSubmission();
+      final refused = await service.latestRefusedSubmission();
       if (!mounted ||
           CurrentActorAccess.resolve(
                 ref.read(currentAppUserProvider),
@@ -392,6 +380,7 @@ extension _MorningReviewScreenCommands on _MorningReviewScreenState {
       }
       _update(() {
         _savedChange = saved;
+        _refusedChange = refused;
         _savedChangeError = null;
       });
     } catch (error) {

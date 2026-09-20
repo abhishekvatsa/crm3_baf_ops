@@ -14,6 +14,10 @@ AppRole? _parseAppRole(dynamic value) {
 
 List<AppRole> _parseRoles(dynamic value) {
   if (value is! List || value.isEmpty) return const <AppRole>[];
+  // Firestore Rules and the backend accept at most ten raw role entries.
+  // Reject oversized lists before deduplication so local authority cannot
+  // silently disagree with server admission.
+  if (value.length > 10) return const <AppRole>[];
 
   final roles = <AppRole>{};
   for (final raw in value) {
@@ -84,6 +88,17 @@ class AppUser {
   final String? photoUrl;
   final List<AppRole> roles;
   final bool isApproved;
+  final int authorityRevision;
+  final String accessDisposition;
+  final String? lastAuthorityReason;
+  final bool authorityFromCache;
+  final bool authorityHasPendingWrites;
+  final DateTime? authorityObservedAt;
+  bool get hasServerAuthorityObservation =>
+      !authorityFromCache &&
+      !authorityHasPendingWrites &&
+      authorityObservedAt != null;
+
   final String? fcmToken;
   final DateTime createdAt;
 
@@ -94,6 +109,13 @@ class AppUser {
     this.photoUrl,
     required this.roles,
     required this.isApproved,
+    this.authorityRevision = 0,
+    this.accessDisposition = 'unknown',
+    this.lastAuthorityReason,
+    this.authorityFromCache = true,
+    this.authorityHasPendingWrites = false,
+    this.authorityObservedAt,
+
     this.fcmToken,
     required this.createdAt,
   });
@@ -684,9 +706,34 @@ class AppUser {
   // SERIALIZATION
   // ───────────────────────────────────────────────────────────
 
-  factory AppUser.fromFirestore(Map<String, dynamic> data, String uid) {
+  factory AppUser.fromFirestore(
+    Map<String, dynamic> data,
+    String uid, {
+    bool fromCache = true,
+    bool hasPendingWrites = false,
+    DateTime? observedAt,
+  }) {
     final parsedRoles = _parseRoles(data['roles']);
     final source = 'users/$uid';
+    final revision = data['authorityRevision'];
+    if (revision != null &&
+        (revision is! int || revision < 0 || revision > 9007199254740991)) {
+      throw FormatException('The authority revision for $source needs review.');
+    }
+    final disposition = data['accessDisposition'];
+    if (disposition != null &&
+        (!const {
+              'pending',
+              'approved',
+              'revoked',
+              'unknown',
+            }.contains(disposition) ||
+            (disposition == 'approved' && data['isApproved'] != true) ||
+            (const {'pending', 'revoked'}.contains(disposition) &&
+                data['isApproved'] != false))) {
+      throw FormatException('The access disposition for $source needs review.');
+    }
+
     return AppUser(
       uid: uid,
       name: readRequiredPersistedString(
@@ -705,8 +752,23 @@ class AppUser {
         source: source,
       ),
       roles: parsedRoles,
+      accessDisposition:
+          disposition as String? ??
+          (data['isApproved'] == true ? 'approved' : 'unknown'),
+      lastAuthorityReason: data['lastAuthorityDecision'] is Map
+          ? data['lastAuthorityDecision']['reason'] as String?
+          : null,
+      authorityFromCache: fromCache,
+      authorityHasPendingWrites: hasPendingWrites,
+      authorityObservedAt: observedAt,
+
       // A malformed role payload cannot remain an approved local authority.
       isApproved: data['isApproved'] == true && parsedRoles.isNotEmpty,
+      authorityRevision:
+          data['authorityRevision'] is int &&
+              (data['authorityRevision'] as int) >= 0
+          ? data['authorityRevision'] as int
+          : 0,
       fcmToken: readOptionalPersistedString(
         data['fcmToken'],
         field: 'fcmToken',
@@ -727,6 +789,7 @@ class AppUser {
       'photoUrl': photoUrl?.trim().isEmpty == true ? null : photoUrl,
       'roles': roles.map((r) => r.name).toList(),
       'isApproved': isApproved,
+      'authorityRevision': authorityRevision,
       'fcmToken': fcmToken,
       'createdAt': createdAt,
     };
@@ -738,6 +801,7 @@ class AppUser {
     String? photoUrl,
     List<AppRole>? roles,
     bool? isApproved,
+    int? authorityRevision,
     String? fcmToken,
     DateTime? createdAt,
   }) {
@@ -748,6 +812,12 @@ class AppUser {
       photoUrl: photoUrl ?? this.photoUrl,
       roles: roles ?? this.roles,
       isApproved: isApproved ?? this.isApproved,
+      authorityRevision: authorityRevision ?? this.authorityRevision,
+      accessDisposition: accessDisposition,
+      lastAuthorityReason: lastAuthorityReason,
+      authorityFromCache: authorityFromCache,
+      authorityHasPendingWrites: authorityHasPendingWrites,
+      authorityObservedAt: authorityObservedAt,
       fcmToken: fcmToken ?? this.fcmToken,
       createdAt: createdAt ?? this.createdAt,
     );

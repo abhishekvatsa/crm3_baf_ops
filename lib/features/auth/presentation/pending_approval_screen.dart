@@ -1,10 +1,14 @@
 // FILE: lib/features/auth/presentation/pending_approval_screen.dart
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/persistence/durable_submission.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../admin/providers/user_authority_durable_command_provider.dart';
 import '../providers/auth_provider.dart';
 
 class PendingApprovalScreen extends ConsumerStatefulWidget {
@@ -18,7 +22,15 @@ class PendingApprovalScreen extends ConsumerStatefulWidget {
 class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
   bool _isRefreshingProfile = false;
   bool _isSigningOut = false;
+  bool _isCheckingSavedAuthority = false;
   String? _refreshError;
+  List<DurableSubmission> _savedAuthority = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSavedAuthority());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +71,7 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     const Text(
-                      'Awaiting Approval',
+                      'Access review required',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: BafColors.textPrimary,
@@ -69,7 +81,7 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                     ),
                     const SizedBox(height: BafSpacing.sm),
                     const Text(
-                      'Your account has been created and is pending admin approval. You will get access as soon as an admin approves your profile.',
+                      'Your account does not currently have app access. It may be awaiting first approval or reactivation after access was withdrawn. An administrator can approve or restore access after review.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: BafColors.textSecondary,
@@ -77,6 +89,14 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                         height: 1.35,
                       ),
                     ),
+                    if (_savedAuthority.isNotEmpty) ...[
+                      const SizedBox(height: BafSpacing.lg),
+                      _SavedAuthorityRecoveryCard(
+                        rows: _savedAuthority,
+                        busy: _isCheckingSavedAuthority,
+                        onCheck: _checkSavedAuthority,
+                      ),
+                    ],
                     if (_refreshError != null) ...[
                       const SizedBox(height: BafSpacing.lg),
                       _PendingErrorCard(message: _refreshError!),
@@ -86,18 +106,18 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OutlinedButton.icon(
-                          onPressed:
-                              _isRefreshingProfile ? null : _refreshProfile,
-                          icon:
-                              _isRefreshingProfile
-                                  ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.refresh_rounded),
+                          onPressed: _isRefreshingProfile
+                              ? null
+                              : _refreshProfile,
+                          icon: _isRefreshingProfile
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh_rounded),
                           label: Text(
                             _isRefreshingProfile ? 'Refreshing…' : 'Refresh',
                           ),
@@ -112,20 +132,18 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                         ),
                         const SizedBox(width: BafSpacing.md),
                         FilledButton.icon(
-                          onPressed:
-                              _isRefreshingProfile || _isSigningOut
-                                  ? null
-                                  : _signOut,
-                          icon:
-                              _isSigningOut
-                                  ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.logout_rounded),
+                          onPressed: _isRefreshingProfile || _isSigningOut
+                              ? null
+                              : _signOut,
+                          icon: _isSigningOut
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.logout_rounded),
                           label: Text(
                             _isSigningOut ? 'Signing out…' : 'Sign Out',
                           ),
@@ -161,6 +179,7 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
       await authService.ensureUserDocument();
       if (!mounted) return;
       ref.invalidate(currentAppUserProvider);
+      unawaited(_loadSavedAuthority());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -170,6 +189,51 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
       if (mounted) {
         setState(() => _isRefreshingProfile = false);
       }
+    }
+  }
+
+  Future<void> _loadSavedAuthority() async {
+    final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final rows = await ref
+          .read(userAuthorityDurableCommandControllerProvider)
+          .listForCurrentActor();
+      if (mounted && ref.read(currentAppUserProvider).value?.uid == uid) {
+        setState(() => _savedAuthority = rows);
+      }
+    } catch (_) {
+      if (mounted && ref.read(currentAppUserProvider).value?.uid == uid) {
+        setState(
+          () => _refreshError =
+              'Saved administration decisions could not be read. Their evidence remains on this device for review.',
+        );
+      }
+    }
+  }
+
+  Future<void> _checkSavedAuthority(DurableSubmission row) async {
+    if (_isCheckingSavedAuthority) return;
+    setState(() => _isCheckingSavedAuthority = true);
+    try {
+      final result = await ref
+          .read(userAuthorityDurableCommandControllerProvider)
+          .check(row.submissionId);
+      if (!mounted) return;
+      setState(() {
+        _refreshError =
+            result.currentAuthorityStatus != 'available' ||
+                result.supersededByLaterChange
+            ? 'The original administration decision was recovered, but a later authority decision is now effective. Access was not restored by recovery.'
+            : 'The original administration decision was recovered. Access is still governed by the current server profile.';
+      });
+      unawaited(_loadSavedAuthority());
+    } catch (error) {
+      if (mounted) {
+        setState(() => _refreshError = '$error');
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingSavedAuthority = false);
     }
   }
 
@@ -186,6 +250,61 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
     } finally {
       if (mounted) setState(() => _isSigningOut = false);
     }
+  }
+}
+
+class _SavedAuthorityRecoveryCard extends StatelessWidget {
+  const _SavedAuthorityRecoveryCard({
+    required this.rows,
+    required this.busy,
+    required this.onCheck,
+  });
+
+  final List<DurableSubmission> rows;
+  final bool busy;
+  final Future<void> Function(DurableSubmission row) onCheck;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.navySoft.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.navySoft.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Saved administration decision',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'A decision from this account is retained on this device. Check it to recover the original result; recovery never restores access by itself.',
+            style: TextStyle(fontSize: 12, height: 1.35),
+          ),
+          const SizedBox(height: 8),
+          for (final row in rows)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: busy ? null : () => onCheck(row),
+                icon: busy
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.fact_check_outlined, size: 18),
+                label: Text('Check saved decision ${row.requestId}'),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

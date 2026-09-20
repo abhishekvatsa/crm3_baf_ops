@@ -299,14 +299,14 @@ void main() {
     () {
       final repository = File(
         'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       final provider = File(
         'lib/features/planned_maintenance/providers/knowledge_governance_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
 
       expect(
         repository,
-        contains('BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)'),
+        contains('final row = BafKnowledgeRow.fromCloudMap(doc.data(), doc.id);'),
       );
       expect(repository, isNot(contains('.catchError((_) => null)')));
       expect(repository, contains('await Future.wait<void>'));
@@ -327,11 +327,7 @@ void main() {
       expect(repository, isNot(contains('final Future<DocumentSnapshot')));
       expect(
         repository.indexOf('final metaData = metaDoc.data();'),
-        lessThan(
-          repository.indexOf(
-            'if (docs.isEmpty) return const BafKnowledgePullResult',
-          ),
-        ),
+        lessThan(repository.indexOf('if (docs.isEmpty && metaStore == null)')),
       );
       expect(
         repository.indexOf('final remotes = ['),

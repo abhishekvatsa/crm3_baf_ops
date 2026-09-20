@@ -288,6 +288,204 @@ void main() {
     invoke: invoke,
   );
 
+  Future<DurableSubmission> nativeRequest({
+    required String resourceKey,
+    required String protocol,
+    required Map<String, dynamic> body,
+  }) async {
+    final command = const {
+      'maintenanceWorkflow.v2',
+      'criticalAlarm.v1',
+    }.contains(protocol);
+    final inner = {...body, command ? 'commandId' : 'requestId': 'request-a'};
+    final row = await store.prepare(
+      DurableSubmissionDraft(
+        submissionId: 'submission-a',
+        actorUid: 'admin-a',
+        requestId: 'request-a',
+        aggregateId:
+            inner[DurableSubmissionRepository.aggregateIdentityKey(
+                  protocol,
+                  inner,
+                )]
+                as String,
+        resourceKey: resourceKey,
+        protocol: protocol,
+        envelopeJson: jsonEncode({
+          'protocolVersion': 2,
+          'originActorUid': 'admin-a',
+          command ? 'command' : 'request': inner,
+        }),
+      ),
+    );
+    final claim = await store.claim(
+      submissionId: row.submissionId,
+      actorUid: 'admin-a',
+    );
+    await store.recordOutcome(
+      claim,
+      state: DurableSubmissionState.uncertain,
+      message: 'The original response was not received.',
+    );
+    return (await store.read(row.submissionId))!;
+  }
+
+  for (final entry in <(String, String, Map<String, dynamic>)>[
+    (
+      'assetRegistry:pending',
+      'assetHierarchy.v2',
+      {'operation': 'CREATE_CLASS', 'assetClassId': 'class-a'},
+    ),
+    (
+      'innerCoverLifecycle:cover-a',
+      'assetHierarchy.v2',
+      {
+        'operation': 'DELINK_INNER_COVER',
+        'innerCoverId': 'cover-a',
+        'expectedVersion': 3,
+      },
+    ),
+    (
+      'burnerBlockCorrection:event-a',
+      'maintenanceWorkflow.v2',
+      {
+        'commandType': 'correctBurnerBlockInstallation',
+        'aggregateId': 'event-a',
+        'expectedVersion': 1,
+      },
+    ),
+    (
+      'workflowModuleReopen:module-a',
+      'maintenanceWorkflow.v2',
+      {
+        'commandType': 'reopenWorkflowModule',
+        'aggregateId': 'module-a',
+        'expectedVersion': 1,
+      },
+    ),
+    // Even a supported family's resource name cannot widen its operation scope.
+    (
+      'innerCoverAcceptance:cover-a',
+      'assetHierarchy.v2',
+      {
+        'operation': 'DELINK_INNER_COVER',
+        'innerCoverId': 'cover-a',
+        'expectedVersion': 3,
+      },
+    ),
+    (
+      'inspectionCampaignCreation:campaign-a',
+      'maintenanceWorkflow.v2',
+      {
+        'commandType': 'reopenWorkflowModule',
+        'aggregateId': 'module-a',
+        'expectedVersion': 1,
+      },
+    ),
+  ]) {
+    test(
+      '${entry.$1} unsupported action stays owned and retained after reopen',
+      () async {
+        final row = await nativeRequest(
+          resourceKey: entry.$1,
+          protocol: entry.$2,
+          body: entry.$3,
+        );
+        var calls = 0;
+        final owner = service(
+          capability: (_, _) async {
+            calls++;
+          },
+          invoke: (_, _) async {
+            calls++;
+            return {};
+          },
+        );
+        expect(DurableSubmissionReviewSupport.forRow(row).canReview, isFalse);
+        await expectLater(
+          owner.inspect(row, reason),
+          throwsA(code('unsupported-review')),
+        );
+        expect(calls, 0);
+        await reopen();
+        final retained = (await store.read(row.submissionId))!;
+        expect(retained.state, DurableSubmissionState.uncertain);
+        expect(retained.actorUid, 'admin-a');
+        expect(retained.envelopeJson, row.envelopeJson);
+        expect(retained.reviewEvidenceSha256, row.reviewEvidenceSha256);
+        expect(retained.receiptJson, isNull);
+        expect(
+          (await store.findUnresolvedForResource(
+            row.resourceKey,
+          ))?.submissionId,
+          row.submissionId,
+        );
+        // Classification does not consume the original account's retry route.
+        expect(
+          (await store.claim(
+            submissionId: row.submissionId,
+            actorUid: 'admin-a',
+          )).mayDispatch,
+          isTrue,
+        );
+      },
+    );
+  }
+
+  for (final operation in const [
+    'CLOSE_QUALITY_MONITORING_REQUEST',
+    'CORRECT_QUALITY_MONITORING_REQUEST',
+    'CANCEL_QUALITY_MONITORING_REQUEST',
+  ]) {
+    test(
+      '$operation uses the existing content-bound monitoring review domain',
+      () async {
+        final row = await nativeRequest(
+          resourceKey: 'qualityMonitoringClosure:project:monitoring-a:admin-a',
+          protocol: 'chargeAbnormality.v2',
+          body: {
+            'operation': operation,
+            'monitoringRequestId': 'monitoring-a',
+            'expectedVersion': 3,
+          },
+        );
+        expect(DurableSubmissionReviewSupport.forRow(row).canReview, isTrue);
+        final target = DurableSubmissionReviewTarget.from(row);
+        expect(target.domain, 'qualityMonitoring');
+        expect(target.callableName, 'mutateChargeAbnormalityV2');
+        var invoked = false;
+        await service(
+          invoke: (callable, envelope) async {
+            invoked = true;
+            expect(callable, target.callableName);
+            expect(
+              envelope['recovery'],
+              containsPair('domain', 'qualityMonitoring'),
+            );
+            return {
+              'schemaVersion': 1,
+              'domain': 'qualityMonitoring',
+              'requestId': row.requestId,
+              'evidenceSha256': row.reviewEvidenceSha256,
+              'originalActorUid': 'admin-a',
+              'reviewerUid': 'admin-a',
+              'reviewToken': token,
+              'observation': 'receiptAbsent',
+              'receiptSha256': null,
+              'receiptSummary': null,
+            };
+          },
+        ).inspect(row, reason);
+        expect(invoked, isTrue);
+        await reopen();
+        expect(
+          (await store.read(row.submissionId))?.state,
+          DurableSubmissionState.uncertain,
+        );
+      },
+    );
+  }
+
   test(
     'legacy review retains NULL origin and exact bytes across reopen and reimport, then permits a new owner',
     () async {
@@ -314,6 +512,49 @@ void main() {
       expect(base64Decode((await legacy()).legacySourceBase64!), legacyBytes);
       expect((await store.prepare(draft())).resourceKey, resource);
       expect(await database.durableSubmissionRecords.count(), 2);
+    },
+  );
+
+  test(
+    'Admin B can retrieve Admin A historical decision without rewriting its reviewer or evidence',
+    () async {
+      final row = await legacy();
+      final historical = decision(row);
+      reviewer = admin('admin-b');
+      final inspection = await service(
+        invoke: (_, envelope) async {
+          expect(envelope['originActorUid'], 'admin-b');
+          return historical;
+        },
+      ).inspect(row, reason);
+      expect(inspection.reviewerUid, 'admin-b');
+      final retained = (await store.read(row.submissionId))!;
+      expect(retained.state, DurableSubmissionState.reviewResolved);
+      expect(
+        jsonDecode(retained.receiptJson!)['decisions'].single['reviewerUid'],
+        'admin-a',
+      );
+      expect(retained.reviewEvidenceSha256, row.reviewEvidenceSha256);
+      expect(retained.legacySourceBase64, row.legacySourceBase64);
+    },
+  );
+
+  test(
+    'historical retrieval by another Admin still refuses evidence for a different submission',
+    () async {
+      final row = await legacy();
+      reviewer = admin('admin-b');
+      await expectLater(
+        service(
+          invoke: (_, __) async =>
+              decision(row, changes: {'evidenceSha256': '0' * 64}),
+        ).inspect(row, reason),
+        throwsA(isA<DurableSubmissionException>()),
+      );
+      expect(
+        (await store.read(row.submissionId))!.state,
+        DurableSubmissionState.needsReview,
+      );
     },
   );
 

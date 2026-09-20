@@ -8,64 +8,121 @@ class _HistoryTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(maintenanceCompletionEventsProvider);
+    final classesBatch = ref
+        .watch(maintenanceClassDefinitionsProvider)
+        .asData
+        ?.value;
     final classes =
-        ref.watch(maintenanceClassDefinitionsProvider).value ??
-        const <MaintenanceClassDefinition>[];
+        classesBatch?.records ?? const <MaintenanceClassDefinition>[];
+    final classesComplete =
+        classesBatch?.isComplete == true &&
+        classesBatch?.isServerConfirmed == true;
     return events.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading maintenance history',
-            color: BafColors.planned,
-          ),
-      error:
-          (_, _) => _RetryState(
-            message: 'Maintenance history could not be loaded.',
-            onRetry: () => ref.invalidate(maintenanceCompletionEventsProvider),
-          ),
-      data:
-          (rows) => RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(maintenanceCompletionEventsProvider);
-              await ref.read(maintenanceCompletionEventsProvider.future);
-            },
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(BafSpacing.lg),
-              children: [
-                _ActionHeader(
-                  title: 'Previous maintenance records',
-                  description:
-                      'Every qualifying completion appears here. Admin may add earlier plant history against an exact asset and governed maintenance type; the original date, entry basis and recorder remain immutable.',
-                  actionLabel: 'Add previous record',
-                  actionIcon: Icons.history_toggle_off_rounded,
-                  onPressed:
-                      actor.canRecordHistoricalMaintenance &&
-                              classes.any((item) => item.isActive)
-                          ? () => _addHistoricalMaintenance(
-                            context,
-                            ref,
-                            classes.where((item) => item.isActive).toList(),
-                          )
-                          : null,
+      loading: () => const BafLoadingPanel(
+        label: 'Loading maintenance history',
+        color: BafColors.planned,
+      ),
+      error: (_, _) => _RetryState(
+        message: 'Maintenance history could not be loaded.',
+        onRetry: () => ref.invalidate(maintenanceCompletionEventsProvider),
+      ),
+      data: (batch) {
+        final groups = <String, List<MaintenanceCompletionEvent>>{};
+        for (final event in batch.records) {
+          groups.putIfAbsent(event.occurrenceKey, () => []).add(event);
+        }
+        for (final group in groups.values) {
+          group.sort((a, b) => b.sourceRevision.compareTo(a.sourceRevision));
+        }
+        final rows = groups.values.toList();
+        final unreadable = batch.rejectedDocumentIds.length;
+        final unconfirmed = !batch.isServerConfirmed;
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(maintenanceCompletionEventsProvider);
+            await ref.read(maintenanceCompletionEventsProvider.future);
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(BafSpacing.lg),
+            children: [
+              _ActionHeader(
+                title: 'Previous maintenance records',
+                description:
+                    'Every qualifying completion appears here. Admin may add earlier plant history against an exact asset and governed maintenance type; the original date, entry basis and recorder remain immutable.',
+                actionLabel: 'Add previous record',
+                actionIcon: Icons.history_toggle_off_rounded,
+                onPressed:
+                    actor.canRecordHistoricalMaintenance &&
+                        classesComplete &&
+                        unreadable == 0 &&
+                        classes.any((item) => item.isActive)
+                    ? () => _addHistoricalMaintenance(
+                        context,
+                        ref,
+                        classes.where((item) => item.isActive).toList(),
+                      )
+                    : null,
+              ),
+              if (unreadable > 0 || unconfirmed || !classesComplete) ...[
+                const SizedBox(height: BafSpacing.sm),
+                StatusBadge(
+                  label: unreadable > 0
+                      ? '$unreadable maintenance history ${unreadable == 1 ? 'record' : 'records'} could not be read; this list is incomplete'
+                      : unconfirmed
+                      ? 'Maintenance history is not server-confirmed; this list is provisional'
+                      : 'Maintenance classes could not be fully verified; historical entry is paused',
+                  color: BafColors.danger,
+                  icon: Icons.report_gmailerrorred_rounded,
                 ),
-                const SizedBox(height: BafSpacing.lg),
-                if (rows.isEmpty)
-                  const _EmptyState(
-                    icon: Icons.history_rounded,
-                    title: 'No maintenance history yet',
-                    message:
-                        'Completed classified work and Admin-entered previous records will appear here.',
-                  )
-                else
-                  ...rows.map(
-                    (event) => Padding(
-                      padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                      child: _CompletionEventCard(event: event),
-                    ),
-                  ),
               ],
-            ),
+              const SizedBox(height: BafSpacing.lg),
+              if (rows.isEmpty && unreadable == 0 && !unconfirmed)
+                const _EmptyState(
+                  icon: Icons.history_rounded,
+                  title: 'No maintenance history yet',
+                  message:
+                      'Completed classified work and Admin-entered previous records will appear here.',
+                )
+              else if (rows.isEmpty)
+                _EmptyState(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  title: 'Maintenance history cannot be fully shown',
+                  message: unreadable > 0
+                      ? 'Some history records could not be read. This is not an empty history; repair the records before adding or relying on historical data.'
+                      : 'The history snapshot is not server-confirmed. This is not an empty history; verify it before adding or relying on historical data.',
+                )
+              else
+                ...rows.map(
+                  (revisions) => Padding(
+                    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                    child: revisions.length == 1
+                        ? _CompletionEventCard(event: revisions.first)
+                        : ExpansionTile(
+                            title: _CompletionEventCard(event: revisions.first),
+                            subtitle: Text(
+                              'One maintenance occurrence · ${revisions.length} retained interpretations',
+                            ),
+                            children: revisions
+                                .skip(1)
+                                .map(
+                                  (event) => Column(
+                                    children: [
+                                      Text(
+                                        'Superseded interpretation · revision ${event.sourceRevision}',
+                                      ),
+                                      _CompletionEventCard(event: event),
+                                    ],
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                  ),
+                ),
+            ],
           ),
+        );
+      },
     );
   }
 }
@@ -130,10 +187,20 @@ class _CompletionEventCard extends StatelessWidget {
                   '${DateFormat('dd MMM yyyy').format(event.completedAt.toLocal())} · $sourceLabel',
                   style: const TextStyle(color: BafColors.textSecondary),
                 ),
+                if (event.historicalOnly)
+                  const Text(
+                    'Historical only · does not reset the current schedule',
+                  ),
+                if (event.interpretedByName != null)
+                  Text(
+                    'Classification reviewed by ${event.interpretedByName} · revision ${event.sourceRevision}',
+                  ),
+                if (event.completedByName == null)
+                  const Text('Original completer not recorded'),
                 if (event.completedByName != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Performed by ${event.completedByName}',
+                    '${event.isHistorical ? 'Reported performer' : 'Completion recorded by'} ${event.completedByName}',
                     style: const TextStyle(color: BafColors.textSecondary),
                   ),
                 ],
@@ -237,20 +304,20 @@ class _HistoricalMaintenanceEditorState
       _assetClassId = classes.firstOrNull?.id;
       _assetInstanceId = null;
     }
-    final selectedClass =
-        classes.where((item) => item.id == _assetClassId).firstOrNull;
+    final selectedClass = classes
+        .where((item) => item.id == _assetClassId)
+        .firstOrNull;
     final assetType = selectedClass?.legacyAssetTypeKey ?? 'governedCustom';
-    final matching =
-        selectedClass == null
-            ? const <MaintenanceClassDefinition>[]
-            : widget.definitions
-                .where(
-                  (definition) => definition.appliesTo(
-                    assetTypeKey: assetType,
-                    assetClassId: selectedClass.id,
-                  ),
-                )
-                .toList();
+    final matching = selectedClass == null
+        ? const <MaintenanceClassDefinition>[]
+        : widget.definitions
+              .where(
+                (definition) => definition.appliesTo(
+                  assetTypeKey: assetType,
+                  assetClassId: selectedClass.id,
+                ),
+              )
+              .toList();
     final AsyncValue<List<_PlanAssetChoice>>? assetsValue;
     if (selectedClass == null) {
       assetsValue = null;
@@ -258,42 +325,40 @@ class _HistoricalMaintenanceEditorState
       assetsValue = ref
           .watch(innerCoverProfilesProvider)
           .whenData(
-            (profiles) =>
-                profiles
-                    .where(
-                      (profile) =>
-                          profile.assetClassId == selectedClass.id &&
-                          _isMaintainableInnerCover(profile),
-                    )
-                    .map(
-                      (profile) => _PlanAssetChoice(
-                        id: profile.id,
-                        version: profile.version,
-                        name:
-                            profile.isInstalled
-                                ? 'Base ${profile.currentBaseAssetNumber} · Inner Cover ${profile.serialNumber}'
-                                : 'Pool · Inner Cover ${profile.serialNumber}',
-                        assetNumber: null,
-                      ),
-                    )
-                    .toList(),
+            (profiles) => profiles
+                .where(
+                  (profile) =>
+                      profile.assetClassId == selectedClass.id &&
+                      _isMaintainableInnerCover(profile),
+                )
+                .map(
+                  (profile) => _PlanAssetChoice(
+                    id: profile.id,
+                    version: profile.version,
+                    name: profile.isInstalled
+                        ? 'Base ${profile.currentBaseAssetNumber} · Inner Cover ${profile.serialNumber}'
+                        : 'Pool · Inner Cover ${profile.serialNumber}',
+                    assetNumber: null,
+                  ),
+                )
+                .toList(),
           );
     } else {
       assetsValue = ref
           .watch(assetInstancesProvider(selectedClass.id))
           .whenData(
-            (assets) =>
-                assets
-                    .where((asset) => asset.isActive)
-                    .map(
-                      (asset) => _PlanAssetChoice(
-                        id: asset.id,
-                        version: asset.version,
-                        name: asset.name,
-                        assetNumber: asset.assetNumber,
-                      ),
-                    )
-                    .toList(),
+            (assets) => assets
+                .map(
+                  (asset) => _PlanAssetChoice(
+                    id: asset.id,
+                    version: asset.version,
+                    name: asset.isActive
+                        ? asset.name
+                        : '${asset.name} · retired history',
+                    assetNumber: asset.assetNumber,
+                  ),
+                )
+                .toList(),
           );
     }
     final assets = assetsValue?.asData?.value ?? const <_PlanAssetChoice>[];
@@ -315,7 +380,7 @@ class _HistoricalMaintenanceEditorState
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Admin backfill records are immutable and immediately participate in maintenance history and due-date calculations.',
+                  'Previous records preserve the reported work and entry evidence. Retired-asset history does not reset the current schedule; conflicting same-day evidence requires review.',
                   style: TextStyle(color: BafColors.textSecondary),
                 ),
               ),
@@ -324,21 +389,19 @@ class _HistoricalMaintenanceEditorState
                 initialValue: _assetClassId,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Asset class'),
-                items:
-                    classes
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.name),
-                          ),
-                        )
-                        .toList(),
-                onChanged:
-                    (value) => setState(() {
-                      _assetClassId = value;
-                      _assetInstanceId = null;
-                      _definitionId = null;
-                    }),
+                items: classes
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _assetClassId = value;
+                  _assetInstanceId = null;
+                  _definitionId = null;
+                }),
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
@@ -347,20 +410,18 @@ class _HistoricalMaintenanceEditorState
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Asset number / serial',
-                  helperText:
-                      assetsValue?.isLoading == true
-                          ? 'Loading governed assets…'
-                          : 'Select the exact physical asset',
+                  helperText: assetsValue?.isLoading == true
+                      ? 'Loading governed assets…'
+                      : 'Select the exact physical asset',
                 ),
-                items:
-                    assets
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.name),
-                          ),
-                        )
-                        .toList(),
+                items: assets
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _assetInstanceId = value),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -373,15 +434,14 @@ class _HistoricalMaintenanceEditorState
                 decoration: const InputDecoration(
                   labelText: 'Maintenance type',
                 ),
-                items:
-                    matching
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.title),
-                          ),
-                        )
-                        .toList(),
+                items: matching
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text(item.title),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _definitionId = value),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -433,10 +493,12 @@ class _HistoricalMaintenanceEditorState
         ),
         FilledButton.icon(
           onPressed: () {
-            final definition =
-                matching.where((item) => item.id == _definitionId).firstOrNull;
-            final asset =
-                assets.where((item) => item.id == _assetInstanceId).firstOrNull;
+            final definition = matching
+                .where((item) => item.id == _definitionId)
+                .firstOrNull;
+            final asset = assets
+                .where((item) => item.id == _assetInstanceId)
+                .firstOrNull;
             final evidence = _evidence.text.trim();
             if (selectedClass == null ||
                 definition == null ||

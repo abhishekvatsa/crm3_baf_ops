@@ -457,6 +457,7 @@ export const verifyInspectionFinding: CommandHandler = async ({
       "An out-of-range observation cannot verify a resolved finding.",
     );
   }
+  let correctiveMaintenanceBasis: JsonMap | null = null;
   if (outcome === "resolved" && typeof finding.data.linkedTicketId === "string") {
     const ticket = await tx.get(`maintenance_records/${finding.data.linkedTicketId}`);
     if (!ticket.exists || !isCompletedCorrectiveMaintenance(
@@ -468,7 +469,37 @@ export const verifyInspectionFinding: CommandHandler = async ({
         {reasonCode: "inspection-corrective-maintenance-not-completed"},
       );
     }
-    requireInspectionCorrectiveSubject(ticket.data!, finding.data.linkedTicketId, observation.data);
+    if (finding.data.correctiveScopeReview != null) {
+      const reviewLinkId = documentId(finding.data.correctiveScopeReviewLinkId, "correctiveScopeReviewLinkId");
+      const originalReview = await tx.get(`inspection_issue_links/${reviewLinkId}`);
+      if (!originalReview.exists || originalReview.data?.ticketId !== finding.data.linkedTicketId ||
+          originalReview.data?.campaignId !== campaignId ||
+          stableJson(originalReview.data?.scopeReview ?? null) !== stableJson(finding.data.correctiveScopeReview)) {
+        throw new WorkflowError("failed-precondition", "The corrective scope review lacks its original evidence.");
+      }
+    }
+    requireInspectionCorrectiveSubject(ticket.data!, finding.data.linkedTicketId, observation.data, finding.data.correctiveScopeReview);
+    const completedAt = persistedInstantText(ticket.data!.endDate);
+    const episodeStartedAt = persistedInstantText(ticket.data!.reopenedAt ?? ticket.data!.startDate);
+    if (completedAt == null || episodeStartedAt == null ||
+        !Number.isSafeInteger(ticket.data!.version) || (ticket.data!.version as number) < 1 ||
+        Date.parse(completedAt) < Date.parse(episodeStartedAt) ||
+        Date.parse(completedAt) <= Date.parse(firstObservedAt) ||
+        Date.parse(observedAt) < Date.parse(completedAt)) {
+      throw new WorkflowError("failed-precondition",
+        "Verification needs a reading taken after the linked repair was physically completed for this adverse episode. Review the repair's completion time and record a follow-up reading.",
+        {reasonCode: "inspection-verification-repair-chronology-required"});
+    }
+    // Preserve the as-of basis. Subsequent ticket revisions must not silently
+    // rewrite the work which the operator relied on for this decision.
+    correctiveMaintenanceBasis = {
+      ticketId: finding.data.linkedTicketId,
+      ticketVersion: ticket.data!.version,
+      episodeStartedAt,
+      completedAt,
+      assetHierarchyRefJson: ticket.data!.assetHierarchyRefJson,
+      scopeReview: finding.data.correctiveScopeReview ?? null,
+    };
   }
   const now = iso(context.serverNow);
   const status = outcome === "resolved" ? "verifiedResolved" :
@@ -487,6 +518,7 @@ export const verifyInspectionFinding: CommandHandler = async ({
     verifiedAt: now,
     verifiedByUid: context.actor.uid,
     verifiedByName: context.actor.name,
+    correctiveMaintenanceBasis,
   });
   tx.create(`inspection_finding_events/${command.commandId}`, {
     schemaVersion: 1,

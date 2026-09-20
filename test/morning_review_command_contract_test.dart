@@ -64,6 +64,16 @@ void main() {
         'expectedVersion': 1,
         'reason': 'Inspection completed.',
       },
+      MorningReviewCommand.amendAction: const {
+        'actionId': actionId,
+        'expectedVersion': 1,
+        'reason': 'Duplicate action',
+        'actionCorrection': {
+          'kind': 'cancel',
+          'assigneeUid': null,
+          'assigneeRole': null,
+        },
+      },
       MorningReviewCommand.takeOver: const {
         'expectedVersion': 2,
         'reason': 'Facilitator handover.',
@@ -87,12 +97,11 @@ void main() {
         'reason': 'Verified today.',
       },
       MorningReviewCommand.addAddendum: {
-        'entryDraft':
-            const MorningReviewEntryInput(
-              section: MorningReviewSection.plantWide,
-              kind: MorningReviewEntryKind.addendum,
-              text: 'Post-meeting clarification.',
-            ).toMap(),
+        'entryDraft': const MorningReviewEntryInput(
+          section: MorningReviewSection.plantWide,
+          kind: MorningReviewEntryKind.addendum,
+          text: 'Post-meeting clarification.',
+        ).toMap(),
         'reason': 'Clarification requested by the facilitator.',
       },
     };

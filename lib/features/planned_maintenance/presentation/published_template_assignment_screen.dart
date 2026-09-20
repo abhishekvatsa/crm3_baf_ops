@@ -24,6 +24,7 @@ import 'template_publisher_screen.dart';
 import 'saved_published_assignment_screen.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../../core/release/app_build_identity.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -680,6 +681,7 @@ class _PublishedTemplateAssignmentScreenState
         versionFirestoreId: version.firestoreId!,
         expectedVersionNumber: version.versionNumber,
         expectedContentHash: version.contentHash!.trim(),
+        clientAppVersion: AppBuildIdentity.current.appVersion,
         assetType: preview.assetType,
         assetNumber: selectedAsset.assetNumber,
         assetClassId: selectedAsset.assetClassId,

@@ -1,5 +1,6 @@
 // FILE: lib/features/planned_maintenance/presentation/widgets/job_module_response_form.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
@@ -14,6 +15,7 @@ import '../../data/job_template_model.dart';
 class JobModuleResponseForm extends StatefulWidget {
   final List<Map<String, dynamic>> fieldDefinitions;
   final List<FieldResponse> initialResponses;
+  final String inputScopeKey;
   final bool isEditable;
   final bool isBusy;
   final String saveButtonLabel;
@@ -21,6 +23,7 @@ class JobModuleResponseForm extends StatefulWidget {
 
   const JobModuleResponseForm({
     super.key,
+    this.inputScopeKey = '',
     required this.fieldDefinitions,
     required this.initialResponses,
     required this.isEditable,
@@ -41,6 +44,65 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   final Map<String, String?> _fieldErrors = {};
 
   late List<_ModuleFieldDefinition> _fields;
+  late String _definitionBasis;
+  late String _responseBasis;
+  late String _cleanEntries;
+  List<FieldResponse> _retainedResponses = [];
+  bool _incomingConflict = false;
+  String? _submittedEntries;
+  bool _saving = false;
+
+  String _json(Object? value) {
+    Object? canonical(Object? v) => v is Map
+        ? {
+            for (final k in (v.keys.cast<String>().toList()..sort()))
+              k: canonical(v[k]),
+          }
+        : v is List
+        ? v.map(canonical).toList()
+        : v;
+    return jsonEncode(canonical(value));
+  }
+
+  Object? _comparable(_ModuleFieldDefinition field, Object? value) {
+    if (field.kind == _ModuleFieldKind.number) {
+      return num.tryParse(value?.toString() ?? '') ?? value;
+    }
+    if (field.kind == _ModuleFieldKind.checkbox) {
+      return _coerceOptionalBool(value) ?? false;
+    }
+    if (field.kind == _ModuleFieldKind.yesNo) return _coerceOptionalBool(value);
+    if (field.kind == _ModuleFieldKind.multiSelect) {
+      return _coerceStringSet(value).toList()..sort();
+    }
+    return _cleanOptional(value?.toString());
+  }
+
+  String get _entries => _json({
+    for (final field in _fields)
+      if (field.kind != _ModuleFieldKind.sectionHeader &&
+          field.kind != _ModuleFieldKind.instruction)
+        field.key: _comparable(field, _readFieldValue(field)),
+  });
+  String get _incomingDefinitions => _json(widget.fieldDefinitions);
+  String get _incomingResponses =>
+      _json(widget.initialResponses.map((v) => v.toMap()).toList());
+  String get _incomingEntries => _json({
+    for (final field in _fields)
+      if (field.kind != _ModuleFieldKind.sectionHeader &&
+          field.kind != _ModuleFieldKind.instruction)
+        field.key: _comparable(
+          field,
+          widget.initialResponses
+              .where((r) => r.key == field.key)
+              .firstOrNull
+              ?.value,
+        ),
+  });
+  void _useIncoming() {
+    _disposeControllers();
+    _initialiseState();
+  }
 
   @override
   void initState() {
@@ -51,14 +113,41 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   @override
   void didUpdateWidget(covariant JobModuleResponseForm oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.fieldDefinitions != widget.fieldDefinitions ||
-        oldWidget.initialResponses != widget.initialResponses) {
-      _disposeControllers();
-      _initialiseState();
+    if (oldWidget.inputScopeKey != widget.inputScopeKey) {
+      _submittedEntries = null;
+      _saving = false;
+      _useIncoming();
+      return;
+    }
+    if (_definitionBasis == _incomingDefinitions &&
+        _responseBasis == _incomingResponses) {
+      return;
+    }
+    if (_entries == _cleanEntries) {
+      _useIncoming();
+    } else {
+      // Own-save echoes may arrive after more typing. Preserve those successor
+      // entries; a different remote value needs an explicit review.
+      final echoed =
+          _submittedEntries != null &&
+          _definitionBasis == _incomingDefinitions &&
+          _incomingEntries == _submittedEntries;
+      if (echoed) {
+        _responseBasis = _incomingResponses;
+        _retainedResponses = List.of(widget.initialResponses);
+        _cleanEntries = _submittedEntries!;
+        _incomingConflict = false;
+      } else {
+        _incomingConflict = true;
+      }
     }
   }
 
   void _initialiseState() {
+    _definitionBasis = _incomingDefinitions;
+    _responseBasis = _incomingResponses;
+    _retainedResponses = List.of(widget.initialResponses);
+    _incomingConflict = false;
     _fields =
         widget.fieldDefinitions
             .map(_ModuleFieldDefinition.fromMap)
@@ -112,6 +201,7 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
           break;
       }
     }
+    _cleanEntries = _entries;
   }
 
   @override
@@ -132,6 +222,10 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
   }
 
   Future<void> _save() async {
+    if (_incomingConflict || _saving || !widget.isEditable || widget.isBusy) {
+      return;
+    }
+    final scope = widget.inputScopeKey;
     final errors = <String, String?>{};
     final editableFieldKeys = <String>{};
     final editedResponsesByKey = <String, FieldResponse>{};
@@ -181,7 +275,7 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
     }
 
     final responses = <FieldResponse>[];
-    for (final existing in widget.initialResponses) {
+    for (final existing in _retainedResponses) {
       if (!editableFieldKeys.contains(existing.key)) {
         responses.add(existing);
         continue;
@@ -195,7 +289,19 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
     }
 
     setState(_fieldErrors.clear);
-    await widget.onSave(responses);
+    final submitted = _entries;
+    _submittedEntries = submitted;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(responses);
+      if (!mounted || widget.inputScopeKey != scope) return;
+      // Do not mark newer edits as saved or erase an intervening remote conflict.
+      // Only the persisted response echo can advance the clean basis.
+    } finally {
+      if (mounted && widget.inputScopeKey == scope) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   dynamic _readFieldValue(_ModuleFieldDefinition field) {
@@ -268,12 +374,67 @@ class _JobModuleResponseFormState extends State<JobModuleResponseForm> {
               ],
             ),
           ),
+        if (_incomingConflict) ...[
+          const Text(
+            'Saved work or requirements changed. Your unsaved entries are retained below. Review the latest saved values before continuing.',
+          ),
+          Text(
+            widget.initialResponses
+                .map((r) => '${r.fieldLabel}: ${r.value}')
+                .join('\n'),
+          ),
+          if (_definitionBasis == _incomingDefinitions)
+            TextButton(
+              onPressed: () => setState(() {
+                _responseBasis = _incomingResponses;
+                _retainedResponses = List.of(widget.initialResponses);
+                // Local entries remain edits against the values just reviewed.
+                // The superseded clean values must not erase a later edit back
+                // to an earlier reading, or make a new saved echo look current.
+                _cleanEntries = _incomingEntries;
+                _submittedEntries = null;
+                _incomingConflict = false;
+              }),
+              child: const Text('Reviewed — keep my entries'),
+            ),
+          TextButton(
+            onPressed: () async {
+              final discard = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Replace unsaved entries?'),
+                  content: const Text(
+                    'Load the latest saved values and requirements. Your current unsaved entries will be discarded.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Keep editing'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Load saved values'),
+                    ),
+                  ],
+                ),
+              );
+              if (mounted && discard == true) setState(_useIncoming);
+            },
+            child: const Text('Load latest saved values'),
+          ),
+        ],
         ..._fields.map(_buildField),
         const SizedBox(height: BafSpacing.md),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: widget.isEditable && !widget.isBusy ? _save : null,
+            onPressed:
+                widget.isEditable &&
+                    !widget.isBusy &&
+                    !_saving &&
+                    !_incomingConflict
+                ? _save
+                : null,
             icon: const Icon(Icons.assignment_turned_in_rounded),
             label: Text(widget.saveButtonLabel),
             style: FilledButton.styleFrom(

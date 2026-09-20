@@ -1,6 +1,8 @@
 // FILE: lib/features/planned_maintenance/providers/job_diary_provider.dart
 
 import 'dart:async';
+import 'dart:convert';
+import '../../../core/serialization/persisted_json_equality.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -13,11 +15,11 @@ import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../data/job_diary_model.dart';
+import '../domain/job_diary_save_precondition.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
-import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'job_diary_provider.local.dart';
 part 'job_diary_provider.remote.dart';
@@ -38,11 +40,6 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
 String? _cleanOptionalText(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
-}
-
-String _cleanRequiredText(String? value, String fallback) {
-  final cleaned = _cleanOptionalText(value);
-  return cleaned ?? fallback;
 }
 
 List<String> _cleanStringList(List<String> values) {
@@ -105,7 +102,7 @@ void _normalizeDiaryEntryForUserSave(
     ..procedureRef = _cleanOptionalText(entry.procedureRef)
     ..tags = _cleanStringList(entry.tags)
     ..title = _cleanOptionalText(entry.title)
-    ..note = _cleanRequiredText(_readNoteSafely(entry), 'Progress note')
+    ..note = _cleanOptionalText(_readNoteSafely(entry)) ?? ''
     ..actionTaken = _cleanOptionalText(entry.actionTaken)
     ..pendingIssue = _cleanOptionalText(entry.pendingIssue)
     ..createdByUid = _cleanOptionalText(entry.createdByUid)
@@ -134,10 +131,18 @@ void _normalizeDiaryEntryForUserSave(
     entry.isHandover = true;
   }
 
+  if (entry.isBlocker &&
+      (entry.blockerStatus == JobBlockerStatus.open ||
+          entry.blockerStatus == JobBlockerStatus.carriedForward)) {
+    entry.requiresFollowUp = true;
+  }
   if (!entry.isBlocker) {
     entry.blockerStatus = null;
   }
 
+  if (entry.note.isEmpty) {
+    throw StateError('Record the actual diary observation before saving.');
+  }
   if (markUnsynced) {
     entry.isSynced = false;
   }

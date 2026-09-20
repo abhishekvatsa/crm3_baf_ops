@@ -377,7 +377,8 @@ void main() {
         rules,
         contains(
           "allow create: if !docId.matches('^server_.*')\n"
-          "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate();",
+          "        && !docId.matches('^workflow_module_reopen_.*') && validAuditCreate()\n"
+          "        && validClientAuditIdentity(docId);",
         ),
       );
       expect(functions, contains('export const mutateChargeAbnormality'));

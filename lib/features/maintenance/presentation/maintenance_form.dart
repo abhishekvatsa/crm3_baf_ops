@@ -55,7 +55,8 @@ part 'maintenance_form_draft.dart';
 enum _IssueIntakeMode { standard, furnaceStuckup }
 
 class MaintenanceForm extends ConsumerStatefulWidget {
-  const MaintenanceForm({super.key});
+  const MaintenanceForm({super.key, this.continuesIssueId});
+  final String? continuesIssueId;
 
   @override
   ConsumerState<MaintenanceForm> createState() => _MaintenanceFormState();
@@ -1166,6 +1167,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..hierarchyPath =
                 _isBaseInnerCoverAvailability ? null : hierarchyPath;
       record.assetHierarchyRefJson = eventAssetReference?.encode();
+      record.continuesIssueId = widget.continuesIssueId;
       record.burnerLockoutCase = burnerLockout;
       record.furnaceStuckupCase = furnaceStuckup;
       record.qualityIntent = IssueQualityIntent(
@@ -1357,6 +1359,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             112,
           ),
           children: [
+            if (widget.continuesIssueId != null)
+              CurrentActorNotice(message: 'Continuing retained concern ${widget.continuesIssueId}. Select its same physical asset and component using the current register. The original closure and relevance decision remain unchanged.'),
             if (accountMessage != null)
               CurrentActorNotice(message: accountMessage),
             _IntroCard(appUserName: appUser?.name),
@@ -2011,81 +2015,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       case MaintenanceType.overhaul:
         return 'OVERHAUL';
     }
-  }
-}
-
-class _BurnerRouteNotice extends StatelessWidget {
-  const _BurnerRouteNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.audit.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.audit.withValues(alpha: 0.25)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.route_rounded, color: BafColors.audit),
-          SizedBox(width: BafSpacing.sm),
-          Expanded(
-            child: Text(
-              'Burner lockout keeps I&A primary for UV, ignition and flame '
-              'supervision. Mechanical investigates the physical burner '
-              'block and installs replacements, so a red-hot block adds the '
-              'Mechanical lane automatically. RED manufacture or purchased '
-              'supply is captured as replacement provenance.',
-              style: TextStyle(
-                color: BafColors.textPrimary,
-                height: 1.35,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FurnaceStuckupRouteNotice extends StatelessWidget {
-  const _FurnaceStuckupRouteNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.warning.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.warning.withValues(alpha: 0.32)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.link_off_rounded, color: BafColors.warning),
-          SizedBox(width: BafSpacing.sm),
-          Expanded(
-            child: Text(
-              'This creates one breakdown issue and temporarily blocks the '
-              'selected Base and Furnace. The linked Inner Cover is frozen '
-              'with the event. Admin or SI must later confirm the cause; a '
-              'suspected bulge is not treated as proven.',
-              style: TextStyle(
-                color: BafColors.textPrimary,
-                height: 1.4,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

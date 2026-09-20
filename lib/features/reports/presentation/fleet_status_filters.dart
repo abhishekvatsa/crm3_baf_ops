@@ -29,11 +29,14 @@ class _ReportFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final availableClasses = classes.where((item) => item.isActive).toList();
+    final availableClasses = [
+      ...classes.where((item) => item.isActive),
+      ...classes.where((item) => !item.isActive && item.id == assetClassId),
+    ];
     final availableAssets = assets
         .where(
           (item) =>
-              item.isActive &&
+              (item.isActive || item.id == assetInstanceId) &&
               (assetClassId == null || item.assetClassId == assetClassId),
         )
         .toList();
@@ -70,7 +73,9 @@ class _ReportFilters extends StatelessWidget {
         selectedCoverName ??
         selectedAssetName ??
         selectedClassName ??
-        'All assets';
+        (assetInstanceId != null || assetClassId != null
+            ? 'Selected identity unavailable — refresh or change scope'
+            : 'All assets');
     final periodLabel =
         '${DateFormat('dd MMM').format(startDate)} - '
         '${DateFormat('dd MMM yyyy').format(endDate)}';
@@ -111,10 +116,20 @@ class _ReportFilters extends StatelessWidget {
                 value: null,
                 child: Text('All asset classes'),
               ),
+              if (assetClassId != null &&
+                  !availableClasses.any((item) => item.id == assetClassId))
+                DropdownMenuItem(
+                  value: assetClassId,
+                  enabled: false,
+                  child: const Text('Selected class unavailable'),
+                ),
               ...availableClasses.map(
                 (item) => DropdownMenuItem<String?>(
                   value: item.id,
-                  child: Text(item.name, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    '${item.name}${item.isActive ? '' : ' (retired — historical)'}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
@@ -137,11 +152,23 @@ class _ReportFilters extends StatelessWidget {
                 value: null,
                 child: Text('All assets in scope'),
               ),
+              if (assetInstanceId != null &&
+                  !availableAssets.any((item) => item.id == assetInstanceId) &&
+                  !availableCovers.any(
+                    (item) =>
+                        '${OperationsReportSelection.innerCoverPrefix}${item.id}' ==
+                        assetInstanceId,
+                  ))
+                DropdownMenuItem(
+                  value: assetInstanceId,
+                  enabled: false,
+                  child: const Text('Selected asset unavailable'),
+                ),
               ...availableAssets.map(
                 (item) => DropdownMenuItem<String?>(
                   value: item.id,
                   child: Text(
-                    item.displayLabel,
+                    '${item.displayLabel}${item.isActive ? '' : ' (retired — historical)'}',
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -200,7 +227,7 @@ class _ReportFilters extends StatelessWidget {
               _PeriodButton(
                 label: 'This year',
                 onPressed: () {
-                  final now = DateTime.now();
+                  final now = operationsReportPlantTime(DateTime.now());
                   onDatesChanged(
                     DateTime(now.year),
                     DateTime(now.year, now.month, now.day),
@@ -215,7 +242,7 @@ class _ReportFilters extends StatelessWidget {
   }
 
   void _applyDays(int days) {
-    final now = DateTime.now();
+    final now = operationsReportPlantTime(DateTime.now());
     final end = DateTime(now.year, now.month, now.day);
     onDatesChanged(end.subtract(Duration(days: days - 1)), end);
   }
@@ -225,7 +252,7 @@ class _ReportFilters extends StatelessWidget {
         context: context,
         initialDate: current,
         firstDate: DateTime(2020),
-        lastDate: DateTime.now(),
+        lastDate: operationsReportPlantTime(DateTime.now()),
       );
 }
 

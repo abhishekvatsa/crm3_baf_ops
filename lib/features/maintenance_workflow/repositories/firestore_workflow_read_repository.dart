@@ -231,136 +231,124 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
   final metadata = _optionalObject(data, 'metadata');
   final isDeleted = _optionalBool(data, 'isDeleted', fallback: false);
 
-  final record =
-      ComplianceRequestRecord()
-        ..firestoreId = documentId
-        ..isSynced = true
-        ..version = _requiredInt(data, 'version', minimum: 1)
-        ..title = _requiredString(data, 'title')
-        ..description = _requiredString(data, 'description')
-        ..originLaneKey = _string(data['originLaneKey'])
-        ..targetLaneKey = _requiredString(
-          data,
-          'targetLaneKey',
-          allowed: _laneKeys,
-        )
-        ..statusKey = _requiredString(
-          data,
-          'status',
-          allowed: _complianceStatusKeys,
-        )
-        ..conditionTypeKey = _requiredString(
-          data,
-          'conditionTypeKey',
-          allowed: _conditionTypeKeys,
-        )
-        ..conditionRef = _string(data['conditionRef'])
-        ..requestPurposeKey =
-            data['requestPurposeKey'] == null
-                ? 'assurance'
-                : _requiredString(
-                  data,
-                  'requestPurposeKey',
-                  allowed: _requestPurposeKeys,
-                )
-        ..defermentBasisKey = _optionalAllowedString(
-          data,
-          'defermentBasisKey',
-          _defermentBasisKeys,
-        )
-        ..operationsSupportTypeKey = _optionalAllowedString(
-          data,
-          'operationsSupportTypeKey',
-          _operationsSupportTypeKeys,
-        )
-        ..operationsResourceKey = _optionalAllowedString(
-          data,
-          'operationsResourceKey',
-          _operationsResourceKeys,
-        )
-        ..requestedLocation = _string(data['requestedLocation'])
-        ..raisedUnderCoordination = _optionalBool(
-          data,
-          'raisedUnderCoordination',
-          fallback: false,
-        )
-        ..coordinationBasis = _string(data['coordinationBasis'])
-        ..priorityKey = _requiredString(
-          data,
-          'priorityKey',
-          allowed: _priorityKeys,
-        )
-        ..raisedByUid = _string(data['raisedByUid'])
-        ..raisedByName = _string(data['raisedByName'])
-        ..raisedAt = _optionalDate(data['raisedAt'])
-        ..acknowledgedByUid = _string(data['acknowledgedByUid'])
-        ..acknowledgedByName = _string(data['acknowledgedByName'])
-        ..acknowledgedAt = _optionalDate(data['acknowledgedAt'])
-        ..compliedByUid = _string(data['compliedByUid'])
-        ..compliedByName = _string(data['compliedByName'])
-        ..compliedAt = _optionalDate(data['compliedAt'])
-        ..complianceNote = _string(data['complianceNote'])
-        ..currentAttemptId = _string(data['currentAttemptId'])
-        ..attemptCount = _optionalInt(data, 'attemptCount', fallback: 0)
-        ..confirmedByUid = _string(data['confirmedByUid'])
-        ..confirmedByName = _string(data['confirmedByName'])
-        ..confirmedAt = _optionalDate(data['confirmedAt'])
-        ..confirmNote = _string(data['confirmNote'])
-        ..becameDueAt = _optionalDate(data['becameDueAt'])
-        ..dueMarkedByUid = _string(data['dueMarkedByUid'])
-        ..dueMarkedByName = _string(data['dueMarkedByName'])
-        ..dueMarkedAt = _optionalDate(data['dueMarkedAt'])
-        ..counterDepth = _optionalInt(data, 'counterDepth', fallback: 0)
-        ..counterConditionOfId = _string(data['counterConditionOfId'])
-        ..supersededById = _string(data['supersededById'])
-        ..counterProposedByUid = _string(counterProposal?['proposedByUid'])
-        ..counterProposedByName = _string(counterProposal?['proposedByName'])
-        ..counterProposedAt = _optionalDate(counterProposal?['proposedAt'])
-        ..counterRevisedDescription = _string(
-          counterProposal?['revisedDescription'],
-        )
-        ..counterDecisionByUid = _string(counterDecision?['decidedByUid'])
-        ..counterDecisionByName = _string(counterDecision?['decidedByName'])
-        ..counterDecisionAt = _optionalDate(counterDecision?['decidedAt'])
-        ..counterDecisionNote = _string(counterDecision?['note'])
-        ..correctionCount = _optionalInt(data, 'correctionCount', fallback: 0)
-        ..lastCorrectionByUid = _string(data['lastCorrectionByUid'])
-        ..lastCorrectionByName = _string(data['lastCorrectionByName'])
-        ..lastCorrectionAt = _optionalDate(data['lastCorrectionAt'])
-        ..lastCorrectionReason = _string(data['lastCorrectionReason'])
-        ..linkedWorkflowId = _requiredString(data, 'linkedWorkflowId')
-        ..linkedMaintenanceFirestoreId = _string(
-          data['linkedMaintenanceFirestoreId'],
-        )
-        ..linkedExecutionFirestoreId = _string(
-          data['linkedExecutionFirestoreId'],
-        )
-        ..linkedLaneFirestoreId = _string(data['linkedLaneFirestoreId'])
-        ..linkedModuleFirestoreId = _string(data['linkedModuleFirestoreId'])
-        ..gatesLaneFirestoreId = _string(data['gatesLaneFirestoreId'])
-        ..assetTypeKey = _requiredString(
-          data,
-          'assetTypeKey',
-          allowed: _assetTypeKeys,
-        )
-        ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-        ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
-          data['chargeNoAtEvent'],
-          field: 'chargeNoAtEvent',
-          source: 'workflow remote projection',
-        )
-        ..escalationTier = _optionalInt(data, 'escalationTier', fallback: 0)
-        ..lastEscalatedAt = _optionalDate(data['lastEscalatedAt'])
-        ..acknowledgementDueAt = _optionalDate(data['acknowledgementDueAt'])
-        ..complianceDueAt = _optionalDate(data['complianceDueAt'])
-        ..createdAt = _date(data['createdAt'], 'createdAt')
-        ..updatedAt = _date(data['updatedAt'], 'updatedAt')
-        ..isDeleted = isDeleted
-        ..deletedAt = _optionalDate(data['deletedAt'])
-        ..deletedByUid = _string(data['deletedByUid'])
-        ..deletedByName = _string(data['deletedByName'])
-        ..deleteReason = _string(data['deleteReason'])
-        ..metadataJson = metadata == null ? null : jsonEncode(metadata);
+  final record = ComplianceRequestRecord()
+    ..firestoreId = documentId
+    ..isSynced = true
+    ..version = _requiredInt(data, 'version', minimum: 1)
+    ..title = _requiredString(data, 'title')
+    ..description = _requiredString(data, 'description')
+    ..originLaneKey = _string(data['originLaneKey'])
+    ..targetLaneKey = _requiredString(data, 'targetLaneKey', allowed: _laneKeys)
+    ..statusKey = _requiredString(
+      data,
+      'status',
+      allowed: _complianceStatusKeys,
+    )
+    ..conditionTypeKey = _requiredString(
+      data,
+      'conditionTypeKey',
+      allowed: _conditionTypeKeys,
+    )
+    ..conditionRef = _string(data['conditionRef'])
+    ..requestPurposeKey = data['requestPurposeKey'] == null
+        ? 'assurance'
+        : _requiredString(
+            data,
+            'requestPurposeKey',
+            allowed: _requestPurposeKeys,
+          )
+    ..defermentBasisKey = _optionalAllowedString(
+      data,
+      'defermentBasisKey',
+      _defermentBasisKeys,
+    )
+    ..operationsSupportTypeKey = _optionalAllowedString(
+      data,
+      'operationsSupportTypeKey',
+      _operationsSupportTypeKeys,
+    )
+    ..operationsResourceKey = _optionalAllowedString(
+      data,
+      'operationsResourceKey',
+      _operationsResourceKeys,
+    )
+    ..requestedLocation = _string(data['requestedLocation'])
+    ..raisedUnderCoordination = _optionalBool(
+      data,
+      'raisedUnderCoordination',
+      fallback: false,
+    )
+    ..coordinationBasis = _string(data['coordinationBasis'])
+    ..priorityKey = _requiredString(data, 'priorityKey', allowed: _priorityKeys)
+    ..raisedByUid = _string(data['raisedByUid'])
+    ..raisedByName = _string(data['raisedByName'])
+    ..raisedAt = _optionalDate(data['raisedAt'])
+    ..acknowledgedByUid = _string(data['acknowledgedByUid'])
+    ..acknowledgedByName = _string(data['acknowledgedByName'])
+    ..acknowledgedAt = _optionalDate(data['acknowledgedAt'])
+    ..compliedByUid = _string(data['compliedByUid'])
+    ..compliedByName = _string(data['compliedByName'])
+    ..compliedAt = _optionalDate(data['compliedAt'])
+    ..complianceNote = _string(data['complianceNote'])
+    ..currentAttemptId = _string(data['currentAttemptId'])
+    ..attemptCount = _optionalInt(data, 'attemptCount', fallback: 0)
+    ..confirmedByUid = _string(data['confirmedByUid'])
+    ..confirmedByName = _string(data['confirmedByName'])
+    ..confirmedAt = _optionalDate(data['confirmedAt'])
+    ..confirmNote = _string(data['confirmNote'])
+    ..becameDueAt = _optionalDate(data['becameDueAt'])
+    ..dueMarkedByUid = _string(data['dueMarkedByUid'])
+    ..dueMarkedByName = _string(data['dueMarkedByName'])
+    ..dueMarkedAt = _optionalDate(data['dueMarkedAt'])
+    ..counterDepth = _optionalInt(data, 'counterDepth', fallback: 0)
+    ..counterConditionOfId = _string(data['counterConditionOfId'])
+    ..supersededById = _string(data['supersededById'])
+    ..counterProposedByUid = _string(counterProposal?['proposedByUid'])
+    ..counterProposedByName = _string(counterProposal?['proposedByName'])
+    ..counterProposedAt = _optionalDate(counterProposal?['proposedAt'])
+    ..counterRevisedDescription = _string(
+      counterProposal?['revisedDescription'],
+    )
+    ..counterDecisionByUid = _string(counterDecision?['decidedByUid'])
+    ..counterDecisionByName = _string(counterDecision?['decidedByName'])
+    ..counterDecisionAt = _optionalDate(counterDecision?['decidedAt'])
+    ..counterDecisionNote = _string(counterDecision?['note'])
+    ..correctionCount = _optionalInt(data, 'correctionCount', fallback: 0)
+    ..lastCorrectionByUid = _string(data['lastCorrectionByUid'])
+    ..lastCorrectionByName = _string(data['lastCorrectionByName'])
+    ..lastCorrectionAt = _optionalDate(data['lastCorrectionAt'])
+    ..lastCorrectionReason = _string(data['lastCorrectionReason'])
+    ..linkedWorkflowId = _requiredString(data, 'linkedWorkflowId')
+    ..linkedMaintenanceFirestoreId = _string(
+      data['linkedMaintenanceFirestoreId'],
+    )
+    ..linkedExecutionFirestoreId = _string(data['linkedExecutionFirestoreId'])
+    ..linkedLaneFirestoreId = _string(data['linkedLaneFirestoreId'])
+    ..linkedModuleFirestoreId = _string(data['linkedModuleFirestoreId'])
+    ..gatesLaneFirestoreId = _string(data['gatesLaneFirestoreId'])
+    ..assetTypeKey = _requiredString(
+      data,
+      'assetTypeKey',
+      allowed: _assetTypeKeys,
+    )
+    ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
+    ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
+      data['chargeNoAtEvent'],
+      field: 'chargeNoAtEvent',
+      source: 'workflow remote projection',
+    )
+    ..escalationTier = _optionalInt(data, 'escalationTier', fallback: 0)
+    ..lastEscalatedAt = _optionalDate(data['lastEscalatedAt'])
+    ..acknowledgementDueAt = _optionalDate(data['acknowledgementDueAt'])
+    ..complianceDueAt = _optionalDate(data['complianceDueAt'])
+    ..createdAt = _date(data['createdAt'], 'createdAt')
+    ..updatedAt = _date(data['updatedAt'], 'updatedAt')
+    ..isDeleted = isDeleted
+    ..deletedAt = _optionalDate(data['deletedAt'])
+    ..deletedByUid = _string(data['deletedByUid'])
+    ..deletedByName = _string(data['deletedByName'])
+    ..deleteReason = _string(data['deleteReason'])
+    ..metadataJson = metadata == null ? null : jsonEncode(metadata);
 
   if (record.isDeleted != (record.deletedAt != null)) {
     return _projectionError(
@@ -456,14 +444,12 @@ WorkflowAggregateRecord workflowAggregateRecordFromFirestoreData({
     allowed: _assetTypeKeys,
   );
   final custom = assetTypeKey == 'governedCustom';
-  final assetClassId =
-      custom
-          ? _requiredString(data, 'assetClassId')
-          : _string(data['assetClassId'], 'assetClassId');
-  final assetInstanceId =
-      custom
-          ? _requiredString(data, 'assetInstanceId')
-          : _string(data['assetInstanceId'], 'assetInstanceId');
+  final assetClassId = custom
+      ? _requiredString(data, 'assetClassId')
+      : _string(data['assetClassId'], 'assetClassId');
+  final assetInstanceId = custom
+      ? _requiredString(data, 'assetInstanceId')
+      : _string(data['assetInstanceId'], 'assetInstanceId');
   return WorkflowAggregateRecord()
     ..firestoreId = documentId
     ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
@@ -477,6 +463,13 @@ WorkflowAggregateRecord workflowAggregateRecordFromFirestoreData({
       'workflowSchemaVersion',
       minimum: 1,
     )
+    ..workflowKind = data['workflowKind'] == null
+        ? null
+        : _requiredString(
+            data,
+            'workflowKind',
+            allowed: const {'plannedMaintenance', 'issueCoordination'},
+          )
     ..version = _requiredInt(data, 'version')
     ..laneSetVersion = _requiredInt(data, 'laneSetVersion')
     ..laneSetFinalizedAt = _optionalDate(
@@ -506,52 +499,48 @@ WorkflowAggregateRecord workflowAggregateRecordFromFirestoreData({
 JobLaneRecord jobLaneRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
-}) =>
-    JobLaneRecord()
-      ..firestoreId = documentId
-      ..workflowFirestoreId = _requiredString(data, 'workflowId')
-      ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
-      ..laneKey = _requiredString(data, 'laneKey', allowed: _laneKeys)
-      ..statusKey = _requiredString(data, 'status', allowed: _laneStatusKeys)
-      ..activationGeneration = _requiredInt(
-        data,
-        'activationGeneration',
-        minimum: 1,
-      )
-      ..version = _requiredInt(data, 'version', minimum: 1)
-      ..progressRevision = _optionalInt(data, 'progressRevision', fallback: 0)
-      ..isSynced = true
-      ..acknowledgedByUid = _string(
-        data['acknowledgedByUid'],
-        'acknowledgedByUid',
-      )
-      ..acknowledgedByName = _string(
-        data['acknowledgedByName'],
-        'acknowledgedByName',
-      )
-      ..acknowledgedAt = _optionalDate(data['acknowledgedAt'], 'acknowledgedAt')
-      ..representedLaneKey = _string(
-        data['representedLaneKey'],
-        'representedLaneKey',
-      )
-      ..delegationBasis = _string(data['delegationBasis'], 'delegationBasis')
-      ..gatingComplianceRequestId = _string(
-        data['gatingComplianceRequestId'],
-        'gatingComplianceRequestId',
-      )
-      ..assetTypeKey = _requiredString(
-        data,
-        'assetTypeKey',
-        allowed: _assetTypeKeys,
-      )
-      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-      ..displayOrder = _optionalInt(data, 'displayOrder', fallback: 0)
-      ..acknowledgementDueAt = _optionalDate(
-        data['acknowledgementDueAt'],
-        'acknowledgementDueAt',
-      )
-      ..createdAt = _date(data['createdAt'], 'createdAt')
-      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}) => JobLaneRecord()
+  ..firestoreId = documentId
+  ..workflowFirestoreId = _requiredString(data, 'workflowId')
+  ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
+  ..laneKey = _requiredString(data, 'laneKey', allowed: _laneKeys)
+  ..statusKey = _requiredString(data, 'status', allowed: _laneStatusKeys)
+  ..activationGeneration = _requiredInt(
+    data,
+    'activationGeneration',
+    minimum: 1,
+  )
+  ..version = _requiredInt(data, 'version', minimum: 1)
+  ..progressRevision = _optionalInt(data, 'progressRevision', fallback: 0)
+  ..isSynced = true
+  ..acknowledgedByUid = _string(data['acknowledgedByUid'], 'acknowledgedByUid')
+  ..acknowledgedByName = _string(
+    data['acknowledgedByName'],
+    'acknowledgedByName',
+  )
+  ..acknowledgedAt = _optionalDate(data['acknowledgedAt'], 'acknowledgedAt')
+  ..representedLaneKey = _string(
+    data['representedLaneKey'],
+    'representedLaneKey',
+  )
+  ..delegationBasis = _string(data['delegationBasis'], 'delegationBasis')
+  ..gatingComplianceRequestId = _string(
+    data['gatingComplianceRequestId'],
+    'gatingComplianceRequestId',
+  )
+  ..assetTypeKey = _requiredString(
+    data,
+    'assetTypeKey',
+    allowed: _assetTypeKeys,
+  )
+  ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
+  ..displayOrder = _optionalInt(data, 'displayOrder', fallback: 0)
+  ..acknowledgementDueAt = _optionalDate(
+    data['acknowledgementDueAt'],
+    'acknowledgementDueAt',
+  )
+  ..createdAt = _date(data['createdAt'], 'createdAt')
+  ..updatedAt = _date(data['updatedAt'], 'updatedAt');
 
 EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
   required String documentId,
@@ -563,14 +552,12 @@ EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
     allowed: _assetTypeKeys,
   );
   final custom = assetTypeKey == 'governedCustom';
-  final assetClassId =
-      custom
-          ? _requiredString(data, 'assetClassId')
-          : _string(data['assetClassId'], 'assetClassId');
-  final assetInstanceId =
-      custom
-          ? _requiredString(data, 'assetInstanceId')
-          : _string(data['assetInstanceId'], 'assetInstanceId');
+  final assetClassId = custom
+      ? _requiredString(data, 'assetClassId')
+      : _string(data['assetClassId'], 'assetClassId');
+  final assetInstanceId = custom
+      ? _requiredString(data, 'assetInstanceId')
+      : _string(data['assetInstanceId'], 'assetInstanceId');
   if (custom &&
       documentId != 'governedCustom_${assetClassId}_$assetInstanceId') {
     return _projectionError(
@@ -604,6 +591,8 @@ EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
       data['lastTransitionAt'],
       'lastTransitionAt',
     )
+    ..availableSince = _optionalDate(data['availableSince'], 'availableSince')
+    ..inServiceSince = _optionalDate(data['inServiceSince'], 'inServiceSince')
     ..lastTransitionByUid = _string(
       data['lastTransitionByUid'],
       'lastTransitionByUid',
@@ -618,50 +607,49 @@ EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
 EquipmentPromptRecord equipmentPromptRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
-}) =>
-    EquipmentPromptRecord()
-      ..firestoreId = documentId
-      ..isSynced = true
-      ..version = _requiredInt(data, 'version', minimum: 1)
-      ..assetTypeKey = _requiredString(
-        data,
-        'assetTypeKey',
-        allowed: _assetTypeKeys,
-      )
-      ..promptKey = _requiredString(data, 'promptKey')
-      ..promptTypeKey = _requiredString(
-        data,
-        'promptTypeKey',
-        allowed: _promptTypeKeys,
-      )
-      ..question = _string(data['question'], 'question')
-      ..appliesWhenLaneKey = _string(
-        data['appliesWhenLaneKey'],
-        'appliesWhenLaneKey',
-      )
-      ..complianceTargetLaneKey = _string(
-        data['complianceTargetLaneKey'],
-        'complianceTargetLaneKey',
-      )
-      ..complianceTitleTemplate = _string(
-        data['complianceTitleTemplate'],
-        'complianceTitleTemplate',
-      )
-      ..successorTemplatePackageId = _string(
-        data['successorTemplatePackageId'],
-        'successorTemplatePackageId',
-      )
-      ..successorTemplateVersionId = _string(
-        data['successorTemplateVersionId'],
-        'successorTemplateVersionId',
-      )
-      ..successorTemplateContentHash = _string(
-        data['successorTemplateContentHash'],
-        'successorTemplateContentHash',
-      )
-      ..active = _optionalBool(data, 'active', fallback: true)
-      ..createdAt = _date(data['createdAt'], 'createdAt')
-      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}) => EquipmentPromptRecord()
+  ..firestoreId = documentId
+  ..isSynced = true
+  ..version = _requiredInt(data, 'version', minimum: 1)
+  ..assetTypeKey = _requiredString(
+    data,
+    'assetTypeKey',
+    allowed: _assetTypeKeys,
+  )
+  ..promptKey = _requiredString(data, 'promptKey')
+  ..promptTypeKey = _requiredString(
+    data,
+    'promptTypeKey',
+    allowed: _promptTypeKeys,
+  )
+  ..question = _string(data['question'], 'question')
+  ..appliesWhenLaneKey = _string(
+    data['appliesWhenLaneKey'],
+    'appliesWhenLaneKey',
+  )
+  ..complianceTargetLaneKey = _string(
+    data['complianceTargetLaneKey'],
+    'complianceTargetLaneKey',
+  )
+  ..complianceTitleTemplate = _string(
+    data['complianceTitleTemplate'],
+    'complianceTitleTemplate',
+  )
+  ..successorTemplatePackageId = _string(
+    data['successorTemplatePackageId'],
+    'successorTemplatePackageId',
+  )
+  ..successorTemplateVersionId = _string(
+    data['successorTemplateVersionId'],
+    'successorTemplateVersionId',
+  )
+  ..successorTemplateContentHash = _string(
+    data['successorTemplateContentHash'],
+    'successorTemplateContentHash',
+  )
+  ..active = _optionalBool(data, 'active', fallback: true)
+  ..createdAt = _date(data['createdAt'], 'createdAt')
+  ..updatedAt = _date(data['updatedAt'], 'updatedAt');
 
 WorkflowEventRecord workflowEventRecordFromFirestoreData({
   required String documentId,
@@ -688,31 +676,27 @@ WorkflowEventRecord workflowEventRecordFromFirestoreData({
 ComplianceAttemptRecord complianceAttemptRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
-}) =>
-    ComplianceAttemptRecord()
-      ..firestoreId = documentId
-      ..complianceRequestFirestoreId = _requiredString(
-        data,
-        'complianceRequestId',
-      )
-      ..attemptNumber = _requiredInt(data, 'attemptNumber', minimum: 1)
-      ..attemptedByUid = _requiredString(data, 'attemptedByUid')
-      ..attemptedByName = _string(data['attemptedByName'], 'attemptedByName')
-      ..attemptedAt = _date(data['attemptedAt'], 'attemptedAt')
-      ..note = _requiredString(data, 'note')
-      ..accepted = readRequiredPersistedBool(
-        data['accepted'],
-        field: 'accepted',
-        source: 'workflow remote projection',
-      )
-      ..acceptedByUid = _string(data['acceptedByUid'], 'acceptedByUid')
-      ..acceptedByName = _string(data['acceptedByName'], 'acceptedByName')
-      ..acceptedAt = _optionalDate(data['acceptedAt'], 'acceptedAt')
-      ..returnedByUid = _string(data['returnedByUid'], 'returnedByUid')
-      ..returnedByName = _string(data['returnedByName'], 'returnedByName')
-      ..returnedAt = _optionalDate(data['returnedAt'], 'returnedAt')
-      ..returnReason = _string(data['returnReason'], 'returnReason')
-      ..isSynced = true;
+}) => ComplianceAttemptRecord()
+  ..firestoreId = documentId
+  ..complianceRequestFirestoreId = _requiredString(data, 'complianceRequestId')
+  ..attemptNumber = _requiredInt(data, 'attemptNumber', minimum: 1)
+  ..attemptedByUid = _requiredString(data, 'attemptedByUid')
+  ..attemptedByName = _string(data['attemptedByName'], 'attemptedByName')
+  ..attemptedAt = _date(data['attemptedAt'], 'attemptedAt')
+  ..note = _requiredString(data, 'note')
+  ..accepted = readRequiredPersistedBool(
+    data['accepted'],
+    field: 'accepted',
+    source: 'workflow remote projection',
+  )
+  ..acceptedByUid = _string(data['acceptedByUid'], 'acceptedByUid')
+  ..acceptedByName = _string(data['acceptedByName'], 'acceptedByName')
+  ..acceptedAt = _optionalDate(data['acceptedAt'], 'acceptedAt')
+  ..returnedByUid = _string(data['returnedByUid'], 'returnedByUid')
+  ..returnedByName = _string(data['returnedByName'], 'returnedByName')
+  ..returnedAt = _optionalDate(data['returnedAt'], 'returnedAt')
+  ..returnReason = _string(data['returnReason'], 'returnReason')
+  ..isSynced = true;
 
 abstract interface class WorkflowRemoteReadRepository {
   Future<WorkflowRemoteBatch<WorkflowAggregateRecord>>
@@ -892,12 +876,38 @@ class FirestoreWorkflowReadRepository implements WorkflowRemoteReadRepository {
   @override
   Future<WorkflowRemoteBatch<ComplianceAttemptRecord>> fetchAttemptsAfter(
     DateTime? since,
-  ) => _fetchAll(
-    collection: 'compliance_attempts',
-    timestampField: 'attemptedAt',
-    since: since,
-    map: _attempt,
-  );
+  ) async {
+    // New attempts advance on updatedAt so an acceptance/return is visible
+    // without changing the physical attemptedAt. Older documents may not
+    // have updatedAt, so keep the attemptedAt query as a compatibility leg
+    // until those documents naturally receive their next mutation.
+    final legacy = await _fetchAll(
+      collection: 'compliance_attempts',
+      timestampField: 'attemptedAt',
+      since: since,
+      map: _attempt,
+    );
+    // Read the mutable projection last so duplicate rows from the legacy leg
+    // cannot replace a newer review fetched by the updatedAt query.
+    final modern = await _fetchAll(
+      collection: 'compliance_attempts',
+      timestampField: 'updatedAt',
+      since: since,
+      map: _attempt,
+    );
+    final recordsById = <String, ComplianceAttemptRecord>{
+      for (final record in legacy.records) record.firestoreId: record,
+      for (final record in modern.records) record.firestoreId: record,
+    };
+    return WorkflowRemoteBatch<ComplianceAttemptRecord>(
+      records: recordsById.values.toList(growable: false),
+      failures: <WorkflowRemoteFailure>[...legacy.failures, ...modern.failures],
+      observedTimestamps: <DateTime>[
+        ...legacy.observedTimestamps,
+        ...modern.observedTimestamps,
+      ],
+    );
+  }
 
   WorkflowAggregateRecord _workflow(
     DocumentSnapshot<Map<String, dynamic>> doc,

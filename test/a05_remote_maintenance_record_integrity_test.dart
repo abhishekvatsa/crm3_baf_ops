@@ -28,6 +28,12 @@ void main() {
       expect(record.resolutionHistoryJson, '[]');
     });
 
+    test('optional continuation identity is retained without changing ordinary records', () {
+      final data = _validRecord()..['continuesIssueId'] = 'retained-issue';
+      final record = readRemoteMaintenanceRecord(data, documentId: 'ticket-1');
+      expect(record.continuesIssueId, 'retained-issue');
+    });
+
     test(
       'Base Inner Cover availability requires verified vacant dependency evidence',
       () {

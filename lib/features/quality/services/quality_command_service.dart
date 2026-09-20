@@ -15,7 +15,9 @@ enum QualityCommandOperation {
   closeWarning('CLOSE_QUALITY_WARNING'),
   reopenWarning('REOPEN_QUALITY_WARNING'),
   createMonitoringRequest('CREATE_QUALITY_MONITORING_REQUEST'),
-  closeMonitoringRequest('CLOSE_QUALITY_MONITORING_REQUEST');
+  closeMonitoringRequest('CLOSE_QUALITY_MONITORING_REQUEST'),
+  correctMonitoringRequest('CORRECT_QUALITY_MONITORING_REQUEST'),
+  cancelMonitoringRequest('CANCEL_QUALITY_MONITORING_REQUEST');
 
   const QualityCommandOperation(this.wireName);
 
@@ -30,10 +32,11 @@ enum QualityCommandOperation {
 }
 
 class QualityCommandException implements Exception {
-  const QualityCommandException(this.message, {this.code});
+  const QualityCommandException(this.message, {this.code, this.reasonCode});
 
   final String message;
   final String? code;
+  final String? reasonCode;
 
   @override
   String toString() => message;
@@ -302,22 +305,48 @@ abstract interface class QualityMonitoringCreation {
   Future<void> cancelNeverSent();
 }
 
+abstract interface class QualityMonitoringClosure {
+  Future<QualityCommandResult> closeMonitoringRequest({
+    required QualityMonitoringRequest request,
+    required String reason,
+  });
+}
+
+abstract interface class QualityMonitoringReview {
+  Future<QualityCommandResult> reviewMonitoring({
+    required QualityMonitoringRequest request,
+    required QualityCommandOperation operation,
+    required Map<String, dynamic> payload,
+  });
+  Future<QualityCommandResult> checkSavedChange(String monitoringRequestId);
+}
+
 class QualityCommandService {
   QualityCommandService({
     FirebaseFunctions? functions,
     QualityMonitoringCreation? monitoringCreation,
+    QualityMonitoringClosure? monitoringClosure,
+    QualityMonitoringCreation Function()? monitoringCreationFactory,
+    QualityMonitoringClosure Function()? monitoringClosureFactory,
     Future<Map<String, dynamic>> Function(Map<String, dynamic>)? transport,
   }) : _functions = functions,
        _monitoringCreation = monitoringCreation,
+       _monitoringClosure = monitoringClosure,
+       _monitoringCreationFactory = monitoringCreationFactory,
+       _monitoringClosureFactory = monitoringClosureFactory,
        _transport = transport;
 
   final FirebaseFunctions? _functions;
   final QualityMonitoringCreation? _monitoringCreation;
+  final QualityMonitoringClosure? _monitoringClosure;
+  final QualityMonitoringCreation Function()? _monitoringCreationFactory;
+  final QualityMonitoringClosure Function()? _monitoringClosureFactory;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _transport;
   static const _uuid = Uuid();
 
   QualityMonitoringCreation get _monitoring =>
       _monitoringCreation ??
+      _monitoringCreationFactory?.call() ??
       (throw const QualityCommandException(
         'Local recovery storage is unavailable. Monitoring was not sent.',
         code: 'local-storage-unavailable',
@@ -409,11 +438,37 @@ class QualityCommandService {
   Future<QualityCommandResult> closeMonitoringRequest({
     required QualityMonitoringRequest request,
     required String reason,
-  }) => _call(QualityCommandOperation.closeMonitoringRequest, <String, dynamic>{
-    'monitoringRequestId': request.requestId,
-    'expectedVersion': request.version,
-    'reason': reason,
-  });
+  }) =>
+      (_monitoringClosure ?? _monitoringClosureFactory?.call())
+          ?.closeMonitoringRequest(request: request, reason: reason) ??
+      _call(QualityCommandOperation.closeMonitoringRequest, <String, dynamic>{
+        'monitoringRequestId': request.requestId,
+        'expectedVersion': request.version,
+        'reason': reason,
+      });
+
+  QualityMonitoringReview get _reviewOwner {
+    final owner = _monitoringClosure ?? _monitoringClosureFactory?.call();
+    if (owner is QualityMonitoringReview) {
+      return owner as QualityMonitoringReview;
+    }
+    throw const QualityCommandException(
+      'Saved monitoring review support is unavailable. Nothing was sent.',
+    );
+  }
+
+  Future<QualityCommandResult> reviewMonitoring({
+    required QualityMonitoringRequest request,
+    required QualityCommandOperation operation,
+    required Map<String, dynamic> payload,
+  }) => _reviewOwner.reviewMonitoring(
+    request: request,
+    operation: operation,
+    payload: payload,
+  );
+
+  Future<QualityCommandResult> checkSavedMonitoringChange(String id) =>
+      _reviewOwner.checkSavedChange(id);
 
   Future<QualityCommandResult> _call(
     QualityCommandOperation operation,
@@ -444,7 +499,15 @@ class QualityCommandService {
         expectedVersion: expectedVersion,
       );
     } on FirebaseFunctionsException catch (error) {
-      throw QualityCommandException(_friendlyMessage(error), code: error.code);
+      throw QualityCommandException(
+        _friendlyMessage(error),
+        code: error.code,
+        reasonCode:
+            error.details is Map &&
+                (error.details as Map)['reasonCode'] is String
+            ? (error.details as Map)['reasonCode'] as String
+            : null,
+      );
     } on FormatException catch (error) {
       throw QualityCommandException(
         'The quality service returned invalid evidence: $error',

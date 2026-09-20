@@ -9,6 +9,7 @@ import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
+import '../../admin/presentation/saved_submission_review_screen.dart';
 import '../../auth/domain/current_actor_access.dart';
 import '../../auth/presentation/current_actor_gate.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -86,9 +87,13 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
       data: (items) => items.where((warning) => warning.isOpen).length,
     );
     final monitoringCount = monitoring.whenOrNull(
-      data: (items) => items
-          .where((request) => request.status == QualityMonitoringStatus.active)
-          .length,
+      data: (items) => monitoringPopulationIsQualified(items)
+          ? items
+                .where(
+                  (request) => request.status == QualityMonitoringStatus.active,
+                )
+                .length
+          : null,
     );
     return DefaultTabController(
       length: 2,
@@ -239,7 +244,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     final requests = ref.watch(qualityMonitoringRequestsProvider);
     return Column(
       children: [
-        if (actor?.canManageQualityMonitoring == true)
+        if (!kIsWeb && actor?.canManageQualityMonitoring == true)
           Padding(
             padding: const EdgeInsets.all(BafSpacing.lg),
             child: Wrap(
@@ -256,6 +261,16 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                       ? null
                       : () => _createMonitoringRequest(savedOnly: true),
                   child: const Text('Check saved monitoring'),
+                ),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SavedSubmissionReviewScreen(),
+                          ),
+                        ),
+                  child: const Text('Review saved submissions'),
                 ),
               ],
             ),
@@ -282,18 +297,39 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                   BafSpacing.xl,
                 ),
                 children: [
-                  if (items.isEmpty)
+                  if (!monitoringPopulationIsQualified(items))
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: BafSpacing.md),
+                      child: Text(
+                        'Monitoring evidence is incomplete or not server-confirmed. Valid records remain visible; totals are unverified.',
+                      ),
+                    ),
+                  if (kIsWeb)
+                    const Text(
+                      'Use the Android app to create or change monitoring with saved recovery support.',
+                    ),
+                  if (items.isEmpty && monitoringPopulationIsQualified(items))
                     const _EmptyState(
                       icon: Icons.monitor_heart_outlined,
-                      title: 'No quality monitoring requests',
+                      title: 'No active or recently closed monitoring requests',
                     )
                   else
                     for (final request in items) ...[
                       _MonitoringCard(
                         request: request,
-                        canClose: actor?.canManageQualityMonitoring == true,
+                        canClose:
+                            !kIsWeb &&
+                            actor?.canManageQualityMonitoring == true,
                         busy: _submitting,
                         onClose: () => _closeMonitoringRequest(request),
+                        onCorrect: () => _reviewMonitoring(request, false),
+                        onCancel: () => _reviewMonitoring(request, true),
+                        canCheckSaved: !kIsWeb && actor?.isApproved == true,
+                        onCheckSaved: () => _runCommand(
+                          () => ref
+                              .read(qualityCommandServiceProvider)
+                              .checkSavedMonitoringChange(request.requestId),
+                        ),
                       ),
                       const SizedBox(height: BafSpacing.md),
                     ],
@@ -427,6 +463,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                   '${pending['grade']} - ${pending['cycleReference']}\n'
                   'Charges: ${(pending['chargeNumbers'] as List).join(', ')}\n'
                   '${pending['reason']}\n\n'
+                  '${pending['savedExplanation'] ?? ''}\n'
+                  '${pending['savedReasonCode'] ?? ''}\n'
                   '${pending['savedSubmissionState'] == 'acceptedPendingAdoption' ? 'Monitoring was recorded. Check its current record; creation will not be sent again.' : 'The original entries are saved on this device. Check this submission before creating another.'}',
                 ),
               ),
@@ -538,11 +576,19 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   }
 
   Future<void> _closeMonitoringRequest(QualityMonitoringRequest request) async {
+    final origin = ref.read(currentAppUserProvider).asData?.value;
+    if (origin?.canManageQualityMonitoring != true) return;
     final reason = await _reasonDialog(
       title: 'Close monitoring request',
       label: 'Completion evidence',
+      originUid: origin!.uid,
     );
-    if (reason == null) return;
+    if (reason == null || !mounted) return;
+    final current = ref.read(currentAppUserProvider).asData?.value;
+    if (current?.uid != origin.uid ||
+        current?.canManageQualityMonitoring != true) {
+      return;
+    }
     await _runCommand(
       () => ref
           .read(qualityCommandServiceProvider)
@@ -550,14 +596,97 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     );
   }
 
+  Future<void> _reviewMonitoring(
+    QualityMonitoringRequest request,
+    bool cancel,
+  ) async {
+    final origin = ref.read(currentAppUserProvider).asData?.value;
+    if (kIsWeb || origin?.canManageQualityMonitoring != true) return;
+    bool stillOrigin() {
+      final current = ref.read(currentAppUserProvider).asData?.value;
+      return mounted &&
+          current?.uid == origin!.uid &&
+          current?.canManageQualityMonitoring == true;
+    }
+
+    try {
+      Map<String, dynamic> payload;
+      if (cancel) {
+        final reason = await showDialog<String>(
+          context: context,
+          builder: (_) => CurrentActorDialogGuard(
+            originUid: origin!.uid,
+            permission: (actor) => actor.canManageQualityMonitoring,
+            child: const _ReasonDialog(
+              title: 'Cancel monitoring',
+              label:
+                  'Why is further monitoring not required? This is not completed monitoring.',
+            ),
+          ),
+        );
+        if (reason == null || !stillOrigin()) return;
+        payload = {'reason': reason};
+      } else {
+        final bases = await _loadGovernedBases();
+        if (!mounted || !stillOrigin()) return;
+        final corrected = await showDialog<_MonitoringInput>(
+          context: context,
+          builder: (_) => CurrentActorDialogGuard(
+            originUid: origin!.uid,
+            permission: (actor) => actor.canManageQualityMonitoring,
+            child: _MonitoringRequestDialog(bases: bases, initial: request),
+          ),
+        );
+        if (corrected == null || !stillOrigin()) return;
+        payload = {
+          'reason': corrected.reason,
+          'baseNumber': corrected.baseNumber,
+          'baseAssetClassId': corrected.baseAssetClassId,
+          'baseAssetInstanceId': corrected.baseAssetInstanceId,
+          'baseAssetInstanceVersion': corrected.baseAssetInstanceVersion,
+          'grade': corrected.grade,
+          'cycleReference': corrected.cycleReference,
+          'chargeNumbers': corrected.chargeNumbers,
+        };
+      }
+      await _runCommand(
+        () => ref
+            .read(qualityCommandServiceProvider)
+            .reviewMonitoring(
+              request: request,
+              operation: cancel
+                  ? QualityCommandOperation.cancelMonitoringRequest
+                  : QualityCommandOperation.correctMonitoringRequest,
+              payload: payload,
+            ),
+      );
+    } catch (error) {
+      if (mounted && stillOrigin()) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
+  }
+
   Future<String?> _reasonDialog({
     required String title,
     required String label,
     String? initialValue,
+    String? originUid,
   }) => showDialog<String>(
     context: context,
-    builder: (context) =>
-        _ReasonDialog(title: title, label: label, initialValue: initialValue),
+    builder: (context) => originUid == null
+        ? _ReasonDialog(title: title, label: label, initialValue: initialValue)
+        : CurrentActorDialogGuard(
+            originUid: originUid,
+            permission: (actor) => actor.canManageQualityMonitoring,
+            child: _ReasonDialog(
+              title: title,
+              label: label,
+              initialValue: initialValue,
+            ),
+          ),
   );
 
   Future<void> _runCommand(
@@ -632,7 +761,9 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
 }
 
 class _MonitoringRequestDialog extends StatefulWidget {
-  const _MonitoringRequestDialog({required this.bases});
+  const _MonitoringRequestDialog({required this.bases, this.initial});
+
+  final QualityMonitoringRequest? initial;
 
   final List<AssetInstanceRecord> bases;
 
@@ -650,6 +781,20 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial != null) {
+      _grade.text = initial.grade;
+      _cycle.text = initial.cycleReference;
+      _charges.text = initial.chargeNumbers.join(', ');
+      if (widget.bases.any((base) => base.id == initial.baseAssetInstanceId)) {
+        _selectedBaseId = initial.baseAssetInstanceId;
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _grade.dispose();
     _cycle.dispose();
@@ -660,11 +805,19 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('New quality monitoring request'),
+    title: Text(
+      widget.initial == null
+          ? 'New quality monitoring request'
+          : 'Correct monitoring context',
+    ),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.initial != null)
+            const Text(
+              'The original context and reason remain in history. This correction does not transfer observations or certify a physical charge.',
+            ),
           DropdownButtonFormField<String>(
             key: const ValueKey('quality-monitoring-governed-base'),
             initialValue: _selectedBaseId,
@@ -714,7 +867,11 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
             controller: _reason,
             maxLength: 2000,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Monitoring reason'),
+            decoration: InputDecoration(
+              labelText: widget.initial == null
+                  ? 'Monitoring reason'
+                  : 'Correction reason',
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: BafSpacing.sm),
@@ -774,7 +931,9 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
             ),
           );
         },
-        child: const Text('Create'),
+        child: Text(
+          widget.initial == null ? 'Create' : 'Save audited correction',
+        ),
       ),
     ],
   );

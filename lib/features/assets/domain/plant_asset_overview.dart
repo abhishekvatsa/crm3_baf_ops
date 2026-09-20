@@ -5,6 +5,63 @@ import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 
+EquipmentStatusRecord? _combineBaseWorkflowStatus({
+  required EquipmentStatusRecord? base,
+  required List<EquipmentStatusRecord> linkedInnerCovers,
+  required AssetInstanceRecord asset,
+}) {
+  if (linkedInnerCovers.isEmpty) return base;
+  final sources = <EquipmentStatusRecord>[
+    if (base != null) base,
+    ...linkedInnerCovers,
+  ];
+  final latest = sources.reduce(
+    (left, right) => left.updatedAt.isAfter(right.updatedAt) ? left : right,
+  );
+  final red = sources.fold<int>(0, (total, item) => total + item.openRedCount);
+  final awaiting = sources.fold<int>(
+    0,
+    (total, item) => total + item.awaitingPreparationCount,
+  );
+  final maintenance = sources.fold<int>(
+    0,
+    (total, item) => total + item.openMaintenanceCount,
+  );
+  final state = red > 0
+      ? 'underRED'
+      : awaiting > 0
+      ? 'awaitingPreparation'
+      : maintenance > 0
+      ? 'underMaintenance'
+      : sources.any((item) => item.stateKey == 'available')
+      ? 'available'
+      : 'inService';
+  return EquipmentStatusRecord()
+    ..firestoreId = base?.firestoreId ?? latest.firestoreId
+    ..isSynced = sources.every((item) => item.isSynced)
+    ..version = sources
+        .map((item) => item.version)
+        .reduce((left, right) => left > right ? left : right)
+    ..assetTypeKey = base?.assetTypeKey ?? 'base'
+    ..assetNumber = asset.assetNumber
+    ..assetClassId = asset.assetClassId
+    ..assetInstanceId = asset.id
+    ..stateKey = state
+    ..openMaintenanceCount = maintenance
+    ..openRedCount = red
+    ..awaitingPreparationCount = awaiting
+    ..previousStateKey = base?.previousStateKey ?? latest.previousStateKey
+    ..transitionTrigger = latest.transitionTrigger
+    ..activeExecutionIdsJson = base?.activeExecutionIdsJson
+    ..availableSince = base?.availableSince
+    ..inServiceSince = base?.inServiceSince
+    ..lastTransitionAt = latest.lastTransitionAt
+    ..lastTransitionByUid = latest.lastTransitionByUid
+    ..lastTransitionByName = latest.lastTransitionByName
+    ..updatedAt = latest.updatedAt
+    ..metadataJson = base?.metadataJson ?? latest.metadataJson;
+}
+
 class PlantIssueConditionContribution {
   final String ticketId;
   final MaintenanceIssuePlantConditionEffect effect;
@@ -26,10 +83,9 @@ class PlantIssueConditionContribution {
     final source = ticketId.length <= 8 ? ticketId : ticketId.substring(0, 8);
     final detail = description.trim();
     final reason = detail.endsWith('.') ? detail : '$detail.';
-    final pending =
-        awaitingServerClosure
-            ? ' Closure is awaiting server confirmation.'
-            : '';
+    final pending = awaitingServerClosure
+        ? ' Closure is awaiting server confirmation.'
+        : '';
     return '${effect.label} due to maintenance issue $source: $reason$pending';
   }
 }
@@ -40,6 +96,8 @@ class PlantAssetState {
   final AssetAvailabilityRecord? availability;
   final EquipmentStatusRecord? workflowStatus;
   final List<PlantIssueConditionContribution> issueConditionContributions;
+  final List<String> evidenceWarnings;
+  final bool permitsManualChange;
 
   const PlantAssetState({
     required this.asset,
@@ -47,6 +105,8 @@ class PlantAssetState {
     required this.availability,
     required this.workflowStatus,
     this.issueConditionContributions = const [],
+    this.evidenceWarnings = const [],
+    this.permitsManualChange = true,
   });
 
   bool get isUnderMaintenance =>
@@ -90,6 +150,9 @@ class PlantAssetState {
 
   bool get isTemporarilyBlocked => availability?.isTemporarilyBlocked == true;
 
+  bool get hasUnverifiedWorkflowEvidence =>
+      workflowStatus == null || evidenceWarnings.isNotEmpty;
+
   bool get isStandby => asset.serviceState == AssetServiceState.standby;
 
   bool get isAdministrativelyOutOfService =>
@@ -98,6 +161,7 @@ class PlantAssetState {
   bool get isAvailable =>
       asset.isActive &&
       asset.serviceState == AssetServiceState.inService &&
+      !hasUnverifiedWorkflowEvidence &&
       !isUnderMaintenance &&
       !isDown &&
       !isUnfit &&
@@ -124,28 +188,35 @@ class PlantAssetClassSummary {
       assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
+  int get unverifiedWorkflowEvidence =>
+      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
-  int get attention =>
-      assets
-          .where(
-            (asset) =>
-                asset.isDown ||
-                asset.isUnfit ||
-                asset.isIssueUnavailable ||
-                asset.isTemporarilyBlocked ||
-                asset.isUnderMaintenance ||
-                asset.isAdministrativelyOutOfService,
-          )
-          .length;
+  int get attention => assets
+      .where(
+        (asset) =>
+            asset.isDown ||
+            asset.isUnfit ||
+            asset.isIssueUnavailable ||
+            asset.isTemporarilyBlocked ||
+            asset.isUnderMaintenance ||
+            asset.hasUnverifiedWorkflowEvidence ||
+            asset.isAdministrativelyOutOfService,
+      )
+      .length;
 }
 
 class PlantAssetOverview {
   final List<PlantAssetClassSummary> classes;
   final List<PlantAssetState> assets;
+  final List<String> evidenceWarnings;
 
-  const PlantAssetOverview({required this.classes, required this.assets});
+  const PlantAssetOverview({
+    required this.classes,
+    required this.assets,
+    this.evidenceWarnings = const [],
+  });
 
   int get total => assets.length;
   int get available => assets.where((asset) => asset.isAvailable).length;
@@ -157,6 +228,8 @@ class PlantAssetOverview {
       assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
+  int get unverifiedWorkflowEvidence =>
+      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
@@ -287,15 +360,34 @@ class PlantAssetOverview {
           'Availability projection for ${asset.id} disagrees with the asset registry.',
         );
       }
+      final baseWorkflow = legacyKey == 'base'
+          ? workflowByKey['$legacyKey:${asset.assetNumber}']
+          : null;
+      final linkedInnerCoverWorkflow = legacyKey == 'base'
+          ? workflowStatuses
+                .where(
+                  (status) =>
+                      status.assetTypeKey == 'innerCover' &&
+                      status.assetClassId == asset.assetClassId &&
+                      status.assetInstanceId == asset.id,
+                )
+                .toList()
+          : const <EquipmentStatusRecord>[];
+      final workflowStatus = legacyKey == null
+          ? workflowByKey['governedCustom:${asset.assetClassId}:${asset.id}']
+          : legacyKey == 'base'
+          ? _combineBaseWorkflowStatus(
+              base: baseWorkflow,
+              linkedInnerCovers: linkedInnerCoverWorkflow,
+              asset: asset,
+            )
+          : workflowByKey['$legacyKey:${asset.assetNumber}'];
       states.add(
         PlantAssetState(
           asset: asset,
           operationalCondition: condition,
           availability: availability,
-          workflowStatus:
-              legacyKey == null
-                  ? workflowByKey['governedCustom:${asset.assetClassId}:${asset.id}']
-                  : workflowByKey['$legacyKey:${asset.assetNumber}'],
+          workflowStatus: workflowStatus,
           issueConditionContributions: List.unmodifiable(
             issueConditionsByAssetId[asset.id] ?? const [],
           ),
@@ -313,25 +405,24 @@ class PlantAssetOverview {
 
     final summaries =
         classesById.values.map((assetClass) {
-            return PlantAssetClassSummary(
-              assetClass: assetClass,
-              assets: List<PlantAssetState>.unmodifiable(
-                states.where(
-                  (state) => state.asset.assetClassId == assetClass.id,
-                ),
+          return PlantAssetClassSummary(
+            assetClass: assetClass,
+            assets: List<PlantAssetState>.unmodifiable(
+              states.where(
+                (state) => state.asset.assetClassId == assetClass.id,
               ),
-            );
-          }).toList()
-          ..sort((left, right) {
-            final areaOrder = left.assetClass.majorArea.toLowerCase().compareTo(
-              right.assetClass.majorArea.toLowerCase(),
-            );
-            return areaOrder != 0
-                ? areaOrder
-                : left.assetClass.name.toLowerCase().compareTo(
+            ),
+          );
+        }).toList()..sort((left, right) {
+          final areaOrder = left.assetClass.majorArea.toLowerCase().compareTo(
+            right.assetClass.majorArea.toLowerCase(),
+          );
+          return areaOrder != 0
+              ? areaOrder
+              : left.assetClass.name.toLowerCase().compareTo(
                   right.assetClass.name.toLowerCase(),
                 );
-          });
+        });
 
     return PlantAssetOverview(
       classes: List<PlantAssetClassSummary>.unmodifiable(summaries),

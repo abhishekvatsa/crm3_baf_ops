@@ -8,8 +8,11 @@ import {
   timestampDate,
   validateCurrentEvent,
 } from "./operationalEventMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {isOperationalEventEffective} from "./operationalEventDisposition";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
@@ -74,6 +77,14 @@ const LINK_ROLES = new Set([
 ]);
 const ISSUE_STATUSES = new Set([
   "open", "acknowledged", "inProgress", "resolved",
+  // An issue closed administratively is a state this application records
+  // itself. Reading it as malformed data denies the link its own evidence;
+  // the link keeps the real status and resolution, so nothing here counts a
+  // closure without resolution as a technical repair.
+  "closedWithoutResolution",
+]);
+const TERMINAL_ISSUE_STATUSES = new Set([
+  "resolved", "closedWithoutResolution",
 ]);
 const MAX_EVENT_LINKS = 100;
 const MAX_ISSUE_LINKS = 50;
@@ -278,7 +289,7 @@ function optionalIssueText(
   return cleaned.length === 0 ? null : cleaned;
 }
 
-function assetReference(value: unknown): {
+function assetReference(value: unknown, assetNumber: number): {
   assetClassId: string | null;
   assetInstanceId: string | null;
 } {
@@ -304,8 +315,37 @@ function assetReference(value: unknown): {
     );
   }
   const row = parsed as JsonMap;
+  // A governed reference is read by the contract that produced it, which knows
+  // each scope's schema and checks that the reference names this very asset.
+  // The maintenance producer emits a component-on-asset reference for an
+  // ordinary issue, and reading only the older shapes called a current,
+  // valid ticket malformed.
+  const governedReference: boolean =
+    isValidAffectedAssetHierarchyReference(row, assetNumber);
+  if (governedReference) {
+    return {
+      assetClassId: row.assetClassId as string,
+      assetInstanceId: typeof row.assetInstanceId === "string" ?
+        row.assetInstanceId : null,
+    };
+  }
   const schemaVersion = row.schemaVersion;
   const scope = schemaVersion === 1 ? "definition" : row.scope;
+  // A schema-3 physical reference is a known current-shaped record, not a
+  // harmless legacy alias. If its strong contract failed, accepting it on the
+  // old shape-only path would allow a displayed asset number to disagree with
+  // the retained physical instance. Older definition references remain
+  // supported, but an incomplete/contradictory physical reference is held.
+  if (schemaVersion === 3 && scope === "physicalAsset" &&
+      (row.assetNumber !== assetNumber ||
+        typeof row.assetInstanceId !== "string" ||
+        row.assetInstanceId.trim().length === 0)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The maintenance issue has incomplete or contradictory physical evidence.",
+      {reasonCode: "operational-event-link-issue-asset-reference-malformed"},
+    );
+  }
   if (![1, 2, 3].includes(schemaVersion as number) ||
       !["definition", "physicalAsset", "installedComponent"].includes(
         scope as string,
@@ -339,7 +379,8 @@ function validateIssue(data: JsonMap, issueId: string): IssueEvidence {
   if (data.firestoreId !== issueId || !Number.isSafeInteger(version) ||
       (version as number) < 1 || typeof status !== "string" ||
       !ISSUE_STATUSES.has(status) || typeof isResolved !== "boolean" ||
-      ((status === "resolved") !== isResolved) || data.isDeleted !== false ||
+      (TERMINAL_ISSUE_STATUSES.has(status) !== isResolved) ||
+      data.isDeleted !== false ||
       typeof assetType !== "string" || assetType.trim().length === 0 ||
       !Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1 ||
       typeof description !== "string" || description.trim().length === 0 ||
@@ -354,7 +395,10 @@ function validateIssue(data: JsonMap, issueId: string): IssueEvidence {
       {reasonCode: "operational-event-link-issue-malformed", issueId},
     );
   }
-  const reference = assetReference(data.assetHierarchyRefJson);
+  const reference = assetReference(
+    data.assetHierarchyRefJson,
+    assetNumber as number,
+  );
   return {
     version: version as number,
     status,
@@ -399,6 +443,34 @@ function linkIdentity(eventId: string, startedAt: Date, issueId: string): string
     .update(`${eventId}\n${startedAt.toISOString()}\n${issueId}`, "utf8")
     .digest("hex");
   return `event_issue_${digest.slice(0, 48)}`;
+}
+
+function operationalEventIssueLinkEvidenceDigest(
+  link: JsonMap,
+  audit: JsonMap,
+): string {
+  const canonicalEvidenceValue = (value: unknown): unknown => {
+    const date = timestampDate(value);
+    if (date != null) return date.toISOString();
+    if (Array.isArray(value)) return value.map(canonicalEvidenceValue);
+    if (value != null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as JsonMap).map(([key, entry]) => [
+          key,
+          canonicalEvidenceValue(entry),
+        ]),
+      );
+    }
+    return value;
+  };
+  const linkEvidence = {...link};
+  delete linkEvidence.evidenceDigest;
+  const auditEvidence = {...audit};
+  delete auditEvidence.evidenceDigest;
+  return createHash("sha256").update(stableJson({
+    link: canonicalEvidenceValue(linkEvidence),
+    audit: canonicalEvidenceValue(auditEvidence),
+  }), "utf8").digest("hex");
 }
 
 function resultFromReceipt(
@@ -530,6 +602,19 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
           {reasonCode: "operational-event-issue-link-replay-evidence-drift"},
         );
       }
+      const receiptData = receiptValue.data() ?? {};
+      if (receiptData.evidenceDigest != null) {
+        const digest = receiptData.evidenceDigest;
+        if (typeof digest !== "string" || linkData.evidenceDigest !== digest ||
+            auditData.evidenceDigest !== digest ||
+            operationalEventIssueLinkEvidenceDigest(linkData, auditData) !== digest) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "The issue-link receipt no longer matches its committed evidence.",
+            {reasonCode: "operational-event-issue-link-replay-evidence-drift"},
+          );
+        }
+      }
       return replay;
     }
     const auditValue = asSnapshot(
@@ -547,6 +632,13 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     const event = record(eventValue, "Operational event");
     const issue = record(issueValue, "Maintenance issue");
     const eventVersion = validateCurrentEvent(event, request.eventId);
+    if (!isOperationalEventEffective(event)) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "A withdrawn operational event cannot receive a new issue link.",
+        {reasonCode: "operational-event-withdrawn"},
+      );
+    }
     const issueEvidence = validateIssue(issue, request.issueId);
     const startedAt = timestampDate(event.startedAt);
     if (startedAt == null) {
@@ -685,6 +777,9 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       performedByUid: actorUid,
       performedByName: actorName(actorData),
     };
+    const evidenceDigest = operationalEventIssueLinkEvidenceDigest(link, audit);
+    link.evidenceDigest = evidenceDigest;
+    audit.evidenceDigest = evidenceDigest;
     const receipt: JsonMap = {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -699,6 +794,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       auditId,
       committedAt,
       committedAtIso: committed.toISOString(),
+      evidenceDigest,
     };
     transaction.set(eventRef as unknown as DocumentRefLike, {
       ...event,

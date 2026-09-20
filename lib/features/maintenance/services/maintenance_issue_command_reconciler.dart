@@ -277,6 +277,11 @@ void validateMaintenanceTicketCorrectionReceipt({
     }
     correctedFields.add(key);
   }
+  if (command.payload['targetReferenceJson'] != null) {
+    for (final field in ['assetHierarchyRefJson', 'component', 'subsystem', 'tag', 'hierarchyPath']) {
+      if (!correctedFields.contains(field)) correctedFields.add(field);
+    }
+  }
   correctedFields.sort();
   if (!_sameReceiptList(receipt.result['correctedFields'], correctedFields)) {
     throw StateError(

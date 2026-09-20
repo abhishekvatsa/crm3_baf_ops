@@ -130,6 +130,28 @@ describeWithEmulator('O-09 governed assignment real Firestore matrix', () => {
       name: 'Shift Supervisor',
       ...user,
     });
+    // A legacy-shaped assignment names an asset type and number, and the
+    // register has to hold that asset for the work to be admitted.
+    await db.collection('asset_classes').doc('base-class').set({
+      schemaVersion: 1,
+      assetClassId: 'base-class',
+      code: 'BASE',
+      name: 'Base',
+      legacyAssetTypeKey: 'base',
+      status: 'active',
+      isDeleted: false,
+      version: 1,
+    });
+    await db.collection('asset_instances').doc('base-101').set({
+      schemaVersion: 1,
+      assetInstanceId: 'base-101',
+      assetClassId: 'base-class',
+      assetNumber: 101,
+      name: 'Base 101',
+      status: 'active',
+      isDeleted: false,
+      version: 1,
+    });
     await db.collection('template_packages').doc('pkg1').set(
       packageFixture(packageData),
     );

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "play-original-signing-key-import",
+  "status": "SIGNER_CONFIGURATION_MATCH_VERIFIED",
+  "observedAtUtc": "2026-09-19T20:34:01Z",
+  "localDate": "2026-09-20",
+  "packageName": "in.co.sail.bsl.crm3.bafops",
+  "developerId": "5163879421610181326",
+  "playAppId": "4975375541039311970",
+  "consolePage": "https://play.google.com/console/u/0/developers/5163879421610181326/app/4975375541039311970/keymanagement",
+  "authorization": "Owner explicitly authorized uploading the identified encrypted ZIP to this Play app and saving the original signing key.",
+  "transfer": {
+    "fileName": "crm3-original-signing-key-002e42a1c44a4358b15672e0fb4d042a.zip",
+    "sha256": "59C49B81D55F49B9430565799A35C248305716B07E7A27A31F48DD32A0A1ADFA",
+    "entries": ["encryptedPrivateKey", "certificate.pem"],
+    "archiveAndEntryCommentsAbsent": true,
+    "extraFieldsAbsent": true,
+    "plaintextPrivateKeyPemHeaderFound": false,
+    "passwordOrKeystoreFilePresent": false,
+    "zipCrcCheckPassed": true,
+    "scope": "Metadata/format checks plus verified pinned PEPK export provenance; encrypted private-key bytes were not decrypted or printed. ZIP container itself is not password-encrypted."
+  },
+  "readback": {
+    "saveCompleted": true,
+    "method": "Downloaded deployment_cert.der using Download certificates in the App signing key section after Save completed; independently hashed DER bytes.",
+    "appSigningCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "appSigningCertificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "uploadCertificateSha256ShownByConsole": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "digitalAssetLinksCertificateMatches": true,
+    "matchesIndependentlyVerifiedBuild25Apk": true
+  },
+  "boundaries": {
+    "privateKeyOrPasswordIncludedInThisReceipt": false,
+    "appBundleUploaded": false,
+    "appReleasePublished": false,
+    "firebaseConfigurationChanged": false,
+    "governedLocalSigningSecretsChanged": false,
+    "playDeliveredInPlaceUpgradeProven": false
+  },
+  "remainingProof": "Use a stable governed candidate on the internal testing track to verify a Play-delivered in-place upgrade preserving local data and pending submissions; verify sign-in, Firebase access, notification registration and representative business flows."
+}

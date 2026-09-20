@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -119,6 +121,12 @@ class FirestoreNotificationInstallationDocumentStore
 
     return _firestore.runTransaction((transaction) async {
       final user = await transaction.get(userRef);
+      final installation = await transaction.get(installationRef);
+      if (installation.exists &&
+          expectedToken != null &&
+          installation.data()?['token'] != expectedToken) {
+        return; // A newer registration owns this installation now.
+      }
       transaction.delete(installationRef);
       if (user.exists &&
           expectedToken != null &&
@@ -177,6 +185,9 @@ class NotificationInstallationRegistry {
   String? _lastRegisteredUid;
   String? _lastRegisteredToken;
   String? _lastInstallationId;
+  Future<void> _registrationQueue = Future<void>.value();
+  Future<String>? _installationIdAllocation;
+  int _registrationGeneration = 0;
 
   NotificationInstallationRegistry({
     required NotificationInstallationIdStore idStore,
@@ -198,8 +209,9 @@ class NotificationInstallationRegistry {
   Future<NotificationInstallationRegistration?> registerCurrentToken({
     required String uid,
   }) async {
+    final generation = _registrationGeneration;
     final token = await _tokenSource.currentToken();
-    if (token == null) return null;
+    if (token == null || generation != _registrationGeneration) return null;
     return registerToken(uid: uid, token: token);
   }
 
@@ -215,35 +227,41 @@ class NotificationInstallationRegistry {
     if (token.length > 4096) {
       throw ArgumentError.value(token.length, 'token.length');
     }
+    final generation = ++_registrationGeneration;
+    return _withRegistrationLock(() async {
+      // A newer token request supersedes this one before it reaches Firestore.
+      if (generation != _registrationGeneration) return null;
 
-    final installationId = await _readOrCreateInstallationId();
-    if (_lastRegisteredUid == uid &&
-        _lastRegisteredToken == token &&
-        _lastInstallationId == installationId) {
+      final installationId = await _readOrCreateInstallationId();
+      if (generation != _registrationGeneration) return null;
+      if (_lastRegisteredUid == uid &&
+          _lastRegisteredToken == token &&
+          _lastInstallationId == installationId) {
+        return NotificationInstallationRegistration(
+          uid: uid,
+          installationId: installationId,
+          token: token,
+          platform: platform,
+        );
+      }
+
+      await _documentStore.upsert(
+        uid: uid,
+        installationId: installationId,
+        token: token,
+        platform: platform,
+      );
+      _lastRegisteredUid = uid;
+      _lastRegisteredToken = token;
+      _lastInstallationId = installationId;
+
       return NotificationInstallationRegistration(
         uid: uid,
         installationId: installationId,
         token: token,
         platform: platform,
       );
-    }
-
-    await _documentStore.upsert(
-      uid: uid,
-      installationId: installationId,
-      token: token,
-      platform: platform,
-    );
-    _lastRegisteredUid = uid;
-    _lastRegisteredToken = token;
-    _lastInstallationId = installationId;
-
-    return NotificationInstallationRegistration(
-      uid: uid,
-      installationId: installationId,
-      token: token,
-      platform: platform,
-    );
+    });
   }
 
   Future<void> removeCurrentInstallation({required String uid}) async {
@@ -251,26 +269,33 @@ class NotificationInstallationRegistry {
     if (canonicalUid.isEmpty || canonicalUid != uid) {
       throw ArgumentError.value(uid, 'uid', 'A canonical UID is required.');
     }
-    final installationId = await _idStore.read();
-    if (installationId == null) {
-      observeSignedOut();
-      return;
-    }
+    final generation = ++_registrationGeneration;
+    await _withRegistrationLock(() async {
+      final installationId = await _idStore.read();
+      if (generation != _registrationGeneration) return;
+      if (installationId == null) {
+        observeSignedOut();
+        return;
+      }
 
-    String? expectedToken =
-        _lastRegisteredUid == uid ? _lastRegisteredToken : null;
-    expectedToken ??= await _tokenSource.currentToken();
-    await _documentStore.remove(
-      uid: uid,
-      installationId: installationId,
-      expectedToken: expectedToken,
-    );
-    observeSignedOut();
+      String? expectedToken = _lastRegisteredUid == uid
+          ? _lastRegisteredToken
+          : null;
+      expectedToken ??= await _tokenSource.currentToken();
+      if (generation != _registrationGeneration) return;
+      await _documentStore.remove(
+        uid: uid,
+        installationId: installationId,
+        expectedToken: expectedToken,
+      );
+      if (generation == _registrationGeneration) observeSignedOut();
+    });
   }
 
   Future<void> retireMessagingToken() => _tokenSource.deleteToken();
 
   void observeSignedOut() {
+    ++_registrationGeneration;
     _lastRegisteredUid = null;
     _lastRegisteredToken = null;
     _lastInstallationId = null;
@@ -279,12 +304,40 @@ class NotificationInstallationRegistry {
   Future<String> _readOrCreateInstallationId() async {
     final existing = await _idStore.read();
     if (existing != null) return existing;
+
+    final pending = _installationIdAllocation;
+    if (pending != null) return pending;
+
+    final allocation = _allocateInstallationId();
+    _installationIdAllocation = allocation;
+    try {
+      return await allocation;
+    } finally {
+      if (identical(_installationIdAllocation, allocation)) {
+        _installationIdAllocation = null;
+      }
+    }
+  }
+
+  Future<String> _allocateInstallationId() async {
     final created = _uuid.v4().toLowerCase();
     if (!_uuidV4Pattern.hasMatch(created)) {
       throw StateError('The UUID source returned a non-v4 installation ID.');
     }
     await _idStore.write(created);
     return created;
+  }
+
+  Future<T> _withRegistrationLock<T>(Future<T> Function() action) async {
+    final previous = _registrationQueue;
+    final release = Completer<void>();
+    _registrationQueue = release.future;
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release.complete();
+    }
   }
 }
 

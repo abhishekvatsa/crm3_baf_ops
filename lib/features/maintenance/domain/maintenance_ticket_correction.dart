@@ -15,11 +15,13 @@ class MaintenanceTicketCorrectionDraft {
   MaintenanceTicketCorrectionDraft({
     required Map<String, Object?> corrections,
     required String reason,
+    this.targetReferenceJson,
   }) : corrections = Map.unmodifiable(corrections),
        reason = reason.trim();
 
   final Map<String, Object?> corrections;
   final String reason;
+  final String? targetReferenceJson;
 }
 
 List<RoutedTo> maintenanceTicketCorrectionLanes({
@@ -68,6 +70,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
   required String? otherDepartment,
   required String? remarks,
   required String reason,
+  String? targetReferenceJson,
 }) {
   final sourceLabel =
       source.firestoreId == null
@@ -209,11 +212,16 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       corrections[entry.key] = entry.value;
     }
   }
-  if (corrections.isEmpty) {
+  if (source.assetHierarchyRefJson != null && targetReferenceJson == null &&
+      ['component', 'subsystem', 'tag'].any(corrections.containsKey)) {
+    throw StateError('Use a reasoned registered-target correction to change equipment identity.');
+  }
+  if (corrections.isEmpty && targetReferenceJson == null) {
     throw StateError('Make at least one correction before saving.');
   }
   return MaintenanceTicketCorrectionDraft(
     corrections: corrections,
     reason: cleanReason,
+    targetReferenceJson: targetReferenceJson,
   );
 }

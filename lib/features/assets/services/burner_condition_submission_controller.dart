@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:uuid/uuid.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/persistence/durable_submission_repository.dart';
 import '../../auth/data/user_model.dart';
@@ -209,16 +210,23 @@ class BurnerConditionSubmissionController
       receipt = Map<String, dynamic>.from(raw);
       _validate(row, receipt);
     } catch (error) {
+      final refusal = _definitiveRefusal(error);
       final outcome = await store.recordOutcome(
         claim,
-        state: DurableSubmissionState.uncertain,
+        state: refusal == null
+            ? DurableSubmissionState.uncertain
+            : DurableSubmissionState.rejected,
         message:
+            refusal?.message ??
             'Outcome not confirmed. Check this saved request with its original entries.',
-        errorCode: 'burner-outcome-uncertain',
+        errorCode: refusal?.code ?? 'burner-outcome-uncertain',
       );
       if (outcome == DurableSubmissionOutcome.alreadyAccepted) {
         final accepted = await store.read(row.submissionId);
         if (accepted != null) return _accepted(accepted);
+      }
+      if (refusal != null && outcome == DurableSubmissionOutcome.recorded) {
+        throw refusal;
       }
       throw const BurnerConditionRoundException(
         'The outcome is not confirmed. Your complete Burner/UV entries are saved on this device; reopen and check them.',
@@ -286,4 +294,33 @@ class BurnerConditionSubmissionController
     );
     _actor(actorUid);
   }
+}
+
+BurnerConditionRoundException? _definitiveRefusal(Object error) {
+  if (error is! FirebaseFunctionsException ||
+      !const {
+        'invalid-argument',
+        'failed-precondition',
+        'aborted',
+      }.contains(error.code)) {
+    return null;
+  }
+  final details = error.details;
+  final reason = details is Map ? details['reasonCode'] : null;
+  if (!const {
+    'invalid-burner-condition-round',
+    'burner-condition-round-superseded',
+    'burner-condition-round-asset-version-mismatch',
+    'burner-condition-round-installation-basis-mismatch',
+    'burner-condition-round-issue-basis-mismatch',
+    'burner-condition-round-partial-basis-required',
+    'burner-condition-round-partial-observation-conflict',
+  }.contains(reason)) {
+    return null;
+  }
+  return BurnerConditionRoundException(
+    '${error.message ?? 'The reviewed furnace evidence changed.'} The server refused this request before acceptance. Your entries are retained; review the current evidence before saving again.',
+    code: reason as String,
+    definitiveRefusal: true,
+  );
 }

@@ -28,18 +28,18 @@ class _PhysicalAssetRegistryState
     final assetsAsync = ref.watch(assetInstancesProvider(widget.assetClass.id));
     return assetsAsync.when(
       loading: () => const BafLoadingPanel(
-            label: 'Loading physical assets',
-            color: BafColors.admin,
-          ),
+        label: 'Loading physical assets',
+        color: BafColors.admin,
+      ),
       error: (error, _) => _LoadFailure(
-            message: 'Physical assets could not be loaded: $error',
+        message: 'Physical assets could not be loaded: $error',
         onRetry: () =>
             ref.invalidate(assetInstancesProvider(widget.assetClass.id)),
-          ),
+      ),
       data: (assets) {
         final visible = _showRetired
-                ? assets
-                : assets.where((asset) => asset.isActive).toList();
+            ? assets
+            : assets.where((asset) => asset.isActive).toList();
         final selected = assets.cast<AssetInstanceRecord?>().firstWhere(
           (asset) => asset?.id == _selectedAssetId,
           orElse: () => visible.isEmpty ? null : visible.first,
@@ -49,6 +49,10 @@ class _PhysicalAssetRegistryState
             if (mounted) setState(() => _selectedAssetId = selected.id);
           });
         }
+        final dropdownAssets =
+            selected != null && !visible.any((asset) => asset.id == selected.id)
+            ? <AssetInstanceRecord>[...visible, selected]
+            : visible;
         return Column(
           children: [
             Padding(
@@ -73,8 +77,8 @@ class _PhysicalAssetRegistryState
                     ),
                     FilledButton.icon(
                       onPressed: _busy || !widget.assetClass.isActive
-                              ? null
-                              : _createAsset,
+                          ? null
+                          : _createAsset,
                       icon: const Icon(Icons.add_rounded),
                       label: Text(
                         _isInnerCover ? 'Inner Cover intake' : 'Physical asset',
@@ -123,19 +127,19 @@ class _PhysicalAssetRegistryState
                               border: OutlineInputBorder(),
                             ),
                             isExpanded: true,
-                            items: visible
-                                    .map(
-                                      (asset) => DropdownMenuItem(
-                                        value: asset.id,
-                                        child: Text(
-                                          '${asset.name} · ${asset.assetNumber}',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
+                            items: dropdownAssets
+                                .map(
+                                  (asset) => DropdownMenuItem(
+                                    value: asset.id,
+                                    child: Text(
+                                      '${asset.name} · ${asset.assetNumber}${asset.isActive ? '' : ' · Retired (selected)'}',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                             onChanged: (value) =>
-                                    setState(() => _selectedAssetId = value),
+                                setState(() => _selectedAssetId = value),
                           ),
                         ),
                         Expanded(child: _assetDetail(selected)),
@@ -156,8 +160,8 @@ class _PhysicalAssetRegistryState
                               leading: Icon(
                                 Icons.factory_outlined,
                                 color: asset.isActive
-                                        ? BafColors.assets
-                                        : BafColors.textSecondary,
+                                    ? BafColors.assets
+                                    : BafColors.textSecondary,
                               ),
                               title: Text(
                                 asset.name,
@@ -228,19 +232,28 @@ class _PhysicalAssetRegistryState
   }
 
   Future<void> _runTagAware(
-    Future<void> Function(String? reviewedOwnerComponentId) action,
+    Future<void> Function(
+      String? reviewedOwnerComponentId,
+      int? reviewedOwnerComponentVersion,
+    )
+    action,
     String success,
   ) async {
     setState(() => _busy = true);
     try {
-      await action(null);
-    } on AssetTagCollisionException catch (collision) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      final transfer = await _confirmTagTransfer(context, collision);
-      if (!transfer || !mounted) return;
-      setState(() => _busy = true);
-      await action(collision.existingComponentInstanceId);
+      try {
+        await action(null, null);
+      } on AssetTagCollisionException catch (collision) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        final transfer = await _confirmTagTransfer(context, collision);
+        if (!transfer || !mounted) return;
+        setState(() => _busy = true);
+        await action(
+          collision.existingComponentInstanceId,
+          collision.existingComponentVersion,
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -307,16 +320,16 @@ class _PhysicalAssetRegistryState
           ? 'Retire physical asset'
           : 'Restore physical asset',
       message: before.isActive
-              ? 'Installed components must be retired first. Historical work remains linked.'
-              : 'Restoring makes this physical asset available for new work.',
+          ? 'Installed components must be retired first. Any manual Down/Unfit assessment remains unresolved in history; retirement does not record a repair. Historical work remains linked.'
+          : 'Restoring makes this physical asset available for new work.',
     );
     if (reason == null) return;
     await _run(
       () => _repository.setAssetInstanceStatus(
         before: before,
         status: before.isActive
-                ? AssetHierarchyStatus.retired
-                : AssetHierarchyStatus.active,
+            ? AssetHierarchyStatus.retired
+            : AssetHierarchyStatus.active,
         actor: widget.actor,
         reason: reason,
       ),
@@ -332,25 +345,27 @@ class _PhysicalAssetRegistryState
       context: context,
       builder: (_) => _InstalledComponentDialog(
         definitions: nodes
-                    .where(
-                      (node) =>
-                          node.isActive &&
-                          (node.nodeType == AssetHierarchyNodeType.component ||
+            .where(
+              (node) =>
+                  node.isActive &&
+                  (node.nodeType == AssetHierarchyNodeType.component ||
                       node.nodeType == AssetHierarchyNodeType.subcomponent),
-                    )
-                    .toList(),
-          ),
+            )
+            .toList(),
+      ),
     );
     if (result == null) return;
     await _runTagAware(
-      (reviewedOwnerComponentId) => _repository.createInstalledComponent(
-        asset: asset,
-        draft: result.draft,
-        actor: widget.actor,
-        reason: result.reason,
-        allowTagTransfer: reviewedOwnerComponentId != null,
-        expectedTagOwnerComponentId: reviewedOwnerComponentId,
-      ),
+      (reviewedOwnerComponentId, reviewedOwnerComponentVersion) =>
+          _repository.createInstalledComponent(
+            asset: asset,
+            draft: result.draft,
+            actor: widget.actor,
+            reason: result.reason,
+            allowTagTransfer: reviewedOwnerComponentId != null,
+            expectedTagOwnerComponentId: reviewedOwnerComponentId,
+            expectedTagOwnerComponentVersion: reviewedOwnerComponentVersion,
+          ),
       'Installed component added.',
     );
   }
@@ -362,20 +377,31 @@ class _PhysicalAssetRegistryState
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
       builder: (_) => _InstalledComponentDialog(
-            existing: before,
-            definitions: nodes.where((node) => node.isActive).toList(),
-          ),
+        existing: before,
+        correction: !before.isActive,
+        definitions: nodes
+            .where(
+              (node) =>
+                  node.isActive &&
+                  (node.nodeType == AssetHierarchyNodeType.component ||
+                      node.nodeType == AssetHierarchyNodeType.subcomponent),
+            )
+            .toList(),
+      ),
     );
     if (result == null) return;
     await _runTagAware(
-      (reviewedOwnerComponentId) => _repository.updateInstalledComponent(
-        before: before,
-        draft: result.draft,
-        actor: widget.actor,
-        reason: result.reason,
-        allowTagTransfer: reviewedOwnerComponentId != null,
-        expectedTagOwnerComponentId: reviewedOwnerComponentId,
-      ),
+      (reviewedOwnerComponentId, reviewedOwnerComponentVersion) =>
+          _repository.updateInstalledComponent(
+            before: before,
+            correctInstallationFacts: !before.isActive,
+            draft: result.draft,
+            actor: widget.actor,
+            reason: result.reason,
+            allowTagTransfer: reviewedOwnerComponentId != null,
+            expectedTagOwnerComponentId: reviewedOwnerComponentId,
+            expectedTagOwnerComponentVersion: reviewedOwnerComponentVersion,
+          ),
       'Installed component updated.',
     );
   }
@@ -388,7 +414,12 @@ class _PhysicalAssetRegistryState
         ref.read(assetHierarchyNodesProvider(before.assetClassId)).value ??
         const <AssetHierarchyNode>[];
     final definitions = nodes
-        .where((node) => node.id == before.definitionNodeId)
+        .where(
+          (node) =>
+              node.id == before.definitionNodeId &&
+              (node.nodeType == AssetHierarchyNodeType.component ||
+                  node.nodeType == AssetHierarchyNodeType.subcomponent),
+        )
         .toList();
     if (definitions.length != 1 || !definitions.single.isActive) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -406,23 +437,25 @@ class _PhysicalAssetRegistryState
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
       builder: (_) => _InstalledComponentDialog(
-            replacementFor: before,
-            definitions: definitions,
-            evidenceOptions: evidenceOptions,
-          ),
+        replacementFor: before,
+        definitions: definitions,
+        evidenceOptions: evidenceOptions,
+      ),
     );
     if (result == null) return;
     await _runTagAware(
-      (reviewedOwnerComponentId) => _repository.replaceInstalledComponent(
-        asset: asset,
-        before: before,
-        replacement: result.draft,
-        actor: widget.actor,
-        reason: result.reason,
-        allowTagTransfer: reviewedOwnerComponentId != null,
-        expectedTagOwnerComponentId: reviewedOwnerComponentId,
-        evidenceReference: result.evidenceReference,
-      ),
+      (reviewedOwnerComponentId, reviewedOwnerComponentVersion) =>
+          _repository.replaceInstalledComponent(
+            asset: asset,
+            before: before,
+            replacement: result.draft,
+            actor: widget.actor,
+            reason: result.reason,
+            allowTagTransfer: reviewedOwnerComponentId != null,
+            expectedTagOwnerComponentId: reviewedOwnerComponentId,
+            expectedTagOwnerComponentVersion: reviewedOwnerComponentVersion,
+            evidenceReference: result.evidenceReference,
+          ),
       'Component replaced and lifecycle history recorded.',
     );
   }
@@ -489,10 +522,12 @@ class _PhysicalAssetRegistryState
           continue;
         }
         if (hierarchy != null &&
-            (hierarchy.scope == AssetHierarchyReferenceScope.physicalAsset ||
-                hierarchy.scope ==
-                    AssetHierarchyReferenceScope.installedComponent) &&
-            !_replacementReferenceMatches(hierarchy, asset, component)) {
+            !_replacementReferenceMatches(
+              hierarchy,
+              asset,
+              component,
+              allowAssignmentDefinition: true,
+            )) {
           continue;
         }
         options.add(
@@ -503,7 +538,7 @@ class _PhysicalAssetRegistryState
               expectedVersion: execution.version,
             ),
             title:
-                'Completed planned work · ${execution.templateName ?? 'Job $id'}',
+                '${hierarchy == null || hierarchy.scope == AssetHierarchyReferenceScope.physicalAsset ? 'Completed work on asset' : 'Completed work for component'} · ${execution.templateName ?? 'Job $id'}',
             subtitle:
                 '${DateFormat('dd MMM yyyy').format(execution.completedAt!.toLocal())} · ${execution.completedByName ?? 'Recorded completion'}',
             completedAt: execution.completedAt!,
@@ -529,8 +564,20 @@ class _PhysicalAssetRegistryState
   bool _replacementReferenceMatches(
     AssetHierarchyReference? reference,
     AssetInstanceRecord asset,
-    InstalledComponentRecord component,
-  ) {
+    InstalledComponentRecord component, {
+    bool allowAssignmentDefinition = false,
+  }) {
+    if (allowAssignmentDefinition &&
+        reference?.scope == AssetHierarchyReferenceScope.definition) {
+      return reference!.assetClassId == asset.assetClassId &&
+          reference.nodeId == component.definitionNodeId &&
+          (reference.assetInstanceId == null ||
+              reference.assetInstanceId == asset.id) &&
+          (reference.assetNumber == null ||
+              reference.assetNumber == asset.assetNumber) &&
+          reference.componentInstanceId == null &&
+          reference.componentInstanceVersion == null;
+    }
     if (reference == null ||
         reference.scope == AssetHierarchyReferenceScope.definition ||
         reference.assetClassId != asset.assetClassId ||
@@ -538,8 +585,15 @@ class _PhysicalAssetRegistryState
         reference.assetNumber != asset.assetNumber) {
       return false;
     }
-    return reference.scope != AssetHierarchyReferenceScope.installedComponent ||
-        reference.componentInstanceId == component.id;
+    if (reference.scope == AssetHierarchyReferenceScope.installedComponent) {
+      return reference.componentInstanceId == component.id &&
+          reference.nodeId == component.definitionNodeId;
+    }
+    if (reference.scope ==
+        AssetHierarchyReferenceScope.componentDefinitionOnAsset) {
+      return reference.nodeId == component.definitionNodeId;
+    }
+    return reference.nodeId == asset.id;
   }
 
   Future<void> _showComponentHistory(
@@ -555,24 +609,26 @@ class _PhysicalAssetRegistryState
     final reason = await _reasonDialog(
       context,
       title: before.isActive
-              ? 'Retire installed component'
-              : 'Restore installed component',
+          ? 'Retire installed component'
+          : 'Restore installed component',
       message: before.isActive
-              ? 'The tag is released, while historical work retains its component snapshot.'
-              : 'Restoring reclaims its tag; a collision will require explicit transfer.',
+          ? 'The tag is released, while historical work retains its component snapshot.'
+          : 'Restoring reclaims its tag; a collision will require explicit transfer.',
     );
     if (reason == null) return;
     await _runTagAware(
-      (reviewedOwnerComponentId) => _repository.setInstalledComponentStatus(
-        before: before,
-        status: before.isActive
+      (reviewedOwnerComponentId, reviewedOwnerComponentVersion) =>
+          _repository.setInstalledComponentStatus(
+            before: before,
+            status: before.isActive
                 ? AssetHierarchyStatus.retired
                 : AssetHierarchyStatus.active,
-        actor: widget.actor,
-        reason: reason,
-        allowTagTransfer: reviewedOwnerComponentId != null,
-        expectedTagOwnerComponentId: reviewedOwnerComponentId,
-      ),
+            actor: widget.actor,
+            reason: reason,
+            allowTagTransfer: reviewedOwnerComponentId != null,
+            expectedTagOwnerComponentId: reviewedOwnerComponentId,
+            expectedTagOwnerComponentVersion: reviewedOwnerComponentVersion,
+          ),
       before.isActive
           ? 'Installed component retired.'
           : 'Installed component restored.',

@@ -27,6 +27,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/baf_knowledge_model.dart';
 import '../domain/baf_knowledge_repository.dart';
 import '../domain/knowledge_governance_export.dart';
+import '../domain/knowledge_revision_settlement.dart';
 import '../providers/knowledge_governance_provider.dart';
 import 'widgets/knowledge_filters_panel.dart';
 import 'widgets/knowledge_row_editor.dart';
@@ -145,16 +146,14 @@ class _RowsTab extends ConsumerWidget {
 
     return viewAsync.when(
       loading: () => const BafLoadingPanel(label: 'Loading governed knowledge'),
-      error:
-          (e, _) => BafStatePanel.error(
-            title: 'Knowledge base unavailable',
-            message: 'The governed knowledge rows could not be loaded. $e',
-            onPrimary: () => ref.invalidate(knowledgeRowsViewProvider),
-          ),
+      error: (e, _) => BafStatePanel.error(
+        title: 'Knowledge base unavailable',
+        message: 'The governed knowledge rows could not be loaded. $e',
+        onPrimary: () => ref.invalidate(knowledgeRowsViewProvider),
+      ),
       data: (view) {
-        final rows =
-            filter.apply(view.rows).toList()
-              ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+        final rows = filter.apply(view.rows).toList()
+          ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
         return Column(
           children: [
             KnowledgeVersionDashboard(
@@ -172,26 +171,23 @@ class _RowsTab extends ConsumerWidget {
             const KnowledgeFiltersPanel(),
             const Divider(height: 1, color: BafColors.border),
             Expanded(
-              child:
-                  rows.isEmpty
-                      ? const _EmptyRows()
-                      : ListView.separated(
-                        padding: const EdgeInsets.all(BafSpacing.md),
-                        itemBuilder:
-                            (_, i) => _KnowledgeRowCard(
-                              row: rows[i],
-                              onTap:
-                                  () => _openEditorForUpdate(
-                                    context,
-                                    ref,
-                                    appUser,
-                                    rows[i],
-                                  ),
-                            ),
-                        separatorBuilder:
-                            (_, __) => const SizedBox(height: BafSpacing.sm),
-                        itemCount: rows.length,
+              child: rows.isEmpty
+                  ? const _EmptyRows()
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(BafSpacing.md),
+                      itemBuilder: (_, i) => _KnowledgeRowCard(
+                        row: rows[i],
+                        onTap: () => _openEditorForUpdate(
+                          context,
+                          ref,
+                          appUser,
+                          rows[i],
+                        ),
                       ),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: BafSpacing.sm),
+                      itemCount: rows.length,
+                    ),
             ),
           ],
         );
@@ -233,6 +229,16 @@ class _RowsTab extends ConsumerWidget {
     if (format == null) {
       return;
     }
+    if (ref.read(knowledgeRowsViewProvider).hasError ||
+        ref.read(knowledgeRowsViewProvider).isLoading) {
+      if (context.mounted) {
+        _showKnowledgeSnack(
+          context,
+          'Catalogue is not fully available; refresh before exporting.',
+        );
+      }
+      return;
+    }
     final bundle = ref.read(knowledgeExportBundleProvider(format));
     if (!context.mounted) {
       return;
@@ -261,10 +267,18 @@ class _RowsTab extends ConsumerWidget {
       return;
     }
 
-    final view = ref.read(knowledgeRowsViewProvider).valueOrNull;
+    if (!context.mounted) return;
+    final state = ref.read(knowledgeRowsViewProvider);
+    if (state.isLoading || state.hasError || state.valueOrNull == null) {
+      _showKnowledgeSnack(
+        context,
+        'Catalogue must be available before reviewing an import.',
+      );
+      return;
+    }
+    final view = state.requireValue;
     final byCode = <String, BafKnowledgeRow>{
-      for (final row in view?.rows ?? const <BafKnowledgeRow>[])
-        row.rowCode: row,
+      for (final row in view.rows) row.rowCode: row,
     };
     final summary = KnowledgeGovernanceExport.parse(
       body: body,
@@ -277,54 +291,53 @@ class _RowsTab extends ConsumerWidget {
 
     final shouldApply = await showDialog<bool>(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Import preview'),
-            content: SizedBox(
-              width: 480,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Rows considered: ${summary.rowsConsidered}'),
-                    Text('Accepted (will write): ${summary.rowsAccepted}'),
-                    Text('Rejected: ${summary.rowsRejected}'),
-                    if (summary.rejected.isNotEmpty) ...[
-                      const SizedBox(height: BafSpacing.sm),
-                      const Text(
-                        'Rejection reasons:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: BafSpacing.xs),
-                      ...summary.rejected
-                          .take(8)
-                          .map(
-                            (r) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                '· ${r.rowCode}: ${r.messages.join(', ')}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
+      builder: (_) => AlertDialog(
+        title: const Text('Import preview'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rows considered: ${summary.rowsConsidered}'),
+                Text('Accepted (will write): ${summary.rowsAccepted}'),
+                Text('Rejected: ${summary.rowsRejected}'),
+                if (summary.rejected.isNotEmpty) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  const Text(
+                    'Rejection reasons:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: BafSpacing.xs),
+                  ...summary.rejected
+                      .take(8)
+                      .map(
+                        (r) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            '· ${r.rowCode}: ${r.messages.join(', ')}',
+                            style: const TextStyle(fontSize: 12),
                           ),
-                    ],
-                  ],
-                ),
-              ),
+                        ),
+                      ),
+                ],
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              if (summary.rowsAccepted > 0)
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text('Apply ${summary.rowsAccepted}'),
-                ),
-            ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          if (summary.rowsAccepted > 0)
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Apply ${summary.rowsAccepted}'),
+            ),
+        ],
+      ),
     );
     if (!context.mounted || shouldApply != true) {
       return;
@@ -340,7 +353,9 @@ class _RowsTab extends ConsumerWidget {
       }
       _showKnowledgeSnack(
         context,
-        'Import: ${result.applied} written, ${result.rejectedAtSave} rejected.',
+        'Import: ${result.applied} written, ${result.rejectedAtSave} rejected. '
+        '${result.writes.where((write) => write.adoption == KnowledgeRevisionAdoption.pending).length} '
+        'awaiting verified local adoption; refresh and review conflicts if needed.',
       );
     } catch (e) {
       if (!context.mounted) {
@@ -356,32 +371,28 @@ class _RowsTab extends ConsumerWidget {
   }) async {
     return showDialog<KnowledgeBundleFormat>(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Choose format'),
-            content:
-                includeImportHint
-                    ? const Text(
-                      'JSON imports preserve every governed field. CSV imports use ; as the inner separator for list-valued columns.',
-                    )
-                    : null,
-            actions: [
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(context, KnowledgeBundleFormat.json),
-                child: const Text('JSON'),
-              ),
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(context, KnowledgeBundleFormat.csv),
-                child: const Text('CSV'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, null),
-                child: const Text('Cancel'),
-              ),
-            ],
+      builder: (_) => AlertDialog(
+        title: const Text('Choose format'),
+        content: includeImportHint
+            ? const Text(
+                'JSON imports preserve every governed field. CSV imports use ; as the inner separator for list-valued columns.',
+              )
+            : null,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, KnowledgeBundleFormat.json),
+            child: const Text('JSON'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, KnowledgeBundleFormat.csv),
+            child: const Text('CSV'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -547,8 +558,9 @@ class _KnowledgeBundlePasteDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed:
-              canParse ? () => Navigator.pop(context, _controller.text) : null,
+          onPressed: canParse
+              ? () => Navigator.pop(context, _controller.text)
+              : null,
           child: const Text('Parse'),
         ),
       ],
@@ -768,20 +780,18 @@ class _ConflictsTab extends ConsumerWidget {
         await ref.read(knowledgeGovernanceSyncConflictsProvider.future);
       },
       child: conflictsAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Scanning knowledge conflicts',
-              color: BafColors.planned,
+        loading: () => const BafLoadingPanel(
+          label: 'Scanning knowledge conflicts',
+          color: BafColors.planned,
+        ),
+        error: (e, _) => ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(BafSpacing.lg),
+              child: Text('Conflict scan failed:\n$e'),
             ),
-        error:
-            (e, _) => ListView(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(BafSpacing.lg),
-                  child: Text('Conflict scan failed:\n$e'),
-                ),
-              ],
-            ),
+          ],
+        ),
         data: (conflicts) {
           if (conflicts.isEmpty) {
             return ListView(
@@ -799,11 +809,10 @@ class _ConflictsTab extends ConsumerWidget {
           }
           return ListView.separated(
             padding: const EdgeInsets.all(BafSpacing.md),
-            itemBuilder:
-                (_, i) => _ConflictCard(
-                  conflict: conflicts[i],
-                  onAcceptCloud: () => _acceptCloud(context, ref, conflicts[i]),
-                ),
+            itemBuilder: (_, i) => _ConflictCard(
+              conflict: conflicts[i],
+              onAcceptCloud: () => _acceptCloud(context, ref, conflicts[i]),
+            ),
             separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.sm),
             itemCount: conflicts.length,
           );
@@ -819,14 +828,23 @@ class _ConflictsTab extends ConsumerWidget {
   ) async {
     final repo = ref.read(bafKnowledgeRepositoryProvider);
     try {
-      await repo.pullCloudToLocal();
+      final actor = ref.read(currentAppUserProvider).valueOrNull;
+      if (actor == null || !canManageKnowledgeBase(actor)) {
+        throw StateError('Current governance access is required.');
+      }
+      await repo.acceptReviewedCloud(
+        reviewedLocal: conflict.local,
+        reviewedCloudVersion: conflict.cloudVersion,
+        actorUid: actor.uid,
+        actorName: actor.name,
+      );
       ref.invalidate(knowledgeGovernanceSyncConflictsProvider);
       if (!context.mounted) {
         return;
       }
       _showKnowledgeSnack(
         context,
-        'Pulled cloud version of ${conflict.rowCode}.',
+        'Accepted the reviewed cloud version of ${conflict.rowCode}; the displaced draft remains in audit history.',
       );
     } catch (e) {
       if (!context.mounted) {

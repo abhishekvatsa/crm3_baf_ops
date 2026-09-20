@@ -566,6 +566,8 @@ class QualityMonitoringRequest {
     this.closedByUid,
     this.closedByName,
     this.closeReason,
+    this.monitoringDisposition,
+    this.originalMonitoringContext,
   });
 
   final String requestId;
@@ -588,6 +590,9 @@ class QualityMonitoringRequest {
   final String? closedByUid;
   final String? closedByName;
   final String? closeReason;
+  final String? monitoringDisposition;
+  final Map<String, dynamic>? originalMonitoringContext;
+  bool get isCancelled => monitoringDisposition == 'cancelled';
   final DateTime updatedAt;
   final String updatedByUid;
   final String? updatedByName;
@@ -604,7 +609,10 @@ class QualityMonitoringRequest {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1 && schemaVersion != 2 && schemaVersion != 3) {
+    if (schemaVersion != 1 &&
+        schemaVersion != 2 &&
+        schemaVersion != 3 &&
+        schemaVersion != 4) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -617,15 +625,20 @@ class QualityMonitoringRequest {
       'baseAssetInstanceVersion',
     };
     final identityFieldCount = identityFields.where(map.containsKey).length;
+    final legacyCancellation =
+        schemaVersion == 4 &&
+        map['monitoringDisposition'] == 'cancelled' &&
+        identityFieldCount == 0;
     if ((schemaVersion < 3 && identityFieldCount != 0) ||
-        (schemaVersion == 3 && identityFieldCount != identityFields.length)) {
+        (schemaVersion >= 3 &&
+            !legacyCancellation &&
+            identityFieldCount != identityFields.length)) {
       throw PersistedDataFormatException(
         field: 'baseAssetInstanceId',
         source: source,
-        detail:
-            schemaVersion < 3
-                ? 'legacy monitoring must omit governed Base identity'
-                : 'schema v3 requires the complete governed Base identity',
+        detail: schemaVersion < 3
+            ? 'legacy monitoring must omit governed Base identity'
+            : 'schema v3 requires the complete governed Base identity',
       );
     }
     final id = readRequiredPersistedString(
@@ -747,41 +760,37 @@ class QualityMonitoringRequest {
       throw PersistedDataFormatException(
         field: 'visibilityState',
         source: source,
-        detail:
-            isLegacyVisibility
-                ? 'legacy schema must omit the complete visibility projection'
-                : 'schema v2 requires the complete visibility projection',
+        detail: isLegacyVisibility
+            ? 'legacy schema must omit the complete visibility projection'
+            : 'schema v2 requires the complete visibility projection',
       );
     }
-    final visibilityState =
-        isLegacyVisibility
-            ? status == QualityMonitoringStatus.active
-                ? QualityMonitoringVisibilityState.active
-                : QualityMonitoringVisibilityState.recent
-            : readRequiredPersistedEnum(
-              QualityMonitoringVisibilityState.values,
-              map['visibilityState'],
-              field: 'visibilityState',
-              source: source,
-            );
-    final visibleUntil =
-        isLegacyVisibility
-            ? status == QualityMonitoringStatus.closed
-                ? closedAt!.toUtc().add(retention)
-                : null
-            : readOptionalPersistedDateTime(
-              map['visibleUntil'],
-              field: 'visibleUntil',
-              source: source,
-            );
-    final archivedAt =
-        isLegacyVisibility
-            ? null
-            : readOptionalPersistedDateTime(
-              map['archivedAt'],
-              field: 'archivedAt',
-              source: source,
-            );
+    final visibilityState = isLegacyVisibility
+        ? status == QualityMonitoringStatus.active
+              ? QualityMonitoringVisibilityState.active
+              : QualityMonitoringVisibilityState.recent
+        : readRequiredPersistedEnum(
+            QualityMonitoringVisibilityState.values,
+            map['visibilityState'],
+            field: 'visibilityState',
+            source: source,
+          );
+    final visibleUntil = isLegacyVisibility
+        ? status == QualityMonitoringStatus.closed
+              ? closedAt!.toUtc().add(retention)
+              : null
+        : readOptionalPersistedDateTime(
+            map['visibleUntil'],
+            field: 'visibleUntil',
+            source: source,
+          );
+    final archivedAt = isLegacyVisibility
+        ? null
+        : readOptionalPersistedDateTime(
+            map['archivedAt'],
+            field: 'archivedAt',
+            source: source,
+          );
     if (status == QualityMonitoringStatus.active) {
       if (visibilityState != QualityMonitoringVisibilityState.active ||
           visibleUntil != null ||
@@ -821,7 +830,85 @@ class QualityMonitoringRequest {
         detail: 'closed monitoring must be recent or archived',
       );
     }
+    Map<String, dynamic>? originalContext;
+    String? disposition;
+    if (schemaVersion == 4) {
+      final raw = map['originalMonitoringContext'];
+      const fields = {
+        'baseNumber',
+        'baseAssetClassId',
+        'baseAssetInstanceId',
+        'baseAssetInstanceVersion',
+        'grade',
+        'cycleReference',
+        'chargeNumbers',
+        'reason',
+      };
+      if (raw is! Map ||
+          raw.keys.toSet().difference(fields).isNotEmpty ||
+          fields.difference(raw.keys.toSet()).isNotEmpty) {
+        throw PersistedDataFormatException(
+          field: 'originalMonitoringContext',
+          source: source,
+          detail: 'original context is missing or incomplete',
+        );
+      }
+      originalContext = Map<String, dynamic>.from(raw);
+      final identityAbsent = identityFields.every(
+        (field) => originalContext![field] == null,
+      );
+      if ((originalContext['baseAssetClassId'] == null && !identityAbsent) ||
+          (legacyCancellation && !identityAbsent)) {
+        throw PersistedDataFormatException(
+          field: 'originalMonitoringContext',
+          source: source,
+          detail: 'original Base identity is incomplete',
+        );
+      }
+      final original =
+          <String, dynamic>{
+              ...map,
+              ...originalContext,
+              'schemaVersion': originalContext['baseAssetClassId'] == null
+                  ? 2
+                  : 3,
+            }
+            ..remove('originalMonitoringContext')
+            ..remove('monitoringDisposition');
+      if (original['schemaVersion'] == 2) {
+        original.remove('baseAssetClassId');
+        original.remove('baseAssetInstanceId');
+        original.remove('baseAssetInstanceVersion');
+      }
+      QualityMonitoringRequest.fromMap(original, documentId);
+      disposition = readOptionalPersistedString(
+        map['monitoringDisposition'],
+        field: 'monitoringDisposition',
+        source: source,
+      );
+      if (!map.containsKey('monitoringDisposition') ||
+          (status == QualityMonitoringStatus.active
+              ? disposition != null
+              : !{'completed', 'cancelled'}.contains(disposition))) {
+        throw PersistedDataFormatException(
+          field: 'monitoringDisposition',
+          source: source,
+          detail: 'reviewed disposition is inconsistent',
+        );
+      }
+    } else if (map.containsKey('monitoringDisposition') ||
+        map.containsKey('originalMonitoringContext')) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'reviewed monitoring fields require schema 4',
+      );
+    }
     return QualityMonitoringRequest(
+      monitoringDisposition: disposition,
+      originalMonitoringContext: originalContext == null
+          ? null
+          : Map.unmodifiable(originalContext),
       requestId: id,
       baseNumber: readRequiredPersistedInt(
         map['baseNumber'],
@@ -829,31 +916,28 @@ class QualityMonitoringRequest {
         source: source,
         minimum: 1,
       ),
-      baseAssetClassId:
-          schemaVersion == 3
-              ? readRequiredPersistedString(
-                map['baseAssetClassId'],
-                field: 'baseAssetClassId',
-                source: source,
-              )
-              : null,
-      baseAssetInstanceId:
-          schemaVersion == 3
-              ? readRequiredPersistedString(
-                map['baseAssetInstanceId'],
-                field: 'baseAssetInstanceId',
-                source: source,
-              )
-              : null,
-      baseAssetInstanceVersion:
-          schemaVersion == 3
-              ? readRequiredPersistedInt(
-                map['baseAssetInstanceVersion'],
-                field: 'baseAssetInstanceVersion',
-                source: source,
-                minimum: 1,
-              )
-              : null,
+      baseAssetClassId: schemaVersion >= 3 && !legacyCancellation
+          ? readRequiredPersistedString(
+              map['baseAssetClassId'],
+              field: 'baseAssetClassId',
+              source: source,
+            )
+          : null,
+      baseAssetInstanceId: schemaVersion >= 3 && !legacyCancellation
+          ? readRequiredPersistedString(
+              map['baseAssetInstanceId'],
+              field: 'baseAssetInstanceId',
+              source: source,
+            )
+          : null,
+      baseAssetInstanceVersion: schemaVersion >= 3 && !legacyCancellation
+          ? readRequiredPersistedInt(
+              map['baseAssetInstanceVersion'],
+              field: 'baseAssetInstanceVersion',
+              source: source,
+              minimum: 1,
+            )
+          : null,
       grade: readRequiredPersistedString(
         map['grade'],
         field: 'grade',

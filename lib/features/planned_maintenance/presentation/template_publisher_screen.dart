@@ -130,14 +130,13 @@ class _TemplatePublisherScreenState
     final userAsync = ref.watch(currentAppUserProvider);
 
     return userAsync.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Template authoring',
-            appBarSubtitle: 'Governed maintenance catalogues and versions',
-            appBarIcon: Icons.architecture_outlined,
-            accent: BafColors.planned,
-            label: 'Checking publishing authority',
-          ),
+      loading: () => BafScreenStateScaffold.loading(
+        appBarTitle: 'Template authoring',
+        appBarSubtitle: 'Governed maintenance catalogues and versions',
+        appBarIcon: Icons.architecture_outlined,
+        accent: BafColors.planned,
+        label: 'Checking publishing authority',
+      ),
       error: (e, _) => _ErrorScaffold(message: 'User profile error: $e'),
       data: (actor) {
         if (actor == null || !actor.canManageTemplateGovernance) {
@@ -146,23 +145,20 @@ class _TemplatePublisherScreenState
 
         final packagesAsync = ref.watch(templatePackagesProvider);
         return packagesAsync.when(
-          loading:
-              () => BafScreenStateScaffold.loading(
-                appBarTitle: 'Template authoring',
-                appBarSubtitle: 'Governed maintenance catalogues and versions',
-                appBarIcon: Icons.architecture_outlined,
-                accent: BafColors.planned,
-                label: 'Loading governed catalogues',
-              ),
-          error:
-              (e, _) =>
-                  e is PersistedDataFormatException
-                      ? const _ErrorScaffold(
-                        title: 'Governance timeline needs repair',
-                        message:
-                            'A template package or version has missing, malformed, or inconsistent lifecycle history. Publishing is blocked until the source record is repaired and this view reloads cleanly.',
-                      )
-                      : _ErrorScaffold(message: 'Template package error: $e'),
+          loading: () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Template authoring',
+            appBarSubtitle: 'Governed maintenance catalogues and versions',
+            appBarIcon: Icons.architecture_outlined,
+            accent: BafColors.planned,
+            label: 'Loading governed catalogues',
+          ),
+          error: (e, _) => e is PersistedDataFormatException
+              ? const _ErrorScaffold(
+                  title: 'Governance timeline needs repair',
+                  message:
+                      'A template package or version has missing, malformed, or inconsistent lifecycle history. Publishing is blocked until the source record is repaired and this view reloads cleanly.',
+                )
+              : _ErrorScaffold(message: 'Template package error: $e'),
           data: (packages) => _buildPublisher(context, actor, packages),
         );
       },

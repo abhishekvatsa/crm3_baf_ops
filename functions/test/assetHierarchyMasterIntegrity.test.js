@@ -77,9 +77,21 @@ function memoryDb() {
 const invoke = (memory, data, authUid = 'admin-1') => mutateAssetHierarchyWithDb({
   db: memory.db, data, authUid, now: () => fixedTime, timestampFromDate: Timestamp.fromDate,
 });
-const invokeCover = (memory, data) => mutateInnerCoverLifecycleWithDb({
-  db: memory.db, data, authUid: 'admin-1', now: () => fixedTime, timestampFromDate: Timestamp.fromDate,
-});
+const invokeCover = (memory, data) => {
+  const request = {...data};
+  if (request.physicalEventAt == null && [
+    'SET_INNER_COVER_STATE', 'DELINK_INNER_COVER', 'REPLACE_INNER_COVER',
+  ].includes(request.operation)) {
+    // This legacy-shaped fixture predates the explicit assurance-episode
+    // event time. Keep the test focused on hierarchy retirement while making
+    // the physical event evidence explicit at the mutation boundary.
+    request.physicalEventAt = '2026-09-12T00:00:00.000Z';
+  }
+  return mutateInnerCoverLifecycleWithDb({
+    db: memory.db, data: request, authUid: 'admin-1', now: () => fixedTime,
+    timestampFromDate: Timestamp.fromDate,
+  });
+};
 const createClass = (overrides = {}) => ({requestId: id(10), operation: 'CREATE_CLASS',
   assetClassId: classId, reason: 'Create the reviewed operational class.',
   classDraft: {code: 'FURNACE', name: 'Furnace', majorArea: 'BAF',

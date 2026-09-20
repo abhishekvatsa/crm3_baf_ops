@@ -30,11 +30,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreTemplateGovernance
           .getPackagesByFirestoreIds(firestoreIds);
@@ -178,11 +177,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreTemplateGovernance
           .getVersionsByFirestoreIds(firestoreIds);
@@ -256,6 +254,22 @@ extension _SyncServiceTemplateGovernance on SyncService {
             entityId: record.firestoreId!,
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
+          );
+          lastFailureCount++;
+          continue;
+        }
+
+        // A local published payload and a different remote draft are two
+        // reviewed histories, not a draft-replay hint. Keep both intact and
+        // require an explicit comparison/review before either can replace the
+        // other. In particular, never copy the remote draft into the local
+        // published record merely to make the lifecycle write admissible.
+        if (_templateVersionPublishReplayPayloadConflict(record, remote)) {
+          await _recordPushConflict(
+            entityType: 'template_version',
+            entityId: record.firestoreId!,
+            localSnapshot: record.toAuditMap(),
+            remoteSnapshot: remote!.toAuditMap(),
           );
           lastFailureCount++;
           continue;
@@ -580,17 +594,6 @@ extension _SyncServiceTemplateGovernance on SyncService {
       return true;
     }
 
-    if (_shouldRestoreRemoteDraftPayloadBeforePublishReplay(local, remote)) {
-      _restoreRemoteDraftPayloadForPublishReplay(local, remote!);
-      await _templateGovernanceRepo.batchUpsertVersions(<TemplateVersion>[
-        local,
-      ]);
-      debugPrint(
-        '🧭 Restored Firestore draft payload before TemplateVersion publish replay: '
-        '${local.firestoreId}',
-      );
-    }
-
     final plan = _templateVersionLifecycleReplayPlan(local, remote);
     if (plan.isEmpty) return false;
 
@@ -694,7 +697,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
     return records.isEmpty ? null : records.single;
   }
 
-  bool _shouldRestoreRemoteDraftPayloadBeforePublishReplay(
+  bool _templateVersionPublishReplayPayloadConflict(
     TemplateVersion local,
     TemplateVersion? remote,
   ) {
@@ -703,31 +706,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         remote.status != TemplateVersionStatus.draft) {
       return false;
     }
-    if (!_canReplayTemplateVersionPublishForCurrentUser(local)) return false;
-    if (local.version <= remote.version) return false;
-    if (_templateVersionPinnedFieldDiff(local, remote) != 'none') return false;
     return _templateVersionDraftPayloadDiff(local, remote) != 'none';
-  }
-
-  void _restoreRemoteDraftPayloadForPublishReplay(
-    TemplateVersion local,
-    TemplateVersion remote,
-  ) {
-    local
-      ..jobTemplateSnapshotJson = remote.jobTemplateSnapshotJson
-      ..moduleSnapshotsJson = remote.moduleSnapshotsJson
-      ..fieldDefinitionsJson = remote.fieldDefinitionsJson
-      ..checklistJson = remote.checklistJson
-      ..targetRefs = List<String>.from(remote.targetRefs)
-      ..deviceTagRefs = List<String>.from(remote.deviceTagRefs)
-      ..safetyClass = remote.safetyClass
-      ..safetyGatePolicyJson = remote.safetyGatePolicyJson
-      ..procedureRefs = List<String>.from(remote.procedureRefs)
-      ..operationalStatePreconditions = List<String>.from(
-        remote.operationalStatePreconditions,
-      )
-      ..isSynced = false;
-    local.refreshContentHash();
   }
 
   Map<String, dynamic> _templateVersionDraftReplayCreateData(
@@ -937,12 +916,11 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final decoded = jsonDecode(rawSnapshot);
       if (decoded is! Map<String, dynamic>) return false;
       final map = decoded;
-      final snapshotUpdatedAt =
-          readRequiredPersistedDateTime(
-            map['updatedAt'],
-            field: 'updatedAt',
-            source: 'template lifecycle audit snapshot',
-          ).toUtc();
+      final snapshotUpdatedAt = readRequiredPersistedDateTime(
+        map['updatedAt'],
+        field: 'updatedAt',
+        source: 'template lifecycle audit snapshot',
+      ).toUtc();
       return _cleanText(map['firestoreId']?.toString()) ==
               _cleanText(remoteVersion.firestoreId) &&
           _cleanText(map['packageFirestoreId']?.toString()) ==
@@ -1003,11 +981,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
       final remoteList = await _firestoreTemplateGovernance
           .getAuditsByFirestoreIds(firestoreIds);
       final remoteById = <String, TemplatePublishAudit>{

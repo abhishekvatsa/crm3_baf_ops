@@ -165,6 +165,18 @@ function user(role, name = role) {
 
 function baseSeed() {
   return {
+    // An action names a subject from the plant register, so the register has
+    // to hold it.
+    'asset_classes/furnace-class': {
+      schemaVersion: 1, assetClassId: 'furnace-class', code: 'FURNACE',
+      name: 'Furnace', legacyAssetTypeKey: 'furnace', status: 'active',
+    },
+    'asset_instances/furnace-12': {
+      schemaVersion: 1, assetInstanceId: 'furnace-12',
+      assetClassId: 'furnace-class', assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace', assetNumber: 12, name: 'Furnace 12',
+      status: 'active', version: 3,
+    },
     'users/admin-1': user('admin', 'Admin One'),
     'users/si-1': user('si', 'SI One'),
     'users/si-2': user('si', 'SI Two'),
@@ -877,6 +889,88 @@ describe('Morning Review governed lifecycle', () => {
     expect(capture.sourceCollectionsAtLimit).toContain('inspection_findings');
   });
 
+  test('a corrected adverse basis survives into the morning snapshot', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      // The inspection module raised this finding and its only adverse
+      // reading was then corrected to an in-range value. The module keeps
+      // saying that technical verification cannot substitute for reviewing
+      // the corrected basis; the manager reading the minutes has to see it.
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 1,
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+      'inspection_findings/finding-standing': inspectionFinding(
+        'finding-standing',
+        {
+          status: 'awaitingVerification',
+          recurrenceCount: 2,
+          effectiveAdverseObservationCount: 2,
+          evidenceReviewRequired: false,
+          evidenceReviewReason: null,
+        },
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    const corrected = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-corrected');
+    expect(corrected).toMatchObject({status: 'awaitingVerification'});
+    // It reads as different from an ordinary awaiting-verification item in the
+    // frozen prose, which is what a manager reads, and the recurrence counter
+    // a correction leaves standing at one is not offered as evidence.
+    expect(corrected.summary).toContain('Evidence review required');
+    expect(corrected.summary).not.toContain('Observed 1 times');
+
+    const standing = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-standing');
+    expect(standing.summary).toContain('Observed 2 times');
+    expect(standing.summary).not.toContain('Evidence review required');
+  });
+
+  test('the frozen fact keeps the shape the installed client reads', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'inspection_findings/finding-corrected': inspectionFinding(
+        'finding-corrected',
+        {
+          status: 'awaitingVerification',
+          effectiveAdverseObservationCount: 0,
+          evidenceReviewRequired: true,
+          evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+        },
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    // The installed client reads a source fact with an exact field set and
+    // refuses any Morning Review schema but 1. An additive field here would
+    // stop it reading the very session that carries this finding.
+    for (const fact of capture.facts) {
+      expect(Object.keys(fact).sort()).toEqual([
+        'assetClassId', 'assetClassName', 'assetInstanceId', 'assetNumber',
+        'factId', 'observedAtIso', 'section', 'sourceCollection',
+        'sourceDocumentId', 'sourceType', 'status', 'summary', 'title',
+      ]);
+    }
+  });
+
   test('bounds incomplete-source markers for existing client readers', async () => {
     const seed = baseSeed();
     const longId = 'x'.repeat(241);
@@ -1461,6 +1555,70 @@ describe('Morning Review governed lifecycle', () => {
       .toBe(sessionVersion + 1);
   });
 
+  test.each([
+    ['an asset the register does not hold', {
+      assetClassId: 'absent-class', assetClassName: 'Furnace',
+      assetInstanceId: 'absent-furnace', assetNumber: '999',
+    }, 'morning-review-action-asset-unknown'],
+    ['a real asset claimed under another class', {
+      assetClassId: 'base-class', assetClassName: 'Base',
+      assetInstanceId: 'furnace-12', assetNumber: '12',
+    }, 'morning-review-action-asset-mismatch'],
+  ])('an action cannot name %s', async (_label, asset, reasonCode) => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'asset_classes/base-class': {
+        schemaVersion: 1, assetClassId: 'base-class', code: 'BASE',
+        name: 'Base', legacyAssetTypeKey: 'base', status: 'active',
+      },
+    });
+    await invoke(memory, 'si-1', startRequest());
+    const writesBefore = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        ...asset,
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({reasonCode}),
+    });
+    expect(memory.writes).toHaveLength(writesBefore);
+  });
+
+  test('an action records the register name, not the label it was sent', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'furnace',
+        text: 'Inspect the draft seal before charging.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        assetClassId: 'furnace-class',
+        assetClassName: 'Stale label',
+        assetInstanceId: 'furnace-12',
+        assetNumber: '7',
+        dueAt: '2026-08-31T12:30:00.000Z',
+      },
+    });
+
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`))
+      .toMatchObject({assetClassName: 'Furnace', assetNumber: '12'});
+  });
+
   test('keeps routed actions usable without converting ownership into attendance', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'si-1', startRequest());
@@ -1616,6 +1774,100 @@ describe('Morning Review governed lifecycle', () => {
       .toHaveLength(accepted);
   });
 
+  test('a meeting held yesterday can have its minutes closed today', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(session.status).toBe('open');
+
+    // The meeting was held. Leaving its minutes open forever is a worse record
+    // than closing them late and saying they were closed late.
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      summary: 'Closed the following morning; the meeting was held as recorded.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${priorDay}`);
+    expect(finalized).toMatchObject({status: 'finalized', plantDay: priorDay});
+    // No new field records the lateness, because the record already carries
+    // it: the meeting's intended day is untouched and the finalization time is
+    // the real one, so the two together say it was closed the next day.
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .not.toBe(finalized.plantDay);
+    expect(memory.store.get(`morning_review_documents/${priorDay}`))
+      .toMatchObject({sessionId: priorDay});
+  });
+
+  test('closing on the day it was held reads as the same day', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId,
+      expectedVersion: session.version,
+      summary: 'Closed on the day it was held.',
+    });
+
+    const finalized = memory.store.get(`morning_review_sessions/${sessionId}`);
+    expect(finalized.status).toBe('finalized');
+    expect(finalized.finalizedAt.toISOString().slice(0, 10))
+      .toBe(finalized.plantDay);
+  });
+
+  test('an older meeting can be taken over so it can be closed', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+    const session = memory.store.get(`morning_review_sessions/${priorDay}`);
+
+    // The facilitator is not here today; somebody has to be able to close it.
+    await invoke(memory, 'admin-1', {
+      requestId: IDS.takeover,
+      operation: 'TAKE_OVER_MORNING_REVIEW',
+      sessionId: priorDay,
+      expectedVersion: session.version,
+      reason: 'The facilitator is on leave and the minutes are still open.',
+    });
+
+    expect(memory.store.get(`morning_review_sessions/${priorDay}`))
+      .toMatchObject({facilitatorUid: 'admin-1', plantDay: priorDay});
+  });
+
+  test('a meeting that was held is not recorded as not held afterwards', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+    const yesterday = new Date('2026-08-30T03:00:00.000Z');
+    await invoke(memory, 'si-1', startRequest(), yesterday);
+
+    // Late finalization is a way to close a meeting truthfully, not a way to
+    // say it never happened.
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.notHeld,
+      operation: 'RECORD_MORNING_REVIEW_NOT_HELD',
+      sessionId: priorDay,
+      reason: 'Claiming the meeting never happened.',
+    })).rejects.toThrow();
+  });
+
+  test('an older day still cannot be opened as a new meeting', async () => {
+    const priorDay = '2026-08-30';
+    const memory = fakeDb(baseSeed());
+
+    await expect(invoke(memory, 'si-1', {
+      ...startRequest(),
+      sessionId: priorDay,
+    })).rejects.toThrow();
+  });
+
   test('full review byte budget cannot veto prior-day action acceptance or completion', async () => {
     const priorDay = '2026-08-30';
     const memory = fakeDb(baseSeed());
@@ -1642,6 +1894,7 @@ describe('Morning Review governed lifecycle', () => {
         expect([...candidate.store.keys()].filter((key) => key.startsWith('morning_review_entries/'))).toEqual(beforeEntries);
         expect(candidate.writes.map((write) => write.path).sort()).toEqual([
           `morning_review_actions/${IDS.action}`, `morning_review_mutation_receipts/${requestId}`,
+          ...(!accepting ? [`morning_review_action_history/${IDS.action}`] : []),
         ].sort());
       }
     }
@@ -1890,7 +2143,6 @@ describe('Morning Review governed lifecycle', () => {
     expect(recorded).toMatchObject({status: 'notHeld'});
   });
 });
-
 test.each([false, true])('administrative review accepts the actual Morning Review receipt, intended-day=%s', async (explicitDay) => {
   const memory = fakeDb(baseSeed());
   const request = {...startRequest(), ...(explicitDay ? {expectedPlantDay: sessionId} : {})};
@@ -1898,4 +2150,243 @@ test.each([false, true])('administrative review accepts the actual Morning Revie
   const receipt = memory.store.get(`morning_review_mutation_receipts/${request.requestId}`);
   expect(receipt.fingerprint).toMatch(explicitDay ? /^morningreview2-sha256:/ : /^morningreview1-sha256:/);
   await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('morningReview', receipt);
+});
+
+describe('Morning Review deep audit regressions', () => {
+  const id = (n) => `87654321-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const finish = (memory) => ({requestId: IDS.finalize, operation: 'FINALIZE_MORNING_REVIEW', sessionId,
+    expectedVersion: memory.store.get(`morning_review_sessions/${sessionId}`).version, summary: 'Reviewed.'});
+  test.each(['acceptedCondition', 'invalidated'])('adjudicated %s is historical evidence, not an outstanding review', async (status) => {
+    const memory = fakeDb({...baseSeed(), 'inspection_findings/reviewed': inspectionFinding('reviewed', {
+      status, effectiveAdverseObservationCount: 0, evidenceReviewRequired: true,
+      evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
+    })});
+    await invoke(memory, 'si-1', {...startRequest(), recoveryVersion: 1});
+    await invoke(memory, 'si-1', finish(memory));
+    const fact = memory.store.get(`morning_review_documents/${sessionId}`).sourceFacts.find((row) => row.sourceDocumentId === 'reviewed');
+    expect(fact.status).toBe(status);
+    expect(fact.summary).toContain('explicitly adjudicated');
+    expect(fact.summary).not.toContain('review required');
+  });
+  test.each([
+    {effectiveAdverseObservationCount: -1}, {effectiveAdverseObservationCount: 0.5},
+    {effectiveAdverseObservationCount: null}, {evidenceReviewRequired: 'false'},
+    {evidenceReviewRequired: true}, {evidenceReviewReason: 'unsupported reason'},
+  ])('damaged current inspection projection is qualified as incomplete: %j', async (damage) => {
+    const memory = fakeDb({...baseSeed(), 'inspection_findings/damaged': inspectionFinding('damaged', {
+      effectiveAdverseObservationCount: 1, evidenceReviewRequired: false, evidenceReviewReason: null, ...damage,
+    }), 'inspection_findings/legacy': inspectionFinding('legacy')});
+    const capture = await collectMorningReviewSourceFacts({db: memory.db, plantDay: sessionId, capturedAt: meetingTime});
+    expect(capture.facts.some((row) => row.sourceDocumentId === 'damaged')).toBe(false);
+    expect(capture.facts.some((row) => row.sourceDocumentId === 'legacy')).toBe(true);
+    expect(capture.sourceCollectionsAtLimit).toContain('inspection_findings');
+  });
+  test('actual withdrawn disruption stays qualified through capture and freeze', async () => {
+    const memory = fakeDb(baseSeed());
+    const mutate = (data) => require('../lib/operationalEventMutation').mutateOperationalEventWithDb({
+      db: memory.db, authUid: 'ops-1', data, now: () => new Date('2026-08-31T02:55:00Z'), timestampFromDate: (date) => date});
+    await mutate({requestId: id(1), eventId: id(2), operation: 'CREATE_OPERATIONAL_EVENT', expectedVersion: 0,
+      reason: 'Incoming utility disruption', eventDraft: {eventType: 'powerTrip', title: 'Power interruption',
+        description: 'Recorded incoming power interruption', severity: 'critical', scope: 'plantWide',
+        affectedAssetClassIds: [], affectedAssetInstanceIds: [], startedAt: '2026-08-31T02:50:00.000Z'}});
+    await mutate({requestId: id(3), eventId: id(2), operation: 'WITHDRAW_OPERATIONAL_EVENT', expectedVersion: 1,
+      reason: 'Confirmed duplicate report; this event did not occur'});
+    expect(memory.store.get(`operational_events/${id(2)}`)).toMatchObject({status: 'open', isWithdrawn: true});
+    await invoke(memory, 'si-1', {...startRequest(), recoveryVersion: 1});
+    await invoke(memory, 'si-1', finish(memory));
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).sourceFacts.find((row) => row.sourceDocumentId === id(2)))
+      .toMatchObject({status: 'withdrawn in error'});
+  });
+  test('180 accepted entries permit 50 independent addenda; replay never changes frozen minutes', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', {...startRequest(), recoveryVersion: 1});
+    for (let n = 0; n < 180; n++) await invoke(memory, 'si-1', entryRequest({requestId: id(n)}));
+    await invoke(memory, 'si-1', finish(memory));
+    const frozen = clone(memory.store.get(`morning_review_documents/${sessionId}`));
+    const addendum = (n) => entryRequest({requestId: id(n), operation: 'ADD_MORNING_REVIEW_ADDENDUM',
+      reason: 'Clarify the issued record', entryDraft: {...entryRequest().entryDraft, kind: 'addendum'}});
+    for (let n = 180; n < 230; n++) await invoke(memory, 'si-1', addendum(n));
+    await expect(invoke(memory, 'si-1', addendum(230))).rejects.toMatchObject({details: {reasonCode: 'morning-review-addendum-capacity-reached'}});
+    const writes = memory.writes.length;
+    await expect(invoke(memory, 'si-1', addendum(180))).resolves.toMatchObject({idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+    expect(memory.store.get(`morning_review_documents/${sessionId}`)).toEqual(frozen);
+    expect(frozen.entries).toHaveLength(180);
+  });
+  test.each(['summary', 'count'])('finalization refuses damaged captured %s without issuing minutes', async (damage) => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', {...startRequest(), recoveryVersion: 1});
+    const path = `morning_review_sessions/${sessionId}`;
+    const original = clone(memory.store.get(path));
+    const changed = clone(original);
+    if (damage === 'summary') changed.sourceFacts[0].summary = 'Changed without reviewed source evidence';
+    else changed.sourceFactCount++;
+    memory.store.set(path, changed);
+    await expect(invoke(memory, 'si-1', finish(memory))).rejects.toMatchObject({code: 'data-loss', details: {reasonCode: 'morning-review-source-integrity-mismatch'}});
+    expect(memory.store.has(`morning_review_documents/${sessionId}`)).toBe(false);
+    memory.store.set(path, original);
+    await expect(invoke(memory, 'si-1', finish(memory))).resolves.toMatchObject({status: 'finalized'});
+  });
+  test('recent legacy minutes explicitly qualify unknown membership; no manifest is invented', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    await invoke(memory, 'si-1', finish(memory));
+    expect(memory.store.get(`morning_review_documents/${sessionId}`)).toMatchObject({sourceCaptureState: 'bounded',
+      sourceCollectionsAtLimit: expect.arrayContaining(['Legacy meeting population unverified'])});
+    expect(memory.store.has(`morning_review_population_manifests/${sessionId}`)).toBe(false);
+  });
+});
+
+describe('Morning Review preliminary audit regressions', () => {
+  const id = (n) => `12345678-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const modern = (request) => ({...request, recoveryVersion: 1});
+  const finish = (memory, overrides = {}) => modern({requestId: IDS.finalize,
+    operation: 'FINALIZE_MORNING_REVIEW', sessionId,
+    expectedVersion: memory.store.get(`morning_review_sessions/${sessionId}`).version,
+    summary: 'Original meeting, closed with the actual finalization time.', ...overrides});
+
+  test('a stale summary receives a permanent refusal and a refreshed request can proceed', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    const stale = finish(memory, {expectedVersion: 999});
+    await expect(invoke(memory, 'si-1', stale)).rejects.toMatchObject({code: 'aborted',
+      details: {morningReviewRefusal: {actorUid: 'si-1', request: stale}}});
+    const before = memory.store.get(`morning_review_sessions/${sessionId}`);
+    memory.store.set(`morning_review_sessions/${sessionId}`, {...before, version: 999});
+    await expect(invoke(memory, 'si-1', stale)).rejects.toMatchObject({code: 'aborted'});
+    expect(memory.store.has(`morning_review_documents/${sessionId}`)).toBe(false);
+    await expect(invoke(memory, 'si-1', finish(memory, {requestId: id(1)}))).resolves.toMatchObject({status: 'finalized'});
+  });
+
+  test('canonical acceptance remains bound to original labels after subject expiry and role change', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    const request = modern({requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION', sessionId,
+      actionDraft: {...lifecycleActionDraft(), assetClassId: 'furnace-class', assetClassName: 'Old label', assetInstanceId: 'furnace-12', assetNumber: '012'}});
+    await invoke(memory, 'si-1', request);
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`)).toMatchObject({assetClassName: 'Furnace', assetNumber: '12'});
+    memory.store.delete(`morning_review_actions/${IDS.action}`);
+    memory.store.set('users/si-1', user('operations'));
+    const proof = await lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'si-1', data: {acceptanceEvidence: true, request}});
+    expect(proof.acceptanceBasis).toMatchObject({actorUid: 'si-1', request, canonicalAsset: {assetClassName: 'Furnace', assetNumber: '12'}});
+    const legacy = memory.store.get(`morning_review_mutation_receipts/${request.requestId}`);
+    delete legacy.acceptanceBasis;
+    const legacyProof = await lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'si-1', data: {acceptanceEvidence: true, request}});
+    expect(legacyProof.acceptanceBasis).toMatchObject({actorUid: 'si-1', request, canonicalAsset: null, evidenceKind: 'legacy-request-fingerprint', sourceFingerprint: legacy.fingerprint});
+    await expect(lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'ops-1', data: {acceptanceEvidence: true, request}})).rejects.toMatchObject({code: 'data-loss'});
+    await expect(lookupMorningReviewReceiptWithDb({db: memory.db, authUid: 'si-1', data: {acceptanceEvidence: true,
+      request: {...request, actionDraft: {...request.actionDraft, text: 'Different work'}}}})).rejects.toMatchObject({code: 'data-loss'});
+  });
+
+  test('withdrawn SI authority between preflight and transaction cannot finalize', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const transaction = memory.db.runTransaction;
+    memory.db.runTransaction = async (fn) => {
+      memory.store.set('users/si-1', user('operations'));
+      return transaction(fn);
+    };
+    await expect(invoke(memory, 'si-1', finish(memory))).rejects.toMatchObject({code: 'permission-denied'});
+    expect(memory.store.has(`morning_review_documents/${sessionId}`)).toBe(false);
+  });
+
+  test('unfinished modern meetings survive retention and missing original attendance prevents freezing', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    await invoke(memory, 'si-1', modern(entryRequest()));
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`).expiresAt).toBeNull();
+    expect(memory.store.get(`morning_review_entries/${IDS.entry}`).expiresAt).toBeNull();
+    const participantPath = `morning_review_participants/${sessionId}_si-1`;
+    const participant = memory.store.get(participantPath);
+    memory.store.delete(participantPath);
+    const late = new Date('2026-09-20T03:00:00Z');
+    await expect(invoke(memory, 'admin-1', finish(memory), late)).rejects.toMatchObject({code: 'data-loss', details: {reasonCode: 'morning-review-population-incomplete'}});
+    memory.store.set(participantPath, participant);
+    await expect(invoke(memory, 'admin-1', finish(memory), late)).resolves.toMatchObject({status: 'finalized'});
+    expect(memory.store.get(`morning_review_participants/${sessionId}_admin-1`)).toBeUndefined();
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`).expiresAt).toEqual(new Date('2026-10-04T03:00:00Z'));
+  });
+
+  test('legacy meetings beyond original retention require reconciliation instead of certifying unknown completeness', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    await expect(invoke(memory, 'admin-1', finish(memory), new Date('2026-09-20T03:00:00Z')))
+      .rejects.toMatchObject({details: {reasonCode: 'morning-review-legacy-population-reconciliation-required'}});
+  });
+
+  test('late finalization excludes standing concerns created on a later plant day', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    memory.store.set('morning_review_standing_concerns/later', {status: 'active', originSessionId: '2026-09-01'});
+    await invoke(memory, 'admin-1', finish(memory), new Date('2026-09-02T03:00:00Z'));
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).standingConcerns).toEqual([]);
+  });
+
+  test('meeting-provided subjects work consistently and registered subject spoofing is rejected', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    const scope = {assetClassId: 'meeting-provisional:crane', assetClassName: 'Crane',
+      assetInstanceId: 'meeting-provisional:crane:7', assetNumber: '7'};
+    await expect(invoke(memory, 'si-1', modern({requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION', sessionId,
+      actionDraft: {...lifecycleActionDraft(), ...scope}}))).resolves.toMatchObject({status: 'open'});
+    await expect(invoke(memory, 'si-1', modern(entryRequest({entryDraft: {...entryRequest().entryDraft, ...scope}})))).resolves.toMatchObject({status: 'recorded'});
+    await expect(invoke(memory, 'si-1', modern(entryRequest({requestId: id(2), entryDraft: {...entryRequest().entryDraft,
+      assetClassId: 'missing-class'}})))).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('Admin/SI corrections preserve completion, reject stale edits and leave role-member completion available', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', modern(startRequest()));
+    await invoke(memory, 'si-1', modern({requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION', sessionId, actionDraft: lifecycleActionDraft()}));
+    const correction = (n, version, kind, extra = {}) => modern({requestId: id(n), operation: 'AMEND_MORNING_REVIEW_ACTION',
+      sessionId, actionId: IDS.action, expectedVersion: version, reason: 'Verified correction reason', actionCorrection: {kind, ...extra}});
+    await expect(invoke(memory, 'ops-1', correction(3, 1, 'cancel'))).rejects.toMatchObject({code: 'permission-denied'});
+    await invoke(memory, 'si-1', correction(4, 1, 'reassign', {assigneeRole: 'seniorMechanical'}));
+    await expect(invoke(memory, 'admin-1', correction(5, 1, 'cancel'))).rejects.toMatchObject({code: 'aborted'});
+    await invoke(memory, 'mech-1', modern({requestId: IDS.complete, operation: 'COMPLETE_MORNING_REVIEW_ACTION', sessionId,
+      actionId: IDS.action, expectedVersion: 2, reason: 'Physical outcome verified by assigned-role member'}));
+    await invoke(memory, 'si-1', correction(6, 3, 'reopen'));
+    expect(memory.store.get(`morning_review_corrections/${id(6)}`).before).toMatchObject({status: 'completed', completionNote: 'Physical outcome verified by assigned-role member'});
+    const cancelled = correction(7, 4, 'cancel');
+    await invoke(memory, 'si-1', cancelled);
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`)).toMatchObject({status: 'cancelled', completionNote: null,
+      cancellation: {actorUid: 'si-1', reason: 'Verified correction reason'}});
+    const writes = memory.writes.length;
+    await expect(invoke(memory, 'si-1', cancelled)).resolves.toMatchObject({idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+    await invoke(memory, 'admin-1', correction(8, 5, 'reopen'));
+    expect(memory.store.get(`morning_review_actions/${IDS.action}`)).toMatchObject({status: 'open', expiresAt: null, cancellation: null});
+  });
+
+  test('checked outcomes can be corrected only with current meeting version, supervisor and retained prior evidence', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'admin-1', modern(startRequest()));
+    await invoke(memory, 'admin-1', modern({requestId: IDS.concern, operation: 'CREATE_MORNING_REVIEW_STANDING_CONCERN', sessionId,
+      concernDraft: {title: 'Valve position', detail: 'Check each operating base', criticality: 'safety'}}));
+    const check = modern({requestId: IDS.check, operation: 'CHECK_MORNING_REVIEW_STANDING_CONCERN', sessionId,
+      concernId: IDS.concern, checkState: 'complied', reason: 'Initial observation'});
+    await invoke(memory, 'admin-1', check);
+    const expectedVersion = memory.store.get(`morning_review_sessions/${sessionId}`).version;
+    const corrected = {...check, requestId: id(9), checkState: 'exception', reason: 'One base remains unchecked', correctionReason: 'Wrong outcome was selected', expectedVersion};
+    await invoke(memory, 'admin-1', corrected);
+    expect(memory.store.get(`morning_review_corrections/${id(9)}`)).toMatchObject({before: {state: 'complied'}, after: {state: 'exception'}, reason: 'Wrong outcome was selected'});
+    expect(memory.store.get(`morning_review_corrections/${id(9)}`).after)
+      .toEqual(memory.store.get(`morning_review_concern_checks/${sessionId}_${IDS.concern}`));
+    await expect(invoke(memory, 'admin-1', {...corrected, requestId: id(10)})).rejects.toMatchObject({code: 'aborted'});
+  });
+
+  test('completed carried work stays in the frozen action register even without current-day attendance and after display expiry', async () => {
+    const memory = fakeDb(baseSeed());
+    const previous = '2026-08-30';
+    const yesterday = new Date('2026-08-30T03:00:00Z');
+    await invoke(memory, 'si-1', modern(startRequest()), yesterday);
+    await invoke(memory, 'si-1', modern({requestId: IDS.action, operation: 'CREATE_MORNING_REVIEW_ACTION', sessionId: previous, actionDraft: lifecycleActionDraft()}), yesterday);
+    await invoke(memory, 'admin-1', modern(startRequest(IDS.extra)));
+    await invoke(memory, 'ops-1', modern({requestId: IDS.complete, operation: 'COMPLETE_MORNING_REVIEW_ACTION', sessionId: previous,
+      actionId: IDS.action, expectedVersion: 1, reason: 'Completed independently of meeting attendance'}));
+    memory.store.delete(`morning_review_actions/${IDS.action}`);
+    await invoke(memory, 'admin-1', finish(memory), new Date('2026-09-20T03:00:00Z'));
+    expect(memory.store.get(`morning_review_documents/${sessionId}`).actions).toEqual([expect.objectContaining({actionId: IDS.action, sessionId: previous, status: 'completed'})]);
+    expect(memory.store.has(`morning_review_participants/${sessionId}_ops-1`)).toBe(false);
+  });
 });

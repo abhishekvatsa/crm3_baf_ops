@@ -285,6 +285,7 @@ class MaintenanceDueState {
     required this.nextDueAt,
     required this.lastMaintenanceClassCode,
     required this.classificationPending,
+    this.reviewReason,
   });
 
   final String id;
@@ -301,16 +302,23 @@ class MaintenanceDueState {
   final DateTime? nextDueAt;
   final String? lastMaintenanceClassCode;
   final bool classificationPending;
+  final String? reviewReason;
 
-  int? get daysSinceCompletion =>
-      lastCompletionAt == null
-          ? null
-          : DateTime.now().difference(lastCompletionAt!).inDays;
-  int? get daysUntilDue => nextDueAt?.difference(DateTime.now()).inDays;
-  bool get isOverdue =>
-      nextDueAt != null && nextDueAt!.isBefore(DateTime.now());
-  bool get isDueSoon =>
-      !isOverdue && daysUntilDue != null && daysUntilDue! <= 7;
+  int? daysSinceCompletionAt(DateTime asOf) => lastCompletionAt == null
+      ? null
+      : asOf.difference(lastCompletionAt!).inDays;
+  int? daysUntilDueAt(DateTime asOf) => nextDueAt?.difference(asOf).inDays;
+  bool isOverdueAt(DateTime asOf) =>
+      nextDueAt != null && nextDueAt!.isBefore(asOf);
+  bool isDueSoonAt(DateTime asOf) =>
+      !isOverdueAt(asOf) &&
+      daysUntilDueAt(asOf) != null &&
+      daysUntilDueAt(asOf)! <= 7;
+
+  int? get daysSinceCompletion => daysSinceCompletionAt(DateTime.now());
+  int? get daysUntilDue => daysUntilDueAt(DateTime.now());
+  bool get isOverdue => isOverdueAt(DateTime.now());
+  bool get isDueSoon => isDueSoonAt(DateTime.now());
 
   factory MaintenanceDueState.fromMap(
     Map<String, dynamic> map,
@@ -385,6 +393,11 @@ class MaintenanceDueState {
       );
     }
     return MaintenanceDueState(
+      reviewReason: readOptionalPersistedString(
+        map['reviewReason'],
+        field: 'reviewReason',
+        source: source,
+      ),
       id: documentId,
       assetIdentityKey: readRequiredPersistedString(
         map['assetIdentityKey'],
@@ -429,14 +442,13 @@ class MaintenanceDueState {
       // Full due-state rows written before policy v3 predate this marker and
       // are canonically non-pending. Sparse legacy rows still fail above on
       // their missing asset/counter identity.
-      classificationPending:
-          map.containsKey('classificationPending')
-              ? readRequiredPersistedBool(
-                map['classificationPending'],
-                field: 'classificationPending',
-                source: source,
-              )
-              : false,
+      classificationPending: map.containsKey('classificationPending')
+          ? readRequiredPersistedBool(
+              map['classificationPending'],
+              field: 'classificationPending',
+              source: source,
+            )
+          : false,
     );
   }
 }
@@ -455,6 +467,9 @@ class MaintenanceCompletionEvent {
     required this.completedAt,
     required this.completedByName,
     required this.recordedAt,
+    this.sourceRevision = 1,
+    this.interpretedByName,
+    this.historicalOnly = false,
   });
 
   final String id;
@@ -469,6 +484,11 @@ class MaintenanceCompletionEvent {
   final DateTime completedAt;
   final String? completedByName;
   final DateTime recordedAt;
+  final int sourceRevision;
+  final String? interpretedByName;
+  final bool historicalOnly;
+
+  String get occurrenceKey => '$sourceType/$sourceId';
 
   bool get isHistorical => sourceType == 'historicalMaintenance';
 
@@ -541,6 +561,20 @@ class MaintenanceCompletionEvent {
     }
     return MaintenanceCompletionEvent(
       id: eventId,
+      sourceRevision: map.containsKey('sourceRevision')
+          ? readRequiredPersistedInt(
+              map['sourceRevision'],
+              field: 'sourceRevision',
+              source: source,
+              minimum: 1,
+            )
+          : 1,
+      interpretedByName: readOptionalPersistedString(
+        map['interpretedByName'],
+        field: 'interpretedByName',
+        source: source,
+      ),
+      historicalOnly: map['cadenceApplicability'] == 'historicalOnly',
       sourceType: readRequiredPersistedString(
         map['sourceType'],
         field: 'sourceType',
@@ -618,6 +652,7 @@ class MaintenancePlan {
   final DateTime targetWindowEnd;
   final String? planningNotes;
   final String? releasedExecutionId;
+
   /// Initial subject revision retained by the first explicit ready-plan review.
   final int? originalAssetInstanceVersion;
 

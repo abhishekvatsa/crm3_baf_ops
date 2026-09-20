@@ -143,9 +143,7 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                            !notificationManager().areNotificationsEnabled()
-                        ) {
+                        if (!criticalAlarmNotificationReady()) {
                             result.success(false)
                             return@setMethodCallHandler
                         }
@@ -158,6 +156,9 @@ class MainActivity : FlutterActivity() {
                             null,
                         )
                     }
+                }
+                "isNotificationReady" -> {
+                    result.success(criticalAlarmNotificationReady())
                 }
                 "cancelNotification" -> {
                     val alarmId = call.argument<String>("alarmId")
@@ -264,6 +265,23 @@ class MainActivity : FlutterActivity() {
 
     private fun notificationManager(): NotificationManager =
         getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private fun criticalAlarmNotificationReady(): Boolean {
+        val manager = notificationManager()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            !manager.areNotificationsEnabled()
+        ) {
+            return false
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ensureCriticalAlarmChannel()
+            val channel = manager.getNotificationChannel(CRITICAL_NOTIFICATION_CHANNEL_ID)
+            return channel != null &&
+                channel.importance >= NotificationManager.IMPORTANCE_DEFAULT &&
+                channel.sound != null
+        }
+        return true
+    }
 
     private fun ensureCriticalAlarmChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

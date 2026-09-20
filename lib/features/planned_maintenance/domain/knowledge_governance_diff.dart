@@ -56,22 +56,36 @@ class KnowledgeGovernanceDiff {
       for (final field in _trackedScalarFields) {
         final afterValue = _scalarOf(after, field);
         if (_isEmpty(afterValue)) continue;
-        entries.add(KnowledgeRowFieldDiff(
-          field: field,
-          before: null,
-          after: afterValue,
-          kind: KnowledgeFieldDiffKind.added,
-        ));
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: field,
+            before: null,
+            after: afterValue,
+            kind: KnowledgeFieldDiffKind.added,
+          ),
+        );
       }
       for (final field in _trackedListFields) {
         final afterList = _listOf(after, field);
         if (afterList.isEmpty) continue;
-        entries.add(KnowledgeRowFieldDiff(
-          field: field,
-          before: const <String>[],
-          after: afterList,
-          kind: KnowledgeFieldDiffKind.added,
-        ));
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: field,
+            before: const <String>[],
+            after: afterList,
+            kind: KnowledgeFieldDiffKind.added,
+          ),
+        );
+      }
+      if (after.suggestedFieldPresets?.isNotEmpty == true) {
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: 'suggestedFieldPresets',
+            before: const [],
+            after: after.suggestedFieldPresets,
+            kind: KnowledgeFieldDiffKind.added,
+          ),
+        );
       }
       return KnowledgeRowDiff(
         rowCode: after.rowCode,
@@ -84,47 +98,86 @@ class KnowledgeGovernanceDiff {
     for (final field in _trackedScalarFields) {
       final beforeValue = _scalarOfRow(before, field);
       final afterValue = _scalarOf(after, field);
-      if (_normaliseScalar(beforeValue) == _normaliseScalar(afterValue)) continue;
+      if (_normaliseScalar(beforeValue) == _normaliseScalar(afterValue)) {
+        continue;
+      }
       if (_isEmpty(beforeValue) && !_isEmpty(afterValue)) {
-        entries.add(KnowledgeRowFieldDiff(
-          field: field,
-          before: null,
-          after: afterValue,
-          kind: KnowledgeFieldDiffKind.added,
-        ));
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: field,
+            before: null,
+            after: afterValue,
+            kind: KnowledgeFieldDiffKind.added,
+          ),
+        );
       } else if (!_isEmpty(beforeValue) && _isEmpty(afterValue)) {
-        entries.add(KnowledgeRowFieldDiff(
-          field: field,
-          before: beforeValue,
-          after: null,
-          kind: KnowledgeFieldDiffKind.removed,
-        ));
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: field,
+            before: beforeValue,
+            after: null,
+            kind: KnowledgeFieldDiffKind.removed,
+          ),
+        );
       } else {
-        entries.add(KnowledgeRowFieldDiff(
-          field: field,
-          before: beforeValue,
-          after: afterValue,
-          kind: KnowledgeFieldDiffKind.changed,
-        ));
+        entries.add(
+          KnowledgeRowFieldDiff(
+            field: field,
+            before: beforeValue,
+            after: afterValue,
+            kind: KnowledgeFieldDiffKind.changed,
+          ),
+        );
       }
     }
 
     for (final field in _trackedListFields) {
       final beforeList = _listOfRow(before, field);
       final afterList = _listOf(after, field);
-      final added = afterList.where((value) => !beforeList.contains(value)).toList();
-      final removed = beforeList.where((value) => !afterList.contains(value)).toList();
+      final added = afterList
+          .where((value) => !beforeList.contains(value))
+          .toList();
+      final removed = beforeList
+          .where((value) => !afterList.contains(value))
+          .toList();
       if (added.isEmpty && removed.isEmpty) continue;
-      entries.add(KnowledgeRowFieldDiff(
-        field: field,
-        before: beforeList,
-        after: afterList,
-        kind: removed.isEmpty
-            ? KnowledgeFieldDiffKind.added
-            : added.isEmpty
-                ? KnowledgeFieldDiffKind.removed
-                : KnowledgeFieldDiffKind.changed,
-      ));
+      entries.add(
+        KnowledgeRowFieldDiff(
+          field: field,
+          before: beforeList,
+          after: afterList,
+          kind: removed.isEmpty
+              ? KnowledgeFieldDiffKind.added
+              : added.isEmpty
+              ? KnowledgeFieldDiffKind.removed
+              : KnowledgeFieldDiffKind.changed,
+        ),
+      );
+    }
+
+    final beforePresetMaps = before
+        .toEntry(0)
+        .suggestedFields
+        .map((field) => field.toMap())
+        .toList();
+    final afterPresetMaps =
+        after.suggestedFieldPresets ??
+        after.suggestedFields
+            .map((label) => <String, dynamic>{'label': label})
+            .toList();
+    if (beforePresetMaps.toString() != afterPresetMaps.toString()) {
+      entries.add(
+        KnowledgeRowFieldDiff(
+          field: 'suggestedFieldPresets',
+          before: beforePresetMaps,
+          after: afterPresetMaps,
+          kind: beforePresetMaps.isEmpty
+              ? KnowledgeFieldDiffKind.added
+              : afterPresetMaps.isEmpty
+              ? KnowledgeFieldDiffKind.removed
+              : KnowledgeFieldDiffKind.changed,
+        ),
+      );
     }
 
     return KnowledgeRowDiff(
@@ -252,7 +305,8 @@ class KnowledgeGovernanceDiff {
       case 'partRefs':
         return List<String>.from(draft.partRefs)..sort();
       case 'deviceTags':
-        return List<String>.from(draft.deviceTags.map((t) => t.toUpperCase()))..sort();
+        return List<String>.from(draft.deviceTags.map((t) => t.toUpperCase()))
+          ..sort();
       case 'targetRefs':
         return List<String>.from(draft.targetRefs)..sort();
       case 'suggestedFields':
@@ -272,7 +326,8 @@ class KnowledgeGovernanceDiff {
       case 'partRefs':
         return List<String>.from(row.partRefs)..sort();
       case 'deviceTags':
-        return List<String>.from(row.deviceTags.map((t) => t.toUpperCase()))..sort();
+        return List<String>.from(row.deviceTags.map((t) => t.toUpperCase()))
+          ..sort();
       case 'targetRefs':
         return List<String>.from(row.targetRefs)..sort();
       case 'suggestedFields':

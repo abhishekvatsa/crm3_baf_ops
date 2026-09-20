@@ -6,9 +6,11 @@ import 'package:uuid/uuid.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
@@ -28,36 +30,31 @@ class MaintenanceIntelligenceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actor = ref.watch(currentAppUserProvider);
     return actor.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Maintenance rhythm',
-            appBarSubtitle: 'Due state, history, forward plans and classes',
-            appBarIcon: Icons.event_repeat_rounded,
-            accent: BafColors.planned,
-            label: 'Checking maintenance authority',
-          ),
-      error:
-          (_, _) => BafScreenStateScaffold.error(
-            appBarTitle: 'Maintenance rhythm',
-            appBarSubtitle: 'Due state, history, forward plans and classes',
-            appBarIcon: Icons.event_repeat_rounded,
-            accent: BafColors.planned,
-            message: 'Maintenance authority could not be verified.',
-          ),
-      data:
-          (user) =>
-              user == null
-                  ? BafScreenStateScaffold.access(
-                    appBarTitle: 'Maintenance rhythm',
-                    appBarSubtitle:
-                        'Due state, history, forward plans and classes',
-                    appBarIcon: Icons.event_repeat_rounded,
-                    accent: BafColors.planned,
-                    title: 'Sign in required',
-                    message:
-                        'Sign in with an approved account to view maintenance intelligence.',
-                  )
-                  : _MaintenanceIntelligenceBody(actor: user),
+      loading: () => BafScreenStateScaffold.loading(
+        appBarTitle: 'Maintenance rhythm',
+        appBarSubtitle: 'Due state, history, forward plans and classes',
+        appBarIcon: Icons.event_repeat_rounded,
+        accent: BafColors.planned,
+        label: 'Checking maintenance authority',
+      ),
+      error: (_, _) => BafScreenStateScaffold.error(
+        appBarTitle: 'Maintenance rhythm',
+        appBarSubtitle: 'Due state, history, forward plans and classes',
+        appBarIcon: Icons.event_repeat_rounded,
+        accent: BafColors.planned,
+        message: 'Maintenance authority could not be verified.',
+      ),
+      data: (user) => user == null
+          ? BafScreenStateScaffold.access(
+              appBarTitle: 'Maintenance rhythm',
+              appBarSubtitle: 'Due state, history, forward plans and classes',
+              appBarIcon: Icons.event_repeat_rounded,
+              accent: BafColors.planned,
+              title: 'Sign in required',
+              message:
+                  'Sign in with an approved account to view maintenance intelligence.',
+            )
+          : _MaintenanceIntelligenceBody(actor: user),
     );
   }
 }
@@ -110,21 +107,25 @@ class _DueStateTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(maintenanceDueStatesProvider);
+    final asOf =
+        ref.watch(maintenanceCadenceClockProvider).valueOrNull ??
+        DateTime.now();
     return state.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading maintenance due state',
-            color: BafColors.planned,
-          ),
-      error:
-          (_, _) => _RetryState(
-            message:
-                'Maintenance due-state records need repair or could not be read.',
-            onRetry: () => ref.invalidate(maintenanceDueStatesProvider),
-          ),
-      data: (rows) {
-        final overdue = rows.where((row) => row.isOverdue).length;
-        final dueSoon = rows.where((row) => row.isDueSoon).length;
+      loading: () => const BafLoadingPanel(
+        label: 'Loading maintenance due state',
+        color: BafColors.planned,
+      ),
+      error: (_, _) => _RetryState(
+        message:
+            'Maintenance due-state records need repair or could not be read.',
+        onRetry: () => ref.invalidate(maintenanceDueStatesProvider),
+      ),
+      data: (batch) {
+        final rows = batch.records;
+        final overdue = rows.where((row) => row.isOverdueAt(asOf)).length;
+        final dueSoon = rows.where((row) => row.isDueSoonAt(asOf)).length;
+        final unreadable = batch.rejectedDocumentIds.length;
+        final unconfirmed = !batch.isServerConfirmed;
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(maintenanceDueStatesProvider);
@@ -144,19 +145,44 @@ class _DueStateTab extends ConsumerWidget {
                   _Metric('Due soon', '$dueSoon', BafColors.warning),
                 ],
               ),
+              // These counts describe the records that could be read. A record
+              // that could not be read may carry an outstanding obligation, so
+              // the numbers above are not a statement about the whole plant
+              // until this says the population is complete.
+              if (unreadable > 0 || unconfirmed) ...[
+                const SizedBox(height: BafSpacing.sm),
+                StatusBadge(
+                  label: unreadable > 0
+                      ? '$unreadable due-state '
+                            '${unreadable == 1 ? 'record' : 'records'} could not be '
+                            'read; these counts cover the rest'
+                      : 'Due-state snapshot is not server-confirmed; these counts are provisional',
+                  color: BafColors.danger,
+                  icon: Icons.report_gmailerrorred_rounded,
+                ),
+              ],
               const SizedBox(height: BafSpacing.lg),
-              if (rows.isEmpty)
+              if (rows.isEmpty && unreadable == 0 && !unconfirmed)
                 const _EmptyState(
                   icon: Icons.hourglass_empty_rounded,
                   title: 'No classified completion yet',
                   message:
                       'Due state starts when a classified job is completed or an authorised user classifies historical completed work.',
                 )
+              else if (rows.isEmpty)
+                const _EmptyState(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  title: 'Due state cannot be shown',
+                  message:
+                      'Every due-state record in this population failed to '
+                      'read. This is not an all-clear: repair the records '
+                      'before reading anything into an empty list.',
+                )
               else
                 ...rows.map(
                   (row) => Padding(
                     padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                    child: _DueStateCard(state: row),
+                    child: _DueStateCard(state: row, asOf: asOf),
                   ),
                 ),
             ],
@@ -168,28 +194,31 @@ class _DueStateTab extends ConsumerWidget {
 }
 
 class _DueStateCard extends StatelessWidget {
-  const _DueStateCard({required this.state});
+  const _DueStateCard({required this.state, required this.asOf});
 
   final MaintenanceDueState state;
+  final DateTime asOf;
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        state.classificationPending
-            ? BafColors.warning
-            : state.isOverdue
-            ? BafColors.danger
-            : state.isDueSoon
-            ? BafColors.warning
-            : BafColors.success;
-    final status =
-        state.classificationPending
-            ? 'Classification pending'
-            : state.nextDueAt == null
-            ? 'Monitoring only'
-            : state.isOverdue
-            ? '${state.daysUntilDue!.abs()} days overdue'
-            : '${state.daysUntilDue} days remaining';
+    final color = state.classificationPending
+        ? BafColors.warning
+        : state.isOverdueAt(asOf)
+        ? BafColors.danger
+        : state.isDueSoon
+        ? BafColors.warning
+        : BafColors.success;
+    final status = state.classificationPending
+        ? (state.reviewReason == 'conflicting-same-day-evidence'
+              ? 'Review required: conflicting same-day evidence'
+              : state.reviewReason == 'legacy-identity-review-required'
+              ? 'Review required: legacy asset identity'
+              : 'Classification pending')
+        : state.nextDueAt == null
+        ? 'Monitoring only'
+        : state.isOverdueAt(asOf)
+        ? '${state.daysUntilDueAt(asOf)!.abs()} days overdue'
+        : '${state.daysUntilDueAt(asOf)} days remaining';
     return Container(
       padding: const EdgeInsets.all(BafSpacing.md),
       decoration: BoxDecoration(
@@ -236,7 +265,9 @@ class _DueStateCard extends StatelessWidget {
           const SizedBox(width: BafSpacing.sm),
           Chip(
             avatar: Icon(
-              state.isOverdue ? Icons.error_outline : Icons.schedule_rounded,
+              state.isOverdueAt(asOf)
+                  ? Icons.error_outline
+                  : Icons.schedule_rounded,
               size: 18,
               color: color,
             ),
@@ -258,58 +289,84 @@ class _PlansTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plans = ref.watch(maintenancePlansProvider);
+    final classesBatch = ref.watch(maintenanceClassDefinitionsProvider).value;
     final classes =
-        ref.watch(maintenanceClassDefinitionsProvider).value ??
-        const <MaintenanceClassDefinition>[];
+        classesBatch?.records ?? const <MaintenanceClassDefinition>[];
+    final classesComplete =
+        classesBatch?.isComplete == true &&
+        classesBatch?.isServerConfirmed == true;
     return plans.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading maintenance plans',
-            color: BafColors.planned,
-          ),
-      error:
-          (_, _) => _RetryState(
-            message: 'Maintenance plans could not be loaded.',
-            onRetry: () => ref.invalidate(maintenancePlansProvider),
-          ),
-      data:
-          (rows) => ListView(
-            padding: const EdgeInsets.all(BafSpacing.lg),
-            children: [
-              _ActionHeader(
-                title: 'Plan before work is released',
-                description:
-                    'A plan reserves intent and timing only. It does not mark the asset unavailable or create an execution.',
-                actionLabel: 'New plan',
-                actionIcon: Icons.add_task_rounded,
-                onPressed:
-                    actor.canPlanClassifiedMaintenance && classes.isNotEmpty
-                        ? () => _editPlan(context, ref, classes)
-                        : null,
+      loading: () => const BafLoadingPanel(
+        label: 'Loading maintenance plans',
+        color: BafColors.planned,
+      ),
+      error: (_, _) => _RetryState(
+        message: 'Maintenance plans could not be loaded.',
+        onRetry: () => ref.invalidate(maintenancePlansProvider),
+      ),
+      data: (batch) {
+        final rows = batch.records;
+        final unreadable = batch.rejectedDocumentIds.length;
+        final unconfirmed = !batch.isServerConfirmed;
+        return ListView(
+          padding: const EdgeInsets.all(BafSpacing.lg),
+          children: [
+            _ActionHeader(
+              title: 'Plan before work is released',
+              description:
+                  'A plan reserves intent and timing only. It does not mark the asset unavailable or create an execution.',
+              actionLabel: 'New plan',
+              actionIcon: Icons.add_task_rounded,
+              onPressed:
+                  actor.canPlanClassifiedMaintenance &&
+                      classes.isNotEmpty &&
+                      classesComplete
+                  ? () => _editPlan(context, ref, classes)
+                  : null,
+            ),
+            if (unreadable > 0 || unconfirmed || !classesComplete) ...[
+              const SizedBox(height: BafSpacing.sm),
+              StatusBadge(
+                label: unreadable > 0
+                    ? '$unreadable maintenance plan ${unreadable == 1 ? 'record' : 'records'} could not be read; this list is incomplete'
+                    : unconfirmed
+                    ? 'Maintenance plans are not server-confirmed; this list is provisional'
+                    : 'Maintenance classes could not be fully verified; new plans are paused',
+                color: BafColors.danger,
+                icon: Icons.report_gmailerrorred_rounded,
               ),
-              const SizedBox(height: BafSpacing.lg),
-              if (rows.isEmpty)
-                const _EmptyState(
-                  icon: Icons.calendar_today_outlined,
-                  title: 'No maintenance plans',
-                  message:
-                      'Create a proposed window without taking equipment out of service.',
-                )
-              else
-                ...rows.map(
-                  (plan) => Padding(
-                    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                    child: _PlanCard(
-                      plan: plan,
-                      canManage: actor.canPlanClassifiedMaintenance,
-                      onTransition:
-                          (status) =>
-                              _transitionPlan(context, ref, plan, status),
-                    ),
+            ],
+            const SizedBox(height: BafSpacing.lg),
+            if (rows.isEmpty && unreadable == 0 && !unconfirmed)
+              const _EmptyState(
+                icon: Icons.calendar_today_outlined,
+                title: 'No maintenance plans',
+                message:
+                    'Create a proposed window without taking equipment out of service.',
+              )
+            else if (rows.isEmpty)
+              _EmptyState(
+                icon: Icons.report_gmailerrorred_rounded,
+                title: 'Maintenance plans cannot be fully shown',
+                message: unreadable > 0
+                    ? 'Some plan records could not be read. This is not an all-clear; repair the records before treating the list as empty.'
+                    : 'The plan snapshot is not server-confirmed. This is not an all-clear; verify it before treating the list as empty.',
+              )
+            else
+              ...rows.map(
+                (plan) => Padding(
+                  padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                  child: _PlanCard(
+                    plan: plan,
+                    canManage: actor.canPlanClassifiedMaintenance,
+                    onTransition: (status) =>
+                        _transitionPlan(context, ref, plan, status),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -323,61 +380,94 @@ class _ClassesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final definitions = ref.watch(maintenanceClassDefinitionsProvider);
     return definitions.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading maintenance classes',
-            color: BafColors.planned,
-          ),
-      error:
-          (_, _) => _RetryState(
-            message: 'Maintenance classes could not be loaded.',
-            onRetry: () => ref.invalidate(maintenanceClassDefinitionsProvider),
-          ),
-      data:
-          (rows) => ListView(
-            padding: const EdgeInsets.all(BafSpacing.lg),
-            children: [
-              _ActionHeader(
-                title: 'Governed maintenance classes',
-                description:
-                    'Classes describe business outcomes. Their versioned reset matrix is frozen into templates, plans and completed work.',
-                actionLabel:
-                    rows.isEmpty ? 'Install BAF defaults' : 'Add class',
-                actionIcon:
-                    rows.isEmpty
-                        ? Icons.auto_awesome_rounded
-                        : Icons.add_rounded,
-                onPressed:
-                    actor.canManageMaintenanceClasses
-                        ? () =>
-                            rows.isEmpty
-                                ? _installDefaults(context, ref)
-                                : _editClass(context, ref)
-                        : null,
+      loading: () => const BafLoadingPanel(
+        label: 'Loading maintenance classes',
+        color: BafColors.planned,
+      ),
+      error: (_, _) => _RetryState(
+        message: 'Maintenance classes could not be loaded.',
+        onRetry: () => ref.invalidate(maintenanceClassDefinitionsProvider),
+      ),
+      data: (batch) {
+        final rows = batch.records;
+        final unreadable = batch.rejectedDocumentIds.length;
+        final unconfirmed = !batch.isServerConfirmed;
+        final installedCodes = rows.map((row) => row.code).toSet();
+        final missingDefaults = unreadable == 0 && !unconfirmed
+            ? _defaultClasses
+                  .where((draft) => !installedCodes.contains(draft.code))
+                  .toList(growable: false)
+            : const <_ClassDraft>[];
+        return ListView(
+          padding: const EdgeInsets.all(BafSpacing.lg),
+          children: [
+            _ActionHeader(
+              title: 'Governed maintenance classes',
+              description:
+                  'Classes describe business outcomes. Their versioned reset matrix is frozen into templates, plans and completed work.',
+              actionLabel: unreadable > 0 || unconfirmed
+                  ? 'Catalogue incomplete'
+                  : missingDefaults.isNotEmpty
+                  ? (rows.isEmpty
+                        ? 'Install BAF defaults'
+                        : 'Install missing defaults')
+                  : 'Add class',
+              actionIcon: unreadable > 0 || unconfirmed
+                  ? Icons.warning_amber_rounded
+                  : missingDefaults.isNotEmpty
+                  ? Icons.auto_awesome_rounded
+                  : Icons.add_rounded,
+              onPressed:
+                  actor.canManageMaintenanceClasses &&
+                      unreadable == 0 &&
+                      !unconfirmed
+                  ? () => missingDefaults.isNotEmpty
+                        ? _installDefaults(context, ref, missingDefaults)
+                        : _editClass(context, ref)
+                  : null,
+            ),
+            if (unreadable > 0 || unconfirmed) ...[
+              const SizedBox(height: BafSpacing.sm),
+              StatusBadge(
+                label: unreadable > 0
+                    ? '$unreadable maintenance class ${unreadable == 1 ? 'record' : 'records'} could not be read; installation and edits are paused'
+                    : 'Maintenance class catalogue is not server-confirmed; installation and edits are paused',
+                color: BafColors.danger,
+                icon: Icons.report_gmailerrorred_rounded,
               ),
-              const SizedBox(height: BafSpacing.lg),
-              if (rows.isEmpty)
-                const _EmptyState(
-                  icon: Icons.rule_folder_outlined,
-                  title: 'Catalogue not installed',
-                  message:
-                      'Install the six reviewed BAF classes, then refine thresholds through versioned edits.',
-                )
-              else
-                ...rows.map(
-                  (definition) => Padding(
-                    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                    child: _ClassCard(
-                      definition: definition,
-                      canManage: actor.canManageMaintenanceClasses,
-                      onEdit: () => _editClass(context, ref, definition),
-                      onStatus:
-                          () => _toggleClassStatus(context, ref, definition),
-                    ),
+            ],
+            const SizedBox(height: BafSpacing.lg),
+            if (rows.isEmpty && unreadable == 0 && !unconfirmed)
+              const _EmptyState(
+                icon: Icons.rule_folder_outlined,
+                title: 'Catalogue not installed',
+                message:
+                    'Install the six reviewed BAF classes, then refine thresholds through versioned edits.',
+              )
+            else if (rows.isEmpty)
+              _EmptyState(
+                icon: Icons.report_gmailerrorred_rounded,
+                title: 'Catalogue cannot be verified',
+                message: unreadable > 0
+                    ? 'Some class records could not be read. This is not an empty catalogue; repair the records before making changes.'
+                    : 'The class snapshot is not server-confirmed. This is not an empty catalogue; verify it before making changes.',
+              )
+            else
+              ...rows.map(
+                (definition) => Padding(
+                  padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                  child: _ClassCard(
+                    definition: definition,
+                    canManage: actor.canManageMaintenanceClasses,
+                    onEdit: () => _editClass(context, ref, definition),
+                    onStatus: () =>
+                        _toggleClassStatus(context, ref, definition),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -405,29 +495,32 @@ Future<void> _execute(
   }
 }
 
-Future<void> _installDefaults(BuildContext context, WidgetRef ref) async {
+Future<void> _installDefaults(
+  BuildContext context,
+  WidgetRef ref,
+  List<_ClassDraft> defaults,
+) async {
   final confirmed = await showDialog<bool>(
     context: context,
-    builder:
-        (context) => AlertDialog(
-          title: const Text('Install BAF maintenance classes?'),
-          content: const Text(
-            'This creates Mid, Full and TRM for Furnaces; Maintenance for Bases and Forced Coolers; and Inner Cover Cleaning. Furnace/Base/Forced Cooler defaults are 30/50/90 days.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Install'),
-            ),
-          ],
+    builder: (context) => AlertDialog(
+      title: const Text('Install BAF maintenance classes?'),
+      content: const Text(
+        'This installs only the missing reviewed BAF defaults; existing class versions are left unchanged. Furnace/Base/Forced Cooler defaults are 30/50/90 days.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
         ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Install'),
+        ),
+      ],
+    ),
   );
   if (confirmed != true || !context.mounted) return;
-  for (final value in _defaultClasses) {
+  for (final value in defaults) {
     await _execute(
       context,
       ref,
@@ -454,7 +547,10 @@ Future<void> _editClass(
 ]) async {
   final draft = await showDialog<_ClassDraft>(
     context: context,
-    builder: (_) => _ClassEditor(existing: existing),
+    builder: (_) => _ClassEditor(
+      existing: existing,
+      assetClasses: ref.read(assetClassesProvider).value ?? const [],
+    ),
   );
   if (draft == null || !context.mounted) return;
   await _execute(
@@ -504,10 +600,9 @@ Future<void> _editPlan(
 ) async {
   final draft = await showDialog<_PlanDraft>(
     context: context,
-    builder:
-        (_) => _PlanEditor(
-          definitions: classes.where((item) => item.isActive).toList(),
-        ),
+    builder: (_) => _PlanEditor(
+      definitions: classes.where((item) => item.isActive).toList(),
+    ),
   );
   if (draft == null || !context.mounted) return;
   await _execute(
@@ -600,88 +695,82 @@ Future<_PlanCompletionDraft?> _capturePlanCompletion(
   var completedAt = DateTime.now();
   final result = await showDialog<_PlanCompletionDraft>(
     context: context,
-    builder:
-        (context) => StatefulBuilder(
-          builder:
-              (context, setState) => AlertDialog(
-                title: const Text('Record Inner Cover completion'),
-                content: SizedBox(
-                  width: 520,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.event_available_outlined),
-                        title: const Text('Actual completion time'),
-                        subtitle: Text(
-                          DateFormat('dd MMM yyyy, HH:mm').format(completedAt),
-                        ),
-                        trailing: const Icon(Icons.edit_calendar_outlined),
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 365),
-                            ),
-                            lastDate: DateTime.now(),
-                            initialDate: completedAt,
-                          );
-                          if (date == null || !context.mounted) return;
-                          final time = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(completedAt),
-                          );
-                          if (time == null || !context.mounted) return;
-                          setState(
-                            () =>
-                                completedAt = DateTime(
-                                  date.year,
-                                  date.month,
-                                  date.day,
-                                  time.hour,
-                                  time.minute,
-                                ),
-                          );
-                        },
-                      ),
-                      TextField(
-                        controller: evidence,
-                        minLines: 3,
-                        maxLines: 6,
-                        decoration: const InputDecoration(
-                          labelText: 'Completion evidence',
-                          hintText:
-                              'Work performed, inspection result and resulting disposition',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                    ],
-                  ),
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('Record Inner Cover completion'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_available_outlined),
+                title: const Text('Actual completion time'),
+                subtitle: Text(
+                  DateFormat('dd MMM yyyy, HH:mm').format(completedAt),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () {
-                      final text = evidence.text.trim();
-                      if (text.isEmpty) return;
-                      Navigator.pop(
-                        context,
-                        _PlanCompletionDraft(
-                          completedAt: completedAt,
-                          evidence: text,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.fact_check_outlined),
-                    label: const Text('Record completion'),
-                  ),
-                ],
+                trailing: const Icon(Icons.edit_calendar_outlined),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 365),
+                    ),
+                    lastDate: DateTime.now(),
+                    initialDate: completedAt,
+                  );
+                  if (date == null || !context.mounted) return;
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(completedAt),
+                  );
+                  if (time == null || !context.mounted) return;
+                  setState(
+                    () => completedAt = DateTime(
+                      date.year,
+                      date.month,
+                      date.day,
+                      time.hour,
+                      time.minute,
+                    ),
+                  );
+                },
               ),
+              TextField(
+                controller: evidence,
+                minLines: 3,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Completion evidence',
+                  hintText:
+                      'Work performed, inspection result and resulting disposition',
+                  alignLabelWithHint: true,
+                ),
+              ),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final text = evidence.text.trim();
+              if (text.isEmpty) return;
+              Navigator.pop(
+                context,
+                _PlanCompletionDraft(completedAt: completedAt, evidence: text),
+              );
+            },
+            icon: const Icon(Icons.fact_check_outlined),
+            label: const Text('Record completion'),
+          ),
+        ],
+      ),
+    ),
   );
   evidence.dispose();
   return result;
@@ -742,8 +831,10 @@ class _PlanCard extends StatelessWidget {
               Text(plan.planningNotes!),
             ],
             if (plan.originalAssetInstanceVersion != null)
-              Text('Original cover revision ${plan.originalAssetInstanceVersion}; '
-                  'reviewed revision ${plan.assetInstanceVersion}.'),
+              Text(
+                'Original cover revision ${plan.originalAssetInstanceVersion}; '
+                'reviewed revision ${plan.assetInstanceVersion}.',
+              ),
             if (canManage && next != null) ...[
               const Divider(height: BafSpacing.lg),
               Wrap(
@@ -751,11 +842,15 @@ class _PlanCard extends StatelessWidget {
                 spacing: BafSpacing.sm,
                 runSpacing: BafSpacing.sm,
                 children: [
-                  if (plan.isSerialInnerCover && plan.status == MaintenancePlanStatus.ready)
+                  if (plan.status == MaintenancePlanStatus.ready)
                     OutlinedButton.icon(
                       onPressed: () => onTransition('revalidate'),
                       icon: const Icon(Icons.fact_check_outlined),
-                      label: const Text('Review current cover'),
+                      label: Text(
+                        plan.isSerialInnerCover
+                            ? 'Review current cover'
+                            : 'Review current asset',
+                      ),
                     ),
                   TextButton.icon(
                     onPressed: () => onTransition('cancelled'),
@@ -835,23 +930,22 @@ class _ClassCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${definition.code} · ${definition.assetTypeKeys.map(_assetLabel).join(', ')}',
+                  '${definition.code} · ${[...definition.assetTypeKeys.map(_assetLabel), ...definition.assetClassIds.map((id) => 'class:$id')].join(', ')}',
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children:
-                      definition.resetCounters
-                          .map(
-                            (counter) => Chip(
-                              label: Text(
-                                '${counter.label}${counter.thresholdDays == null ? '' : ' · ${counter.thresholdDays}d'}',
-                              ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          )
-                          .toList(),
+                  children: definition.resetCounters
+                      .map(
+                        (counter) => Chip(
+                          label: Text(
+                            '${counter.label}${counter.thresholdDays == null ? '' : ' · ${counter.thresholdDays}d'}',
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
                 ),
               ],
             ),
@@ -859,17 +953,16 @@ class _ClassCard extends StatelessWidget {
           if (canManage)
             PopupMenuButton<String>(
               onSelected: (value) => value == 'edit' ? onEdit() : onStatus(),
-              itemBuilder:
-                  (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Edit as new version'),
-                    ),
-                    PopupMenuItem(
-                      value: 'status',
-                      child: Text(definition.isActive ? 'Retire' : 'Restore'),
-                    ),
-                  ],
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Edit as new version'),
+                ),
+                PopupMenuItem(
+                  value: 'status',
+                  child: Text(definition.isActive ? 'Retire' : 'Restore'),
+                ),
+              ],
             ),
         ],
       ),
@@ -883,6 +976,7 @@ class _ClassDraft {
     required this.title,
     required this.description,
     required this.assetTypes,
+    this.assetClassIds = const [],
     required this.lane,
     required this.counters,
     required this.reason,
@@ -891,6 +985,7 @@ class _ClassDraft {
   final String title;
   final String description;
   final List<String> assetTypes;
+  final List<String> assetClassIds;
   final String lane;
   final List<MaintenanceResetCounter> counters;
   final String reason;
@@ -901,15 +996,16 @@ class _ClassDraft {
     'title': title,
     'description': description,
     'assetTypeKeys': assetTypes,
-    'assetClassIds': <String>[],
+    'assetClassIds': assetClassIds,
     'principalLaneKey': lane,
     'resetCounters': counters.map((counter) => counter.toMap()).toList(),
   };
 }
 
 class _ClassEditor extends StatefulWidget {
-  const _ClassEditor({this.existing});
+  const _ClassEditor({this.existing, this.assetClasses = const []});
   final MaintenanceClassDefinition? existing;
+  final List<AssetClassRecord> assetClasses;
 
   @override
   State<_ClassEditor> createState() => _ClassEditorState();
@@ -923,6 +1019,7 @@ class _ClassEditorState extends State<_ClassEditor> {
   late final TextEditingController _counters;
   late final TextEditingController _reason;
   late Set<String> _assetTypes;
+  late Set<String> _assetClassIds;
   late String _lane;
 
   @override
@@ -941,12 +1038,12 @@ class _ClassEditorState extends State<_ClassEditor> {
           .join('\n'),
     );
     _reason = TextEditingController(
-      text:
-          value == null
-              ? 'Create governed maintenance class.'
-              : 'Revise governed maintenance class.',
+      text: value == null
+          ? 'Create governed maintenance class.'
+          : 'Revise governed maintenance class.',
     );
     _assetTypes = {...?value?.assetTypeKeys};
+    _assetClassIds = {...?value?.assetClassIds};
     _lane = value?.principalLaneKey ?? 'mech';
   }
 
@@ -1003,13 +1100,12 @@ class _ClassEditorState extends State<_ClassEditor> {
               TextFormField(
                 controller: _code,
                 decoration: const InputDecoration(labelText: 'Stable code'),
-                validator:
-                    (value) =>
-                        RegExp(
-                              r'^[A-Z0-9][A-Z0-9_-]{1,47}$',
-                            ).hasMatch(value?.trim().toUpperCase() ?? '')
-                            ? null
-                            : 'Use 2-48 letters, numbers, hyphens or underscores',
+                validator: (value) =>
+                    RegExp(
+                      r'^[A-Z0-9][A-Z0-9_-]{1,47}$',
+                    ).hasMatch(value?.trim().toUpperCase() ?? '')
+                    ? null
+                    : 'Use 2-48 letters, numbers, hyphens or underscores',
               ),
               const SizedBox(height: BafSpacing.sm),
               TextFormField(
@@ -1031,23 +1127,44 @@ class _ClassEditorState extends State<_ClassEditor> {
               ),
               Wrap(
                 spacing: 6,
-                children:
-                    _assetTypeOptions
-                        .map(
-                          (value) => FilterChip(
-                            label: Text(_assetLabel(value)),
-                            selected: _assetTypes.contains(value),
-                            onSelected:
-                                (selected) => setState(
-                                  () =>
-                                      selected
-                                          ? _assetTypes.add(value)
-                                          : _assetTypes.remove(value),
-                                ),
-                          ),
-                        )
-                        .toList(),
+                children: _assetTypeOptions
+                    .map(
+                      (value) => FilterChip(
+                        label: Text(_assetLabel(value)),
+                        selected: _assetTypes.contains(value),
+                        onSelected: (selected) => setState(
+                          () => selected
+                              ? _assetTypes.add(value)
+                              : _assetTypes.remove(value),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
+              if (widget.assetClasses.isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.sm),
+                const Text(
+                  'Exact governed asset classes (optional)',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Wrap(
+                  spacing: 6,
+                  children: widget.assetClasses
+                      .where((assetClass) => assetClass.isActive)
+                      .map(
+                        (assetClass) => FilterChip(
+                          label: Text(assetClass.name),
+                          selected: _assetClassIds.contains(assetClass.id),
+                          onSelected: (selected) => setState(
+                            () => selected
+                                ? _assetClassIds.add(assetClass.id)
+                                : _assetClassIds.remove(assetClass.id),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
                 isExpanded: true,
@@ -1060,6 +1177,7 @@ class _ClassEditorState extends State<_ClassEditor> {
                   DropdownMenuItem(value: 'elec', child: Text('Electrical')),
                   DropdownMenuItem(value: 'inst', child: Text('I&A')),
                   DropdownMenuItem(value: 'oprn', child: Text('Operations')),
+                  DropdownMenuItem(value: 'emd', child: Text('EMD')),
                   DropdownMenuItem(value: 'red', child: Text('RED')),
                   DropdownMenuItem(value: 'shared', child: Text('Shared')),
                 ],
@@ -1076,11 +1194,9 @@ class _ClassEditorState extends State<_ClassEditor> {
                       'One per line: KEY | Label | threshold days (blank = monitoring only)',
                   alignLabelWithHint: true,
                 ),
-                validator:
-                    (_) =>
-                        _parseCounters() == null
-                            ? 'Add at least one valid reset counter'
-                            : null,
+                validator: (_) => _parseCounters() == null
+                    ? 'Add at least one valid reset counter'
+                    : null,
               ),
               const SizedBox(height: BafSpacing.sm),
               TextFormField(
@@ -1100,7 +1216,10 @@ class _ClassEditorState extends State<_ClassEditor> {
       ),
       FilledButton(
         onPressed: () {
-          if (!_key.currentState!.validate() || _assetTypes.isEmpty) return;
+          if (!_key.currentState!.validate() ||
+              (_assetTypes.isEmpty && _assetClassIds.isEmpty)) {
+            return;
+          }
           Navigator.pop(
             context,
             _ClassDraft(
@@ -1108,6 +1227,7 @@ class _ClassEditorState extends State<_ClassEditor> {
               title: _title.text.trim(),
               description: _description.text.trim(),
               assetTypes: _assetTypes.toList()..sort(),
+              assetClassIds: _assetClassIds.toList()..sort(),
               lane: _lane,
               counters: _parseCounters()!,
               reason: _reason.text.trim(),
@@ -1278,20 +1398,20 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
       _assetClassId = classes.firstOrNull?.id;
       _assetInstanceId = null;
     }
-    final selectedClass =
-        classes.where((item) => item.id == _assetClassId).firstOrNull;
+    final selectedClass = classes
+        .where((item) => item.id == _assetClassId)
+        .firstOrNull;
     final assetType = selectedClass?.legacyAssetTypeKey ?? 'governedCustom';
-    final matching =
-        selectedClass == null
-            ? const <MaintenanceClassDefinition>[]
-            : widget.definitions
-                .where(
-                  (definition) => definition.appliesTo(
-                    assetTypeKey: assetType,
-                    assetClassId: selectedClass.id,
-                  ),
-                )
-                .toList();
+    final matching = selectedClass == null
+        ? const <MaintenanceClassDefinition>[]
+        : widget.definitions
+              .where(
+                (definition) => definition.appliesTo(
+                  assetTypeKey: assetType,
+                  assetClassId: selectedClass.id,
+                ),
+              )
+              .toList();
     final AsyncValue<List<_PlanAssetChoice>>? assetsValue;
     if (selectedClass == null) {
       assetsValue = null;
@@ -1299,42 +1419,39 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
       assetsValue = ref
           .watch(innerCoverProfilesProvider)
           .whenData(
-            (profiles) =>
-                profiles
-                    .where(
-                      (profile) =>
-                          profile.assetClassId == selectedClass.id &&
-                          _isMaintainableInnerCover(profile),
-                    )
-                    .map(
-                      (profile) => _PlanAssetChoice(
-                        id: profile.id,
-                        version: profile.version,
-                        name:
-                            profile.isInstalled
-                                ? 'Base ${profile.currentBaseAssetNumber} · Inner Cover ${profile.serialNumber}'
-                                : 'Pool · Inner Cover ${profile.serialNumber} · ${profile.lifecycleState.label}',
-                        assetNumber: null,
-                      ),
-                    )
-                    .toList(),
+            (profiles) => profiles
+                .where(
+                  (profile) =>
+                      profile.assetClassId == selectedClass.id &&
+                      _isMaintainableInnerCover(profile),
+                )
+                .map(
+                  (profile) => _PlanAssetChoice(
+                    id: profile.id,
+                    version: profile.version,
+                    name: profile.isInstalled
+                        ? 'Base ${profile.currentBaseAssetNumber} · Inner Cover ${profile.serialNumber}'
+                        : 'Pool · Inner Cover ${profile.serialNumber} · ${profile.lifecycleState.label}',
+                    assetNumber: null,
+                  ),
+                )
+                .toList(),
           );
     } else {
       assetsValue = ref
           .watch(assetInstancesProvider(selectedClass.id))
           .whenData(
-            (assets) =>
-                assets
-                    .where((asset) => asset.isActive)
-                    .map(
-                      (asset) => _PlanAssetChoice(
-                        id: asset.id,
-                        version: asset.version,
-                        name: asset.name,
-                        assetNumber: asset.assetNumber,
-                      ),
-                    )
-                    .toList(),
+            (assets) => assets
+                .where((asset) => asset.isActive)
+                .map(
+                  (asset) => _PlanAssetChoice(
+                    id: asset.id,
+                    version: asset.version,
+                    name: asset.name,
+                    assetNumber: asset.assetNumber,
+                  ),
+                )
+                .toList(),
           );
     }
     final assets = assetsValue?.asData?.value ?? const <_PlanAssetChoice>[];
@@ -1355,21 +1472,19 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
                 isExpanded: true,
                 initialValue: _assetClassId,
                 decoration: const InputDecoration(labelText: 'Asset class'),
-                items:
-                    classes
-                        .map(
-                          (assetClass) => DropdownMenuItem(
-                            value: assetClass.id,
-                            child: Text(assetClass.name),
-                          ),
-                        )
-                        .toList(),
-                onChanged:
-                    (value) => setState(() {
-                      _assetClassId = value;
-                      _assetInstanceId = null;
-                      _definitionId = null;
-                    }),
+                items: classes
+                    .map(
+                      (assetClass) => DropdownMenuItem(
+                        value: assetClass.id,
+                        child: Text(assetClass.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _assetClassId = value;
+                  _assetInstanceId = null;
+                  _definitionId = null;
+                }),
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
@@ -1378,22 +1493,20 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Physical asset',
-                  helperText:
-                      assetsValue?.isLoading == true
-                          ? 'Loading active assets…'
-                          : assetType == 'innerCover'
-                          ? 'Installed covers are Base-first; pool covers are selected by serial'
-                          : 'Exact identity from the governed asset register',
+                  helperText: assetsValue?.isLoading == true
+                      ? 'Loading active assets…'
+                      : assetType == 'innerCover'
+                      ? 'Installed covers are Base-first; pool covers are selected by serial'
+                      : 'Exact identity from the governed asset register',
                 ),
-                items:
-                    assets
-                        .map(
-                          (asset) => DropdownMenuItem(
-                            value: asset.id,
-                            child: Text(asset.name),
-                          ),
-                        )
-                        .toList(),
+                items: assets
+                    .map(
+                      (asset) => DropdownMenuItem(
+                        value: asset.id,
+                        child: Text(asset.name),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _assetInstanceId = value),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -1404,15 +1517,14 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
                 decoration: const InputDecoration(
                   labelText: 'Maintenance class',
                 ),
-                items:
-                    matching
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.title),
-                          ),
-                        )
-                        .toList(),
+                items: matching
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text(item.title),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _definitionId = value),
               ),
               const SizedBox(height: BafSpacing.md),
@@ -1450,10 +1562,12 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
         ),
         FilledButton(
           onPressed: () {
-            final definition =
-                matching.where((item) => item.id == _definitionId).firstOrNull;
-            final asset =
-                assets.where((item) => item.id == _assetInstanceId).firstOrNull;
+            final definition = matching
+                .where((item) => item.id == _definitionId)
+                .firstOrNull;
+            final asset = assets
+                .where((item) => item.id == _assetInstanceId)
+                .firstOrNull;
             if (selectedClass == null ||
                 asset == null ||
                 definition == null ||

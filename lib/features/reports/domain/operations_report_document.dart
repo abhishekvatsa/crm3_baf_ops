@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 import 'report_provenance.dart';
 
 enum OperationsReportDocumentPreset {
@@ -202,7 +203,11 @@ class OperationsReportDocumentRequest {
       generatedAt: generatedAt,
       generatedByName: generatedByName.trim(),
       generatedByEmail: generatedByEmail.trim(),
-      reportId: 'OPS-$compactDate-$compactTime',
+      // Seconds are not an identity boundary: two exports can be generated
+      // in one second, especially when a user retries after a share failure.
+      // Keep the human-readable prefix and a random document identity; the
+      // clock can repeat and two exports may use the same captured instant.
+      reportId: 'OPS-$compactDate-$compactTime-${const Uuid().v4()}',
       provenance: provenance,
     );
   }

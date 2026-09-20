@@ -1,12 +1,23 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
-import {validateQualityWarningRecord} from "./qualityMutation";
+import {
+  canonicalQualityWarningGaps,
+  validateQualityCasePostcondition,
+  validateQualityWarningRecord,
+} from "./qualityMutation";
+import {
+  decisionBasisChange,
+  decisionSubjects,
+  warningDecisionBasisStale,
+  warningSeverityForCase,
+} from "./qualityDecisionBasis";
 import {isValidAffectedAssetHierarchyReference} from
   "./affectedAssetHierarchyReference";
 import {
   isValidPersistedInstant,
   persistedInstantMillis,
 } from "./persistedInstant";
+import {stableJson} from "./stableJson";
 
 import {
   canonicalApprovedUserAuthority,
@@ -27,7 +38,8 @@ export type ChargeAbnormalityMutationHttpsErrorCode =
 export type ChargeAbnormalityMutationOperation =
   | "CREATE"
   | "UPDATE"
-  | "SOFT_DELETE";
+  | "SOFT_DELETE"
+  | "RECONCILE_QUALITY_CASE";
 
 export type ChargeAbnormalityMutationFirestoreLike = {
   collection: (name: string) => ChargeAbnormalityMutationCollectionLike;
@@ -98,6 +110,7 @@ type ParsedChargeAbnormalityMutationRequest = {
   readonly reason: string;
   readonly update: ParsedChargeAbnormalityUpdate | null;
   readonly creation?: UserAuthorityJsonMap;
+  readonly expectedWarningVersion?: number;
   readonly payloadFingerprint: string;
 };
 
@@ -119,6 +132,7 @@ const OPERATIONS = new Set<ChargeAbnormalityMutationOperation>([
   "CREATE",
   "UPDATE",
   "SOFT_DELETE",
+  "RECONCILE_QUALITY_CASE",
 ]);
 const CATEGORIES = new Set([
   "process",
@@ -160,6 +174,10 @@ const COMMON_REQUEST_FIELDS = new Set([
   "operation",
   "expectedVersion",
   "reason",
+]);
+const RECONCILE_REQUEST_FIELDS = new Set([
+  ...COMMON_REQUEST_FIELDS,
+  "expectedWarningVersion",
 ]);
 const UPDATE_REQUEST_FIELDS = new Set([
   ...COMMON_REQUEST_FIELDS,
@@ -212,7 +230,70 @@ const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
   (field) => field !== "_globalPullServerUpdatedAt" &&
     field !== "affectedAssetHierarchyRefs",
 );
+// Governed records now carry every optional key with an explicit null. Records
+// written before that omitted them, where absence means "no value". It never
+// stands in for a missing actor, charge, time or re-annealing result, so those
+// fields stay required.
+const LEGACY_NULLABLE_ABNORMALITY_FIELDS = new Set([
+  "component",
+  "description",
+  "possibleRootReasonNotes",
+  "loggedByName",
+  "updatedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+  "reannealedToChargeNo",
+  "deletedAt",
+  "deletedByUid",
+  "deletedByName",
+  "deleteReason",
+]);
+
+// The canonical null keys a record is missing, so a governed write stores the
+// current representation without inventing evidence or rewriting history.
+function canonicalNullableGaps(
+  record: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const gaps: UserAuthorityJsonMap = {};
+  for (const field of LEGACY_NULLABLE_ABNORMALITY_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(record, field)) {
+      gaps[field] = null;
+    }
+  }
+  return gaps;
+}
+
 const MAX_AFFECTED_ASSETS = 50;
+
+/**
+ * Runs the shared quality-case postcondition before a standalone case is
+ * committed, and reports a refusal in this handler's own vocabulary while
+ * keeping the underlying reason and field for diagnosis.
+ */
+function assertCreatedCaseIsAdjudicable(plan: {
+  readonly warningId: string;
+  readonly warning: UserAuthorityJsonMap;
+  readonly abnormalityId: string;
+  readonly abnormality: UserAuthorityJsonMap;
+}, message = "This abnormality would create a quality case that cannot be " +
+  "decided. Nothing was saved."): void {
+  try {
+    validateQualityCasePostcondition(plan);
+  } catch (error) {
+    const cause = (error as {details?: unknown}).details;
+    const causeDetails = cause != null && typeof cause === "object" ?
+      cause as {reasonCode?: unknown; field?: unknown} : {};
+    throw new ChargeAbnormalityMutationError("failed-precondition",
+      message,
+      {
+        reasonCode: "charge-quality-case-postcondition-failed",
+        ...(typeof causeDetails.reasonCode === "string" ?
+          {causeReasonCode: causeDetails.reasonCode} : {}),
+        ...(typeof causeDetails.field === "string" ?
+          {field: causeDetails.field} : {}),
+      });
+  }
+}
 
 export class ChargeAbnormalityMutationError extends Error {
   readonly code: ChargeAbnormalityMutationHttpsErrorCode;
@@ -411,6 +492,47 @@ function assetIdentity(asset: AffectedAsset): string {
   return `${asset.assetType}:${asset.assetNumber}`;
 }
 
+/**
+ * Governed evidence recorded twice for one subject carries nothing the first
+ * entry does not, so a reviewed repair collapses exact repeats. Two entries
+ * that name the same subject with different content are a contradiction: only
+ * a person can say which is true, so the repair refuses them.
+ */
+function collapseRepeatedHierarchyReferences(
+  record: UserAuthorityJsonMap,
+): {readonly record: UserAuthorityJsonMap; readonly repaired: boolean} {
+  const value = record.affectedAssetHierarchyRefs;
+  if (!Array.isArray(value)) return {record, repaired: false};
+  const kept = new Map<string, unknown>();
+  for (const entry of value) {
+    if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
+      return {record, repaired: false};
+    }
+    const identity = assetIdentity(entry as AffectedAsset);
+    const first = kept.get(identity);
+    if (first == null) {
+      kept.set(identity, entry);
+      continue;
+    }
+    if (stableJson(first) !== stableJson(entry)) {
+      throw new ChargeAbnormalityMutationError(
+        "failed-precondition",
+        "This case records two different governed references for one " +
+        "affected asset. A reviewer has to decide which one is correct.",
+        {
+          reasonCode: "charge-quality-case-conflicting-reference",
+          field: "affectedAssetHierarchyRefs",
+        },
+      );
+    }
+  }
+  if (kept.size === value.length) return {record, repaired: false};
+  return {
+    record: {...record, affectedAssetHierarchyRefs: [...kept.values()]},
+    repaired: true,
+  };
+}
+
 function parseAffectedAssetHierarchyRefs(
   value: unknown,
   affectedAssets: ReadonlyArray<AffectedAsset>,
@@ -454,13 +576,15 @@ function parseAffectedAssetHierarchyRefs(
         "orphan-asset-hierarchy-reference",
       );
     }
-    if (!seen.add(identity)) {
+    // Set.prototype.add returns the set itself, so test membership first.
+    if (seen.has(identity)) {
       return invalidField(
         "affectedAssetHierarchyRefs",
         "Governed hierarchy entries must not contain duplicates.",
         "duplicate-asset-hierarchy-reference",
       );
     }
+    seen.add(identity);
     return {
       assetType: parsed.assetType,
       assetNumber: parsed.assetNumber,
@@ -476,6 +600,87 @@ function identityOnlyAffectedAssets(
     assetType: asset.assetType,
     assetNumber: asset.assetNumber,
   }));
+}
+
+// A closed quality decision was made about particular evidence. Changing that
+// evidence needs a reopened decision; editorial notes, a renamed asset and the
+// same subjects in another order do not. The comparison itself lives in
+// qualityDecisionBasis, so the repair below agrees with it.
+function materialCaseChange(
+  before: UserAuthorityJsonMap,
+  after: UserAuthorityJsonMap,
+): string | null {
+  return decisionBasisChange(before, after);
+}
+
+/**
+ * What a warning should say about its case, given the case as it now stands.
+ *
+ * A case that began as a maintenance issue is often only understood later, when
+ * the coils come out wrong and someone documents what actually happened. That
+ * documentation belongs to the same case, so the evidence a decision reads is
+ * refreshed from it. Two fields are not refreshed for such a case: the summary
+ * is the issue as it was reported, and the source version belongs to the issue
+ * that raised it. Both keep their meaning; neither is evidence a decision rests
+ * on.
+ */
+function warningProjectionFromCase(
+  warning: UserAuthorityJsonMap,
+  abnormality: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const issueOrigin = warning.sourceType === "issue";
+  const references = new Map(
+    (parseAffectedAssetHierarchyRefs(
+      abnormality.affectedAssetHierarchyRefs,
+      existingAssets(abnormality.affectedAssets),
+    ) ?? []).map((reference) => [
+      assetIdentity(reference),
+      reference.assetHierarchyRef,
+    ]),
+  );
+  const affectedAssets = existingAssets(abnormality.affectedAssets)
+    .map((asset) => {
+      const identity = {
+        assetType: asset.assetType,
+        assetNumber: asset.assetNumber,
+      };
+      // An issue warning records the governed reference beside the subject, so
+      // repairing it must not drop the component the case points at.
+      const reference = references.get(assetIdentity(asset));
+      return issueOrigin && reference != null ?
+        {...identity, assetHierarchyRef: reference} : identity;
+    });
+  return {
+    ...(issueOrigin ? {} : {
+      sourceVersion: abnormality.version,
+      sourceSummary: abnormality.abnormalityTypeTitle,
+    }),
+    sourceSeverity: warningSeverityForCase(warning, abnormality),
+    warningReason: abnormality.observedReason,
+    affectedAssets,
+    component: abnormality.component ?? null,
+  };
+}
+
+// Quality adjudication compares a warning with its current abnormality, so any
+// difference here would strand the case.
+function warningProjectionStale(
+  warning: UserAuthorityJsonMap,
+  abnormality: UserAuthorityJsonMap,
+): boolean {
+  const projection = warningProjectionFromCase(warning, abnormality);
+  return Object.keys(projection).some((field) => {
+    // The source version follows the case on every write; on its own it is not
+    // a reason to rewrite a warning that already says the same thing.
+    if (field === "sourceVersion") return false;
+    // Subjects name a set, so a warning listing them in another order already
+    // says the same thing and is left exactly as it was written.
+    if (field === "affectedAssets") {
+      return stableJson(decisionSubjects(projection)) !==
+        stableJson(decisionSubjects(warning));
+    }
+    return stableJson(projection[field]) !== stableJson(warning[field] ?? null);
+  });
 }
 
 function mergeAffectedAssetHierarchyRefs({
@@ -614,7 +819,7 @@ function parseAbnormalityCreation(
   } catch (error) {
     if (error instanceof ChargeAbnormalityMutationError) {
       throw new ChargeAbnormalityMutationError("invalid-argument", error.message,
-        {reasonCode: "abnormality-create-payload-invalid"});
+        {reasonCode: "abnormality-create-payload-invalid", ...refusalCause(error)});
     }
     throw error;
   }
@@ -634,7 +839,9 @@ export function parseChargeAbnormalityMutationRequest(
   const operation = operationRaw as ChargeAbnormalityMutationOperation;
   const allowedFields =
     operation === "CREATE" ? new Set([...COMMON_REQUEST_FIELDS, "abnormality"]) :
-      operation === "UPDATE" ? UPDATE_REQUEST_FIELDS : COMMON_REQUEST_FIELDS;
+      operation === "UPDATE" ? UPDATE_REQUEST_FIELDS :
+        operation === "RECONCILE_QUALITY_CASE" ? RECONCILE_REQUEST_FIELDS :
+          COMMON_REQUEST_FIELDS;
   for (const key of Object.keys(raw)) {
     if (!allowedFields.has(key)) {
       throw new ChargeAbnormalityMutationError(
@@ -661,6 +868,11 @@ export function parseChargeAbnormalityMutationRequest(
   }
   const reason = cleanRequiredString(raw.reason, "reason", 500);
   const update = operation === "UPDATE" ? parseUpdate(raw) : null;
+  // A repair names the revision of both records it reviewed, so it cannot be
+  // applied to a case that moved on in between.
+  const expectedWarningVersion = operation === "RECONCILE_QUALITY_CASE" ?
+    positiveSafeInteger(raw.expectedWarningVersion, "expectedWarningVersion") :
+    undefined;
   const creation = operation === "CREATE" ?
     parseAbnormalityCreation(raw.abnormality, abnormalityId) : undefined;
   const canonicalPayload = {
@@ -671,6 +883,7 @@ export function parseChargeAbnormalityMutationRequest(
     reason,
     ...(update ?? {}),
     ...(creation == null ? {} : {creation}),
+    ...(expectedWarningVersion == null ? {} : {expectedWarningVersion}),
   };
   return {
     requestId,
@@ -680,6 +893,7 @@ export function parseChargeAbnormalityMutationRequest(
     reason,
     update,
     ...(creation == null ? {} : {creation}),
+    ...(expectedWarningVersion == null ? {} : {expectedWarningVersion}),
     payloadFingerprint: fingerprint(canonicalPayload),
   };
 }
@@ -736,12 +950,19 @@ function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap
   for (const field of ["loggedAt", "updatedAt", "deletedAt", "_globalPullServerUpdatedAt"]) {
     const value = data[field];
     if (value == null || typeof value === "string") continue;
-    const timestamp = value as {seconds?: number; nanoseconds?: number};
-    if (Number.isSafeInteger(timestamp.seconds) &&
-        Number.isSafeInteger(timestamp.nanoseconds)) {
-      const fraction = String(timestamp.nanoseconds).padStart(9, "0")
+    const timestamp = value as {
+      seconds?: number;
+      nanoseconds?: number;
+      _seconds?: number;
+      _nanoseconds?: number;
+    };
+    // Audit snapshots hold a Timestamp in its JSON form (`_seconds`).
+    const seconds = timestamp.seconds ?? timestamp._seconds;
+    const nanoseconds = timestamp.nanoseconds ?? timestamp._nanoseconds;
+    if (Number.isSafeInteger(seconds) && Number.isSafeInteger(nanoseconds)) {
+      const fraction = String(nanoseconds).padStart(9, "0")
         .replace(/(000){1,2}$/, "");
-      result[field] = new Date(timestamp.seconds! * 1000).toISOString()
+      result[field] = new Date((seconds as number) * 1000).toISOString()
         .replace(".000Z", `.${fraction}Z`);
     } else {
       result[field] = new Date(persistedInstantMillis(value)).toISOString();
@@ -750,20 +971,45 @@ function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap
   return result;
 }
 
-function malformedExisting(message: string, field?: string): never {
+function malformedExisting(
+  message: string,
+  field?: string,
+  causeReasonCode?: string,
+): never {
   throw new ChargeAbnormalityMutationError(
     "failed-precondition",
     message,
     {
       reasonCode: "abnormality-record-malformed",
       ...(field == null ? {} : {field}),
+      ...(causeReasonCode == null ? {} : {causeReasonCode}),
     },
   );
+}
+
+// The most specific reason carried by a nested validation refusal, so a
+// wrapped refusal still says why (for example, a duplicated reference).
+function refusalCause(error: ChargeAbnormalityMutationError): {
+  readonly field?: string;
+  readonly causeReasonCode?: string;
+} {
+  const details = (error.details ?? {}) as {
+    readonly reasonCode?: unknown;
+    readonly causeReasonCode?: unknown;
+    readonly field?: unknown;
+  };
+  const cause = typeof details.causeReasonCode === "string" ?
+    details.causeReasonCode : details.reasonCode;
+  return {
+    ...(typeof details.field === "string" ? {field: details.field} : {}),
+    ...(typeof cause === "string" ? {causeReasonCode: cause} : {}),
+  };
 }
 
 function validateExistingAbnormality(
   data: UserAuthorityJsonMap,
   abnormalityId: string,
+  allowLegacyAbsentOptionalKeys = false,
 ): UserAuthorityJsonMap {
   for (const key of Object.keys(data)) {
     if (!ABNORMALITY_FIELDS.has(key)) {
@@ -774,6 +1020,10 @@ function validateExistingAbnormality(
     }
   }
   for (const field of REQUIRED_ABNORMALITY_FIELDS) {
+    if (allowLegacyAbsentOptionalKeys &&
+        LEGACY_NULLABLE_ABNORMALITY_FIELDS.has(field)) {
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       return malformedExisting(
         "The charge-abnormality record is incomplete.",
@@ -924,6 +1174,7 @@ function existingAssets(value: unknown): ReadonlyArray<AffectedAsset> {
       malformedExisting(
         "The charge-abnormality affectedAssets value is malformed.",
         "affectedAssets",
+        refusalCause(error).causeReasonCode,
       );
     }
     throw error;
@@ -941,6 +1192,7 @@ function existingAssetHierarchyRefs(
       malformedExisting(
         "The charge-abnormality affectedAssetHierarchyRefs value is malformed.",
         "affectedAssetHierarchyRefs",
+        refusalCause(error).causeReasonCode,
       );
     }
     throw error;
@@ -1109,6 +1361,39 @@ function canonicalType(
   }
 }
 
+/**
+ * The re-annealing state a case carries once the decision that answered it is
+ * returned for review.
+ *
+ * Whether the coil needed re-annealing was part of that decision, so it goes
+ * back under review with it. A completed re-annealing is different: the charge
+ * was actually re-annealed, which is a thing that happened rather than a
+ * judgement, and it keeps its resulting charge. This is exactly what
+ * `REOPEN_QUALITY_WARNING` leaves behind, so a decision returned for review by
+ * a correction or a repair reads the same as one reopened deliberately.
+ */
+function reannealingAfterDecisionWithdrawn(
+  record: UserAuthorityJsonMap,
+): UserAuthorityJsonMap {
+  const completed = record.reannealingStatus === "completed";
+  return {
+    reannealingStatus: completed ? "completed" : "pendingDecision",
+    reannealedToChargeNo: completed ?
+      record.reannealedToChargeNo ?? null : null,
+  };
+}
+
+/**
+ * What an ordinary correction did to the linked warning: the warning to write,
+ * whether the decision on it was returned for review, and the re-annealing
+ * state the case must carry as a result.
+ */
+type LinkedWarningUpdate = {
+  readonly warning: UserAuthorityJsonMap;
+  readonly decisionReturnedForReview: boolean;
+  readonly withdrawnReannealing: UserAuthorityJsonMap | null;
+};
+
 function warningAfterAbnormalityUpdate(args: {
   beforeAbnormality: UserAuthorityJsonMap;
   afterAbnormality: UserAuthorityJsonMap;
@@ -1120,7 +1405,7 @@ function warningAfterAbnormalityUpdate(args: {
   requestId: string;
   reason: string;
   committedAt: unknown;
-}): UserAuthorityJsonMap | null {
+}): LinkedWarningUpdate | null {
   const {
     beforeAbnormality,
     afterAbnormality,
@@ -1132,15 +1417,11 @@ function warningAfterAbnormalityUpdate(args: {
     beforeAbnormality.reannealingStatus !== afterAbnormality.reannealingStatus ||
     beforeAbnormality.reannealedToChargeNo !==
       afterAbnormality.reannealedToChargeNo;
-  const sourceChanged = linkedTicketId == null && [
-    "abnormalityTypeTitle",
-    "severity",
-    "affectedAssets",
-    "component",
-    "observedReason",
-  ].some((field) => JSON.stringify(beforeAbnormality[field]) !==
-    JSON.stringify(afterAbnormality[field]));
-  if (!raChanged && !sourceChanged) return null;
+  // Refresh from the committed abnormality rather than from this write's diff,
+  // so a projection that drifted earlier is repaired by the next governed
+  // update. Creation actor and time are never rewritten here.
+  const projectionStale = warningProjectionStale(warning, afterAbnormality);
+  if (!raChanged && !projectionStale) return null;
 
   if (serverTimestampMillis(args.committedAt) <
       serverTimestampMillis(warning.updatedAt)) {
@@ -1159,16 +1440,30 @@ function warningAfterAbnormalityUpdate(args: {
       {reasonCode: "charge-quality-warning-version-overflow"},
     );
   }
+  // An earlier decision covered the evidence as the warning recorded it. If
+  // repairing that drift changes what the case is about, the decision is
+  // returned for review rather than silently extended to evidence it never
+  // saw. The decision itself stays in the quality audit as history, exactly
+  // as a reopen leaves it.
   const after: UserAuthorityJsonMap = {...warning};
-  if (linkedTicketId == null) {
-    const affectedAssets = existingAssets(afterAbnormality.affectedAssets);
-    Object.assign(after, {
-      sourceVersion: afterAbnormality.version,
-      sourceSummary: afterAbnormality.abnormalityTypeTitle,
-      sourceSeverity: afterAbnormality.severity,
-      warningReason: afterAbnormality.observedReason,
-      affectedAssets: identityOnlyAffectedAssets(affectedAssets),
-      component: afterAbnormality.component,
+  const decisionOutgrown = projectionStale &&
+    warning.status !== "open" &&
+    warningDecisionBasisStale(warning, afterAbnormality);
+  if (projectionStale) {
+    Object.assign(after, warningProjectionFromCase(warning, afterAbnormality), {
+      ...(decisionOutgrown ? {
+        status: "open",
+        closureRequestReason: null,
+        closureRequestedAt: null,
+        closureRequestedByUid: null,
+        closureRequestedByName: null,
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        decisionReason: null,
+      } : {}),
     });
   }
   if (raChanged) {
@@ -1220,7 +1515,15 @@ function warningAfterAbnormalityUpdate(args: {
     version: nextVersion,
     lastMutationId: args.requestId,
   });
-  return validateQualityWarningRecord(after, warningId);
+  return {
+    warning: validateQualityWarningRecord(after, warningId),
+    decisionReturnedForReview: decisionOutgrown,
+    // Whoever corrected the case may have answered the re-annealing question
+    // while they were there. That answer is the current one and is not
+    // withdrawn; only an answer left over from the reviewed decision is.
+    withdrawnReannealing: decisionOutgrown && !raChanged ?
+      reannealingAfterDecisionWithdrawn(afterAbnormality) : null,
+  };
 }
 
 function replayResult(args: {
@@ -1267,34 +1570,6 @@ function replayResult(args: {
   );
   const resultVersion = receipt.resultVersion;
   const committedAt = receipt.committedAtIso;
-  const hasWarningEvidence = Object.prototype.hasOwnProperty.call(
-    receipt,
-    "linkedWarningId",
-  ) || Object.prototype.hasOwnProperty.call(
-    receipt,
-    "linkedWarningVersion",
-  );
-  if (hasWarningEvidence) {
-    if (warning == null ||
-        receipt.linkedWarningId !== warningId ||
-        receipt.linkedWarningVersion !== warning.version) {
-      throw new ChargeAbnormalityMutationError(
-        "data-loss",
-        "The linked quality-warning replay evidence has drifted.",
-        {reasonCode: "abnormality-replay-warning-drift"},
-      );
-    }
-  }
-  if (
-    Number.isSafeInteger(resultVersion) &&
-    current.version !== resultVersion
-  ) {
-    throw new ChargeAbnormalityMutationError(
-      "aborted",
-      "The charge abnormality changed after the recorded mutation.",
-      {reasonCode: "abnormality-replay-evidence-drift"},
-    );
-  }
   if (
     receipt.schemaVersion !== 1 ||
     receipt.requestId !== request.requestId ||
@@ -1311,11 +1586,50 @@ function replayResult(args: {
     audit.operation !== request.operation ||
     audit.resultVersion !== resultVersion
   ) {
+    return replayEvidenceMalformed();
+  }
+  // The receipt proves what was accepted. Later legitimate work may advance
+  // the abnormality or its warning, but neither may fall behind that result.
+  const hasWarningEvidence = Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningId",
+  ) || Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningVersion",
+  );
+  if (hasWarningEvidence &&
+      (warning == null ||
+        receipt.linkedWarningId !== warningId ||
+        !Number.isSafeInteger(receipt.linkedWarningVersion) ||
+        (warning.version as number) <
+          (receipt.linkedWarningVersion as number))) {
     throw new ChargeAbnormalityMutationError(
       "data-loss",
-      "The abnormality mutation receipt or audit is malformed.",
-      {reasonCode: "abnormality-replay-evidence-malformed"},
+      "The linked quality-warning replay evidence has drifted.",
+      {reasonCode: "abnormality-replay-warning-drift"},
     );
+  }
+  if ((current.version as number) < (resultVersion as number)) {
+    return replayEvidenceDrift();
+  }
+  if (receipt.acceptedEvidenceVersion === 2 &&
+      (typeof receipt.acceptedAuditSha256 !== "string" ||
+        receipt.acceptedAuditSha256 !== acceptedAuditDigest(audit))) {
+    return replayEvidenceMalformed();
+  }
+  // The accepted content is always re-derived from the immutable audit and
+  // bound to this frozen command, whether or not the record has moved on.
+  const accepted = acceptedAbnormalityFromAudit({
+    audit,
+    current,
+    request,
+    actorUid,
+    resultVersion: resultVersion as number,
+    committedAt: committedAt as string,
+  });
+  if (current.version === resultVersion &&
+      !abnormalityRecordsMatch(accepted, current)) {
+    return replayEvidenceDrift();
   }
   return {
     ok: true,
@@ -1326,7 +1640,480 @@ function replayResult(args: {
     auditId,
     committedAt: committedAt as string,
     idempotentReplay: true,
-    abnormality: abnormalityForReceipt(current),
+    abnormality: abnormalityForReceipt(accepted),
+  };
+}
+
+function replayEvidenceMalformed(): never {
+  throw new ChargeAbnormalityMutationError(
+    "data-loss",
+    "The abnormality mutation receipt or audit is malformed.",
+    {reasonCode: "abnormality-replay-evidence-malformed"},
+  );
+}
+
+function replayEvidenceDrift(): never {
+  throw new ChargeAbnormalityMutationError(
+    "data-loss",
+    "The charge abnormality no longer matches the recorded mutation.",
+    {reasonCode: "abnormality-replay-evidence-drift"},
+  );
+}
+
+const ABNORMALITY_DATE_FIELDS = new Set([
+  "loggedAt",
+  "updatedAt",
+  "deletedAt",
+]);
+
+const SERVER_AUTHORED_CREATE_FIELDS = new Set([
+  "abnormalityTypeTitle",
+  "abnormalityTypeCode",
+  "category",
+  "updatedAt",
+  "updatedByUid",
+  "updatedByName",
+]);
+
+const ACCEPTED_CASE_IDENTITY_FIELDS = [
+  "sourceChargeNo",
+  "loggedByUid",
+  "loggedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+];
+
+function acceptedAuditDigest(audit: UserAuthorityJsonMap): string {
+  const {timestamp: _timestamp, ...evidence} = audit;
+  return createHash("sha256")
+    .update(stableJson(evidence), "utf8")
+    .digest("hex");
+}
+
+// A stored Firestore timestamp and its audited JSON form name the same moment,
+// but the stored form truncates below the millisecond. Compare at the
+// precision both forms carry.
+function sameInstant(left: unknown, right: unknown): boolean {
+  const first = persistedInstantMillis(left);
+  const second = persistedInstantMillis(right);
+  return Number.isFinite(first) && Number.isFinite(second) &&
+    Math.floor(first) === Math.floor(second);
+}
+
+// Two views of one accepted record. A stored instant and its audited JSON form
+// differ in shape, so instants are compared by the moment they name.
+function abnormalityRecordsMatch(
+  expected: UserAuthorityJsonMap,
+  actual: UserAuthorityJsonMap,
+): boolean {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  for (const key of keys) {
+    if (key === "_globalPullServerUpdatedAt") continue;
+    // An absent optional key and an explicit null describe the same absence.
+    const left = expected[key] ?? null;
+    const right = actual[key] ?? null;
+    if (ABNORMALITY_DATE_FIELDS.has(key)) {
+      if (left == null || right == null) {
+        if (left != null || right != null) return false;
+        continue;
+      }
+      if (!sameInstant(left, right)) return false;
+      continue;
+    }
+    if (stableJson(left) !== stableJson(right)) return false;
+  }
+  return true;
+}
+
+function auditSnapshotRecord(
+  value: unknown,
+  abnormalityId: string,
+  repeatedReferencesRepaired = false,
+): UserAuthorityJsonMap {
+  let snapshot: unknown = null;
+  try {
+    if (typeof value === "string") snapshot = JSON.parse(value);
+  } catch (_) {
+    snapshot = null;
+  }
+  if (snapshot == null || typeof snapshot !== "object" ||
+      Array.isArray(snapshot)) {
+    return replayEvidenceMalformed();
+  }
+  try {
+    const record = snapshot as UserAuthorityJsonMap;
+    return validateExistingAbnormality(
+      repeatedReferencesRepaired ?
+        collapseRepeatedHierarchyReferences(record).record : record,
+      abnormalityId,
+      true,
+    );
+  } catch (error) {
+    if (error instanceof ChargeAbnormalityMutationError) {
+      return replayEvidenceMalformed();
+    }
+    throw error;
+  }
+}
+
+// Recomputes the committed record from the audited pre-image and the frozen
+// command, so only server-authored fields are taken on trust.
+function expectedAcceptedAbnormality(args: {
+  before: UserAuthorityJsonMap;
+  accepted: UserAuthorityJsonMap;
+  request: ParsedChargeAbnormalityMutationRequest;
+  actorUid: string;
+  decisionReturnedForReview: boolean;
+}): UserAuthorityJsonMap {
+  const {before, accepted, request, actorUid} = args;
+  const expected: UserAuthorityJsonMap = {
+    ...before,
+    ...canonicalNullableGaps(before),
+  };
+  const update = request.update;
+  if (request.operation === "RECONCILE_QUALITY_CASE") {
+    Object.assign(
+      expected,
+      collapseRepeatedHierarchyReferences(expected).record,
+    );
+  } else if (update != null) {
+    const existingRefs = parseAffectedAssetHierarchyRefs(
+      before.affectedAssetHierarchyRefs,
+      existingAssets(before.affectedAssets),
+    ) ?? [];
+    const sameType = update.abnormalityTypeId === before.abnormalityTypeId;
+    Object.assign(expected, {
+      abnormalityTypeId: update.abnormalityTypeId,
+      abnormalityTypeTitle: sameType ?
+        before.abnormalityTypeTitle : accepted.abnormalityTypeTitle,
+      abnormalityTypeCode: sameType ?
+        before.abnormalityTypeCode : accepted.abnormalityTypeCode,
+      category: sameType ? before.category : accepted.category,
+      severity: update.severity,
+      affectedAssets: update.affectedAssets,
+      affectedAssetHierarchyRefs: mergeAffectedAssetHierarchyRefs({
+        affectedAssets: update.affectedAssets,
+        existing: existingRefs,
+        requested: update.affectedAssetHierarchyRefs,
+      }),
+      component: update.component,
+      observedReason: update.observedReason,
+      description: update.description,
+      possibleRootReasonCategory: update.possibleRootReasonCategory,
+      possibleRootReasonNotes: update.possibleRootReasonNotes,
+      reannealingStatus: update.reannealingStatus,
+      reannealedToChargeNo: update.reannealedToChargeNo,
+    });
+  } else {
+    Object.assign(expected, {
+      isDeleted: true,
+      deletedAt: accepted.deletedAt,
+      deletedByUid: actorUid,
+      deletedByName: accepted.deletedByName,
+      deleteReason: request.reason,
+    });
+  }
+  // Where the decision was returned for review, the committed re-annealing
+  // state legitimately differs from the one the command carried. The audit
+  // records that this happened; the rule itself is applied again here rather
+  // than taken on trust, and only where the command left re-annealing alone.
+  const commandLeftReannealing = update != null &&
+    update.reannealingStatus === before.reannealingStatus &&
+    (update.reannealedToChargeNo ?? null) ===
+      (before.reannealedToChargeNo ?? null);
+  if (args.decisionReturnedForReview &&
+      (request.operation === "RECONCILE_QUALITY_CASE" ||
+        commandLeftReannealing)) {
+    Object.assign(expected, reannealingAfterDecisionWithdrawn(before));
+  }
+  Object.assign(expected, {
+    updatedAt: accepted.updatedAt,
+    updatedByUid: actorUid,
+    updatedByName: accepted.updatedByName,
+    version: request.expectedVersion + 1,
+  });
+  return expected;
+}
+
+// The record this request committed, re-derived from the immutable audit and
+// bound to the frozen command, so altered evidence cannot be returned as the
+// original outcome.
+function acceptedAbnormalityFromAudit(args: {
+  audit: UserAuthorityJsonMap;
+  current: UserAuthorityJsonMap;
+  request: ParsedChargeAbnormalityMutationRequest;
+  actorUid: string;
+  resultVersion: number;
+  committedAt: string;
+}): UserAuthorityJsonMap {
+  const {audit, current, request, actorUid, resultVersion, committedAt} = args;
+  const accepted = auditSnapshotRecord(audit.afterJson, request.abnormalityId);
+  const deleting = request.operation === "SOFT_DELETE";
+  if (resultVersion !== request.expectedVersion + 1 ||
+      accepted.version !== resultVersion ||
+      accepted.updatedByUid !== actorUid ||
+      accepted.updatedByName !== audit.performedByName ||
+      accepted.isDeleted !== deleting ||
+      !sameInstant(accepted.updatedAt, committedAt)) {
+    return replayEvidenceMalformed();
+  }
+  if (deleting &&
+      (accepted.deletedByUid !== actorUid ||
+        accepted.deletedByName !== audit.performedByName ||
+        accepted.deleteReason !== request.reason ||
+        !sameInstant(accepted.deletedAt, committedAt))) {
+    return replayEvidenceMalformed();
+  }
+  if (request.operation === "CREATE") {
+    const creation = (request.creation ?? {}) as UserAuthorityJsonMap;
+    if (audit.beforeJson !== null ||
+        Object.keys(creation).some((field) =>
+          !SERVER_AUTHORED_CREATE_FIELDS.has(field) &&
+          stableJson(creation[field]) !== stableJson(accepted[field]))) {
+      return replayEvidenceMalformed();
+    }
+  } else {
+    const before = auditSnapshotRecord(
+      audit.beforeJson,
+      request.abnormalityId,
+      request.operation === "RECONCILE_QUALITY_CASE",
+    );
+    if (before.version !== request.expectedVersion ||
+        !abnormalityRecordsMatch(
+          expectedAcceptedAbnormality({
+            before,
+            accepted,
+            request,
+            actorUid,
+            decisionReturnedForReview:
+              audit.decisionReturnedForReview === true,
+          }),
+          accepted,
+        )) {
+      return replayEvidenceMalformed();
+    }
+  }
+  // Later corrections may change observations, never which case was logged.
+  if (!sameInstant(accepted.loggedAt, current.loggedAt) ||
+      ACCEPTED_CASE_IDENTITY_FIELDS
+        .some((field) => accepted[field] !== current[field])) {
+    return replayEvidenceDrift();
+  }
+  return accepted;
+}
+
+/**
+ * The reviewed repair of a standalone quality case.
+ *
+ * Ordinary commands refuse a case whose two records disagree, and the quality
+ * decisions that would repair it refuse it for the same reason, so a damaged
+ * case has no way out. This command is that way out. It authors no evidence:
+ * every repaired value is derived from the charge abnormality, which is where a
+ * standalone case's evidence comes from. It names the revision of both records
+ * it reviewed, keeps the records it found in its audit, and decides explicitly
+ * what happens to an earlier decision instead of leaving it to cover evidence
+ * it never saw.
+ */
+function reconcileQualityCase(args: {
+  readonly stored: UserAuthorityJsonMap;
+  readonly existing: UserAuthorityJsonMap;
+  readonly referencesRepaired: boolean;
+  readonly warning: UserAuthorityJsonMap;
+  readonly warningId: string;
+  readonly linkedTicketId: string | null;
+  readonly request: ParsedChargeAbnormalityMutationRequest;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly auditId: string;
+  readonly now: () => Date;
+  readonly timestampFromDate: (date: Date) => unknown;
+  readonly commit: (records: {
+    readonly abnormality: UserAuthorityJsonMap;
+    readonly warning: UserAuthorityJsonMap;
+    readonly audit: UserAuthorityJsonMap;
+    readonly receipt: UserAuthorityJsonMap;
+  }) => void;
+}): ChargeAbnormalityMutationResult {
+  const {
+    stored, existing, warning, warningId, request, actorUid, actorName, auditId,
+  } = args;
+  if (args.linkedTicketId != null) {
+    throw new ChargeAbnormalityMutationError(
+      "failed-precondition",
+      "An issue-origin case is repaired through its maintenance issue.",
+      {reasonCode: "charge-quality-case-issue-origin-reconcile-denied"},
+    );
+  }
+  if (warning.version !== request.expectedWarningVersion) {
+    throw new ChargeAbnormalityMutationError(
+      "aborted",
+      "The quality warning changed before this repair was committed.",
+      {
+        reasonCode: "charge-quality-warning-preimage-mismatch",
+        field: "expectedWarningVersion",
+        currentVersion: warning.version,
+      },
+    );
+  }
+  const committedAtDate = args.now();
+  const committedAtIso = committedAtDate.toISOString();
+  const committedAt = args.timestampFromDate(committedAtDate);
+  if (committedAtDate.valueOf() < persistedInstantMillis(existing.updatedAt) ||
+      committedAtDate.valueOf() < serverTimestampMillis(warning.updatedAt)) {
+    throw new ChargeAbnormalityMutationError(
+      "aborted",
+      "The server clock precedes this quality case. Retry after the recorded time boundary.",
+      {reasonCode: "charge-abnormality-clock-regression"},
+    );
+  }
+  const resultVersion = request.expectedVersion + 1;
+  const warningVersion = (warning.version as number) + 1;
+  if (!Number.isSafeInteger(resultVersion) ||
+      !Number.isSafeInteger(warningVersion)) {
+    throw new ChargeAbnormalityMutationError(
+      "failed-precondition",
+      "The charge-abnormality version cannot advance safely.",
+      {reasonCode: "abnormality-version-overflow"},
+    );
+  }
+
+  const abnormalityGaps = canonicalNullableGaps(existing);
+  const warningGaps = canonicalQualityWarningGaps(warning);
+  const creationDrift = !sameInstant(warning.createdAt, existing.loggedAt) ||
+    warning.createdByUid !== existing.loggedByUid ||
+    (warning.createdByName ?? null) !== (existing.loggedByName ?? null);
+  if (!args.referencesRepaired &&
+      Object.keys(abnormalityGaps).length === 0 &&
+      Object.keys(warningGaps).length === 0 &&
+      !warningProjectionStale(warning, existing) &&
+      !creationDrift &&
+      warning.sourceVersion === existing.version) {
+    throw new ChargeAbnormalityMutationError(
+      "failed-precondition",
+      "This quality case already reads as one case, so nothing was changed.",
+      {reasonCode: "charge-quality-case-already-consistent"},
+    );
+  }
+
+  const after: UserAuthorityJsonMap = {
+    ...existing,
+    ...abnormalityGaps,
+    updatedAt: committedAtIso,
+    updatedByUid: actorUid,
+    updatedByName: actorName,
+    version: resultVersion,
+  };
+  validateExistingAbnormality(after, request.abnormalityId);
+
+  // An earlier decision covered the evidence the warning recorded. Where the
+  // repair changes what the case is about, the decision returns for review and
+  // stays in the quality audit as history, exactly as a reopen leaves it.
+  const decisionOutgrown = warning.status !== "open" &&
+    warningDecisionBasisStale(warning, after);
+  // The repair authors no evidence of its own, so an answer it did not make is
+  // never left standing under a decision it has just returned for review.
+  if (decisionOutgrown) {
+    Object.assign(after, reannealingAfterDecisionWithdrawn(after));
+    validateExistingAbnormality(after, request.abnormalityId);
+  }
+  const warningAfter: UserAuthorityJsonMap = {
+    ...warning,
+    ...warningGaps,
+    ...warningProjectionFromCase(warning, after),
+    createdAt: args.timestampFromDate(
+      new Date(persistedInstantMillis(after.loggedAt)),
+    ),
+    createdByUid: after.loggedByUid,
+    createdByName: after.loggedByName,
+    updatedAt: committedAt,
+    updatedByUid: actorUid,
+    updatedByName: actorName,
+    version: warningVersion,
+    ...(decisionOutgrown ? {
+      status: "open",
+      closureRequestReason: null,
+      closureRequestedAt: null,
+      closureRequestedByUid: null,
+      closureRequestedByName: null,
+      closedAt: null,
+      closedByUid: null,
+      closedByName: null,
+      closureDisposition: null,
+      linkedReannealingChargeNos: [],
+      decisionReason: null,
+    } : {}),
+  };
+  validateQualityWarningRecord(warningAfter, warningId);
+  assertCreatedCaseIsAdjudicable(
+    {
+      warningId,
+      warning: warningAfter,
+      abnormalityId: request.abnormalityId,
+      abnormality: after,
+    },
+    "This repair would leave a quality case that still cannot be decided. " +
+    "Nothing was changed.",
+  );
+
+  const audit: UserAuthorityJsonMap = {
+    schemaVersion: 1,
+    eventType: "chargeAbnormalityMutation",
+    entityType: "charge_abnormality",
+    entityId: request.abnormalityId,
+    action: "update",
+    severity: "high",
+    performedByUid: actorUid,
+    performedByName: actorName,
+    timestamp: committedAt,
+    reason: "manualOverride",
+    reasonNotes: request.reason,
+    summary: "Reconciled charge abnormality and quality warning",
+    // The records exactly as they were found, repeats and gaps included.
+    beforeJson: JSON.stringify(stored),
+    afterJson: JSON.stringify(after),
+    requestId: request.requestId,
+    operation: request.operation,
+    expectedVersion: request.expectedVersion,
+    resultVersion,
+    linkedWarningId: warningId,
+    linkedWarningBeforeVersion: warning.version,
+    linkedWarningResultVersion: warningVersion,
+    linkedWarningBeforeJson: JSON.stringify(warning),
+    linkedWarningAfterJson: JSON.stringify(warningAfter),
+    decisionReturnedForReview: decisionOutgrown,
+  };
+  args.commit({
+    abnormality: after,
+    warning: warningAfter,
+    audit: {...audit},
+    receipt: {
+      schemaVersion: 1,
+      requestId: request.requestId,
+      actorUid,
+      abnormalityId: request.abnormalityId,
+      operation: request.operation,
+      payloadFingerprint: request.payloadFingerprint,
+      expectedVersion: request.expectedVersion,
+      resultVersion,
+      linkedWarningId: warningId,
+      linkedWarningVersion: warningVersion,
+      auditId,
+      committedAt,
+      committedAtIso,
+      acceptedEvidenceVersion: 2,
+      acceptedAuditSha256: acceptedAuditDigest(audit),
+    },
+  });
+  return {
+    ok: true,
+    requestId: request.requestId,
+    abnormalityId: request.abnormalityId,
+    operation: request.operation,
+    version: resultVersion,
+    auditId,
+    committedAt: committedAtIso,
+    idempotentReplay: false,
+    abnormality: abnormalityForReceipt(after),
   };
 }
 
@@ -1432,9 +2219,11 @@ export async function mutateChargeAbnormalityWithDb(args: {
         updatedAt: committedAt, updatedByUid: actorUid, updatedByName: actor.name,
         version: 1,
       }, warningId);
-      transaction.set(abnormalityRef, after);
-      transaction.set(warningRef, createdWarning);
-      transaction.set(auditRef, {
+      assertCreatedCaseIsAdjudicable({
+        warningId, warning: createdWarning,
+        abnormalityId: request.abnormalityId, abnormality: after,
+      });
+      const creationAudit: UserAuthorityJsonMap = {
         schemaVersion: 1, eventType: "chargeAbnormalityMutation",
         entityType: "charge_abnormality", entityId: request.abnormalityId,
         action: "create", severity: "low", performedByUid: actorUid,
@@ -1443,13 +2232,19 @@ export async function mutateChargeAbnormalityWithDb(args: {
         summary: "Created charge abnormality and quality warning",
         beforeJson: null, afterJson: JSON.stringify(after), operation: request.operation,
         requestId: request.requestId, expectedVersion: 0, resultVersion: 1,
-      });
+      };
+      transaction.set(abnormalityRef, after);
+      transaction.set(warningRef, createdWarning);
+      transaction.set(auditRef, {...creationAudit});
       transaction.set(receiptRef, {
         schemaVersion: 1, requestId: request.requestId, actorUid,
         abnormalityId: request.abnormalityId, operation: request.operation,
         expectedVersion: 0, resultVersion: 1, auditId,
         payloadFingerprint: request.payloadFingerprint, committedAt, committedAtIso,
         linkedWarningId: warningId, linkedWarningVersion: 1,
+        // Binds the accepted evidence, so a later retry detects any change to it.
+        acceptedEvidenceVersion: 2,
+        acceptedAuditSha256: acceptedAuditDigest(creationAudit),
       });
       return {ok: true, requestId: request.requestId,
         abnormalityId: request.abnormalityId, operation: request.operation,
@@ -1471,9 +2266,15 @@ export async function mutateChargeAbnormalityWithDb(args: {
       );
     }
     const existingData = abnormalitySnapshot.data() ?? {};
+    // A reviewed repair is the one command that may read evidence recorded
+    // twice, because collapsing those repeats is what it is for.
+    const reviewed = request.operation === "RECONCILE_QUALITY_CASE" ?
+      collapseRepeatedHierarchyReferences(existingData) :
+      {record: existingData, repaired: false};
     const existing = validateExistingAbnormality(
-      existingData,
+      reviewed.record,
       request.abnormalityId,
+      true,
     );
     const linkedTicketId = typeof existing.linkedTicketFirestoreId === "string" ?
       existing.linkedTicketFirestoreId.trim() : null;
@@ -1502,12 +2303,17 @@ export async function mutateChargeAbnormalityWithDb(args: {
       warningSnapshot.data() ?? {},
       warningId,
     ) : null;
+    const reconciling = request.operation === "RECONCILE_QUALITY_CASE";
     if (warning != null &&
         (warning.sourceChargeNo !== existing.sourceChargeNo ||
           (linkedTicketId == null ?
             (warning.sourceType !== "abnormality" ||
               warning.sourceId !== request.abnormalityId ||
-              (warning.sourceVersion as number) > (existing.version as number)) :
+              // A projection ahead of its source is drift a repair derives
+              // away; the identities above are not derivable and still refuse.
+              (!reconciling &&
+                (warning.sourceVersion as number) >
+                  (existing.version as number))) :
             (warning.sourceType !== "issue" ||
               warning.sourceId !== linkedTicketId)))) {
       throw new ChargeAbnormalityMutationError(
@@ -1559,6 +2365,29 @@ export async function mutateChargeAbnormalityWithDb(args: {
           currentVersion: existing.version,
         },
       );
+    }
+
+    if (request.operation === "RECONCILE_QUALITY_CASE") {
+      return reconcileQualityCase({
+        stored: existingData,
+        existing,
+        referencesRepaired: reviewed.repaired,
+        warning,
+        warningId,
+        linkedTicketId,
+        request,
+        actorUid,
+        actorName: actor.name,
+        auditId,
+        now,
+        timestampFromDate,
+        commit: (records) => {
+          transaction.set(abnormalityRef, records.abnormality);
+          transaction.set(warningRef, records.warning);
+          transaction.set(auditRef, records.audit);
+          transaction.set(receiptRef, records.receipt);
+        },
+      });
     }
 
     let type:
@@ -1615,6 +2444,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
     }
 
     const after: UserAuthorityJsonMap = {...existing};
+    Object.assign(after, canonicalNullableGaps(existing));
     if (request.update != null && type != null) {
       const existingAffectedAssets = existingAssets(existing.affectedAssets);
       const existingHierarchyRefs = parseAffectedAssetHierarchyRefs(
@@ -1678,7 +2508,21 @@ export async function mutateChargeAbnormalityWithDb(args: {
         );
       }
     }
-    const warningAfter = request.operation === "UPDATE" ?
+    if (request.operation === "UPDATE" && warning.status === "closed") {
+      const materialField = materialCaseChange(existing, after);
+      if (materialField != null) {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "Reopen the closed quality decision before correcting this evidence. " +
+          "The description and root-cause notes stay editable while it is closed.",
+          {
+            reasonCode: "charge-quality-decision-reopen-required",
+            field: materialField,
+          },
+        );
+      }
+    }
+    const linkedWarningUpdate = request.operation === "UPDATE" ?
       warningAfterAbnormalityUpdate({
         beforeAbnormality: existing,
         afterAbnormality: after,
@@ -1691,12 +2535,17 @@ export async function mutateChargeAbnormalityWithDb(args: {
         reason: request.reason,
         committedAt,
       }) : null;
+    const warningAfter = linkedWarningUpdate?.warning ?? null;
+    if (linkedWarningUpdate?.withdrawnReannealing != null) {
+      Object.assign(after, linkedWarningUpdate.withdrawnReannealing);
+      validateExistingAbnormality(after, request.abnormalityId);
+    }
 
     const auditAction =
       request.operation === "UPDATE" ? "update" : "delete";
     transaction.set(abnormalityRef, after);
     if (warningAfter != null) transaction.set(warningRef, warningAfter);
-    transaction.set(auditRef, {
+    const mutationAudit: UserAuthorityJsonMap = {
       schemaVersion: 1,
       eventType: "chargeAbnormalityMutation",
       entityType: "charge_abnormality",
@@ -1721,7 +2570,10 @@ export async function mutateChargeAbnormalityWithDb(args: {
       linkedWarningId: warningId,
       linkedWarningBeforeVersion: warning.version,
       linkedWarningResultVersion: warningAfter?.version ?? warning.version,
-    });
+      decisionReturnedForReview:
+        linkedWarningUpdate?.decisionReturnedForReview ?? false,
+    };
+    transaction.set(auditRef, {...mutationAudit});
     transaction.set(receiptRef, {
       schemaVersion: 1,
       requestId: request.requestId,
@@ -1736,6 +2588,9 @@ export async function mutateChargeAbnormalityWithDb(args: {
       auditId,
       committedAt,
       committedAtIso,
+      // Binds the accepted evidence, so a later retry detects any change to it.
+      acceptedEvidenceVersion: 2,
+      acceptedAuditSha256: acceptedAuditDigest(mutationAudit),
     });
 
     return {

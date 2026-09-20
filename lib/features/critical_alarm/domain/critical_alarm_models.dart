@@ -14,19 +14,49 @@ enum CriticalAlarmDefinitionStatus { active, retired }
 
 enum CriticalAlarmContactKind { mobile, landline, plantExtension }
 
+class CriticalAlarmContactsSnapshot {
+  const CriticalAlarmContactsSnapshot({
+    required this.contacts,
+    required this.malformedDocumentIds,
+  });
+
+  final List<CriticalAlarmContact> contacts;
+  final List<String> malformedDocumentIds;
+
+  bool get isComplete => malformedDocumentIds.isEmpty;
+}
+
+class CriticalAlarmDefinitionsSnapshot {
+  const CriticalAlarmDefinitionsSnapshot({
+    required this.definitions,
+    required this.malformedDocumentIds,
+  });
+
+  final List<CriticalAlarmDefinition> definitions;
+  final List<String> malformedDocumentIds;
+
+  bool get isComplete => malformedDocumentIds.isEmpty;
+}
+
 enum CriticalAlarmSupportBasis {
   supportDispatched,
   supportAlreadyPresent,
   raiserContactedDirectly,
 }
 
-enum CriticalAlarmFeedAuthority { serverVerified, staleLastKnown, unavailable }
+enum CriticalAlarmFeedAuthority {
+  serverVerified,
+  partiallyVerified,
+  staleLastKnown,
+  unavailable,
+}
 
 class CriticalAlarmLiveSnapshot {
   CriticalAlarmLiveSnapshot({
     required List<CriticalAlarm> alarms,
     required this.authority,
     required this.lastVerifiedAt,
+    this.malformedDocumentCount = 0,
   }) : alarms = List<CriticalAlarm>.unmodifiable(alarms);
 
   factory CriticalAlarmLiveSnapshot.serverVerified({
@@ -47,16 +77,27 @@ class CriticalAlarmLiveSnapshot {
     lastVerifiedAt: lastVerifiedAt,
   );
 
-  factory CriticalAlarmLiveSnapshot.unavailable() =>
-      CriticalAlarmLiveSnapshot(
-        alarms: const <CriticalAlarm>[],
-        authority: CriticalAlarmFeedAuthority.unavailable,
-        lastVerifiedAt: null,
-      );
+  factory CriticalAlarmLiveSnapshot.partiallyVerified({
+    required List<CriticalAlarm> alarms,
+    required int malformedDocumentCount,
+    DateTime? lastVerifiedAt,
+  }) => CriticalAlarmLiveSnapshot(
+    alarms: alarms,
+    authority: CriticalAlarmFeedAuthority.partiallyVerified,
+    lastVerifiedAt: lastVerifiedAt,
+    malformedDocumentCount: malformedDocumentCount,
+  );
+
+  factory CriticalAlarmLiveSnapshot.unavailable() => CriticalAlarmLiveSnapshot(
+    alarms: const <CriticalAlarm>[],
+    authority: CriticalAlarmFeedAuthority.unavailable,
+    lastVerifiedAt: null,
+  );
 
   final List<CriticalAlarm> alarms;
   final CriticalAlarmFeedAuthority authority;
   final DateTime? lastVerifiedAt;
+  final int malformedDocumentCount;
 
   bool get isServerVerified =>
       authority == CriticalAlarmFeedAuthority.serverVerified;
@@ -267,21 +308,30 @@ class CriticalAlarmDefinition {
   }
 
   static List<CriticalAlarmDefinition> mergeOverrides(
-    Iterable<CriticalAlarmDefinition> overrides,
-  ) {
-    final merged = <String, CriticalAlarmDefinition>{...byKey};
+    Iterable<CriticalAlarmDefinition> overrides, {
+    Iterable<String> unavailableKeys = const <String>[],
+  }) {
+    // Defaults apply only when the server has no override. An unreadable
+    // override may be retired or carry a different governed definition;
+    // treating it as absent would silently restore an active default.
+    final unavailable = unavailableKeys.toSet();
+    final merged = <String, CriticalAlarmDefinition>{
+      for (final entry in byKey.entries)
+        if (!unavailable.contains(entry.key)) entry.key: entry.value,
+    };
     for (final definition in overrides) {
+      if (unavailable.contains(definition.key)) continue;
       merged[definition.key] = definition;
     }
-    final rows =
-        merged.values.toList()..sort((left, right) {
-          final rank = left.criticalityRank.compareTo(right.criticalityRank);
-          if (rank != 0) return rank;
-          final name = left.name.toLowerCase().compareTo(
-            right.name.toLowerCase(),
-          );
-          return name != 0 ? name : left.key.compareTo(right.key);
-        });
+    final rows = merged.values.toList()
+      ..sort((left, right) {
+        final rank = left.criticalityRank.compareTo(right.criticalityRank);
+        if (rank != 0) return rank;
+        final name = left.name.toLowerCase().compareTo(
+          right.name.toLowerCase(),
+        );
+        return name != 0 ? name : left.key.compareTo(right.key);
+      });
     return List.unmodifiable(rows);
   }
 
@@ -959,10 +1009,9 @@ class CriticalAlarmContact {
       minimum: 2,
       maximum: 16,
     );
-    final dialPattern =
-        kind == CriticalAlarmContactKind.plantExtension
-            ? RegExp(r'^\d{2,8}$')
-            : RegExp(r'^\+?\d{5,15}$');
+    final dialPattern = kind == CriticalAlarmContactKind.plantExtension
+        ? RegExp(r'^\d{2,8}$')
+        : RegExp(r'^\+?\d{5,15}$');
     if (!dialPattern.hasMatch(dialValue)) {
       throw PersistedDataFormatException(
         field: 'dialValue',

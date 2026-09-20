@@ -29,6 +29,8 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
               MorningReviewCommand.start,
               MorningReviewCommand.recordNotHeld,
               MorningReviewCommand.takeOver,
+              MorningReviewCommand.finalize,
+              MorningReviewCommand.amendAction,
               MorningReviewCommand.resolveStandingConcern,
               MorningReviewCommand.addAddendum,
             }.contains(operation) &&
@@ -126,6 +128,7 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
       sessionId: sessionId,
       extra: extra,
     );
+    if (_verifyAcceptanceEvidence) request['recoveryVersion'] = 1;
     if (operation == MorningReviewCommand.start ||
         operation == MorningReviewCommand.recordNotHeld) {
       request['expectedPlantDay'] = currentIndiaPlantDay(_now());
@@ -170,13 +173,19 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
       MorningReviewCommand.createAction ||
       MorningReviewCommand.createStandingConcern => saved.requestId,
       MorningReviewCommand.acceptAction ||
-      MorningReviewCommand.completeAction => request['actionId'],
+      MorningReviewCommand.completeAction ||
+      MorningReviewCommand.amendAction => request['actionId'],
       MorningReviewCommand.resolveStandingConcern => request['concernId'],
       MorningReviewCommand.checkStandingConcern =>
         '${session}_${request['concernId']}',
       _ => session,
     };
-    if (result.entityId != expectedEntity ||
+    if ((operation == MorningReviewCommand.amendAction &&
+            result.status !=
+                ((request['actionCorrection'] as Map)['kind'] == 'cancel'
+                    ? 'cancelled'
+                    : 'open')) ||
+        result.entityId != expectedEntity ||
         (request['sessionId'] == null &&
             session != currentIndiaPlantDay(result.committedAt)) ||
         (request['expectedPlantDay'] != null &&
@@ -215,7 +224,7 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     // cross midnight while awaiting the server, so it may only read a receipt.
     final unpinnedSessionless =
         request['sessionId'] == null && request['expectedPlantDay'] is! String;
-    final receiptOnly =
+    var receiptOnly =
         unpinnedSessionless ||
         (request['sessionId'] == null &&
             request['expectedPlantDay'] != currentIndiaPlantDay(_now()));
@@ -227,6 +236,14 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
         code: 'sessionless-day-changed',
       );
     }
+    try {
+      _commandActor(request);
+    } on MorningReviewCommandException catch (error) {
+      if (error.code != 'current-permission-required') rethrow;
+      // An approved original actor may retrieve history after a role change.
+      // This path never executes the original operation.
+      receiptOnly = true;
+    }
     final capability = _requireCapability;
     if (capability == null) {
       throw const MorningReviewCommandException(
@@ -234,9 +251,17 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
         code: 'capability-unavailable',
       );
     }
-    _commandActor(_request(saved));
+    if (receiptOnly) {
+      _actor();
+    } else {
+      _commandActor(request);
+    }
     await capability(_actorScope);
-    _commandActor(_request(saved));
+    if (receiptOnly) {
+      _actor();
+    } else {
+      _commandActor(request);
+    }
     final claim = await _store.claim(
       submissionId: saved.submissionId,
       actorUid: _actorScope,
@@ -252,7 +277,11 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     }
     final String receiptJson;
     try {
-      _commandActor(_request(saved));
+      if (receiptOnly) {
+        _actor();
+      } else {
+        _commandActor(request);
+      }
       final raw = _stringMap(
         await _invoke(
           receiptOnly
@@ -268,7 +297,39 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
       // Replay is an observation of the same acceptance, not a changed result.
       // Preserve every authoritative field; normalize only this transport flag.
       receiptJson = jsonEncode({...raw, 'idempotentReplay': false});
-    } catch (_) {
+    } catch (error) {
+      final details = error is FirebaseFunctionsException
+          ? error.details
+          : null;
+      final proof = details is Map ? details['morningReviewRefusal'] : null;
+      if (proof is Map &&
+          proof['schemaVersion'] == 1 &&
+          proof['actorUid'] == saved.actorUid &&
+          proof['code'] == (error as FirebaseFunctionsException).code &&
+          const {
+            'aborted',
+            'failed-precondition',
+            'already-exists',
+            'not-found',
+          }.contains(proof['code']) &&
+          proof['refusedAt'] is String &&
+          DateTime.tryParse(proof['refusedAt'] as String) != null &&
+          _morningCanonicalJson(proof['request']) ==
+              _morningCanonicalJson(request)) {
+        final outcome = await _store.recordOutcome(
+          claim,
+          state: DurableSubmissionState.rejected,
+          errorCode: 'morning-review-refused-fenced',
+          message: jsonEncode(proof),
+        );
+        if (outcome == DurableSubmissionOutcome.recorded) {
+          _actor();
+          throw MorningReviewCommandException(
+            '${proof['message']} The server has preserved a refusal for this exact request. Your entries are retained; refresh and review before submitting again.',
+            code: 'business-refused',
+          );
+        }
+      }
       // Unknown/late refusal may follow an accepted earlier attempt. This
       // controller never clears its original identity or allocates a retry ID.
       await _store.recordOutcome(
@@ -309,6 +370,66 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
       );
     }
     final receipt = _receipt(saved, durableSubmissionJsonObject(raw));
+    if (_verifyAcceptanceEvidence) {
+      final proof = _stringMap(
+        await _invoke({
+          'protocolVersion': 2,
+          'originActorUid': saved.actorUid,
+          'receiptLookup': {
+            'acceptanceEvidence': true,
+            'request': _request(saved),
+          },
+        }),
+      );
+      _actor();
+      if (proof['schemaVersion'] != 1 ||
+          proof.length != 3 ||
+          proof['receipt'] is! Map) {
+        throw const MorningReviewCommandException(
+          'The retained acceptance could not be verified.',
+          code: 'data-loss',
+        );
+      }
+      final actualReceipt = _stringMap(proof['receipt']);
+      _receipt(saved, actualReceipt);
+      if (_morningCanonicalJson({
+            ...actualReceipt,
+            'idempotentReplay': false,
+          }) !=
+          _morningCanonicalJson(durableSubmissionJsonObject(raw))) {
+        throw const MorningReviewCommandException(
+          'Acceptance differs from the saved receipt.',
+          code: 'data-loss',
+        );
+      }
+      final basis = proof['acceptanceBasis'];
+      if (basis != null) {
+        final expectedResult = Map<String, dynamic>.from(actualReceipt)
+          ..remove('ok')
+          ..remove('idempotentReplay');
+        if (basis is! Map ||
+            basis['schemaVersion'] != 1 ||
+            basis['actorUid'] != saved.actorUid ||
+            _morningCanonicalJson(basis['request']) !=
+                _morningCanonicalJson(_request(saved)) ||
+            _morningCanonicalJson(basis['result']) !=
+                _morningCanonicalJson(expectedResult)) {
+          throw const MorningReviewCommandException(
+            'Acceptance is not bound to this exact request.',
+            code: 'data-loss',
+          );
+        }
+        await _store.markReconciled(
+          submissionId: saved.submissionId,
+          envelopeSha256: saved.envelopeSha256,
+          receiptSha256: hash,
+        );
+        _actor();
+        return receipt;
+      }
+      // Historical receipts without retained request evidence still need the
+      // original strict subject readback; do not manufacture a missing proof.
+    }
     final read = _readSubject;
     if (read == null) {
       throw const MorningReviewCommandException(
@@ -326,4 +447,17 @@ extension _MorningReviewDurableCommands on MorningReviewCommandService {
     _actor();
     return receipt;
   }
+}
+
+String _morningCanonicalJson(Object? value) {
+  Object? canonical(Object? item) {
+    if (item is Map) {
+      final keys = item.keys.cast<String>().toList()..sort();
+      return {for (final key in keys) key: canonical(item[key])};
+    }
+    if (item is List) return item.map(canonical).toList();
+    return item;
+  }
+
+  return jsonEncode(canonical(value));
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,8 @@ import '../../abnormalities/data/abnormality_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/quality_warning.dart';
+import '../data/quality_monitoring_population.dart';
+export '../data/quality_monitoring_population.dart';
 import '../services/quality_command_service.dart';
 import 'quality_monitoring_submission_provider.dart';
 
@@ -16,9 +19,24 @@ const qualityWarningLiveWindowLimit = 500;
 
 final qualityCommandServiceProvider = Provider<QualityCommandService>(
   (ref) => QualityCommandService(
-    monitoringCreation: ref.watch(
-      qualityMonitoringSubmissionControllerProvider,
-    ),
+    monitoringCreationFactory: () {
+      if (kIsWeb) {
+        throw const QualityCommandException(
+          'Monitoring changes require the Android app with saved recovery support.',
+          code: 'unsupported-platform',
+        );
+      }
+      return ref.read(qualityMonitoringSubmissionControllerProvider);
+    },
+    monitoringClosureFactory: () {
+      if (kIsWeb) {
+        throw const QualityCommandException(
+          'Monitoring changes require the Android app with saved recovery support.',
+          code: 'unsupported-platform',
+        );
+      }
+      return ref.read(qualityMonitoringSubmissionControllerProvider);
+    },
   ),
 );
 
@@ -259,21 +277,19 @@ final qualityMonitoringRequestsProvider =
       final requests = FirebaseFirestore.instance.collection(
         'quality_monitoring_requests',
       );
-      final current = requests
-          .where(
-            'visibilityState',
-            whereIn: <String>[
-              QualityMonitoringVisibilityState.active.name,
-              QualityMonitoringVisibilityState.recent.name,
-            ],
-          )
-          .snapshots()
-          .map(_decodeQualityMonitoringRequests);
-      final legacy = requests
-          .where('schemaVersion', isEqualTo: 1)
-          .snapshots()
-          .map(_decodeQualityMonitoringRequests);
-      return combineQualityMonitoringWindows(current, legacy);
+      // Read one authoritative population. The former current+legacy query
+      // merge let delayed snapshots reintroduce an older row, and filtered
+      // queries hid schema-3 rows whose visibility fields were malformed.
+      // Decode the full snapshot tolerantly, then apply the effective window
+      // locally so valid rows remain visible beside a damaged row.
+      return combineQualityMonitoringWindows(
+        requests
+            .snapshots(includeMetadataChanges: true)
+            .map(_decodeQualityMonitoringRequests),
+        Stream<List<QualityMonitoringRequest>>.value(
+          const <QualityMonitoringRequest>[],
+        ),
+      );
     });
 
 /// Complete quality-monitoring population for date- and asset-bound reports.
@@ -295,7 +311,13 @@ final qualityMonitoringRequestsForReportsProvider = StreamProvider.autoDispose
         queryKey: 'quality-monitoring:reports',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
         hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
-      ).map(_decodeQualityMonitoringRequests);
+      ).map(
+        (snapshot) => sortQualityMonitoringRequests(
+          snapshot.docs.map(
+            (doc) => QualityMonitoringRequest.fromMap(doc.data(), doc.id),
+          ),
+        ),
+      );
     });
 
 void _requireQualityReportActor(
@@ -319,13 +341,10 @@ void _requireQualityReportActor(
 
 List<QualityMonitoringRequest> _decodeQualityMonitoringRequests(
   QuerySnapshot<Map<String, dynamic>> snapshot,
-) => sortQualityMonitoringRequests(
-  snapshot.docs
-      .map(
-        (document) =>
-            QualityMonitoringRequest.fromMap(document.data(), document.id),
-      )
-      .toList(growable: false),
+) => decodeQualityMonitoringPopulation(
+  snapshot.docs.map((doc) => (id: doc.id, data: doc.data())),
+  isFromCache: snapshot.metadata.isFromCache,
+  hasPendingWrites: snapshot.metadata.hasPendingWrites,
 );
 
 List<QualityMonitoringRequest> sortQualityMonitoringRequests(
@@ -346,10 +365,35 @@ List<QualityMonitoringRequest> mergeQualityMonitoringWindows(
   DateTime? now,
 }) {
   final effectiveNow = (now ?? DateTime.now()).toUtc();
-  final byId = <String, QualityMonitoringRequest>{
-    for (final request in legacy) request.requestId: request,
-    for (final request in current) request.requestId: request,
-  };
+  final byId = <String, QualityMonitoringRequest>{};
+  void absorb(QualityMonitoringRequest request) {
+    final prior = byId[request.requestId];
+    if (prior == null || request.version > prior.version) {
+      byId[request.requestId] = request;
+      return;
+    }
+    if (request.version == prior.version &&
+        _monitoringBusinessEvidenceKey(request) !=
+            _monitoringBusinessEvidenceKey(prior)) {
+      throw StateError(
+        'Contradictory quality-monitoring evidence at revision ${request.version} for ${request.requestId}.',
+      );
+    }
+    // Equal-version visibility changes are allowed: archival is an
+    // operational projection and deliberately does not advance the business
+    // revision.
+    if (request.version == prior.version &&
+        request.visibilityState.index > prior.visibilityState.index) {
+      byId[request.requestId] = request;
+    }
+  }
+
+  for (final request in legacy) {
+    absorb(request);
+  }
+  for (final request in current) {
+    absorb(request);
+  }
   return sortQualityMonitoringRequests(
     byId.values.where((request) {
       if (request.status == QualityMonitoringStatus.active) return true;
@@ -360,35 +404,104 @@ List<QualityMonitoringRequest> mergeQualityMonitoringWindows(
   );
 }
 
+String _monitoringBusinessEvidenceKey(QualityMonitoringRequest request) =>
+    jsonEncode({
+      'requestId': request.requestId,
+      'baseNumber': request.baseNumber,
+      'baseAssetClassId': request.baseAssetClassId,
+      'baseAssetInstanceId': request.baseAssetInstanceId,
+      'baseAssetInstanceVersion': request.baseAssetInstanceVersion,
+      'grade': request.grade,
+      'cycleReference': request.cycleReference,
+      'chargeNumbers': request.chargeNumbers,
+      'reason': request.reason,
+      'status': request.status.name,
+      'closedAt': request.closedAt?.toUtc().toIso8601String(),
+      'closedByUid': request.closedByUid,
+      'closedByName': request.closedByName,
+      'closeReason': request.closeReason,
+      'createdAt': request.createdAt.toUtc().toIso8601String(),
+      'createdByUid': request.createdByUid,
+      'createdByName': request.createdByName,
+      'updatedAt': request.updatedAt.toUtc().toIso8601String(),
+      'updatedByUid': request.updatedByUid,
+      'updatedByName': request.updatedByName,
+      'version': request.version,
+      'monitoringDisposition': request.monitoringDisposition,
+      'originalMonitoringContext': request.originalMonitoringContext,
+    });
+
 Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
   Stream<List<QualityMonitoringRequest>> current,
-  Stream<List<QualityMonitoringRequest>> legacy,
-) {
+  Stream<List<QualityMonitoringRequest>> legacy, {
+  DateTime Function()? clock,
+}) {
   late StreamController<List<QualityMonitoringRequest>> controller;
   StreamSubscription<List<QualityMonitoringRequest>>? currentSubscription;
   StreamSubscription<List<QualityMonitoringRequest>>? legacySubscription;
   Timer? expiryTimer;
   List<QualityMonitoringRequest>? latestCurrent;
   List<QualityMonitoringRequest>? latestLegacy;
+  final observed = <String, QualityMonitoringRequest>{};
+
+  void retain(List<QualityMonitoringRequest> records) {
+    for (final record in records) {
+      final prior = observed[record.requestId];
+      if (prior != null &&
+          prior.version == record.version &&
+          _monitoringBusinessEvidenceKey(prior) !=
+              _monitoringBusinessEvidenceKey(record)) {
+        throw StateError(
+          'Contradictory monitoring evidence for ${record.requestId}.',
+        );
+      }
+      if (prior == null ||
+          record.version > prior.version ||
+          (record.version == prior.version &&
+              record.visibilityState.index > prior.visibilityState.index)) {
+        observed[record.requestId] = record;
+      }
+    }
+  }
 
   void emitWhenReady() {
     if (latestCurrent == null || latestLegacy == null || controller.isClosed) {
       return;
     }
-    final now = DateTime.now().toUtc();
-    final merged = mergeQualityMonitoringWindows(
-      latestCurrent!,
-      latestLegacy!,
-      now: now,
+    final now = (clock ?? DateTime.now)().toUtc();
+    final List<QualityMonitoringRequest> merged;
+    try {
+      retain(latestLegacy!);
+      retain(latestCurrent!);
+      merged = mergeQualityMonitoringWindows(
+        observed.values.toList(),
+        const [],
+        now: now,
+      );
+    } catch (error, stack) {
+      expiryTimer?.cancel();
+      if (!controller.isClosed) controller.addError(error, stack);
+      return;
+    }
+    final currentPopulation = latestCurrent;
+    controller.add(
+      currentPopulation is QualityMonitoringPopulation
+          ? currentPopulation.withRecords(
+              merged,
+              missingIds: observed.keys.where(
+                (id) => !currentPopulation.any(
+                  (row) =>
+                      row.requestId == id &&
+                      row.version >= observed[id]!.version,
+                ),
+              ),
+            )
+          : merged,
     );
-    controller.add(merged);
 
     expiryTimer?.cancel();
     DateTime? nextExpiry;
-    final byId = <String, QualityMonitoringRequest>{
-      for (final request in latestLegacy!) request.requestId: request,
-      for (final request in latestCurrent!) request.requestId: request,
-    };
+    final byId = observed;
     for (final request in byId.values) {
       final visibleUntil = request.visibleUntil?.toUtc();
       if (request.status != QualityMonitoringStatus.closed ||

@@ -71,6 +71,7 @@ Future<String?> showMorningReviewTextPrompt(
   required String label,
   required String actionLabel,
   String? supportingText,
+  String? initialValue,
   int maximum = 2000,
   int minLines = 3,
   Widget Function(Widget)? guard,
@@ -83,6 +84,7 @@ Future<String?> showMorningReviewTextPrompt(
       label: label,
       actionLabel: actionLabel,
       supportingText: supportingText,
+      initialValue: initialValue,
       maximum: maximum,
       minLines: minLines,
     ),
@@ -165,12 +167,13 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final assets = [...widget.assets]..sort((left, right) {
-      final byClass = left.assetClassName.compareTo(right.assetClassName);
-      return byClass != 0
-          ? byClass
-          : left.assetNumber.compareTo(right.assetNumber);
-    });
+    final assets = [...widget.assets]
+      ..sort((left, right) {
+        final byClass = left.assetClassName.compareTo(right.assetClassName);
+        return byClass != 0
+            ? byClass
+            : left.assetNumber.compareTo(right.assetNumber);
+      });
     return AlertDialog(
       title: Text(
         _kind == MorningReviewEntryKind.addendum
@@ -188,6 +191,13 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_kind == MorningReviewEntryKind.addendum) ...[
+                  const Text(
+                    'Up to 50 attributed addenda may be appended during the '
+                    'retention period. The original minutes remain unchanged.',
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (widget.sourceFact != null) ...[
                   _SourceFactContext(fact: widget.sourceFact!),
                   const SizedBox(height: 16),
@@ -196,18 +206,17 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
                   initialValue: _section,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Agenda area'),
-                  items:
-                      MorningReviewSection.values
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(
-                                morningReviewSectionLabel(value),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                  items: MorningReviewSection.values
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            morningReviewSectionLabel(value),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(() => _section = value!),
                 ),
                 const SizedBox(height: 12),
@@ -215,18 +224,17 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
                   initialValue: _kind,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Record as'),
-                  items:
-                      widget.allowedKinds
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(
-                                morningReviewEntryKindLabel(value),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                  items: widget.allowedKinds
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            morningReviewEntryKindLabel(value),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(() => _kind = value!),
                 ),
                 const SizedBox(height: 16),
@@ -236,19 +244,17 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
                   assets: assets,
                   provisionalClass: _provisionalClass,
                   provisionalNumber: _provisionalNumber,
-                  onModeChanged:
-                      (value) => setState(() {
-                        _assetMode = value;
-                        if (value != 'registered') _assetId = null;
-                      }),
-                  onAssetChanged:
-                      (value) => setState(() {
-                        _assetId = value;
-                        final selected = _assetById(value);
-                        if (selected != null) {
-                          _section = _sectionForAsset(selected);
-                        }
-                      }),
+                  onModeChanged: (value) => setState(() {
+                    _assetMode = value;
+                    if (value != 'registered') _assetId = null;
+                  }),
+                  onAssetChanged: (value) => setState(() {
+                    _assetId = value;
+                    final selected = _assetById(value);
+                    if (selected != null) {
+                      _section = _sectionForAsset(selected);
+                    }
+                  }),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -310,13 +316,12 @@ class _MorningReviewEntryEditorState extends State<_MorningReviewEntryEditor> {
         assetClassName: target?.assetClassName,
         assetInstanceId: target?.assetInstanceId,
         assetNumber: target?.assetNumber,
-        sourceReferences:
-            widget.sourceFact == null
-                ? const []
-                : [
-                  '${widget.sourceFact!.sourceCollection}/'
-                      '${widget.sourceFact!.sourceDocumentId}',
-                ],
+        sourceReferences: widget.sourceFact == null
+            ? const []
+            : [
+                '${widget.sourceFact!.sourceCollection}/'
+                    '${widget.sourceFact!.sourceDocumentId}',
+              ],
       ),
     );
   }
@@ -366,12 +371,13 @@ class _MorningReviewActionEditorState
 
   @override
   Widget build(BuildContext context) {
-    final assets = [...widget.assets]..sort((left, right) {
-      final byClass = left.assetClassName.compareTo(right.assetClassName);
-      return byClass != 0
-          ? byClass
-          : left.assetNumber.compareTo(right.assetNumber);
-    });
+    final assets = [...widget.assets]
+      ..sort((left, right) {
+        final byClass = left.assetClassName.compareTo(right.assetClassName);
+        return byClass != 0
+            ? byClass
+            : left.assetNumber.compareTo(right.assetNumber);
+      });
     final owners = _ownerChoices(widget.participants);
     return AlertDialog(
       title: const Text('Create owned action'),
@@ -388,18 +394,17 @@ class _MorningReviewActionEditorState
                   initialValue: _section,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Agenda area'),
-                  items:
-                      MorningReviewSection.values
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(
-                                morningReviewSectionLabel(value),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                  items: MorningReviewSection.values
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            morningReviewSectionLabel(value),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(() => _section = value!),
                 ),
                 const SizedBox(height: 16),
@@ -409,19 +414,17 @@ class _MorningReviewActionEditorState
                   assets: assets,
                   provisionalClass: _provisionalClass,
                   provisionalNumber: _provisionalNumber,
-                  onModeChanged:
-                      (value) => setState(() {
-                        _assetMode = value;
-                        if (value != 'registered') _assetId = null;
-                      }),
-                  onAssetChanged:
-                      (value) => setState(() {
-                        _assetId = value;
-                        final selected = _assetById(value);
-                        if (selected != null) {
-                          _section = _sectionForAsset(selected);
-                        }
-                      }),
+                  onModeChanged: (value) => setState(() {
+                    _assetMode = value;
+                    if (value != 'registered') _assetId = null;
+                  }),
+                  onAssetChanged: (value) => setState(() {
+                    _assetId = value;
+                    final selected = _assetById(value);
+                    if (selected != null) {
+                      _section = _sectionForAsset(selected);
+                    }
+                  }),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -443,20 +446,19 @@ class _MorningReviewActionEditorState
                   decoration: const InputDecoration(
                     labelText: 'Responsible person or role',
                   ),
-                  items:
-                      owners
-                          .map(
-                            (choice) => DropdownMenuItem(
-                              value: choice.key,
-                              child: Text(
-                                choice.label,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  validator:
-                      (value) => value == null ? 'Select an owner.' : null,
+                  items: owners
+                      .map(
+                        (choice) => DropdownMenuItem(
+                          value: choice.key,
+                          child: Text(
+                            choice.label,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  validator: (value) =>
+                      value == null ? 'Select an owner.' : null,
                   onChanged: (value) => setState(() => _ownerKey = value),
                 ),
                 const SizedBox(height: 12),
@@ -619,8 +621,8 @@ class _MorningReviewStandingConcernEditorState
                     ),
                   ],
                   selected: {_criticality},
-                  onSelectionChanged:
-                      (value) => setState(() => _criticality = value.single),
+                  onSelectionChanged: (value) =>
+                      setState(() => _criticality = value.single),
                 ),
               ),
               const SizedBox(height: 16),
@@ -685,8 +687,7 @@ class _MorningReviewConcernCheckEditorState
     extends State<_MorningReviewConcernCheckEditor> {
   final _formKey = GlobalKey<FormState>();
   final _note = TextEditingController();
-  MorningReviewConcernCheckState _state =
-      MorningReviewConcernCheckState.complied;
+  MorningReviewConcernCheckState? _state;
 
   @override
   void dispose() {
@@ -718,9 +719,10 @@ class _MorningReviewConcernCheckEditorState
                     label: Text('Exception'),
                   ),
                 ],
-                selected: {_state},
-                onSelectionChanged:
-                    (value) => setState(() => _state = value.single),
+                emptySelectionAllowed: true,
+                selected: {if (_state != null) _state!},
+                onSelectionChanged: (value) =>
+                    setState(() => _state = value.firstOrNull),
               ),
             ),
             const SizedBox(height: 16),
@@ -746,14 +748,14 @@ class _MorningReviewConcernCheckEditorState
       ),
       FilledButton.icon(
         onPressed: () {
-          if (!_formKey.currentState!.validate()) return;
+          if (_state == null || !_formKey.currentState!.validate()) return;
           Navigator.pop(
             context,
-            MorningReviewConcernCheckInput(state: _state, note: _note.text),
+            MorningReviewConcernCheckInput(state: _state!, note: _note.text),
           );
         },
         icon: const Icon(Icons.fact_check_outlined),
-        label: const Text('Record check'),
+        label: Text(_state == null ? 'Choose a check outcome' : 'Record check'),
       ),
     ],
   );
@@ -765,6 +767,7 @@ class _MorningReviewTextPrompt extends StatefulWidget {
     required this.label,
     required this.actionLabel,
     required this.supportingText,
+    this.initialValue,
     required this.maximum,
     required this.minLines,
   });
@@ -773,6 +776,7 @@ class _MorningReviewTextPrompt extends StatefulWidget {
   final String label;
   final String actionLabel;
   final String? supportingText;
+  final String? initialValue;
   final int maximum;
   final int minLines;
 
@@ -783,7 +787,7 @@ class _MorningReviewTextPrompt extends StatefulWidget {
 
 class _MorningReviewTextPromptState extends State<_MorningReviewTextPrompt> {
   final _formKey = GlobalKey<FormState>();
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialValue);
 
   @override
   void dispose() {
@@ -913,24 +917,21 @@ class _AssetTargetFields extends StatelessWidget {
           initialValue: assetId,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Plant asset'),
-          items:
-              assets
-                  .where((asset) => asset.isActive)
-                  .map(
-                    (asset) => DropdownMenuItem(
-                      value: asset.id,
-                      child: Text(
-                        '${asset.assetClassName} ${asset.assetNumber}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-          validator:
-              (value) =>
-                  mode == 'registered' && value == null
-                      ? 'Select a registered asset.'
-                      : null,
+          items: assets
+              .where((asset) => asset.isActive)
+              .map(
+                (asset) => DropdownMenuItem(
+                  value: asset.id,
+                  child: Text(
+                    '${asset.assetClassName} ${asset.assetNumber}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          validator: (value) => mode == 'registered' && value == null
+              ? 'Select a registered asset.'
+              : null,
           onChanged: onAssetChanged,
         ),
       ],
@@ -942,16 +943,16 @@ class _AssetTargetFields extends StatelessWidget {
           decoration: const InputDecoration(
             labelText: 'Unregistered asset class',
           ),
-          validator:
-              (value) => mode == 'provisional' ? _requiredText(value) : null,
+          validator: (value) =>
+              mode == 'provisional' ? _requiredText(value) : null,
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: provisionalNumber,
           maxLength: 40,
           decoration: const InputDecoration(labelText: 'Asset number / name'),
-          validator:
-              (value) => mode == 'provisional' ? _requiredText(value) : null,
+          validator: (value) =>
+              mode == 'provisional' ? _requiredText(value) : null,
         ),
       ],
     ],
@@ -1027,9 +1028,8 @@ List<_OwnerChoice> _ownerChoices(List<MorningReviewParticipant> participants) {
   final uniqueParticipants = <String, MorningReviewParticipant>{
     for (final participant in participants) participant.userUid: participant,
   };
-  final people =
-      uniqueParticipants.values.toList()
-        ..sort((left, right) => left.userName.compareTo(right.userName));
+  final people = uniqueParticipants.values.toList()
+    ..sort((left, right) => left.userName.compareTo(right.userName));
   return [
     ...people.map(
       (participant) => _OwnerChoice(

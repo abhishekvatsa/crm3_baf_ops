@@ -1,3 +1,4 @@
+import 'knowledge_preset_editor.dart';
 // FILE: lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../data/baf_knowledge_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
 import '../../domain/knowledge_governance_diff.dart';
 import '../../domain/knowledge_governance_models.dart';
+import '../../domain/knowledge_revision_settlement.dart';
 import '../../domain/module_composer_models.dart';
 import '../../providers/knowledge_governance_provider.dart';
 
@@ -57,16 +59,15 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
   late final TextEditingController _partRefsController;
   late final TextEditingController _deviceTagsController;
   late final TextEditingController _targetRefsController;
-  late final TextEditingController _suggestedFieldsController;
+
   late final TextEditingController _changeReasonController;
 
   @override
   void initState() {
     super.initState();
-    _draft =
-        widget.before == null
-            ? KnowledgeRowDraft.blank()
-            : KnowledgeRowDraft.fromRow(widget.before!);
+    _draft = widget.before == null
+        ? KnowledgeRowDraft.blank()
+        : KnowledgeRowDraft.fromRow(widget.before!);
     _rowCodeController = TextEditingController(text: _draft.rowCode);
     _taskTextController = TextEditingController(text: _draft.taskText);
     _moduleCandidateController = TextEditingController(
@@ -103,9 +104,7 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     _targetRefsController = TextEditingController(
       text: _draft.targetRefs.join(', '),
     );
-    _suggestedFieldsController = TextEditingController(
-      text: _draft.suggestedFields.join(', '),
-    );
+
     _changeReasonController = TextEditingController();
   }
 
@@ -127,7 +126,7 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     _partRefsController.dispose();
     _deviceTagsController.dispose();
     _targetRefsController.dispose();
-    _suggestedFieldsController.dispose();
+
     _changeReasonController.dispose();
     super.dispose();
   }
@@ -147,12 +146,11 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     _draft.safetyClasses = _splitList(_safetyClassesController.text);
     _draft.procedureRefs = _splitList(_procedureRefsController.text);
     _draft.partRefs = _splitList(_partRefsController.text);
-    _draft.deviceTags =
-        _splitList(
-          _deviceTagsController.text,
-        ).map((tag) => tag.toUpperCase()).toList();
+    _draft.deviceTags = _splitList(
+      _deviceTagsController.text,
+    ).map((tag) => tag.toUpperCase()).toList();
     _draft.targetRefs = _splitList(_targetRefsController.text);
-    _draft.suggestedFields = _splitList(_suggestedFieldsController.text);
+
     _draft.changeSummary = _changeReasonController.text.trim();
   }
 
@@ -301,9 +299,8 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                           'shared',
                           'others',
                         ],
-                        onChanged:
-                            (value) =>
-                                setState(() => _draft.discipline = value),
+                        onChanged: (value) =>
+                            setState(() => _draft.discipline = value),
                       ),
                       _field(
                         'Owner disciplines (comma-separated)',
@@ -330,18 +327,22 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                         'Target refs (comma-separated)',
                         _targetRefsController,
                       ),
-                      _field(
-                        'Suggested field keys (comma-separated)',
-                        _suggestedFieldsController,
+                      KnowledgePresetEditor(
+                        presets: _draft.suggestedFieldPresets ?? const [],
+                        onChanged: (presets) => setState(() {
+                          _draft.suggestedFieldPresets = presets;
+                          _draft.suggestedFields = presets
+                              .map((p) => p['label'] as String)
+                              .toList();
+                        }),
                       ),
                       _section('Readiness'),
                       _enumPicker(
                         label: 'Composer readiness',
                         value: _draft.composerReadiness.name,
-                        options:
-                            ComposerReadiness.values
-                                .map((value) => value.name)
-                                .toList(),
+                        options: ComposerReadiness.values
+                            .map((value) => value.name)
+                            .toList(),
                         onChanged: (value) {
                           for (final state in ComposerReadiness.values) {
                             if (state.name == value) {
@@ -354,10 +355,9 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                       _enumPicker(
                         label: 'Confidence',
                         value: _draft.confidence.name,
-                        options:
-                            KnowledgeConfidence.values
-                                .map((value) => value.name)
-                                .toList(),
+                        options: KnowledgeConfidence.values
+                            .map((value) => value.name)
+                            .toList(),
                         onChanged: (value) {
                           for (final state in KnowledgeConfidence.values) {
                             if (state.name == value) {
@@ -371,31 +371,26 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                         label: 'Required for closure',
                         value: _draft.requiredForClosure,
                         options: const ['yes', 'no', 'consult'],
-                        onChanged:
-                            (value) => setState(
-                              () => _draft.requiredForClosure = value,
-                            ),
+                        onChanged: (value) =>
+                            setState(() => _draft.requiredForClosure = value),
                       ),
                       _enumPicker(
                         label: 'Resolver impact',
                         value: _draft.resolverImpact,
                         options: const ['yes', 'no'],
-                        onChanged:
-                            (value) =>
-                                setState(() => _draft.resolverImpact = value),
+                        onChanged: (value) =>
+                            setState(() => _draft.resolverImpact = value),
                       ),
                       _enumPicker(
                         label: 'Lifecycle',
                         value: _draft.lifecycleStatus.name,
-                        options:
-                            KnowledgeLifecycleStatus.values
-                                .map((value) => value.name)
-                                .toList(),
-                        onChanged:
-                            (value) => setState(() {
-                              _draft.lifecycleStatus =
-                                  KnowledgeLifecycleStatusX.parse(value);
-                            }),
+                        options: KnowledgeLifecycleStatus.values
+                            .map((value) => value.name)
+                            .toList(),
+                        onChanged: (value) => setState(() {
+                          _draft.lifecycleStatus =
+                              KnowledgeLifecycleStatusX.parse(value);
+                        }),
                         enabled: !widget.isCreate,
                       ),
                       _section('Provenance'),
@@ -439,59 +434,56 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                           if (!widget.isCreate &&
                               widget.before!.lifecycleStatus == 'active')
                             OutlinedButton.icon(
-                              onPressed:
-                                  _saving
-                                      ? null
-                                      : () => _lifecycle(
-                                        KnowledgeLifecycleStatus.retired,
-                                      ),
+                              onPressed: _saving
+                                  ? null
+                                  : () => _lifecycle(
+                                      KnowledgeLifecycleStatus.retired,
+                                    ),
                               icon: const Icon(Icons.archive_outlined),
                               label: const Text('Retire'),
                             ),
                           if (!widget.isCreate &&
                               widget.before!.lifecycleStatus == 'retired')
                             OutlinedButton.icon(
-                              onPressed:
-                                  _saving
-                                      ? null
-                                      : () => _lifecycle(
-                                        KnowledgeLifecycleStatus.archived,
-                                      ),
+                              onPressed: _saving
+                                  ? null
+                                  : () => _lifecycle(
+                                      KnowledgeLifecycleStatus.archived,
+                                    ),
                               icon: const Icon(Icons.delete_outline_rounded),
                               label: const Text('Archive'),
                             ),
                           if (!widget.isCreate &&
                               widget.before!.lifecycleStatus != 'active')
                             OutlinedButton.icon(
-                              onPressed:
-                                  _saving
-                                      ? null
-                                      : () => _lifecycle(
-                                        KnowledgeLifecycleStatus.active,
-                                      ),
+                              onPressed: _saving
+                                  ? null
+                                  : () => _lifecycle(
+                                      KnowledgeLifecycleStatus.active,
+                                    ),
                               icon: const Icon(Icons.unarchive_outlined),
                               label: const Text('Restore'),
                             ),
                         ];
                         final saveActions = <Widget>[
                           TextButton(
-                            onPressed:
-                                _saving ? null : () => Navigator.pop(context),
+                            onPressed: _saving
+                                ? null
+                                : () => Navigator.pop(context),
                             child: const Text('Cancel'),
                           ),
                           FilledButton.icon(
                             onPressed: _saving ? null : _onSave,
-                            icon:
-                                _saving
-                                    ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                    : const Icon(Icons.save_rounded),
+                            icon: _saving
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_rounded),
                             label: Text(
                               widget.isCreate
                                   ? 'Create'
@@ -575,21 +567,20 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-      child:
-          controller == null
-              ? TextFormField(
-                key: ValueKey('readonly_knowledge_field_$label'),
-                initialValue: textValue ?? '',
-                enabled: enabled,
-                maxLines: maxLines,
-                decoration: decoration,
-              )
-              : TextField(
-                controller: controller,
-                enabled: enabled,
-                maxLines: maxLines,
-                decoration: decoration,
-              ),
+      child: controller == null
+          ? TextFormField(
+              key: ValueKey('readonly_knowledge_field_$label'),
+              initialValue: textValue ?? '',
+              enabled: enabled,
+              maxLines: maxLines,
+              decoration: decoration,
+            )
+          : TextField(
+              controller: controller,
+              enabled: enabled,
+              maxLines: maxLines,
+              decoration: decoration,
+            ),
     );
   }
 
@@ -612,19 +603,16 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
             borderRadius: BorderRadius.circular(BafRadius.small),
           ),
         ),
-        onChanged:
-            enabled
-                ? (v) {
-                  if (v != null) onChanged(v);
-                }
-                : null,
-        items:
-            options
-                .map(
-                  (option) =>
-                      DropdownMenuItem(value: option, child: Text(option)),
-                )
-                .toList(),
+        onChanged: enabled
+            ? (v) {
+                if (v != null) onChanged(v);
+              }
+            : null,
+        items: options
+            .map(
+              (option) => DropdownMenuItem(value: option, child: Text(option)),
+            )
+            .toList(),
       ),
     );
   }
@@ -694,22 +682,27 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     }
     final controller = ref.read(knowledgeGovernanceControllerProvider);
     try {
-      if (widget.isCreate) {
-        await controller.createRow(draft: _draft, actor: widget.actor);
-      } else {
-        await controller.updateRow(
-          before: widget.before!,
-          draft: _draft,
-          actor: widget.actor,
-        );
-      }
+      final written = widget.isCreate
+          ? await controller.createRow(draft: _draft, actor: widget.actor)
+          : await controller.updateRow(
+              before: widget.before!,
+              draft: _draft,
+              actor: widget.actor,
+            );
       if (!mounted) {
         return;
       }
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.pop<bool>(context, true);
+      // The rule is saved and audited. Say plainly when this device has not
+      // read it back yet, rather than showing a bare success or an error for
+      // something that did not fail.
       messenger?.showSnackBar(
-        SnackBar(content: Text('Saved ${_draft.rowCode}.')),
+        SnackBar(
+          content: Text(
+            knowledgeRevisionAdoptionNote(written.adoption, _draft.rowCode),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) {
@@ -739,23 +732,24 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     });
     final controller = ref.read(knowledgeGovernanceControllerProvider);
     try {
+      late KnowledgeGovernanceWriteResult written;
       switch (next) {
         case KnowledgeLifecycleStatus.retired:
-          await controller.retireRow(
+          written = await controller.retireRow(
             before: widget.before!,
             actor: widget.actor,
             reason: reason,
           );
           break;
         case KnowledgeLifecycleStatus.archived:
-          await controller.archiveRow(
+          written = await controller.archiveRow(
             before: widget.before!,
             actor: widget.actor,
             reason: reason,
           );
           break;
         case KnowledgeLifecycleStatus.active:
-          await controller.restoreRow(
+          written = await controller.restoreRow(
             before: widget.before!,
             actor: widget.actor,
             reason: reason,
@@ -768,7 +762,11 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.pop<bool>(context, true);
       messenger?.showSnackBar(
-        SnackBar(content: Text('${widget.before!.rowCode} → ${next.name}.')),
+        SnackBar(
+          content: Text(
+            knowledgeRevisionAdoptionNote(written.adoption, written.rowCode),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) {

@@ -1,6 +1,10 @@
 // FILE: lib/features/directives/providers/operational_directive_provider.dart
 
 import 'dart:async';
+import '../services/ordinary_directive_commands.dart';
+import '../data/directive_population.dart';
+export '../data/directive_population.dart';
+export '../services/ordinary_directive_commands.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +15,7 @@ import '../data/operational_directive_model.dart';
 import '../data/remote_operational_directive_reader.dart';
 import '../data/governed_directive_acknowledgement.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
@@ -18,6 +23,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
 
 part 'operational_directive_provider.local.dart';
 part 'operational_directive_provider.remote.dart';
@@ -197,8 +203,15 @@ void _normalizeDirectiveIdentity(OperationalDirective directive) {
 }
 
 void _normalizeDirectiveTextFields(OperationalDirective directive) {
-  directive.title = _cleanRequiredDirectiveText(directive.title);
-  directive.description = _cleanRequiredDirectiveText(directive.description);
+  final title = _cleanRequiredDirectiveText(directive.title);
+  final description = _cleanRequiredDirectiveText(directive.description);
+  if (title.isEmpty || description.isEmpty) {
+    throw const FormatException(
+      'Directive title and description must contain visible text.',
+    );
+  }
+  directive.title = title;
+  directive.description = description;
   directive.component = _cleanOptionalDirectiveText(directive.component);
   directive.subsystem = _cleanOptionalDirectiveText(directive.subsystem);
   directive.tag = _cleanOptionalDirectiveText(directive.tag)?.toUpperCase();
@@ -263,6 +276,88 @@ void _normalizeDirectiveForLocalWrite(
   _normalizeDirectiveLifecycle(directive);
 }
 
+OperationalDirective _ordinaryChange(
+  OperationalDirective before,
+  AppUser actor,
+  String action, {
+  OperationalDirective? draft,
+  String? reason,
+}) {
+  if (before.isDeleted || before.isClosed) {
+    throw StateError(
+      'Completed or deleted instructions remain historical records.',
+    );
+  }
+  final after = copyOperationalDirective(before);
+  if (action == 'amend') {
+    _requireCanAdminMutateDirective(actor, 'edit');
+    if (draft == null || draft.version != before.version) {
+      throw StateError(
+        'The reviewed directive changed. Keep the draft and refresh.',
+      );
+    }
+    if (!actor.directiveTargets.contains(draft.directedTo)) {
+      throw StateError('Unsupported target role.');
+    }
+    after
+      ..title = draft.title
+      ..description = draft.description
+      ..directedTo = draft.directedTo
+      ..priority = draft.priority
+      ..assetType = draft.assetType
+      ..assetNumber = draft.assetNumber
+      ..component = draft.component
+      ..subsystem = draft.subsystem
+      ..tag = draft.tag
+      ..hierarchyPath = draft.hierarchyPath
+      ..remarks = draft.remarks
+      ..metadataJson = draft.metadataJson
+      ..status = DirectiveStatus.open
+      ..acknowledgedAt = null
+      ..acknowledgedByUid = null
+      ..acknowledgedByName = null;
+  } else if (action == 'acknowledge') {
+    _requireCanAcknowledgeDirective(actor, before);
+    if (!before.isOpen) {
+      throw StateError('Only an open instruction can be acknowledged.');
+    }
+    after
+      ..status = DirectiveStatus.acknowledged
+      ..acknowledgedByUid = actor.uid
+      ..acknowledgedByName = actor.name;
+  } else if (action == 'close') {
+    _requireCanCloseDirective(actor, before);
+    after
+      ..status = DirectiveStatus.closed
+      ..closedByUid = actor.uid
+      ..closedByName = actor.name
+      ..closedWithoutAcknowledgement = (before.acknowledgedAt == null)
+      ..remarks = reason?.trim();
+  } else if (action == 'delete') {
+    _requireCanAdminMutateDirective(actor, 'delete');
+    after
+      ..isDeleted = true
+      ..deletedByUid = actor.uid
+      ..deletedByName = actor.name
+      ..deleteReason = reason?.trim();
+  }
+  final now = DateTime.now().toUtc();
+  if (now.isBefore(before.updatedAt)) {
+    throw StateError(
+      'The device clock precedes the current directive. Check its time.',
+    );
+  }
+  after
+    ..version = before.version + 1
+    ..updatedAt = now;
+  if (action == 'acknowledge') after.acknowledgedAt = now;
+  if (action == 'close') after.closedAt = now;
+  if (action == 'delete') after.deletedAt = now;
+  _normalizeDirectiveTextFields(after);
+  _normalizeDirectiveLifecycle(after);
+  return after;
+}
+
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
     localVersion: local.version as int,
@@ -280,7 +375,14 @@ class PaginatedDirectivesResult {
   final List<OperationalDirective> records;
   final DocumentSnapshot? lastDoc;
 
-  PaginatedDirectivesResult({required this.records, this.lastDoc});
+  final List<String> rejectedIds;
+  final int rawCount;
+  PaginatedDirectivesResult({
+    required this.records,
+    this.lastDoc,
+    this.rejectedIds = const [],
+    int? rawCount,
+  }) : rawCount = rawCount ?? records.length;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -327,10 +429,15 @@ abstract class DirectiveRepository {
   );
 
   // Lifecycle actions
-  Future<void> acknowledgeDirective(dynamic id, {required AppUser actor});
+  Future<void> acknowledgeDirective(
+    dynamic id, {
+    required AppUser actor,
+    required int expectedVersion,
+  });
   Future<void> closeDirective(
     dynamic id, {
     required AppUser actor,
+    required int expectedVersion,
     String? remarks,
     bool wasUnacknowledged = false,
   });
@@ -396,9 +503,29 @@ final operationalDirectiveRepositoryProvider = directiveRepositoryProvider;
 final activeDirectivesProvider = openDirectivesProvider;
 
 // 🔥 CONVERTED: From FutureProvider to StreamProvider for live UI refresh
-final openDirectivesProvider = StreamProvider<List<OperationalDirective>>(
-  (ref) => ref.watch(directiveRepositoryProvider).watchOpenDirectives(),
+final directiveReadHealthProvider = StreamProvider.family<bool, String>(
+  (ref, uid) => DirectiveReadHealth.watch(uid),
 );
+
+final openDirectivesProvider = StreamProvider<List<OperationalDirective>>((
+  ref,
+) {
+  final repo = ref.watch(directiveRepositoryProvider);
+  if (repo is! IsarDirectiveRepository) return repo.watchOpenDirectives();
+  final uid = ref.watch(currentAppUserProvider).value?.uid;
+  final incomplete =
+      uid == null ||
+      (ref.watch(directiveReadHealthProvider(uid)).value ?? true);
+  return repo.watchOpenDirectives().map(
+    (rows) => DirectivePopulation(
+      DecodedSnapshotBatch(
+        records: rows,
+        rejectedDocumentIds: const [],
+        isFromCache: incomplete,
+      ),
+    ),
+  );
+});
 
 /// Home badge count provider. On mobile/desktop it avoids subscribing Home to
 /// the full open-directive list. The non-admin path counts the exact visibility
@@ -408,17 +535,27 @@ final visibleOpenDirectiveCountProvider = StreamProvider.family<int, AppUser>((
   appUser,
 ) {
   if (kIsWeb) {
-    return ref
-        .watch(directiveRepositoryProvider)
-        .watchOpenDirectives()
-        .map(
-          (directives) => directives
-              .where((directive) => canUserSeeDirective(directive, appUser))
-              .length,
-        )
-        .distinct();
+    return ref.watch(directiveRepositoryProvider).watchOpenDirectives().map((
+      directives,
+    ) {
+      if (!directivesAreQualified(directives)) {
+        throw StateError('Directive count is incomplete or unconfirmed.');
+      }
+      return directives
+          .where((directive) => canUserSeeDirective(directive, appUser))
+          .length;
+    }).distinct();
   }
 
+  final incomplete =
+      ref.watch(directiveReadHealthProvider(appUser.uid)).value ?? true;
+  if (incomplete) {
+    return Stream<int>.error(
+      StateError(
+        'Directive count is unconfirmed while a pull needs attention.',
+      ),
+    );
+  }
   Future<int> countVisibleOpenDirectives() async {
     if (appUser.isAdmin) {
       return isar.operationalDirectives

@@ -55,6 +55,8 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   Set<String> _latestRingingIds = const <String>{};
   Map<String, CriticalAlarm> _latestRingingAlarms =
       const <String, CriticalAlarm>{};
+  final Map<String, CriticalAlarm> _partiallyObservedRingingAlarms =
+      <String, CriticalAlarm>{};
   bool _liveAlarmStateVerified = false;
   bool _showUnverifiedAlarmBanner = false;
   String? _verifiedAlarmActorUid;
@@ -102,28 +104,37 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
       },
       fireImmediately: true,
     );
-    _alarmFeedSubscription = ref.listenManual<
-      AsyncValue<CriticalAlarmLiveSnapshot>
-    >(activeCriticalAlarmsProvider, (previous, next) {
-      final snapshot = next.asData?.value;
-      _latestAlarmSnapshot = snapshot;
-      if (snapshot?.isServerVerified == true) {
-        final actor = _latestAlarmActor;
-        _verifiedAlarmActorUid = actor?.isApproved == true ? actor!.uid : null;
-        _liveAlarmStateVerified = true;
-        _hideUnverifiedAlarmWarning();
-        _reconcileNotifications(snapshot!.alarms);
-        return;
-      }
-      _liveAlarmStateVerified = false;
-      final actor = _latestAlarmActor;
-      final actorUid = actor?.isApproved == true ? actor!.uid : null;
-      if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
-        _showUnverifiedAlarmWarningNow();
-      } else {
-        _scheduleInitialFeedWarning();
-      }
-    }, fireImmediately: true);
+    _alarmFeedSubscription = ref
+        .listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
+          activeCriticalAlarmsProvider,
+          (previous, next) {
+            final snapshot = next.asData?.value;
+            _latestAlarmSnapshot = snapshot;
+            if (snapshot?.isServerVerified == true) {
+              final actor = _latestAlarmActor;
+              _verifiedAlarmActorUid = actor?.isApproved == true
+                  ? actor!.uid
+                  : null;
+              _liveAlarmStateVerified = true;
+              _hideUnverifiedAlarmWarning();
+              _reconcileNotifications(snapshot!.alarms);
+              return;
+            }
+            if (snapshot?.authority ==
+                CriticalAlarmFeedAuthority.partiallyVerified) {
+              _notifyPartiallyVerified(snapshot!.alarms);
+            }
+            _liveAlarmStateVerified = false;
+            final actor = _latestAlarmActor;
+            final actorUid = actor?.isApproved == true ? actor!.uid : null;
+            if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
+              _showUnverifiedAlarmWarningNow();
+            } else {
+              _scheduleInitialFeedWarning();
+            }
+          },
+          fireImmediately: true,
+        );
     unawaited(
       _alarmPlatform.initializeAlarmOpenListener().then((alarmId) {
         if (alarmId != null) _queueOpenedAlarm(alarmId);
@@ -144,10 +155,19 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !_liveAlarmStateVerified) return;
-    unawaited(
-      _alarmPlatform.reconcileActiveNotifications(_latestRingingIds),
-    );
+    if (state != AppLifecycleState.resumed) return;
+    if (!_liveAlarmStateVerified) {
+      final snapshot = _latestAlarmSnapshot;
+      if (_latestAlarmActor?.isApproved == true &&
+          snapshot?.authority == CriticalAlarmFeedAuthority.partiallyVerified) {
+        // Settings may have made notifications available since this partial
+        // server snapshot arrived. Retry its valid additions, without using
+        // an incomplete population to cancel any other alarm's notification.
+        _notifyPartiallyVerified(snapshot!.alarms);
+      }
+      return;
+    }
+    unawaited(_alarmPlatform.reconcileActiveNotifications(_latestRingingIds));
     for (final alarm in _latestRingingAlarms.values) {
       _attemptNotification(_alarmPlatform, alarm);
     }
@@ -160,8 +180,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     final liveSnapshot = feed.asData?.value;
     final active = liveSnapshot?.alarms ?? const <CriticalAlarm>[];
     final isServerVerified = liveSnapshot?.isServerVerified == true;
-    final primary =
-        !isServerVerified || active.isEmpty ? null : _primary(active);
+    final primary = !isServerVerified || active.isEmpty
+        ? null
+        : _primary(active);
     final showUnverifiedBanner =
         user?.isApproved == true &&
         _showUnverifiedAlarmBanner &&
@@ -217,9 +238,8 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                       _dragStartGlobalPosition = details.globalPosition;
                       _dragStartLauncherOffset = launcherOffset;
                     },
-                    onPanUpdate:
-                        (details) =>
-                            _updateLauncherDrag(details.globalPosition, bounds),
+                    onPanUpdate: (details) =>
+                        _updateLauncherDrag(details.globalPosition, bounds),
                     onPanEnd: (_) => _endLauncherDrag(),
                     onPanCancel: _endLauncherDrag,
                     child: SizedBox.square(
@@ -230,28 +250,26 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                         button: true,
                         child: FloatingActionButton.small(
                           heroTag: 'global-critical-alarm-launcher',
-                          backgroundColor:
-                              showUnverifiedBanner
-                                  ? BafColors.warning
-                                  : BafColors.danger,
+                          backgroundColor: showUnverifiedBanner
+                              ? BafColors.warning
+                              : BafColors.danger,
                           foregroundColor: Colors.white,
                           onPressed: _open,
-                          child:
-                              showUnverifiedBanner
-                                  ? const Badge(
-                                    label: Text('!'),
-                                    child: Icon(Icons.cloud_off_outlined),
-                                  )
-                                  : active.isEmpty
-                                  ? const Icon(
-                                    Icons.notification_important_outlined,
-                                  )
-                                  : Badge(
-                                    label: Text('${active.length}'),
-                                    child: const Icon(
-                                      Icons.notification_important,
-                                    ),
+                          child: showUnverifiedBanner
+                              ? const Badge(
+                                  label: Text('!'),
+                                  child: Icon(Icons.cloud_off_outlined),
+                                )
+                              : active.isEmpty
+                              ? const Icon(
+                                  Icons.notification_important_outlined,
+                                )
+                              : Badge(
+                                  label: Text('${active.length}'),
+                                  child: const Icon(
+                                    Icons.notification_important,
                                   ),
+                                ),
                         ),
                       ),
                     ),
@@ -269,8 +287,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _initialFeedWarningTimer = Timer(_initialFeedWarningDelay, () {
       _initialFeedWarningTimer = null;
       if (!mounted) return;
-      if (_latestAlarmActor?.isApproved == true &&
-          !_liveAlarmStateVerified) {
+      if (_latestAlarmActor?.isApproved == true && !_liveAlarmStateVerified) {
         _showUnverifiedAlarmWarningNow();
       }
     });
@@ -296,22 +313,22 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     required bool hasBanner,
   }) {
     final systemPadding = media.viewPadding;
-    final bottomObstruction =
-        media.viewInsets.bottom > systemPadding.bottom
-            ? media.viewInsets.bottom
-            : systemPadding.bottom;
+    final bottomObstruction = media.viewInsets.bottom > systemPadding.bottom
+        ? media.viewInsets.bottom
+        : systemPadding.bottom;
     final left = systemPadding.left + _launcherMargin;
     final top = systemPadding.top + _launcherMargin + (hasBanner ? 52 : 0);
-    final right = (constraints.maxWidth -
-            systemPadding.right -
-            _launcherSize -
-            _launcherMargin)
-        .clamp(left, double.infinity);
-    final bottom = (constraints.maxHeight -
-            bottomObstruction -
-            _launcherSize -
-            84)
-        .clamp(top, double.infinity);
+    final right =
+        (constraints.maxWidth -
+                systemPadding.right -
+                _launcherSize -
+                _launcherMargin)
+            .clamp(left, double.infinity);
+    final bottom =
+        (constraints.maxHeight - bottomObstruction - _launcherSize - 84).clamp(
+          top,
+          double.infinity,
+        );
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
@@ -361,12 +378,13 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   }
 
   CriticalAlarm _primary(List<CriticalAlarm> alarms) {
-    final ordered = [...alarms]..sort((left, right) {
-      final rank = left.definition.criticalityRank.compareTo(
-        right.definition.criticalityRank,
-      );
-      return rank != 0 ? rank : right.raisedAt.compareTo(left.raisedAt);
-    });
+    final ordered = [...alarms]
+      ..sort((left, right) {
+        final rank = left.definition.criticalityRank.compareTo(
+          right.definition.criticalityRank,
+        );
+        return rank != 0 ? rank : right.raisedAt.compareTo(left.raisedAt);
+      });
     return ordered.first;
   }
 
@@ -388,6 +406,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   void _reconcileNotifications(List<CriticalAlarm> alarms) {
     if (!mounted) return;
     final ringing = alarms.where((alarm) => alarm.isRinging).toList();
+    _partiallyObservedRingingAlarms.clear();
     final ringingIds = ringing.map((alarm) => alarm.id).toSet();
     _latestRingingIds = ringingIds;
     _latestRingingAlarms = {for (final alarm in ringing) alarm.id: alarm};
@@ -401,6 +420,29 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     for (final alarmId in noLongerRinging) {
       _notifiedRingingIds.remove(alarmId);
       unawaited(_alarmPlatform.cancelNotification(alarmId));
+    }
+  }
+
+  void _notifyPartiallyVerified(List<CriticalAlarm> alarms) {
+    if (!mounted) return;
+    for (final alarm in alarms) {
+      if (!alarm.isRinging) {
+        // Positive same-ID terminal evidence is safe to apply even though the
+        // rest of the population is incomplete. Never infer anything about
+        // IDs absent from this partial snapshot.
+        _partiallyObservedRingingAlarms.remove(alarm.id);
+        _latestRingingIds = {..._latestRingingIds}..remove(alarm.id);
+        _latestRingingAlarms = {..._latestRingingAlarms}..remove(alarm.id);
+        _notifiedRingingIds.remove(alarm.id);
+        unawaited(_alarmPlatform.cancelNotification(alarm.id));
+        continue;
+      }
+      // A partial snapshot may contain a genuine new alarm, but it is not a
+      // safe basis for global reconciliation or cancellation. Retain only
+      // the additions we actually observed so their notification can finish
+      // without allowing this snapshot to remove another alarm's notice.
+      _partiallyObservedRingingAlarms[alarm.id] = alarm;
+      _attemptNotification(_alarmPlatform, alarm);
     }
   }
 
@@ -418,18 +460,50 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     CriticalAlarmPlatformService platform,
     CriticalAlarm alarm,
   ) async {
-    var shown = false;
+    final originActorUid = _latestAlarmActor?.uid;
     try {
-      shown = await platform.showActiveNotification(alarm);
+      final ready = await platform.isNotificationReady();
+      if (!ready || !_canPostNotification(alarm, originActorUid)) {
+        return;
+      }
+      final shown = await platform.showActiveNotification(alarm);
+      if (!shown) return;
+      // Native posting also awaits. A newer same-ID server row may have
+      // arrived while it was in progress, even in a partial snapshot.
+      if (_canPostNotification(alarm, originActorUid)) {
+        _notifiedRingingIds.add(alarm.id);
+      } else {
+        await platform.cancelNotification(alarm.id);
+      }
     } finally {
       _notificationAttemptsInFlight.remove(alarm.id);
+      final current = _currentRingingAlarm(alarm.id);
+      if (current != null &&
+          (current.version != alarm.version ||
+              current.updatedAt != alarm.updatedAt) &&
+          _canPostNotification(current, originActorUid)) {
+        // A newer ringing revision was held back by this in-flight attempt.
+        // Give that revision its own attempt once stale posting is settled.
+        _attemptNotification(platform, current);
+      }
     }
-    if (!mounted || !shown) return;
-    if (_latestRingingIds.contains(alarm.id)) {
-      _notifiedRingingIds.add(alarm.id);
-    } else {
-      await platform.cancelNotification(alarm.id);
+  }
+
+  CriticalAlarm? _currentRingingAlarm(String alarmId) =>
+      _partiallyObservedRingingAlarms[alarmId] ?? _latestRingingAlarms[alarmId];
+
+  bool _canPostNotification(CriticalAlarm alarm, String? originActorUid) {
+    final actor = _latestAlarmActor;
+    final current = _currentRingingAlarm(alarm.id);
+    if (!mounted ||
+        originActorUid == null ||
+        actor?.uid != originActorUid ||
+        actor?.isApproved != true) {
+      return false;
     }
+    return current?.isRinging == true &&
+        current!.version == alarm.version &&
+        current.updatedAt == alarm.updatedAt;
   }
 }
 
@@ -448,9 +522,8 @@ class _LauncherModalGuard extends StatelessWidget {
     if (listenable == null) return child;
     return ValueListenableBuilder<bool>(
       valueListenable: listenable,
-      builder:
-          (context, obscured, child) =>
-              obscured ? const SizedBox.shrink() : child!,
+      builder: (context, obscured, child) =>
+          obscured ? const SizedBox.shrink() : child!,
       child: child,
     );
   }
@@ -531,8 +604,8 @@ class _UnverifiedAlarmBanner extends StatelessWidget {
                   lastKnownCount == 0
                       ? 'Critical alarm feed is not live'
                       : 'Critical alarm feed is not live - '
-                          '$lastKnownCount last-known active '
-                          '${lastKnownCount == 1 ? 'alarm' : 'alarms'}',
+                            '$lastKnownCount last-known active '
+                            '${lastKnownCount == 1 ? 'alarm' : 'alarms'}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

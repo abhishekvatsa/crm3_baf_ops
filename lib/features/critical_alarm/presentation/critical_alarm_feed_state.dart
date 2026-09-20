@@ -18,7 +18,7 @@ class CriticalAlarmFeedState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
+    child: SingleChildScrollView(
       padding: const EdgeInsets.all(BafSpacing.xl),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -41,6 +41,37 @@ class CriticalAlarmFeedState extends StatelessWidget {
             action!,
           ],
         ],
+      ),
+    ),
+  );
+}
+
+class CriticalAlarmConfigurationWarning extends StatelessWidget {
+  const CriticalAlarmConfigurationWarning({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: BafColors.warning.withValues(alpha: 0.12),
+    child: ListTile(
+      leading: const Icon(
+        Icons.warning_amber_outlined,
+        color: BafColors.warning,
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(message),
+      trailing: IconButton(
+        tooltip: 'Retry live check',
+        onPressed: onRetry,
+        icon: const Icon(Icons.refresh),
       ),
     ),
   );

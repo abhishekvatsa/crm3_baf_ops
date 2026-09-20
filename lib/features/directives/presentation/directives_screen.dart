@@ -23,6 +23,8 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import 'create_directive_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/presentation/current_actor_gate.dart';
+import '../../admin/presentation/saved_submission_review_screen.dart';
 import '../../../core/persistence/durable_submission_repository.dart';
 
 part 'directives_screen.burner_recovery.dart';
@@ -105,7 +107,50 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                   BafSpacing.xl,
                 ),
                 children: [
+                  if (!directivesAreQualified(allDirectives))
+                    const Text(
+                      'Some directives are unreadable or not server-confirmed. Valid instructions remain shown; counts are incomplete.',
+                    ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      try {
+                        final result = await OrdinaryDirectiveCommands()
+                            .checkAll();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${result.succeeded} saved changes confirmed; ${result.failed} still need attention.',
+                            ),
+                          ),
+                        );
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.maybeOf(
+                            context,
+                          )?.showSnackBar(SnackBar(content: Text('$error')));
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.sync),
+                    label: const Text('Check saved directive changes'),
+                  ),
+                  if (!kIsWeb && appUser.roles.contains(AppRole.admin))
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SavedSubmissionReviewScreen(),
+                        ),
+                      ),
+                      child: const Text('Review held saved changes'),
+                    ),
+                  if (kIsWeb && appUser.isAdmin)
+                    TextButton(
+                      onPressed: () => _reviewBrowserSaved(appUser),
+                      child: const Text('Review held browser changes'),
+                    ),
                   _DirectivesHeader(
+                    qualified: directivesAreQualified(allDirectives),
                     count: directives.length,
                     totalCount: visible.length,
                     query: _query,
@@ -115,7 +160,8 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                         : null,
                   ),
                   const SizedBox(height: BafSpacing.md),
-                  if (directives.isEmpty)
+                  if (directives.isEmpty &&
+                      directivesAreQualified(allDirectives))
                     _EmptyDirectivesState(hasSearch: _query.trim().isNotEmpty)
                   else
                     ...directives.map(
@@ -134,6 +180,123 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _reviewBrowserSaved(AppUser actor) async {
+    final owner = OrdinaryDirectiveCommands(web: true);
+    try {
+      final pending = await owner.webPendingForReview(actor);
+      if (!mounted) return;
+      if (pending.isEmpty) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('No held browser changes.')),
+        );
+        return;
+      }
+      final key = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Choose saved instruction'),
+          content: SizedBox(
+            width: 480,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final item in pending)
+                  ListTile(
+                    title: Text(item.title),
+                    onTap: () => Navigator.pop(context, item.key),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (key == null || !mounted) return;
+      final notes = TextEditingController();
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (context) => CurrentActorDialogGuard(
+          originUid: actor.uid,
+          permission: (actor) => actor.isAdmin,
+          child: AlertDialog(
+            title: const Text('Review notes'),
+            content: TextField(
+              controller: notes,
+              maxLines: 4,
+              maxLength: 1600,
+              decoration: const InputDecoration(
+                labelText: 'What did you verify?',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Back'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, notes.text),
+                child: const Text('Check server'),
+              ),
+            ],
+          ),
+        ),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => notes.dispose());
+      if (reason == null || !mounted) return;
+      final inspection = await owner.inspectWebReview(
+        actor: actor,
+        key: key,
+        reason: reason,
+      );
+      if (!mounted) return;
+      final result = inspection['result'] as Map;
+      final accepted =
+          result['observation'] == 'receiptPresent' ||
+          result['outcome'] == 'reviewedExisting';
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => CurrentActorDialogGuard(
+          originUid: actor.uid,
+          permission: (actor) => actor.isAdmin,
+          child: AlertDialog(
+            title: const Text('Finish review?'),
+            content: Text(
+              accepted
+                  ? 'The server retains an acceptance. Preserve that outcome and close this saved retry.'
+                  : 'No acceptance receipt was found. Permanently prevent this exact saved request from executing; preserve its original evidence for a fresh reviewed action.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Back'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirm reviewed closure'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirm != true) return;
+      await owner.finalizeWebReview(actor: actor, inspection: inspection);
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Review retained. Refresh the instruction before making a new change.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(
+          context,
+        )?.showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
   }
 
   void _openCreateDirective() {
@@ -182,6 +345,7 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
 }
 
 class _DirectivesHeader extends StatelessWidget {
+  final bool qualified;
   final int count;
   final int totalCount;
   final String query;
@@ -189,6 +353,7 @@ class _DirectivesHeader extends StatelessWidget {
   final VoidCallback? onCreate;
 
   const _DirectivesHeader({
+    this.qualified = true,
     required this.count,
     required this.totalCount,
     required this.query,
@@ -212,7 +377,7 @@ class _DirectivesHeader extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusBadge(
-                label: '$count active',
+                label: qualified ? '$count active' : 'Count unconfirmed',
                 color: BafColors.directives,
                 icon: Icons.flag_outlined,
               ),
@@ -238,7 +403,9 @@ class _DirectivesHeader extends StatelessWidget {
         const SizedBox(height: BafSpacing.xs),
         Text(
           query.trim().isEmpty
-              ? '$totalCount visible to your role'
+              ? (qualified
+                    ? '$totalCount visible to your role'
+                    : 'Partial or unconfirmed list')
               : '$count of $totalCount matching',
           style: const TextStyle(
             color: BafColors.textSecondary,
@@ -290,7 +457,7 @@ class _EmptyDirectivesState extends StatelessWidget {
           Text(
             hasSearch
                 ? 'No active directive matches this search.'
-                : 'All clear - no pending instructions for your role.',
+                : 'No pending instructions are currently visible for your role.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: BafColors.textSecondary,
@@ -453,6 +620,26 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                               color: BafColors.assets,
                               icon: Icons.precision_manufacturing_rounded,
                             ),
+                          StatusBadge(
+                            label: 'Priority ${directive.priority.name}',
+                            color:
+                                directive.priority == DirectivePriority.critical
+                                ? BafColors.danger
+                                : BafColors.directives,
+                            icon: Icons.priority_high_rounded,
+                          ),
+                          if (directive.component?.trim().isNotEmpty == true)
+                            StatusBadge(
+                              label: directive.component!.trim(),
+                              color: BafColors.assets,
+                              icon: Icons.build_outlined,
+                            ),
+                          if (directive.tag?.trim().isNotEmpty == true)
+                            StatusBadge(
+                              label: 'Tag ${directive.tag!.trim()}',
+                              color: BafColors.assets,
+                              icon: Icons.sell_outlined,
+                            ),
                           if (!isClosed)
                             StatusBadge(
                               label: 'Open ${_formatDuration(elapsed)}',
@@ -461,6 +648,18 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                             ),
                         ],
                       ),
+
+                      if (directive.hierarchyPath?.isNotEmpty == true) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          directive.hierarchyPath!.join(' / '),
+                          style: const TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 12,
+                            height: 1.25,
+                          ),
+                        ),
+                      ],
 
                       const SizedBox(height: 12),
                       _MetaLine(
@@ -601,7 +800,11 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         throw Exception('Directive is missing its sync identifier.');
       }
 
-      await repo.acknowledgeDirective(id, actor: appUser);
+      await repo.acknowledgeDirective(
+        id,
+        actor: appUser,
+        expectedVersion: directive.version,
+      );
 
       final outcome = kIsWeb
           ? SyncRequestOutcome.succeeded
@@ -672,9 +875,35 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     }
     if (!mounted) return;
 
+    final repo = ref.read(directiveRepositoryProvider);
+    final syncCoordinator = ref.read(syncCoordinatorProvider);
     final closure = await showDialog<_DirectiveClosureDraft>(
       context: context,
-      builder: (_) => _CloseDirectiveDialog(burnerBinding: burnerBinding),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: appUser.uid,
+        permission: (actor) => actor.isApproved,
+        child: _CloseDirectiveDialog(
+          burnerBinding: burnerBinding,
+          onSave: burnerBinding != null
+              ? null
+              : (draft) async {
+                  final id = kIsWeb ? directive.firestoreId : directive.id;
+                  if (id == null) {
+                    throw StateError('Directive identity is missing.');
+                  }
+                  await repo.closeDirective(
+                    id,
+                    actor: appUser,
+                    expectedVersion: directive.version,
+                    remarks: draft.remarks.trim().isEmpty
+                        ? null
+                        : draft.remarks.trim(),
+                    wasUnacknowledged:
+                        directive.status != DirectiveStatus.acknowledged,
+                  );
+                },
+        ),
+      ),
     );
 
     if (!mounted || closure == null) {
@@ -692,8 +921,6 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
           ? null
           : closure.remarks.trim();
 
-      final repo = ref.read(directiveRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
       final id = kIsWeb ? directive.firestoreId : directive.id;
 
       if (id == null) {
@@ -701,14 +928,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       }
 
       final conditionRecorded = burnerBinding != null;
-      if (burnerBinding == null) {
-        await repo.closeDirective(
-          id,
-          actor: appUser,
-          remarks: closureRemarks,
-          wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
-        );
-      } else {
+      if (burnerBinding != null) {
         final firestoreId = directive.firestoreId;
         if (firestoreId == null) {
           throw const BurnerConditionRoundException(
@@ -991,7 +1211,8 @@ class _DirectiveClosureDraft {
 }
 
 class _CloseDirectiveDialog extends StatefulWidget {
-  const _CloseDirectiveDialog({required this.burnerBinding});
+  const _CloseDirectiveDialog({required this.burnerBinding, this.onSave});
+  final Future<void> Function(_DirectiveClosureDraft)? onSave;
 
   final BurnerRedHotDirectiveBinding? burnerBinding;
 
@@ -1001,6 +1222,8 @@ class _CloseDirectiveDialog extends StatefulWidget {
 
 class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
   final _formKey = GlobalKey<FormState>();
+  bool _saving = false;
+  String? _saveError;
   late final TextEditingController _remarksController;
   final Map<int, BurnerDirectiveComplianceDisposition?> _dispositions = {};
 
@@ -1032,6 +1255,11 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_saveError != null)
+                  Text(
+                    _saveError!,
+                    style: const TextStyle(color: BafColors.danger),
+                  ),
                 Text(
                   widget.burnerBinding == null
                       ? 'Add a short closure note if useful for traceability.'
@@ -1092,7 +1320,7 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _saving ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
@@ -1100,19 +1328,31 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
             backgroundColor: BafColors.sync,
             foregroundColor: Colors.white,
           ),
-          onPressed: () {
-            if (!(_formKey.currentState?.validate() ?? false)) return;
-            Navigator.pop(
-              context,
-              _DirectiveClosureDraft(
-                remarks: _remarksController.text,
-                burnerDispositions: <int, BurnerDirectiveComplianceDisposition>{
-                  for (final entry in _dispositions.entries)
-                    entry.key: entry.value!,
+          onPressed: _saving
+              ? null
+              : () async {
+                  if (!(_formKey.currentState?.validate() ?? false)) return;
+                  final draft = _DirectiveClosureDraft(
+                    remarks: _remarksController.text,
+                    burnerDispositions: {
+                      for (final entry in _dispositions.entries)
+                        entry.key: entry.value!,
+                    },
+                  );
+                  setState(() => _saving = true);
+                  try {
+                    await widget.onSave?.call(draft);
+                    if (context.mounted) Navigator.pop(context, draft);
+                  } catch (error) {
+                    if (mounted) {
+                      setState(
+                        () => _saveError = '$error Your entries remain here.',
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _saving = false);
+                  }
                 },
-              ),
-            );
-          },
           child: const Text('Close'),
         ),
       ],

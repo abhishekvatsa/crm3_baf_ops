@@ -52,9 +52,7 @@ List<T> decodeSnapshotDocuments<T>(
   void Function(String documentId, Object error)? onQuarantined,
 }) {
   return decodeDocuments(
-    snapshot.docs.map(
-      (doc) => (id: doc.id, data: doc.data()),
-    ),
+    snapshot.docs.map((doc) => (id: doc.id, data: doc.data())),
     decode,
     source: source,
     onQuarantined: onQuarantined,
@@ -89,6 +87,72 @@ List<T> decodeDocuments<T>(
   // unmodifiable list would turn this into a runtime failure at every one of
   // those sites. Callers that publish the list wrap it themselves.
   return records;
+}
+
+/// A decoded batch that can say how complete it is.
+///
+/// [decodeSnapshotDocuments] returns a plain list, which cannot tell a short
+/// list from a complete one. Where absence changes a decision rather than a
+/// display - a due-state population whose headline says nothing is overdue,
+/// for instance - the caller has to be able to say "and these rows could not
+/// be read". This is that batch.
+class DecodedSnapshotBatch<T> {
+  const DecodedSnapshotBatch({
+    required this.records,
+    required this.rejectedDocumentIds,
+    this.isFromCache = false,
+    this.hasPendingWrites = false,
+  });
+
+  /// The rows that decoded.
+  final List<T> records;
+
+  /// The documents that did not, by identity, so support can go and look.
+  final List<String> rejectedDocumentIds;
+
+  /// Decoding every cached row does not prove that a missing server row is
+  /// absent. Consumers that infer vacancy must also check [isServerConfirmed].
+  final bool isFromCache;
+  final bool hasPendingWrites;
+
+  bool get isServerConfirmed => !isFromCache && !hasPendingWrites;
+
+  /// Whether every document in the snapshot is represented in [records].
+  bool get isComplete => rejectedDocumentIds.isEmpty;
+
+  /// How many documents the snapshot held, readable or not.
+  int get rawCount => records.length + rejectedDocumentIds.length;
+}
+
+/// Decodes a snapshot into a batch that carries its own completeness.
+///
+/// Use this, not [decodeSnapshotDocuments], wherever a count or an empty list
+/// would be read as a statement about the world rather than as what happened
+/// to decode.
+DecodedSnapshotBatch<T> decodeSnapshotBatch<T>(
+  QuerySnapshot<Map<String, dynamic>> snapshot,
+  T Function(Map<String, dynamic> data, String documentId) decode, {
+  required String source,
+}) {
+  final rejected = <String>[];
+  final records = decodeSnapshotDocuments(
+    snapshot,
+    decode,
+    source: source,
+    onQuarantined: (documentId, error) {
+      rejected.add(documentId);
+      debugPrint(
+        'Quarantined malformed $source document $documentId: $error. '
+        'The batch reports itself as incomplete.',
+      );
+    },
+  );
+  return DecodedSnapshotBatch<T>(
+    records: records,
+    rejectedDocumentIds: List.unmodifiable(rejected),
+    isFromCache: snapshot.metadata.isFromCache,
+    hasPendingWrites: snapshot.metadata.hasPendingWrites,
+  );
 }
 
 /// How many documents this process has quarantined since start.

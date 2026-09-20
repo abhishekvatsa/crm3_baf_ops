@@ -3,8 +3,13 @@ part of 'inner_cover_lifecycle_screen.dart';
 class _PairingSelection {
   final InnerCoverProfile cover;
   final String reason;
+  final DateTime? physicalEventAt;
 
-  const _PairingSelection({required this.cover, required this.reason});
+  const _PairingSelection({
+    required this.cover,
+    required this.reason,
+    this.physicalEventAt,
+  });
 }
 
 class _PairingDialog extends StatefulWidget {
@@ -35,6 +40,7 @@ class _PairingDialogState extends State<_PairingDialog> {
   late InnerCoverProfile _selected = _candidates.first;
   final _search = TextEditingController();
   final _reason = TextEditingController();
+  DateTime _physicalEventAt = DateTime.now();
 
   @override
   void dispose() {
@@ -46,15 +52,15 @@ class _PairingDialogState extends State<_PairingDialog> {
   @override
   Widget build(BuildContext context) {
     final title = widget.current == null
-            ? 'Link to Base ${widget.base.assetNumber}'
-            : 'Change cover on Base ${widget.base.assetNumber}';
+        ? 'Link to Base ${widget.base.assetNumber}'
+        : 'Change cover on Base ${widget.base.assetNumber}';
     final query = _search.text.trim().toLowerCase();
     final filtered = _candidates.where((cover) {
-          if (query.isEmpty) return true;
-          return cover.serialNumber.toLowerCase().contains(query) ||
-              '${cover.currentBaseAssetNumber ?? ''}'.contains(query) ||
-              cover.lifecycleState.label.toLowerCase().contains(query);
-        }).toList();
+      if (query.isEmpty) return true;
+      return cover.serialNumber.toLowerCase().contains(query) ||
+          '${cover.currentBaseAssetNumber ?? ''}'.contains(query) ||
+          cover.lifecycleState.label.toLowerCase().contains(query);
+    }).toList();
     return AlertDialog(
       title: Text(title),
       content: SizedBox(
@@ -75,55 +81,55 @@ class _PairingDialogState extends State<_PairingDialog> {
                   labelText: 'Find Inner Cover',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _search.text.isEmpty
-                          ? null
-                          : IconButton(
-                            tooltip: 'Clear search',
-                            onPressed: () {
-                              _search.clear();
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.clear_rounded),
-                          ),
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _search.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.clear_rounded),
+                        ),
                 ),
               ),
               const SizedBox(height: BafSpacing.sm),
               Flexible(
                 child: filtered.isEmpty
-                        ? const Center(
-                          child: Text(
-                            'No Inner Cover matches this search.',
-                            style: TextStyle(color: BafColors.textSecondary),
-                          ),
-                        )
-                        : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final cover = filtered[index];
-                            final selected = cover.id == _selected.id;
-                            return ListTile(
-                              dense: true,
-                              selected: selected,
-                              leading: Icon(
-                                selected
-                                    ? Icons.radio_button_checked_rounded
-                                    : Icons.radio_button_unchecked_rounded,
-                              ),
-                              title: Text(
-                                cover.serialNumber,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              subtitle: Text(
-                                cover.isInstalled
-                                    ? 'Currently on Base ${cover.currentBaseAssetNumber}'
-                                    : 'Available for assignment',
-                              ),
-                              onTap: () => setState(() => _selected = cover),
-                            );
-                          },
+                    ? const Center(
+                        child: Text(
+                          'No Inner Cover matches this search.',
+                          style: TextStyle(color: BafColors.textSecondary),
                         ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final cover = filtered[index];
+                          final selected = cover.id == _selected.id;
+                          return ListTile(
+                            dense: true,
+                            selected: selected,
+                            leading: Icon(
+                              selected
+                                  ? Icons.radio_button_checked_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                            ),
+                            title: Text(
+                              cover.serialNumber,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle: Text(
+                              cover.isInstalled
+                                  ? 'Currently on Base ${cover.currentBaseAssetNumber}'
+                                  : 'Available for assignment',
+                            ),
+                            onTap: () => setState(() => _selected = cover),
+                          );
+                        },
+                      ),
               ),
               if (_selected.isInstalled)
                 const Padding(
@@ -133,6 +139,15 @@ class _PairingDialogState extends State<_PairingDialog> {
                     style: TextStyle(color: BafColors.warning),
                   ),
                 ),
+              if (widget.current != null && _selected.isAvailable) ...[
+                const SizedBox(height: BafSpacing.md),
+                _PhysicalEventDateTimeField(
+                  value: _physicalEventAt,
+                  onChanged: (value) => setState(() {
+                    _physicalEventAt = value;
+                  }),
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
               TextField(
                 controller: _reason,
@@ -157,7 +172,13 @@ class _PairingDialogState extends State<_PairingDialog> {
             if (reason.isEmpty) return;
             Navigator.pop(
               context,
-              _PairingSelection(cover: _selected, reason: reason),
+              _PairingSelection(
+                cover: _selected,
+                reason: reason,
+                physicalEventAt: widget.current != null && _selected.isAvailable
+                    ? _physicalEventAt
+                    : null,
+              ),
             );
           },
           child: Text(widget.current == null ? 'Link' : 'Confirm change'),
@@ -170,8 +191,13 @@ class _PairingDialogState extends State<_PairingDialog> {
 class _BaseAssignmentSelection {
   final AssetInstanceRecord base;
   final String reason;
+  final DateTime? physicalEventAt;
 
-  const _BaseAssignmentSelection({required this.base, required this.reason});
+  const _BaseAssignmentSelection({
+    required this.base,
+    required this.reason,
+    this.physicalEventAt,
+  });
 }
 
 class _BaseAssignmentDialog extends StatefulWidget {
@@ -192,6 +218,7 @@ class _BaseAssignmentDialog extends StatefulWidget {
 class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
   final _search = TextEditingController();
   final _reason = TextEditingController();
+  DateTime _physicalEventAt = DateTime.now();
   AssetInstanceRecord? _selected;
   late bool _showOccupied = widget.bases.every(
     (base) => widget.assignments.containsKey(base.id),
@@ -208,22 +235,22 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
     final vacantCount = widget.bases
-            .where((base) => !widget.assignments.containsKey(base.id))
-            .length;
+        .where((base) => !widget.assignments.containsKey(base.id))
+        .length;
     final filtered =
         widget.bases.where((base) {
-            final assignment = widget.assignments[base.id];
-            if (!_showOccupied && assignment != null) return false;
-            if (query.isEmpty) return true;
-            return '${base.assetNumber}'.contains(query) ||
-                base.name.toLowerCase().contains(query) ||
-                (assignment?.innerCoverSerialNumber.toLowerCase().contains(
-                      query,
-                    ) ??
-                    false);
+          final assignment = widget.assignments[base.id];
+          if (!_showOccupied && assignment != null) return false;
+          if (query.isEmpty) return true;
+          return '${base.assetNumber}'.contains(query) ||
+              base.name.toLowerCase().contains(query) ||
+              (assignment?.innerCoverSerialNumber.toLowerCase().contains(
+                    query,
+                  ) ??
+                  false);
         }).toList()..sort(
-            (left, right) => left.assetNumber.compareTo(right.assetNumber),
-          );
+          (left, right) => left.assetNumber.compareTo(right.assetNumber),
+        );
     final selectedAssignment = _selected == null
         ? null
         : widget.assignments[_selected!.id];
@@ -249,15 +276,15 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                   labelText: 'Find Base number',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _search.text.isEmpty
-                          ? null
-                          : IconButton(
-                            tooltip: 'Clear search',
-                            onPressed: () {
-                              _search.clear();
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.clear_rounded),
-                          ),
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _search.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.clear_rounded),
+                        ),
                 ),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -268,12 +295,12 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                     label: Text('Vacant $vacantCount'),
                     selected: !_showOccupied,
                     onSelected: (_) => setState(() {
-                          _showOccupied = false;
-                          if (_selected != null &&
-                              widget.assignments.containsKey(_selected!.id)) {
-                            _selected = null;
-                          }
-                        }),
+                      _showOccupied = false;
+                      if (_selected != null &&
+                          widget.assignments.containsKey(_selected!.id)) {
+                        _selected = null;
+                      }
+                    }),
                   ),
                   ChoiceChip(
                     label: Text('All ${widget.bases.length}'),
@@ -285,42 +312,42 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
               const SizedBox(height: BafSpacing.sm),
               Flexible(
                 child: filtered.isEmpty
-                        ? const Center(
-                          child: Text(
-                            'No Base matches this search and filter.',
-                            style: TextStyle(color: BafColors.textSecondary),
-                          ),
-                        )
-                        : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final base = filtered[index];
-                            final assignment = widget.assignments[base.id];
-                            final selected = _selected?.id == base.id;
-                            return ListTile(
-                              dense: true,
-                              selected: selected,
-                              leading: Icon(
-                                selected
-                                    ? Icons.radio_button_checked_rounded
-                                    : Icons.radio_button_unchecked_rounded,
-                              ),
-                              title: Text(
-                                'Base ${base.assetNumber}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              subtitle: Text(
-                                assignment == null
-                                    ? 'Vacant'
-                                    : 'Inner Cover ${assignment.innerCoverSerialNumber} installed',
-                              ),
-                              onTap: () => setState(() => _selected = base),
-                            );
-                          },
+                    ? const Center(
+                        child: Text(
+                          'No Base matches this search and filter.',
+                          style: TextStyle(color: BafColors.textSecondary),
                         ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final base = filtered[index];
+                          final assignment = widget.assignments[base.id];
+                          final selected = _selected?.id == base.id;
+                          return ListTile(
+                            dense: true,
+                            selected: selected,
+                            leading: Icon(
+                              selected
+                                  ? Icons.radio_button_checked_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                            ),
+                            title: Text(
+                              'Base ${base.assetNumber}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle: Text(
+                              assignment == null
+                                  ? 'Vacant'
+                                  : 'Inner Cover ${assignment.innerCoverSerialNumber} installed',
+                            ),
+                            onTap: () => setState(() => _selected = base),
+                          );
+                        },
+                      ),
               ),
               if (selectedAssignment != null)
                 Padding(
@@ -330,6 +357,15 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                     style: const TextStyle(color: BafColors.warning),
                   ),
                 ),
+              if (selectedAssignment != null) ...[
+                const SizedBox(height: BafSpacing.md),
+                _PhysicalEventDateTimeField(
+                  value: _physicalEventAt,
+                  onChanged: (value) => setState(() {
+                    _physicalEventAt = value;
+                  }),
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
               TextField(
                 controller: _reason,
@@ -351,14 +387,17 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
         ),
         FilledButton(
           onPressed: canSubmit
-                  ? () => Navigator.pop(
-                    context,
-                    _BaseAssignmentSelection(
-                      base: _selected!,
-                      reason: _reason.text.trim(),
-                    ),
-                  )
-                  : null,
+              ? () => Navigator.pop(
+                  context,
+                  _BaseAssignmentSelection(
+                    base: _selected!,
+                    reason: _reason.text.trim(),
+                    physicalEventAt: selectedAssignment == null
+                        ? null
+                        : _physicalEventAt,
+                  ),
+                )
+              : null,
           child: Text(selectedAssignment == null ? 'Assign' : 'Replace'),
         ),
       ],
@@ -370,12 +409,69 @@ class _StateReasonResult {
   final InnerCoverLifecycleState state;
   final InnerCoverRetirementCondition? retirementCondition;
   final String reason;
+  final DateTime physicalEventAt;
 
   const _StateReasonResult({
     required this.state,
     required this.retirementCondition,
     required this.reason,
+    required this.physicalEventAt,
   });
+}
+
+class _PhysicalEventDateTimeField extends StatelessWidget {
+  final DateTime value;
+  final ValueChanged<DateTime> onChanged;
+
+  const _PhysicalEventDateTimeField({
+    required this.value,
+    required this.onChanged,
+  });
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: value.isAfter(now) ? now : value,
+      firstDate: DateTime(1900),
+      lastDate: now,
+      helpText: 'When did the physical change happen?',
+    );
+    if (date == null || !context.mounted) return;
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(value),
+      helpText: 'Physical event time',
+    );
+    if (selectedTime == null || !context.mounted) return;
+    final selected = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+    onChanged(selected.isAfter(now) ? now : selected);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      OutlinedButton.icon(
+        onPressed: () => _pick(context),
+        icon: const Icon(Icons.event_available_rounded),
+        label: Text(
+          'Physical event: ${DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal())}',
+        ),
+      ),
+      const SizedBox(height: BafSpacing.xs),
+      const Text(
+        'Use when the physical change happened, not when it was recorded.',
+        style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
+      ),
+    ],
+  );
 }
 
 class _StateReasonDialog extends StatefulWidget {
@@ -401,6 +497,7 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
   late InnerCoverLifecycleState _state = widget.initialState;
   InnerCoverRetirementCondition? _retirementCondition;
   final _reason = TextEditingController();
+  DateTime _physicalEventAt = DateTime.now();
 
   @override
   void dispose() {
@@ -418,62 +515,73 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
     title: Text(widget.title),
     content: SizedBox(
       width: 420,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.supportingText != null) ...[
-            Text(
-              widget.supportingText!,
-              style: const TextStyle(color: BafColors.textSecondary),
-            ),
-            const SizedBox(height: BafSpacing.md),
-          ],
-          DropdownButtonFormField<InnerCoverLifecycleState>(
-            initialValue: _state,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Resulting state'),
-            items: widget.states
-                    .map(
-                  (state) =>
-                      DropdownMenuItem(value: state, child: Text(state.label)),
-                    )
-                    .toList(),
-            onChanged: (value) => setState(() {
-                  _state = value ?? _state;
-                  if (!_needsRetirementCondition) {
-                    _retirementCondition = null;
-                  }
-                }),
-          ),
-          if (_needsRetirementCondition) ...[
-            const SizedBox(height: BafSpacing.md),
-            DropdownButtonFormField<InnerCoverRetirementCondition>(
-              initialValue: _retirementCondition,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Condition recorded at retirement',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.supportingText != null) ...[
+              Text(
+                widget.supportingText!,
+                style: const TextStyle(color: BafColors.textSecondary),
               ),
-              items: [
-                for (final condition in InnerCoverRetirementCondition.values)
-                  DropdownMenuItem(
-                    value: condition,
-                    child: Text(condition.label),
-                  ),
-              ],
-              onChanged: (value) =>
-                  setState(() => _retirementCondition = value),
+              const SizedBox(height: BafSpacing.md),
+            ],
+            DropdownButtonFormField<InnerCoverLifecycleState>(
+              initialValue: _state,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Resulting state'),
+              items: widget.states
+                  .map(
+                    (state) => DropdownMenuItem(
+                      value: state,
+                      child: Text(state.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _state = value ?? _state;
+                if (!_needsRetirementCondition) {
+                  _retirementCondition = null;
+                }
+              }),
+            ),
+            if (_needsRetirementCondition) ...[
+              const SizedBox(height: BafSpacing.md),
+              DropdownButtonFormField<InnerCoverRetirementCondition>(
+                initialValue: _retirementCondition,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Condition recorded at retirement',
+                ),
+                items: [
+                  for (final condition in InnerCoverRetirementCondition.values)
+                    DropdownMenuItem(
+                      value: condition,
+                      child: Text(condition.label),
+                    ),
+                ],
+                onChanged: (value) =>
+                    setState(() => _retirementCondition = value),
+              ),
+            ],
+            const SizedBox(height: BafSpacing.md),
+            _PhysicalEventDateTimeField(
+              value: _physicalEventAt,
+              onChanged: (value) => setState(() {
+                _physicalEventAt = value;
+              }),
+            ),
+            const SizedBox(height: BafSpacing.md),
+            TextField(
+              controller: _reason,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                alignLabelWithHint: true,
+              ),
             ),
           ],
-          const SizedBox(height: BafSpacing.md),
-          TextField(
-            controller: _reason,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Reason',
-              alignLabelWithHint: true,
-            ),
-          ),
-        ],
+        ),
       ),
     ),
     actions: [
@@ -494,6 +602,7 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
               state: _state,
               retirementCondition: _retirementCondition,
               reason: reason,
+              physicalEventAt: _physicalEventAt,
             ),
           );
         },
@@ -589,25 +698,25 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   @override
   Widget build(BuildContext context) {
     final donors = widget.profiles
-            .where(
-              (cover) => const {
-                InnerCoverLifecycleState.retiredForSalvage,
-                InnerCoverLifecycleState.partiallyDismantled,
-              }.contains(cover.lifecycleState),
-            )
-            .toList();
+        .where(
+          (cover) => const {
+            InnerCoverLifecycleState.retiredForSalvage,
+            InnerCoverLifecycleState.partiallyDismantled,
+          }.contains(cover.lifecycleState),
+        )
+        .toList();
     final compact = MediaQuery.sizeOf(context).width < 600;
     final form = SingleChildScrollView(
       controller: _scrollController,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: compact
-              ? const EdgeInsets.fromLTRB(
-                BafSpacing.lg,
-                BafSpacing.lg,
-                BafSpacing.lg,
-                BafSpacing.xl,
-              )
-              : EdgeInsets.zero,
+          ? const EdgeInsets.fromLTRB(
+              BafSpacing.lg,
+              BafSpacing.lg,
+              BafSpacing.lg,
+              BafSpacing.xl,
+            )
+          : EdgeInsets.zero,
       child: _buildForm(donors),
     );
 
@@ -668,16 +777,16 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 labelText: 'Registration route',
               ),
               items: InnerCoverOriginClassification.values
-                      .map(
-                        (origin) => DropdownMenuItem(
-                          value: origin,
-                          child: Text(
-                            origin.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
+                  .map(
+                    (origin) => DropdownMenuItem(
+                      value: origin,
+                      child: Text(
+                        origin.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: _changeOrigin,
             ),
             const SizedBox(height: BafSpacing.md),
@@ -686,8 +795,8 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               textCapitalization: TextCapitalization.characters,
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {
-                    _serialError = null;
-                  }),
+                _serialError = null;
+              }),
               decoration: InputDecoration(
                 labelText: 'Inner Cover serial number',
                 hintText: 'For example, GR4 or N16',
@@ -714,9 +823,9 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 clearTooltip: 'Clear historical date',
                 chooseTooltip: 'Choose historical date',
                 onClear: () => setState(() {
-                      _receivedOrCompletedOn = null;
-                      _dateError = null;
-                    }),
+                  _receivedOrCompletedOn = null;
+                  _dateError = null;
+                }),
                 onChoose: _pickReceivedOrCompletedDate,
               ),
               second: InnerCoverRegistrationDateField(
@@ -727,9 +836,9 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                 clearTooltip: 'Clear incorporation date',
                 chooseTooltip: 'Choose incorporation date',
                 onClear: () => setState(() {
-                      _incorporatedOn = null;
-                      _dateError = null;
-                    }),
+                  _incorporatedOn = null;
+                  _dateError = null;
+                }),
                 onChoose: _pickIncorporationDate,
               ),
             ),
@@ -786,8 +895,8 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                   state: state,
                   donors: donors,
                   onChanged: () => setState(() {
-                        _sectionsError = null;
-                      }),
+                    _sectionsError = null;
+                  }),
                 ),
               ),
             ],
@@ -820,8 +929,8 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               onChanged: (_) => setState(() {
-                    _reasonError = null;
-                  }),
+                _reasonError = null;
+              }),
               decoration: InputDecoration(
                 labelText: 'Registration reason',
                 helperText: 'Required for the audit trail',
@@ -865,14 +974,19 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     }
 
     final sections = _isFabricatedOrigin
-            ? _sections.values.map((state) => state.toDraft()).toList()
-            : const <InnerCoverFabricationSectionDraft>[];
+        ? _sections.values.map((state) => state.toDraft()).toList()
+        : const <InnerCoverFabricationSectionDraft>[];
     final sectionErrors = sections
         .expand((section) => section.validate())
         .toList(growable: false);
+    final rawSectionErrors = _isFabricatedOrigin
+        ? _sections.values
+              .expand((state) => state.rawValidationErrors())
+              .toList(growable: false)
+        : const <String>[];
     final serialError = normalizeInnerCoverSerial(serial).length < 2
-            ? 'Enter an Inner Cover serial number.'
-            : null;
+        ? 'Enter an Inner Cover serial number.'
+        : null;
     final reasonError = reason.isEmpty ? 'Explain the registration.' : null;
     final dateError = innerCoverRegistrationChronologyError(
       receivedOrCompletedOn: _receivedOrCompletedOn,
@@ -881,21 +995,24 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     if (serialError != null ||
         reasonError != null ||
         sectionErrors.isNotEmpty ||
+        rawSectionErrors.isNotEmpty ||
         dateError != null) {
       final errorSection = serialError != null
-              ? _identityKey
-              : dateError != null
-              ? _timelineKey
-              : sectionErrors.isNotEmpty
-              ? _fabricationKey
-              : _recordKey;
+          ? _identityKey
+          : dateError != null
+          ? _timelineKey
+          : sectionErrors.isNotEmpty || rawSectionErrors.isNotEmpty
+          ? _fabricationKey
+          : _recordKey;
       setState(() {
         _serialError = serialError;
         _reasonError = reasonError;
         _dateError = dateError;
-        _sectionsError = sectionErrors.isEmpty
-                ? null
-                : 'Complete the fabrication evidence: ${sectionErrors.first}';
+        _sectionsError = rawSectionErrors.isNotEmpty
+            ? rawSectionErrors.first
+            : sectionErrors.isEmpty
+            ? null
+            : 'Complete the fabrication evidence: ${sectionErrors.first}';
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final targetContext = errorSection.currentContext;
@@ -1030,15 +1147,15 @@ String _supplierLabel(InnerCoverOriginClassification origin) =>
     switch (origin) {
       InnerCoverOriginClassification.documentedPurchase =>
         'Supplier (optional)',
-  InnerCoverOriginClassification.documentedFabrication =>
-    'Fabricator / shop (optional)',
-  InnerCoverOriginClassification.ownerDeclaredNew =>
-    'Known supplier / source (optional)',
-  InnerCoverOriginClassification.ownerDeclaredFabricated =>
-    'Known fabricator / shop (optional)',
-  InnerCoverOriginClassification.legacyUndocumented =>
-    'Known supplier / fabricator (optional)',
-};
+      InnerCoverOriginClassification.documentedFabrication =>
+        'Fabricator / shop (optional)',
+      InnerCoverOriginClassification.ownerDeclaredNew =>
+        'Known supplier / source (optional)',
+      InnerCoverOriginClassification.ownerDeclaredFabricated =>
+        'Known fabricator / shop (optional)',
+      InnerCoverOriginClassification.legacyUndocumented =>
+        'Known supplier / fabricator (optional)',
+    };
 
 IconData _originIcon(InnerCoverOriginClassification origin) => switch (origin) {
   InnerCoverOriginClassification.documentedPurchase =>

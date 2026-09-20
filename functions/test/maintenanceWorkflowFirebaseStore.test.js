@@ -7,6 +7,7 @@ afterAll(async () => {
 const {
   workflowFirestoreDataForTest,
 } = require('../lib/maintenanceWorkflow/firebaseStore');
+const {maintenanceAuditDigest} = require('../lib/maintenanceWorkflow/ticketAcceptanceEvidence');
 const {
   maintenanceProjectionForAwaitingConfirmation,
   maintenanceProjectionForCorrection,
@@ -23,6 +24,28 @@ const {
 } = require('../lib/maintenanceWorkflow/inspectionPopulation');
 
 describe('maintenance workflow Firestore persistence adapter', () => {
+  test('accepted maintenance audit digest survives native timestamp storage without ignoring immutable evidence', () => {
+    const audit = {schemaVersion: 1, auditId: 'accepted-audit', timestamp: '2026-08-14T17:00:00.123Z',
+      performedByUid: 'admin1', performedByName: 'Administrator',
+      beforeJson: JSON.stringify({description: 'Original evidence', version: 1}),
+      afterJson: JSON.stringify({description: 'Accepted evidence', version: 2, actionsJson: JSON.stringify([
+        {id: 'action-1', description: 'Inspected safely', performedAt: '2026-08-14T16:59:00.000Z'},
+      ])})};
+    const expected = maintenanceAuditDigest(audit);
+    const stored = workflowFirestoreDataForTest(audit);
+    expect(stored.timestamp).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(maintenanceAuditDigest(stored)).toBe(expected);
+    expect(maintenanceAuditDigest({...audit, timestamp: new Date(audit.timestamp)})).toBe(expected);
+    for (const changed of [
+      {...stored, timestamp: admin.firestore.Timestamp.fromMillis(stored.timestamp.toMillis() + 1)},
+      {...stored, timestamp: new admin.firestore.Timestamp(stored.timestamp.seconds, stored.timestamp.nanoseconds + 1)},
+      {...stored, performedByName: 'Other administrator'},
+      {...stored, beforeJson: JSON.stringify({description: 'Changed original evidence', version: 1})},
+      {...stored, afterJson: JSON.stringify({...JSON.parse(audit.afterJson), description: 'Changed acceptance'})},
+      {...stored, afterJson: JSON.stringify({...JSON.parse(audit.afterJson), actionsJson: '[]'})},
+    ]) expect(maintenanceAuditDigest(changed)).not.toBe(expected);
+  });
+
   test('converts all lifecycle deadline fields from ISO instants to Timestamp', () => {
     const iso = '2026-07-21T12:34:56.789Z';
     const converted = workflowFirestoreDataForTest({
@@ -186,7 +209,12 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     const existing = admin.firestore.Timestamp.fromDate(new Date('2026-07-19T00:00:00.000Z'));
     const at = '2026-07-21T03:00:00.000Z';
     const projection = equipmentProjectionWrite(
-      {state: 'inService', inServiceSince: existing, version: 7},
+      {
+        state: 'inService',
+        inServiceSince: existing,
+        lastTransitionAt: existing,
+        version: 7,
+      },
       {activeNonRedMaintenanceCount: 0, activeRedWorkCount: 0, awaitingPreparationCount: 0},
       {state: 'inService', conflicts: [], counts: {}},
       {assetTypeKey: 'furnace', assetNumber: 7, trigger: 'reconcile', at, actorUid: 'admin-1', actorName: 'Admin'},
@@ -194,7 +222,7 @@ describe('maintenance workflow Firestore persistence adapter', () => {
 
     const converted = workflowFirestoreDataForTest(projection);
     expect(converted.inServiceSince).toBe(existing);
-    expect(converted.lastTransitionAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(converted.lastTransitionAt).toBe(existing);
     expect(converted.updatedAt).toBeInstanceOf(admin.firestore.Timestamp);
   });
 

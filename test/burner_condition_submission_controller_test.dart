@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/features/assets/services/burner_condition_submission_controller.dart';
@@ -31,6 +32,7 @@ void main() {
   var probeCount = 0;
   bool lose = false;
   bool malformed = false;
+  Object? refusal;
   Future<void> Function()? probe;
   Future<void> Function()? responseHook;
 
@@ -97,6 +99,7 @@ void main() {
         sent.add(jsonDecode(jsonEncode(envelope)) as Map<String, dynamic>);
         final request = envelope['request'] as Map;
         final id = request['requestId'] as String;
+        if (refusal != null) throw refusal!;
         final receipt = receipts.putIfAbsent(
           id,
           () => {
@@ -153,6 +156,7 @@ void main() {
     probeCount = 0;
     lose = false;
     malformed = false;
+    refusal = null;
     probe = null;
     responseHook = null;
     await open();
@@ -163,6 +167,66 @@ void main() {
       directory.deleteSync();
     }
   });
+
+  test(
+    'proven precommit refusal releases the original slot but retains its envelope',
+    () async {
+      refusal = FirebaseFunctionsException(
+        code: 'aborted',
+        message: 'Current installation changed.',
+        details: const {
+          'reasonCode': 'burner-condition-round-installation-basis-mismatch',
+        },
+      );
+      await expectLater(
+        submit(),
+        throwsA(
+          isA<BurnerConditionRoundException>().having(
+            (e) => e.definitiveRefusal,
+            'definitive refusal',
+            true,
+          ),
+        ),
+      );
+      final id = (sent.single['request'] as Map)['requestId'] as String;
+      final saved = (await store.read(id))!;
+      expect(saved.state, DurableSubmissionState.rejected);
+      expect(saved.envelopeJson, contains('Original entry'));
+      expect(await controller.pending(), isEmpty);
+      expect(receipts, isEmpty);
+      refusal = null;
+      await submit();
+      expect((sent.last['request'] as Map)['requestId'], isNot(id));
+      expect(receipts.length, 1);
+    },
+  );
+
+  test(
+    'an unrecognized aborted outcome cannot release the original request',
+    () async {
+      refusal = FirebaseFunctionsException(
+        code: 'aborted',
+        message: 'Unknown failure',
+        details: const {'reasonCode': 'unknown'},
+      );
+      await expectLater(
+        submit(),
+        throwsA(
+          isA<BurnerConditionRoundException>().having(
+            (e) => e.definitiveRefusal,
+            'definitive refusal',
+            false,
+          ),
+        ),
+      );
+      expect(
+        (await controller.pending()).single.state,
+        DurableSubmissionState.uncertain,
+      );
+      await expectLater(submit(), throwsA(isA<DurableSubmissionException>()));
+      expect(sent.length, 1);
+    },
+  );
 
   test(
     'lost response restores full original round after native reopen without creating a second action',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/core/services/saved_submission_review_service.dart';
@@ -21,14 +22,21 @@ class _Auth extends Fake implements FirebaseAuth {
   User get currentUser => _User();
 }
 
-DurableSubmission _row() => DurableSubmission(
+DurableSubmission _row({
+  String resourceKey = 'morningReview:admin',
+  String operation = 'START_MORNING_REVIEW',
+}) => DurableSubmission(
   submissionId: 'saved',
   actorUid: 'admin',
   requestId: 'saved',
   aggregateId: 'saved',
-  resourceKey: 'morningReview:admin',
+  resourceKey: resourceKey,
   protocol: 'assetHierarchy.v2',
-  envelopeJson: '{}',
+  envelopeJson: jsonEncode({
+    'protocolVersion': 2,
+    'originActorUid': 'admin',
+    'request': {'requestId': 'saved', 'operation': operation},
+  }),
   displayMetadataJson: null,
   state: DurableSubmissionState.uncertain,
   attemptCount: 1,
@@ -49,8 +57,9 @@ class _Review extends Fake implements SavedSubmissionReviewService {
   int inspections = 0;
   int finalizations = 0;
   bool present = true;
+  List<DurableSubmission> rows = [_row()];
   @override
-  Future<List<DurableSubmission>> list() async => [_row()];
+  Future<List<DurableSubmission>> list() async => rows;
   @override
   Future<SavedSubmissionReviewInspection> inspect(
     DurableSubmission row,
@@ -179,5 +188,49 @@ void main() {
     expect(find.textContaining('PRIVATE BUSINESS RESULT'), findsNothing);
     expect(find.text('Record review and close hold'), findsNothing);
     expect(service.finalizations, 0);
+  });
+
+  for (final entry in {
+    'assetRegistry:pending': 'Asset registry',
+    'innerCoverLifecycle:cover-a': 'Inner Cover lifecycle',
+    'burnerBlockCorrection:event-a': 'Burner block correction',
+    'workflowModuleReopen:module-a': 'Work reopening',
+    'criticalAlarm:alarm-a': 'Critical alarm',
+    'userAuthority:actor-a': 'User authority',
+  }.entries) {
+    testWidgets('${entry.value} retains evidence without unsupported review', (
+      tester,
+    ) async {
+      service.rows = [_row(resourceKey: entry.key)];
+      await show(tester);
+      await tester.tap(find.text(entry.value));
+      await tester.pumpAndSettle();
+      expect(find.text('Review this request'), findsNothing);
+      expect(
+        find.textContaining('Administrative review does not support'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('original approved account'), findsOneWidget);
+      await tester.tap(find.text('Original saved evidence'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"requestId":"saved"'), findsOneWidget);
+      expect(service.inspections, 0);
+      expect(service.finalizations, 0);
+    });
+  }
+
+  testWidgets('a shared review family does not admit another operation', (
+    tester,
+  ) async {
+    service.rows = [_row(operation: 'UNSUPPORTED_MORNING_REVIEW_ACTION')];
+    await show(tester);
+    await tester.tap(find.text('Morning Review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review this request'), findsNothing);
+    expect(
+      find.textContaining('Administrative review does not support'),
+      findsOneWidget,
+    );
+    expect(service.inspections, 0);
   });
 }

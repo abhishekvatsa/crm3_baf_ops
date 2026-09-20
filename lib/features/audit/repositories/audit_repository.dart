@@ -164,6 +164,33 @@ class AuditRepository {
     }
   }
 
+  /// Return the complete audit population for one entity type.
+  ///
+  /// A recent-events query is appropriate for the general timeline, but it is
+  /// not sufficient for a governed catalogue or other administrative view:
+  /// older revisions must remain discoverable even when they are no longer in
+  /// the most recent global window. The remote side is paged until exhausted;
+  /// local unsynced events are merged on mobile so a pending event is not
+  /// hidden merely because its remote copy is absent.
+  Future<List<AuditEvent>> getAllEventsForEntityType(String entityType) async {
+    final local = kIsWeb
+        ? const <AuditEvent>[]
+        : await isar.auditEvents
+              .filter()
+              .entityTypeEqualTo(entityType)
+              .sortByTimestampDesc()
+              .findAll();
+
+    try {
+      final remote = await _getAllRemoteEventsForEntityType(entityType);
+      return _mergeAuditEvents(local, remote);
+    } on PersistedDataFormatException {
+      rethrow;
+    } catch (_) {
+      rethrow; // A governed timeline must not claim completeness from local-only history.
+    }
+  }
+
   Future<List<AuditEvent>> getRecentLocalEvents({int limit = 100}) async {
     if (kIsWeb) {
       return getRecentRemoteEvents(limit: limit);
@@ -514,6 +541,33 @@ class AuditRepository {
         break;
       }
 
+      startAfter = snap.docs.last;
+    }
+
+    return events;
+  }
+
+  Future<List<AuditEvent>> _getAllRemoteEventsForEntityType(
+    String entityType,
+  ) async {
+    final events = <AuditEvent>[];
+    DocumentSnapshot<Map<String, dynamic>>? startAfter;
+
+    while (true) {
+      var query = _collection
+          .where('entityType', isEqualTo: entityType)
+          .orderBy('timestamp', descending: true)
+          .limit(_remoteEntityPageSize);
+
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      final snap = await query.get();
+      if (snap.docs.isEmpty) break;
+
+      events.addAll(snap.docs.map(_mapEvent));
+      if (snap.docs.length < _remoteEntityPageSize) break;
       startAfter = snap.docs.last;
     }
 

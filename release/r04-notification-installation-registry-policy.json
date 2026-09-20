@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "findingId": "R-04",
-  "sourceStatus": "SOURCE_AND_CI_CLOSED",
+  "sourceStatus": "SOURCE_IMPLEMENTED_CI_REVALIDATION_REQUIRED",
   "registry": {
     "collectionPath": "users/{uid}/notification_installations",
     "documentId": "lowercase UUID v4 persisted per app installation",
@@ -15,7 +15,7 @@
     "updatedAtAuthority": "Firestore server timestamp"
   },
   "privacyAndAuthority": {
-    "clientReads": "DENIED",
+    "clientReads": "OWNER_POINT_GET_ONLY_NO_LIST",
     "clientWrites": "canonical owner only",
     "parentProfileRequirement": "canonical users/{uid} document",
     "tokenLogging": "PROHIBITED"
@@ -40,6 +40,11 @@
     "legacy fcmToken migration behavior changes",
     "maximum per-user installation read bound changes"
   ],
+  "currentSourceRevalidation": {
+    "reason": "Token-conditional sign-out cleanup requires an exact owner read; all collection listing and cross-account reads remain denied.",
+    "historicalClosure": "PR 134 closure remains evidence for its original source and authority only.",
+    "requiredEvidence": "Current-head Rules emulator and release CI, followed by separate production Rules deployment/readback before activation."
+  },
   "evidenceBoundary": {
     "productionDeploymentPerformed": false,
     "deviceDeliveryEvidenceClaimed": false,

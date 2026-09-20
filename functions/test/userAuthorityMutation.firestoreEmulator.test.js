@@ -31,6 +31,14 @@ const IDS = {
   collision: '77777777-7777-4777-8777-777777777777',
   approveRace: '88888888-8888-4888-8888-888888888888',
   demoteRace: '99999999-9999-4999-8999-999999999999',
+  supersededReplay: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  laterChange: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  revokeRestore: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  restore: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  staleAfterAba: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  abaApprove: '12121212-1212-4121-8121-121212121212',
+  abaRevoke: '13131313-1313-4131-8131-131313131313',
+  selfReplay: '14141414-1414-4141-8141-141414141414',
 };
 
 function authorityDigest(isApproved, roles) {
@@ -46,6 +54,8 @@ function requestFixture({
   isApproved = true,
   currentRoles = ['admin'],
   roles = ['operations'],
+  expectedAuthorityRevision = 0,
+  includeAuthorityRevision = true,
   reason = 'Governed authority change for emulator verification.',
 }) {
   return {
@@ -53,6 +63,7 @@ function requestFixture({
     targetUid,
     operation,
     expectedAuthorityDigest: authorityDigest(isApproved, currentRoles),
+    ...(includeAuthorityRevision ? {expectedAuthorityRevision} : {}),
     ...(operation === 'REPLACE_ROLES' ? {roles} : {}),
     reason,
   };
@@ -74,13 +85,20 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
 
   async function seedUser(
     uid,
-    {isApproved = true, roles = ['admin'], ...profile} = {},
+    {
+      isApproved = true,
+      roles = ['admin'],
+      authorityRevision = 0,
+      includeAuthorityRevision = true,
+      ...profile
+    } = {},
   ) {
     await db.collection('users').doc(uid).set({
       name: profile.name || uid,
       email: profile.email || `${uid}@test.local`,
       isApproved,
       roles,
+      ...(includeAuthorityRevision ? {authorityRevision} : {}),
       createdAt: new Date('2026-07-26T00:00:00.000Z'),
       ...profile,
     });
@@ -114,6 +132,67 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
 
   afterAll(async () => {
     if (app) await app.delete();
+  });
+
+
+  test('outcome-only lookup never executes an absent approval', async () => {
+    await seedUser('adminA'); await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({requestId: IDS.replay, targetUid: 'target', operation: 'APPROVE', isApproved: false, currentRoles: ['operations']});
+    await expect(invoke('adminA', request, {confirmationOnly: true})).rejects.toMatchObject({details: {reasonCode: 'authority-outcome-not-established'}});
+    expect((await db.collection('users').doc('target').get()).data().isApproved).toBe(false);
+    expect(await collectionState('user_authority_mutation_receipts')).toHaveLength(0);
+  });
+
+  test.each(['missing', 'roles', 'revision'])('historical acceptance survives %s current projection', async (damage) => {
+    await seedUser('adminA'); await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({requestId: IDS.replay, targetUid: 'target', operation: 'APPROVE', isApproved: false, currentRoles: ['operations']});
+    const first = await invoke('adminA', request);
+    const ref = db.collection('users').doc('target');
+    if (damage === 'missing') await ref.delete();
+    else await ref.update(damage === 'roles' ? {roles: ['unsupported']} : {authorityRevision: 'bad'});
+    const before = await collectionState('users');
+    const replay = await invoke('adminA', request, {confirmationOnly: true});
+    expect(replay.authorityDigest).toBe(first.authorityDigest);
+    expect(replay.currentAuthorityStatus).toBe('unavailable');
+    expect(replay.currentAuthorityDigest).toBeNull();
+    expect(await collectionState('users')).toEqual(before);
+  });
+
+  test('revoked originator receives only original proof, and can later be restored', async () => {
+    await seedUser('adminA'); await seedUser('adminB');
+    const request = requestFixture({requestId: IDS.selfReplay, targetUid: 'adminA', operation: 'REVOKE'});
+    await invoke('adminA', request);
+    const replay = await invoke('adminA', request, {confirmationOnly: true});
+    expect(replay.isApproved).toBe(false);
+    expect(replay.currentAuthorityStatus).toBe('not-disclosed');
+    expect(replay.currentAuthorityDigest).toBeNull();
+    await expect(invoke('adminA', requestFixture({requestId: IDS.restore, targetUid: 'adminA', operation: 'APPROVE', isApproved: false, expectedAuthorityRevision: 1}))).rejects.toMatchObject({code: 'permission-denied'});
+    await invoke('adminB', requestFixture({requestId: IDS.restore, targetUid: 'adminA', operation: 'APPROVE', isApproved: false, expectedAuthorityRevision: 1, reason: 'Reviewed return to duty'}));
+    expect((await db.collection('users').doc('adminA').get()).data()).toMatchObject({isApproved: true, accessDisposition: 'approved', authorityRevision: 2});
+    expect(await collectionState('user_authority_mutation_receipts')).toHaveLength(2);
+  });
+
+  test('role edits before first approval do not manufacture a revocation', async () => {
+    await seedUser('adminA'); await seedUser('target', {isApproved: false, roles: ['operations'], accessDisposition: 'pending'});
+    await invoke('adminA', requestFixture({requestId: IDS.replay, targetUid: 'target', isApproved: false, currentRoles: ['operations'], roles: ['shiftSupervisor']}));
+    expect((await db.collection('users').doc('target').get()).data()).toMatchObject({isApproved: false, accessDisposition: 'pending', authorityRevision: 1});
+  });
+
+  test('damaged approved Admin candidate cannot block an ordinary revocation', async () => {
+    await seedUser('adminA'); await seedUser('damaged', {roles: ['admin', 'unknown']});
+    await seedUser('target', {roles: ['operations']});
+    await invoke('adminA', requestFixture({requestId: IDS.replay, targetUid: 'target', operation: 'REVOKE', currentRoles: ['operations']}));
+    expect((await db.collection('users').doc('target').get()).data().isApproved).toBe(false);
+    await expect(invoke('adminA', requestFixture({requestId: IDS.selfReplay, targetUid: 'adminA'}))).rejects.toMatchObject({details: {reasonCode: 'authority-admin-roster-malformed'}});
+  });
+
+  test.each(['reasonNotes', 'beforeJson', 'authorityRevision', 'performedByName', 'deleted-reason'])('replay refuses changed %s decision evidence', async (field) => {
+    await seedUser('adminA'); await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({requestId: IDS.replay, targetUid: 'target', operation: 'APPROVE', isApproved: false, currentRoles: ['operations']});
+    await invoke('adminA', request);
+    const audit = db.collection('audit_logs').doc(`server_authority_${request.requestId}`);
+    await audit.update(field === 'deleted-reason' ? {reasonNotes: admin.firestore.FieldValue.delete()} : {[field]: field === 'authorityRevision' ? 99 : 'altered evidence'});
+    await expect(invoke('adminA', request)).rejects.toMatchObject({code: 'data-loss'});
   });
 
   test('concurrent cross-demotion leaves exactly one approved Admin and one atomic evidence set', async () => {
@@ -162,13 +241,19 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
 
   test('exact replay returns the same evidence and conflicting replay fails', async () => {
     await seedUser('adminA');
-    await seedUser('target', {isApproved: false, roles: ['operations']});
+    await seedUser('target', {
+      isApproved: false,
+      roles: ['operations'],
+      includeAuthorityRevision: false,
+    });
     const request = requestFixture({
       requestId: IDS.replay,
       targetUid: 'target',
       operation: 'APPROVE',
       isApproved: false,
       currentRoles: ['operations'],
+      includeAuthorityRevision: false,
+      expectedAuthorityRevision: 0,
     });
 
     const first = await invoke('adminA', request);
@@ -199,15 +284,112 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
     });
   });
 
+  test('revocation withdraws current access but remains reversible by re-approval', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: true, roles: ['operations']});
+
+    const revoke = await invoke('adminA', requestFixture({
+      requestId: IDS.revokeRestore,
+      targetUid: 'target',
+      operation: 'REVOKE',
+      isApproved: true,
+      currentRoles: ['operations'],
+    }));
+
+    expect(revoke.isApproved).toBe(false);
+    expect(revoke.roles).toEqual(['operations']);
+    expect((await db.collection('users').doc('target').get()).data())
+      .toMatchObject({isApproved: false, roles: ['operations']});
+
+    const reapproved = await invoke('adminA', requestFixture({
+      requestId: IDS.restore,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+      expectedAuthorityRevision: 1,
+    }));
+
+    expect(reapproved.isApproved).toBe(true);
+    expect(reapproved.roles).toEqual(['operations']);
+    expect((await db.collection('users').doc('target').get()).data())
+      .toMatchObject({isApproved: true, roles: ['operations']});
+  });
+
+  test('a delayed approval cannot pass after approval then revocation returns the old capsule', async () => {
+    await seedUser('adminA');
+    await seedUser('adminB');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+
+    const delayedApproval = requestFixture({
+      requestId: IDS.staleAfterAba,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+      expectedAuthorityRevision: 0,
+    });
+
+    await invoke('adminB', requestFixture({
+      requestId: IDS.abaApprove,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+      expectedAuthorityRevision: 0,
+    }));
+    await invoke('adminB', requestFixture({
+      requestId: IDS.abaRevoke,
+      targetUid: 'target',
+      operation: 'REVOKE',
+      isApproved: true,
+      currentRoles: ['operations'],
+      expectedAuthorityRevision: 1,
+    }));
+
+    await expect(invoke('adminA', delayedApproval)).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'authority-revision-mismatch'},
+    });
+    expect((await db.collection('users').doc('target').get()).data())
+      .toMatchObject({isApproved: false, roles: ['operations'], authorityRevision: 2});
+  });
+
+  test('an Admin can recover its accepted self-demotion without regaining authority', async () => {
+    await seedUser('adminA');
+    await seedUser('adminB');
+
+    const request = requestFixture({
+      requestId: IDS.selfReplay,
+      targetUid: 'adminA',
+      operation: 'REPLACE_ROLES',
+      isApproved: true,
+      currentRoles: ['admin'],
+      roles: ['operations'],
+      expectedAuthorityRevision: 0,
+    });
+    const accepted = await invoke('adminA', request);
+    const replay = await invoke('adminA', request);
+
+    expect(replay).toEqual({...accepted, idempotentReplay: true, currentAuthorityStatus: 'not-disclosed', currentAuthorityDigest: null, currentAuthorityRevision: null});
+    expect((await db.collection('users').doc('adminA').get()).data())
+      .toMatchObject({isApproved: true, roles: ['operations'], authorityRevision: 1});
+  });
+
   test('historical authreq1 receipts replay through the frozen legacy algorithm', async () => {
     await seedUser('adminA');
-    await seedUser('target', {isApproved: false, roles: ['operations']});
+    await seedUser('target', {
+      isApproved: false,
+      roles: ['operations'],
+      includeAuthorityRevision: false,
+    });
     const request = requestFixture({
       requestId: IDS.legacyReplay,
       targetUid: 'target',
       operation: 'APPROVE',
       isApproved: false,
       currentRoles: ['operations'],
+      includeAuthorityRevision: false,
     });
     const first = await invoke('adminA', request);
     const parsed = parseUserAuthorityMutationRequest(request);
@@ -260,6 +442,79 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
         reasonCode: 'authority-receipt-fingerprint-version-unsupported',
       },
     });
+  });
+
+  test('a later authority change does not hide the earlier accepted one', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const approve = requestFixture({
+      requestId: IDS.supersededReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+
+    const accepted = await invoke('adminA', approve);
+
+    // A legitimate later change moves the target's authority on.
+    await invoke('adminA', requestFixture({
+      requestId: IDS.laterChange,
+      targetUid: 'target',
+      operation: 'REPLACE_ROLES',
+      isApproved: true,
+      currentRoles: ['operations'],
+      roles: ['seniorMechanical'],
+      expectedAuthorityRevision: 1,
+    }));
+    const currentRoles = (
+      await db.collection('users').doc('target').get()
+    ).data().roles;
+    expect(currentRoles).toEqual(['seniorMechanical']);
+
+    // The first response was lost. Asking again must return what that request
+    // actually committed, not refuse because someone else has since acted.
+    const replay = await invoke('adminA', approve);
+
+    // Everything this request committed comes back unchanged; only the two
+    // fields that describe the world since then differ.
+    expect(replay).toEqual({
+      ...accepted,
+      idempotentReplay: true,
+      supersededByLaterChange: true,
+      currentAuthorityRevision: 2,
+      currentAuthorityDigest: authorityDigest(true, ['seniorMechanical']),
+    });
+    expect(replay.roles).toEqual(accepted.roles);
+    expect(replay.authorityDigest).toBe(accepted.authorityDigest);
+    // The current state is reported as itself, not folded into the outcome.
+    expect(replay.currentAuthorityDigest)
+      .toBe(authorityDigest(true, ['seniorMechanical']));
+    expect(replay.currentAuthorityDigest).not.toBe(replay.authorityDigest);
+
+    // Nothing was written, and the later change still stands.
+    expect((await db.collection('users').doc('target').get()).data().roles)
+      .toEqual(['seniorMechanical']);
+    expect(await collectionState('user_authority_mutation_receipts'))
+      .toHaveLength(2);
+  });
+
+  test('an unsuperseded replay says so rather than staying silent', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({
+      requestId: IDS.supersededReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+
+    const accepted = await invoke('adminA', request);
+    const replay = await invoke('adminA', request);
+
+    expect(replay.supersededByLaterChange).toBe(false);
+    expect(replay.currentAuthorityDigest).toBe(accepted.authorityDigest);
   });
 
   test('replay fails closed when immutable audit evidence drifts', async () => {

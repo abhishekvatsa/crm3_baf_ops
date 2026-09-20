@@ -350,6 +350,18 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   }
 
   @override
+  Stream<List<ChargeAbnormality>> watchAllAbnormalities() {
+    return _abnormalityBox
+        .filter()
+        .isDeletedEqualTo(false)
+        .watch(fireImmediately: true)
+        .map((items) {
+          items.sort(_sortAbnormalities);
+          return items;
+        });
+  }
+
+  @override
   Future<List<ChargeAbnormality>> getAbnormalitiesForCharge(
     int sourceChargeNo,
   ) async {

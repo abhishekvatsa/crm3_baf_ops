@@ -40,6 +40,7 @@ class SavedMorningReviewChangePanel extends StatelessWidget {
       MorningReviewCommand.createAction => 'Create owned action',
       MorningReviewCommand.acceptAction => 'Accept action',
       MorningReviewCommand.completeAction => 'Complete action',
+      MorningReviewCommand.amendAction => 'Correct action',
       MorningReviewCommand.takeOver => 'Take over facilitation',
       MorningReviewCommand.finalize => 'Finalize meeting',
       MorningReviewCommand.recordNotHeld => 'Record review not held',

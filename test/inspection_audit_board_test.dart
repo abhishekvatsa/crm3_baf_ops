@@ -24,6 +24,178 @@ import 'inspection_campaign_model_test.dart'
 
 void main() {
   testWidgets(
+    'closed survey exposes scoped follow-up without a reopen command',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final time = DateTime.utc(2026, 9, 5, 5);
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+        status: InspectionCampaignStatus.closed,
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'first',
+        lastObservedAt: time,
+      );
+      final reading = _observation(
+        campaign: campaign,
+        target: campaign.targets.single,
+        id: 'first',
+        observedAt: time,
+        recordedAt: time,
+        value: false,
+      );
+      final finding = InspectionFinding(
+        id: 'finding-1',
+        version: 2,
+        campaignId: campaign.id,
+        targetKey: reading.targetKey,
+        assetTypeKey: 'furnace',
+        assetNumber: 22,
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        componentNodeId: null,
+        componentName: null,
+        physicalPosition: null,
+        status: InspectionFindingStatus.correctiveActionLinked,
+        firstObservationId: 'first',
+        currentObservationId: 'first',
+        firstObservedAt: time,
+        latestObservedAt: time,
+        recurrenceCount: 1,
+        linkedTicketId: 'repair-1',
+        verificationCount: 0,
+        lastVerificationOutcome: null,
+        updatedAt: time,
+      );
+      final sent = <WorkflowCommand>[];
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          observations: [reading],
+          findings: [finding],
+          executeCommand: (command) async {
+            sent.add(command);
+            return WorkflowCommandReceipt(
+              commandId: command.commandId,
+              resultKey: 'inspection-observation-recorded',
+              aggregateVersion: campaign.version + 1,
+              result: const {},
+              appliedAt: time,
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Survey closed — 1 findings outstanding'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Add follow-up reading'));
+      await tester.tap(find.text('Add follow-up reading'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(
+              find.byType(DropdownButtonFormField<String>),
+            )
+            .onChanged,
+        isNull,
+      );
+      await tester.tap(find.text('Yes'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Save reading'));
+      await tester.tap(find.text('Save reading'));
+      await tester.pumpAndSettle();
+      expect(sent.single.type, WorkflowCommandType.recordInspectionObservation);
+      expect(sent.single.payload['followUpFindingId'], finding.id);
+      expect(sent.single.payload['targetKey'], finding.targetKey);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'older reading amendment records a reason and preserves its own time',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final earlier = DateTime.utc(2026, 9, 5, 5),
+          later = DateTime.utc(2026, 9, 5, 6);
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'later',
+        lastObservedAt: later,
+      );
+      final old = _observation(
+        campaign: campaign,
+        target: campaign.targets.single,
+        id: 'earlier',
+        observedAt: earlier,
+        recordedAt: earlier,
+        value: false,
+      );
+      final current = _observation(
+        campaign: campaign,
+        target: campaign.targets.single,
+        id: 'later',
+        observedAt: later,
+        recordedAt: later,
+        value: true,
+      );
+      WorkflowCommand? sent;
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          observations: [current, old],
+          executeCommand: (command) async {
+            sent = command;
+            return WorkflowCommandReceipt(
+              commandId: command.commandId,
+              resultKey: 'inspection-observation-correction-recorded',
+              aggregateVersion: 2,
+              result: const {},
+              appliedAt: later,
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('Reading actions').last);
+      await tester.tap(find.byTooltip('Reading actions').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Record correction'));
+      await tester.pumpAndSettle();
+      expect(find.text('Amend historical reading'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Reason'),
+        'Correct the earlier witnessed reading.',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Record'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Record correction'),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Record correction'));
+      await tester.pumpAndSettle();
+      expect(sent?.payload['supersedesObservationId'], old.id);
+      expect(
+        sent?.payload['historicalAmendmentReason'],
+        'Correct the earlier witnessed reading.',
+      );
+      expect(sent?.payload['observedAt'], old.observedAt.toIso8601String());
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'corrected-away finding shows review decision and disables technical verification',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 1600));
@@ -480,9 +652,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reopen for verification'));
+      await tester.tap(find.byTooltip('Reopen survey scope'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('original closure'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.textContaining('original closure'),
+        ),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<FilledButton>(
@@ -550,16 +728,19 @@ void main() {
       value: true,
     );
     final first = InspectionCampaignReportEvidence(
+      createdFindingIds: const [],
       campaign: campaign,
       observations: <InspectionObservation>[observation],
       findings: const <InspectionFinding>[],
     );
     final same = InspectionCampaignReportEvidence(
+      createdFindingIds: const [],
       campaign: campaign,
       observations: <InspectionObservation>[observation],
       findings: const <InspectionFinding>[],
     );
     final changed = InspectionCampaignReportEvidence(
+      createdFindingIds: const [],
       campaign: campaign,
       observations: const <InspectionObservation>[],
       findings: const <InspectionFinding>[],
@@ -1153,6 +1334,7 @@ Widget _testApp(
           campaign: campaign,
           observations: observations,
           findings: findings,
+          createdFindingIds: findings.map((row) => row.id).toList(),
         ),
       );
     }),

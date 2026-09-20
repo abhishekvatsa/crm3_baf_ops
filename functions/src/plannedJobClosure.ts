@@ -8,6 +8,7 @@ import {
   readFieldDefinitionPayload,
   readFieldResponsePayload,
 } from "./persistedWorkPayload";
+import {firstRequirementContractDifference} from "./requirementContract";
 import {canonicalUserHasAnyRole} from "./userAuthority";
 import {
   applyMaintenanceCompletionWritePlan,
@@ -505,8 +506,24 @@ function issueCountsByType(issues: JsonMap[]): JsonMap {
 
 export function assertClosureReady(modules: JsonMap[]): JsonMap {
   for (const moduleData of modules.filter((module) => module.isDeleted !== true)) {
-    savedModuleFieldDefinitions(moduleData);
-    savedModuleResponses(moduleData);
+    const definitions = savedModuleFieldDefinitions(moduleData);
+    const responses = savedModuleResponses(moduleData);
+    const responseContractDifference = firstRequirementContractDifference(
+      definitions,
+      responses,
+    );
+    if (responseContractDifference != null) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Saved module responses no longer match the published requirement contract.",
+        {
+          reasonCode: "module-response-contract-mismatch",
+          moduleFirestoreId: cleanOptionalText(moduleData.firestoreId),
+          fieldKey: responseContractDifference.key,
+          mismatch: responseContractDifference.reason,
+        },
+      );
+    }
     try {
       readComponentActionPayload(moduleData.actionsJson, {
         field: "actionsJson",

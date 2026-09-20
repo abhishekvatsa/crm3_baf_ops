@@ -90,14 +90,13 @@ EquipmentStatusRecord workflow({
   String? assetInstanceId,
   int maintenance = 0,
   int red = 0,
-}) =>
-    EquipmentStatusRecord()
-      ..assetTypeKey = key
-      ..assetNumber = number
-      ..assetClassId = assetClassId
-      ..assetInstanceId = assetInstanceId
-      ..openMaintenanceCount = maintenance
-      ..openRedCount = red;
+}) => EquipmentStatusRecord()
+  ..assetTypeKey = key
+  ..assetNumber = number
+  ..assetClassId = assetClassId
+  ..assetInstanceId = assetInstanceId
+  ..openMaintenanceCount = maintenance
+  ..openRedCount = red;
 
 AssetAvailabilityRecord blocked({required AssetInstanceRecord asset}) =>
     AssetAvailabilityRecord(
@@ -122,29 +121,28 @@ MaintenanceRecord issueCondition({
   String description = 'Cooling-water leakage requires repair',
   bool resolved = false,
   bool synced = true,
-}) =>
-    MaintenanceRecord()
-      ..firestoreId = id
-      ..version = resolved ? 2 : 1
-      ..isSynced = synced
-      ..assetType = AssetType.values.byName(
-        asset.assetClassCode.toLowerCase() == 'forced_cooler'
-            ? 'forceCooler'
-            : asset.assetClassCode.toLowerCase(),
-      )
-      ..assetNumber = asset.assetNumber
-      ..assetHierarchyRefJson = asset.toReference().encode()
-      ..maintenanceType = MaintenanceType.breakdown
-      ..description = description
-      ..plantConditionEffect = effect
-      ..routedTo = RoutedTo.mechanical
-      ..status = resolved ? TicketStatus.resolved : TicketStatus.open
-      ..isResolved = resolved
-      ..startDate = _time
-      ..createdAt = _time
-      ..updatedAt = _time
-      ..loggedByUid = 'operator-1'
-      ..loggedByName = 'Operator One';
+}) => MaintenanceRecord()
+  ..firestoreId = id
+  ..version = resolved ? 2 : 1
+  ..isSynced = synced
+  ..assetType = AssetType.values.byName(
+    asset.assetClassCode.toLowerCase() == 'forced_cooler'
+        ? 'forceCooler'
+        : asset.assetClassCode.toLowerCase(),
+  )
+  ..assetNumber = asset.assetNumber
+  ..assetHierarchyRefJson = asset.toReference().encode()
+  ..maintenanceType = MaintenanceType.breakdown
+  ..description = description
+  ..plantConditionEffect = effect
+  ..routedTo = RoutedTo.mechanical
+  ..status = resolved ? TicketStatus.resolved : TicketStatus.open
+  ..isResolved = resolved
+  ..startDate = _time
+  ..createdAt = _time
+  ..updatedAt = _time
+  ..loggedByUid = 'operator-1'
+  ..loggedByName = 'Operator One';
 
 MaintenanceRecord administrativelyClosedIssueCondition({
   required String id,
@@ -267,7 +265,8 @@ void main() {
     );
 
     expect(overview.underMaintenance, 0);
-    expect(overview.available, 1);
+    expect(overview.available, 0);
+    expect(overview.assets.single.hasUnverifiedWorkflowEvidence, isTrue);
   });
 
   test('same-number custom classes retain separate workflow projections', () {
@@ -329,6 +328,33 @@ void main() {
           ?.openRedCount,
       1,
     );
+  });
+
+  test('Base condition includes workflow bound to its Inner Cover', () {
+    final base = assetClass(
+      id: 'base-class',
+      code: 'BASE',
+      name: 'Base',
+      legacyKey: 'base',
+    );
+    final base1 = asset(id: 'base-1', assetClass: base, number: 1);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [base],
+      assetInstances: [base1],
+      operationalConditions: const [],
+      workflowStatuses: [
+        workflow(
+          key: 'innerCover',
+          number: 77,
+          assetClassId: base.id,
+          assetInstanceId: base1.id,
+          maintenance: 1,
+        ),
+      ],
+    );
+
+    expect(overview.underMaintenance, 1);
+    expect(overview.available, 0);
   });
 
   test('standby and out-of-service states are not reported as available', () {
@@ -663,7 +689,11 @@ void main() {
         assetClasses: [base],
         assetInstances: [relevantBase, irrelevantBase, resolvedBase],
         operationalConditions: const [],
-        workflowStatuses: const [],
+        workflowStatuses: [
+          workflow(key: 'base', number: 201),
+          workflow(key: 'base', number: 202),
+          workflow(key: 'base', number: 203),
+        ],
         maintenanceTickets: [
           administrativelyClosedIssueCondition(
             id: 'ticket-still-relevant',

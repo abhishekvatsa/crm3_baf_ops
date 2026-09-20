@@ -1,10 +1,12 @@
 part of 'operational_directive_provider.dart';
 
 class IsarDirectiveRepository implements DirectiveRepository {
-  final AuditRepository _auditRepo;
+  final OrdinaryDirectiveCommands _ordinary;
 
-  IsarDirectiveRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  IsarDirectiveRepository({
+    AuditRepository? auditRepository,
+    OrdinaryDirectiveCommands? ordinaryCommands,
+  }) : _ordinary = ordinaryCommands ?? OrdinaryDirectiveCommands(web: false);
 
   @override
   Future<void> saveDirective(
@@ -17,6 +19,15 @@ class IsarDirectiveRepository implements DirectiveRepository {
       bumpVersion: false,
       markUnsynced: true,
     );
+    if (!isGovernedBurnerRoundDirectiveId(directive.firestoreId)) {
+      await _ordinary.save(
+        actor: actor,
+        action: 'create',
+        after: directive,
+        reason: 'Issue the reviewed instruction.',
+      );
+      return;
+    }
     await isar.writeTxn(() async {
       await isar.operationalDirectives.put(directive);
     });
@@ -130,15 +141,35 @@ class IsarDirectiveRepository implements DirectiveRepository {
     OperationalDirective directive, {
     required AppUser actor,
   }) async {
-    _requireCanAdminMutateDirective(actor, 'edit');
-    _normalizeDirectiveForLocalWrite(
-      directive,
-      bumpVersion: true,
-      markUnsynced: true,
+    final current = await isar.operationalDirectives.get(directive.id);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != directive.version) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      final reason = directive.amendmentReason ?? '';
+      final after = _ordinaryChange(
+        current,
+        actor,
+        'amend',
+        reason: reason,
+        draft: directive,
+      );
+      await _ordinary.save(
+        actor: actor,
+        action: 'amend',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
+    }
+
+    throw StateError(
+      'This automatic Burner/UV instruction must use its governed workflow; ordinary editing or deletion is not permitted.',
     );
-    await isar.writeTxn(() async {
-      await isar.operationalDirectives.put(directive);
-    });
   }
 
   @override
@@ -147,56 +178,32 @@ class IsarDirectiveRepository implements DirectiveRepository {
     required AppUser actor,
     AuditContext? auditContext,
   }) async {
-    _requireCanAdminMutateDirective(actor, 'delete');
-    final directiveId = id as int;
-    Map<String, dynamic>? beforeSnapshot;
-    Map<String, dynamic>? afterSnapshot;
-    String? entityIdStr;
-
-    await isar.writeTxn(() async {
-      final d = await isar.operationalDirectives.get(directiveId);
-      if (d != null && !d.isDeleted) {
-        beforeSnapshot = d.toAuditMap();
-
-        d.isDeleted = true;
-        if (auditContext != null) {
-          d.deletedAt = DateTime.now();
-          d.deletedByUid = auditContext.performedByUid;
-          d.deletedByName = auditContext.performedByName;
-          d.deleteReason =
-              auditContext.reason?.name ?? auditContext.reasonNotes;
-          d.updatedAt = DateTime.now();
-          d.version += 1;
-        } else {
-          d.updatedAt = DateTime.now();
-        }
-        d.isSynced = false;
-        await isar.operationalDirectives.put(d);
-
-        afterSnapshot = d.toAuditMap();
-        entityIdStr = d.firestoreId ?? d.id.toString();
+    final current = await isar.operationalDirectives.get(id as int);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (auditContext?.performedByUid != actor.uid ||
+          auditContext?.before?['version'] != current.version) {
+        throw StateError(
+          'The directive changed. Review it again before deletion.',
+        );
       }
-    });
-
-    if (auditContext != null &&
-        beforeSnapshot != null &&
-        afterSnapshot != null &&
-        entityIdStr != null) {
-      final auditRepo = _auditRepo;
-      unawaited(
-        auditRepo.log(
-          AuditEvent.fromContext(
-            entityType: 'directive',
-            entityId: entityIdStr!,
-            action: AuditAction.delete,
-            context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
-            ),
-          ),
-        ),
+      final reason = auditContext?.reasonNotes?.trim().isNotEmpty == true
+          ? auditContext!.reasonNotes!
+          : auditContext?.reason?.name ?? '';
+      final after = _ordinaryChange(current, actor, 'delete', reason: reason);
+      await _ordinary.save(
+        actor: actor,
+        action: 'delete',
+        before: current,
+        after: after,
+        reason: reason,
       );
+      return;
     }
+
+    throw StateError(
+      'This automatic Burner/UV instruction must use its governed workflow; ordinary editing or deletion is not permitted.',
+    );
   }
 
   @override
@@ -253,12 +260,43 @@ class IsarDirectiveRepository implements DirectiveRepository {
   Future<void> acknowledgeDirective(
     dynamic id, {
     required AppUser actor,
+    required int expectedVersion,
   }) async {
-    final directiveId = id as int;
+    final current = await isar.operationalDirectives.get(id as int);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      const reason = 'Received the reviewed instruction.';
+      final after = _ordinaryChange(
+        current,
+        actor,
+        'acknowledge',
+        reason: reason,
+      );
+      await _ordinary.save(
+        actor: actor,
+        action: 'acknowledge',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
+    }
+
+    final directiveId = id;
     await isar.writeTxn(() async {
       final d = await isar.operationalDirectives.get(directiveId);
       if (d != null && !d.isDeleted) {
         _requireCanAcknowledgeDirective(actor, d);
+        if (d.version != expectedVersion) {
+          throw StateError(
+            'The directive changed while acknowledgement was being reviewed. Refresh before acknowledging.',
+          );
+        }
         final now = DateTime.now();
         d.status = DirectiveStatus.acknowledged;
         d.acknowledgedByUid = actor.uid;
@@ -276,16 +314,52 @@ class IsarDirectiveRepository implements DirectiveRepository {
   Future<void> closeDirective(
     dynamic id, {
     required AppUser actor,
+    required int expectedVersion,
     String? remarks,
     bool wasUnacknowledged = false,
   }) async {
-    final directiveId = id as int;
+    final current = await isar.operationalDirectives.get(id as int);
+    if (current == null) throw StateError('Directive not found.');
+    if (!isGovernedBurnerRoundDirectiveId(current.firestoreId)) {
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'The directive changed; keep your draft and review the current instruction.',
+        );
+      }
+      final reason = remarks?.trim().isNotEmpty == true
+          ? remarks!.trim()
+          : 'Close the reviewed instruction.';
+      final after = _ordinaryChange(current, actor, 'close', reason: reason);
+      await _ordinary.save(
+        actor: actor,
+        action: 'close',
+        before: current,
+        after: after,
+        reason: reason,
+      );
+      return;
+    }
+
+    final directiveId = id;
     await isar.writeTxn(() async {
       final d = await isar.operationalDirectives.get(directiveId);
       if (d != null && !d.isDeleted) {
         _requireCanCloseDirective(actor, d);
+        if (d.version != expectedVersion) {
+          throw StateError(
+            'The directive changed while closure was being reviewed. Refresh before closing.',
+          );
+        }
+        final expectedWithoutAcknowledgement =
+            d.acknowledgedAt == null && d.acknowledgedByUid == null;
+        if (wasUnacknowledged != expectedWithoutAcknowledgement) {
+          throw StateError(
+            'The directive acknowledgement changed while closure was being reviewed.',
+          );
+        }
         final now = DateTime.now();
         d.status = DirectiveStatus.closed;
+        d.isActive = false;
         d.closedByUid = actor.uid;
         d.closedByName = actor.name;
         d.closedAt = now;
@@ -394,75 +468,95 @@ class IsarDirectiveRepository implements DirectiveRepository {
       );
     }
 
-    return isar.writeTxn<RemoteRecordApplyResult<OperationalDirective>>(
-      () async {
-        final locals = await isar.operationalDirectives
-            .filter()
-            .firestoreIdEqualTo(firestoreId)
-            .findAll();
-        if (locals.length > 1) {
-          return RemoteRecordApplyResult<OperationalDirective>(
-            RemoteRecordApplyOutcome.duplicateLocalIdentity,
-            localRecord: locals.first,
-            duplicateCount: locals.length,
-          );
-        }
-        if (locals.isEmpty) {
-          remote
-            ..id = Isar.autoIncrement
-            ..firestoreId = firestoreId
-            ..isSynced = true;
-          await isar.operationalDirectives.put(remote);
-          return RemoteRecordApplyResult<OperationalDirective>(
-            RemoteRecordApplyOutcome.inserted,
-            localRecord: remote,
-          );
-        }
-
-        final local = locals.single;
-        final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
-        if (!local.isSynced) {
-          return RemoteRecordApplyResult<OperationalDirective>(
-            RemoteRecordApplyOutcome.localDirtyPreserved,
-            localRecord: local,
-            remoteIsNewer: remoteIsNewer,
-          );
-        }
-        final sameBoundary =
-            local.version == remote.version &&
-            local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
-            local.isDeleted == remote.isDeleted;
-        if (sameBoundary) {
-          return RemoteRecordApplyResult<OperationalDirective>(
-            RemoteRecordApplyOutcome.unchanged,
-            localRecord: local,
-          );
-        }
-        if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
-          remoteIsNewer: remoteIsNewer,
-          localUpdatedAt: local.updatedAt,
-          remoteUpdatedAt: remote.updatedAt,
-        )) {
-          return RemoteRecordApplyResult<OperationalDirective>(
-            remoteIsNewer
-                ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
-                : RemoteRecordApplyOutcome.staleRemoteSkipped,
-            localRecord: local,
-            remoteIsNewer: remoteIsNewer,
-          );
-        }
-
+    return isar.writeTxn<
+      RemoteRecordApplyResult<OperationalDirective>
+    >(() async {
+      final locals = await isar.operationalDirectives
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<OperationalDirective>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
         remote
-          ..id = local.id
+          ..id = Isar.autoIncrement
           ..firestoreId = firestoreId
           ..isSynced = true;
         await isar.operationalDirectives.put(remote);
         return RemoteRecordApplyResult<OperationalDirective>(
-          RemoteRecordApplyOutcome.updated,
+          RemoteRecordApplyOutcome.inserted,
           localRecord: remote,
         );
-      },
-    );
+      }
+
+      final local = locals.single;
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<OperationalDirective>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        final sameContent = sameOrdinaryDirective(local, remote);
+        // Repair only the old redundant closed/isActive projection defect.
+        // Other same-revision differences remain explicit reconciliation holds.
+        final normalized = copyOperationalDirective(local)
+          ..isActive = !local.isClosed;
+        if (!sameContent &&
+            local.isClosed &&
+            local.isActive &&
+            sameOrdinaryDirective(normalized, remote)) {
+          remote
+            ..id = local.id
+            ..isSynced = true;
+          await isar.operationalDirectives.put(remote);
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.updated,
+            localRecord: remote,
+          );
+        }
+        return RemoteRecordApplyResult<OperationalDirective>(
+          sameContent
+              ? RemoteRecordApplyOutcome.unchanged
+              : RemoteRecordApplyOutcome.cleanLocalReconciliationRequired,
+          localRecord: local,
+        );
+      }
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
+        return RemoteRecordApplyResult<OperationalDirective>(
+          remoteIsNewer
+              ? RemoteRecordApplyOutcome.cleanLocalReconciliationRequired
+              : RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+
+      remote
+        ..id = local.id
+        ..firestoreId = firestoreId
+        ..isSynced = true;
+      await isar.operationalDirectives.put(remote);
+      return RemoteRecordApplyResult<OperationalDirective>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: remote,
+      );
+    });
   }
 
   @override

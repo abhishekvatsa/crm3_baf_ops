@@ -278,6 +278,7 @@ class _GatedReconciliationStore extends DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptSha256,
     Future<void> Function(Isar transactionStore)? adoptInTransaction,
+    bool recheckProjection = false,
   }) async {
     entered.complete();
     await release.future;
@@ -286,6 +287,7 @@ class _GatedReconciliationStore extends DurableSubmissionRepository {
       envelopeSha256: envelopeSha256,
       receiptSha256: receiptSha256,
       adoptInTransaction: adoptInTransaction,
+      recheckProjection: recheckProjection,
     );
   }
 }

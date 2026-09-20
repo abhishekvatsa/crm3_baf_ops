@@ -168,6 +168,132 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
     return snapshot.docs.map((document) => ({id: document.id, ...document.data()}));
   }
 
+  function acceptedProfile(innerCoverId, serialNumber) {
+    return {
+      schemaVersion: 1,
+      innerCoverId,
+      assetClassId: IDS.innerClass,
+      assetClassCode: 'INNER_COVER',
+      assetClassName: 'Inner Cover',
+      serialNumber,
+      normalizedSerialNumber: serialNumber,
+      sourceType: 'legacyExisting',
+      lifecycleState: 'available',
+      traceabilityGrade: 'T0',
+      acceptanceReference: `ACC-${serialNumber}`,
+      acceptedAt: new Date('2026-08-02T00:00:00.000Z'),
+      acceptedByUid: 'admin-1',
+      acceptedByName: 'Admin One',
+      currentBaseAssetInstanceId: null,
+      currentBaseAssetNumber: null,
+      currentBaseAssetName: null,
+      currentLinkageId: null,
+      version: 2,
+      lastMutationId: 'seed',
+    };
+  }
+
+  function linkRequest(innerCoverId = IDS.cover, requestId = IDS.link) {
+    return {
+      requestId,
+      operation: 'LINK_INNER_COVER',
+      innerCoverId,
+      expectedVersion: 2,
+      targetBaseAssetInstanceId: IDS.base,
+      reason: 'Install the accepted cover after verifying Base custody.',
+    };
+  }
+
+  test.each(['active linkage', 'installed profile', 'malformed active flag'])(
+    'missing assignment cannot hide a surviving %s behind 25 closed histories',
+    async (evidence) => {
+      const batch = db.batch();
+      batch.set(db.collection('inner_cover_profiles').doc(IDS.cover),
+        acceptedProfile(IDS.cover, 'GR30'));
+      for (let index = 0; index < 25; index++) {
+        const linkageId = `aa-closed-${String(index).padStart(2, '0')}`;
+        batch.set(db.collection('inner_cover_linkages').doc(linkageId), {
+          schemaVersion: 1, linkageId, baseAssetInstanceId: IDS.base,
+          innerCoverId: IDS.donor, innerCoverSerialNumber: 'GR20',
+          active: false, version: 2,
+          installedAt: new Date('2026-08-05T00:00:00.000Z'),
+          removedAt: new Date('2026-08-10T00:00:00.000Z'),
+        });
+      }
+      const linkageId = 'zz-surviving';
+      if (evidence === 'installed profile') {
+        batch.set(db.collection('inner_cover_profiles').doc(IDS.donor), {
+          ...acceptedProfile(IDS.donor, 'GR20'),
+          lifecycleState: 'installed',
+          currentBaseAssetInstanceId: IDS.base,
+          currentBaseAssetNumber: 201,
+          currentBaseAssetName: 'Base 201',
+          currentLinkageId: linkageId,
+          version: 3,
+        });
+      } else {
+        batch.set(db.collection('inner_cover_linkages').doc(linkageId), {
+          schemaVersion: 1, linkageId, baseAssetInstanceId: IDS.base,
+          innerCoverId: IDS.donor, innerCoverSerialNumber: 'GR20',
+          active: evidence === 'active linkage' ? true : 'true', version: 1,
+          installedAt: new Date('2026-08-11T00:00:00.000Z'), removedAt: null,
+        });
+      }
+      await batch.commit();
+      const profileRef = db.collection('inner_cover_profiles').doc(IDS.cover);
+      const before = await profileRef.get();
+      await expect(invoke(linkRequest())).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-target-base-custody-unverified'},
+      });
+      expect((await profileRef.get()).updateTime.isEqual(before.updateTime)).toBe(true);
+      expect((await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).exists)
+        .toBe(false);
+      expect((await db.collection('inner_cover_lifecycle_receipts').get()).empty).toBe(true);
+      expect((await db.collection('inner_cover_lifecycle_audits').get()).empty).toBe(true);
+    },
+  );
+
+  test('concurrent links to one vacant Base commit exactly one custody relation', async () => {
+    const batch = db.batch();
+    batch.set(db.collection('inner_cover_profiles').doc(IDS.cover),
+      acceptedProfile(IDS.cover, 'GR30'));
+    batch.set(db.collection('inner_cover_profiles').doc(IDS.donor),
+      acceptedProfile(IDS.donor, 'GR20'));
+    await batch.commit();
+    const requests = [linkRequest(IDS.cover, IDS.link), linkRequest(IDS.donor, IDS.delink)];
+    const results = await Promise.allSettled(requests.map((request) => invoke(request)));
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const loserIndex = results.findIndex((result) => result.status === 'rejected');
+    const initialRefusal = results[loserIndex].reason;
+    // The emulator sometimes closes the losing transaction while its sibling
+    // queries are still in flight. This exact native refusal is uncertain
+    // transport, not evidence of the business outcome. All other errors must
+    // already be the explicit occupied refusal, and the same retained request
+    // must establish that refusal on a fresh transaction without another write.
+    if (initialRefusal?.details !== 'Transaction is invalid or closed.') {
+      expect(initialRefusal).toMatchObject({details: {reasonCode: 'inner-cover-target-base-occupied'}});
+    }
+    const assignmentRef = db.collection('base_inner_cover_assignments').doc(IDS.base);
+    const loserRef = db.collection('inner_cover_profiles').doc(requests[loserIndex].innerCoverId);
+    const [beforeAssignment, beforeLoser] = await Promise.all([assignmentRef.get(), loserRef.get()]);
+    await expect(invoke(requests[loserIndex])).rejects.toMatchObject({code: 'already-exists',
+      details: {reasonCode: 'inner-cover-target-base-occupied'}});
+    const [afterAssignment, afterLoser] = await Promise.all([assignmentRef.get(), loserRef.get()]);
+    expect(afterAssignment.updateTime.isEqual(beforeAssignment.updateTime)).toBe(true);
+    expect(afterLoser.updateTime.isEqual(beforeLoser.updateTime)).toBe(true);
+    expect(afterLoser.data()).toMatchObject({lifecycleState: 'available', version: 2, currentBaseAssetInstanceId: null});
+    const assignment = afterAssignment.data();
+    expect(assignment.innerCoverId).toBe(requests[1 - loserIndex].innerCoverId);
+    const installed = await db.collection('inner_cover_profiles')
+      .where('currentBaseAssetInstanceId', '==', IDS.base).get();
+    expect(installed.size).toBe(1);
+    expect(installed.docs[0].id).toBe(assignment.innerCoverId);
+    expect((await db.collection('inner_cover_linkages').get()).size).toBe(1);
+    expect((await db.collection('inner_cover_lifecycle_receipts').get()).size).toBe(1);
+    expect((await db.collection('inner_cover_lifecycle_audits').get()).size).toBe(1);
+  }, 60000);
+
   test.each([
     ['inner_cover_acceptance_dart_request.json', '2026-09-12T08:30:00.123Z'],
     ['inner_cover_acceptance_legacy_dart_request.json', '2026-09-12T08:30:00.123456Z'],
@@ -373,6 +499,7 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
       sourceBaseAssetInstanceId: IDS.base,
       expectedSourceAssignmentVersion: 1,
       targetState: 'awaitingInspection',
+      physicalEventAt: '2026-08-15T12:00:00.000Z',
       reason: 'Remove after service and return for inspection.',
     });
     expect((await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).exists)
@@ -382,6 +509,10 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
         lifecycleState: 'awaitingInspection',
         currentBaseAssetInstanceId: null,
         version: 4,
+        assuranceEpisodeId: IDS.delink,
+        assuranceInvalidatedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-15T12:00:00.000Z'),
+        ),
       });
     const history = await db.collection('inner_cover_linkages')
       .where('innerCoverId', '==', IDS.cover).get();

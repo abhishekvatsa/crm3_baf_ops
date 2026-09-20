@@ -234,6 +234,38 @@ void main() {
     expect(event.completedByName, 'Mechanical maintenance team');
   });
 
+  test(
+    'history distinguishes interpretation revisions and historical-only evidence',
+    () {
+      final first = MaintenanceCompletionEvent.fromMap(
+        completionEventMap(),
+        'event-history-1',
+      );
+      final revised = completionEventMap()
+        ..['eventId'] = 'event-history-2'
+        ..['sourceRevision'] = 2
+        ..['interpretedByName'] = 'Reviewer'
+        ..['completedByName'] = null
+        ..['cadenceApplicability'] = 'historicalOnly';
+      final second = MaintenanceCompletionEvent.fromMap(
+        revised,
+        'event-history-2',
+      );
+      expect(second.occurrenceKey, first.occurrenceKey);
+      expect(second.sourceRevision, 2);
+      expect(second.interpretedByName, 'Reviewer');
+      expect(second.completedByName, isNull);
+      expect(second.historicalOnly, isTrue);
+      expect(
+        () => MaintenanceCompletionEvent.fromMap(
+          revised..['sourceRevision'] = 0,
+          'event-history-2',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    },
+  );
+
   test('completion history fails closed on partial asset identity', () {
     final malformed = completionEventMap()..['assetInstanceId'] = null;
 

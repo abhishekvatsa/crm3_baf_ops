@@ -23,8 +23,9 @@ class CriticalAlarmPlatformService {
       _channel.setMethodCallHandler((call) async {
         if (call.method != 'criticalAlarmOpened') return null;
         final arguments = call.arguments;
-        final alarmId =
-            arguments is Map ? arguments['alarmId']?.toString().trim() : null;
+        final alarmId = arguments is Map
+            ? arguments['alarmId']?.toString().trim()
+            : null;
         if (alarmId != null && alarmId.isNotEmpty) {
           _openedAlarmController.add(alarmId);
         }
@@ -56,6 +57,21 @@ class CriticalAlarmPlatformService {
                 '${alarm.location} - raised by ${alarm.raisedByName}. Follow the plant emergency procedure.',
           }) ??
           false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Posting successfully is not itself proof that the device can display a
+  /// safety notification. Android may accept a post while the app permission
+  /// or the critical-alarm channel is disabled. Keep readiness as a separate
+  /// check so the host retries rather than treating one post as permanent.
+  Future<bool> isNotificationReady() async {
+    if (kIsWeb) return false;
+    try {
+      return await _channel.invokeMethod<bool>('isNotificationReady') ?? false;
     } on PlatformException {
       return false;
     } on MissingPluginException {

@@ -4,6 +4,7 @@ import {
   AssetHierarchyMutationError,
   AssetHierarchyMutationFirestoreLike,
 } from "./assetHierarchyMutation";
+import {persistedInstantMillis} from "./persistedInstant";
 import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 import {
@@ -21,12 +22,22 @@ type DocumentRefLike = {
   path?: string;
   get: () => Promise<SnapshotLike>;
 };
+type QuerySnapshotLike = {docs: SnapshotLike[]};
+type QueryLike = {
+  where: (field: string, op: string, value: unknown) => QueryLike;
+};
 type TransactionLike = {
-  get: (ref: DocumentRefLike) => Promise<SnapshotLike>;
+  get: {
+    (ref: DocumentRefLike): Promise<SnapshotLike>;
+    (ref: QueryLike): Promise<QuerySnapshotLike>;
+  };
   set: (ref: DocumentRefLike, data: JsonMap) => void;
   delete: (ref: DocumentRefLike) => void;
 };
-type CollectionLike = {doc: (id?: string) => DocumentRefLike};
+type CollectionLike = {
+  doc: (id?: string) => DocumentRefLike;
+  where: (field: string, op: string, value: unknown) => QueryLike;
+};
 type LifecycleDbLike = {
   collection: (name: string) => CollectionLike;
   runTransaction: <T>(fn: (transaction: TransactionLike) => Promise<T>) =>
@@ -131,9 +142,11 @@ interface ParsedRequest {
   retirementCondition: InnerCoverRetirementCondition | null;
   registrationDraft: RegistrationDraft | null;
   acceptanceDraft: AcceptanceDraft | null;
+  physicalEventAt: Date | null;
   reason: string;
   fingerprint: string;
   legacyFingerprint: string | null;
+  legacyV3Fingerprint: string | null;
   timestampInstants: {[field: string]: string | null};
 }
 
@@ -347,6 +360,74 @@ function instantMicros(value: Date): bigint {
 
 function optionalDate(value: unknown, field: string): Date | null {
   return value == null ? null : requiredDate(value, field);
+}
+
+const ASSURANCE_INVALIDATING_STATES = new Set<InnerCoverLifecycleState>([
+  "awaitingInspection", "underInspection", "underRepair", "underFabrication",
+  "quarantined", "rejected", "retiredForSalvage", "partiallyDismantled",
+  "fullyConsumedAsDonor", "disposed",
+]);
+
+function assuranceInvalidatingOperation(request: {
+  operation: InnerCoverLifecycleOperation;
+  targetState: InnerCoverLifecycleState | null;
+}): boolean {
+  return request.operation === "DELINK_INNER_COVER" ||
+    request.operation === "REPLACE_INNER_COVER" ||
+    (request.operation === "SET_INNER_COVER_STATE" &&
+      request.targetState != null &&
+      ASSURANCE_INVALIDATING_STATES.has(request.targetState));
+}
+
+function invalidateAssuranceEpisode(args: {
+  profile: JsonMap;
+  request: ParsedRequest;
+  committedAt: unknown;
+  actorUid: string;
+  actorName: string;
+  requestId: string;
+  toTimestamp: (date: Date) => unknown;
+}): JsonMap {
+  if (!assuranceInvalidatingOperation(args.request)) return args.profile;
+  const physicalEventAt = args.request.physicalEventAt;
+  if (physicalEventAt == null) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Record when the physical Inner Cover service event occurred before changing its assurance state.",
+      {reasonCode: "inner-cover-physical-event-time-required"},
+    );
+  }
+  const existingInvalidatedAt = timestampMillis(
+    args.profile.assuranceInvalidatedAt,
+  );
+  // A late administrative state entry must not move the physical assurance
+  // boundary backwards. The latest physical invalidation remains the episode
+  // that a later inspection must qualify.
+  if (existingInvalidatedAt != null &&
+      existingInvalidatedAt >= physicalEventAt.getTime()) {
+    return args.profile;
+  }
+  return {
+    ...args.profile,
+    // This request opens the physical assurance episode that the next
+    // acceptance must qualify.  Keeping the command identity here means a
+    // later audit can distinguish this episode from another service event on
+    // the same serial, even when the inspection is recorded late.
+    assuranceEpisodeId: args.requestId,
+    assuranceInvalidatedAt: args.toTimestamp(physicalEventAt),
+    assuranceInvalidatedRecordedAt: args.committedAt,
+    assuranceInvalidatedByUid: args.actorUid,
+    assuranceInvalidatedByName: args.actorName,
+    assuranceInvalidationReason: args.request.reason,
+    lastMutationId: args.requestId,
+  };
+}
+
+function assuranceReacceptanceRequired(profile: JsonMap): boolean {
+  const acceptedAt = timestampMillis(profile.acceptedAt);
+  const invalidatedAt = timestampMillis(profile.assuranceInvalidatedAt);
+  return acceptedAt != null && invalidatedAt != null &&
+    invalidatedAt >= acceptedAt;
 }
 
 function normalizedSerial(value: string): string {
@@ -571,7 +652,7 @@ export function parseInnerCoverLifecycleMutationRequest(
     "targetBaseAssetInstanceId", "expectedSourceAssignmentVersion",
     "expectedTargetAssignmentVersion", "displacedInnerCoverId",
     "expectedDisplacedVersion", "targetState", "registrationDraft",
-    "retirementCondition", "acceptanceDraft", "reason",
+    "retirementCondition", "acceptanceDraft", "physicalEventAt", "reason",
   ]), "request");
   const operation = requiredString(
     raw.operation, "operation", 40,
@@ -592,7 +673,8 @@ export function parseInnerCoverLifecycleMutationRequest(
     invalid("retirementCondition", "is unsupported");
   }
   const request: Omit<ParsedRequest,
-    "fingerprint" | "legacyFingerprint" | "timestampInstants"> = {
+    "fingerprint" | "legacyFingerprint" | "legacyV3Fingerprint" |
+    "timestampInstants"> = {
     requestId: uuid(raw.requestId, "requestId"),
     operation,
     innerCoverId: documentId(raw.innerCoverId, "innerCoverId"),
@@ -626,6 +708,7 @@ export function parseInnerCoverLifecycleMutationRequest(
       parseRegistrationDraft(raw.registrationDraft),
     acceptanceDraft: raw.acceptanceDraft == null ? null :
       parseAcceptanceDraft(raw.acceptanceDraft),
+    physicalEventAt: optionalDate(raw.physicalEventAt, "physicalEventAt"),
     reason: requiredString(raw.reason, "reason", 1000),
   };
   const register = operation === "REGISTER_INNER_COVER";
@@ -642,6 +725,11 @@ export function parseInnerCoverLifecycleMutationRequest(
   const accept = operation === "ACCEPT_INNER_COVER";
   if (accept !== (request.acceptanceDraft != null)) {
     invalid("acceptanceDraft", accept ? "is required" : "is not allowed");
+  }
+  if (request.physicalEventAt != null && !new Set([
+    "SET_INNER_COVER_STATE", "DELINK_INNER_COVER", "REPLACE_INNER_COVER",
+  ]).has(operation)) {
+    invalid("physicalEventAt", "is not allowed for this operation");
   }
   if (!register && request.expectedVersion == null) {
     invalid("expectedVersion", "is required");
@@ -716,27 +804,58 @@ export function parseInnerCoverLifecycleMutationRequest(
   if (request.displacedInnerCoverId === request.innerCoverId) {
     invalid("displacedInnerCoverId", "must differ from the incoming Inner Cover");
   }
-  const {retirementCondition: condition, ...legacyRequest} = request;
+  const {
+    retirementCondition: condition,
+    physicalEventAt,
+    ...requestWithoutPhysicalEventAt
+  } = request;
+  const legacyRequest = {
+    ...requestWithoutPhysicalEventAt,
+    ...(condition == null ? {} : {retirementCondition: condition}),
+  };
+  // Historical v3 already included timestampInstants, but it was generated
+  // before physicalEventAt existed. Preserve that exact request shape for
+  // replaying receipts written by that implementation.
+  const historicalV3Request = {
+    ...requestWithoutPhysicalEventAt,
+    retirementCondition: condition,
+  };
   const fingerprintVersion = condition == null ? "innercover1" : "innercover2";
-  const fingerprintPayload = condition == null ? legacyRequest : request;
-  const timestampInstants: {[field: string]: string | null} =
-    request.acceptanceDraft != null ? {
-    inspectedOn: wireInstant(request.acceptanceDraft.inspectedOn),
-  } : request.registrationDraft != null ? {
-    receivedOrCompletedOn: request.registrationDraft.receivedOrCompletedOn == null ?
-      null : wireInstant(request.registrationDraft.receivedOrCompletedOn),
-    incorporatedOn: request.registrationDraft.incorporatedOn == null ?
-      null : wireInstant(request.registrationDraft.incorporatedOn),
-  } : {};
+  const fingerprintPayload = physicalEventAt == null ? legacyRequest : request;
+  const timestampInstants: {[field: string]: string | null} = {
+    ...(request.physicalEventAt != null ? {
+      physicalEventAt: wireInstant(request.physicalEventAt),
+    } : {}),
+    ...(request.acceptanceDraft != null ? {
+      inspectedOn: wireInstant(request.acceptanceDraft.inspectedOn),
+    } : request.registrationDraft != null ? {
+      receivedOrCompletedOn: request.registrationDraft.receivedOrCompletedOn == null ?
+        null : wireInstant(request.registrationDraft.receivedOrCompletedOn),
+      incorporatedOn: request.registrationDraft.incorporatedOn == null ?
+        null : wireInstant(request.registrationDraft.incorporatedOn),
+    } : {}),
+  };
   // v1/v2 stableJson treated Date as {}. Preserve that calculation solely for
   // existing receipts; every newly committed command uses date-bound v3.
-  const legacyFingerprint = Object.values(timestampInstants).some(
-    (value) => value != null && /\.\d{6}Z$/.test(value),
-  ) ? null : `${fingerprintVersion}-sha256:${createHash("sha256")
-    .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
+  // Older clients omitted physicalEventAt and hashed parsed Date objects,
+  // including the six-digit Dart timestamp variant. Keep that historical
+  // candidate available for replay; new writes still use date-bound v3.
+  const legacyFingerprint = physicalEventAt == null ?
+    `${fingerprintVersion}-sha256:${createHash("sha256")
+    .update(stableJson(fingerprintPayload), "utf8").digest("hex")}` : null;
+  const legacyV3Fingerprint = physicalEventAt == null ?
+    `innercover3-sha256:${createHash("sha256")
+    .update(stableJson({...historicalV3Request, timestampInstants}),
+      "utf8").digest("hex")}` : null;
   const fingerprint = `innercover3-sha256:${createHash("sha256")
     .update(stableJson({...request, timestampInstants}), "utf8").digest("hex")}`;
-  return {...request, fingerprint, legacyFingerprint, timestampInstants};
+  return {
+    ...request,
+    fingerprint,
+    legacyFingerprint,
+    legacyV3Fingerprint,
+    timestampInstants,
+  };
 }
 
 function record(snapshot: SnapshotLike, label: string): JsonMap {
@@ -744,6 +863,90 @@ function record(snapshot: SnapshotLike, label: string): JsonMap {
     throw new AssetHierarchyMutationError("not-found", `${label} was not found.`);
   }
   return snapshot.data()!;
+}
+
+function queryRecords(
+  snapshot: SnapshotLike | QuerySnapshotLike,
+  label: string,
+): SnapshotLike[] {
+  if (!("docs" in snapshot) || !Array.isArray(snapshot.docs)) {
+    throw new AssetHierarchyMutationError(
+      "data-loss",
+      `${label} returned an invalid query result.`,
+      {reasonCode: "inner-cover-custody-query-malformed"},
+    );
+  }
+  return snapshot.docs;
+}
+
+async function requireExclusiveBaseCustody(args: {
+  transaction: TransactionLike;
+  profiles: CollectionLike;
+  linkages: CollectionLike;
+  baseId: string;
+  expectedCover: JsonMap | null;
+  side: "source" | "target";
+}): Promise<void> {
+  const {transaction, profiles, linkages, baseId, expectedCover} = args;
+  const profileSnapshots = queryRecords(await transaction.get(
+    profiles.where("currentBaseAssetInstanceId", "==", baseId),
+  ), "Base profile custody lookup");
+  // Read the complete Base history. Limiting before examining active flags can
+  // hide current custody behind closed history, and filtering on active=true
+  // would hide a damaged or missing active flag on an unclosed linkage.
+  const linkageSnapshots = queryRecords(await transaction.get(
+    linkages.where("baseAssetInstanceId", "==", baseId),
+  ), "Base linkage custody lookup");
+  const expectedProfileMissing = expectedCover != null &&
+    (expectedCover.lifecycleState !== "installed" ||
+      expectedCover.currentBaseAssetInstanceId !== baseId ||
+      profileSnapshots.length !== 1);
+  const unexpectedProfile = expectedProfileMissing || profileSnapshots.some((snapshot) => {
+    const data = snapshot.data();
+    return !snapshot.exists || data == null || expectedCover == null ||
+      snapshot.id !== expectedCover.innerCoverId ||
+      data.innerCoverId !== expectedCover.innerCoverId ||
+      data.lifecycleState !== "installed" ||
+      data.currentBaseAssetInstanceId !== baseId ||
+      data.currentLinkageId !== expectedCover.currentLinkageId;
+  });
+  const unexpectedLinkage = linkageSnapshots.some((snapshot) => {
+    const data = snapshot.data();
+    if (!snapshot.exists || data == null || data.schemaVersion !== 1 ||
+        data.linkageId !== snapshot.id || data.baseAssetInstanceId !== baseId ||
+        typeof data.innerCoverId !== "string" || data.innerCoverId.length === 0 ||
+        typeof data.innerCoverSerialNumber !== "string" ||
+        data.innerCoverSerialNumber.length === 0 ||
+        !Number.isSafeInteger(data.version) || (data.version as number) < 1) {
+      return true;
+    }
+    if (data.active === true && expectedCover != null &&
+        data.linkageId === expectedCover.currentLinkageId &&
+        data.innerCoverId === expectedCover.innerCoverId &&
+        data.innerCoverSerialNumber === expectedCover.serialNumber &&
+        data.removedAt == null && data.removedPhysicalAt == null) {
+      // The operation's direct linkage read also verifies its installation
+      // timestamp before closing the reviewed cover's interval.
+      return false;
+    }
+    const installedAt = persistedInstantMillis(data.installedAt);
+    const removedAt = persistedInstantMillis(data.removedAt);
+    const removedPhysicalAt = persistedInstantMillis(data.removedPhysicalAt);
+    // Only an explicit, chronologically valid closure proves that an older
+    // linkage no longer claims the Base. Incomplete evidence needs repair.
+    return data.active !== false || !Number.isFinite(installedAt) ||
+      !Number.isFinite(removedAt) || removedAt < installedAt ||
+      (data.removedPhysicalAt != null &&
+        (!Number.isFinite(removedPhysicalAt) ||
+          removedPhysicalAt < installedAt || removedPhysicalAt > removedAt));
+  });
+  if (unexpectedProfile || unexpectedLinkage) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The Base has conflicting or incomplete Inner Cover custody evidence. Reconcile it before installing another cover.",
+      {reasonCode: `inner-cover-${args.side}-base-custody-unverified`},
+    );
+  }
 }
 
 function requireVersion(
@@ -860,6 +1063,52 @@ function requireProfile(
       "failed-precondition",
       `${label} has incomplete or malformed acceptance evidence.`,
       {reasonCode: "inner-cover-acceptance-incomplete"},
+    );
+  }
+  const assuranceInvalidation = [
+    data.assuranceInvalidatedAt,
+    data.assuranceInvalidatedRecordedAt,
+    data.assuranceInvalidatedByUid,
+    data.assuranceInvalidatedByName,
+    data.assuranceInvalidationReason,
+  ];
+  const assuranceInvalidationCount = assuranceInvalidation
+    .filter((value) => value != null).length;
+  const assuranceInvalidationComplete =
+    assuranceInvalidationCount === assuranceInvalidation.length;
+  const assuranceEpisodeId = data.assuranceEpisodeId;
+  if (assuranceEpisodeId != null &&
+      (typeof assuranceEpisodeId !== "string" ||
+        assuranceEpisodeId.length === 0 || assuranceEpisodeId.length > 128)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `${label} has a malformed assurance episode identifier.`,
+      {reasonCode: "inner-cover-assurance-episode-malformed"},
+    );
+  }
+  const assuranceInvalidatedAt = data.assuranceInvalidatedAt == null ? null :
+    timestampMillis(data.assuranceInvalidatedAt);
+  const assuranceInvalidatedRecordedAt =
+    data.assuranceInvalidatedRecordedAt == null ? null :
+      timestampMillis(data.assuranceInvalidatedRecordedAt);
+  if ((assuranceInvalidationCount !== 0 && !assuranceInvalidationComplete) ||
+      (assuranceInvalidationComplete &&
+        (assuranceInvalidatedAt == null ||
+          assuranceInvalidatedRecordedAt == null ||
+          assuranceInvalidatedAt > assuranceInvalidatedRecordedAt ||
+          typeof data.assuranceInvalidatedByUid !== "string" ||
+          data.assuranceInvalidatedByUid.length === 0 ||
+          data.assuranceInvalidatedByUid.length > 128 ||
+          typeof data.assuranceInvalidatedByName !== "string" ||
+          data.assuranceInvalidatedByName.length === 0 ||
+          data.assuranceInvalidatedByName.length > 200 ||
+          typeof data.assuranceInvalidationReason !== "string" ||
+          data.assuranceInvalidationReason.trim().length === 0 ||
+          data.assuranceInvalidationReason.length > 1000))) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `${label} has incomplete or malformed assurance-episode evidence.`,
+      {reasonCode: "inner-cover-assurance-episode-malformed"},
     );
   }
   const retirementCondition = data.retirementCondition;
@@ -1051,6 +1300,32 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
     currentBaseAssetInstanceId: data.currentBaseAssetInstanceId ?? null,
     currentBaseAssetNumber: data.currentBaseAssetNumber ?? null,
     currentLinkageId: data.currentLinkageId ?? null,
+    // A later acceptance replaces these on the profile. Without them here the
+    // immutable record keeps no readable copy of what an earlier acceptance
+    // rested on, and the evidence for a cover's previous clearance is gone
+    // from the authoritative store.
+    acceptanceReference: data.acceptanceReference ?? null,
+    acceptedAt: optionalTimestampIso(
+      data.acceptedAt,
+      "Inner Cover acceptance time",
+    ),
+    acceptedByUid: data.acceptedByUid ?? null,
+    acceptedByName: data.acceptedByName ?? null,
+    leakTestReference: data.leakTestReference ?? null,
+    ndtReference: data.ndtReference ?? null,
+    acceptanceNotes: data.acceptanceNotes ?? null,
+    assuranceInvalidatedAt: optionalTimestampIso(
+      data.assuranceInvalidatedAt,
+      "Inner Cover assurance invalidation time",
+    ),
+    assuranceInvalidatedRecordedAt: optionalTimestampIso(
+      data.assuranceInvalidatedRecordedAt,
+      "Inner Cover assurance invalidation recording time",
+    ),
+    assuranceInvalidatedByUid: data.assuranceInvalidatedByUid ?? null,
+    assuranceInvalidatedByName: data.assuranceInvalidatedByName ?? null,
+    assuranceInvalidationReason: data.assuranceInvalidationReason ?? null,
+    assuranceEpisodeId: data.assuranceEpisodeId ?? null,
     traceabilityGrade: data.traceabilityGrade,
     version: data.version,
   };
@@ -1179,20 +1454,68 @@ function closeLink(
   action: string,
   reason: string,
   committedAt: unknown,
+  physicalEventAt: unknown | null,
   actorUid: string,
   actorName: string,
+  owner: {profile: JsonMap; baseAssetInstanceId: unknown},
 ): JsonMap {
+  // The history being closed has to be this cover's history on this Base.
+  // Checking only that a record is active and unremoved would let a removal be
+  // stamped on a history belonging to another cover, leaving that cover
+  // installed while its record says it came off.
+  if (current.linkageId !== owner.profile.currentLinkageId ||
+      current.innerCoverId !== owner.profile.innerCoverId ||
+      current.innerCoverSerialNumber !== owner.profile.serialNumber ||
+      current.baseAssetInstanceId !== owner.baseAssetInstanceId) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "This linkage history belongs to another Inner Cover or Base.",
+      {reasonCode: "inner-cover-linkage-identity-mismatch"},
+    );
+  }
   if (current.schemaVersion !== 1 || current.active !== true ||
-      current.removedAt != null || !Number.isSafeInteger(current.version)) {
+      current.removedAt != null || current.removedPhysicalAt != null ||
+      !Number.isSafeInteger(current.version) || (current.version as number) < 1) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The active linkage history record is malformed.",
       {reasonCode: "inner-cover-linkage-history-malformed"},
     );
   }
+  // A cover cannot come off a Base before it went on. A server clock that has
+  // gone backwards, or a record already dated ahead, must not be turned into
+  // an ordinary valid-looking installation interval.
+  const installedMillis = persistedInstantMillis(current.installedAt);
+  const removedMillis = persistedInstantMillis(committedAt);
+  if (!Number.isFinite(installedMillis)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The active linkage has no valid installation time.",
+      {reasonCode: "inner-cover-linkage-history-malformed"},
+    );
+  }
+  if (Number.isFinite(removedMillis) && removedMillis < installedMillis) {
+    throw new AssetHierarchyMutationError(
+      "aborted",
+      "This removal time precedes the installation it ends. " +
+      "Retry after the recorded time boundary.",
+      {reasonCode: "inner-cover-linkage-chronology-invalid"},
+    );
+  }
+  const physicalRemovedMillis = persistedInstantMillis(physicalEventAt);
+  if (Number.isFinite(installedMillis) &&
+      Number.isFinite(physicalRemovedMillis) &&
+      physicalRemovedMillis < installedMillis) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The physical removal time precedes the recorded installation.",
+      {reasonCode: "inner-cover-physical-linkage-chronology-invalid"},
+    );
+  }
   return {
     ...current,
     removedAt: committedAt,
+    ...(physicalEventAt == null ? {} : {removedPhysicalAt: physicalEventAt}),
     removedByUid: actorUid,
     removedByName: actorName,
     removalAction: action,
@@ -1209,9 +1532,11 @@ function replayResult(
 ): InnerCoverLifecycleMutationResult {
   const legacy = request.legacyFingerprint != null &&
     data.fingerprint === request.legacyFingerprint;
+  const legacyV3 = request.legacyV3Fingerprint != null &&
+    data.fingerprint === request.legacyV3Fingerprint;
   if (data.schemaVersion !== 1 || data.requestId !== request.requestId ||
       data.actorUid !== actorUid ||
-      (data.fingerprint !== request.fingerprint && !legacy) ||
+      (data.fingerprint !== request.fingerprint && !legacy && !legacyV3) ||
       data.operation !== request.operation ||
       data.innerCoverId !== request.innerCoverId ||
       !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
@@ -1304,8 +1629,13 @@ function validateReplayAudit(
         replay.secondaryVersion !== request.expectedDisplacedVersion! + 1)) {
     replayEvidenceDrift();
   }
-  if (receipt.fingerprint === request.fingerprint) {
-    if (audit.fingerprint !== request.fingerprint ||
+  const currentV3 = receipt.fingerprint === request.fingerprint;
+  const historicalV3 = request.legacyV3Fingerprint != null &&
+    receipt.fingerprint === request.legacyV3Fingerprint;
+  if (currentV3 || historicalV3) {
+    const expectedFingerprint = historicalV3 ?
+      request.legacyV3Fingerprint : request.fingerprint;
+    if (audit.fingerprint !== expectedFingerprint ||
         stableJson(audit.timestampInstants) !== stableJson(request.timestampInstants) ||
         receipt.auditEvidenceSha256 !== auditEvidenceHash(audit)) {
       replayEvidenceDrift();
@@ -1380,7 +1710,11 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
       const replay = replayResult(request, actorUid, receiptData);
       const audit = (await transaction.get(auditRef)).data() ?? {};
       validateReplayAudit(request, actorUid, receiptData, audit, replay);
-      if (receiptData.fingerprint !== request.fingerprint &&
+      // Only v1/v2 omitted immutable date evidence. Both v3 shapes have just
+      // passed their timestamp and audit-hash checks, even after the profile
+      // has advanced through another legitimate lifecycle command.
+      if (request.legacyFingerprint != null &&
+          receiptData.fingerprint === request.legacyFingerprint &&
           Object.keys(request.timestampInstants).length > 0) {
         const current = (await transaction.get(profileRef)).data() ?? {};
         if (current.version !== replay.version ||
@@ -1477,10 +1811,36 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
     const targetAssignmentSnapshot = targetAssignmentRef == null ? null :
       await transaction.get(targetAssignmentRef);
 
+    // Missing assignments do not prove vacancy. Replacement and swap also
+    // require the reviewed displaced cover to be the only surviving claimant.
+    const replacesTarget = request.operation === "REPLACE_INNER_COVER" ||
+      request.operation === "SWAP_INNER_COVERS";
+    if (targetBaseRef != null &&
+        (targetAssignmentSnapshot?.exists !== true || replacesTarget)) {
+      await requireExclusiveBaseCustody({
+        transaction, profiles, linkages,
+        baseId: request.targetBaseAssetInstanceId!,
+        expectedCover: replacesTarget ? displacedProfile : null,
+        side: "target",
+      });
+    }
+    if (request.operation === "SWAP_INNER_COVERS") {
+      await requireExclusiveBaseCustody({
+        transaction, profiles, linkages,
+        baseId: request.sourceBaseAssetInstanceId!,
+        expectedCover: currentProfile,
+        side: "source",
+      });
+    }
+
     const nowDate = args.now?.() ?? new Date();
     const committedAtIso = nowDate.toISOString();
     const toTimestamp = args.timestampFromDate ?? ((date: Date) => date);
     const committedAt = toTimestamp(nowDate);
+    if (request.physicalEventAt != null &&
+        instantMicros(request.physicalEventAt) > instantMicros(nowDate)) {
+      invalid("physicalEventAt", "cannot be in the future");
+    }
     const actorName = typeof actor.name === "string" && actor.name.trim() ?
       actor.name.trim() : actorUid;
     let after: JsonMap;
@@ -1749,6 +2109,50 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             "cannot predate receipt or fabrication completion",
           );
         }
+        // A cover comes back for acceptance because something happened to it:
+        // it was repaired, or found bulged and returned. The inspection that
+        // puts it back into service has to have seen that. Evidence from the
+        // acceptance it is replacing saw none of it, so re-accepting on the
+        // same or older inspection certifies nothing new - and the cover goes
+        // back under a Base qualified by a reading taken before the damage.
+        //
+        // The comparison is between two physical inspection dates, never
+        // recording times, so evidence entered late is unaffected.
+        const previouslyAcceptedAt = timestampMillis(current.acceptedAt);
+        const assuranceInvalidatedAt = timestampMillis(
+          current.assuranceInvalidatedAt,
+        );
+        const assuranceEpisodeId = current.assuranceEpisodeId;
+        if (assuranceInvalidatedAt != null && assuranceEpisodeId == null) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Inner Cover assurance episode predates episode identifiers. Reconcile its retained service evidence before accepting it.",
+            {reasonCode: "inner-cover-assurance-episode-reconciliation-required"},
+          );
+        }
+        const evidenceFloor = [previouslyAcceptedAt, assuranceInvalidatedAt]
+          .filter((value): value is number => value != null)
+          .reduce((maximum, value) => Math.max(maximum, value), 0);
+        if (evidenceFloor > 0 &&
+            acceptance.inspectedOn.getTime() <= evidenceFloor) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            assuranceInvalidatedAt != null &&
+                assuranceInvalidatedAt >= (previouslyAcceptedAt ?? 0) ?
+              "This Inner Cover was physically invalidated after its last clearance. A new acceptance needs inspection evidence from after that service event." :
+              "This Inner Cover was already accepted on that evidence. A new acceptance needs an inspection carried out after the last one.",
+            {
+              reasonCode: assuranceInvalidatedAt != null &&
+                  assuranceInvalidatedAt >= (previouslyAcceptedAt ?? 0) ?
+                "inner-cover-acceptance-before-assurance-episode" :
+                "inner-cover-acceptance-evidence-stale",
+              previouslyAcceptedAt: previouslyAcceptedAt == null ? null :
+                new Date(previouslyAcceptedAt).toISOString(),
+              assuranceInvalidatedAt: assuranceInvalidatedAt == null ? null :
+                new Date(assuranceInvalidatedAt).toISOString(),
+            },
+          );
+        }
         const fabricationRef = fabrications.doc(request.innerCoverId);
         const fabrication = await transaction.get(fabricationRef);
         nextVersion = currentVersion + 1;
@@ -1764,6 +2168,10 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           leakTestReference: acceptance.leakTestReference,
           ndtReference: acceptance.ndtReference,
           acceptanceNotes: acceptance.notes,
+          // A first acceptance starts an assurance episode.  A reacceptance
+          // keeps the identifier opened by the physical invalidation event,
+          // so the acceptance remains explicitly bound to that episode.
+          assuranceEpisodeId: assuranceEpisodeId ?? request.requestId,
         };
         transaction.set(profileRef, after);
         if (fabrication.exists) {
@@ -1804,10 +2212,18 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           );
         }
         nextVersion = currentVersion + 1;
-        after = uninstalledProfile(
-          current, target, nextVersion, committedAt, actorUid, actorName,
-          request.requestId,
-        );
+        after = invalidateAssuranceEpisode({
+          profile: uninstalledProfile(
+            current, target, nextVersion, committedAt, actorUid, actorName,
+            request.requestId,
+          ),
+          request,
+          committedAt,
+          actorUid,
+          actorName,
+          requestId: request.requestId,
+          toTimestamp,
+        });
         if (target === "retiredForSalvage") {
           after.retirementCondition = request.retirementCondition;
           after.retiredAt = committedAt;
@@ -1856,6 +2272,13 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             {reasonCode: "inner-cover-not-available"},
           );
         }
+        if (assuranceReacceptanceRequired(current)) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Inner Cover has a later physical assurance episode. Re-accept it on inspection evidence before linking it to a Base.",
+            {reasonCode: "inner-cover-reacceptance-required"},
+          );
+        }
         if (targetAssignmentSnapshot?.exists === true) {
           const targetData = targetAssignmentSnapshot.data() ?? {};
           throw new AssetHierarchyMutationError(
@@ -1900,6 +2323,13 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             {reasonCode: "inner-cover-not-available"},
           );
         }
+        if (assuranceReacceptanceRequired(current)) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Inner Cover has a later physical assurance episode. Re-accept it on inspection evidence before replacing the installed cover.",
+            {reasonCode: "inner-cover-reacceptance-required"},
+          );
+        }
         const displaced = displacedProfile ?? record(
           displacedSnapshot!, "Displaced Inner Cover",
         );
@@ -1930,7 +2360,13 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         );
         transaction.set(displacedLinkRef, closeLink(
           displacedLink, request.operation, request.reason, committedAt,
+          request.physicalEventAt == null ? null :
+            toTimestamp(request.physicalEventAt),
           actorUid, actorName,
+          {
+            profile: displaced,
+            baseAssetInstanceId: request.targetBaseAssetInstanceId,
+          },
         ));
         const linkId = `link_${request.requestId}`;
         const link = linkRecord({
@@ -1948,15 +2384,23 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           current, targetBase!, linkId, nextVersion, committedAt, actorUid,
           actorName, request.requestId,
         );
-        secondaryAfter = uninstalledProfile(
-          displaced,
-          request.targetState!,
-          secondaryVersion,
+        secondaryAfter = invalidateAssuranceEpisode({
+          profile: uninstalledProfile(
+            displaced,
+            request.targetState!,
+            secondaryVersion,
+            committedAt,
+            actorUid,
+            actorName,
+            request.requestId,
+          ),
+          request,
           committedAt,
           actorUid,
           actorName,
-          request.requestId,
-        );
+          requestId: request.requestId,
+          toTimestamp,
+        });
         transaction.set(profileRef, after);
         transaction.set(displacedRef!, secondaryAfter);
         transaction.set(linkages.doc(linkId), link);
@@ -1987,14 +2431,28 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         );
         if (request.operation === "DELINK_INNER_COVER") {
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt,
+            request.physicalEventAt == null ? null :
+              toTimestamp(request.physicalEventAt), actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           nextVersion = currentVersion + 1;
-          after = uninstalledProfile(
-            current, request.targetState!, nextVersion, committedAt, actorUid,
-            actorName, request.requestId,
-          );
+          after = invalidateAssuranceEpisode({
+            profile: uninstalledProfile(
+              current, request.targetState!, nextVersion, committedAt, actorUid,
+              actorName, request.requestId,
+            ),
+            request,
+            committedAt,
+            actorUid,
+            actorName,
+            requestId: request.requestId,
+            toTimestamp,
+          });
           transaction.set(profileRef, after);
           transaction.delete(sourceAssignmentRef!);
         } else if (request.operation === "TRANSFER_INNER_COVER") {
@@ -2021,8 +2479,13 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             actorName, request.requestId,
           );
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt, null,
+            actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           transaction.set(profileRef, after);
           transaction.delete(sourceAssignmentRef!);
@@ -2061,12 +2524,22 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             "Displaced linkage history",
           );
           transaction.set(oldLinkRef, closeLink(
-            oldLink, request.operation, request.reason, committedAt, actorUid,
+            oldLink, request.operation, request.reason, committedAt, null,
+            actorUid,
             actorName,
+            {
+              profile: current,
+              baseAssetInstanceId: current.currentBaseAssetInstanceId,
+            },
           ));
           transaction.set(displacedLinkRef, closeLink(
             displacedLink, request.operation, request.reason, committedAt,
+            null,
             actorUid, actorName,
+            {
+              profile: displaced,
+              baseAssetInstanceId: request.targetBaseAssetInstanceId,
+            },
           ));
           const primaryLink = linkRecord({
             linkId: `link_${request.requestId}_primary`,

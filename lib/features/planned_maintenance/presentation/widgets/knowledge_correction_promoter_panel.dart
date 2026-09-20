@@ -11,6 +11,7 @@ import '../../../auth/data/user_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
 import '../../domain/knowledge_correction_promoter.dart';
 import '../../domain/knowledge_governance_models.dart';
+import '../../domain/knowledge_revision_settlement.dart';
 import '../../providers/knowledge_correction_source_provider.dart';
 import '../../providers/knowledge_governance_provider.dart';
 
@@ -40,20 +41,18 @@ class _KnowledgeCorrectionPromoterPanelState
         await ref.read(correctionsProvider.future);
       },
       child: correctionsAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading tag corrections',
-              color: BafColors.planned,
+        loading: () => const BafLoadingPanel(
+          label: 'Loading tag corrections',
+          color: BafColors.planned,
+        ),
+        error: (e, _) => ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(BafSpacing.lg),
+              child: Text('Harvest failed:\n$e'),
             ),
-        error:
-            (e, _) => ListView(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(BafSpacing.lg),
-                  child: Text('Harvest failed:\n$e'),
-                ),
-              ],
-            ),
+          ],
+        ),
         data: (corrections) {
           if (corrections.isEmpty) {
             return ListView(
@@ -71,14 +70,13 @@ class _KnowledgeCorrectionPromoterPanelState
           }
           return ListView.separated(
             padding: const EdgeInsets.all(BafSpacing.md),
-            itemBuilder:
-                (_, i) => _PromotableCard(
-                  correction: corrections[i],
-                  isPromoting: _promotingKeys.contains(
-                    _promotionKey(corrections[i]),
-                  ),
-                  onPromote: () => _promote(context, corrections[i]),
-                ),
+            itemBuilder: (_, i) => _PromotableCard(
+              correction: corrections[i],
+              isPromoting: _promotingKeys.contains(
+                _promotionKey(corrections[i]),
+              ),
+              onPromote: () => _promote(context, corrections[i]),
+            ),
             separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.sm),
             itemCount: corrections.length,
           );
@@ -106,11 +104,10 @@ class _KnowledgeCorrectionPromoterPanelState
 
     final reason = await showDialog<String>(
       context: context,
-      builder:
-          (_) => _PromotionReasonDialog(
-            correction: correction,
-            draftPreview: draftPreview,
-          ),
+      builder: (_) => _PromotionReasonDialog(
+        correction: correction,
+        draftPreview: draftPreview,
+      ),
     );
     if (!mounted || reason == null) {
       return;
@@ -135,7 +132,8 @@ class _KnowledgeCorrectionPromoterPanelState
       }
       _showPromotionSnack(
         context,
-        'Promoted to ${result.rowCode} v${result.versionAfter}.',
+        'Promoted to ${result.rowCode} v${result.versionAfter}. '
+        '${knowledgeRevisionAdoptionNote(result.adoption, result.rowCode)}',
       );
     } catch (e) {
       if (!mounted || !context.mounted) {
@@ -238,8 +236,9 @@ class _PromotionReasonDialogState extends State<_PromotionReasonDialog> {
                 decoration: InputDecoration(
                   labelText: 'Promotion reason',
                   helperText: 'Required for the audit trail.',
-                  errorText:
-                      reason.isEmpty || canPromote ? null : 'Enter a reason.',
+                  errorText: reason.isEmpty || canPromote
+                      ? null
+                      : 'Enter a reason.',
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -362,18 +361,16 @@ class _PromotableCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton.icon(
-                onPressed:
-                    correction.isAlreadyPromoted || isPromoting
-                        ? null
-                        : onPromote,
-                icon:
-                    isPromoting
-                        ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.upgrade_rounded),
+                onPressed: correction.isAlreadyPromoted || isPromoting
+                    ? null
+                    : onPromote,
+                icon: isPromoting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upgrade_rounded),
                 label: Text(isPromoting ? 'Promoting…' : 'Promote'),
               ),
             ),

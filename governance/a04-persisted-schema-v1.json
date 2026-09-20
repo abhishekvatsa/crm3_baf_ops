@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "F986EFD13B79949A164CE9BAA9D8D97BD5DBC63C0A69F37992276A14A06463F3",
+  "inventoryDigest": "7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "3A95D09C5E952F5FFBBCFEC0F345A5F53B502E77FD482DB09661D1B4F3F8B202",
+  "a05ManifestSha256": "0C44EAA98DFC413A6A470418F1A7595A0B72D1CD9C3A7E2ED76EED4A93949037",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -802,9 +802,9 @@
       "file": "lib/features/auth/data/user_model.dart",
       "classification": "REMOTE_AUTHORITY_RECORD",
       "authorityBoundary": "approved-user identity and roles",
-      "malformedDisposition": "fail closed; malformed roles force unapproved authority",
+      "malformedDisposition": "Reject malformed profile/revision/disposition; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority.",
       "compatibility": "none for identity; unknown roles deny authority",
-      "regression": "test/user_model_test.dart"
+      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart"
     },
     {
       "id": "asset-availability-record",
@@ -897,6 +897,42 @@
       "regression": "test/a05_baf_knowledge_integrity_test.dart"
     },
     {
+      "id": "burner-attendance-history",
+      "file": "lib/features/maintenance/domain/burner_attendance_history.dart",
+      "classification": "PERSISTED_BUSINESS_EVIDENCE",
+      "authorityBoundary": "Read-only typed history of server-audited burner attendance while restoration remains incomplete; it grants no closure authority.",
+      "malformedDisposition": "Reject malformed list, missing identity/time/actor/action, or duplicate attendance; UI displays incomplete evidence and dossier export refuses it.",
+      "compatibility": "Absent attendance history means no sessions recorded by this feature; existing maintenance metadata is preserved.",
+      "regression": "test/reactive_burner_attendance_test.dart"
+    },
+    {
+      "id": "burner-block-correction-durable-command",
+      "file": "lib/features/assets/services/burner_block_correction_command_service.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "immutable original-account-bound native correction envelope and its matching server acceptance; correction/event identity, predecessor, expected current event and corrected physical instant remain frozen across retries",
+      "malformedDisposition": "invalid saved envelopes or receipts fail closed and retain native evidence; transport failures and unfenced retry refusals stay uncertain; verified acceptance persists across failed readback and is never replaced by a new request",
+      "compatibility": "maintenanceWorkflow.v2 durable envelopes for correctBurnerBlockInstallation; server schema-2 correction audit binding and supported timestamp representations; no inference of ownership for legacy unbound requests",
+      "regression": "test/burner_block_correction_command_service_test.dart; functions/test/burnerBlockLifecycle.test.js"
+    },
+    {
+      "id": "burner-block-correction-server-review",
+      "file": "lib/features/assets/repositories/burner_block_correction_repository.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "read-only server-confirmed original event, complete correction history and current installation before correction preparation; accepted readback binds original/corrected times, original current-event basis, reviewer, reason and acceptance time to the frozen request and receipt",
+      "malformedDisposition": "strict model errors and missing/conflicting/cached/pending server evidence propagate; incomplete query results never stand in for an uncorrected event, and accepted readback failure leaves durable acceptance awaiting reconciliation",
+      "compatibility": "original lifecycle and current-projection schema 1 plus correction schema 1; a later valid installation may remain current while the original correction is confirmed",
+      "regression": "test/burner_block_installation_correction_test.dart; test/burner_block_correction_command_service_test.dart"
+    },
+    {
+      "id": "burner-block-installation-correction-record",
+      "file": "lib/features/assets/data/burner_block_installation_correction.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "server-authored retained installation-date correction identity, physical subject, original/effective/review chronology, reviewer and exact predecessor chain; original lifecycle events remain immutable",
+      "malformedDisposition": "reject invalid identity, schema, version, position, reviewer or chronology; reject missing, duplicate, branching, cyclic or disconnected predecessor evidence before selecting an effective correction",
+      "compatibility": "correction schema/version 1 with supported persisted timestamp representations; unrelated server metadata is retained by the server but is not interpreted as client authority; an empty complete correction query denotes no correction",
+      "regression": "test/burner_block_installation_correction_test.dart; test/tools/a05_persisted_reconciliation_bridge_test.dart"
+    },
+    {
       "id": "burner-block-lifecycle-record",
       "file": "lib/features/assets/data/burner_block_lifecycle_event.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -927,10 +963,10 @@
       "id": "burner-condition-round-record",
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "server-maintained current-round identity plus immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
-      "malformedDisposition": "fail closed before a malformed current pointer, missing or mismatched referenced round, or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "round schemas 1 and 2 plus current-pointer schema 1; exactly eight ordered positions, exact derived position projections, strict directive-source binding, and exact pointer-to-round identity and chronology",
-      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
+      "authorityBoundary": "server-maintained current-round identity, immutable burner and UV values, and per-field original observation age/observer lineage distinguishing inspection, inherited values and directive dispositions",
+      "malformedDisposition": "fail closed on malformed current/round identity, inconsistent derived positions, unsupported evidence kinds, or malformed explicit provenance; genuinely absent legacy mixed-age provenance stays unknown rather than becoming a fresh observation",
+      "compatibility": "round schemas 1 and 2 plus pointer schema 1; complete explicit field provenance for new records; legacy full inspections retain their original observation attribution, while mixed-age legacy compliance evidence and schema-1 missing UV fields remain unconfirmed",
+      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js; functions/test/burnerDirectiveComplianceMutation.test.js"
     },
     {
       "id": "charge-number-boundary",
@@ -1152,9 +1188,9 @@
       "id": "inner-cover-lifecycle-records",
       "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
-      "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
+      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, assurance invalidation, and fabrication genealogy",
+      "malformedDisposition": "fail closed before incomplete identity, linkage, assurance invalidation or genealogy enters lifecycle decisions or issue evidence; invalidation evidence must be complete together and preserve physical/recorded chronology",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, acceptance, and assurance invalidation evidence remains optional only where explicitly modelled; absent invalidation timestamps do not manufacture an invalidation",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
     },
     {
@@ -1174,6 +1210,15 @@
       "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
       "compatibility": "Existing supported definition/observation/finding schemas and campaign schema 2 remain readable; an explicit optional target context review preserves the original key and baseline. Relocated follow-up observations require the new review-aware reader.",
       "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js"
+    },
+    {
+      "id": "inspection-report-and-corrective-review-reader",
+      "file": "lib/features/inspections/repositories/inspection_repository.dart",
+      "classification": "REMOTE_AUTHORITY_READ",
+      "authorityBoundary": "server-only repair preview and strict independent finding creation history compared with the campaign's prospective creation manifest before report completeness is asserted",
+      "malformedDisposition": "invalid, missing, duplicate or inconsistent creation evidence refuses the report; cached, pending, deleted, malformed or mismatched maintenance records refuse scope review; malformed campaign browse rows remain explicitly incomplete",
+      "compatibility": "legacy campaigns without a manifest still require retained independent creation events; no historical reconciliation or silent manifest backfill is inferred; backend rechecks reviewed repair version and subject transactionally",
+      "regression": "test/inspection_campaign_report_test.dart; test/inspection_audit_board_test.dart; functions/test/inspectionFindingIntegrity.test.js"
     },
     {
       "id": "inspection-server-context-review-reader",
@@ -1221,6 +1266,15 @@
       "regression": "test/a05_planned_work_record_integrity_test.dart"
     },
     {
+      "id": "job-diary-write-precondition",
+      "file": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "Complete stored diary row decoded inside the writing transaction; reviewedServerVersion must match before.version while version can advance across multiple offline edits.",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none; a diary entry without a readable version is not written over",
+      "regression": "test/job_diary_save_precondition_test.dart; test/remaining_diary_local_test.dart; test/firestore.rules.test.js"
+    },
+    {
       "id": "job-module-native-save-baseline",
       "file": "lib/features/planned_maintenance/providers/job_module_provider.save_baseline.dart",
       "classification": "LOCAL_CONTROL_STATE",
@@ -1266,6 +1320,15 @@
       "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_template_composer_integrity_test.dart; test/a05_response_payload_integrity_test.dart"
     },
     {
+      "id": "knowledge-accepted-content-adoption",
+      "file": "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "authorityBoundary": "Accepted content retained by the revision controller is compared to a strict server decode and exact local adoption before settlement.",
+      "malformedDisposition": "Malformed retained content, unavailable rows, wrong version or contradictory accepted fields prevent adoption and retain pending settlement.",
+      "compatibility": "Server timestamps are excluded before retaining accepted content; all retained non-timestamp values must match.",
+      "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_revision_settlement_test.dart"
+    },
+    {
       "id": "knowledge-correction-snapshot",
       "file": "lib/features/planned_maintenance/domain/knowledge_correction_promoter.dart",
       "classification": "OPTIONAL_NON_MUTATING_DERIVATION",
@@ -1282,6 +1345,15 @@
       "malformedDisposition": "reject import with diagnostics",
       "compatibility": "supported CSV and JSON import formats",
       "regression": "test/knowledge_governance_export_test.dart"
+    },
+    {
+      "id": "maintenance-creation-owner",
+      "file": "lib/features/maintenance/services/maintenance_creation_owner.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Original actor and exact journal envelope own creation through uncertain dispatch and native restart; mutable local successors do not replace original request bytes.",
+      "malformedDisposition": "Reject unreadable or unbound pending/accepted evidence before dispatch; retain native bytes and successor draft for review.",
+      "compatibility": "Absent journal admits first dispatch; legacy rows without proven origin require review.",
+      "regression": "test/maintenance_creation_owner_test.dart"
     },
     {
       "id": "maintenance-intelligence-records",
@@ -1314,7 +1386,7 @@
       "id": "maintenance-lifecycle-replay-receipt",
       "file": "lib/core/services/sync_service.tickets_templates.dart",
       "classification": "REMOTE_COMMAND_RECEIPT",
-      "authorityBoundary": "exact Firestore lifecycle replay readback and creation-recovery admission before generic ticket writes; governed deletion holds and decomposed lifecycle dispatch errors are recorded per ticket and cannot fall through to a generic write; completed closure may adopt a later observed revision only when the reconstructed original closure, pinned subject, actor and history match both fresh reads, with actor rechecked before local adoption",
+      "authorityBoundary": "Production uses durable origin-bound backend commands for creation, queued closure/reopen and Admin withdrawal. Acceptance and exact server readback precede unchanged-local adoption. Legacy direct-write adapter is retained only for compatibility tests; Firestore Rules refuse all direct client mutations.",
       "malformedDisposition": "retain local work and block the affected ticket after contradictory or unavailable creation acceptance evidence; a contradiction uses the existing permanent sync hold",
       "compatibility": "a synchronized replay requires the exact observed version and updatedAt receipt; closure rebased over an intervening acknowledgement may converge after restart with unchanged saved closure evidence, while reopen retains exact revision; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
@@ -1392,6 +1464,24 @@
       "regression": "test/morning_review_command_contract_test.dart; functions/test/morningReviewMutation.test.js; test/morning_review_durable_submission_test.dart; test/morning_review_saved_change_ui_test.dart"
     },
     {
+      "id": "morning-review-durable-recovery-proof",
+      "file": "lib/features/morning_review/services/morning_review_command_service.durable.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Origin-bound native request and receipt reconciliation with exact server acceptance or permanent non-execution fence.",
+      "malformedDisposition": "Preserve original local bytes and unresolved state; reject mismatched request, actor, result, entity or refusal proof.",
+      "compatibility": "Original actor, request bytes and accepted receipts remain bound; legacy acceptance requires a matching stored request fingerprint. Invalid rows do not become empty or complete populations.",
+      "regression": "test/morning_review_recovery_regression_test.dart"
+    },
+    {
+      "id": "morning-review-partial-feed-rows",
+      "file": "lib/features/morning_review/data/morning_review_rows.dart",
+      "classification": "PARTIAL_REMOTE_FEED",
+      "authorityBoundary": "Live list presentation only; frozen document decoding remains strict.",
+      "malformedDisposition": "Keep valid rows and rejected identities; propagate incompleteness across merged feeds; never use partial data to certify finalization.",
+      "compatibility": "Original actor, request bytes and accepted receipts remain bound; legacy acceptance requires a matching stored request fingerprint. Invalid rows do not become empty or complete populations.",
+      "regression": "test/morning_review_recovery_regression_test.dart"
+    },
+    {
       "id": "morning-review-records",
       "file": "lib/features/morning_review/domain/morning_review_models.dart",
       "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
@@ -1449,9 +1539,9 @@
       "id": "operational-event-records",
       "file": "lib/features/operational_events/data/operational_event.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
-      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
-      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
     },
     {
@@ -1489,6 +1579,15 @@
       "malformedDisposition": "withhold the optional display enrichment; mutation authority remains derived from approved user and server-governed execution state",
       "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
       "regression": "test/ui_business_alignment_test.dart"
+    },
+    {
+      "id": "published-assignment-acceptance-identity",
+      "file": "lib/features/planned_maintenance/services/published_assignment_acceptance_identity.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Called only after full receipt decoding and binding; compares immutable assignment origin while separately reconciling mutable server projections",
+      "malformedDisposition": "Parsing failure propagates; retained receipt is never overwritten by a changed response",
+      "compatibility": "Same accepted command may return newer mutable execution and module state; immutable source identities must match",
+      "regression": "test/published_template_assignment_submission_test.dart"
     },
     {
       "id": "published-assignment-native-adoption-origin",
@@ -1635,6 +1734,15 @@
       "regression": "test/workflow_module_reopen_adoption_native_test.dart"
     },
     {
+      "id": "workflow-origin-bound-execution",
+      "file": "lib/features/maintenance_workflow/services/workflow_online_executor.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "original-account-bound durable command payload and exact local acceptance envelope; request identity, aggregate, command type, expected revision and frozen payload are verified before network dispatch or acceptance reuse",
+      "malformedDisposition": "malformed or ownerless command bytes have no verified original account and remain preserved for review; malformed or mismatched acceptance is unavailable evidence, never proof of success or permission to overwrite the retained request",
+      "compatibility": "the production executor requires a live original actor and the versioned origin wrapper; legacy ownerless state is preserved without automatic actor attribution or dispatch",
+      "regression": "test/workflow_origin_binding_review_test.dart; test/workflow_online_executor_post_receipt_test.dart"
+    },
+    {
       "id": "workflow-pull-control",
       "file": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
       "classification": "LOCAL_CONTROL_STATE",
@@ -1656,10 +1764,10 @@
       "id": "workflow-uncertain-retry",
       "file": "lib/features/maintenance_workflow/services/workflow_uncertain_retry_service.dart",
       "classification": "LOCAL_CONTROL_STATE",
-      "authorityBoundary": "durable uncertain command retry payload",
-      "malformedDisposition": "fail closed and retain retry row",
-      "compatibility": "none",
-      "regression": "test/workflow_uncertain_retry_service_test.dart"
+      "authorityBoundary": "durable uncertain command retry payload and original-account envelope; retry never attributes saved work to a replacement account",
+      "malformedDisposition": "fail closed and retain the original retry bytes for manual review; actor mismatch defers the existing claim without spending an execution attempt",
+      "compatibility": "legacy payloads remain readable for diagnosis but production execution requires their verified original account; malformed present origin wrappers cannot fall through as legacy payloads",
+      "regression": "test/workflow_uncertain_retry_service_test.dart; test/workflow_origin_binding_review_test.dart"
     }
   ],
   "extensionPolicy": {

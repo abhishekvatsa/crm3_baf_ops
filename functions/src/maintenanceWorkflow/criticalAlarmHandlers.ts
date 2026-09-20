@@ -14,6 +14,7 @@ import {
   cleanText,
   intValue,
   iso,
+  payloadFingerprint,
   persistedInstantText,
   stableJson,
 } from "./utils";
@@ -23,6 +24,7 @@ const ALARM_STATUSES = new Set([
 ]);
 const CONTACT_STATUSES = new Set(["active", "retired"]);
 const DEFINITION_STATUSES = new Set(["active", "retired"]);
+const RECEIPT_BOUND_AUDIT_SCHEMA_VERSION = 3;
 const CONTACT_KINDS = new Set(["mobile", "landline", "plantExtension"]);
 const SUPPORT_BASES = new Set([
   "supportDispatched", "supportAlreadyPresent", "raiserContactedDirectly",
@@ -502,7 +504,8 @@ export const verifyCriticalAlarmReplay = async (args: {
   }
   const auditData = data as JsonMap;
   const afterData = after as JsonMap;
-  if (auditData.schemaVersion !== 1 ||
+  if ((auditData.schemaVersion !== 1 && auditData.schemaVersion !== 2 &&
+       auditData.schemaVersion !== RECEIPT_BOUND_AUDIT_SCHEMA_VERSION) ||
       auditData.auditId !== args.command.commandId ||
       auditData.aggregateId !== args.command.aggregateId ||
       auditData.performedByUid !== args.actor.uid ||
@@ -512,6 +515,31 @@ export const verifyCriticalAlarmReplay = async (args: {
       (expectedResultKey != null &&
         args.receipt.resultKey !== expectedResultKey)) {
     replayInvalid();
+  }
+  const result = args.receipt.result;
+  const hasReceiptBinding =
+    Object.prototype.hasOwnProperty.call(result, "auditSchemaVersion") ||
+    Object.prototype.hasOwnProperty.call(result, "acceptedAfterFingerprint");
+  if (hasReceiptBinding ||
+      auditData.schemaVersion === RECEIPT_BOUND_AUDIT_SCHEMA_VERSION) {
+    // The receipt is a separate immutable record. An edited audit cannot opt
+    // into historical compatibility or authenticate its own replacement hash.
+    if (result.auditSchemaVersion !== RECEIPT_BOUND_AUDIT_SCHEMA_VERSION ||
+        auditData.schemaVersion !== result.auditSchemaVersion ||
+        typeof result.acceptedAfterFingerprint !== "string" ||
+        !/^sha256:[0-9a-f]{64}$/.test(result.acceptedAfterFingerprint) ||
+        auditData.acceptedAfterFingerprint !== result.acceptedAfterFingerprint ||
+        payloadFingerprint(afterData) !== result.acceptedAfterFingerprint) {
+      replayInvalid();
+    }
+  } else {
+    // Genuine historical receipts have neither binding field. Preserve their
+    // original schema-1 checks and schema-2 local checksum without inventing
+    // or writing a new integrity attestation over historical evidence.
+    if (auditData.schemaVersion === 2 &&
+        auditData.acceptedAfterFingerprint !== payloadFingerprint(afterData)) {
+      replayInvalid();
+    }
   }
   if (args.command.commandType === "upsertCriticalAlarmContact") {
     const expectedDynamicOperation = args.command.expectedVersion === 0 ?
@@ -655,18 +683,26 @@ const writeAudit = (args: {
   reason: string;
   before: JsonMap;
   after: JsonMap;
-}): void => args.tx.create(args.path, {
-  schemaVersion: 1,
-  auditId: args.commandId,
-  aggregateId: args.aggregateId,
-  operation: args.operation,
-  performedByUid: args.actorUid,
-  performedByName: args.actorName,
-  performedAt: args.at,
-  reason: args.reason,
-  beforeJson: stableJson(args.before),
-  afterJson: stableJson(args.after),
-});
+}): JsonMap => {
+  const acceptedAfterFingerprint = payloadFingerprint(args.after);
+  args.tx.create(args.path, {
+    schemaVersion: RECEIPT_BOUND_AUDIT_SCHEMA_VERSION,
+    auditId: args.commandId,
+    aggregateId: args.aggregateId,
+    operation: args.operation,
+    performedByUid: args.actorUid,
+    performedByName: args.actorName,
+    performedAt: args.at,
+    reason: args.reason,
+    beforeJson: stableJson(args.before),
+    afterJson: stableJson(args.after),
+    acceptedAfterFingerprint,
+  });
+  return {
+    auditSchemaVersion: RECEIPT_BOUND_AUDIT_SCHEMA_VERSION,
+    acceptedAfterFingerprint,
+  };
+};
 
 const alarmEvent = (args: {
   tx: Parameters<CommandHandler>[0]["tx"];
@@ -782,7 +818,7 @@ export const raiseCriticalAlarm: CommandHandler = async ({
   };
   assertCanonicalAlarm(after, alarmId);
   tx.create(alarmPath(alarmId), after);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: alarmAuditPath(command.commandId),
     commandId: command.commandId,
@@ -806,7 +842,9 @@ export const raiseCriticalAlarm: CommandHandler = async ({
   return {
     resultKey: "critical-alarm-raised",
     aggregateVersion: 1,
-    result: {alarmId, status: "raised", detailsPending: details == null},
+    result: {
+      alarmId, status: "raised", detailsPending: details == null, ...auditEvidence,
+    },
   };
 };
 
@@ -850,7 +888,7 @@ export const provideCriticalAlarmDetails: CommandHandler = async ({
   const after = {...current, ...update};
   assertCanonicalAlarm(after, alarmId);
   tx.update(alarmPath(alarmId), update);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: alarmAuditPath(command.commandId),
     commandId: command.commandId,
@@ -874,7 +912,9 @@ export const provideCriticalAlarmDetails: CommandHandler = async ({
   return {
     resultKey: "critical-alarm-details-provided",
     aggregateVersion: version + 1,
-    result: {alarmId, status: current.status, detailsPending: false},
+    result: {
+      alarmId, status: current.status, detailsPending: false, ...auditEvidence,
+    },
   };
 };
 
@@ -929,7 +969,7 @@ export const confirmCriticalAlarmSupport: CommandHandler = async ({
   const after = {...current, ...update};
   assertCanonicalAlarm(after, alarmId);
   tx.update(alarmPath(alarmId), update);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: alarmAuditPath(command.commandId),
     commandId: command.commandId,
@@ -953,7 +993,7 @@ export const confirmCriticalAlarmSupport: CommandHandler = async ({
   return {
     resultKey: "critical-alarm-support-confirmed",
     aggregateVersion: version + 1,
-    result: {alarmId, status: "supportConfirmed"},
+    result: {alarmId, status: "supportConfirmed", ...auditEvidence},
   };
 };
 
@@ -994,7 +1034,7 @@ export const resolveCriticalAlarm: CommandHandler = async ({
   const after = {...current, ...update};
   assertCanonicalAlarm(after, alarmId);
   tx.update(alarmPath(alarmId), update);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: alarmAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1018,7 +1058,7 @@ export const resolveCriticalAlarm: CommandHandler = async ({
   return {
     resultKey: "critical-alarm-resolved",
     aggregateVersion: version + 1,
-    result: {alarmId, status: "resolved"},
+    result: {alarmId, status: "resolved", ...auditEvidence},
   };
 };
 
@@ -1062,7 +1102,7 @@ export const withdrawCriticalAlarmInError: CommandHandler = async ({
   const after = {...current, ...update};
   assertCanonicalAlarm(after, alarmId);
   tx.update(alarmPath(alarmId), update);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: alarmAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1086,7 +1126,7 @@ export const withdrawCriticalAlarmInError: CommandHandler = async ({
   return {
     resultKey: "critical-alarm-withdrawn-in-error",
     aggregateVersion: version + 1,
-    result: {alarmId, status: "withdrawnInError"},
+    result: {alarmId, status: "withdrawnInError", ...auditEvidence},
   };
 };
 
@@ -1189,7 +1229,7 @@ export const upsertCriticalAlarmContact: CommandHandler = async ({
   assertCanonicalContact(after, contactId);
   if (current.exists) tx.update(contactPath(contactId), after);
   else tx.create(contactPath(contactId), after);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: contactAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1206,7 +1246,7 @@ export const upsertCriticalAlarmContact: CommandHandler = async ({
     resultKey: current.exists ?
       "critical-alarm-contact-updated" : "critical-alarm-contact-created",
     aggregateVersion: currentVersion + 1,
-    result: {contactId, status: after.status},
+    result: {contactId, status: after.status, ...auditEvidence},
   };
 };
 
@@ -1244,7 +1284,7 @@ export const setCriticalAlarmContactStatus: CommandHandler = async ({
   const after = {...currentData, ...update};
   assertCanonicalContact(after, contactId);
   tx.update(contactPath(contactId), update);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: contactAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1260,7 +1300,7 @@ export const setCriticalAlarmContactStatus: CommandHandler = async ({
   return {
     resultKey: `critical-alarm-contact-${status}`,
     aggregateVersion: version + 1,
-    result: {contactId, status},
+    result: {contactId, status, ...auditEvidence},
   };
 };
 
@@ -1357,7 +1397,7 @@ export const upsertCriticalAlarmDefinition: CommandHandler = async ({
   assertCanonicalDefinition(after, definitionId);
   if (current.exists) tx.update(definitionPath(definitionId), after);
   else tx.create(definitionPath(definitionId), after);
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: definitionAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1375,7 +1415,7 @@ export const upsertCriticalAlarmDefinition: CommandHandler = async ({
       "critical-alarm-definition-updated" :
       "critical-alarm-definition-created",
     aggregateVersion: version,
-    result: {definitionId, status: after.status},
+    result: {definitionId, status: after.status, ...auditEvidence},
   };
 };
 
@@ -1472,7 +1512,7 @@ export const setCriticalAlarmDefinitionStatus: CommandHandler = async ({
   } else {
     tx.create(definitionPath(definitionId), after);
   }
-  writeAudit({
+  const auditEvidence = writeAudit({
     tx,
     path: definitionAuditPath(command.commandId),
     commandId: command.commandId,
@@ -1488,6 +1528,6 @@ export const setCriticalAlarmDefinitionStatus: CommandHandler = async ({
   return {
     resultKey: `critical-alarm-definition-${status}`,
     aggregateVersion: after.version as number,
-    result: {definitionId, status},
+    result: {definitionId, status, ...auditEvidence},
   };
 };

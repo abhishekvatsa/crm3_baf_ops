@@ -6,7 +6,8 @@ class AssetFleetStatus {
   final int assetNumber;
   final AssetType assetType;
   final int openTicketsCount;
-  final List<JobExecution> recentCompletedJobs; // most recent completed executions (max 3)
+  final List<JobExecution>
+  recentCompletedJobs; // most recent completed executions (max 3)
   final int? daysSinceLastCompletedJob; // null if never completed
   final EquipmentStatusRecord? workflowEquipmentStatus;
 

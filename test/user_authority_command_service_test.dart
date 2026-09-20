@@ -48,6 +48,13 @@ Map<String, dynamic> _successResponse(
       isApproved: isApproved,
       roles: roles,
     ),
+    'authorityRevision': 1,
+    'currentAuthorityDigest': userAuthorityDigest(
+      isApproved: isApproved,
+      roles: roles,
+    ),
+    'currentAuthorityRevision': 1,
+    'supersededByLaterChange': false,
     'auditId': 'server_authority_${request['requestId']}',
     'committedAt': '2026-07-26T01:00:00.000Z',
     'idempotentReplay': idempotentReplay,
@@ -96,6 +103,7 @@ void main() {
       'operation': 'REPLACE_ROLES',
       'expectedAuthorityDigest':
           'auth1-sha256:ae1c1b9c240212e9079e06b8f04c501136902437eaab96e14791d4b68d264d1a',
+      'expectedAuthorityRevision': 0,
       'roles': <String>['operations', 'si'],
       'reason': 'Approved roster correction.',
     });

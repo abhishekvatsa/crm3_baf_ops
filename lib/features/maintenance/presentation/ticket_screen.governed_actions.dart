@@ -73,6 +73,7 @@ extension _TicketGovernedActions on _TicketScreenState {
         payload: <String, Object?>{
           'reason': draft.reason,
           'corrections': draft.corrections,
+          if (draft.targetReferenceJson != null) 'targetReferenceJson': draft.targetReferenceJson,
         },
       );
       final receipt = await ref

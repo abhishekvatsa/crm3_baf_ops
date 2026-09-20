@@ -175,6 +175,8 @@ class _SavedService extends MorningReviewCommandService {
   @override
   Future<DurableSubmission?> pendingSubmission() async => saved;
   @override
+  Future<DurableSubmission?> latestRefusedSubmission() async => null;
+  @override
   Future<MorningReviewCommandResult?> reconcilePending() async {
     checks++;
     final row = saved!;

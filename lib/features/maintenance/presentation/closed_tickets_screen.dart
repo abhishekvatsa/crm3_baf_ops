@@ -580,7 +580,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     final canEndRetainedRelevance =
         appUser?.canCloseMaintenanceIssueWithoutResolution == true;
     final maintenanceClasses =
-        ref.watch(maintenanceClassDefinitionsProvider).value ??
+        ref.watch(maintenanceClassDefinitionsProvider).value?.records ??
         const <MaintenanceClassDefinition>[];
 
     return Scaffold(

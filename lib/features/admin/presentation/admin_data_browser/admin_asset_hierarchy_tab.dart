@@ -10,6 +10,7 @@ import '../../../assets/data/asset_registry_model.dart';
 import '../../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../../assets/presentation/inner_cover_lifecycle_screen.dart';
+import '../../../assets/presentation/saved_registry_changes.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../../planned_maintenance/data/job_template_model.dart';
@@ -56,20 +57,27 @@ class _AssetHierarchyAdminTabState
     final classesAsync = ref.watch(assetClassesProvider);
     return Material(
       color: BafColors.background,
-      child: classesAsync.when(
-        loading: () => _buildNonDataState(
-              const BafLoadingPanel(
-                label: 'Loading asset hierarchy',
-                color: BafColors.admin,
+      child: Column(
+        children: [
+          const SavedRegistryChanges(),
+          Expanded(
+            child: classesAsync.when(
+              loading: () => _buildNonDataState(
+                const BafLoadingPanel(
+                  label: 'Loading asset hierarchy',
+                  color: BafColors.admin,
+                ),
               ),
-            ),
-        error: (error, _) => _buildNonDataState(
-              _LoadFailure(
-                message: 'Asset hierarchy could not be loaded: $error',
-                onRetry: () => ref.invalidate(assetClassesProvider),
+              error: (error, _) => _buildNonDataState(
+                _LoadFailure(
+                  message: 'Asset hierarchy could not be loaded: $error',
+                  onRetry: () => ref.invalidate(assetClassesProvider),
+                ),
               ),
+              data: (classes) => _buildLoaded(context, classes),
             ),
-        data: (classes) => _buildLoaded(context, classes),
+          ),
+        ],
       ),
     );
   }
@@ -87,13 +95,13 @@ class _AssetHierarchyAdminTabState
 
   Widget _buildLoaded(BuildContext context, List<AssetClassRecord> classes) {
     final visible = classes.where((assetClass) {
-          if (!_showRetired && !assetClass.isActive) return false;
-          final needle = _search.trim().toLowerCase();
-          if (needle.isEmpty) return true;
-          return assetClass.name.toLowerCase().contains(needle) ||
-              assetClass.code.toLowerCase().contains(needle) ||
-              assetClass.majorArea.toLowerCase().contains(needle);
-        }).toList();
+      if (!_showRetired && !assetClass.isActive) return false;
+      final needle = _search.trim().toLowerCase();
+      if (needle.isEmpty) return true;
+      return assetClass.name.toLowerCase().contains(needle) ||
+          assetClass.code.toLowerCase().contains(needle) ||
+          assetClass.majorArea.toLowerCase().contains(needle);
+    }).toList();
     final selected = visible.cast<AssetClassRecord?>().firstWhere(
       (item) => item?.id == _selectedClassId,
       orElse: () => visible.isEmpty ? null : visible.first,
@@ -130,16 +138,16 @@ class _AssetHierarchyAdminTabState
               ),
               isExpanded: true,
               items: visible
-                      .map(
-                        (item) => DropdownMenuItem(
-                          value: item.id,
-                          child: Text(
-                            '${item.code}  ${item.name}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.id,
+                      child: Text(
+                        '${item.code}  ${item.name}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) => setState(() => _selectedClassId = value),
             ),
           );
@@ -276,14 +284,14 @@ class _AssetHierarchyAdminTabState
     AssetClassRecord before,
   ) async {
     final next = before.isActive
-            ? AssetHierarchyStatus.retired
-            : AssetHierarchyStatus.active;
+        ? AssetHierarchyStatus.retired
+        : AssetHierarchyStatus.active;
     final reason = await _reasonDialog(
       context,
       title: before.isActive ? 'Retire asset class' : 'Restore asset class',
       message: before.isActive
-              ? 'Retiring hides this class from new operational selection. Historical records remain unchanged.'
-              : 'Restoring makes this class available for hierarchy maintenance and future operational use.',
+          ? 'Retiring hides this class from new operational selection. Historical records remain unchanged.'
+          : 'Restoring makes this class available for hierarchy maintenance and future operational use.',
     );
     if (reason == null) return;
     await _run(
@@ -332,9 +340,9 @@ class _AssetHierarchyAdminTabState
     final input = await showDialog<_NodeDialogResult>(
       context: context,
       builder: (_) => _HierarchyNodeDialog(
-            existing: before,
+        existing: before,
         availableParents: nodes.where((node) => node.id != before.id).toList(),
-          ),
+      ),
     );
     if (input == null) return;
     await _runTagAware(
@@ -359,16 +367,16 @@ class _AssetHierarchyAdminTabState
           ? 'Retire hierarchy item'
           : 'Restore hierarchy item',
       message: before.isActive
-              ? 'The item will remain in history and audit records but will not be available for new work.'
-              : 'The item and its existing parent must both be active.',
+          ? 'The item will remain in history and audit records but will not be available for new work.'
+          : 'The item and its existing parent must both be active.',
     );
     if (reason == null) return;
     await _runTagAware(
       (allowTagTransfer) => _repository.setNodeStatus(
         before: before,
         status: before.isActive
-                ? AssetHierarchyStatus.retired
-                : AssetHierarchyStatus.active,
+            ? AssetHierarchyStatus.retired
+            : AssetHierarchyStatus.active,
         actor: widget.actor,
         reason: reason,
         allowTagTransfer: allowTagTransfer,
@@ -466,8 +474,8 @@ class _AssetClassList extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           trailing: item.isActive
-                  ? null
-                  : const Icon(Icons.history_rounded, size: 18),
+              ? null
+              : const Icon(Icons.history_rounded, size: 18),
           onTap: () => onSelected(item),
         );
       },
@@ -534,27 +542,27 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
     return DefaultTabController(
       length: 2,
       child: widget.compactHeaders.isNotEmpty
-              ? NestedScrollView(
-                key: const ValueKey('asset-hierarchy-mobile-scroll'),
+          ? NestedScrollView(
+              key: const ValueKey('asset-hierarchy-mobile-scroll'),
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                      for (final header in widget.compactHeaders)
-                        SliverToBoxAdapter(child: header),
-                      SliverToBoxAdapter(child: summary),
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _HierarchyTabHeaderDelegate(child: tabs),
-                      ),
-                    ],
-                body: tabView,
-              )
-              : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                for (final header in widget.compactHeaders)
+                  SliverToBoxAdapter(child: header),
+                SliverToBoxAdapter(child: summary),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _HierarchyTabHeaderDelegate(child: tabs),
+                ),
+              ],
+              body: tabView,
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 summary,
                 tabs,
                 Expanded(child: tabView),
               ],
-              ),
+            ),
     );
   }
 
@@ -580,16 +588,16 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
     return nodesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => _LoadFailure(
-            message: 'Hierarchy nodes could not be loaded: $error',
+        message: 'Hierarchy nodes could not be loaded: $error',
         onRetry: () =>
             ref.invalidate(assetHierarchyNodesProvider(widget.assetClass.id)),
-          ),
+      ),
       data: (nodes) {
         final tree = AssetHierarchyTree.build(nodes);
         final bottomClearance = 96.0 + MediaQuery.viewPaddingOf(context).bottom;
         final visibleNodes = _showRetiredNodes
-                ? nodes
-                : nodes.where((node) => node.isActive).toList();
+            ? nodes
+            : nodes.where((node) => node.isActive).toList();
         final visibleTree = AssetHierarchyTree.build(visibleNodes);
         return Column(
           children: [
@@ -623,28 +631,28 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
               _IntegrityBanner(errors: tree.integrityErrors),
             Expanded(
               child: visibleNodes.isEmpty
-                      ? const _EmptyHierarchy(
-                        icon: Icons.account_tree_outlined,
-                        title: 'No hierarchy items',
-                        message:
-                            'Add a grouping, assembly, component or subcomponent.',
-                      )
-                      : ListView(
-                        key: const ValueKey('asset-hierarchy-definition-list'),
+                  ? const _EmptyHierarchy(
+                      icon: Icons.account_tree_outlined,
+                      title: 'No hierarchy items',
+                      message:
+                          'Add a grouping, assembly, component or subcomponent.',
+                    )
+                  : ListView(
+                      key: const ValueKey('asset-hierarchy-definition-list'),
                       padding: EdgeInsets.fromLTRB(12, 0, 12, bottomClearance),
-                        children: [
-                          for (final root in visibleTree.roots)
-                            _HierarchyBranch(
-                              node: root,
-                              tree: visibleTree,
-                              level: 0,
-                              busy: widget.busy,
-                              onAddChild: widget.onAddNode,
-                              onEdit: widget.onEditNode,
-                              onToggleStatus: widget.onToggleNodeStatus,
-                            ),
-                        ],
-                      ),
+                      children: [
+                        for (final root in visibleTree.roots)
+                          _HierarchyBranch(
+                            node: root,
+                            tree: visibleTree,
+                            level: 0,
+                            busy: widget.busy,
+                            onAddChild: widget.onAddNode,
+                            onEdit: widget.onEditNode,
+                            onToggleStatus: widget.onToggleNodeStatus,
+                          ),
+                      ],
+                    ),
             ),
           ],
         );
@@ -696,128 +704,128 @@ class _ClassSummary extends StatelessWidget {
     return Container(
       color: Colors.white,
       padding: MediaQuery.sizeOf(context).width < 560
-              ? const EdgeInsets.fromLTRB(12, 8, 8, 8)
-              : const EdgeInsets.all(BafSpacing.md),
+          ? const EdgeInsets.fromLTRB(12, 8, 8, 8)
+          : const EdgeInsets.all(BafSpacing.md),
       child: LayoutBuilder(
         builder: (context, constraints) => Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              assetClass.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                                color: BafColors.textPrimary,
-                              ),
-                            ),
+                      Flexible(
+                        child: Text(
+                          assetClass.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            color: BafColors.textPrimary,
                           ),
-                          const SizedBox(width: 8),
-                          _StatusPill(active: assetClass.isActive),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${assetClass.code} · ${assetClass.majorArea} · v${assetClass.version}',
-                        style: const TextStyle(color: BafColors.textSecondary),
-                      ),
-                      if (constraints.maxWidth >= 560 &&
-                          assetClass.shortDescription != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          assetClass.shortDescription!,
-                      style: const TextStyle(color: BafColors.textSecondary),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusPill(active: assetClass.isActive),
                     ],
                   ),
-                ),
-                if (constraints.maxWidth < 560)
-                  PopupMenuButton<String>(
-                    tooltip: 'Asset class actions',
-                    enabled: !busy,
-                    onSelected: (action) {
-                      switch (action) {
-                        case 'edit':
-                          onEdit();
-                          break;
-                        case 'toggle':
-                          onToggleStatus();
-                          break;
-                        case 'add':
-                          onAddRoot?.call();
-                          break;
-                      }
-                    },
-                itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: ListTile(
-                              leading: Icon(Icons.edit_rounded),
-                              title: Text('Edit asset class'),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'toggle',
-                            child: ListTile(
-                              leading: Icon(
-                                assetClass.isActive
-                                    ? Icons.archive_outlined
-                                    : Icons.restore_rounded,
-                              ),
-                              title: Text(
-                                assetClass.isActive
-                                    ? 'Retire asset class'
-                                    : 'Restore asset class',
-                              ),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                          if (onAddRoot != null)
-                            const PopupMenuItem(
-                              value: 'add',
-                              child: ListTile(
-                                leading: Icon(Icons.add_rounded),
-                                title: Text('Add root item'),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                        ],
-                    icon: const Icon(Icons.more_vert_rounded),
-                  )
-                else ...[
-                  IconButton(
-                    tooltip: 'Edit asset class',
-                    onPressed: busy ? null : onEdit,
-                    icon: const Icon(Icons.edit_rounded),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${assetClass.code} · ${assetClass.majorArea} · v${assetClass.version}',
+                    style: const TextStyle(color: BafColors.textSecondary),
                   ),
-                  IconButton(
-                tooltip: assetClass.isActive
-                            ? 'Retire asset class'
-                            : 'Restore asset class',
-                    onPressed: busy ? null : onToggleStatus,
-                    icon: Icon(
-                      assetClass.isActive
-                          ? Icons.archive_outlined
-                          : Icons.restore_rounded,
+                  if (constraints.maxWidth >= 560 &&
+                      assetClass.shortDescription != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      assetClass.shortDescription!,
+                      style: const TextStyle(color: BafColors.textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (constraints.maxWidth < 560)
+              PopupMenuButton<String>(
+                tooltip: 'Asset class actions',
+                enabled: !busy,
+                onSelected: (action) {
+                  switch (action) {
+                    case 'edit':
+                      onEdit();
+                      break;
+                    case 'toggle':
+                      onToggleStatus();
+                      break;
+                    case 'add':
+                      onAddRoot?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_rounded),
+                      title: Text('Edit asset class'),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  FilledButton.icon(
-                    onPressed: busy ? null : onAddRoot,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Root item'),
+                  PopupMenuItem(
+                    value: 'toggle',
+                    child: ListTile(
+                      leading: Icon(
+                        assetClass.isActive
+                            ? Icons.archive_outlined
+                            : Icons.restore_rounded,
+                      ),
+                      title: Text(
+                        assetClass.isActive
+                            ? 'Retire asset class'
+                            : 'Restore asset class',
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
+                  if (onAddRoot != null)
+                    const PopupMenuItem(
+                      value: 'add',
+                      child: ListTile(
+                        leading: Icon(Icons.add_rounded),
+                        title: Text('Add root item'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                 ],
-              ],
-            ),
+                icon: const Icon(Icons.more_vert_rounded),
+              )
+            else ...[
+              IconButton(
+                tooltip: 'Edit asset class',
+                onPressed: busy ? null : onEdit,
+                icon: const Icon(Icons.edit_rounded),
+              ),
+              IconButton(
+                tooltip: assetClass.isActive
+                    ? 'Retire asset class'
+                    : 'Restore asset class',
+                onPressed: busy ? null : onToggleStatus,
+                icon: Icon(
+                  assetClass.isActive
+                      ? Icons.archive_outlined
+                      : Icons.restore_rounded,
+                ),
+              ),
+              const SizedBox(width: 4),
+              FilledButton.icon(
+                onPressed: busy ? null : onAddRoot,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Root item'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -848,12 +856,12 @@ class _HierarchyBranch extends StatelessWidget {
       final children = tree.childrenOf(node.id);
       final compact = constraints.maxWidth < 560;
       final indentation = level == 0
-              ? 0.0
-              : compact
-              ? level <= 3
-                  ? 10.0
-                  : 0.0
-              : 18.0;
+          ? 0.0
+          : compact
+          ? level <= 3
+                ? 10.0
+                : 0.0
+          : 18.0;
       return Padding(
         padding: EdgeInsets.only(left: indentation, top: 6),
         child: Column(
@@ -868,33 +876,33 @@ class _HierarchyBranch extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: compact
-                      ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _nodeLeadingIcon(),
-                              const SizedBox(width: 10),
-                              Expanded(child: _nodeCopy(compact: true)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: _nodeActions(compact: true),
-                          ),
-                        ],
-                      )
-                      : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _nodeLeadingIcon(),
-                          const SizedBox(width: 10),
-                          Expanded(child: _nodeCopy(compact: false)),
-                          _nodeActions(compact: false),
-                        ],
-                      ),
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _nodeLeadingIcon(),
+                            const SizedBox(width: 10),
+                            Expanded(child: _nodeCopy(compact: true)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _nodeActions(compact: true),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _nodeLeadingIcon(),
+                        const SizedBox(width: 10),
+                        Expanded(child: _nodeCopy(compact: false)),
+                        _nodeActions(compact: false),
+                      ],
+                    ),
             ),
             for (final child in children)
               _HierarchyBranch(
@@ -986,8 +994,8 @@ class _HierarchyBranch extends StatelessWidget {
         tooltip: node.isActive ? 'Retire item' : 'Restore item',
         visualDensity: compact ? VisualDensity.compact : null,
         onPressed: busy || (node.isActive && node.activeChildCount > 0)
-                ? null
-                : () => onToggleStatus(node),
+            ? null
+            : () => onToggleStatus(node),
         icon: Icon(
           node.isActive ? Icons.archive_outlined : Icons.restore_rounded,
         ),

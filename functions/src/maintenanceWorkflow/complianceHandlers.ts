@@ -11,8 +11,12 @@ import {
   requireComplianceForWorkflow,
   requireLaneReferenceForWorkflow,
   requireMutableWorkflow,
+  requireWorkflow,
+  openBlockingCompliance,
+  activeLanes,
   workflowDocumentPath,
 } from "./documents";
+import {deriveWorkflowStatus} from "./aggregate";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {
@@ -43,14 +47,133 @@ import {
   compliancePath,
   equipmentIdentityFromWorkflow,
   equipmentPathForIdentity,
+  executionPath,
   maintenancePath,
   workflowPath,
 } from "./paths";
-import {ComplianceDoc} from "./types";
+import {ComplianceDoc, JsonMap, LaneDoc, WorkflowCommand, WorkflowDoc} from "./types";
+import {WorkflowTransaction} from "./store";
 import {cleanText, iso, laneKey, optionalText, plusMinutes} from "./utils";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
 
 const complianceIdFromPayload = (value: unknown): string => cleanText(value, "complianceId");
+
+const isLegacyRedPreparationRelationship = (
+  workflowId: string,
+  lane: LaneDoc,
+  complianceId: string,
+): boolean =>
+  lane.laneKey === "red" &&
+  !Object.prototype.hasOwnProperty.call(lane, "redPreparationComplianceId") &&
+  lane.gatingComplianceRequestId === complianceId &&
+  complianceId === `${workflowId}_red_preparation`;
+
+const isRedPreparationRelationship = (
+  workflowId: string,
+  lane: LaneDoc,
+  complianceId: string,
+): boolean =>
+  lane.laneKey === "red" &&
+  ((lane.redPreparationComplianceId === complianceId &&
+    lane.gatingComplianceRequestId === complianceId) ||
+    isLegacyRedPreparationRelationship(workflowId, lane, complianceId));
+
+const redPreparationIsOccupied = (workflowId: string, lane: LaneDoc): boolean =>
+  lane.laneKey === "red" &&
+  (typeof lane.redPreparationComplianceId === "string" ||
+    lane.gatingComplianceRequestId === `${workflowId}_red_preparation`);
+
+const requireCurrentComplianceAttempt = async (
+  tx: WorkflowTransaction,
+  compliance: ComplianceDoc,
+  complianceId: string,
+): Promise<string> => {
+  const currentAttemptId = typeof compliance.currentAttemptId === "string"
+    ? compliance.currentAttemptId
+    : null;
+  const currentAttempt = currentAttemptId == null
+    ? null
+    : await tx.get(`compliance_attempts/${currentAttemptId}`);
+  const attemptNumber = currentAttempt?.data?.attemptNumber;
+  const expectedAttemptId = typeof attemptNumber === "number" &&
+      Number.isSafeInteger(attemptNumber) && attemptNumber > 0
+    ? `${complianceId}_${attemptNumber}`
+    : null;
+  if (currentAttemptId == null || currentAttempt?.exists !== true ||
+      currentAttempt?.data?.complianceRequestId !== complianceId ||
+      expectedAttemptId !== currentAttemptId ||
+      attemptNumber !== compliance.attemptCount ||
+      currentAttempt?.data?.accepted !== false ||
+      currentAttempt?.data?.returnedAt != null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The complied request does not reference its own preserved compliance attempt.",
+      {reasonCode: "compliance-attempt-lineage-invalid", complianceId, currentAttemptId},
+    );
+  }
+  return currentAttemptId;
+};
+
+// Physical closure freezes the parent and its evidence. Existing ungated
+// obligations may still progress, using their own revision for stale-read
+// protection; they cannot mutate equipment, lanes or linked physical work.
+const complianceMutationContext = async (
+  tx: WorkflowTransaction,
+  command: WorkflowCommand,
+  compliance: ComplianceDoc,
+): Promise<{workflow: WorkflowDoc; version: number; closedParent: boolean}> => {
+  const current = await requireWorkflow(tx, command.aggregateId);
+  if (current.status !== "completed" && current.completedAt == null) {
+    const workflow = await requireMutableWorkflow(tx, command.aggregateId);
+    return {workflow, version: assertExpectedVersion(workflow, command.expectedVersion),
+      closedParent: false};
+  }
+  const executionId = typeof current.jobExecutionId === "string" ?
+    current.jobExecutionId : command.aggregateId;
+  const execution = await tx.get(executionPath(executionId));
+  if (current.status !== "completed" || current.cancelled === true ||
+      !Number.isSafeInteger(current.version) || (current.version as number) < 1 ||
+      current.workflowKind === "issueCoordination" ||
+      compliance.gatesLaneFirestoreId != null ||
+      !execution.exists || execution.data?.isCompleted !== true ||
+      execution.data.isDeleted === true || execution.data.isCancelled === true ||
+      (compliance.linkedExecutionFirestoreId != null &&
+       compliance.linkedExecutionFirestoreId !== executionId)) {
+    throw new WorkflowError("failed-precondition",
+      "Only an existing non-blocking obligation may continue after physical closure.",
+      {reasonCode: "compliance-post-closure-scope-invalid"});
+  }
+  const expected = command.payload.expectedComplianceVersion;
+  if (!Number.isSafeInteger(expected) || (expected as number) < 1 ||
+      expected !== compliance.version) {
+    throw new WorkflowError("workflow-version-conflict",
+      "Refresh this request before reviewing its latest response.",
+      {reasonCode: "compliance-version-conflict",
+        expectedComplianceVersion: expected ?? null,
+        actualComplianceVersion: compliance.version ?? null});
+  }
+  return {workflow: current,
+    version: assertExpectedVersion(current, command.expectedVersion), closedParent: true};
+};
+
+const prospectiveComplianceStatus = async (
+  tx: WorkflowTransaction,
+  workflowId: string,
+  workflow: WorkflowDoc,
+  closing: ComplianceDoc | null = null,
+) => {
+  const lanes = await activeLanes(tx, workflowId);
+  const blocking = await openBlockingCompliance(tx, workflowId);
+  if (workflow.awaitingPreparation === true) return "awaitingCompliance" as const;
+  // A non-blocking request was never counted and must not remove a different
+  // request's hold. Confirmation is called only for a currently complied row.
+  const released = closing?.gatesLaneFirestoreId != null ? 1 : 0;
+  return deriveWorkflowStatus(lanes, Math.max(0, blocking.length - released), false, false);
+};
+
+const physicalComplianceId = (compliance: ComplianceDoc, id: string, closedParent: boolean): string =>
+  closedParent && typeof compliance.physicalSourceComplianceId === "string" ?
+    compliance.physicalSourceComplianceId : id;
 const PURPOSES = new Set(["assurance", "deferment", "operationsSupport"]);
 const DEFERMENT_BASES = new Set([
   "ongoingCycle", "equipmentRequired", "operationalCompliance",
@@ -432,8 +555,7 @@ export const acknowledgeCompliance: CommandHandler = async ({tx, command, contex
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
   const target = laneKey(compliance.targetLaneKey, "targetLaneKey");
   assertLaneAuthority(context.actor, target, "work");
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "raised") throw new WorkflowError("failed-precondition", "Only a raised compliance request may be acknowledged.");
   const completionDueAt = compliance.conditionTypeKey === "manual"
     ? plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition)
@@ -452,8 +574,8 @@ export const acknowledgeCompliance: CommandHandler = async ({tx, command, contex
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "compliance.acknowledged", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: target, payload: {complianceId: id}});
   tx.create(event.path, event.data);
   return {resultKey: "compliance-acknowledged", aggregateVersion: nextVersion, result: {complianceId: id}};
@@ -463,8 +585,7 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
   if (!mayMarkConditionDue(context.actor)) throw new WorkflowError("permission-denied", "Actor cannot confirm a deferred condition.");
   const id = complianceIdFromPayload(command.payload.complianceId);
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "raised" && compliance.status !== "acknowledged") {
     throw new WorkflowError("failed-precondition", "Condition confirmation requires a raised or acknowledged request.");
   }
@@ -482,9 +603,12 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
   const maintenanceData = assertMaintenanceBoundToCompliance({
     maintenance,
     workflowId: command.aggregateId,
-    complianceId: id,
+    complianceId: physicalComplianceId(compliance, id, closedParent),
   });
   const target = laneKey(compliance.targetLaneKey, "targetLaneKey");
+  const note = optionalText(command.payload.note) ?? (closedParent ?
+    "Condition confirmed for follow-up; physical job remains closed." :
+    "Condition confirmed; linked work reactivated.");
   const attemptNumber = (typeof compliance.attemptCount === "number" ? compliance.attemptCount : 0) + 1;
   const attemptId = `${id}_${attemptNumber}`;
   tx.create(complianceAttemptPath(id, attemptNumber), {
@@ -493,9 +617,10 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
     attemptedByUid: context.actor.uid,
     attemptedByName: context.actor.name,
     attemptedAt: iso(context.serverNow),
-    note: optionalText(command.payload.note) ?? "Condition confirmed; linked work reactivated.",
+    note,
     accepted: false,
     createdAt: iso(context.serverNow),
+    updatedAt: iso(context.serverNow),
   });
   tx.update(compliancePath(id), {
     status: "complied",
@@ -508,7 +633,7 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
     compliedByUid: context.actor.uid,
     compliedByName: context.actor.name,
     compliedAt: iso(context.serverNow),
-    complianceNote: optionalText(command.payload.note) ?? "Condition confirmed; linked work reactivated.",
+    complianceNote: note,
     complianceDueAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
     nextEscalationAt: nextEscalationAtForExistingCompliance(
       compliance,
@@ -520,18 +645,19 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
-  tx.update(maintenancePath(maintenanceId), maintenanceProjectionForActionable({
+  if (!closedParent) tx.update(maintenancePath(maintenanceId), maintenanceProjectionForActionable({
     maintenance: maintenanceData,
     targetLaneKey: target,
     actorUid: context.actor.uid,
     actorName: context.actor.name,
     at: context.serverNow,
   }));
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {status: "inProgress", version: nextVersion, updatedAt: iso(context.serverNow)});
-  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "compliance.conditionConfirmedAndWorkReactivated", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: target, payload: {complianceId: id, maintenanceId}});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {status: "inProgress", version: nextVersion, updatedAt: iso(context.serverNow)});
+  const followUpEvidence = closedParent ? {physicalWorkReactivated: false, conditionConfirmed: true} : {};
+  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: closedParent ? "compliance.complied" : "compliance.conditionConfirmedAndWorkReactivated", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: target, payload: {complianceId: id, maintenanceId, ...followUpEvidence}});
   tx.create(event.path, event.data);
-  return {resultKey: "condition-confirmed-work-reactivated", aggregateVersion: nextVersion, result: {complianceId: id, maintenanceId}};
+  return {resultKey: closedParent ? "condition-confirmed-follow-up" : "condition-confirmed-work-reactivated", aggregateVersion: nextVersion, result: {complianceId: id, maintenanceId, ...followUpEvidence}};
 };
 
 export const markComplianceComplied: CommandHandler = async ({tx, command, context}) => {
@@ -539,8 +665,7 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
   const target = laneKey(compliance.targetLaneKey, "targetLaneKey");
   assertLaneAuthority(context.actor, target, "work");
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "acknowledged") throw new WorkflowError("failed-precondition", "Compliance must be acknowledged before it is complied.");
   if (compliance.counterProposal != null) {
     throw new WorkflowError("failed-precondition", "The requesting side must decide the revised condition before completion.");
@@ -561,7 +686,7 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
   const maintenanceData = maintenance == null ? null : assertMaintenanceBoundToCompliance({
     maintenance,
     workflowId: command.aggregateId,
-    complianceId: id,
+    complianceId: physicalComplianceId(compliance, id, closedParent),
   });
   const attemptNumber = (typeof compliance.attemptCount === "number" ? compliance.attemptCount : 0) + 1;
   const attemptId = `${id}_${attemptNumber}`;
@@ -574,6 +699,7 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
     note,
     accepted: false,
     createdAt: iso(context.serverNow),
+    updatedAt: iso(context.serverNow),
   });
   tx.update(compliancePath(id), {
     status: "complied",
@@ -594,7 +720,7 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
-  if (maintenanceId != null && maintenanceData != null) {
+  if (!closedParent && maintenanceId != null && maintenanceData != null) {
     tx.update(maintenancePath(maintenanceId), maintenanceProjectionForAwaitingConfirmation({
       maintenance: maintenanceData,
       actorUid: context.actor.uid,
@@ -602,8 +728,8 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
       at: context.serverNow,
     }));
   }
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "compliance.complied", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: target, payload: {complianceId: id}});
   tx.create(event.path, event.data);
   return {resultKey: "compliance-complied", aggregateVersion: nextVersion, result: {complianceId: id}};
@@ -612,8 +738,7 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
 export const returnComplianceForCorrection: CommandHandler = async ({tx, command, context}) => {
   const id = complianceIdFromPayload(command.payload.complianceId);
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {workflow, version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "complied") throw new WorkflowError("failed-precondition", "Only a complied request may be returned for correction.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
   if (origin != null) {
@@ -630,13 +755,11 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
   const maintenanceData = maintenance == null ? null : assertMaintenanceBoundToCompliance({
     maintenance,
     workflowId: command.aggregateId,
-    complianceId: id,
+    complianceId: physicalComplianceId(compliance, id, closedParent),
   });
-  const currentAttemptId = typeof compliance.currentAttemptId === "string" ? compliance.currentAttemptId : null;
-  const currentAttempt = currentAttemptId == null ? null : await tx.get(`compliance_attempts/${currentAttemptId}`);
-  if (currentAttemptId == null || currentAttempt?.exists !== true) {
-    throw new WorkflowError("failed-precondition", "The complied request has no preserved compliance attempt.");
-  }
+  const currentAttemptId = await requireCurrentComplianceAttempt(tx, compliance, id);
+  const status = closedParent ? null :
+    await prospectiveComplianceStatus(tx, command.aggregateId, workflow);
   tx.update(`compliance_attempts/${currentAttemptId}`, {
     accepted: false,
     returnedByUid: context.actor.uid,
@@ -667,7 +790,7 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
-  if (typeof maintenanceId === "string" && maintenanceId.length > 0 && maintenanceData != null) {
+  if (!closedParent && typeof maintenanceId === "string" && maintenanceId.length > 0 && maintenanceData != null) {
     tx.update(maintenancePath(maintenanceId), maintenanceProjectionForCorrection({
       maintenance: maintenanceData,
       reason,
@@ -676,8 +799,8 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
       at: context.serverNow,
     }));
   }
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {status: "awaitingCompliance", version: nextVersion, updatedAt: iso(context.serverNow)});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {status, version: nextVersion, updatedAt: iso(context.serverNow)});
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "compliance.returnedForCorrection", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, reason, failedAttemptPreserved: true}});
   tx.create(event.path, event.data);
   return {resultKey: "compliance-returned-for-correction", aggregateVersion: nextVersion, result: {complianceId: id, reason}};
@@ -686,8 +809,7 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
 export const confirmComplianceClosed: CommandHandler = async ({tx, command, context}) => {
   const id = complianceIdFromPayload(command.payload.complianceId);
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {workflow, version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "complied") throw new WorkflowError("failed-precondition", "Only complied requests may be confirmed closed.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
   if (origin != null) {
@@ -705,10 +827,25 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     gatePath,
     "gatesLaneFirestoreId",
     command.aggregateId,
-    "red",
   );
-  const workflowEquipmentIdentity = gatePath == null ?
-    null : equipmentIdentityFromWorkflow(workflow);
+  // A request may gate any active lane, and confirming it releases that
+  // dependency. Releasing RED work and changing what the equipment is doing is
+  // a different act: only the request the RED preparation decision installed as
+  // the RED lane's gate carries it. Anything else confirming is an ordinary
+  // dependency being met, whichever lane it gated.
+  const redPreparation = gatedLane != null &&
+    isRedPreparationRelationship(command.aggregateId, gatedLane.data, id);
+  if (gatedLane?.data.laneKey === "red" &&
+      typeof gatedLane.data.redPreparationComplianceId === "string" &&
+      (gatedLane.data.redPreparationComplianceId === id ||
+       gatedLane.data.gatingComplianceRequestId === id) &&
+      gatedLane.data.redPreparationComplianceId !== gatedLane.data.gatingComplianceRequestId) {
+    throw new WorkflowError("failed-precondition",
+      "The RED preparation references disagree. Preserve both requests for review.",
+      {reasonCode: "red-preparation-authority-conflict"});
+  }
+  const workflowEquipmentIdentity = redPreparation ?
+    equipmentIdentityFromWorkflow(workflow) : null;
   const assetTypeKey = workflowEquipmentIdentity?.assetTypeKey ?? null;
   const assetNumber = workflowEquipmentIdentity?.assetNumber ?? null;
   const equipmentId = workflowEquipmentIdentity == null ?
@@ -733,15 +870,28 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
   const linkedMaintenanceData = linkedMaintenance == null ? null : assertMaintenanceBoundToCompliance({
     maintenance: linkedMaintenance,
     workflowId: command.aggregateId,
-    complianceId: id,
+    complianceId: physicalComplianceId(compliance, id, closedParent),
   });
-  const currentAttemptId = typeof compliance.currentAttemptId === "string" ? compliance.currentAttemptId : null;
-  const currentAttempt = currentAttemptId == null ? null : await tx.get(`compliance_attempts/${currentAttemptId}`);
-  if (currentAttemptId == null || currentAttempt?.exists !== true) {
-    throw new WorkflowError("failed-precondition", "The complied request has no preserved compliance attempt.");
+  // Firestore transactions require all reads to finish before the first
+  // write. Capture the prospective aggregate status now and remove the
+  // confirmed request only if it contributes to the blocking population.
+  const derivedStatus = redPreparation || closedParent ? null :
+    await prospectiveComplianceStatus(tx, command.aggregateId, workflow, compliance);
+  if (redPreparation) {
+    const lanes = await activeLanes(tx, command.aggregateId);
+    const decision = workflow.redPreparationDecision;
+    if (workflow.awaitingPreparation !== true || workflow.activeRedWork === true ||
+        decision == null || typeof decision !== "object" || Array.isArray(decision) ||
+        (decision as JsonMap).preparationRequired !== true || gatedLane?.data.status !== "pending" ||
+        lanes.some((lane) => lane.laneKey !== "red" && lane.status !== "closed")) {
+      throw new WorkflowError("failed-precondition",
+        "RED preparation no longer has its required decision and lane readiness.",
+        {reasonCode: "red-preparation-authority-conflict"});
+    }
   }
+  const currentAttemptId = await requireCurrentComplianceAttempt(tx, compliance, id);
   const now = iso(context.serverNow);
-  const nextVersion = version + 1;
+  const nextVersion = closedParent ? version : version + 1;
 
   tx.update(`compliance_attempts/${currentAttemptId}`, {
     accepted: true,
@@ -760,7 +910,7 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     version: (compliance.version ?? 0) + 1,
     updatedAt: now,
   });
-  if (linkedMaintenanceId != null && linkedMaintenanceData != null) {
+  if (!closedParent && linkedMaintenanceId != null && linkedMaintenanceData != null) {
     tx.update(maintenancePath(linkedMaintenanceId), maintenanceProjectionForRelease({
       maintenance: linkedMaintenanceData,
       actorUid: context.actor.uid,
@@ -770,8 +920,8 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
   }
 
   let equipmentState: string | null = null;
-  if (gatePath != null) {
-    if (gatedLane == null) {
+  if (redPreparation) {
+    if (gatedLane == null || gatePath == null) {
       throw new WorkflowError("not-found", "Gated lane was not found.");
     }
     if (assetTypeKey == null || assetNumber == null || equipmentId == null || otherFacts == null) {
@@ -782,6 +932,7 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     equipmentState = projection.state;
     tx.update(gatePath, {
       gatingComplianceRequestId: null,
+      redPreparationComplianceId: null,
       version: (typeof gatedLane.data.version === "number" ? gatedLane.data.version : 0) + 1,
       updatedAt: now,
     });
@@ -802,19 +953,27 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
       actorUid: context.actor.uid,
       actorName: context.actor.name,
     }), true);
-  } else {
+  } else if (!closedParent) {
+    if (gatePath != null && gatedLane != null &&
+        gatedLane.data.gatingComplianceRequestId === id) {
+      tx.update(gatePath, {
+        gatingComplianceRequestId: null,
+        version: (typeof gatedLane.data.version === "number" ? gatedLane.data.version : 0) + 1,
+        updatedAt: now,
+      });
+    }
     tx.update(workflowPath(command.aggregateId), {
       ...(workflow.workflowKind === "issueCoordination" ? {
         status: "completed",
         completedAt: now,
-      } : {}),
+      } : {status: derivedStatus}),
       version: nextVersion,
       updatedAt: now,
     });
   }
-  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: gatePath == null ? "compliance.confirmedClosed" : "red.preparationConfirmed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, releasedGate: gatePath, equipmentState}});
+  const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: redPreparation ? "red.preparationConfirmed" : "compliance.confirmedClosed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, releasedGate: gatePath, equipmentState}});
   tx.create(event.path, event.data);
-  return {resultKey: gatePath == null ? "compliance-confirmed-closed" : "red-preparation-confirmed", aggregateVersion: nextVersion, result: {complianceId: id, releasedGate: gatePath, equipmentState}};
+  return {resultKey: redPreparation ? "red-preparation-confirmed" : "compliance-confirmed-closed", aggregateVersion: nextVersion, result: {complianceId: id, releasedGate: gatePath, equipmentState}};
 };
 
 export const proposeCounterCondition: CommandHandler = async ({tx, command, context}) => {
@@ -822,8 +981,7 @@ export const proposeCounterCondition: CommandHandler = async ({tx, command, cont
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
   const target = laneKey(compliance.targetLaneKey, "targetLaneKey");
   assertLaneAuthority(context.actor, target, "work");
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "raised" && compliance.status !== "acknowledged") throw new WorkflowError("failed-precondition", "Counter-condition is not allowed in this state.");
   if ((compliance.counterDepth ?? 0) >= 1 || compliance.counterProposal != null) throw new WorkflowError("failed-precondition", "Only one counter-condition may be proposed.");
   const revisedDescription = cleanText(command.payload.revisedDescription, "revisedDescription");
@@ -837,8 +995,8 @@ export const proposeCounterCondition: CommandHandler = async ({tx, command, cont
     updatedAt: iso(context.serverNow),
     version: (compliance.version ?? 0) + 1,
   });
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: "compliance.counterProposed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: target, payload: {complianceId: id, revisedDescription}});
   tx.create(event.path, event.data);
   return {resultKey: "counter-condition-proposed", aggregateVersion: nextVersion, result: {complianceId: id}};
@@ -847,8 +1005,7 @@ export const proposeCounterCondition: CommandHandler = async ({tx, command, cont
 export const decideCounterCondition: CommandHandler = async ({tx, command, context}) => {
   const id = complianceIdFromPayload(command.payload.complianceId);
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
-  const workflow = await requireMutableWorkflow(tx, command.aggregateId);
-  const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const {workflow, version, closedParent} = await complianceMutationContext(tx, command, compliance);
   if (compliance.status !== "raised" && compliance.status !== "acknowledged") {
     throw new WorkflowError("failed-precondition", "Only an open request can accept a revised-condition decision.");
   }
@@ -883,8 +1040,10 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
   const linkedMaintenanceData = linkedMaintenance == null ? null : assertMaintenanceBoundToCompliance({
     maintenance: linkedMaintenance,
     workflowId: command.aggregateId,
-    complianceId: id,
+    complianceId: physicalComplianceId(compliance, id, closedParent),
   });
+  const status = closedParent ? null :
+    await prospectiveComplianceStatus(tx, command.aggregateId, workflow);
   let result;
   if (accepted) {
     const successorId = cleanText(command.payload.successorComplianceId, "successorComplianceId");
@@ -899,6 +1058,9 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
     });
     tx.create(compliancePath(successorId), {
       ...compliance,
+      ...(closedParent && linkedMaintenanceId != null ? {
+        physicalSourceComplianceId: physicalComplianceId(compliance, id, true),
+      } : {}),
       status: "acknowledged",
       description: revisedDescription,
       counterDepth: 1,
@@ -920,14 +1082,35 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
       updatedAt: iso(context.serverNow),
       version: 1,
     });
-    if (gatePath != null) {
+    const transfersRedPreparation = gatedLane != null &&
+      isRedPreparationRelationship(command.aggregateId, gatedLane.data, id);
+    if (gatedLane != null &&
+        redPreparationIsOccupied(command.aggregateId, gatedLane.data) &&
+        !transfersRedPreparation) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "An ordinary counter-condition cannot replace the RED preparation decision.",
+        {reasonCode: "red-preparation-authority-conflict", lanePath: gatePath},
+      );
+    }
+    if (gatePath != null && transfersRedPreparation) {
       tx.update(gatePath, {
         gatingComplianceRequestId: successorId,
+        redPreparationComplianceId: successorId,
         version: (typeof gatedLane?.data.version === "number" ? gatedLane.data.version : 0) + 1,
         updatedAt: iso(context.serverNow),
       });
+    } else if (gatePath != null && gatedLane?.data.gatingComplianceRequestId === id) {
+      // Transfer an ordinary lane dependency only when the lane currently
+      // proves that this request owns the pointer. A stale or forged gate
+      // reference must never manufacture RED authority.
+      tx.update(gatePath, {
+        gatingComplianceRequestId: successorId,
+        version: (typeof gatedLane.data.version === "number" ? gatedLane.data.version : 0) + 1,
+        updatedAt: iso(context.serverNow),
+      });
     }
-    if (linkedMaintenanceId != null && linkedMaintenanceData != null) {
+    if (!closedParent && linkedMaintenanceId != null && linkedMaintenanceData != null) {
       tx.update(maintenancePath(linkedMaintenanceId), {
         workflowComplianceId: successorId,
         workflowUpdatedAt: iso(context.serverNow),
@@ -935,7 +1118,13 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
         version: (typeof linkedMaintenanceData.version === "number" ? linkedMaintenanceData.version : 0) + 1,
       });
     }
-    result = {accepted: true, successorComplianceId: successorId, transferredGate: gatePath};
+    result = {
+      accepted: true,
+      successorComplianceId: successorId,
+      transferredGate: transfersRedPreparation || gatedLane?.data.gatingComplianceRequestId === id
+        ? gatePath
+        : null,
+    };
   } else {
     const rejectedTier = Math.max(
       1,
@@ -955,8 +1144,8 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
     });
     result = {accepted: false, escalated: true};
   }
-  const nextVersion = version + 1;
-  tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: iso(context.serverNow)});
+  const nextVersion = closedParent ? version : version + 1;
+  if (!closedParent) tx.update(workflowPath(command.aggregateId), {status, version: nextVersion, updatedAt: iso(context.serverNow)});
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: accepted ? "compliance.counterAccepted" : "compliance.counterRejectedEscalated", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, ...result}});
   tx.create(event.path, event.data);
   return {resultKey: accepted ? "counter-condition-accepted" : "counter-condition-rejected-escalated", aggregateVersion: nextVersion, result};

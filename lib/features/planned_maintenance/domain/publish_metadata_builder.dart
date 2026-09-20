@@ -149,6 +149,7 @@ TemplateVersion buildTemplateVersionForPublish({
   required int nextVersionNumber,
   TemplateVersion? existingVersion,
   bool preserveExistingPayload = false,
+  bool createSuccessorForPublication = false,
   AppUser? actor,
   DateTime? now,
 }) {
@@ -173,13 +174,25 @@ TemplateVersion buildTemplateVersionForPublish({
   }
 
   final timestamp = now ?? DateTime.now();
-  final version = existingVersion ?? TemplateVersion();
+  final source = existingVersion;
+  final normalizedNextVersion = nextVersionNumber < 1 ? 1 : nextVersionNumber;
+  final shouldForkPublishedNumber =
+      createSuccessorForPublication &&
+      source != null &&
+      source.firestoreId?.trim().isNotEmpty == true &&
+      source.versionNumber < normalizedNextVersion;
+  final version = shouldForkPublishedNumber
+      ? _forkTemplateVersionForPublication(source, timestamp)
+      : source ?? TemplateVersion();
 
   version
     ..packageFirestoreId = package.firestoreId
     ..versionNumber =
-        existingVersion?.versionNumber ??
-        (nextVersionNumber < 1 ? 1 : nextVersionNumber)
+        shouldForkPublishedNumber ||
+            source == null ||
+            source.firestoreId?.trim().isNotEmpty != true
+        ? normalizedNextVersion
+        : source.versionNumber
     ..versionLabel = _cleanOptional(input.versionLabel)
     ..status = TemplateVersionStatus.draft
     ..releaseNotes = _cleanOptional(input.releaseNotes)
@@ -209,12 +222,12 @@ TemplateVersion buildTemplateVersionForPublish({
       );
   }
 
-  if (existingVersion == null) {
+  if (existingVersion == null || shouldForkPublishedNumber) {
     version.createdAt = timestamp;
   }
 
   if (actor != null) {
-    if (existingVersion == null) {
+    if (existingVersion == null || shouldForkPublishedNumber) {
       version
         ..createdByUid = actor.uid
         ..createdByName = actor.name;
@@ -226,6 +239,54 @@ TemplateVersion buildTemplateVersionForPublish({
 
   version.refreshContentHash();
   return version;
+}
+
+TemplateVersion _forkTemplateVersionForPublication(
+  TemplateVersion source,
+  DateTime timestamp,
+) {
+  final successor = TemplateVersion()
+    ..packageFirestoreId = source.packageFirestoreId
+    ..versionNumber = source.versionNumber
+    ..versionLabel = source.versionLabel
+    ..sourceVersionFirestoreId = source.firestoreId
+    ..contentHash = source.contentHash
+    ..jobTemplateSnapshotJson = source.jobTemplateSnapshotJson
+    ..moduleSnapshotsJson = source.moduleSnapshotsJson
+    ..fieldDefinitionsJson = source.fieldDefinitionsJson
+    ..checklistJson = source.checklistJson
+    ..releaseNotes = source.releaseNotes
+    ..changeSummary = source.changeSummary
+    ..minAppVersion = source.minAppVersion
+    ..targetRefs = List<String>.from(source.targetRefs)
+    ..deviceTagRefs = List<String>.from(source.deviceTagRefs)
+    ..safetyClass = source.safetyClass
+    ..safetyGatePolicyJson = source.safetyGatePolicyJson
+    ..procedureRefs = List<String>.from(source.procedureRefs)
+    ..operationalStatePreconditions = List<String>.from(
+      source.operationalStatePreconditions,
+    )
+    ..metadataJson = source.metadataJson
+    ..version = 1
+    ..schemaVersion = source.schemaVersion
+    ..status = TemplateVersionStatus.draft
+    ..isSynced = false
+    ..isDeleted = false
+    ..deletedAt = null
+    ..deletedByUid = null
+    ..deletedByName = null
+    ..deleteReason = null
+    ..publishedByUid = null
+    ..publishedByName = null
+    ..publishedAt = null
+    ..retiredByUid = null
+    ..retiredByName = null
+    ..retiredAt = null
+    ..retireReason = null
+    ..createdAt = timestamp
+    ..updatedAt = timestamp;
+  successor.refreshClosureReviewStateFromSnapshots();
+  return successor;
 }
 
 DateTime? _tryReadCreatedAt(TemplatePackage package) {

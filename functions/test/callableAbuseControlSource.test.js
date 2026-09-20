@@ -20,13 +20,20 @@ describe('S-03 callable boundary wiring', () => {
       'mutateRuntimeJobModulePopulation',
       'userCanMutateRuntimeJobModulePopulation',
     ],
-    ['mutateUserAuthority', 'userCanMutateUserAuthority'],
   ])('%s uses authority-first shared admission through %s', (
     callableName,
     authorityPredicate,
   ) => {
     expect(indexSource).toContain(`callableName: "${callableName}"`);
     expect(indexSource).toContain(`authorize: ${authorityPredicate}`);
+  });
+
+  test('user authority admission permits either current authority or verified original receipt replay',()=>{
+    const block=indexSource.slice(indexSource.indexOf('export const mutateUserAuthority ='),indexSource.indexOf('export const mutateChargeAbnormality ='));
+    expect(block).toContain('authorize: async (userData) =>');
+    expect(block).toContain('userCanMutateUserAuthority(userData) ||');
+    expect(block).toContain('await userCanReplayUserAuthority({');
+    expect(block).toContain('authUid: request.auth?.uid ?? null');
   });
 
   test('abnormality and quality mutations select exact authority before shared admission', () => {

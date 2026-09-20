@@ -9,8 +9,13 @@ import '../../utils/admin_ticket_helpers.dart';
 
 class AdminEditDirectiveDialog extends StatefulWidget {
   final OperationalDirective directive;
+  final Future<void> Function(OperationalDirective)? onSave;
 
-  const AdminEditDirectiveDialog({super.key, required this.directive});
+  const AdminEditDirectiveDialog({
+    super.key,
+    required this.directive,
+    this.onSave,
+  });
 
   @override
   State<AdminEditDirectiveDialog> createState() =>
@@ -18,7 +23,10 @@ class AdminEditDirectiveDialog extends StatefulWidget {
 }
 
 class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
+  bool _saving = false;
+  String? _saveError;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final _reasonController = TextEditingController();
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _remarksController;
@@ -34,6 +42,7 @@ class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
   void initState() {
     super.initState();
     final directive = widget.directive;
+    _reasonController.text = directive.amendmentReason ?? '';
     _titleController = TextEditingController(text: directive.title);
     _descriptionController = TextEditingController(text: directive.description);
     _remarksController = TextEditingController(text: directive.remarks ?? '');
@@ -53,6 +62,7 @@ class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
 
   @override
   void dispose() {
+    _reasonController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     _remarksController.dispose();
@@ -75,38 +85,38 @@ class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_saveError != null)
+                  Text(
+                    _saveError!,
+                    style: const TextStyle(color: BafColors.danger),
+                  ),
                 TextFormField(
                   controller: _titleController,
                   decoration: const InputDecoration(labelText: 'Title'),
-                  validator:
-                      (value) =>
-                          (value == null || value.trim().isEmpty)
-                              ? 'Required'
-                              : null,
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Required'
+                      : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _descriptionController,
                   decoration: const InputDecoration(labelText: 'Description'),
                   maxLines: 3,
-                  validator:
-                      (value) =>
-                          (value == null || value.trim().isEmpty)
-                              ? 'Required'
-                              : null,
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Required'
+                      : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 DropdownButtonFormField<AppRole>(
                   initialValue: _selectedRole,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Directed To'),
-                  items:
-                      AppRole.values.map((role) {
-                        return DropdownMenuItem<AppRole>(
-                          value: role,
-                          child: Text(role.name),
-                        );
-                      }).toList(),
+                  items: AppRole.values.map((role) {
+                    return DropdownMenuItem<AppRole>(
+                      value: role,
+                      child: Text(role.name),
+                    );
+                  }).toList(),
                   onChanged: (value) {
                     if (value == null) {
                       return;
@@ -191,6 +201,18 @@ class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
                   ),
                 ),
                 const SizedBox(height: BafSpacing.sm),
+                const Text(
+                  'A changed or transferred active instruction needs fresh acknowledgement. Earlier wording and acknowledgement remain in its audit history.',
+                ),
+                TextFormField(
+                  controller: _reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for the amendment',
+                  ),
+                  validator: (value) => value?.trim().isNotEmpty == true
+                      ? null
+                      : 'A reason is required',
+                ),
                 TextFormField(
                   controller: _remarksController,
                   decoration: const InputDecoration(labelText: 'Remarks'),
@@ -204,34 +226,47 @@ class _AdminEditDirectiveDialogState extends State<AdminEditDirectiveDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _saving ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            if (!(_formKey.currentState?.validate() ?? false)) {
-              return;
-            }
-            final updated =
-                copyOperationalDirective(widget.directive)
-                  ..title = _titleController.text.trim()
-                  ..description = _descriptionController.text.trim()
-                  ..directedTo = _selectedRole
-                  ..assetType = _selectedAssetType
-                  ..assetNumber =
-                      _selectedAssetType == null
-                          ? null
-                          : int.parse(_assetNumberController.text.trim())
-                  ..component = cleanAdminOptionalText(
-                    _componentController.text,
-                  )
-                  ..subsystem = cleanAdminOptionalText(
-                    _subsystemController.text,
-                  )
-                  ..tag = cleanAdminTagText(_tagController.text)
-                  ..remarks = cleanAdminOptionalText(_remarksController.text);
-            Navigator.pop(context, updated);
-          },
+          onPressed: _saving
+              ? null
+              : () async {
+                  if (!(_formKey.currentState?.validate() ?? false)) {
+                    return;
+                  }
+                  final updated = copyOperationalDirective(widget.directive)
+                    ..amendmentReason = _reasonController.text.trim()
+                    ..title = _titleController.text.trim()
+                    ..description = _descriptionController.text.trim()
+                    ..directedTo = _selectedRole
+                    ..assetType = _selectedAssetType
+                    ..assetNumber = _selectedAssetType == null
+                        ? null
+                        : int.parse(_assetNumberController.text.trim())
+                    ..component = cleanAdminOptionalText(
+                      _componentController.text,
+                    )
+                    ..subsystem = cleanAdminOptionalText(
+                      _subsystemController.text,
+                    )
+                    ..tag = cleanAdminTagText(_tagController.text)
+                    ..remarks = cleanAdminOptionalText(_remarksController.text);
+                  setState(() => _saving = true);
+                  try {
+                    await widget.onSave?.call(updated);
+                    if (context.mounted) Navigator.pop(context, updated);
+                  } catch (error) {
+                    if (mounted) {
+                      setState(
+                        () => _saveError = '$error Your entries remain here.',
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _saving = false);
+                  }
+                },
           child: const Text('Save'),
         ),
       ],

@@ -7,6 +7,7 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../admin/presentation/saved_submission_review_screen.dart';
 import '../services/published_template_assignment_server_service.dart';
 import '../services/published_template_assignment_submission_controller.dart';
 
@@ -110,6 +111,14 @@ class _SavedPublishedAssignmentScreenState
             onPressed: _busy ? null : () => _run(),
             child: const Text('Check saved assignment'),
           ),
+          if (widget.submission.attemptCount > 0) ...[
+            const Text('If this request keeps being refused, an administrator can review its server outcome and close the original request safely before you choose another publication.'),
+            if (access.actor!.isAdmin)
+              TextButton(onPressed: _busy ? null : () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SavedSubmissionReviewScreen()));
+                if (mounted) ref.invalidate(pendingPublishedTemplateAssignmentProvider);
+              }, child: const Text('Review saved request')),
+          ],
           if (widget.submission.state == DurableSubmissionState.intent &&
               widget.submission.attemptCount == 0)
             TextButton(

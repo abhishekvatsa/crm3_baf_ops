@@ -84,6 +84,7 @@ extension _ClosedTicketCorrections on _ClosedTicketsScreenState {
         payload: <String, Object?>{
           'reason': draft.reason,
           'corrections': draft.corrections,
+          if (draft.targetReferenceJson != null) 'targetReferenceJson': draft.targetReferenceJson,
         },
       );
       final receipt = await ref

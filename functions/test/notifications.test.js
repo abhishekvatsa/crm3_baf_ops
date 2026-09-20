@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const {
   AGENCY_TO_ROLES,
   agenciesToRoles,
@@ -14,6 +16,7 @@ const {
   groupNotificationRecipientsByToken,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
   sendNotification,
+  FCM_AMBIGUOUS_ERROR_CODES,
 } = require('../lib/notifications');
 
 // ─── Test harness: minimal Firestore double with transactions ────────────────
@@ -1066,6 +1069,7 @@ describe('sendNotification', () => {
     expect(messagesSent).toHaveLength(1);
     expect(messagesSent[0].android).toEqual({
       priority: 'high',
+      ttl: 300000,
       notification: {
         sound: 'default',
         channelId: 'crm3_critical_safety',
@@ -1095,9 +1099,37 @@ describe('sendNotification', () => {
       expect.arrayContaining([
         'messaging/registration-token-not-registered',
         'messaging/invalid-registration-token',
-        'messaging/invalid-argument',
       ]),
     );
+  });
+
+  test('an alarm is re-read before its alert is sent', () => {
+    // The plan is built before recipients are discovered, so the trigger must
+    // check again at dispatch that the alarm is still one to alert about. The
+    // suppression that follows a null plan is covered by the receipt suite;
+    // what is pinned here is that this trigger performs the re-read.
+    const trigger = fs.readFileSync(
+      path.join(
+        __dirname, '..', 'src', 'maintenanceWorkflow',
+        'workflowNotificationTrigger.ts',
+      ),
+      'utf8',
+    );
+    const prepare = trigger.slice(trigger.indexOf('prepare: async () => {'));
+    expect(prepare).toContain("db.collection(\"critical_alarms\")");
+    expect(prepare).toContain('isNotifiableCriticalAlarmStatus(alarm?.status)');
+    expect(prepare.slice(0, prepare.indexOf('return recipientPlan;')))
+      .toContain('return null;');
+  });
+
+  test('a rejection that does not prove the device dead retires nothing', () => {
+    // Firebase returns invalid-argument for a rejected message as well as a
+    // rejected registration, so it cannot retire a working recipient.
+    expect(FCM_AMBIGUOUS_ERROR_CODES).toEqual(['messaging/invalid-argument']);
+    expect(FCM_DEAD_TOKEN_CODES)
+      .not.toContain('messaging/invalid-argument');
+    expect(FCM_RETRYABLE_ERROR_CODES)
+      .not.toContain('messaging/invalid-argument');
   });
 
   test('FCM_RETRYABLE_ERROR_CODES contains only known transient classes', () => {

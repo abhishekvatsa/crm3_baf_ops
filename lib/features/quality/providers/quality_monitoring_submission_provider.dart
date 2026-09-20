@@ -35,6 +35,11 @@ final qualityMonitoringSubmissionControllerProvider =
             },
           );
         },
+        requireReviewCapability: (uid) => capabilities.requireCapabilities(
+          callableName: qualityMonitoringV2CallableName,
+          originActorUid: uid,
+          requiredCapabilities: const {'qualityMonitoring.review.v1'},
+        ),
         invoke: (envelope) async =>
             (await client
                     .httpsCallable(qualityMonitoringV2CallableName)

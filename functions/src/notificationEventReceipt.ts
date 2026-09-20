@@ -48,6 +48,8 @@ export interface NotificationDeliveryOutcome {
   succeeded: number;
   failed: number;
   retryableFailures: number;
+  // Older callers and compiled senders may not report this yet.
+  ambiguousFailures?: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -69,7 +71,10 @@ export interface NotificationDeliveryUncertainSignal {
   cloudEventId: string;
   sourceDocumentPath: string;
   attemptId: string;
-  phase: "dispatch-outcome-unknown" | "completion-recording-failed";
+  phase:
+    | "dispatch-outcome-unknown"
+    | "completion-recording-failed"
+    | "prior-dispatch-unresolved";
 }
 
 export type NotificationEventExecutionResult =
@@ -82,6 +87,7 @@ export type NotificationEventExecutionResult =
   | {
       kind: "skipped";
       receiptId: string;
+      attemptId?: string;
       reason:
         | "already-completed"
         | "already-suppressed"
@@ -279,9 +285,13 @@ async function acquireReceipt(
       }
       if (existing.status === "dispatching" ||
           existing.status === "deliveryUncertain") {
+        // The unresolved dispatch belongs to the attempt that committed it.
+        // Naming this observation's fresh attempt would point the signal at
+        // an attempt that never owned or performed the send.
         return {
           kind: "skipped",
           receiptId,
+          attemptId: existing.attemptId,
           reason: "delivery-uncertain",
         };
       }
@@ -414,6 +424,19 @@ export async function executeIdempotentNotificationEvent<T>(args: {
   requireNonEmpty(identity.sourceDocumentPath, "sourceDocumentPath");
 
   const acquisition = await acquireReceipt(args.runtime, identity);
+  if (acquisition.kind === "skipped" &&
+      acquisition.reason === "delivery-uncertain") {
+    // A dispatch interrupted mid-flight is being seen again. Nobody has
+    // established whether the alert reached anyone, so this must surface as
+    // clearly as a newly detected unknown send rather than completing quietly.
+    await reportDeliveryUncertain({
+      runtime: args.runtime,
+      identity,
+      receiptId: acquisition.receiptId,
+      attemptId: acquisition.attemptId ?? "",
+      phase: "prior-dispatch-unresolved",
+    });
+  }
   if (acquisition.kind === "active-preparation") {
     throw new NotificationPreparationInProgressError(acquisition.receiptId);
   }
@@ -506,6 +529,10 @@ export async function executeIdempotentNotificationEvent<T>(args: {
     throw new NotificationRetryableDeliveryError();
   }
 
+  // Processing completion is not successful delivery. Known failures and an
+  // empty audience need an owned exception; never resend an entire partial fanout.
+  const needsReview = outcome.attempted === 0 || outcome.failed > 0 ||
+    outcome.unknownAgencies.length > 0 || (outcome.ambiguousFailures ?? 0) > 0;
   try {
     await transition("dispatching", {
       status: "completed",
@@ -515,10 +542,14 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       succeededCount: outcome.succeeded,
       failedCount: outcome.failed,
       retryableFailureCount: outcome.retryableFailures,
+      // Rejections that do not establish a dead device: the message or its
+      // configuration is what needs correcting.
+      ambiguousFailureCount: outcome.ambiguousFailures ?? 0,
       staleTokensCleared: outcome.staleTokensCleared,
       unknownAgencies: [...outcome.unknownAgencies],
-      lastError: null,
-      requiresAdjudication: false,
+      lastError: needsReview ? "Notification processing finished with unresolved delivery evidence." : null,
+      requiresAdjudication: needsReview,
+      ...(needsReview ? {adjudicationOwnerRole: "admin", deliveryDisposition: "review-required"} : {}),
     });
   } catch (error) {
     try {

@@ -4384,7 +4384,7 @@ foreach ($required in @(
   'CRM_TRIGGERING_ACTOR: ${{ github.triggering_actor }}'
   '[[ "$CRM_DISPATCH_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]'
   '[[ "$CRM_DISPATCH_BUILD_NUMBER" =~ ^[1-9][0-9]{0,9}$ ]]'
-  'test "$CRM_DISPATCH_BUILD_NUMBER" -le 2147483647'
+  'test "$CRM_DISPATCH_BUILD_NUMBER" -le 2100000000'
   '[[ "$CRM_DISPATCH_RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
   '[[ "$CRM_DISPATCH_RESERVATION_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
   '[[ "$CRM_DISPATCH_APPROVAL_REFERENCE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'

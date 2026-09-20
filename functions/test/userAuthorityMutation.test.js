@@ -49,3 +49,17 @@ describe("versioned user-authority request fingerprints", () => {
     );
   });
 });
+
+const {userAuthorityCallableEnvelope} = require('../lib/userAuthorityMutation');
+describe('authority transport origin', () => {
+  test('binds both mutation and confirmation to the frozen origin', () => {
+    for (const key of ['request', 'receiptLookup']) {
+      const envelope = {protocolVersion: 2, originActorUid: 'original', [key]: fixture};
+      expect(() => userAuthorityCallableEnvelope(envelope, 'another')).toThrow(/originating account/);
+      expect(userAuthorityCallableEnvelope(envelope, 'original')).toEqual({data: fixture, confirmationOnly: key === 'receiptLookup'});
+    }
+  });
+  test('refuses ambiguous transport modes', () => {
+    expect(() => userAuthorityCallableEnvelope({protocolVersion: 2, originActorUid: 'original', request: fixture, receiptLookup: fixture}, 'original')).toThrow(/invalid/);
+  });
+});

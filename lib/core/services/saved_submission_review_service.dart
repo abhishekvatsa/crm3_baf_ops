@@ -107,11 +107,13 @@ class SavedSubmissionReviewService {
       // A previous finalization may have committed while its reply was lost.
       // Adopt its immutable decision and original reason; never issue another
       // cancellation or demand that the reviewer remembers an unsaved note.
-      validateDurableSubmissionReviewDecision(row, response, reviewerUid: uid);
+      // Retrieval authority belongs to the current Admin; the content-bound
+      // historical decision must retain its actual original reviewer.
+      validateDurableSubmissionReviewDecision(row, response);
       await store.settleReview(
         submissionId: row.submissionId,
         evidenceSha256: row.reviewEvidenceSha256,
-        reviewerUid: uid,
+        reviewerUid: response['reviewerUid'] as String,
         decisionJson: jsonEncode(response),
         requireReviewer: () => _admin(uid),
       );

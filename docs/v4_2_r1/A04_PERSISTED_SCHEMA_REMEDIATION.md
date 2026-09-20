@@ -189,3 +189,86 @@ The current A04 inventory passes and binds the complete current A05 policy.
 Historical closure, CI, reconciliation, and schema migration evidence is retained;
 these local source measurements do not supply admission or operational evidence
 for this repair branch.
+
+## Current-source policy review, 2026-09-19
+
+The current inventory still classifies 55 fields: 49 JSON strings, six dynamic
+values, three bounded extension bags and zero registered extension fields. It
+inherits 99 reviewed A-05 decoder surfaces. Its exact current-source digest is
+`F224B60A2C0D746B126D35C5EED3807A96E273F26A031992A419DAEBC16E51C8`.
+
+Regeneration binds the reviewed A-05 additions for Inner Cover assurance
+invalidation and accountable operational-event withdrawal, plus the revised
+hierarchy receipt catch. Only the two inherited surface descriptions, complete
+A-05 manifest hash and resulting digest changed. Persisted field policies,
+extension restrictions and schema shapes are unchanged. Historical closure and
+production reconciliation receipts remain historical; this current-source
+inventory does not confer deployment or distribution authority.
+
+## Current-source inherited-decoder review, 2026-09-20
+
+The current inventory still classifies 55 fields: 49 JSON strings, six dynamic
+values, three bounded extension bags and zero registered extension fields. It
+now inherits 100 reviewed A-05 decoder surfaces. The exact current-source digest
+is `2AF4B3945D589F569620FA2A3D652FEE78D84033A3A770A36DD04C3F64B7ACC5`.
+
+Regeneration adds the reviewed original-account-bound workflow execution
+boundary and updates the uncertain-retry boundary's authority, compatibility,
+malformed-evidence disposition and regression ownership. It also binds the
+complete current A-05 manifest, including the strict authoritative workflow-kind
+decoder. The workflow-kind property is ignored by Isar; no persisted schema
+field, field policy, extension restriction or generated Isar schema changed.
+
+The A-04 generator passed with no failures on this local source. Historical
+closure, CI and production-reconciliation receipts remain unchanged; this
+inventory refresh supplies no deployment, migration or distribution evidence.
+
+## Burner evidence and correction decoder review, 2026-09-20
+
+The inventory still classifies 55 fields: 49 JSON strings, six dynamic values,
+three bounded extension bags and zero registered extension fields. It now
+inherits 103 reviewed A-05 decoder surfaces, with digest
+`98E133903A49B807054ABCB4C9F717FAFA97D68ED1131B85C20C13261716F48C`.
+The added surfaces cover the correction record, strict server review/readback,
+and durable original-envelope correction acceptance. Existing round decoding
+now explicitly validates per-field provenance and preserves legacy evidence
+whose observation source is unknown.
+
+The inherited contract is a source-only change. The earlier installed round
+decoder rejects the new top-level provenance fields; backend activation must
+wait for updated readers and a coordinated client rollout or old-reader gate.
+New partial-edit requests also require the matching backend. No extension
+namespace, automatic migration, deployment or installed-client compatibility
+is implied by this inventory passing.
+
+## Inspection evidence-reader inventory addendum, 2026-09-20
+
+The current inventory retains 55 fields and now inherits 104 reviewed decoder
+surfaces, digest
+`E0E2F63AA99338431AF11EBA59D99FCBB9B0040EA8C3D58E565B4A0E075F7A4E`.
+The added inspection repository surface strictly validates independent finding
+creation history against prospective campaign manifests and verifies server
+repair identity/version before scope review. Legacy absent manifests require
+retained creation history; no historical reconciliation or automatic migration
+is asserted. Existing rollout prerequisites and historical custody remain intact.
+
+
+### Morning Review preliminary audit, 20 September 2026
+
+Current source: 55 fields / 106 inherited decoder surfaces, including explicitly classified partial live rows and exact-request durable recovery. Current digest `2742FD4647E42992A8DEE4623B763911837B4115757FCE1CD74BF191F4C55BCC`. Historical receipts above remain unchanged.
+
+### Whole-codebase source review, 21 September 2026
+
+The current generated inventory passes with 55 fields, 49 JSON strings, six
+dynamic values, three bounded extension bags and zero registered extension
+fields. It inherits 110 reviewed A-05 decoder surfaces, with exact digest
+`7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3`.
+The inherited policy now records the complete diary row precondition,
+canonical account authority, strict knowledge import and exact accepted-content
+readback, and durable receipt identity checks. Reviewed decoder error paths
+preserve evidence and block authority when decoding fails.
+
+This addendum records current source validation only. It changes no persisted
+field policy or extension authority and makes no production reconciliation,
+deployment or installed-client compatibility claim. Earlier closure receipts
+remain evidence for their original snapshots.

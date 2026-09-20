@@ -55,8 +55,9 @@ class OperationsReportAssetInventory {
       return OperationsReportAssetCounts(
         total: assetStates.length,
         available: assetStates.where((state) => state.isAvailable).length,
-        underMaintenance:
-            assetStates.where((state) => state.isUnderMaintenance).length,
+        underMaintenance: assetStates
+            .where((state) => state.isUnderMaintenance)
+            .length,
         down: assetStates.where((state) => state.isDown).length,
         unfit: assetStates.where((state) => state.isUnfit).length,
       );
@@ -66,19 +67,16 @@ class OperationsReportAssetInventory {
     );
     return OperationsReportAssetCounts(
       total: classInnerCovers.length,
-      available:
-          classInnerCovers
-              .where((profile) => profile.isAvailableForPlantCondition)
-              .length,
-      underMaintenance:
-          classInnerCovers
-              .where((profile) => profile.isUnderMaintenanceForPlantCondition)
-              .length,
+      available: classInnerCovers
+          .where((profile) => profile.isAvailableForPlantCondition)
+          .length,
+      underMaintenance: classInnerCovers
+          .where((profile) => profile.isUnderMaintenanceForPlantCondition)
+          .length,
       down: 0,
-      unfit:
-          classInnerCovers
-              .where((profile) => profile.isUnfitForPlantCondition)
-              .length,
+      unfit: classInnerCovers
+          .where((profile) => profile.isUnfitForPlantCondition)
+          .length,
     );
   }
 }
@@ -144,21 +142,22 @@ List<AssetInstanceRecord> furnaceAssetsForOperationsReport({
     for (final assetClass in assetClasses)
       if (assetClass.isActive) assetClass.id: assetClass,
   };
-  final rows = assets
-      .where((asset) {
-        if (!asset.isActive) return false;
-        if (selectedAssetClassId != null &&
-            asset.assetClassId != selectedAssetClassId) {
-          return false;
-        }
-        if (selectedAssetInstanceId != null &&
-            asset.id != selectedAssetInstanceId) {
-          return false;
-        }
-        return activeClassesById[asset.assetClassId]?.legacyAssetTypeKey ==
-            'furnace';
-      })
-      .toList(growable: false)
-    ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+  final rows =
+      assets
+          .where((asset) {
+            if (!asset.isActive) return false;
+            if (selectedAssetClassId != null &&
+                asset.assetClassId != selectedAssetClassId) {
+              return false;
+            }
+            if (selectedAssetInstanceId != null &&
+                asset.id != selectedAssetInstanceId) {
+              return false;
+            }
+            return activeClassesById[asset.assetClassId]?.legacyAssetTypeKey ==
+                'furnace';
+          })
+          .toList(growable: false)
+        ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
   return List<AssetInstanceRecord>.unmodifiable(rows);
 }

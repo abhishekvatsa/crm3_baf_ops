@@ -223,8 +223,8 @@ class ModuleRegistryRepository {
       return;
     }
 
-    final existingRevisionId =
-        preflightFamily.latestPublishedRevisionId?.trim();
+    final existingRevisionId = preflightFamily.latestPublishedRevisionId
+        ?.trim();
     final existingHash = preflightFamily.latestPublishedContentHash?.trim();
     if (existingRevisionId != null &&
         existingRevisionId.isNotEmpty &&
@@ -235,8 +235,9 @@ class ModuleRegistryRepository {
 
     ModuleRegistryRevision? candidate;
     if (existingRevisionId != null && existingRevisionId.isNotEmpty) {
-      final candidateSnap =
-          await _revisions(registryModuleId).doc(existingRevisionId).get();
+      final candidateSnap = await _revisions(
+        registryModuleId,
+      ).doc(existingRevisionId).get();
       if (candidateSnap.exists) {
         candidate = ModuleRegistryRevision.fromMap(
           candidateSnap.data()!,
@@ -343,6 +344,8 @@ class ModuleRegistryRepository {
     required String revisionId,
     required AppUser actor,
     required String reason,
+    required int reviewedVersion,
+    required String reviewedContentHash,
   }) async {
     _requireRegistryGovernor(actor, 'publish module registry revisions');
     final trimmedReason = reason.trim();
@@ -382,11 +385,18 @@ class ModuleRegistryRepository {
       if (!revision.isDraft) {
         throw StateError('Only draft registry revisions can be published.');
       }
+      requireCurrentRegistryDraftMatchesExpectation(
+        current: revision,
+        expected: ModuleRegistryDraftExpectation(
+          version: reviewedVersion,
+          contentHash: reviewedContentHash,
+        ),
+      );
 
       ModuleRegistryRevision? latestPublished;
       if (family.latestPublishedRevisionNumber > 0) {
-        final latestPublishedRevisionId =
-            family.latestPublishedRevisionId?.trim();
+        final latestPublishedRevisionId = family.latestPublishedRevisionId
+            ?.trim();
         final pinnedHash = family.latestPublishedContentHash?.trim();
         if (latestPublishedRevisionId == null ||
             latestPublishedRevisionId.isEmpty ||
@@ -541,11 +551,10 @@ class ModuleRegistryRepository {
   Future<List<ModuleRegistryRevision>> getDraftRevisions({
     int limit = 100,
   }) async {
-    final familySnap =
-        await _families
-            .where('status', isEqualTo: ModuleRegistryFamilyStatus.active.name)
-            .limit(limit)
-            .get();
+    final familySnap = await _families
+        .where('status', isEqualTo: ModuleRegistryFamilyStatus.active.name)
+        .limit(limit)
+        .get();
 
     final drafts = <ModuleRegistryRevision>[];
     for (final familyDoc in familySnap.docs) {
@@ -560,14 +569,13 @@ class ModuleRegistryRepository {
         continue;
       }
 
-      final revisionSnap =
-          await _revisions(family.registryModuleId)
-              .where(
-                'revisionStatus',
-                isEqualTo: ModuleRegistryRevisionStatus.draft.name,
-              )
-              .limit(limit - drafts.length)
-              .get();
+      final revisionSnap = await _revisions(family.registryModuleId)
+          .where(
+            'revisionStatus',
+            isEqualTo: ModuleRegistryRevisionStatus.draft.name,
+          )
+          .limit(limit - drafts.length)
+          .get();
 
       for (final revisionDoc in revisionSnap.docs) {
         final revision = ModuleRegistryRevision.fromMap(
@@ -583,14 +591,13 @@ class ModuleRegistryRepository {
     }
 
     drafts.sort((a, b) {
-      final updatedCompare = (b.updatedAt ??
-              b.createdAt ??
-              DateTime.fromMillisecondsSinceEpoch(0))
-          .compareTo(
-            a.updatedAt ??
-                a.createdAt ??
-                DateTime.fromMillisecondsSinceEpoch(0),
-          );
+      final updatedCompare =
+          (b.updatedAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(
+                a.updatedAt ??
+                    a.createdAt ??
+                    DateTime.fromMillisecondsSinceEpoch(0),
+              );
       if (updatedCompare != 0) {
         return updatedCompare;
       }
@@ -605,11 +612,10 @@ class ModuleRegistryRepository {
   Future<List<PublishedRegistryModuleSource>> getPublishedSources({
     int limit = 100,
   }) async {
-    final familySnap =
-        await _families
-            .where('status', isEqualTo: ModuleRegistryFamilyStatus.active.name)
-            .limit(limit)
-            .get();
+    final familySnap = await _families
+        .where('status', isEqualTo: ModuleRegistryFamilyStatus.active.name)
+        .limit(limit)
+        .get();
 
     final sources = <PublishedRegistryModuleSource>[];
     for (final familyDoc in familySnap.docs) {
@@ -634,8 +640,9 @@ class ModuleRegistryRepository {
         );
       }
 
-      final revisionDoc =
-          await _revisions(family.registryModuleId).doc(revisionId).get();
+      final revisionDoc = await _revisions(
+        family.registryModuleId,
+      ).doc(revisionId).get();
       if (!revisionDoc.exists) {
         throw StateError(
           'Registry family ${family.registryModuleId} points to a missing '
@@ -667,11 +674,12 @@ class ModuleRegistryRepository {
     }
 
     sources.sort((a, b) {
-      final publishedCompare = (b.revision.publishedAt ??
-              DateTime.fromMillisecondsSinceEpoch(0))
-          .compareTo(
-            a.revision.publishedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
-          );
+      final publishedCompare =
+          (b.revision.publishedAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(
+                a.revision.publishedAt ??
+                    DateTime.fromMillisecondsSinceEpoch(0),
+              );
       if (publishedCompare != 0) return publishedCompare;
       return a.module.moduleCode.compareTo(b.module.moduleCode);
     });

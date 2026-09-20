@@ -391,12 +391,14 @@ class _AfterNativeWriteStore extends DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptSha256,
     Future<void> Function(Isar transactionStore)? adoptInTransaction,
+    bool recheckProjection = false,
   }) async {
     final result = await super.markReconciled(
       submissionId: submissionId,
       envelopeSha256: envelopeSha256,
       receiptSha256: receiptSha256,
       adoptInTransaction: adoptInTransaction,
+      recheckProjection: recheckProjection,
     );
     if (stage == 'reconcile') changeActor();
     return result;

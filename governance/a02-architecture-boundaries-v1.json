@@ -82,11 +82,11 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. Reviewed 2026-09-20: Same-source issue-continuation validation; local transaction ownership is unchanged.",
       "regressionTests": [
         "test/charge_abnormality_atomic_mutation_contract_test.dart"
       ],
-      "maximumLines": 1079,
+      "maximumLines": 1091,
       "requiredMarkers": [
         "part of '"
       ],
@@ -216,32 +216,49 @@
     {
       "path": "lib/features/assets/presentation/furnace_component_condition_audit_screen.dart",
       "disposition": "bounded-exception",
-      "owner": "Architecture / assets",
-      "purpose": "Owns the governed Furnace burner-block, draft-seal, and UV condition audit, including fixed matrix headings and unsaved-change evidence.",
+      "owner": "Architecture / assets and furnace condition audit",
+      "purpose": "Owns the cross-furnace burner-block, draft-seal and UV condition matrices, their shared unsaved drafts and totals, and the installation-history correction dialog.",
       "responsibilities": [
         "authority",
         "presentation",
         "state-orchestration"
       ],
-      "authorityBoundary": "Approved-user capability controls whether observations may be changed; governed audit providers remain authoritative for the Furnace inventory and recorded condition evidence.",
-      "persistenceOwnership": "No direct persistence is admitted; typed providers own reads and the audit command boundary owns writes.",
-      "transactionOwnership": "No database transaction is owned by this presentation surface.",
-      "rationale": "The fixed-heading condition matrix, its local draft state, totals, filters, and submission affordances form one operational audit surface. Focused tests exercise the fixed panes through Furnace 22 and the changing condition totals.",
+      "authorityBoundary": "The screen checks current actor loading/error state and condition-round capability before observing operational providers. The correction affordance reads the adjudication capability; the correction command service and backend remain responsible for authenticated command admission and immutable event validation.",
+      "persistenceOwnership": "Typed providers own hierarchy, issue, round and lifecycle reads. BurnerConditionRoundService owns durable round submission. BurnerBlockCorrectionControls delegates correction review and original-envelope recovery to its repository and command service. The screen owns transient form drafts only and performs no direct database access or persisted-payload serialization.",
+      "transactionOwnership": "No database transaction is owned here. Each submission captures checked fields and the reviewed round, installation and open-issue basis. A matching receipt settles only the captured fields; successor edits remain pending against the accepted baseline. Backend handlers own round and correction evidence transactions.",
+      "rationale": "Correction review and durable recovery now live in the separate correction controls, repository and command service. The matrix retains one draft owner so accepting one request cannot erase later edits. Existing size and responsibility limits remain enforced, with explicit markers for checked-field capture, reviewed dependencies and accepted-baseline settlement.",
       "regressionTests": [
         "test/furnace_condition_totals_test.dart",
-        "test/operational_asset_screen_authority_gate_test.dart"
+        "test/burner_block_correction_command_service_test.dart",
+        "functions/test/burnerBlockLifecycle.test.js"
       ],
-      "maximumLines": 1300,
+      "maximumLines": 1359,
       "requiredMarkers": [
         "class FurnaceComponentConditionAuditScreen",
-        "furnace-audit-fixed-corner",
-        "furnace-audit-fixed-furnace-column"
+        "actorAsync.isLoading",
+        "actorAsync.hasError",
+        "canRecordBurnerConditionRound",
+        "canAdjudicateFurnaceStuckup",
+        "burnerConditionRoundServiceProvider",
+        "BurnerBlockCorrectionControls",
+        "ComposedAgainstRound(draft.composedAgainstRoundId)",
+        "draft.acceptSubmission(submitted, result.roundId, result.committedAt)",
+        "draft.captureSubmission()",
+        "observedFields: submitted.observedFields",
+        "expectedInstallationBasis: submitted.installationBasis",
+        "expectedOpenIssueBasis: draft.openIssueBasis"
       ],
       "forbiddenMarkers": [
-        "FirebaseFirestore.instance",
-        "Isar.getInstance()"
+        "FirebaseFirestore",
+        "Isar.getInstance()",
+        "writeTxn(",
+        "runTransaction(",
+        "FirebaseFunctions",
+        "HttpsCallable",
+        "jsonEncode(",
+        "jsonDecode("
       ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a fixed-pane marker disappears, direct persistence appears, or the named regressions no longer pass."
+      "reArmCondition": "Re-arm on any growth above 1359 lines, changed detected responsibilities, missing required markers, direct persistence or callable transport, or failing named regression. Further UI growth requires a focused presentation extraction that preserves one draft owner and the observed-round/submitted-revision boundaries; raising this ceiling alone is not an exit."
     },
     {
       "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",
@@ -285,13 +302,13 @@
       "authorityBoundary": "Approved-user capabilities determine visible commands; repository and backend boundaries independently enforce directive mutation authority.",
       "persistenceOwnership": "No direct persistence is admitted; directive providers and repositories own local and remote reads and mutations.",
       "transactionOwnership": "No database or cross-source transaction is owned by this presentation surface.",
-      "rationale": "The route coordinates one directive lifecycle and its responsive loading, denial, queue, and record states while persistence remains decomposed into explicit provider adapters.",
+      "rationale": "The route coordinates one directive lifecycle and its responsive loading, denial, queue, and record states while persistence remains decomposed into explicit provider adapters. Reviewed 2026-09-20: Acknowledged-revision display, saved-command recovery and owned closure dialogs; no persistence added to the route.",
       "regressionTests": [
         "test/business_screen_authority_gate_test.dart",
         "test/operational_ux_restructure_test.dart",
         "test/a05_operational_directive_integrity_test.dart"
       ],
-      "maximumLines": 1250,
+      "maximumLines": 1463,
       "requiredMarkers": [
         "class DirectivesScreen"
       ],
@@ -316,11 +333,11 @@
       "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
       "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
       "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
-      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers. Reviewed 2026-09-20: Revision-aware directive contracts and complete retained issue/report queries; adapters still own persistence.",
       "regressionTests": [
         "test/a05_operational_directive_integrity_test.dart"
       ],
-      "maximumLines": 609,
+      "maximumLines": 677,
       "requiredMarkers": [
         "part '",
         "abstract class"
@@ -345,11 +362,11 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. Reviewed 2026-09-20: Origin-bound ordinary-command routing and evidence-preserving local adoption; Firestore remains excluded.",
       "regressionTests": [
         "test/a05_operational_directive_integrity_test.dart"
       ],
-      "maximumLines": 594,
+      "maximumLines": 649,
       "requiredMarkers": [
         "part of '"
       ],
@@ -1030,11 +1047,14 @@
       "authorityBoundary": "Authority-sensitive operations remain behind the named repository or command service and approved provider inputs.",
       "persistenceOwnership": "Any observed persistence belongs to the single named adapter/controller in this file; cross-source ownership is prohibited.",
       "transactionOwnership": "Transaction ownership is limited to the repository/controller operation named by this surface and may not enter provider wiring.",
-      "rationale": "This is a bounded feature adapter or controller, not a presentation surface; its cohesive contract and mapping are protected by feature regression tests and a growth ceiling.",
+      "rationale": "This is a bounded feature adapter or controller, not a presentation surface; its cohesive contract and mapping are protected by feature regression tests and a growth ceiling. Reviewed 2026-09-20: Transactionally coupled revision/audit publication, exact reviewed import preimage and explicit conflict recovery; provider wiring does not own transactions. Reviewed 2026-09-21: accepted non-timestamp content is retained before readback to refuse contradictory same-version adoption; the controller retains the same transaction ownership.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/knowledge_catalogue_recovery_test.dart",
+        "test/a05_knowledge_import_integrity_test.dart",
+        "test/knowledge_governance_runtime_test.dart"
       ],
-      "maximumLines": 757,
+      "maximumLines": 839,
       "requiredMarkers": [
         "class KnowledgeGovernanceWriteResult"
       ],
@@ -1379,11 +1399,11 @@
       "authorityBoundary": "Uses approved-user planning capabilities and sends mutations only through governed workflow commands.",
       "persistenceOwnership": "Read repositories and server command handlers own persistence; form serialization is limited to command payload construction.",
       "transactionOwnership": "All maintenance-intelligence transactions remain server-owned.",
-      "rationale": "One workspace coordinates tightly related class definitions, live due state, and planning decisions without owning persistence.",
+      "rationale": "One workspace coordinates tightly related class definitions, live due state, and planning decisions without owning persistence. Reviewed 2026-09-20: Same-day conflicting evidence visibility and reasoned resolution command admission; transactions remain server-owned.",
       "regressionTests": [
         "test/ui_business_alignment_test.dart"
       ],
-      "maximumLines": 1850,
+      "maximumLines": 1895,
       "requiredMarkers": [
         "class MaintenanceIntelligenceScreen"
       ],
@@ -1421,6 +1441,97 @@
         "Isar.getInstance()"
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, metadata becomes authority, or direct persistence appears."
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Directives Firestore adapter",
+      "purpose": "Owns remote directive reads, legacy burner-directive adapter operations and ordinary command delegation.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Caller authority is checked and ordinary changes are admitted by the origin-bound command service.",
+      "persistenceOwnership": "Only Firestore access; no Isar or UI ownership.",
+      "transactionOwnership": "Legacy governed operations retain Firestore transaction ownership here; ordinary commands own their server transactions.",
+      "rationale": "The existing remote adapter crossed the mixed-size threshold after revision and audit fixes. Its scope remains one store and feature.",
+      "regressionTests": [
+        "test/governed_directive_acknowledgement_test.dart",
+        "test/a05_operational_directive_integrity_test.dart"
+      ],
+      "maximumLines": 514,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "Isar.getInstance()",
+        "StatelessWidget",
+        "StatefulWidget"
+      ],
+      "reArmCondition": "Re-arm if the reviewed line ceiling or responsibility set changes, persistence crosses stores, an authority boundary is bypassed, or a named regression fails."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/maintenance_intelligence_history.dart",
+      "disposition": "bounded-exception",
+      "owner": "Maintenance history",
+      "purpose": "Displays maintenance evidence history and reasoned review commands.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved Admin/SI authority is checked before submitting reviewed history corrections.",
+      "persistenceOwnership": "Read providers and command services own all persistence.",
+      "transactionOwnership": "All evidence correction transactions remain server-owned.",
+      "rationale": "History and its correction dialog share one review lifecycle; there is no direct database access.",
+      "regressionTests": [
+        "functions/test/maintenanceIntelligence.test.js",
+        "test/ui_business_alignment_test.dart"
+      ],
+      "maximumLines": 541,
+      "requiredMarkers": [
+        "class _HistoryTab"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm if the reviewed line ceiling or responsibility set changes, persistence crosses stores, an authority boundary is bypassed, or a named regression fails."
+    },
+    {
+      "path": "lib/features/quality/providers/quality_provider.dart",
+      "disposition": "bounded-exception",
+      "owner": "Quality monitoring providers",
+      "purpose": "Wires quality command recovery and complete live/report source populations.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "provider-wiring",
+        "remote-persistence",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Actor-session cache trust is reset on authority loss; command service enforces mutation admission.",
+      "persistenceOwnership": "Firestore reads are owned by the quality stream adapters; durable writes are delegated to the submission controller.",
+      "transactionOwnership": "No multi-store transaction is owned by provider wiring.",
+      "rationale": "One feature exposes bounded live history plus complete report populations and explicit completeness; it has no presentation responsibility.",
+      "regressionTests": [
+        "test/quality_report_population_contract_test.dart"
+      ],
+      "maximumLines": 564,
+      "requiredMarkers": [
+        "qualityReportCacheTrustProvider",
+        "combineQualityWarningWindows"
+      ],
+      "forbiddenMarkers": [
+        "StatelessWidget",
+        "StatefulWidget"
+      ],
+      "reArmCondition": "Re-arm if the reviewed line ceiling or responsibility set changes, persistence crosses stores, an authority boundary is bypassed, or a named regression fails."
     }
   ]
 }

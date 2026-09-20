@@ -27,6 +27,11 @@ class UserAuthorityMutationResult {
   final bool isApproved;
   final List<AppRole> roles;
   final String authorityDigest;
+  final int authorityRevision;
+  final String? currentAuthorityDigest;
+  final String currentAuthorityStatus;
+  final int? currentAuthorityRevision;
+  final bool supersededByLaterChange;
   final String auditId;
   final DateTime committedAt;
   final bool idempotentReplay;
@@ -38,6 +43,11 @@ class UserAuthorityMutationResult {
     required this.isApproved,
     required this.roles,
     required this.authorityDigest,
+    required this.authorityRevision,
+    required this.currentAuthorityDigest,
+    this.currentAuthorityStatus = 'available',
+    required this.currentAuthorityRevision,
+    required this.supersededByLaterChange,
     required this.auditId,
     required this.committedAt,
     required this.idempotentReplay,
@@ -60,10 +70,9 @@ class UserAuthorityMutationException implements Exception {
   factory UserAuthorityMutationException.fromFirebase(
     FirebaseFunctionsException error,
   ) {
-    final details =
-        error.details is Map
-            ? Map<String, dynamic>.from(error.details as Map)
-            : <String, dynamic>{};
+    final details = error.details is Map
+        ? Map<String, dynamic>.from(error.details as Map)
+        : <String, dynamic>{};
     return UserAuthorityMutationException(
       code: error.code,
       message: error.message ?? 'User authority mutation failed.',
@@ -157,6 +166,33 @@ class UserAuthorityCommandService {
     Iterable<AppRole>? roles,
     String? requestId,
   }) async {
+    return executeFrozen(
+      requestId: requestId?.trim() ?? _uuid.v4(),
+      targetUid: target.uid,
+      operation: operation,
+      expectedAuthorityDigest: userAuthorityDigest(
+        isApproved: target.isApproved,
+        roles: target.roles,
+      ),
+      expectedAuthorityRevision: target.authorityRevision,
+      roles: roles,
+      reason: reason,
+    );
+  }
+
+  /// Dispatches an already frozen authority envelope. Durable controllers use
+  /// this instead of rebuilding a request from a possibly newer roster row.
+  Future<UserAuthorityMutationResult> executeFrozen({
+    required String requestId,
+    required String targetUid,
+    required UserAuthorityOperation operation,
+    required String expectedAuthorityDigest,
+    required int expectedAuthorityRevision,
+    String? originActorUid,
+    bool confirmationOnly = false,
+    required String reason,
+    Iterable<AppRole>? roles,
+  }) async {
     final cleanReason = reason.trim();
     if (cleanReason.isEmpty || cleanReason.length > 500) {
       throw const UserAuthorityMutationException(
@@ -165,8 +201,9 @@ class UserAuthorityCommandService {
         reasonCode: 'authority-reason-invalid',
       );
     }
-    final normalizedRoles =
-        roles == null ? null : normalizeAuthorityRoles(roles);
+    final normalizedRoles = roles == null
+        ? null
+        : normalizeAuthorityRoles(roles);
     if (operation == UserAuthorityOperation.replaceRoles &&
         normalizedRoles == null) {
       throw const UserAuthorityMutationException(
@@ -176,27 +213,41 @@ class UserAuthorityCommandService {
       );
     }
 
-    final effectiveRequestId = requestId?.trim() ?? _uuid.v4();
+    final effectiveRequestId = requestId.trim();
+    if (effectiveRequestId.isEmpty) {
+      throw const UserAuthorityMutationException(
+        code: 'invalid-argument',
+        message: 'The authority request identity is missing.',
+        reasonCode: 'authority-request-id-invalid',
+      );
+    }
     final payload = <String, dynamic>{
       'requestId': effectiveRequestId,
-      'targetUid': target.uid,
+      'targetUid': targetUid,
       'operation': operation.wireName,
-      'expectedAuthorityDigest': userAuthorityDigest(
-        isApproved: target.isApproved,
-        roles: target.roles,
-      ),
+      'expectedAuthorityDigest': expectedAuthorityDigest,
+      'expectedAuthorityRevision': expectedAuthorityRevision,
       if (normalizedRoles != null)
         'roles': normalizedRoles.map((role) => role.name).toList(),
       'reason': cleanReason,
     };
 
     try {
-      final raw = await _transport.call(payload);
+      final raw = await _transport.call(
+        originActorUid == null
+            ? payload
+            : <String, dynamic>{
+                'protocolVersion': 2,
+                'originActorUid': originActorUid,
+                confirmationOnly ? 'receiptLookup' : 'request': payload,
+              },
+      );
       return _parseResult(
         raw,
         expectedRequestId: effectiveRequestId,
-        expectedTargetUid: target.uid,
+        expectedTargetUid: targetUid,
         expectedOperation: operation,
+        expectedRoles: normalizedRoles,
       );
     } on FirebaseFunctionsException catch (error) {
       throw UserAuthorityMutationException.fromFirebase(error);
@@ -212,11 +263,30 @@ class UserAuthorityCommandService {
     }
   }
 
+  UserAuthorityMutationResult parseSavedResult(
+    Object? raw, {
+    required String requestId,
+    required String targetUid,
+    required UserAuthorityOperation operation,
+    Iterable<AppRole>? expectedRoles,
+  }) {
+    return _parseResult(
+      raw,
+      expectedRequestId: requestId,
+      expectedTargetUid: targetUid,
+      expectedOperation: operation,
+      expectedRoles: expectedRoles == null
+          ? null
+          : normalizeAuthorityRoles(expectedRoles),
+    );
+  }
+
   UserAuthorityMutationResult _parseResult(
     Object? raw, {
     required String expectedRequestId,
     required String expectedTargetUid,
     required UserAuthorityOperation expectedOperation,
+    required List<AppRole>? expectedRoles,
   }) {
     if (raw is! Map || raw['ok'] != true) {
       throw const UserAuthorityMutationException(
@@ -246,6 +316,11 @@ class UserAuthorityCommandService {
     }
     final roles = _parseResultRoles(data['roles'] as List);
     final digest = data['authorityDigest'];
+    final currentDigest = data['currentAuthorityDigest'];
+    final currentStatus = data['currentAuthorityStatus'] ?? 'available';
+    final authorityRevision = data['authorityRevision'];
+    final currentAuthorityRevision = data['currentAuthorityRevision'];
+    final supersededByLaterChange = data['supersededByLaterChange'];
     final auditId = data['auditId'];
     final committedAt = readRequiredPersistedDateTime(
       data['committedAt'],
@@ -260,7 +335,27 @@ class UserAuthorityCommandService {
         detail: 'must be a canonical UTC ISO instant',
       );
     }
-    if (digest is! String || auditId is! String || auditId.trim().isEmpty) {
+    if (digest is! String ||
+        !const {
+          'available',
+          'unavailable',
+          'not-disclosed',
+        }.contains(currentStatus) ||
+        (currentStatus == 'available' &&
+            (currentDigest is! String ||
+                !RegExp(
+                  r'^auth1-sha256:[0-9a-f]{64}$',
+                ).hasMatch(currentDigest))) ||
+        (currentStatus != 'available' &&
+            (currentDigest != null || currentAuthorityRevision != null)) ||
+        authorityRevision is! int ||
+        authorityRevision < 0 ||
+        (currentStatus == 'available' &&
+            (currentAuthorityRevision is! int ||
+                currentAuthorityRevision < 0)) ||
+        supersededByLaterChange is! bool ||
+        auditId is! String ||
+        auditId != 'server_authority_$expectedRequestId') {
       throw const UserAuthorityMutationException(
         code: 'internal',
         message: 'User authority response evidence was malformed.',
@@ -278,6 +373,41 @@ class UserAuthorityCommandService {
         reasonCode: 'authority-response-digest-mismatch',
       );
     }
+    if ((currentStatus == 'available' &&
+            supersededByLaterChange !=
+                (digest != currentDigest ||
+                    authorityRevision != currentAuthorityRevision)) ||
+        (currentStatus != 'available' && supersededByLaterChange == true)) {
+      throw const UserAuthorityMutationException(
+        code: 'internal',
+        message: 'Current authority qualification is inconsistent.',
+        reasonCode: 'authority-response-invalid',
+      );
+    }
+    final expectedOperationState = switch (expectedOperation) {
+      UserAuthorityOperation.approve => true,
+      UserAuthorityOperation.revoke => false,
+      UserAuthorityOperation.replaceRoles => null,
+    };
+    if (expectedOperationState != null &&
+        data['isApproved'] != expectedOperationState) {
+      throw const UserAuthorityMutationException(
+        code: 'internal',
+        message: 'User authority response did not satisfy the operation.',
+        reasonCode: 'authority-response-operation-mismatch',
+      );
+    }
+    if (expectedRoles != null &&
+        (expectedRoles.length != roles.length ||
+            expectedRoles.asMap().entries.any(
+              (entry) => entry.value != roles[entry.key],
+            ))) {
+      throw const UserAuthorityMutationException(
+        code: 'internal',
+        message: 'User authority response roles did not match the request.',
+        reasonCode: 'authority-response-operation-mismatch',
+      );
+    }
 
     return UserAuthorityMutationResult(
       requestId: expectedRequestId,
@@ -286,6 +416,11 @@ class UserAuthorityCommandService {
       isApproved: data['isApproved'] as bool,
       roles: roles,
       authorityDigest: digest,
+      authorityRevision: authorityRevision,
+      currentAuthorityDigest: currentDigest as String?,
+      currentAuthorityStatus: currentStatus as String,
+      currentAuthorityRevision: currentAuthorityRevision as int?,
+      supersededByLaterChange: supersededByLaterChange,
       auditId: auditId,
       committedAt: committedAt,
       idempotentReplay: data['idempotentReplay'] as bool,
@@ -330,8 +465,8 @@ class UserAuthorityCommandService {
 }
 
 List<AppRole> normalizeAuthorityRoles(Iterable<AppRole> roles) {
-  final normalized =
-      roles.toSet().toList()..sort((a, b) => a.name.compareTo(b.name));
+  final normalized = roles.toSet().toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
   if (normalized.isEmpty) {
     throw const UserAuthorityMutationException(
       code: 'invalid-argument',
@@ -346,8 +481,9 @@ String userAuthorityDigest({
   required bool isApproved,
   required Iterable<AppRole> roles,
 }) {
-  final normalized =
-      normalizeAuthorityRoles(roles).map((role) => role.name).toList();
+  final normalized = normalizeAuthorityRoles(
+    roles,
+  ).map((role) => role.name).toList();
   final canonical = jsonEncode(<String, dynamic>{
     'isApproved': isApproved,
     'roles': normalized,

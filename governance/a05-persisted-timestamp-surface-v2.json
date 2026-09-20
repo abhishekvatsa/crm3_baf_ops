@@ -634,10 +634,12 @@
         "returnedToInspectionAt",
         "receivedOrCompletedOn",
         "incorporatedOn",
-        "acceptedAt"
+        "acceptedAt",
+        "assuranceInvalidatedAt",
+        "assuranceInvalidatedRecordedAt"
       ],
       "owner": "asset-governance",
-      "purpose": "restore Inner Cover receipt, incorporation, acceptance, retirement, return-to-inspection, and profile chronology",
+      "purpose": "restore Inner Cover receipt, incorporation, acceptance, assurance invalidation and recording, retirement, return-to-inspection, and profile chronology",
       "authorityBoundary": "remote-inner-cover-profile",
       "regression": "test/inner_cover_lifecycle_model_test.dart",
       "reArmCondition": "any Inner Cover profile timestamp schema change"
@@ -665,7 +667,8 @@
         "installedAt"
       ],
       "optionalFields": [
-        "removedAt"
+        "removedAt",
+        "removedPhysicalAt"
       ],
       "owner": "asset-governance",
       "purpose": "restore complete Inner Cover installation and removal history",
@@ -776,10 +779,11 @@
         "updatedAt"
       ],
       "optionalFields": [
-        "resolvedAt"
+        "resolvedAt",
+        "withdrawnAt"
       ],
       "owner": "plant-operations",
-      "purpose": "restore operational disruption chronology and complete resolution evidence",
+      "purpose": "restore operational disruption chronology and complete resolution or accountable withdrawal evidence",
       "authorityBoundary": "remote-operational-event-record",
       "regression": "test/operational_event_model_test.dart",
       "reArmCondition": "any operational-event timestamp schema change"
@@ -1288,49 +1292,54 @@
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewSession.fromMap",
       "requiredFields": [
-        "updatedAt",
-        "expiresAt"
+        "updatedAt"
       ],
       "optionalFields": [
         "openedAt",
         "finalizedAt",
-        "sourceCapturedAt"
+        "sourceCapturedAt",
+        "expiresAt"
       ],
       "owner": "morning-review",
       "purpose": "restore meeting lifecycle, source-capture, revision, and retention chronology",
       "authorityBoundary": "remote-morning-review-session",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review session timestamp or lifecycle schema change"
+      "reArmCondition": "any Morning Review session timestamp or lifecycle schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-participant",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewParticipant.fromMap",
       "requiredFields": [
-        "expiresAt",
         "joinedAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore explicit attendance and retention chronology",
       "authorityBoundary": "remote-morning-review-participant",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review participant timestamp schema change"
+      "reArmCondition": "any Morning Review participant timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-entry",
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewEntry.fromMap",
       "requiredFields": [
-        "expiresAt",
         "createdAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore attributed meeting contribution and retention chronology",
       "authorityBoundary": "remote-morning-review-entry",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review entry timestamp schema change"
+      "reArmCondition": "any Morning Review entry timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-action",
@@ -1375,15 +1384,17 @@
       "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
       "readerMarker": "factory MorningReviewConcernCheck.fromMap",
       "requiredFields": [
-        "expiresAt",
         "checkedAt"
       ],
-      "optionalFields": [],
+      "optionalFields": [
+        "expiresAt"
+      ],
       "owner": "morning-review",
       "purpose": "restore the daily concern-review evidence and retention chronology",
       "authorityBoundary": "remote-morning-review-concern-check",
       "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review concern-check timestamp schema change"
+      "reArmCondition": "any Morning Review concern-check timestamp schema change",
+      "compatibility": " Modern unfinished meetings explicitly retain children with null expiry; field absence remains invalid and finalized sessions require a deadline."
     },
     {
       "id": "morning-review-frozen-document",
@@ -1516,6 +1527,81 @@
       "authorityBoundary": "server physical-subject context; malformed evidence refuses review or decoding",
       "regression": "test/inspection_target_context_test.dart; test/inspection_audit_board_test.dart",
       "reArmCondition": "new timestamp fallback, changed physical identity, or accepted malformed review chronology"
+    },
+    {
+      "id": "burner-field-evidence-provenance",
+      "readerFile": "lib/features/assets/data/burner_condition_round.dart",
+      "readerMarker": "factory BurnerEvidenceProvenance.fromMap",
+      "requiredFields": [],
+      "optionalFields": [
+        "observedAt"
+      ],
+      "owner": "furnace-reliability",
+      "purpose": "retain each burner and UV field observation age and original observer separately from a later inherited or directive-derived snapshot",
+      "authorityBoundary": "remote-burner-field-evidence-provenance",
+      "regression": "test/burner_condition_round_test.dart",
+      "reArmCondition": "inherited evidence adopts a newer observation instant, explicit provenance is incomplete, or unknown evidence acquires inferred age or observer authority"
+    },
+    {
+      "id": "burner-block-installation-correction-record",
+      "readerFile": "lib/features/assets/data/burner_block_installation_correction.dart",
+      "readerMarker": "factory BurnerBlockInstallationCorrection.fromMap",
+      "requiredFields": [
+        "recordedActionPerformedAt",
+        "correctedActionPerformedAt",
+        "correctedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "retain original physical time, corrected effective time and reviewer recording time as separate correction evidence",
+      "authorityBoundary": "remote-burner-block-correction-record",
+      "regression": "test/burner_block_installation_correction_test.dart",
+      "reArmCondition": "original and effective chronology merge, correction chronology defaults, or a malformed predecessor chain is treated as a first correction"
+    },
+    {
+      "id": "burner-block-correction-server-readback",
+      "readerFile": "lib/features/assets/repositories/burner_block_correction_repository.dart",
+      "readerMarker": "static BurnerBlockInstallationCorrection verifyCorrectionReadback(",
+      "requiredFields": [
+        "recordedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "compare accepted original and corrected physical times to server-read correction evidence without requiring a later current installation to equal the historical after-image",
+      "authorityBoundary": "remote-burner-block-correction-acceptance-readback",
+      "regression": "test/burner_block_installation_correction_test.dart; test/burner_block_correction_command_service_test.dart",
+      "reArmCondition": "cached or incomplete evidence confirms readback, mismatched correction time is accepted, or reconciliation overwrites a later legitimate current installation"
+    },
+    {
+      "id": "burner-block-correction-durable-receipt",
+      "readerFile": "lib/features/assets/services/burner_block_correction_command_service.dart",
+      "readerMarker": "WorkflowCommandReceipt _receipt(",
+      "requiredFields": [
+        "correctedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "compare the accepted receipt and exact saved command physical instant before adopting durable correction acceptance",
+      "authorityBoundary": "original-account-bound-burner-correction-command-and-receipt",
+      "regression": "test/burner_block_correction_command_service_test.dart",
+      "reArmCondition": "receipt and frozen command times are coerced or defaulted, or a changed request or actor adopts the retained correction acceptance"
+    },
+    {
+      "id": "burner-attendance-history",
+      "readerFile": "lib/features/maintenance/domain/burner_attendance_history.dart",
+      "readerMarker": "List<BurnerAttendanceEntry> readBurnerAttendanceHistory(",
+      "requiredFields": [
+        "performedAt",
+        "recordedAt"
+      ],
+      "optionalFields": [],
+      "owner": "reactive-maintenance",
+      "purpose": "Keep physical attendance and server recording chronology distinct",
+      "authorityBoundary": "remote-audited-business-evidence",
+      "regression": "test/reactive_burner_attendance_test.dart",
+      "reArmCondition": "Malformed attendance timestamp is defaulted or physical and recording time are conflated."
     }
   ]
 }

@@ -57,13 +57,30 @@ void main() {
       );
     }
     expect(registry, contains('_uuid.v4()'));
+    final documentStore = registry.substring(
+      registry.indexOf('class FirestoreNotificationInstallationDocumentStore'),
+    );
     final removeBlock = _section(
-      registry,
+      documentStore,
       'Future<void> remove({',
       'abstract interface class NotificationTokenSource',
     );
     expect(removeBlock, contains('transaction.delete(installationRef)'));
-    expect(removeBlock, isNot(contains('transaction.get(installationRef)')));
+    final removeCompact = removeBlock.replaceAll(RegExp(r'\s+'), '');
+    const installationRead = 'awaittransaction.get(installationRef);';
+    const tokenMismatchGuard =
+        'if(installation.exists&&expectedToken!=null&&'
+        "installation.data()?['token']!=expectedToken){return;";
+    expect(removeCompact, contains(installationRead));
+    expect(removeCompact, contains(tokenMismatchGuard));
+    expect(
+      removeCompact.indexOf(installationRead),
+      lessThan(removeCompact.indexOf(tokenMismatchGuard)),
+    );
+    expect(
+      removeCompact.indexOf(tokenMismatchGuard),
+      lessThan(removeCompact.indexOf('transaction.delete(installationRef)')),
+    );
     expect(auth, contains('registry.tokenRefreshes.listen'));
     expect(auth, contains('FCM token refresh subscription unavailable'));
     expect(auth, contains('notificationInstallationSyncProvider'));
@@ -74,14 +91,18 @@ void main() {
       'Future<void> signOut()',
       'Map<String, dynamic> _pendingUserPayload',
     );
-    expect(
-      signOut.indexOf('await _notificationRegistry.removeCurrentInstallation'),
-      lessThan(signOut.indexOf('await _auth.signOut()')),
-    );
-    expect(
-      signOut.indexOf('await _auth.signOut()'),
-      lessThan(signOut.indexOf('await _googleSignIn.signOut()')),
-    );
+    final awaitedSignOutCalls =
+        RegExp(
+              r'await\s+(_notificationRegistry\s*\.\s*removeCurrentInstallation|'
+              r'_auth\s*\.\s*signOut|_googleSignIn\s*\.\s*signOut)\s*\(',
+            )
+            .allMatches(signOut)
+            .map((match) => match.group(1)!.replaceAll(RegExp(r'\s+'), ''));
+    expect(awaitedSignOutCalls, [
+      '_notificationRegistry.removeCurrentInstallation',
+      '_auth.signOut',
+      '_googleSignIn.signOut',
+    ]);
 
     final pendingPayload = _section(
       authService,
@@ -102,7 +123,7 @@ void main() {
     final installationRules = _section(
       rules,
       'match /notification_installations/{installationId}',
-      'match /audit_logs/{docId}',
+      '\n      }',
     );
 
     expect(rules, contains('validNotificationInstallationWrite'));
@@ -111,14 +132,19 @@ void main() {
       rules,
       contains("request.resource.data.get('updatedAt', null) == request.time"),
     );
-    expect(installationRules, contains('allow read: if false;'));
+    expect(
+      installationRules,
+      contains('allow get: if canWriteOwnNotificationInstallation(userId);'),
+    );
+    expect(installationRules, contains('allow list: if false;'));
+    expect(installationRules, isNot(contains('allow read:')));
     expect(installationRules, contains('allow create, update:'));
     expect(installationRules, contains('allow delete:'));
 
     final rulesTests = File('test/firestore.rules.test.js').readAsStringSync();
     for (final marker in <String>[
       'R-04 private notification installation registry',
-      'installation tokens cannot be read',
+      'installation tokens allow owner point reads but deny other users and listing',
       "one user cannot create or delete another user's installation",
       'malformed IDs and document shapes fail closed',
       'missing or malformed parent profiles',
@@ -176,8 +202,20 @@ void main() {
     ).singleWhere((candidate) => candidate['findingId'] == 'R-04');
 
     expect(policy['findingId'], 'R-04');
-    expect(policy['sourceStatus'], 'SOURCE_AND_CI_CLOSED');
-    expect(privacy['clientReads'], 'DENIED');
+    expect(
+      policy['sourceStatus'],
+      'SOURCE_IMPLEMENTED_CI_REVALIDATION_REQUIRED',
+    );
+    expect(privacy['clientReads'], 'OWNER_POINT_GET_ONLY_NO_LIST');
+    final revalidation = _object(policy['currentSourceRevalidation']);
+    expect(
+      revalidation['historicalClosure'],
+      'PR 134 closure remains evidence for its original source and authority only.',
+    );
+    expect(
+      revalidation['requiredEvidence'],
+      'Current-head Rules emulator and release CI, followed by separate production Rules deployment/readback before activation.',
+    );
     expect(delivery['maximumInstallationsReadPerUser'], 8);
     expect(_strings(policy['reArmTriggers']), hasLength(6));
     expect(boundary['productionDeploymentPerformed'], isFalse);

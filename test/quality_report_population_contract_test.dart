@@ -4,14 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('reports use a complete quality-monitoring population', () {
-    final quality =
-        File(
-          'lib/features/quality/providers/quality_provider.dart',
-        ).readAsStringSync();
-    final reports =
-        File(
-          'lib/features/reports/providers/operations_report_provider.dart',
-        ).readAsStringSync();
+    final quality = File(
+      'lib/features/quality/providers/quality_provider.dart',
+    ).readAsStringSync();
+    final reports = File(
+      'lib/features/reports/providers/operations_report_provider.dart',
+    ).readAsStringSync();
 
     final completeProvider = RegExp(
       r'qualityMonitoringRequestsForReportsProvider[\s\S]*?'
@@ -28,21 +26,40 @@ void main() {
     );
   });
 
-  test('operational monitoring visibility is server governed and unbounded', () {
-    final quality = File(
-      'lib/features/quality/providers/quality_provider.dart',
-    ).readAsStringSync();
-    final operationalProvider = RegExp(
-      r'qualityMonitoringRequestsProvider[\s\S]*?'
-      r'_decodeQualityMonitoringRequests\);',
-    ).firstMatch(quality);
-
-    expect(operationalProvider, isNotNull);
-    expect(
-      operationalProvider!.group(0),
-      contains("'visibilityState'"),
-    );
-    expect(operationalProvider.group(0), isNot(contains('.limit(')));
-    expect(operationalProvider.group(0), isNot(contains('DateTime.now')));
-  });
+  test(
+    'operational monitoring visibility is server governed and unbounded',
+    () {
+      final quality = File(
+        'lib/features/quality/providers/quality_provider.dart',
+      ).readAsStringSync();
+      final start = quality.indexOf('final qualityMonitoringRequestsProvider');
+      final end = quality.indexOf(
+        '/// Complete quality-monitoring population',
+        start,
+      );
+      expect(start, greaterThanOrEqualTo(0));
+      expect(end, greaterThan(start));
+      final operationalProvider = quality.substring(start, end);
+      expect(operationalProvider, isNot(contains('.limit(')));
+      expect(operationalProvider, contains('includeMetadataChanges: true'));
+      expect(operationalProvider, contains('combineQualityMonitoringWindows'));
+      final decoderStart = quality.indexOf(
+        'List<QualityMonitoringRequest> _decodeQualityMonitoringRequests',
+      );
+      final decoderEnd = quality.indexOf(
+        'List<QualityMonitoringRequest> sortQualityMonitoringRequests',
+        decoderStart,
+      );
+      expect(
+        quality.substring(decoderStart, decoderEnd),
+        contains('decodeQualityMonitoringPopulation'),
+      );
+      final report = quality.substring(
+        quality.indexOf('final qualityMonitoringRequestsForReportsProvider'),
+        quality.indexOf('void _requireQualityReportActor'),
+      );
+      expect(report, isNot(contains('visibleUntil')));
+      expect(report, isNot(contains('decodeSnapshotDocuments')));
+    },
+  );
 }

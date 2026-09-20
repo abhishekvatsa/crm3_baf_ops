@@ -3,9 +3,16 @@ const {
   parseQualityMutationRequest,
   qualityAuditActionForOperation,
   userCanMutateQuality,
+  validateQualityCasePostcondition,
   validateQualityMonitoringRecord,
   validateQualityWarningRecord,
 } = require('../lib/qualityMutation');
+const {
+  MaintenanceWorkflowCommandService,
+} = require('../lib/maintenanceWorkflow/dispatcher');
+const {
+  MemoryWorkflowStore,
+} = require('../lib/maintenanceWorkflow/memoryStore');
 const {
   planQualityMonitoringArchive,
 } = require('../lib/qualityMonitoringRetention');
@@ -1126,6 +1133,20 @@ describe('quality mutation', () => {
       grade: 'CRGO M4',
     });
 
+    // Shared with the actual Dart reader/report regression: capture handler output,
+    // never a hand-reconstructed monitoring payload.
+    const producedMonitoring = JSON.parse(JSON.stringify(memory.store.get(
+      `quality_monitoring_requests/${IDS.monitoring}`,
+    )));
+    const monitoringFixturePath = require('path').join(__dirname,
+      'fixtures/quality_monitoring_governed_producer.json');
+    if (process.env.UPDATE_GOVERNED_MONITORING_FIXTURE === '1') {
+      require('fs').writeFileSync(monitoringFixturePath,
+        `${JSON.stringify(producedMonitoring, null, 2)}\n`);
+    }
+    expect(producedMonitoring).toEqual(JSON.parse(require('fs').readFileSync(
+      monitoringFixturePath, 'utf8')));
+
     const closed = await invoke(memory, 'admin-1', {
       requestId: IDS.monitoringClose,
       operation: 'CLOSE_QUALITY_MONITORING_REQUEST',
@@ -1161,7 +1182,7 @@ describe('quality mutation', () => {
     expect(replay).toMatchObject({
       idempotentReplay: true,
       version: 2,
-      entity: {visibilityState: 'archived'},
+      entity: {visibilityState: 'recent'},
     });
   });
 
@@ -1250,4 +1271,540 @@ test('administrative review accepts the actual quality monitoring creation recei
     baseNumber: 12, baseAssetClassId: 'base-class', baseAssetInstanceId: 'base-12', baseAssetInstanceVersion: 4,
     grade: 'CRGO M4', cycleReference: 'Cycle family 7A', chargeNumbers: [12011, 12012]});
   await require('./submissionRecoveryFixtures.cjs').inspectProducedReceipt('qualityMonitoring', memory.store.get(`quality_mutation_receipts/${IDS.request}`));
+});
+
+describe('quality decision recovery and linked-case shape', () => {
+  const warningId = 'abnormality_abn-1';
+  const wire = (value) => JSON.parse(JSON.stringify(value));
+
+  function standaloneSeed({warning: warningOverrides = {}, abnormality = {}} = {}) {
+    return {
+      'users/si-1': user('si', 'SI One'),
+      [`quality_warnings/${warningId}`]: warning({
+        warningId,
+        sourceType: 'abnormality',
+        sourceId: 'abn-1',
+        sourceSummary: 'Atmosphere deviation',
+        ...warningOverrides,
+      }),
+      'charge_abnormalities/abn-1': linkedAbnormality({
+        firestoreId: 'abn-1',
+        linkedTicketFirestoreId: null,
+        ...abnormality,
+      }),
+    };
+  }
+
+  function close() {
+    return {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId,
+      expectedVersion: 1,
+      reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    };
+  }
+
+  function reopen() {
+    return {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_QUALITY_WARNING',
+      warningId,
+      expectedVersion: 2,
+      reason: 'New evidence requires the case to be reviewed again.',
+    };
+  }
+
+  function amendLinkedCase(memory, patch) {
+    const path = 'charge_abnormalities/abn-1';
+    memory.store.set(path, {...memory.store.get(path), ...patch});
+  }
+
+  test('a decision is recovered after the warning is legitimately reopened', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    await invoke(memory, 'si-1', reopen());
+    const writesBeforeReplay = memory.writes.length;
+
+    const replay = await invoke(memory, 'si-1', close());
+
+    expect(wire(replay)).toEqual(wire({...first, idempotentReplay: true}));
+    expect(replay).toMatchObject({
+      version: 2,
+      entity: {status: 'closed', closureDisposition: 'coilFoundAcceptable'},
+      linkedAbnormality: {reannealingStatus: 'notRequired', version: 2},
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+    expect(memory.store.get(`quality_warnings/${warningId}`))
+      .toMatchObject({status: 'open', version: 3});
+  });
+
+  test.each([
+    ['its linked case is corrected', {
+      description: 'Later Admin clarification',
+      updatedAt: '2026-08-14T12:30:00.000Z',
+      updatedByUid: 'admin-1',
+      updatedByName: 'Admin One',
+      version: 3,
+    }],
+    ['its source case is deleted', {
+      isDeleted: true,
+      deletedAt: '2026-08-14T13:00:00.000Z',
+      deletedByUid: 'admin-1',
+      deletedByName: 'Admin One',
+      deleteReason: 'Duplicate record confirmed after quality closure.',
+      updatedAt: '2026-08-14T13:00:00.000Z',
+      updatedByUid: 'admin-1',
+      updatedByName: 'Admin One',
+      version: 3,
+    }],
+  ])('a decision is recovered after %s', async (_label, patch) => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    amendLinkedCase(memory, patch);
+    const writesBeforeReplay = memory.writes.length;
+
+    const replay = await invoke(memory, 'si-1', close());
+
+    expect(wire(replay)).toEqual(wire({...first, idempotentReplay: true}));
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test.each([
+    ['an altered accepted warning', (memory, audit) => ({
+      ...audit,
+      afterJson: JSON.stringify({...JSON.parse(audit.afterJson), version: 7}),
+    }), 'quality-replay-evidence-malformed'],
+    ['an unreadable accepted warning', (memory, audit) => ({
+      ...audit,
+      afterJson: 'not json',
+    }), 'quality-replay-evidence-malformed'],
+    ['a quietly rewritten decision reason', (memory, audit) => ({
+      ...audit,
+      afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        decisionReason: 'Quietly rewritten reason',
+      }),
+    }), 'quality-replay-evidence-malformed'],
+    ['an altered accepted linked case', (memory, audit) => ({
+      ...audit,
+      linkedAbnormalityAfterJson: JSON.stringify({
+        ...JSON.parse(audit.linkedAbnormalityAfterJson),
+        version: 9,
+      }),
+    }), 'quality-replay-evidence-malformed'],
+    ['a linked case behind the accepted version', (memory, audit) => {
+      const warningPath = `quality_warnings/${warningId}`;
+      memory.store.set(warningPath, {
+        ...memory.store.get(warningPath),
+        sourceVersion: 1,
+      });
+      amendLinkedCase(memory, {version: 1});
+      return audit;
+    }, 'quality-replay-linked-abnormality-drift'],
+  ])('recovery still refuses %s', async (_label, tamper, reasonCode) => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    await invoke(memory, 'si-1', reopen());
+    const auditPath = `audit_logs/${first.auditId}`;
+    memory.store.set(auditPath, tamper(memory, memory.store.get(auditPath)));
+    const writesBeforeReplay = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode},
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test.each([
+    ['repeated affected assets', {
+      warning: {affectedAssets: [{assetType: 'furnace', assetNumber: 7}]},
+      abnormality: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+    }, 'affectedAssets'],
+    ['repeated hierarchy evidence', {
+      warning: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 8},
+      ]},
+      abnormality: {
+        affectedAssets: [
+          {assetType: 'furnace', assetNumber: 7},
+          {assetType: 'furnace', assetNumber: 8},
+        ],
+        affectedAssetHierarchyRefs: [
+          governedAffectedAsset(7),
+          governedAffectedAsset(7),
+        ],
+      },
+    }, 'affectedAssetHierarchyRefs'],
+  ])('a linked case with %s is refused without writes', async (_label, overrides, field) => {
+    const memory = fakeDb(standaloneSeed(overrides));
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'charge-quality-abnormality-malformed', field},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('the same affected subjects in another order are one case', async () => {
+    const memory = fakeDb(standaloneSeed({
+      warning: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ]},
+      abnormality: {affectedAssets: [
+        {assetType: 'base', assetNumber: 12},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+    }));
+
+    const decision = await invoke(memory, 'si-1', close());
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    // Stored order is left exactly as each record held it.
+    expect(memory.store.get(`quality_warnings/${warningId}`).affectedAssets)
+      .toEqual([
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'base', assetNumber: 12},
+      ]);
+  });
+
+  test('different affected subjects remain a case disagreement', async () => {
+    const memory = fakeDb(standaloneSeed({
+      warning: {affectedAssets: [{assetType: 'furnace', assetNumber: 7}]},
+      abnormality: {affectedAssets: [{assetType: 'base', assetNumber: 12}]},
+    }));
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-case-malformed',
+        field: 'warningProjection',
+      },
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a case written before canonical null keys still adjudicates', async () => {
+    const seeded = standaloneSeed({abnormality: {component: null}});
+    const legacyWarning = {...seeded[`quality_warnings/${warningId}`]};
+    delete legacyWarning.component;
+    delete legacyWarning.closedAt;
+    const legacyCase = {...seeded['charge_abnormalities/abn-1']};
+    delete legacyCase.possibleRootReasonNotes;
+    delete legacyCase.linkedExecutionFirestoreId;
+    const memory = fakeDb({
+      ...seeded,
+      [`quality_warnings/${warningId}`]: legacyWarning,
+      'charge_abnormalities/abn-1': legacyCase,
+    });
+
+    const decision = await invoke(memory, 'si-1', close());
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    const stored = memory.store.get(`quality_warnings/${warningId}`);
+    expect(Object.prototype.hasOwnProperty.call(stored, 'component')).toBe(true);
+    expect(stored.component).toBeNull();
+  });
+
+  test.each([
+    ['warning', 'sourceChargeNo', 'quality-warning-malformed'],
+    ['warning', 'createdByUid', 'quality-warning-malformed'],
+    ['case', 'loggedByUid', 'charge-quality-abnormality-malformed'],
+    ['case', 'reannealingStatus', 'charge-quality-abnormality-malformed'],
+  ])('a %s missing its %s evidence is still refused', async (record, field, reasonCode) => {
+    const seeded = standaloneSeed();
+    const path = record === 'warning' ?
+      `quality_warnings/${warningId}` : 'charge_abnormalities/abn-1';
+    const damaged = {...seeded[path]};
+    delete damaged[field];
+    const memory = fakeDb({...seeded, [path]: damaged});
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('a warning with repeated affected assets is malformed', () => {
+    let thrown;
+    try {
+      validateQualityWarningRecord(warning({
+        affectedAssets: [
+          {assetType: 'furnace', assetNumber: 7},
+          {assetType: 'furnace', assetNumber: 7},
+        ],
+      }), 'issue_ticket-1');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'quality-warning-malformed', field: 'affectedAssets'},
+    });
+  });
+
+  test('decisions audit the linked case exactly as they left it', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const decision = await invoke(memory, 'si-1', close());
+    const legacy = fakeDb(seed());
+    const request = await invoke(legacy, 'ops-1', requestClosure());
+
+    expect(JSON.parse(memory.store.get(`audit_logs/${decision.auditId}`)
+      .linkedAbnormalityAfterJson)).toEqual(wire(decision.linkedAbnormality));
+    expect(legacy.store.get(`audit_logs/${request.auditId}`))
+      .toMatchObject({linkedAbnormalityAfterJson: null});
+  });
+
+  function stripAcceptedEvidence(memory, requestId, auditId) {
+    const receiptPath = `quality_mutation_receipts/${requestId}`;
+    const receipt = {...memory.store.get(receiptPath)};
+    delete receipt.acceptedEvidenceVersion;
+    delete receipt.acceptedAuditSha256;
+    memory.store.set(receiptPath, receipt);
+    const auditPath = `audit_logs/${auditId}`;
+    const audit = {...memory.store.get(auditPath)};
+    delete audit.linkedAbnormalityAfterJson;
+    memory.store.set(auditPath, audit);
+  }
+
+  test('a decision without a recorded linked snapshot still replays while its linked case stands', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    const writesBeforeReplay = memory.writes.length;
+
+    const replay = await invoke(memory, 'si-1', close());
+
+    expect(wire(replay)).toEqual(wire({...first, idempotentReplay: true}));
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test('a decision without a recorded linked snapshot reports acceptance instead of inventing history', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    await invoke(memory, 'si-1', reopen());
+    const writesBeforeReplay = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'quality-replay-accepted-linked-history-unavailable',
+        acceptanceEstablished: true,
+        acceptedVersion: 2,
+        auditId: first.auditId,
+      },
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+
+  test('a retry refuses an altered decision even without a bound digest', async () => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    stripAcceptedEvidence(memory, IDS.close, first.auditId);
+    const auditPath = `audit_logs/${first.auditId}`;
+    const audit = memory.store.get(auditPath);
+    memory.store.set(auditPath, {...audit, afterJson: JSON.stringify({
+      ...JSON.parse(audit.afterJson),
+      decisionReason: 'Quietly rewritten reason',
+    })});
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'quality-replay-evidence-malformed'},
+    });
+  });
+
+  test.each([
+    ['an unreadable accepted decision', (audit) => ({
+      ...audit,
+      afterJson: 'not json',
+    })],
+    ['a quietly rewritten decision reason', (audit) => ({
+      ...audit,
+      afterJson: JSON.stringify({
+        ...JSON.parse(audit.afterJson),
+        decisionReason: 'Quietly rewritten reason',
+      }),
+    })],
+    ['an altered accepted linked case', (audit) => ({
+      ...audit,
+      linkedAbnormalityAfterJson: JSON.stringify({
+        ...JSON.parse(audit.linkedAbnormalityAfterJson),
+        reannealingStatus: 'required',
+      }),
+    })],
+  ])('an immediate retry still refuses %s', async (_label, tamper) => {
+    const memory = fakeDb(standaloneSeed());
+    const first = await invoke(memory, 'si-1', close());
+    const auditPath = `audit_logs/${first.auditId}`;
+    memory.store.set(auditPath, tamper(memory.store.get(auditPath)));
+    const writesBeforeReplay = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', close())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'quality-replay-evidence-malformed'},
+    });
+    expect(memory.writes).toHaveLength(writesBeforeReplay);
+  });
+});
+
+describe('a quality case is only created in a shape decisions can act on', () => {
+  const standalonePair = (overrides = {}) => ({
+    warningId: 'abnormality_abn-1',
+    warning: warning({
+      warningId: 'abnormality_abn-1',
+      sourceType: 'abnormality',
+      sourceId: 'abn-1',
+      sourceSummary: 'Atmosphere deviation',
+      ...(overrides.warning ?? {}),
+    }),
+    abnormalityId: 'abn-1',
+    abnormality: linkedAbnormality({
+      firestoreId: 'abn-1',
+      linkedTicketFirestoreId: null,
+      ...(overrides.abnormality ?? {}),
+    }),
+  });
+
+  test('a consistent pair satisfies the postcondition', () => {
+    expect(() => validateQualityCasePostcondition(standalonePair()))
+      .not.toThrow();
+  });
+
+  test.each([
+    ['a severity the warning does not carry', {
+      abnormality: {severity: 'low'},
+    }, 'charge-quality-case-malformed', 'warningProjection'],
+    ['subjects the warning does not name', {
+      abnormality: {affectedAssets: [{assetType: 'base', assetNumber: 12}]},
+    }, 'charge-quality-case-malformed', 'warningProjection'],
+    ['the same subject listed twice', {
+      warning: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+      abnormality: {affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'furnace', assetNumber: 7},
+      ]},
+    }, 'quality-warning-malformed', 'affectedAssets'],
+    ['a charge the case does not share', {
+      abnormality: {sourceChargeNo: 12009},
+    }, 'charge-quality-abnormality-malformed', 'sourceChargeNo'],
+  ])('%s is refused before it is written', (
+    _label, overrides, reasonCode, field,
+  ) => {
+    expect(() => validateQualityCasePostcondition(standalonePair(overrides)))
+      .toThrow(expect.objectContaining({
+        code: 'failed-precondition',
+        details: expect.objectContaining({reasonCode, field}),
+      }));
+  });
+
+  test('a standalone warning without its case is refused', () => {
+    const plan = standalonePair();
+    expect(() => validateQualityCasePostcondition({
+      ...plan, abnormalityId: null, abnormality: null,
+    })).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'charge-quality-case-malformed',
+        field: 'linkedAbnormality',
+      }),
+    }));
+  });
+
+  test('an issue warning may legitimately carry no linked case', () => {
+    expect(() => validateQualityCasePostcondition({
+      warningId: 'issue_ticket-1',
+      warning: warning(),
+      abnormalityId: null,
+      abnormality: null,
+    })).not.toThrow();
+  });
+
+  test('a case the maintenance issue handler creates can be decided', async () => {
+    const at = new Date('2026-08-14T08:00:00.000Z');
+    const workflow = new MemoryWorkflowStore();
+    for (const [uid, role] of [
+      ['electrical-1', 'seniorElectrical'], ['si-1', 'si'],
+    ]) {
+      workflow.seed(`users/${uid}`, {
+        isApproved: true, roles: [role], name: uid,
+      });
+    }
+    workflow.seed('asset_classes/class-furnace', {
+      schemaVersion: 1, assetClassId: 'class-furnace', status: 'active',
+      legacyAssetTypeKey: 'furnace', code: 'FR', name: 'Furnace',
+    });
+    workflow.seed('asset_instances/asset-furnace-7', {
+      schemaVersion: 1, assetInstanceId: 'asset-furnace-7',
+      assetClassId: 'class-furnace', assetClassCode: 'FR',
+      assetClassName: 'Furnace', assetNumber: 7, name: 'Furnace 7',
+      status: 'active', version: 4, ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations', accountableRoleKeys: ['operations'],
+    });
+    workflow.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      firestoreId: 'ATMOSPHERE_DEVIATION', code: 'ATMOSPHERE_DEVIATION',
+      title: 'Atmosphere deviation', category: 'process', severity: 'high',
+      applicableAssetTypes: ['furnace'], suggestsReannealing: true,
+      isActive: true, isDeleted: false,
+    });
+    const receipt = await new MaintenanceWorkflowCommandService(workflow)
+      .execute({
+        commandId: 'create-quality-ticket',
+        commandType: 'createMaintenanceTicket',
+        aggregateId: 'quality-ticket',
+        expectedVersion: 0,
+        payload: {
+          ticket: {
+            schemaVersion: 1, version: 1, assetType: 'furnace',
+            assetNumber: 7, component: 'Furnace body', subsystem: null,
+            tag: null, hierarchyPath: ['Untrusted', 'Client path'],
+            assetHierarchyRefJson: JSON.stringify({
+              schemaVersion: 3, scope: 'physicalAsset',
+              assetClassId: 'class-furnace',
+              assetInstanceId: 'asset-furnace-7', assetInstanceVersion: 4,
+            }),
+            maintenanceType: 'breakdown', classification: null,
+            description: 'Furnace shell temperature is above the range.',
+            routedTo: 'mechanical', otherDepartment: null, isCritical: true,
+            startDate: '2026-08-14T07:50:00.000Z', chargeNoAtEvent: 12345,
+            qualityIntentSchemaVersion: 2,
+            qualityImpactAssessment: 'suspected',
+            qualityWarningReason: 'Temperature deviation may affect the coil.',
+            qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+          },
+        },
+      }, {actor: {
+        uid: 'electrical-1', name: 'electrical-1',
+        roles: new Set(['seniorElectrical']),
+      }, serverNow: at});
+
+    // The adjudicator reads exactly what the producer committed.
+    const memory = fakeDb(Object.fromEntries(workflow.entries()));
+    const decision = await invoke(memory, 'si-1', {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: receipt.result.warningId,
+      expectedVersion: 1,
+      reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    });
+
+    expect(decision).toMatchObject({version: 2, idempotentReplay: false});
+    expect(memory.store.get(`quality_warnings/${receipt.result.warningId}`))
+      .toMatchObject({status: 'closed', closedByUid: 'si-1'});
+  });
 });

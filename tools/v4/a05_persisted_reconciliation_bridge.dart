@@ -8,6 +8,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_block_lifecycle_event.dart';
+import 'package:crm3_baf_ops/features/assets/data/burner_block_installation_correction.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
@@ -35,6 +36,7 @@ const _supportedCollections = <String>{
   'base_inner_cover_assignments',
   'burner_block_lifecycle_events',
   'burner_block_lifecycle_current',
+  'burner_block_lifecycle_corrections',
   'burner_condition_rounds',
   'uv_detector_lifecycle_events',
   'uv_detector_lifecycle_current',
@@ -125,6 +127,8 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         BurnerBlockLifecycleEvent.fromMap(data, documentId);
       case 'burner_block_lifecycle_current':
         BurnerBlockLifecycleEvent.fromCurrentMap(data, documentId);
+      case 'burner_block_lifecycle_corrections':
+        BurnerBlockInstallationCorrection.fromMap(data, documentId);
       case 'uv_detector_lifecycle_events':
         UvDetectorLifecycleEvent.fromMap(data, documentId);
       case 'uv_detector_lifecycle_current':

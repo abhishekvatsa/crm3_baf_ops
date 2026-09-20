@@ -15,6 +15,13 @@ async function setup() {
     if (replaces) command.payload.supersedesObservationId = replaces;
     return run(command, who);
   };
+  const amend = (id, minute, value, replaces, reason, who = actor) => {
+    const command = observation({commandId: id, observationId: id, expectedVersion: campaign().version,
+      observedAt: `2026-08-21T${minute}:00.000Z`, numericValue: value});
+    command.payload.supersedesObservationId = replaces;
+    command.payload.historicalAmendmentReason = reason;
+    return run(command, who);
+  };
   const finding = (id = 'inspection-finding-first') => store.read(`inspection_findings/${id}`);
   const adjudicate = (id, findingId, status, who = actor) => run({commandId: id,
     commandType: 'adjudicateInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
@@ -23,8 +30,63 @@ async function setup() {
     commandType: 'verifyInspectionFinding', aggregateId: campaignId, expectedVersion: campaign().version,
     payload: {findingId, expectedFindingVersion: finding(findingId).version, observationId, outcome,
       reason: 'Certify only effective surviving physical evidence.'}});
-  return {store, run, campaign, read, finding, adjudicate, verify, secondActor};
+  return {store, run, campaign, read, amend, finding, adjudicate, verify, secondActor};
 }
+
+async function seedCorrectiveTicket(f, ticketId, description = 'Repair the current inspection episode.') {
+  f.store.seed('asset_classes/class-furnace', {...f.store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace'});
+  f.store.seed('asset_instances/furnace-1', {...f.store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace', ownershipStatus: 'unassigned', ownerDiscipline: null, accountableRoleKeys: []});
+  await f.run({commandId: `create-${ticketId}`, commandType: 'createMaintenanceTicket',
+    aggregateId: ticketId, expectedVersion: 0, payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+      component: 'Pressure transmitter', subsystem: null, tag: null, hierarchyPath: [],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1}), maintenanceType: 'breakdown', classification: null,
+      description, routedTo: 'instrumentation', otherDepartment: null,
+      isCritical: false, startDate: '2026-08-21T05:15:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+    }}});
+}
+
+describe('Inspection verification uses physical repair chronology', () => {
+  test.each(['05:19', '05:20', '05:21'])(
+    'reading at %s is compared with completion, not late administrative entry', async (minute) => {
+      const f = await setup(); await f.read('first', '04:50', 1.8);
+      await seedCorrectiveTicket(f, 'repair');
+      await f.run({commandId: 'link-repair', commandType: 'linkInspectionObservationIssue',
+        aggregateId: campaignId, expectedVersion: f.campaign().version,
+        payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'first', ticketId: 'repair', reason: 'Repair the inspected transmitter.'}});
+      await f.run({commandId: 'complete-repair', commandType: 'resolveMaintenanceTicket',
+        aggregateId: 'repair', expectedVersion: 1,
+        payload: {endDate: '2026-08-21T05:20:00.000Z', remarks: 'Repair complete.',
+          teamsInvolved: ['instrumentation'], actionsJson: '[]'}});
+      await f.read('healthy', minute, 3);
+      const command = {commandId: 'verify-repair', commandType: 'verifyInspectionFinding',
+        aggregateId: campaignId, expectedVersion: f.campaign().version,
+        payload: {findingId: f.finding().findingId, expectedFindingVersion: f.finding().version,
+          observationId: 'healthy', outcome: 'resolved', reason: 'Check effectiveness of the repair.'}};
+      const before = f.store.entries();
+      if (minute < '05:20') {
+        await expect(f.run(command)).rejects.toMatchObject({details: {
+          reasonCode: 'inspection-verification-repair-chronology-required'}});
+        expect(f.store.entries()).toEqual(before);
+      } else {
+        const receipt = await f.run(command);
+        const evidence = f.store.read('inspection_verifications/verify-repair');
+        expect(evidence.correctiveMaintenanceBasis).toMatchObject({ticketId: 'repair',
+          ticketVersion: 2, completedAt: '2026-08-21T05:20:00.000Z'});
+        // A later ticket change cannot alter the original accepted decision or
+        // make replay execute a second verification against today's ticket.
+        f.store.seed('maintenance_records/repair', {...f.store.read('maintenance_records/repair'),
+          version: 3, status: 'open', isResolved: false, endDate: null});
+        const later = f.store.entries();
+        expect(await f.run(command)).toEqual(receipt);
+        expect(f.store.entries()).toEqual(later);
+        expect(f.store.read('inspection_verifications/verify-repair')).toEqual(evidence);
+      }
+    });
+});
 
 test('PBA01: earlier correction preserves later adverse current evidence and refuses false resolution', async () => {
   const f = await setup(); await f.read('first', '04:50', 1.8); await f.read('later-adverse', '05:10', 1.7);
@@ -91,6 +153,65 @@ test('a correction chain that remains latest retains only its effective reading 
     resultKey: 'inspection-finding-verifiedResolved'});
 });
 
+test('a repair for an earlier episode is not taken as this episode corrective action', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  // The first episode is adjudicated and closed.
+  await f.adjudicate('close-first-episode', 'inspection-finding-first', 'invalidated');
+  // A later adverse reading opens a separate episode for the same target.
+  await f.read('new-episode', '06:00', 1.7);
+  expect(f.finding('inspection-finding-new-episode'))
+    .toMatchObject({status: 'open', episodeOriginObservationId: 'new-episode'});
+
+  f.store.seed('asset_classes/class-furnace', {...f.store.read('asset_classes/class-furnace'), code: 'FURNACE', name: 'Furnace'});
+  f.store.seed('asset_instances/furnace-1', {...f.store.read('asset_instances/furnace-1'), assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace', ownershipStatus: 'unassigned', ownerDiscipline: null, accountableRoleKeys: []});
+  await f.run({commandId: 'create-old-repair', commandType: 'createMaintenanceTicket',
+    aggregateId: 'old-repair', expectedVersion: 0, payload: {ticket: {
+      schemaVersion: 1, version: 1, assetType: 'furnace', assetNumber: 1,
+      component: 'Pressure transmitter', subsystem: null, tag: null, hierarchyPath: [],
+      assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-1', assetInstanceVersion: 1}), maintenanceType: 'breakdown', classification: null,
+      description: 'Repair carried out for the earlier episode.', routedTo: 'instrumentation', otherDepartment: null,
+      isCritical: false, startDate: '2026-08-21T04:30:00.000Z', chargeNoAtEvent: null,
+      qualityIntentSchemaVersion: 1, qualityImpactAssessment: 'notSuspected', qualityWarningReason: null,
+    }}});
+
+  // Recording that the earlier observation was repaired is legitimate history.
+  await f.run({commandId: 'link-old-repair', commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'first', ticketId: 'old-repair',
+      reason: 'Record the repair that followed the earlier reading.'}});
+
+  expect(f.store.entries().some(([entryPath]) =>
+    entryPath.startsWith('inspection_issue_links/'))).toBe(true);
+  // It says nothing about the later episode, which still needs its own
+  // corrective issue and must remain free to take one.
+  const current = f.finding('inspection-finding-new-episode');
+  expect(current.status).toBe('open');
+  expect(current.linkedTicketId ?? null).toBeNull();
+  expect(f.finding('inspection-finding-first').status).toBe('invalidated');
+});
+
+test('a later ordinary adverse reading belongs to the active episode for corrective linking', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('later-adverse', '05:10', 1.7);
+  await seedCorrectiveTicket(f, 'current-repair');
+
+  await f.run({commandId: 'link-current-repair', commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'later-adverse', ticketId: 'current-repair',
+      reason: 'Record the corrective work for the current adverse episode.'}});
+
+  expect(f.finding()).toMatchObject({
+    episodeOriginObservationId: 'first',
+    currentObservationId: 'later-adverse',
+    status: 'correctiveActionLinked',
+    linkedTicketId: 'current-repair',
+  });
+});
+
 test('linking corrective work cannot settle a corrected-away adverse basis without explicit adjudication', async () => {
   const f = await setup(); await f.read('first', '04:50', 1.8);
   await f.read('corrected-first', '05:00', 3, 'first');
@@ -109,7 +230,7 @@ test('linking corrective work cannot settle a corrected-away adverse basis witho
     }}});
   await f.run({commandId: 'link-corrective-ticket', commandType: 'linkInspectionObservationIssue',
     aggregateId: campaignId, expectedVersion: f.campaign().version,
-    payload: {observationId: 'corrected-first', ticketId: 'review-ticket', reason: 'Retain the separate maintenance investigation.'}});
+    payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'corrected-first', ticketId: 'review-ticket', reason: 'Retain the separate maintenance investigation.'}});
   expect(f.finding()).toMatchObject({status: 'correctiveActionLinked', evidenceReviewRequired: true,
     effectiveAdverseObservationCount: 0, recurrenceCount: 1});
   const close = {commandId: 'close-without-adjudication', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
@@ -146,18 +267,118 @@ test.each(['acceptedCondition', 'invalidated', 'verifiedResolved'])(
     expect(f.finding('inspection-finding-recurrence').status).toBe('awaitingVerification');
   });
 
-test('single historical finding can reopen, while a closed campaign must reopen first', async () => {
+test('single historical finding can reopen and receive follow-up without reopening its closed survey', async () => {
   const f = await setup(); await f.read('first', '04:50', 1.8);
   await f.adjudicate('accept', 'inspection-finding-first', 'acceptedCondition');
   await f.run({commandId: 'close-campaign', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
     expectedVersion: f.campaign().version, payload: {status: 'closed', reason: 'All findings explicitly accounted.'}});
-  await expect(f.adjudicate('closed-reopen', 'inspection-finding-first', 'open')).rejects.toMatchObject({details: {
-    reasonCode: 'inspection-finding-campaign-not-open'}});
-  await f.run({commandId: 'reopen-campaign', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
-    expectedVersion: f.campaign().version, payload: {status: 'open', reason: 'Review the original campaign again.'}});
-  await f.adjudicate('reopen', 'inspection-finding-first', 'open');
-  await f.read('followup', '05:10', 3);
+  const closure = f.campaign().closedAt;
+  await f.adjudicate('closed-reopen', 'inspection-finding-first', 'open');
+  const command = observation({commandId: 'followup', observationId: 'followup',
+    expectedVersion: f.campaign().version, observedAt: '2026-08-21T05:10:00.000Z', numericValue: 3});
+  command.payload.followUpFindingId = 'inspection-finding-first';
+  await f.run(command);
+  expect(f.campaign()).toMatchObject({status: 'closed', closedAt: closure});
   expect(f.finding().status).toBe('awaitingVerification');
+});
+
+test('closed survey finishes an actual linked repair and verification, preserving closure and original receipt replay', async () => {
+  const f = await setup(); await f.read('first', '04:50', 1.8);
+  await seedCorrectiveTicket(f, 'repair');
+  await f.run({commandId: 'link', commandType: 'linkInspectionObservationIssue', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {observationId: 'first', ticketId: 'repair', reason: 'Repair this target.',
+      scopeReview: {expectedTicketVersion: 1, reason: 'Whole-asset ticket includes the pressure transmitter at Gas train.'}}});
+  await f.run({commandId: 'close-survey', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {status: 'closed', reason: 'Survey complete; tracked repair remains open.'}});
+  const closureAudit = f.store.read('inspection_campaign_audits/close-survey');
+  const closedAt = f.campaign().closedAt;
+  await f.run({commandId: 'repair-done', commandType: 'resolveMaintenanceTicket', aggregateId: 'repair', expectedVersion: 1,
+    payload: {endDate: '2026-08-21T05:30:00.000Z', remarks: 'Repair done.', teamsInvolved: ['instrumentation'], actionsJson: '[]'}});
+  const command = observation({commandId: 'post-repair', observationId: 'post-repair', expectedVersion: f.campaign().version,
+    observedAt: '2026-08-21T06:00:00.000Z', numericValue: 3});
+  await expect(f.run(command)).rejects.toMatchObject({code: 'failed-precondition'});
+  command.payload.followUpFindingId = 'inspection-finding-first';
+  const receipt = await f.run(command);
+  await f.verify('verify-closed', 'post-repair');
+  expect(f.finding().status).toBe('verifiedResolved');
+  expect(f.campaign()).toMatchObject({status: 'closed', closedAt});
+  expect(f.store.read('inspection_campaign_audits/close-survey')).toEqual(closureAudit);
+  const after = f.store.entries(); expect(await f.run(command)).toEqual(receipt); expect(f.store.entries()).toEqual(after);
+});
+
+test('scope review refuses missing review, stale revision and an unprivileged reviewer', async () => {
+  const f = await setup(); await f.read('first', '04:50', 1.8); await seedCorrectiveTicket(f, 'repair');
+  const command = {commandId: 'scope-review', commandType: 'linkInspectionObservationIssue', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {observationId: 'first', ticketId: 'repair', reason: 'Review applicability.'}};
+  const before = f.store.entries();
+  await expect(f.run(command)).rejects.toMatchObject({details: {reasonCode: 'inspection-corrective-scope-review-required'}});
+  command.payload.scopeReview = {expectedTicketVersion: 2, reason: 'Includes the inspected transmitter.'};
+  await expect(f.run(command)).rejects.toMatchObject({code: 'aborted'});
+  command.payload.scopeReview.expectedTicketVersion = 1;
+  const observer = seedActor(f.store, 'ordinary-observer', ['seniorInstrumentation']);
+  await expect(f.run(command, observer)).rejects.toMatchObject({code: 'permission-denied'});
+  expect(f.store.read('inspection_issue_links/first_repair')).toBeNull();
+  expect(f.finding()).toEqual(before.find(([path]) => path === 'inspection_findings/inspection-finding-first')[1]);
+});
+
+test('reviewed replacement preserves the old repair link and requires the current finding revision', async () => {
+  const f = await setup(); await f.read('first', '04:50', 1.8);
+  await seedCorrectiveTicket(f, 'old-repair'); await seedCorrectiveTicket(f, 'new-repair');
+  const link = (id, ticketId, version) => ({commandId: id, commandType: 'linkInspectionObservationIssue',
+    aggregateId: campaignId, expectedVersion: f.campaign().version,
+    payload: {observationId: 'first', ticketId, expectedFindingVersion: version, reason: 'Review the current corrective work.',
+      scopeReview: {expectedTicketVersion: 1, reason: 'This repair covers the exact pressure transmitter at Gas train.'}}});
+  await f.run(link('old-link', 'old-repair', f.finding().version));
+  const original = f.store.read('inspection_issue_links/first_old-repair');
+  const before = f.store.entries();
+  await expect(f.run(link('stale-replacement', 'new-repair', f.finding().version - 1))).rejects.toMatchObject({
+    details: {reasonCode: 'inspection-finding-corrective-action-already-linked'}});
+  expect(f.store.entries()).toEqual(before);
+  await f.run(link('reviewed-replacement', 'new-repair', f.finding().version));
+  expect(f.finding().linkedTicketId).toBe('new-repair');
+  expect(f.store.read('inspection_issue_links/first_old-repair')).toEqual(original);
+  expect(f.store.read('inspection_finding_events/reviewed-replacement')).toMatchObject({previousTicketId: 'old-repair', ticketId: 'new-repair'});
+  await f.run({commandId: 'new-repair-done', commandType: 'resolveMaintenanceTicket', aggregateId: 'new-repair', expectedVersion: 1,
+    payload: {endDate: '2026-08-21T05:30:00.000Z', remarks: 'Repair complete.', teamsInvolved: ['instrumentation'], actionsJson: '[]'}});
+  await f.read('healthy', '06:00', 3);
+  const proof = f.store.read('inspection_issue_links/first_new-repair');
+  f.store.seed('inspection_issue_links/first_new-repair', {...proof, scopeReview: {...proof.scopeReview, reason: 'Different review.'}});
+  const corrupted = f.store.entries();
+  await expect(f.verify('missing-review-proof', 'healthy')).rejects.toMatchObject({code: 'failed-precondition'});
+  expect(f.store.entries()).toEqual(corrupted);
+});
+
+test('closed historical amendment retains original evidence and creates a tracked finding without reopening survey scope', async () => {
+  const f = await setup(); await f.read('normal', '04:50', 3);
+  await f.run({commandId: 'close-normal-survey', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {status: 'closed', reason: 'Survey readings complete.'}});
+  const original = f.store.read('inspection_observations/normal');
+  const closureAudit = f.store.read('inspection_campaign_audits/close-normal-survey');
+  await f.amend('historical-adverse', '04:50', 1.8, 'normal', 'Correct the transcribed field reading against retained evidence.');
+  expect(f.campaign().status).toBe('closed');
+  expect(f.store.read('inspection_observations/normal')).toEqual(original);
+  expect(f.store.read('inspection_campaign_audits/close-normal-survey')).toEqual(closureAudit);
+  expect(f.finding('inspection-finding-historical-adverse').status).toBe('open');
+  expect(f.campaign().findingCreationManifest).toEqual(['inspection-finding-historical-adverse']);
+});
+
+test('re-audit baseline excludes a closed-survey follow-up recorded at the same server instant as closure', async () => {
+  const f = await setup(); await f.read('first', '04:50', 1.8);
+  await seedCorrectiveTicket(f, 'repair');
+  await f.run({commandId: 'baseline-link', commandType: 'linkInspectionObservationIssue', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {observationId: 'first', ticketId: 'repair', reason: 'Track repair.',
+      scopeReview: {expectedTicketVersion: 1, reason: 'Repair covers this transmitter at Gas train.'}}});
+  await f.run({commandId: 'baseline-close', commandType: 'setInspectionCampaignStatus', aggregateId: campaignId,
+    expectedVersion: f.campaign().version, payload: {status: 'closed', reason: 'Survey complete; repair tracked.'}});
+  const closedAtVersion = f.campaign().closedAtVersion;
+  const followup = observation({commandId: 'late-normal', observationId: 'late-normal', expectedVersion: f.campaign().version,
+    numericValue: 3, observedAt: '2026-08-21T06:00:00.000Z'});
+  followup.payload.followUpFindingId = 'inspection-finding-first'; await f.run(followup);
+  await f.run(createCampaign({commandId: 'reaudit-create', campaignId: 'reaudit', targetAssetNumbers: [1], baselineCampaignId: campaignId}));
+  await f.run(observation({commandId: 'reaudit-reading', observationId: 'reaudit-reading', campaignId: 'reaudit',
+    numericValue: 3, observedAt: '2026-08-21T06:30:00.000Z'}));
+  expect(f.store.read('inspection_campaigns/reaudit').baselineCampaignVersionThrough).toBe(closedAtVersion);
+  expect(f.store.read('inspection_observations/reaudit-reading')).toMatchObject({baselineObservationId: 'first', comparisonOutcome: 'resolved'});
 });
 
 test('two terminal episodes retain separate histories: only the latest can reopen and receive follow-up', async () => {
@@ -307,3 +528,67 @@ test.each(['missing-parent', 'cycle', 'branched-correction', 'wrong-physical-sub
     await expect(f.verify('refuse-corrupt-history', 'healthy')).rejects.toMatchObject({code: 'failed-precondition'});
     expect(f.store.entries()).toEqual(before);
   });
+
+test('a reading that is no longer current can be amended with a stated reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+
+  // The first reading was written down wrong. It is not the current one, so
+  // the ordinary correction path refuses it - and refusing it leaves a known
+  // error in the record with no way out.
+  await expect(f.read('ordinary-attempt', '05:20', 3, 'first')).rejects.toMatchObject({
+    details: {reasonCode: 'inspection-correction-not-current'}});
+
+  await f.amend('amendment', '04:50', 3, 'first',
+    'The 04:50 reading was transcribed from the wrong gauge.');
+
+  // The original stays exactly as it was recorded.
+  expect(f.store.read('inspection_observations/first')).toMatchObject({
+    observationId: 'first', numericValue: 1.8});
+  expect(f.store.read('inspection_observations/amendment')).toMatchObject({
+    supersedesObservationId: 'first',
+    historicalAmendmentReason: 'The 04:50 reading was transcribed from the wrong gauge.',
+    numericValue: 3,
+  });
+});
+
+test('an amendment still needs its reason', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  await f.read('second', '05:10', 1.7);
+  const before = f.store.entries();
+
+  await expect(f.amend('unexplained', '04:50', 3, 'first', '   '))
+    .rejects.toMatchObject({code: 'invalid-argument'});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('amending the current reading is the ordinary correction, not an amendment', async () => {
+  const f = await setup();
+  await f.read('first', '04:50', 1.8);
+  const before = f.store.entries();
+
+  // The ordinary path already handles this, and it carries the guards that
+  // belong to a current reading. An amendment must not be a way around them.
+  await expect(f.amend('wrong-route', '04:50', 3, 'first', 'Mistyped the value.'))
+    .rejects.toMatchObject({
+      details: {reasonCode: 'inspection-amendment-reading-is-current'}});
+  expect(f.store.entries()).toEqual(before);
+});
+
+test('an amendment cannot reach into an earlier terminal episode', async () => {
+  const f = await setup();
+  await f.read('first', '05:10', 1.8);
+  await f.adjudicate('terminal-first', 'inspection-finding-first', 'acceptedCondition');
+  await f.read('second', '05:20', 1.7);
+  await f.read('third', '05:30', 1.6);
+  const before = f.store.entries();
+
+  // 'first' belongs to a terminal episode and is no longer current, so this is
+  // an amendment by every test. The safeguard that stops a correction merging
+  // histories is not relaxed by stating a reason.
+  await expect(f.amend('reaches-back', '05:00', 3, 'first', 'Wrong gauge.'))
+    .rejects.toMatchObject({code: 'failed-precondition'});
+  expect(f.store.entries()).toEqual(before);
+});

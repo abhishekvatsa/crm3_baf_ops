@@ -493,7 +493,7 @@ describe('cross-asset inspection campaigns', () => {
       isDeleted: false,
     });
     store.seed('maintenance_records/ticket-1', {
-      firestoreId: 'ticket-1', assetType: 'furnace', assetNumber: 1,
+      firestoreId: 'ticket-1', version: 1, assetType: 'furnace', assetNumber: 1,
       assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace', assetInstanceId: 'furnace-1', assetNumber: 1, assetInstanceVersion: 1}),
       isDeleted: false,
     });
@@ -503,7 +503,7 @@ describe('cross-asset inspection campaigns', () => {
       commandType: 'linkInspectionObservationIssue',
       aggregateId: 'campaign-furnace-pt-august',
       expectedVersion: 2,
-      payload: {observationId: 'observation-1', ticketId: 'ticket-other', reason: 'Wrong asset.'},
+      payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'observation-1', ticketId: 'ticket-other', reason: 'Wrong asset.'},
     }, {actor: supervisor, serverNow: at('2026-08-21T05:20:00Z')}))
       .rejects.toMatchObject({code: 'failed-precondition'});
 
@@ -512,7 +512,7 @@ describe('cross-asset inspection campaigns', () => {
       commandType: 'linkInspectionObservationIssue',
       aggregateId: 'campaign-furnace-pt-august',
       expectedVersion: 2,
-      payload: {
+      payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'},
         observationId: 'observation-1',
         ticketId: 'ticket-1',
         reason: 'Track the out-of-range setting as maintenance work.',
@@ -755,14 +755,14 @@ describe('cross-asset inspection campaigns', () => {
     await run(observation(), observer, '2026-08-21T05:10:00Z');
     const originalReading = structuredClone(store.read('inspection_observations/observation-1'));
     store.seed('maintenance_records/repair-1', {
-      firestoreId: 'repair-1', assetType: 'furnace', assetNumber: 1,
+      firestoreId: 'repair-1', version: 1, assetType: 'furnace', assetNumber: 1,
       assetHierarchyRefJson: JSON.stringify({schemaVersion: 3, scope: 'physicalAsset', assetClassId: 'class-furnace', assetInstanceId: 'furnace-1', assetNumber: 1, assetInstanceVersion: 1}),
       isDeleted: false, isResolved: false,
     });
     await run({
       commandId: 'link-repair', commandType: 'linkInspectionObservationIssue',
       aggregateId: id, expectedVersion: 2,
-      payload: {observationId: 'observation-1', ticketId: 'repair-1', reason: 'Complete corrective maintenance before verification.'},
+      payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'observation-1', ticketId: 'repair-1', reason: 'Complete corrective maintenance before verification.'},
     }, supervisor, '2026-08-21T05:15:00Z');
     const close = {
       commandId: 'close-before-repair', commandType: 'setInspectionCampaignStatus',
@@ -818,6 +818,8 @@ describe('cross-asset inspection campaigns', () => {
     // Represents the independent corrective-maintenance completion boundary.
     store.seed('maintenance_records/repair-1', {
       ...store.read('maintenance_records/repair-1'), isResolved: true, status: 'resolved',
+      version: 2, startDate: '2026-08-21T05:10:00.000Z',
+      endDate: '2026-08-22T05:00:00.000Z',
     });
     await expect(run(verify, observer, '2026-08-22T05:50:00Z'))
       .resolves.toMatchObject({resultKey: 'inspection-finding-verifiedResolved'});
@@ -1389,7 +1391,7 @@ describe('Corrective completion semantics for new inspection verification', () =
       await run({
         commandId: 'link-real-repair', commandType: 'linkInspectionObservationIssue',
         aggregateId: 'campaign-furnace-pt-august', expectedVersion: 2,
-        payload: {observationId: 'observation-1', ticketId: 'real-repair', reason: 'Correct the finding.'},
+        payload: {scopeReview: {expectedTicketVersion: 1, reason: 'Reviewed coverage of this exact inspected component and position.'}, observationId: 'observation-1', ticketId: 'real-repair', reason: 'Correct the finding.'},
       });
       await run({
         commandId: 'complete-real-repair',

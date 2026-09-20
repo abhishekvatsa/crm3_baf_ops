@@ -21,6 +21,12 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
   Isar get isar => throw UnsupportedError('UI test store has no native Isar.');
 
   @override
+  Stream<List<DurableSubmission>> watchForActor(String actorUid) =>
+      throw UnsupportedError(
+        'Reactive pending recovery requires the real Isar fixture.',
+      );
+
+  @override
   Future<List<DurableSubmission>> listForAdministrativeReview({
     required void Function() requireReviewer,
   }) => throw UnsupportedError(
@@ -259,6 +265,7 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptJson,
     required DurableReceiptValidator validateReceipt,
+    bool Function(Map<String, dynamic>, Map<String, dynamic>)? sameAcceptance,
   }) async {
     final value = _required(submissionId);
     _sameEnvelope(value, envelopeSha256);
@@ -272,7 +279,7 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
       );
     }
     if (value.state.isAccepted) {
-      if (value.receiptJson != receiptJson) {
+      if (value.receiptJson != receiptJson && !(sameAcceptance?.call(durableSubmissionJsonObject(value.receiptJson!), receipt) ?? false)) {
         _fail(
           'acceptance-conflict',
           'A different acceptance is already retained.',
@@ -315,6 +322,7 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
     required String envelopeSha256,
     required String receiptSha256,
     Future<void> Function(Isar transactionStore)? adoptInTransaction,
+    bool recheckProjection = false,
   }) async {
     if (adoptInTransaction != null) {
       throw UnsupportedError(

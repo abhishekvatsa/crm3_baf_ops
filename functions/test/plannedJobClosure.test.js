@@ -26,7 +26,7 @@ function baseModule(overrides = {}) {
       {key: 'vt_reading', type: 'number', isRequired: true},
     ]),
     responsesJson: JSON.stringify([
-      {key: 'vt_reading', value: '2.1 mm/s'},
+      {key: 'vt_reading', value: 2.1},
     ]),
     ...overrides,
   };
@@ -57,8 +57,8 @@ describe('planned job server closure validation', () => {
           schemaVersion: 1,
           key: 'vt_reading',
           fieldLabel: 'vt_reading',
-          fieldType: 'text',
-          value: '2.1 mm/s',
+          fieldType: 'number',
+          value: 2.1,
         },
       ]),
     };
@@ -75,13 +75,13 @@ describe('planned job server closure validation', () => {
     });
 
     expect(attestation.hash).toBe(
-      '40f61396ca52bc0b1c007209c2ca469301ebedb2877ffdc1bc12a6b91dc4cdea',
+      '002f92ddd9803359349286dead709eb22ad831ef18e5c73a3c6d9247845b3fe7',
     );
     expect(attestation.canonicalJson).toContain(
       '"moduleKey":"firestore:module_gold_1"',
     );
     expect(attestation.payload.modules[0].snapshotHash).toBe(
-      '16181a9bf6da5e2399917925c29c6ab29d8631cc3efb310e8eab2a439d1e20b1',
+      '17421d66d630e541c4dcf2a49054f2b1fa222fdff45013d609ac492dd6bd6408',
     );
   });
 
@@ -92,6 +92,25 @@ describe('planned job server closure validation', () => {
       missingRequiredEvidence: 0,
       pendingIssueOrFollowUp: 0,
     });
+  });
+
+  test('rejects a response whose explicit type conflicts with the frozen definition', () => {
+    expect(() => assertClosureReady([
+      baseModule({
+        responsesJson: JSON.stringify([{
+          key: 'vt_reading',
+          fieldType: 'text',
+          value: '2.1',
+        }]),
+      }),
+    ])).toThrow(expect.objectContaining({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'module-response-contract-mismatch',
+        fieldKey: 'vt_reading',
+        mismatch: 'type',
+      }),
+    }));
   });
 
   test('treats a required boolean false as supplied evidence', () => {

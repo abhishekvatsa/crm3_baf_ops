@@ -1,10 +1,15 @@
 import {createHash} from "crypto";
 
 import {
-  PersistedWorkPayloadError,
-  readFieldDefinitionPayload,
-} from "../persistedWorkPayload";
+  AssignmentValidationError,
+  compilePublishedTemplateRequirements,
+  validatePublishedTemplatePublication,
+  validatePublishedTemplateTarget,
+  revalidatePublishedInstalledComponent,
+} from "../publishedTemplateAssignment";
 import {WorkflowError} from "./errors";
+import {FrozenMaintenanceClass} from "./maintenanceIntelligence";
+import {EquipmentIdentity} from "./paths";
 import {WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
 
@@ -16,6 +21,7 @@ export interface ResolvedRedSuccessorTemplate {
   readonly versionNumber: number;
   readonly versionLabel: string | null;
   readonly contentHash: string;
+  readonly publicationAuditId: string;
   readonly templateName: string;
   readonly modules: readonly JsonMap[];
 }
@@ -34,41 +40,7 @@ const integer = (value: unknown): number | null => {
   return null;
 };
 
-const objectList = (value: unknown, field: string): JsonMap[] => {
-  let parsed: unknown = value;
-  if (typeof value === "string") {
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      throw new WorkflowError("red-successor-template-unconfigured", `${field} is not valid JSON.`);
-    }
-  }
-  if (!Array.isArray(parsed)) {
-    throw new WorkflowError("red-successor-template-unconfigured", `${field} must contain a JSON array.`);
-  }
-  return parsed.map((entry, index) => {
-    if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
-      throw new WorkflowError("red-successor-template-unconfigured", `${field}[${index}] must be an object.`);
-    }
-    return entry as JsonMap;
-  });
-};
-
-const objectValue = (value: unknown): JsonMap => {
-  let parsed: unknown = value;
-  if (typeof value === "string") {
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return {};
-    }
-  }
-  return parsed != null && typeof parsed === "object" && !Array.isArray(parsed)
-    ? parsed as JsonMap
-    : {};
-};
-
-const firstText = (data: JsonMap, keys: readonly string[]): string | null => {
+const firstText = (data: Readonly<Record<string, unknown>>, keys: readonly string[]): string | null => {
   for (const key of keys) {
     const value = text(data[key]);
     if (value != null) return value;
@@ -76,7 +48,7 @@ const firstText = (data: JsonMap, keys: readonly string[]): string | null => {
   return null;
 };
 
-const boolValue = (data: JsonMap, keys: readonly string[], fallback: boolean): boolean => {
+const boolValue = (data: Readonly<Record<string, unknown>>, keys: readonly string[], fallback: boolean): boolean => {
   for (const key of keys) {
     if (typeof data[key] === "boolean") return data[key] as boolean;
   }
@@ -87,27 +59,12 @@ const stringList = (value: unknown): string[] => Array.isArray(value)
   ? value.map((item) => text(item)).filter((item): item is string => item != null)
   : [];
 
-const moduleCode = (snapshot: JsonMap, index: number): string =>
-  firstText(snapshot, ["moduleCode", "code", "templateModuleCode", "moduleId", "id", "key"]) ??
-  `RED-${String(index + 1).padStart(2, "0")}`;
-
-const moduleTitle = (snapshot: JsonMap, index: number): string =>
+const moduleTitle = (snapshot: Readonly<Record<string, unknown>>, index: number): string =>
   firstText(snapshot, ["moduleTitle", "title", "name", "label"]) ?? `RED module ${index + 1}`;
 
 const moduleId = (executionId: string, index: number, code: string): string => {
   const digest = createHash("sha256").update(`${executionId}:${index}:${code}`).digest("hex").slice(0, 24);
   return `red_module_${digest}`;
-};
-
-const fieldsForModule = (fields: readonly JsonMap[], snapshot: JsonMap, code: string): JsonMap[] => {
-  const templateModuleId = firstText(snapshot, ["templateModuleId", "moduleId", "id", "key"]);
-  return fields.filter((field) => {
-    const fieldCode = firstText(field, ["moduleCode", "ownerModuleCode"]);
-    const fieldModuleId = firstText(field, ["templateModuleId", "moduleId", "ownerModuleId"]);
-    if (fieldCode != null) return fieldCode === code;
-    if (fieldModuleId != null && templateModuleId != null) return fieldModuleId === templateModuleId;
-    return fields.length === 1;
-  });
 };
 
 export const deterministicRedSuccessorIds = (
@@ -124,8 +81,9 @@ export const deterministicRedSuccessorIds = (
 
 export const resolveRedSuccessorTemplate = async (
   tx: WorkflowTransaction,
-  assetTypeKey: string,
+  target: EquipmentIdentity,
 ): Promise<ResolvedRedSuccessorTemplate> => {
+  const {assetTypeKey} = target;
   const promptRows = await tx.query("equipment_prompt_master", [
     {field: "assetTypeKey", op: "==", value: assetTypeKey},
   ]);
@@ -177,8 +135,6 @@ export const resolveRedSuccessorTemplate = async (
     throw new WorkflowError("red-successor-template-unconfigured", "RED TemplateVersion identity is incomplete.");
   }
 
-  const jobSnapshot = objectValue(versionData.jobTemplateSnapshotJson);
-  const snapshots = objectList(versionData.moduleSnapshotsJson, "moduleSnapshotsJson");
   const hasFieldDefinitions = Object.prototype.hasOwnProperty.call(
     versionData,
     "fieldDefinitionsJson",
@@ -193,38 +149,56 @@ export const resolveRedSuccessorTemplate = async (
       },
     );
   }
-  const allFields = objectList(
-    hasFieldDefinitions ? versionData.fieldDefinitionsJson : "[]",
-    "fieldDefinitionsJson",
-  );
-  if (snapshots.length === 0) {
-    throw new WorkflowError("red-successor-template-unconfigured", "RED successor template has no modules.");
+  let compiled: ReturnType<typeof compilePublishedTemplateRequirements>;
+  let publicationAuditId: string;
+  try {
+    compiled = compilePublishedTemplateRequirements({
+      ...versionData,
+      fieldDefinitionsJson: hasFieldDefinitions ? versionData.fieldDefinitionsJson : "[]",
+      checklistJson: Object.prototype.hasOwnProperty.call(versionData, "checklistJson") ?
+        versionData.checklistJson : "[]",
+    });
+    const publication = validatePublishedTemplatePublication({
+      request: {
+        packageId, versionId, expectedVersionNumber: versionNumber,
+        expectedContentHash: contentHash,
+      },
+      packageData,
+      versionData,
+      enforceClientAppVersion: false,
+    });
+    const auditRows = await tx.query("template_publish_audits", [
+      {field: "versionFirestoreId", op: "==", value: versionId},
+    ]);
+    publicationAuditId = publication.requireAudit(auditRows.map((row) => ({
+      id: documentId(row.path),
+      exists: row.exists,
+      data: () => row.data ?? undefined,
+    }))).id;
+    validatePublishedTemplateTarget(versionData, target);
+    await revalidatePublishedInstalledComponent(versionData, target, async (path) => {
+      const value = await tx.get(path);
+      return {id: documentId(path), exists: value.exists, data: () => value.data ?? undefined};
+    });
+  } catch (error) {
+    if (error instanceof AssignmentValidationError) {
+      throw new WorkflowError(
+        "red-successor-template-unconfigured", error.message, error.details as JsonMap,
+      );
+    }
+    throw error;
   }
 
   const packageTitle = text(packageData.title) ?? templateCodes[0];
-  const templateName = firstText(jobSnapshot, ["jobName", "templateName", "title", "name"]) ?? packageTitle;
-  const modules = snapshots.map((snapshot, index) => {
-    const code = moduleCode(snapshot, index);
-    const candidateFields = fieldsForModule(allFields, snapshot, code);
-    let fields: readonly JsonMap[];
-    try {
-      readFieldDefinitionPayload(JSON.stringify(candidateFields), {
-        field: `fieldDefinitionsJson for RED module ${code}`,
-      });
-      fields = candidateFields;
-    } catch (error) {
-      if (error instanceof PersistedWorkPayloadError) {
-        throw new WorkflowError(
-          "red-successor-template-unconfigured",
-          `Field definitions for RED module ${code} are invalid.`,
-          {
-            reasonCode: "field-definition-payload-invalid",
-            moduleCode: code,
-            field: error.field,
-          },
-        );
-      }
-      throw error;
+  const templateName = firstText(compiled.jobSnapshot, ["jobName", "templateName", "title", "name"]) ?? packageTitle;
+  const modules = compiled.modules.map(({snapshot, code, fields}, index) => {
+    const discipline = ["discipline", "defaultDiscipline", "assignedDiscipline", "ownerDiscipline"]
+      .map((key) => firstText(snapshot, [key]))
+      .find((value) => value != null && value.trim().toLowerCase() !== "refractory");
+    if (discipline != null) {
+      throw new WorkflowError("red-successor-template-unconfigured",
+        "The automatic RED successor requires refractory modules. Publish a compatible package instead of changing its recorded ownership.",
+        {reasonCode: "red-successor-discipline-incompatible", moduleCode: code, discipline});
     }
     return {
       templateModuleId: firstText(snapshot, ["templateModuleId", "moduleId", "id", "key"]),
@@ -258,6 +232,7 @@ export const resolveRedSuccessorTemplate = async (
     versionNumber,
     versionLabel: text(versionData.versionLabel),
     contentHash,
+    publicationAuditId,
     templateName,
     modules,
   };
@@ -273,8 +248,14 @@ export const buildRedSuccessorModule = (args: {
   readonly actorUid: string;
   readonly actorName: string;
   readonly at: string;
+  readonly maintenanceClassification?: FrozenMaintenanceClass | null;
+  readonly maintenanceClassificationRevision?: number | null;
 }): {id: string; data: JsonMap} => {
-  const {template, module, index, executionId, assetTypeKey, assetNumber, actorUid, actorName, at} = args;
+  const {
+    template, module, index, executionId, assetTypeKey, assetNumber,
+    actorUid, actorName, at, maintenanceClassification,
+    maintenanceClassificationRevision,
+  } = args;
   const code = text(module.moduleCode) ?? `RED-${index + 1}`;
   const id = moduleId(executionId, index, code);
   return {
@@ -361,6 +342,10 @@ export const buildRedSuccessorModule = (args: {
         versionFirestoreId: template.versionId,
         contentHash: template.contentHash,
         moduleIndex: index,
+        ...(maintenanceClassification == null ? {} : {
+          maintenanceClassification,
+          maintenanceClassificationRevision: maintenanceClassificationRevision ?? 1,
+        }),
       }),
     },
   };

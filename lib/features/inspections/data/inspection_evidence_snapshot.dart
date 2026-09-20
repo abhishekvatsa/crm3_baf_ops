@@ -4,10 +4,14 @@ final class InspectionEvidenceSnapshot<T> {
   const InspectionEvidenceSnapshot({
     required this.records,
     required this.isServerVerified,
+    this.rejectedDocumentIds = const <String>[],
   });
 
   final List<T> records;
   final bool isServerVerified;
+  final List<String> rejectedDocumentIds;
+  bool get isComplete => rejectedDocumentIds.isEmpty;
+  int get rawCount => records.length + rejectedDocumentIds.length;
 }
 
 final class InspectionCampaignReportEvidence {
@@ -15,13 +19,30 @@ final class InspectionCampaignReportEvidence {
     required this.campaign,
     required this.observations,
     required this.findings,
+    this.createdFindingIds,
   });
 
   final InspectionCampaign campaign;
   final List<InspectionObservation> observations;
   final List<InspectionFinding> findings;
 
+  /// Independent, immutable creation-event population, including terminal
+  /// episodes and findings whose abnormal evidence was later corrected away.
+  final List<String>? createdFindingIds;
+
   bool get isInternallyComplete {
+    if (createdFindingIds == null &&
+        (observations.isNotEmpty || findings.isNotEmpty)) {
+      return false;
+    }
+    final findingIds = findings.map((row) => row.id).toSet();
+    final expectedFindingIds = (createdFindingIds ?? const <String>[]).toSet();
+    if (findingIds.length != findings.length ||
+        expectedFindingIds.length != (createdFindingIds?.length ?? 0) ||
+        findingIds.length != expectedFindingIds.length ||
+        !findingIds.containsAll(expectedFindingIds)) {
+      return false;
+    }
     if (observations.length != campaign.observationCount ||
         observations.any((row) => row.campaignId != campaign.id) ||
         findings.any((row) => row.campaignId != campaign.id)) {
@@ -114,6 +135,14 @@ final class InspectionCampaignReportEvidence {
   }
 
   bool hasSameRevisionAs(InspectionCampaignReportEvidence other) {
+    if ((createdFindingIds == null) != (other.createdFindingIds == null)) {
+      return false;
+    }
+    final creationIds = [...?createdFindingIds]..sort();
+    final otherCreationIds = [...?other.createdFindingIds]..sort();
+    if (!_sameRevisionRows(creationIds, otherCreationIds)) {
+      return false;
+    }
     if (campaign.id != other.campaign.id ||
         campaign.version != other.campaign.version) {
       return false;

@@ -179,7 +179,7 @@ class _SourceWindowNotice extends StatelessWidget {
         SizedBox(width: 7),
         Expanded(
           child: Text(
-            'Issues, planned jobs, disruptions, quality warnings, monitoring requests and charge abnormalities were evaluated for the selected period. Current maintenance cadence, inspection findings, visible directives and workflow obligations are included for the selected asset scope.',
+            'Period activity includes issues, planned work, disruptions and abnormalities. Current warnings, monitoring, alarms, retained engineering follow-up, cadence, findings, directives and workflow obligations remain visible regardless of that period. Calendar days use Asia/Kolkata; this is not a historical as-at reconstruction.',
             style: TextStyle(
               color: BafColors.textSecondary,
               fontSize: 11,

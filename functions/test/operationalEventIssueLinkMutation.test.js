@@ -104,6 +104,7 @@ function assetReference(overrides = {}) {
     scope: 'physicalAsset',
     assetClassId: IDS.assetClass,
     assetInstanceId: IDS.asset,
+    assetNumber: 7,
     ...overrides,
   });
 }
@@ -182,6 +183,81 @@ describe('operational event issue-link mutation', () => {
     expect(userCanLinkOperationalEventIssue(user('operations'))).toBe(true);
     expect(userCanLinkOperationalEventIssue(user('contractSupervisor'))).toBe(true);
     expect(userCanLinkOperationalEventIssue(user('mechanical'))).toBe(false);
+  });
+
+  function componentOnAssetReference() {
+    // What the maintenance producer writes for an ordinary component issue.
+    return JSON.stringify({
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: IDS.assetClass,
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'node-control-panel',
+      nodeVersion: 2,
+      nodeName: 'Control panel',
+      assetInstanceId: IDS.asset,
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Furnace', 'Power distribution', 'Control panel'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Electrical',
+      accountableRoleKeys: ['seniorElectrical'],
+      innerCoverAssociation: null,
+    });
+  }
+
+  test('an issue recorded against a governed component can be linked', async () => {
+    const memory = fakeDb(baseSeed({
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({
+        assetHierarchyRefJson: componentOnAssetReference(),
+      }),
+    }));
+
+    await expect(invoke(memory)).resolves.toMatchObject({ok: true});
+  });
+
+  test('an issue closed administratively is known, not malformed', async () => {
+    const memory = fakeDb(baseSeed({
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({
+        status: 'closedWithoutResolution',
+        isResolved: true,
+      }),
+    }));
+
+    const result = await invoke(memory);
+
+    expect(result).toMatchObject({ok: true});
+    // The link records what the issue actually is; nothing reads a closure
+    // without resolution as a technical repair.
+    expect(memory.store.get(
+      `operational_event_issue_links/${result.linkId}`,
+    )).toMatchObject({
+      issueStatusAtLink: 'closedWithoutResolution',
+      issueResolvedAtLink: true,
+    });
+  });
+
+  test('a withdrawn event cannot receive a new issue link', async () => {
+    const memory = fakeDb(baseSeed({
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        isWithdrawn: true,
+        withdrawalReason: 'The duplicate entry was confirmed in error.',
+        withdrawnAt: new Date('2026-08-14T13:00:00.000Z'),
+        withdrawnByUid: 'ops-1',
+        withdrawnByName: 'Operations One',
+      }),
+    }));
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-withdrawn'},
+    });
+    expect(memory.writes).toHaveLength(0);
   });
 
   test('atomically writes projections, immutable link, audit, and receipt', async () => {
@@ -268,6 +344,22 @@ describe('operational event issue-link mutation', () => {
     });
   });
 
+  test('new acceptance replay detects changed occurrence evidence', async () => {
+    const memory = fakeDb(baseSeed());
+    const first = await invoke(memory);
+    const path = `operational_event_issue_links/${first.linkId}`;
+    const link = memory.store.get(path);
+    link.eventOccurrenceStartedAt = new Date('2026-08-14T09:00:00.000Z');
+    memory.store.set(path, link);
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {
+        reasonCode: 'operational-event-issue-link-replay-evidence-drift',
+      },
+    });
+  });
+
   test('requires exact event and issue versions', async () => {
     const memory = fakeDb(baseSeed());
     await expect(invoke(memory, 'ops-1', request({
@@ -292,6 +384,26 @@ describe('operational event issue-link mutation', () => {
       details: {reasonCode: 'operational-event-link-scope-mismatch'},
     });
     expect(memory.writes).toHaveLength(0);
+  });
+
+  test('does not launder contradictory or incomplete schema-3 physical evidence', async () => {
+    for (const reference of [
+      assetReference({assetNumber: 8}),
+      assetReference({assetNumber: undefined}),
+    ]) {
+      const memory = fakeDb(baseSeed({
+        [`maintenance_records/${IDS.issue}`]: persistedIssue({
+          assetHierarchyRefJson: reference,
+        }),
+      }));
+      await expect(invoke(memory)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'operational-event-link-issue-asset-reference-malformed',
+        },
+      });
+      expect(memory.writes).toHaveLength(0);
+    }
   });
 
   test('rejects malformed saved projections and duplicate occurrence links', async () => {

@@ -16,10 +16,15 @@ void main() {
     'real component replacement preserves a precise installed-client fixture',
     () async {
       final functions = _Functions();
-      final repository = AssetHierarchyRepository(
+      late final AssetHierarchyRepository repository;
+      repository = AssetHierarchyRepository(
         firestore: _Firestore(),
         functions: functions,
         uuid: _Ids(),
+        submitRegistry: (request, actor) => repository.dispatchFrozenRegistry(
+          request,
+          originActorUid: actor.uid,
+        ),
       );
       final now = DateTime.utc(2026, 9, 12);
       final asset = AssetInstanceRecord(
@@ -100,7 +105,7 @@ void main() {
           // The actual old Dart expression, not a handwritten JS approximation.
           'installedOn': input.toUtc().toIso8601String(),
         },
-      };
+      }..remove('expectedTagOwnerComponentVersion');
       const paths = [
         'functions/test/fixtures/component_replacement_dart_request.json',
         'functions/test/fixtures/component_replacement_legacy_dart_request.json',
@@ -138,7 +143,7 @@ class _Functions extends Fake implements FirebaseFunctions {
   Map<String, dynamic>? request;
   @override
   HttpsCallable httpsCallable(String name, {HttpsCallableOptions? options}) {
-    expect(name, assetHierarchyCallableName);
+    expect(name, assetHierarchyV2CallableName);
     return _Callable(this);
   }
 }
@@ -148,7 +153,8 @@ class _Callable extends Fake implements HttpsCallable {
   final _Functions owner;
   @override
   Future<HttpsCallableResult<T>> call<T>([dynamic parameters]) async {
-    final request = Map<String, dynamic>.from(parameters as Map);
+    expect(parameters['originActorUid'], 'admin-1');
+    final request = Map<String, dynamic>.from(parameters['request'] as Map);
     owner.request = request;
     return _Result<T>(
       <String, dynamic>{

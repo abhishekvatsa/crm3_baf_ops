@@ -212,6 +212,20 @@ export const frozenMaintenanceClassFromExecution = (
   return parseFrozenMaintenanceClass(metadata.maintenanceClassification);
 };
 
+/**
+ * Template-created executions historically carried the frozen class without
+ * an explicit revision marker. Treat that established shape as revision one,
+ * while preserving later reviewed corrections as their recorded revision.
+ */
+export const maintenanceClassificationRevisionFromExecution = (
+  execution: JsonMap,
+): number => {
+  const metadata = metadataMap(execution.metadataJson);
+  const value = metadata.maintenanceClassificationRevision;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 ?
+    value : 1;
+};
+
 export const metadataWithMaintenanceClassification = (
   currentMetadataJson: unknown,
   classification: FrozenMaintenanceClass,
@@ -317,6 +331,39 @@ export const dueStatePath = (
   counterKey: string,
 ): string => `maintenance_due_states/${stableId("mds", `${assetIdentityKey}|${counterKey}`)}`;
 
+export interface MaintenanceCompletionEvidence {
+  readonly completedAt: string;
+  readonly eventId: string | null;
+  readonly sourceType: string | null;
+  readonly sourceId: string | null;
+  readonly sourceRevision: number;
+}
+
+const evidenceIdentity = (value: MaintenanceCompletionEvidence): string =>
+  value.eventId ?? `${value.sourceType ?? ""}|${value.sourceId ?? ""}|${value.sourceRevision}`;
+
+/**
+ * Returns a positive value when `left` is the canonical winner. Physical time
+ * is primary. A correction of the same source wins by that source's revision;
+ * unrelated sources at the same instant use their stable event identity, so
+ * arrival order cannot change the result.
+ */
+export const compareMaintenanceCompletionEvidence = (
+  left: MaintenanceCompletionEvidence,
+  right: MaintenanceCompletionEvidence,
+): number => {
+  const leftAt = Date.parse(left.completedAt);
+  const rightAt = Date.parse(right.completedAt);
+  if (leftAt !== rightAt) return leftAt - rightAt;
+  if (left.sourceType === right.sourceType && left.sourceId === right.sourceId &&
+      left.sourceRevision !== right.sourceRevision) {
+    return left.sourceRevision - right.sourceRevision;
+  }
+  // Lexicographically smaller stable identities win. This is deliberately
+  // independent of transaction arrival order and unrelated source revisions.
+  return evidenceIdentity(right).localeCompare(evidenceIdentity(left));
+};
+
 const validIso = (value: unknown, field: string): string => {
   if (typeof value !== "string") {
     throw new WorkflowError("failed-precondition", `${field} is missing.`);
@@ -328,11 +375,131 @@ const validIso = (value: unknown, field: string): string => {
   return parsed.toISOString();
 };
 
-const nextDueAt = (completedAt: string, thresholdDays: number | null): string | null => {
-  if (thresholdDays == null) return null;
-  const next = new Date(completedAt);
-  next.setUTCDate(next.getUTCDate() + thresholdDays);
-  return next.toISOString();
+export const dueProjectionFromSource = (
+  path: string,
+  counterKey: string,
+  sources: readonly {readonly path: string; readonly data: JsonMap}[],
+  now: string,
+  fallback: {
+    readonly assetIdentityKey: string;
+    readonly assetTypeKey: string;
+    readonly assetNumber: number | null;
+    readonly assetClassId: string | null;
+    readonly assetInstanceId: string | null;
+    readonly assetDisplayName: string | null;
+    readonly counterLabel: string;
+    readonly thresholdDays: number | null;
+  },
+): JsonMap => {
+  const candidates = sources
+    .flatMap((source) => {
+      const completedAt = persistedInstantText(source.data.completedAt);
+      return source.data.cadenceApplicability !== "historicalOnly" &&
+        source.data.cadenceApplicability !== "withdrawn" &&
+        source.data.assetIdentityKey === fallback.assetIdentityKey &&
+        Array.isArray(source.data.resetCounterKeys) &&
+        (source.data.resetCounterKeys as unknown[]).includes(counterKey) &&
+        completedAt != null ? [{...source, completedAt}] : [];
+    })
+    .sort((left, right) => compareMaintenanceCompletionEvidence(
+      {
+        completedAt: right.completedAt,
+        eventId: typeof right.data.currentEventId === "string" ? right.data.currentEventId : null,
+        sourceType: typeof right.data.sourceType === "string" ? right.data.sourceType : null,
+        sourceId: typeof right.data.sourceId === "string" ? right.data.sourceId : null,
+        sourceRevision: typeof right.data.sourceRevision === "number" ? right.data.sourceRevision : 0,
+      },
+      {
+        completedAt: left.completedAt,
+        eventId: typeof left.data.currentEventId === "string" ? left.data.currentEventId : null,
+        sourceType: typeof left.data.sourceType === "string" ? left.data.sourceType : null,
+        sourceId: typeof left.data.sourceId === "string" ? left.data.sourceId : null,
+        sourceRevision: typeof left.data.sourceRevision === "number" ? left.data.sourceRevision : 0,
+      },
+    ));
+  // A legacy position and a registered subject may denote the same object,
+  // but that cannot be inferred safely after number reuse. Hold only the
+  // affected counter until reviewed identity evidence resolves the alias.
+  const potentialAliases = sources.filter(({data}) =>
+    data.cadenceApplicability !== "historicalOnly" && data.cadenceApplicability !== "withdrawn" &&
+    data.assetTypeKey === fallback.assetTypeKey && data.assetNumber === fallback.assetNumber &&
+    Array.isArray(data.resetCounterKeys) && data.resetCounterKeys.includes(counterKey));
+  const identityReviewRequired = fallback.assetNumber != null &&
+    new Set(potentialAliases.map(({data}) => data.assetIdentityKey)).size > 1 &&
+    potentialAliases.some(({data}) => data.assetClassId == null && data.assetInstanceId == null);
+  const latestCandidate = candidates[0];
+  const latest = latestCandidate?.data;
+  if (latest == null || latestCandidate == null || identityReviewRequired) {
+    return {
+      schemaVersion: 1,
+      dueStateId: path.split("/").at(-1)!,
+      assetIdentityKey: fallback.assetIdentityKey,
+      assetTypeKey: fallback.assetTypeKey,
+      assetNumber: fallback.assetNumber,
+      assetClassId: fallback.assetClassId,
+      assetInstanceId: fallback.assetInstanceId,
+      assetDisplayName: fallback.assetDisplayName,
+      counterKey,
+      counterLabel: fallback.counterLabel,
+      thresholdDays: fallback.thresholdDays,
+      lastCompletionAt: null,
+      nextDueAt: null,
+      lastCompletionEventId: null,
+      lastCompletionSourceType: null,
+      lastCompletionSourceId: null,
+      lastMaintenanceClassCode: null,
+      classificationPending: true,
+      reviewReason: identityReviewRequired ? "legacy-identity-review-required" : "no-applicable-completion",
+      conflictingCompletionEventIds: [],
+      updatedAt: now,
+    };
+  }
+  const classification = parseFrozenMaintenanceClass(latest.maintenanceClass);
+  const counter = classification.resetCounters.find((item) => item.key === counterKey)!;
+  const completedAt = latestCandidate.completedAt;
+  const nextDue = counter.thresholdDays == null ? null : (() => {
+    const date = new Date(completedAt);
+    date.setUTCDate(date.getUTCDate() + counter.thresholdDays!);
+    return date.toISOString();
+  })();
+  // The owner requires review when same-plant-day evidence implies different
+  // deadlines. Stable event ordering is for presentation only, never precedence.
+  const plantDay = (value: string): string =>
+    new Date(Date.parse(value) + 330 * 60_000).toISOString().slice(0, 10);
+  const sameDay = candidates.filter((candidate) =>
+    plantDay(candidate.completedAt) === plantDay(completedAt));
+  const dueDays = new Set(sameDay.map((candidate) => {
+    const frozen = parseFrozenMaintenanceClass(candidate.data.maintenanceClass);
+    const reset = frozen.resetCounters.find((item) => item.key === counterKey);
+    if (reset == null) throw new WorkflowError("failed-precondition", "Counter evidence is inconsistent.");
+    return reset.thresholdDays == null ? "unbounded" :
+      plantDay(new Date(Date.parse(candidate.completedAt) + reset.thresholdDays * 86_400_000).toISOString());
+  }));
+  const conflicting = dueDays.size > 1;
+  return {
+    schemaVersion: 1,
+    dueStateId: path.split("/").at(-1)!,
+    assetIdentityKey: latest.assetIdentityKey,
+    assetTypeKey: latest.assetTypeKey,
+    assetNumber: latest.assetNumber,
+    assetClassId: latest.assetClassId ?? null,
+    assetInstanceId: latest.assetInstanceId ?? null,
+    assetDisplayName: latest.assetDisplayName ?? null,
+    counterKey,
+    counterLabel: counter.label,
+    thresholdDays: counter.thresholdDays,
+    lastCompletionAt: completedAt,
+    nextDueAt: conflicting ? null : nextDue,
+    lastCompletionEventId: latest.currentEventId,
+    lastCompletionSourceType: latest.sourceType,
+    lastCompletionSourceId: latest.sourceId,
+    lastMaintenanceClassCode: latest.maintenanceClassCode,
+    classificationPending: conflicting,
+    reviewReason: conflicting ? "conflicting-same-day-evidence" : null,
+    conflictingCompletionEventIds: conflicting ?
+      sameDay.map((candidate) => String(candidate.data.currentEventId)).sort() : [],
+    updatedAt: now,
+  };
 };
 
 export const prepareMaintenanceCompletionWritePlan = async (args: {
@@ -348,6 +515,9 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
   readonly recordedAt: string;
   readonly classification?: FrozenMaintenanceClass | null;
   readonly classificationRevision?: number;
+  readonly cadenceApplicability?: "operational" | "historicalOnly";
+  readonly datePrecision?: "date" | "instant";
+  readonly interpretedBy?: Actor;
 }): Promise<MaintenanceCompletionWritePlan | null> => {
   const classification = args.classification ??
     frozenMaintenanceClassFromExecution(args.execution);
@@ -355,7 +525,8 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
   const identity = maintenanceAssetIdentityFromExecution(args.execution);
   assertMaintenanceClassApplies(classification, identity);
   const completedAt = validIso(args.completedAt, "completedAt");
-  const revision = args.classificationRevision ?? 1;
+  const revision = args.classificationRevision ??
+    maintenanceClassificationRevisionFromExecution(args.execution);
   if (!Number.isSafeInteger(revision) || revision < 1) {
     throw new WorkflowError("failed-precondition", "Classification revision is invalid.");
   }
@@ -364,10 +535,9 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
   const sourcePath = completionSourcePath(args.sourceType, args.executionId);
   const duePaths = classification.resetCounters.map((counter) =>
     dueStatePath(identity.assetIdentityKey, counter.key));
-  const [event, source, ...dueSnapshots] = await Promise.all([
+  const [event, source] = await Promise.all([
     args.tx.get(eventPath),
     args.tx.get(sourcePath),
-    ...duePaths.map((path) => args.tx.get(path)),
   ]);
   if (event.exists) {
     throw new WorkflowError(
@@ -408,6 +578,11 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
     completedByUid: args.completedBy.uid,
     completedByName: args.completedBy.name,
     recordedAt: validIso(args.recordedAt, "recordedAt"),
+    cadenceApplicability: source.data?.cadenceApplicability ?? args.cadenceApplicability ?? "operational",
+    datePrecision: source.data?.datePrecision ?? args.datePrecision ?? "instant",
+    plantTimezone: "Asia/Kolkata",
+    interpretedByUid: args.interpretedBy?.uid ?? null,
+    interpretedByName: args.interpretedBy?.name ?? null,
   };
   const eventData: JsonMap = {eventId, ...common};
   const sourceData: JsonMap = {
@@ -415,38 +590,48 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
     ...common,
     currentEventId: eventId,
   };
-  const dueStates = classification.resetCounters.flatMap((counter, index) => {
-    const current = dueSnapshots[index].data;
-    const currentAtText = persistedInstantText(current?.lastCompletionAt);
-    const currentAt = currentAtText == null ?
-      Number.NaN : Date.parse(currentAtText);
-    if (Number.isFinite(currentAt) && currentAt > Date.parse(completedAt)) return [];
-    const path = duePaths[index];
-    return [{
-      path,
-      data: {
-        schemaVersion: 1,
-        dueStateId: path.split("/").at(-1)!,
-        assetIdentityKey: identity.assetIdentityKey,
-        assetTypeKey: identity.assetTypeKey,
-        assetNumber: identity.assetNumber,
-        assetClassId: identity.assetClassId,
-        assetInstanceId: identity.assetInstanceId,
-        assetDisplayName,
-        counterKey: counter.key,
-        counterLabel: counter.label,
+  const existingSources = (await args.tx.query("maintenance_completion_sources",
+    identity.assetNumber == null ? [
+      {field: "assetIdentityKey", op: "==", value: identity.assetIdentityKey},
+    ] : [
+      {field: "assetTypeKey", op: "==", value: identity.assetTypeKey},
+      {field: "assetNumber", op: "==", value: identity.assetNumber},
+    ])).filter((row) => row.data != null).map((row) => row.data!);
+  const sources = existingSources.filter((candidate) =>
+    !(candidate.sourceType === args.sourceType && candidate.sourceId === args.executionId))
+    .map((data) => ({path: "", data}));
+  sources.push({path: sourcePath, data: sourceData});
+  const dueStates = sourceData.cadenceApplicability === "historicalOnly" ? [] :
+    classification.resetCounters.map((counter, index) => ({
+      path: duePaths[index],
+      data: dueProjectionFromSource(duePaths[index], counter.key, sources, args.recordedAt, {
+        ...identity, assetDisplayName, counterLabel: counter.label,
         thresholdDays: counter.thresholdDays,
-        lastCompletionAt: completedAt,
-        nextDueAt: nextDueAt(completedAt, counter.thresholdDays),
-        lastCompletionEventId: eventId,
-        lastCompletionSourceType: args.sourceType,
-        lastCompletionSourceId: args.executionId,
-        lastMaintenanceClassCode: classification.code,
-        classificationPending: false,
-        updatedAt: args.recordedAt,
-      },
-    }];
-  });
+      }),
+    }));
+  // Qualify already-visible alias counters in the same transaction as the
+  // new record, so the older track cannot continue to look authoritative.
+  if (sourceData.cadenceApplicability !== "historicalOnly") {
+    for (const candidate of existingSources) {
+      if (candidate.assetIdentityKey === identity.assetIdentityKey ||
+          candidate.assetNumber !== identity.assetNumber ||
+          !(candidate.assetClassId == null || identity.assetClassId == null)) continue;
+      const frozen = parseFrozenMaintenanceClass(candidate.maintenanceClass);
+      for (const counter of frozen.resetCounters) {
+        const path = dueStatePath(String(candidate.assetIdentityKey), counter.key);
+        if (dueStates.some((row) => row.path === path)) continue;
+        const data = dueProjectionFromSource(path, counter.key, sources, args.recordedAt, {
+          assetIdentityKey: String(candidate.assetIdentityKey), assetTypeKey: String(candidate.assetTypeKey),
+          assetNumber: candidate.assetNumber as number,
+          assetClassId: candidate.assetClassId as string | null,
+          assetInstanceId: candidate.assetInstanceId as string | null,
+          assetDisplayName: candidate.assetDisplayName as string | null,
+          counterLabel: counter.label, thresholdDays: counter.thresholdDays,
+        });
+        if (data.reviewReason === "legacy-identity-review-required") dueStates.push({path, data});
+      }
+    }
+  }
   return {eventId, eventPath, eventData, sourcePath, sourceData, dueStates};
 };
 
