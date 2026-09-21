@@ -258,6 +258,7 @@ interface CompletePlannedJobRequest {
 
 export const completePlannedJobExecution = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
@@ -313,6 +314,7 @@ interface AssignPublishedTemplateVersionRequest {
 
 export const assignPublishedTemplateVersion = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
@@ -355,6 +357,7 @@ export const assignPublishedTemplateVersion = onCall(
 
 export const beginGlobalPullRun = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 15,
     memory: "256MiB",
@@ -385,6 +388,7 @@ export const beginGlobalPullRun = onCall(
 
 export const stampGlobalPullServerClock = onDocumentWritten(
   {
+    maxInstances: 20,
     document: "{collectionId}/{documentId}",
     region: CALLABLE_REGION,
     retry: true,
@@ -429,6 +433,7 @@ interface MutateRuntimeJobModulePopulationRequest {
 
 export const mutateRuntimeJobModulePopulation = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
@@ -465,6 +470,7 @@ export const mutateRuntimeJobModulePopulation = onCall(
 
 export const getBackendReleaseIdentity = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 15,
     memory: "256MiB",
@@ -509,6 +515,7 @@ interface MutateUserAuthorityRequest {
 
 export const mutateUserAuthority = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -566,6 +573,7 @@ interface MutateChargeAbnormalityRequest {
 
 export const mutateChargeAbnormality = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -633,6 +641,7 @@ interface MutateAssetHierarchyRequest {
 
 export const mutateChargeAbnormalityV2 = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -655,6 +664,7 @@ export const mutateChargeAbnormalityV2 = onCall(
 
 export const assignPublishedTemplateVersionV2 = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
@@ -677,6 +687,7 @@ export const assignPublishedTemplateVersionV2 = onCall(
 
 export const mutateAssetHierarchyV2 = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -713,6 +724,7 @@ export const mutateAssetHierarchyV2 = onCall(
 
 export const mutateAssetHierarchy = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -898,6 +910,7 @@ function logNotificationResult(
 
 export const onTicketCreated = onDocumentCreated(
   {
+    maxInstances: 20,
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
     retry: true,
@@ -930,6 +943,7 @@ export const onTicketCreated = onDocumentCreated(
 
 export const onTicketResolved = onDocumentUpdated(
   {
+    maxInstances: 20,
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
     retry: true,
@@ -977,6 +991,7 @@ export const onTicketResolved = onDocumentUpdated(
 
 export const onJobAssigned = onDocumentCreated(
   {
+    maxInstances: 20,
     document: "job_executions/{executionId}",
     region: NOTIFICATION_REGION,
     retry: true,

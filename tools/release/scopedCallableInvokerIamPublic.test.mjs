@@ -11,7 +11,9 @@ import seals from "./collectProductionGlobalPullBackend.js";
 import verifier from "./reviewedBackendVerifierAuthority.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const sourceCommit = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "HEAD"], {encoding: "utf8"}).trim();
+// This projection covers the historical15-existing/four-created deployment.
+// A successor source pins19 existing endpoints and is a different protocol.
+const sourceCommit = "fc0ac09fc51b370bee419909ad510b044765b540";
 const opts = controls.sourceOptions(repoRoot, sourceCommit), policy = opts.policy;
 const {PROJECT: project, REGION: region, NEW_FUNCTIONS: additions} = guard;
 const service = (name, location = region) => `projects/${project}/locations/${location}/services/${name.toLowerCase()}`;

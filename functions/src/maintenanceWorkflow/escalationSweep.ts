@@ -196,6 +196,7 @@ const runWithConcurrency = async <T>(
 
 export const maintenanceWorkflowEscalationSweep = onSchedule(
   {
+    maxInstances: 20,
     schedule: "every 15 minutes",
     region: REGION,
     timeZone: "Asia/Kolkata",

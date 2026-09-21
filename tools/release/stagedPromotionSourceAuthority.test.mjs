@@ -130,7 +130,7 @@ function fixture(t) {
     exactFunctionFleetDeploymentPullRequest: 355,
     exactFunctionFleetDeploymentReceiptFile: backendPath}};
   const policy = {firebaseProjectId: PROJECT,
-    versionPolicy: {sourceDocumentFile: versionPath},
+    versionPolicy: {buildNumber: 27, sourceDocumentFile: versionPath},
     finalization: {exactFunctionFleetDeploymentReceiptFile: backendPath}};
   const deployed = {functionFleetEvidenceFile: backendPath,
     functionFleetSourceCommit: commit, deploymentApprovalFile: approvalPath};
@@ -206,21 +206,63 @@ function delegatedCurrentFixture(t) {
 // Synthetic successor deployment, with the actual19-endpoint source graph and
 // real Git approval/CI custody. Every readback is produced by the real pure
 // collector adjudicator. No record here describes a production deployment.
-function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b', childDirectory = 'release'} = {}) {
+function successorDelegatedFixture(t, {
+  delegationBuild = 28,
+  sourceCommit = delegationBuild === 29
+    ? 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4' : 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b',
+  childDirectory = 'release',
+  approvalFile = `release/approvals/build${delegationBuild}-current-source-backend-deployment-approval.json`,
+  ciFile = `release/evidence/build${delegationBuild}-current-source-backend-ci.json`,
+  delegationPolicyId = delegationBuild === 29 ? 'BUILD29-OWNER-DELEGATION-20260921' : 'BUILD28-OWNER-DELEGATION-20260913',
+  deriveSourceChild = false,
+  sourceGeneration,
+} = {}) {
   const f = delegatedCurrentFixture(t);
+  if (sourceGeneration) {
+    // Commit actual version/ledger bytes into the isolated source tree, then
+    // derive every approval, CI and readback binding from that real commit.
+    const sourcePolicy = JSON.parse(f.git('show', `${sourceCommit}:release/production-release-policy.json`));
+    const ledger = JSON.parse(f.git('show', `${sourceCommit}:release/build-number-ledger.json`));
+    sourcePolicy.versionPolicy.buildNumber = sourceGeneration.policy;
+    sourcePolicy.release.buildNumber = sourceGeneration.release ?? sourceGeneration.policy;
+    const last = structuredClone(ledger.entries.at(-1));
+    while (ledger.entries.length < sourceGeneration.ledger) {
+      ledger.entries.push({...last, buildNumber: ledger.entries.length + 1,
+        status: 'source-reserved-awaiting-remote-consumption'});
+    }
+    ledger.entries = ledger.entries.slice(0, sourceGeneration.ledger);
+    const pubspec = f.git('show', `${sourceCommit}:pubspec.yaml`)
+      .replace(/^(version:\s*[^\r\n]+\+)\d+\s*$/m, `$1${sourceGeneration.pubspec}`) + '\n';
+    f.git('read-tree', sourceCommit);
+    f.write('release/production-release-policy.json', sourcePolicy);
+    f.write('release/build-number-ledger.json', ledger);
+    fs.writeFileSync(path.join(f.root, 'pubspec.yaml'), pubspec);
+    for (const file of ['release/production-release-policy.json', 'release/build-number-ledger.json', 'pubspec.yaml']) {
+      const blob = f.git('hash-object', '-w', file);
+      f.git('update-index', '--add', '--cacheinfo', `100644,${blob},${file}`);
+    }
+    sourceCommit = f.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+      'commit-tree', f.git('write-tree'), '-p', sourceCommit, '-m', 'Synthetic release generation source');
+  }
+  if (deriveSourceChild) {
+    // A real isolated Git child with identical source bytes tests ancestry;
+    // changing the receipt's declared hash alone would fail an earlier guard.
+    sourceCommit = f.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+      'commit-tree', f.git('rev-parse', `${sourceCommit}^{tree}`), '-p', sourceCommit,
+      '-m', 'Synthetic unadmitted source descendant');
+  }
   const sourceTree = f.git('rev-parse', `${sourceCommit}^{tree}`);
   const functionTree = f.git('rev-parse', `${sourceCommit}:functions`);
   const getSource = (file) => f.git('show', `${sourceCommit}:${file}`) + '\n';
   const baseTime = Math.floor(Date.now() / 1000) * 1000 - 600000;
   const at = (seconds) => new Date(baseTime + seconds * 1000).toISOString();
   const approval = f.currentApproval, receipt = f.currentReceipt;
-  const approvalFile = 'release/approvals/build28-current-source-backend-deployment-approval.json';
-  const ciFile = 'release/evidence/build28-current-source-backend-ci.json';
   const runId = 99990001, prNumber = 9999;
   approval.approverName = 'Codex acting under project-owner delegation';
+  if (delegationBuild === 29) approval.intendedBuildNumber = 29;
   approval.approvedAtUtc = at(60);
   approval.approvalEvidence = {authorityType: 'owner-delegated agent decision',
-    delegationPolicyId: 'BUILD28-OWNER-DELEGATION-20260913', delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
+    delegationPolicyId, delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
     instructionExcerpts: ['you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward']};
   Object.assign(approval.sourceAuthority, {commit: sourceCommit, tree: sourceTree, functionTree,
     pullRequestNumber: prNumber, requiredPostMergeReleaseGateRunId: runId});
@@ -266,6 +308,19 @@ function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7a
           source: {files: [{name: 'firestore.rules', content: rulesRaw}]}}});
       approval.approvedDeployment.firestoreRulesSha256 = child.outputs.rules.sourceSha256;
       receipt.firestoreDeployment.rulesSha256 = child.outputs.rules.sourceSha256;
+      // This synthetic observation represents indexes already READY. It does
+      // not claim, authorize or exercise a production index mutation.
+      const indexesRaw = getSource('firestore.indexes.json');
+      const indexDefinition = JSON.parse(indexesRaw);
+      child.outputs.indexes = firestoreCollector.summarizeIndexes({
+        sourceDefinition: indexDefinition, cliDefinition: indexDefinition,
+        apiIndexes: indexDefinition.indexes.map((index) => ({...index, state: 'READY'})),
+        sourceRaw: indexesRaw,
+      });
+      approval.approvedDeployment.firestoreIndexCount = receipt.firestoreDeployment.indexCount =
+        child.outputs.indexes.sourceCount;
+      approval.approvedDeployment.firestoreIndexSetSha256 = receipt.firestoreDeployment.indexSetSha256 =
+        child.outputs.indexes.sourceSetSha256;
       const result = firestoreCollector.adjudicateReadback({projectId:PROJECT,sourceBefore:child.source.before,sourceAfter:child.source.after,
         rules:child.outputs.rules,indexes:child.outputs.indexes,observe:false});
       assert.deepEqual(result.failedChecks,[]); Object.assign(child,result.evidence); continue;
@@ -326,8 +381,99 @@ function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7a
     f.write('release/current-successor-state.json',f.state);
   };
   commitCustody();
-  return {...f,ci,commitCustody};
+  const result = {...f, ci, commitCustody, expectedBuildNumber: delegationBuild};
+  if (delegationBuild !== 29) return result;
+  const candidate = rolloverFixture(t, () => result, 29);
+  candidate.commitCustody = () => {commitCustody(); candidate.persistCandidate();};
+  return candidate;
 }
+
+test('Build29 generation rejects a coherent future Build30 candidate using the entire valid Build29 tuple', (t) => {
+  const f = rolloverFixture(t, (context) => successorDelegatedFixture(context, {delegationBuild: 29}), 30);
+  assert.equal(f.verify().ok, false, 'A valid Build29 decision cannot authorize a Build30 candidate');
+});
+
+test('Build29 generation rejects actual future source Git even when caller and immutable approval claim29', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29,
+    sourceGeneration: {policy: 30, pubspec: 30, ledger: 30}});
+  assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 29}), /source generation/);
+});
+
+test('Build29 generation admits explicit29 deployment from predecessor28 F and from coherent29 source', (t) => {
+  for (const sourceBuild of [28, 29]) {
+    const f = successorDelegatedFixture(t, {delegationBuild: 29,
+      ...(sourceBuild === 29 ? {sourceGeneration: {policy: 29, pubspec: 29, ledger: 29}} : {})});
+    assert.match(f.git('show', `${f.currentReceipt.sourceAuthority.commit}:pubspec.yaml`),
+      new RegExp(`^version:.*\\+${sourceBuild}\\s*$`, 'm'));
+    const proof = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: 29});
+    assert.equal(proof.buildNumber, 29);
+    assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  }
+});
+
+test('Build29 generation requires an independent exact numeric expected build, not just approval intent', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29});
+  const options = {repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority};
+  assert.throws(() => verifySuccessorDelegatedDecision(options), /intended build number.*expected build number/);
+  for (const expectedBuildNumber of [undefined, null, '29', 28, 30, 29.5, true, [29], NaN, Infinity]) {
+    assert.throws(() => verifySuccessorDelegatedDecision({...options, expectedBuildNumber}),
+      /intended build number.*expected build number/, String(expectedBuildNumber));
+  }
+  assert.equal(verifySuccessorDelegatedDecision({...options, expectedBuildNumber: 29}).ok, true);
+  for (const commit of [undefined, null, 'HEAD', '../main', 'a'.repeat(39)]) {
+    assert.throws(() => verifySuccessorDelegatedDecision({...options, expectedBuildNumber: 29,
+      sourceAuthority: {...options.sourceAuthority, commit}}), /exactly 40 hexadecimal characters/);
+  }
+});
+
+test('Build29 generation requires intended29 in actual committed approval bytes', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29});
+  for (const intendedBuildNumber of [undefined, null, '29', 28, 30, 29.5, true, [29]]) {
+    if (intendedBuildNumber === undefined) delete f.currentApproval.intendedBuildNumber;
+    else f.currentApproval.intendedBuildNumber = intendedBuildNumber;
+    f.commitCustody();
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: 29}), /intended build number.*expected build number/, String(intendedBuildNumber));
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), /intended build number.*expected build number/);
+  }
+  f.currentApproval.intendedBuildNumber = 29;
+  f.commitCustody();
+  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+});
+
+for (const [label, sourceGeneration] of [
+  ['future ledger with reverted policy and pubspec', {policy: 28, pubspec: 28, ledger: 30}],
+  ['predecessor policy with already selected29 ledger', {policy: 28, pubspec: 28, ledger: 29}],
+  ['policy29 before ledger advances', {policy: 29, pubspec: 29, ledger: 28}],
+  ['policy28 but pubspec29', {policy: 28, pubspec: 29, ledger: 28}],
+  ['policy29 but release28', {policy: 29, release: 28, pubspec: 29, ledger: 29}],
+  ['string source policy build', {policy: '29', pubspec: 29, ledger: 29}],
+]) {
+  test(`Build29 generation rejects ${label} in actual Git`, (t) => {
+    const f = successorDelegatedFixture(t, {delegationBuild: 29, sourceGeneration});
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: 29}), /source generation/);
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), /source generation/);
+  });
+}
+
+test('Build29 candidate cannot borrow either form of otherwise valid historical28 custody', (t) => {
+  for (const currentFixture of [delegatedCurrentFixture, successorDelegatedFixture]) {
+    const f = rolloverFixture(t, currentFixture, 29);
+    assert.match(f.verify().reasons.join('; '), /Candidate backend: Build29 requires/);
+  }
+});
 
 // Synthetic command observations exercise the production verifier with real
 // immutable Git approval/CI custody. They are never operational evidence.
@@ -548,8 +694,51 @@ test('new source delegated custody verifies real Git, exact five-job CI and the 
   const result=f.verify(); assert.equal(result.ok,true,result.reasons.join('; '));
 });
 
-test('new delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted', (t)=>{
-  const f=successorDelegatedFixture(t);
+test('Build29 delegated custody admits its separate Git decision and 67-index source while preserving the Build27 pilot', (t) => {
+  const f = rolloverFixture(t, (context) => successorDelegatedFixture(context, {delegationBuild: 29}), 29);
+  const predeployment = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 29});
+  assert.equal(predeployment.ok, true);
+  assert.equal(predeployment.approvalFile, 'release/approvals/build29-current-source-backend-deployment-approval.json');
+  assert.equal(predeployment.ciFile, 'release/evidence/build29-current-source-backend-ci.json');
+  assert.equal(predeployment.approvalCommit, f.currentReceipt.approvalAuthority.commit);
+  assert.equal(f.currentChildren.firestoreRulesAndIndexes.outputs.indexes.apiReadyCount, 67);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+});
+
+for (const [label, options, expected, stagedExpected = expected] of [
+  ['Build29 approval with Build28 CI', {delegationBuild: 29,
+    ciFile: 'release/evidence/build28-current-source-backend-ci.json'}, /immutable exact-main CI evidence/],
+  ['Build28 approval with Build29 CI', {delegationBuild: 28,
+    ciFile: 'release/evidence/build29-current-source-backend-ci.json'}, /immutable exact-main CI evidence/],
+  ['Build29 path with Build28 policy', {delegationBuild: 29,
+    delegationPolicyId: 'BUILD28-OWNER-DELEGATION-20260913'}, /exact path, known delegation/],
+  ['Build28 path with Build29 policy', {delegationBuild: 28,
+    delegationPolicyId: 'BUILD29-OWNER-DELEGATION-20260921'}, /exact path, known delegation/],
+  ['unadmitted approval path', {delegationBuild: 29,
+    approvalFile: 'release/approvals/build30-current-source-backend-deployment-approval.json'},
+  /exact path, known delegation/, /Candidate backend: Build29 requires/],
+  ['source before Build29 minimum', {delegationBuild: 29,
+    sourceCommit: 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b'}, /merge-base --is-ancestor/],
+]) {
+  test(`Build29 delegation refuses ${label} despite coherent committed custody`, (t) => {
+    const f = successorDelegatedFixture(t, options);
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: f.expectedBuildNumber}), expected);
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), stagedExpected);
+  });
+}
+
+for (const delegationBuild of [28, 29]) {
+test(`Build${delegationBuild} delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted`, (t)=>{
+  const f=successorDelegatedFixture(t, {delegationBuild});
   assert.equal(f.verify().ok,true,f.verify().reasons.join('; '));
   const approval=structuredClone(f.currentApproval),ci=structuredClone(f.ci),receipt=structuredClone(f.currentReceipt);
   const cases=[
@@ -577,8 +766,51 @@ test('new delegated custody rejects altered approval bytes and invalid CI even w
   f.currentApproval.approvalEvidence.agentDecision='An uncommitted different decision'; f.persistCurrent();
   assert.equal(f.verify().ok,false,'uncommitted coherent rehash cannot replace Git custody');
 });
+}
 
-function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
+for (const [label, options] of [
+  ['complete Build28 tuple on the Build29 baseline', {delegationBuild: 28,
+    sourceCommit: 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4'}],
+  ['complete Build28 tuple after the Build29 baseline', {delegationBuild: 28,
+    sourceCommit: 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4', deriveSourceChild: true}],
+  ['complete Build28 tuple on a new divergent child of its old baseline', {delegationBuild: 28,
+    sourceCommit: 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b', deriveSourceChild: true}],
+  ['complete Build29 tuple on the final historical Build28 source', {delegationBuild: 29,
+    sourceCommit: 'fc5825875293ac703449002a49799d70a6bf5351'}],
+]) {
+  test(`release generation rejects ${label} despite coherent Git approval and CI`, (t) => {
+    const f = successorDelegatedFixture(t, options);
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: f.expectedBuildNumber}),
+    /source generation|merge-base --is-ancestor/);
+    const result = f.verify();
+    assert.equal(result.ok, false, 'A complete stale tuple must not grant deployment authority');
+    assert.match(result.reasons.join('; '), /source generation|merge-base --is-ancestor/);
+  });
+}
+
+test('historical Build28 source generation retains its actual deployment approval and CI bytes', () => {
+  const approval = readMeasured('release/approvals/build28-current-source-backend-deployment-approval.json');
+  const receipt = readMeasured('release/evidence/build28-current-source-backend-deployment-closure.json');
+  const proof = verifySuccessorDelegatedDecision({repoRoot: repositoryRoot, approval,
+    approvalAuthority: receipt.approvalAuthority, sourceAuthority: receipt.sourceAuthority});
+  assert.equal(proof.ok, true);
+  assert.equal(proof.sourceCommit, 'fc0ac09fc51b370bee419909ad510b044765b540');
+  assert.equal(proof.approvalSha256, receipt.approvalAuthority.sha256);
+});
+
+test('historical Build28 source generation includes its immutable signed upper boundary', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 28,
+    sourceCommit: 'fc5825875293ac703449002a49799d70a6bf5351'});
+  const proof = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority});
+  assert.equal(proof.ok, true);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+});
+
+function rolloverFixture(t, currentFixture = delegatedCurrentFixture, buildNumber = 28) {
   const f = currentFixture(t);
   const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
   const promotion = readMeasured(promotionFile);
@@ -593,7 +825,7 @@ function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
   }
   f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
     promotionReceiptFile: promotionFile, promotionReceiptSha256: sha(fs.readFileSync(path.join(f.root, promotionFile)))};
-  f.policy.versionPolicy.buildNumber = 28;
+  f.policy.versionPolicy.buildNumber = buildNumber;
   f.version.sourceBaseline.commit = f.currentReceipt.sourceAuthority.commit;
   Object.assign(f.version.requiredSource, {
     exactFunctionFleetDeploymentSourceCommit: f.currentReceipt.sourceAuthority.commit,
@@ -613,6 +845,119 @@ function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
   persistCandidate();
   return {...f, history, historical, persistCandidate};
 }
+
+test('Build27 retains its admitted backend without inventing a successor candidate', (t) => {
+  const f = fixture(t);
+  f.policy.versionPolicy.buildNumber = 27;
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.equal(result.currentBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.equal(Object.hasOwn(result, 'candidateBackendReceiptFile'), false);
+});
+
+test('malformed build numbers cannot fall through to the historical Build27 authority', (t) => {
+  const f = fixture(t);
+  assert.equal(f.verify().ok, true);
+  for (const buildNumber of ['29', 29.5, null, undefined, 0, -1, 2147483648,
+    Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, true, [29]]) {
+    f.policy.versionPolicy.buildNumber = buildNumber;
+    const result = f.verify();
+    assert.equal(result.ok, false, `malformed selector ${String(buildNumber)}`);
+    assert.match(result.reasons.join('; '), /build number must be a positive signed 32-bit integer/);
+  }
+  delete f.policy.versionPolicy.buildNumber;
+  assert.equal(f.verify().ok, false, 'absent selector');
+  f.policy.versionPolicy.buildNumber = 27;
+  assert.equal(f.verify().ok, true, 'restored historical positive control');
+});
+
+test('Build29 rollover preserves the admitted Build27 pilot and verifies distinct candidate and current backends', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29});
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptFile, f.history.receipt);
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.notEqual(result.candidateBackendReceiptSha256, result.historicalBackendReceiptSha256);
+  assert.equal(result.promotionReceiptFile, f.policy.postBuildPromotion.promotionReceiptFile);
+
+  // A later current observation cannot replace either the approved candidate
+  // evidence or the preserved pilot's immutable backend decision.
+  f.deployed.functionFleetEvidenceFile = 'release/later-current29.json';
+  f.currentReceipt.recordedAtUtc = new Date(Date.parse(f.currentReceipt.recordedAtUtc) + 1000).toISOString();
+  f.persistCurrent();
+  const later = f.verify();
+  assert.equal(later.ok, true, later.reasons.join('; '));
+  assert.notEqual(later.candidateBackendReceiptSha256, later.currentBackendReceiptSha256);
+  assert.equal(later.candidateBackendReceiptSha256, result.candidateBackendReceiptSha256);
+  assert.equal(later.historicalBackendReceiptSha256, f.history.sha256);
+});
+
+test('Build29 rollover rejects borrowed historical deployment and forged preserved-pilot authority', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29});
+  assert.equal(f.verify().ok, true);
+  const required = structuredClone(f.version.requiredSource);
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentReceiptFile: f.history.receipt,
+    exactFunctionFleetDeploymentSourceCommit: f.historical.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.historical.sourceAuthority.pullRequestNumber,
+  });
+  f.persistCandidate();
+  assert.match(f.verify().reasons.join('; '), /Candidate backend: Build29 requires/);
+  Object.assign(f.version.requiredSource, required);
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+
+  const promotionFile = f.policy.postBuildPromotion.promotionReceiptFile;
+  const originalBytes = fs.readFileSync(path.join(f.root, promotionFile));
+  for (const mutate of [
+    (promotion) => {
+      promotion.admittedEvidence.productionBackend = {
+        receipt: f.deployed.functionFleetEvidenceFile,
+        sha256: f.deployed.functionFleetEvidenceSha256, decision: PASS,
+      };
+    },
+    (promotion) => {
+      promotion.admittedEvidence.governedBuild.buildNumber = 29;
+      promotion.promotion.authorizedBuildNumber = 29;
+    },
+  ]) {
+    const promotion = JSON.parse(originalBytes);
+    mutate(promotion);
+    f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(promotionFile, promotion);
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), /Promotion decision custody/);
+  }
+  fs.writeFileSync(path.join(f.root, promotionFile), originalBytes);
+  f.policy.postBuildPromotion.promotionReceiptSha256 = sha(originalBytes);
+  assert.equal(f.verify().ok, true);
+  delete f.policy.postBuildPromotion;
+  assert.match(f.verify().reasons.join('; '), /preserved pilot promotion is required/);
+});
+
+test('Build29 rollover independently rejects a damaged candidate when the current backend is valid', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 29});
+  const candidate = structuredClone(f.currentReceipt);
+  const candidateFile = 'release/candidate29.json';
+  f.write(candidateFile, candidate);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = candidateFile;
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+
+  const child = structuredClone(f.currentChildren.functionFleet);
+  child.outputs.functions[0].firebaseFunctionsHash = '0'.repeat(40);
+  const sealed = sealReceipt(child);
+  candidate.cleanMainLiveReadbacks.functionFleet = {file: 'release/candidate29-bad-fleet.json',
+    physicalSha256: f.write('release/candidate29-bad-fleet.json', sealed),
+    canonicalReceiptSha256: sealed.receiptSha256};
+  f.write(candidateFile, candidate);
+  f.persistCandidate();
+  const result = f.verify();
+  assert.equal(result.ok, false);
+  assert.match(result.reasons.join('; '), /functionFleet: measured function source hashes/);
+});
 
 test('new source delegated custody supports a Build28 candidate while preserving immutable Build27 history', (t) => {
   const f = rolloverFixture(t, successorDelegatedFixture);

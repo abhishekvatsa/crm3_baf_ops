@@ -113,6 +113,7 @@ const toHttpsError = (error: WorkflowError): HttpsError => {
 
 export const executeMaintenanceWorkflowCommand = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
@@ -151,6 +152,7 @@ export const executeMaintenanceWorkflowCommand = onCall(
 
 export const executeMaintenanceWorkflowCommandV2 = onCall(
   {
+    maxInstances: 20,
     region: CALLABLE_REGION,
     timeoutSeconds: 60,
     memory: "512MiB",
