@@ -2,6 +2,24 @@
 import java
 import semmle.code.java.Diagnostics
 
+string tagOrEmpty(Diagnostic diagnostic) {
+  result = diagnostic.getTag()
+  or
+  not exists(diagnostic.getTag()) and result = ""
+}
+
+string messageOrEmpty(Diagnostic diagnostic) {
+  result = diagnostic.getMessage()
+  or
+  not exists(diagnostic.getMessage()) and result = ""
+}
+
+string fullMessageOrEmpty(Diagnostic diagnostic) {
+  result = diagnostic.getFullMessage()
+  or
+  not exists(diagnostic.getFullMessage()) and result = ""
+}
+
 from Diagnostic diagnostic, string source
 where
   diagnostic.getSeverity() > 3 and
@@ -12,6 +30,5 @@ where
     not exists(diagnostic.getLocation().getFile()) and source = "<unlocated>"
   )
 select source as source_path, diagnostic.getSeverity() as severity,
-  (if exists(diagnostic.getTag()) then diagnostic.getTag() else "") as tag,
-  (if exists(diagnostic.getMessage()) then diagnostic.getMessage() else "") as message,
-  (if exists(diagnostic.getFullMessage()) then diagnostic.getFullMessage() else "") as full_message
+  tagOrEmpty(diagnostic) as tag, messageOrEmpty(diagnostic) as message,
+  fullMessageOrEmpty(diagnostic) as full_message
