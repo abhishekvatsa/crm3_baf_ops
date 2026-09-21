@@ -628,6 +628,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                   }
 
                   final ticket = _tickets[index - 1];
+                  final closureRead = ticket.administrativeClosureReadResult;
                   final ticketKey = _ticketKey(ticket);
                   final assetClassId =
                       ticket.assetHierarchyReference?.assetClassId;
@@ -649,18 +650,25 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                       ticket: ticket,
                       onViewDetails: () => _openTicketDetails(
                         ticket,
-                        canCorrect: canCorrectTickets && ticket.isSynced,
+                        canCorrect:
+                            closureRead.isValid &&
+                            canCorrectTickets &&
+                            ticket.isSynced,
                       ),
-                      canCorrect: canCorrectTickets && ticket.isSynced,
+                      canCorrect:
+                          closureRead.isValid &&
+                          canCorrectTickets &&
+                          ticket.isSynced,
                       isCorrecting: _correctingTicketKeys.contains(ticketKey),
                       onCorrect: () => _correctTicket(ticket),
-                      canReopenTicket: canReopenTickets,
+                      canReopenTicket: closureRead.isValid && canReopenTickets,
                       isReopening: _reopeningTicketKeys.contains(ticketKey),
                       onReopen: () => _reopenTicket(ticket),
                       canEndRetainedRelevance:
                           canEndRetainedRelevance &&
+                          closureRead.isValid &&
                           ticket.isSynced &&
-                          ticket.administrativeClosure?.disposition ==
+                          closureRead.value?.disposition ==
                               IssueAdministrativeClosureDisposition
                                   .stillRelevant,
                       isEndingRelevance: _endingRelevanceTicketKeys.contains(
@@ -670,6 +678,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                           _endRetainedRelevance(ticket),
                       maintenanceClass: _ticketMaintenanceClass(ticket),
                       canClassify:
+                          closureRead.isValid &&
                           appUser?.canClassifyCompletedMaintenance == true &&
                           ticket.wasTechnicallyResolved &&
                           reopenWindowElapsed &&
@@ -1065,6 +1074,40 @@ class _ClosedTicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final closureRead = ticket.administrativeClosureReadResult;
+    if (!closureRead.isValid) {
+      return Card(
+        key: ValueKey('closed-ticket-unreadable-${ticket.firestoreId}'),
+        child: Padding(
+          padding: const EdgeInsets.all(BafSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}',
+              ),
+              Text(ticket.description),
+              const SizedBox(height: BafSpacing.sm),
+              const Text(
+                'Closure evidence needs review',
+                style: TextStyle(
+                  color: BafColors.warning,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Text(
+                'The saved closure could not be verified. The original record is retained; closure actions and corrections are unavailable until it is reconciled.',
+              ),
+              TextButton.icon(
+                onPressed: onViewDetails,
+                icon: const Icon(Icons.visibility_outlined),
+                label: const Text('View retained record'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final closedAt = ticket.endDate ?? ticket.updatedAt;
     final hoursSince = DateTime.now().difference(closedAt).inHours;
     final canReopen =
@@ -1074,7 +1117,7 @@ class _ClosedTicketCard extends StatelessWidget {
         hoursSince <= 4 &&
         !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
-    final administrativeClosure = ticket.administrativeClosure;
+    final administrativeClosure = closureRead.value;
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
     final burnerReadings =
         ticket.burnerLockoutReadResult.value?.resolutionMicroampReadings.entries

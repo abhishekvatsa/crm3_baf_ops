@@ -428,6 +428,52 @@ void main() {
     },
   );
 
+  for (final rawClosure in <String?>[null, '{"administrativeClosure":']) {
+    test(
+      'keep server preserves unreadable closure B (${rawClosure == null ? 'missing' : 'malformed'}) before adopting C',
+      () async {
+        await changeLocal(
+          (row) => row
+            ..status = TicketStatus.closedWithoutResolution
+            ..isResolved = true
+            ..endDate = clock
+            ..metadataJson = rawClosure,
+        );
+        await db.close();
+        await open();
+        expect(
+          (await local()).administrativeClosureReadResult.isValid,
+          isFalse,
+        );
+        final review = await service().review(_ticketId);
+        final originalB =
+            (jsonDecode(review.localSnapshotJson) as List).single as Map;
+        expect(originalB['metadataJson'], rawClosure);
+        expect(originalB['status'], TicketStatus.closedWithoutResolution.name);
+        await service().keepServer(
+          review: review,
+          reason:
+              'Preserve unreadable device closure; keep confirmed server issue',
+          acknowledgeRetainedDifferences: true,
+        );
+        expect(sent, isEmpty);
+        final adopted = await local();
+        expect(adopted.isSynced, isTrue);
+        expect(adopted.status, TicketStatus.open);
+        expect(adopted.administrativeClosureReadResult.isValid, isTrue);
+        expect(adopted.metadataJson, server.metadataJson);
+        final archive = (await localAudits()).single;
+        expect(archive.before!['localSnapshotJson'], review.localSnapshotJson);
+        final archivedB =
+            (jsonDecode(archive.before!['localSnapshotJson'] as String) as List)
+                    .single
+                as Map;
+        expect(archivedB, originalB);
+        expect(archive.after!['remoteMutationPerformed'], isFalse);
+      },
+    );
+  }
+
   test(
     'all dispositions require explicit retained-difference acknowledgement',
     () async {

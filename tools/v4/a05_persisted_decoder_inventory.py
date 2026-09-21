@@ -121,31 +121,29 @@ def _brace_pairs(cleaned: str) -> tuple[dict[int, int], dict[int, int]]:
 
 def _decoder_catch_sites(relative: str, source: str) -> list[dict[str, object]]:
     cleaned = strip_strings_and_comments(source)
-    forward, backward = _brace_pairs(cleaned)
+    forward, _ = _brace_pairs(cleaned)
     sites: list[dict[str, object]] = []
     occurrences: Counter[str] = Counter()
-    for match in re.finditer(r"\bcatch\s*\([^)]*\)\s*\{", cleaned):
-        prior_close = cleaned.rfind("}", 0, match.start())
-        try_open = backward.get(prior_close)
-        catch_open = cleaned.find("{", match.start(), match.end())
-        catch_close = forward.get(catch_open)
-        if try_open is None or catch_close is None:
+    handler_pattern = re.compile(
+        r"\s*(?P<header>"
+        r"(?:on\s+[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?:\s*<[^{};]+>)?\s*)"
+        r"(?:catch\s*\([^)]*\)\s*)?"
+        r"|catch\s*\([^)]*\)\s*)\{"
+    )
+    # Start from each try block so bare typed handlers and every later handler
+    # remain associated with that same decoder body. Looking backwards from a
+    # catch loses later handlers because the preceding block is another catch.
+    for match in re.finditer(r"\btry\s*\{", cleaned):
+        try_open = cleaned.find("{", match.start(), match.end())
+        try_close = forward.get(try_open)
+        if try_close is None:
             continue
-        prefix = cleaned[max(0, try_open - 32) : try_open]
-        if re.search(r"\btry\s*$", prefix) is None:
-            continue
-        try_body = source[try_open + 1 : prior_close]
-        decoder_matches = list(DECODER_FLOW_PATTERN.finditer(try_body))
+        try_body = source[try_open + 1 : try_close]
+        decoder_matches = list(
+            DECODER_FLOW_PATTERN.finditer(cleaned[try_open + 1 : try_close])
+        )
         if not decoder_matches:
             continue
-        site_source = source[try_open : catch_close + 1]
-        normalized_site = re.sub(r"\s+", " ", site_source).strip()
-        occurrences[normalized_site] += 1
-        fingerprint = hashlib.sha256(
-            f"{relative}\n{occurrences[normalized_site]}\n{normalized_site}".encode(
-                "utf-8"
-            )
-        ).hexdigest()
         decoder_contexts: list[str] = []
         for decoder in decoder_matches:
             line_start = try_body.rfind("\n", 0, decoder.start()) + 1
@@ -155,16 +153,32 @@ def _decoder_catch_sites(relative: str, source: str) -> list[dict[str, object]]:
             context = _normalise_line(try_body[line_start:line_end])
             if context and context not in decoder_contexts:
                 decoder_contexts.append(context)
-        sites.append(
-            {
-                "file": relative,
-                "line": cleaned.count("\n", 0, match.start()) + 1,
-                "catch": _normalise_line(source[match.start() : catch_open]),
-                "occurrence": occurrences[normalized_site],
-                "decoderContexts": decoder_contexts,
-                "siteFingerprint": fingerprint,
-            }
-        )
+        position = try_close + 1
+        while handler := handler_pattern.match(cleaned, position):
+            catch_open = cleaned.find("{", handler.start(), handler.end())
+            catch_close = forward.get(catch_open)
+            if catch_close is None:
+                break
+            site_source = source[try_open : catch_close + 1]
+            normalized_site = re.sub(r"\s+", " ", site_source).strip()
+            occurrences[normalized_site] += 1
+            fingerprint = hashlib.sha256(
+                f"{relative}\n{occurrences[normalized_site]}\n{normalized_site}".encode(
+                    "utf-8"
+                )
+            ).hexdigest()
+            header_start = handler.start("header")
+            sites.append(
+                {
+                    "file": relative,
+                    "line": cleaned.count("\n", 0, header_start) + 1,
+                    "catch": _normalise_line(source[header_start : catch_open]),
+                    "occurrence": occurrences[normalized_site],
+                    "decoderContexts": decoder_contexts,
+                    "siteFingerprint": fingerprint,
+                }
+            )
+            position = catch_close + 1
     return sites
 
 

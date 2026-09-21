@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "BA68BCB9F82AAA714CB196583055CD15319E3AFC300EF00636F3B1F55B7E48EC",
+  "inventoryDigest": "9A29F28368E4F025651B540C30095B5C57091D71B4C17511EA289FE6CE2F4248",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "83B2D7A6DCF41F0A0EAE51C87E32A9A53DE9C0283897D7A3D1DF77122C9E13C9",
+  "a05ManifestSha256": "4F5F71D719CFD4128A3B61CCE9541F19A65B434AE00F21F436563E0B03BFC24E",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1127,8 +1127,8 @@
       "classification": "VERSIONED_OPERATIONAL_INTENT",
       "authorityBoundary": "issue-time frozen catalogue selection or explicit unlisted reason",
       "malformedDisposition": "fail closed for a present current selection while allowing a wholly absent pre-feature selection",
-      "compatibility": "complete schema-versioned selection or wholly absent legacy fields",
-      "regression": "test/maintenance_issue_create_command_test.dart"
+      "compatibility": "complete schema-versioned selection or wholly absent legacy fields; governed metadata merge retains malformed and non-object legacy JSON verbatim under legacyMetadata",
+      "regression": "test/maintenance_issue_create_command_test.dart; test/maintenance_metadata_preservation_test.dart"
     },
     {
       "id": "furnace-burner-lockout-envelope",
@@ -1145,8 +1145,8 @@
       "classification": "VERSIONED_OPERATIONAL_INTENT",
       "authorityBoundary": "issue-time Furnace stuck-up classification, Base identity, and linked Inner Cover evidence",
       "malformedDisposition": "fail closed for present synchronized fields; malformed optional local display metadata carries no authority",
-      "compatibility": "complete schema-versioned stuck-up fields or wholly absent legacy fields",
-      "regression": "test/furnace_stuckup_case_test.dart"
+      "compatibility": "complete schema-versioned stuck-up fields or wholly absent legacy fields; governed metadata merge retains malformed and non-object legacy JSON verbatim under legacyMetadata",
+      "regression": "test/furnace_stuckup_case_test.dart; test/maintenance_metadata_preservation_test.dart"
     },
     {
       "id": "furnace-stuckup-records",
@@ -1374,6 +1374,15 @@
       "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart"
     },
     {
+      "id": "maintenance-correction-target-eligibility",
+      "file": "lib/features/maintenance/presentation/maintenance_ticket_correction_dialog.dart",
+      "classification": "READ_ONLY_CORRECTION_ADMISSION",
+      "authorityBoundary": "Read-only presentation of known persisted lifecycle, lane, action, continuation, workflow, operational-link and producer-backed quality blockers. It neither grants correction authority nor proves absence of inverse links or server-only provenance; the backend independently validates the target and complete dependencies.",
+      "malformedDisposition": "Malformed metadata, lane or action evidence hides the target picker and retains device values with a reconciliation explanation. Narrative correction remains separately available under its existing governed builder/server authority; the UI never treats unavailable evidence as a fresh target clearance.",
+      "compatibility": "Absent legacy metadata may retain ordinary target review eligibility, subject to all other known blockers and final server checks. Typed supported metadata is read without rewriting it. Existing registered labels are never directly copied from the device draft.",
+      "regression": "test/maintenance_creation_successor_review_ui_test.dart"
+    },
+    {
       "id": "maintenance-creation-owner",
       "file": "lib/features/maintenance/services/maintenance_creation_owner.dart",
       "classification": "LOCAL_CONTROL_STATE",
@@ -1398,7 +1407,7 @@
       "authorityBoundary": "persisted Admin issue-closure disposition and rationale",
       "malformedDisposition": "fail closed on partial or malformed synchronized closure state and reject a terminal local row without decodable closure evidence",
       "compatibility": "a wholly absent closure field set on records not closed administratively; unrelated malformed legacy metadata is preserved as opaque legacyMetadata during governed merge",
-      "regression": "test/issue_administrative_closure_dialog_test.dart; test/maintenance_issue_resolution_command_test.dart; test/a05_remote_maintenance_record_integrity_test.dart"
+      "regression": "test/issue_administrative_closure_dialog_test.dart; test/maintenance_issue_resolution_command_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/maintenance_closure_evidence_admission_test.dart; test/maintenance_plant_condition_stream_test.dart"
     },
     {
       "id": "maintenance-issue-lane-plan",
@@ -1431,10 +1440,10 @@
       "id": "maintenance-resolution-history",
       "file": "lib/features/maintenance/data/maintenance_model.dart",
       "classification": "NESTED_OPERATIONAL_STATE",
-      "authorityBoundary": "persisted resolution evidence",
-      "malformedDisposition": "preserve repair state or fail closed at authority boundary",
+      "authorityBoundary": "Persisted resolution evidence and strict local administrative-closure/status consistency; derived condition index admits unknown candidates but cannot establish condition authority.",
+      "malformedDisposition": "Fail closed at condition/report/audit authority when closure evidence is missing or inconsistent; retain raw metadata and conservatively admit unreadable closure candidates, including older false stored indexes, so qualified consumers disclose uncertainty.",
       "compatibility": "absent pre-feature payload only",
-      "regression": "test/a05_maintenance_audit_integrity_test.dart"
+      "regression": "test/a05_maintenance_audit_integrity_test.dart; test/maintenance_closure_evidence_admission_test.dart; test/maintenance_plant_condition_stream_test.dart"
     },
     {
       "id": "maintenance-successor-accepted-creation-review",

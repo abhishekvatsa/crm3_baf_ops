@@ -4,10 +4,64 @@ import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/maintenance_model.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/maintenance_ticket_correction.dart';
+
+/// Known snapshot blockers only. The server also checks inverse links and
+/// source IDs that are not projected into MaintenanceRecord, including
+/// sourceInspectionObservationId, before accepting any target change.
+String? maintenanceRegisteredTargetRetentionReason(MaintenanceRecord ticket) {
+  if (ticket.status != TicketStatus.open || ticket.isResolved) {
+    return 'The equipment target is locked after acknowledgement or closure. Keep the current target and retain the device values.';
+  }
+  if (const {
+    burnerLockoutClassification,
+    furnaceStuckupClassification,
+    baseInnerCoverUnavailableClassification,
+  }.contains(ticket.classification)) {
+    return 'The equipment target is fixed by the specialized issue. Keep the current target and retain the device values.';
+  }
+  if (ticket.continuesIssueId != null ||
+      ticket.workflowAggregateId != null ||
+      ticket.operationalEventIssueLinkIds.isNotEmpty) {
+    return 'This issue has linked evidence. Keep its current equipment target; related records need review before physical scope can change. Device values remain retained.';
+  }
+  final actions = ticket.actionsReadResult;
+  if (!actions.isValid) {
+    return 'Saved work evidence needs reconciliation before the equipment target can change. Keep the current target and retain the device values.';
+  }
+  if (actions.entries.isNotEmpty) {
+    return 'This issue has recorded work. Keep its current equipment target; work evidence needs review before physical scope can change. Device values remain retained.';
+  }
+  try {
+    final metadata = readOptionalJsonObject(
+      ticket.metadataJson,
+      field: 'metadataJson',
+      source: 'maintenance target review',
+    );
+    if (metadata != null &&
+        metadata.containsKey('issueLanePlan') &&
+        metadata['issueLanePlan'] is! Map) {
+      return 'Saved team evidence needs reconciliation before the equipment target can change. Keep the current target and retain the device values.';
+    }
+    if (ticket
+        .issueLanePlanForOtherDepartmentRepair
+        .acknowledgedLanes
+        .isNotEmpty) {
+      return 'The equipment target is locked after a team acknowledges the issue. Keep the current target and retain the device values.';
+    }
+    // The issue producer creates its quality warning when impact is suspected.
+    if (ticket.qualityIntent?.isSuspected == true) {
+      return 'This issue has linked quality evidence. Keep its current equipment target; quality records need review before physical scope can change. Device values remain retained.';
+    }
+  } on FormatException {
+    return 'Saved issue evidence needs reconciliation before the equipment target can change. Keep the current target and retain the device values.';
+  }
+  return null;
+}
 
 /// Presentation eligibility; the correction builder and server remain authority.
 String? maintenanceCorrectionFieldRetentionReason(
@@ -77,7 +131,8 @@ String? maintenanceCorrectionFieldRetentionReason(
   }
   if (ticket.assetHierarchyRefJson != null &&
       const {'component', 'subsystem', 'tag'}.contains(field)) {
-    return 'Choose a fresh registered target in the correction form to change this field. Device labels are retained without being copied.';
+    return maintenanceRegisteredTargetRetentionReason(ticket) ??
+        'Review a registered target in the correction form. The server checks related records before accepting a target change. Device labels are retained without being copied.';
   }
   if (field == 'classification' &&
       const {
@@ -132,22 +187,21 @@ class _MaintenanceTicketCorrectionDialogState
   String? _targetReferenceJson;
   String? _targetLabel;
 
-  bool get _isBurnerLockout =>
-      widget.ticket.classification == burnerLockoutClassification;
-
   bool get _isFurnaceStuckup =>
       widget.ticket.classification == furnaceStuckupClassification;
 
   bool get _isBaseInnerCoverUnavailable =>
       widget.ticket.classification == baseInnerCoverUnavailableClassification;
 
-  bool get _isSpecialized => _isBurnerLockout || _isFurnaceStuckup;
-
   bool _canEdit(String field) =>
       maintenanceCorrectionFieldRetentionReason(widget.ticket, field) == null;
 
   Future<void> _selectCorrectedTarget() async {
     try {
+      final retentionReason = maintenanceRegisteredTargetRetentionReason(
+        widget.ticket,
+      );
+      if (retentionReason != null) throw StateError(retentionReason);
       final original = widget.ticket.assetHierarchyReference;
       if (original == null) {
         throw StateError('The registered target must be reconciled first.');
@@ -274,6 +328,12 @@ class _MaintenanceTicketCorrectionDialogState
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _submitting = true);
     try {
+      if (_targetReferenceJson != null) {
+        final retentionReason = maintenanceRegisteredTargetRetentionReason(
+          widget.ticket,
+        );
+        if (retentionReason != null) throw StateError(retentionReason);
+      }
       final draft = buildMaintenanceTicketCorrection(
         source: widget.ticket,
         description: _description.text,
@@ -509,19 +569,31 @@ class _MaintenanceTicketCorrectionDialogState
                             }
                           : null,
                     ),
-                    if (!_isSpecialized &&
-                        !_isBaseInnerCoverUnavailable &&
-                        widget.ticket.status == TicketStatus.open &&
-                        widget.ticket.assetHierarchyRefJson != null)
-                      OutlinedButton.icon(
-                        onPressed: _selectCorrectedTarget,
-                        icon: const Icon(Icons.account_tree_outlined),
-                        label: Text(
-                          _targetLabel == null
-                              ? 'Correct wrong registered component on this asset'
-                              : 'Corrected target: $_targetLabel',
+                    if (widget.ticket.assetHierarchyRefJson != null) ...[
+                      if (maintenanceRegisteredTargetRetentionReason(
+                            widget.ticket,
+                          ) ==
+                          null) ...[
+                        OutlinedButton.icon(
+                          key: const ValueKey('ticket-correction-target'),
+                          onPressed: _selectCorrectedTarget,
+                          icon: const Icon(Icons.account_tree_outlined),
+                          label: Text(
+                            _targetLabel == null
+                                ? 'Review registered target on this asset'
+                                : 'Target selected for review: $_targetLabel',
+                          ),
                         ),
-                      ),
+                        const Text(
+                          'The server checks related records before accepting a target change. Existing work or linked evidence must keep its original equipment scope until reviewed.',
+                        ),
+                      ] else
+                        Text(
+                          maintenanceRegisteredTargetRetentionReason(
+                            widget.ticket,
+                          )!,
+                        ),
+                    ],
                     TextFormField(
                       key: const ValueKey('ticket-correction-component'),
                       controller: _component,

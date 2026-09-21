@@ -54,7 +54,8 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
     final historyRead = ticket.resolutionHistoryReadResult;
     final hierarchy = ticket.assetHierarchyReference;
     final innerCover = hierarchy?.innerCoverAssociation;
-    final administrativeClosure = ticket.administrativeClosure;
+    final closureRead = ticket.administrativeClosureReadResult;
+    final administrativeClosure = closureRead.value;
     final closedAt = ticket.endDate;
     final workflowId = ticket.workflowAggregateId?.trim();
     final workflowCompliance = workflowId == null || workflowId.isEmpty
@@ -72,7 +73,8 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
         ),
         actions: [
           if (actor?.isApproved == true &&
-              ticket.administrativeClosure?.disposition ==
+              closureRead.isValid &&
+              administrativeClosure?.disposition ==
                   IssueAdministrativeClosureDisposition.stillRelevant &&
               ticket.firestoreId != null)
             IconButton(
@@ -88,13 +90,16 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
           if (actor?.canViewReports == true)
             IconButton(
               key: const ValueKey('ticket-detail-pdf'),
-              tooltip: correctionAudit.isLoading
+              tooltip: !closureRead.isValid
+                  ? 'Closure evidence needs review before export'
+                  : correctionAudit.isLoading
                   ? 'Verifying correction evidence'
                   : correctionAudit.hasError
                   ? 'Correction evidence is unavailable'
                   : 'Create complete PDF dossier',
               onPressed:
-                  correctionAudit.isLoading ||
+                  !closureRead.isValid ||
+                      correctionAudit.isLoading ||
                       correctionAudit.hasError ||
                       correctionAudit.asData == null
                   ? null
@@ -109,7 +114,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
             IconButton(
               key: const ValueKey('ticket-detail-correct'),
               tooltip: 'Record an audited correction',
-              onPressed: actor?.canCorrectMaintenanceTicket == true
+              onPressed:
+                  closureRead.isValid &&
+                      actor?.canCorrectMaintenanceTicket == true
                   ? () {
                       final current = CurrentActorAccess.resolve(
                         ref.read(currentAppUserProvider),
@@ -128,12 +135,21 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: BafSpacing.xl),
         children: [
           if (!account.isReady) CurrentActorNotice(message: account.message),
-          _IssueIdentityHeader(ticket: ticket),
+          _IssueIdentityHeader(
+            ticket: ticket,
+            closureEvidenceReadable: closureRead.isValid,
+          ),
+          if (!closureRead.isValid)
+            const _EvidenceWarning(
+              text:
+                  'Closure evidence needs review. The saved closure could not be verified. Ordinary corrections, closure actions and PDF export are unavailable until it is reconciled; the original record is retained. Pending device changes can still be reviewed against verified server evidence.',
+            ),
           MaintenanceCreationSuccessorReviewPanel(ticket: ticket),
           BurnerAttendanceHistoryView(metadataJson: ticket.metadataJson),
           if (actor?.isApproved == true &&
+              closureRead.isValid &&
               (ticket.continuesIssueId != null ||
-                  ticket.administrativeClosure != null))
+                  administrativeClosure != null))
             MaintenanceContinuationLinks(
               ticket: ticket,
               onOpen: (linked) => Navigator.of(context).push(
@@ -301,11 +317,13 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
               title: ticket.isClosed
                   ? 'Closure evidence'
                   : 'Previous closure evidence',
-              icon: administrativeClosure == null
+              icon: !closureRead.isValid
+                  ? Icons.warning_amber_rounded
+                  : administrativeClosure == null
                   ? Icons.task_alt_rounded
                   : Icons.inventory_2_outlined,
               children: [
-                if (ticket.isClosed)
+                if (ticket.isClosed && closureRead.isValid)
                   _DetailValue(
                     label: 'Outcome',
                     value: administrativeClosure == null
@@ -387,7 +405,11 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
             children: [
               _DetailValue(
                 label: 'Synchronization',
-                value: ticket.isSynced ? 'Verified server record' : 'Pending',
+                value: ticket.isSynced
+                    ? closureRead.isValid
+                          ? 'Verified server record'
+                          : 'Saved server record; closure unverified'
+                    : 'Pending',
               ),
               _DetailValue(label: 'Record version', value: '${ticket.version}'),
               if (_hasText(ticket.firestoreId))
@@ -428,7 +450,7 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                           disabledBackgroundColor: BafColors.surfaceStrong,
                           disabledForegroundColor: BafColors.textTertiary,
                         ),
-                        onPressed: onCorrect,
+                        onPressed: closureRead.isValid ? onCorrect : null,
                         icon: const Icon(Icons.edit_note_rounded),
                       ),
                     ],
@@ -447,6 +469,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
     List<AuditEvent> correctionEvents,
   ) {
     try {
+      if (!ticket.administrativeClosureReadResult.isValid) {
+        throw StateError('Closure evidence needs review before export.');
+      }
       final actor = CurrentActorAccess.resolve(
         ref.read(currentAppUserProvider),
       ).actor;
@@ -502,9 +527,13 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
 }
 
 class _IssueIdentityHeader extends StatelessWidget {
-  const _IssueIdentityHeader({required this.ticket});
+  const _IssueIdentityHeader({
+    required this.ticket,
+    required this.closureEvidenceReadable,
+  });
 
   final MaintenanceRecord ticket;
+  final bool closureEvidenceReadable;
 
   @override
   Widget build(BuildContext context) {
@@ -571,13 +600,19 @@ class _IssueIdentityHeader extends StatelessWidget {
             runSpacing: 8,
             children: [
               StatusBadge(
-                label: ticket.lifecycleSummaryLabel,
-                color: ticket.isClosed
+                label: closureEvidenceReadable
+                    ? ticket.lifecycleSummaryLabel
+                    : 'Closure needs review',
+                color: !closureEvidenceReadable
+                    ? BafColors.warning
+                    : ticket.isClosed
                     ? ticket.wasTechnicallyResolved
                           ? BafColors.success
                           : BafColors.warning
                     : BafColors.maintenance,
-                icon: ticket.isClosed
+                icon: !closureEvidenceReadable
+                    ? Icons.warning_amber_rounded
+                    : ticket.isClosed
                     ? Icons.task_alt_rounded
                     : Icons.timelapse_rounded,
               ),
@@ -593,7 +628,11 @@ class _IssueIdentityHeader extends StatelessWidget {
                   icon: Icons.priority_high_rounded,
                 ),
               StatusBadge(
-                label: ticket.isSynced ? 'Server verified' : 'Sync pending',
+                label: ticket.isSynced
+                    ? closureEvidenceReadable
+                          ? 'Server verified'
+                          : 'Saved server record'
+                    : 'Sync pending',
                 color: ticket.isSynced ? BafColors.sync : BafColors.warning,
                 icon: ticket.isSynced
                     ? Icons.cloud_done_outlined

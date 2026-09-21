@@ -169,3 +169,108 @@ SHA, CodeQL 2.27.0, the four required app method bodies and zero app extraction
 errors. Earlier default/failed analyses remain historical evidence. This closes
 the scanner migration at that commit; future source changes require their own
 normal analysis and release checks.
+
+
+## Current disposition after the maintenance review repair
+
+The earlier "next repair" entry for the newer maintenance draft is superseded by
+`MAINTENANCE_SUCCESSOR_RECOVERY_2026_09_21.md`, including its complete native
+comparison, durable correction recovery, retained unsupported differences and
+known dependent-target UI restrictions. This is a native review repair, not a
+universal recovery or dependent-retargeting service.
+
+For precision, whole-event withdrawal of an erroneous or duplicate operational
+event already exists (`OperationalEventService.withdraw`) and preserves the raw
+history. The new amendment corrects a closed occurrence's end time. Corrected
+starts and individual-occurrence withdrawal/adjudication within a retained
+multi-occurrence event are not claimed by that whole-event withdrawal route.
+
+An independent current-source reconciliation found no further concrete defect
+within this repair batch. Certified catalogue editions, supervised unavailable-
+account/off-device restoration, cadence historical amendment/legacy adjudication,
+report common-cutoff and scale/privacy qualification, and per-recipient ordinary
+notification adjudication remain separate open work, not silently closed or all
+owner-blocked. Deployment/readback and physical-device qualification also remain
+release requirements. The accepted Kotlin migration evidence above is complete;
+new source still requires its normal exact-commit checks.
+
+
+## Decoder handler inventory coverage
+
+Classifying the maintenance dialog's new strict read exposed a real audit-tool
+coverage gap: the catch inventory omitted bare typed handlers and later handlers
+in a chain. It now walks each structurally identified try/handler chain, including
+typed handlers without a catch variable, and ignores decoder-like strings and
+comments. Existing first-handler fingerprints are preserved; changes in earlier
+handlers remain bound into later-handler fingerprints.
+
+Nine focused regressions include mixed chains, nesting, generic qualified types,
+nondecoder/finally exclusions and prior fingerprint stability. Five of the first
+seven failed before the repair; all nine final cases pass afterwards. The combined
+handler and dynamic-timestamp inventory regression run passes 24 tests. The existing CI inventory step runs
+these alongside the dynamic-timestamp regressions. Current discovery adds 49
+sites to the previously tracked 59. Each added site requires an explicit reviewed
+policy and regression reference; a larger count alone proves neither a repaired
+business defect nor complete semantic coverage by a Dart parser.
+
+
+## Raw legacy metadata preservation
+
+Reviewing the newly discovered handlers found two adjacent evidence-loss paths.
+Frequent-issue and furnace-stuck-up metadata mergers already retained malformed
+JSON text, but valid non-object JSON fell through to an empty object and lost the
+original text. Both now preserve the exact original string as `legacyMetadata`,
+matching the Burner merger's established behaviour. Existing objects and absent
+metadata keep their prior behaviour; a later merge retains the same original
+bytes. Fourteen failures were reproduced before repair. The new preservation
+suite and existing model/creation compatibility tests pass 53 cases, with clean
+scoped analysis. No saved production records are rewritten by this source repair.
+
+
+## Unreadable local closure evidence
+
+The expanded handler review found a concrete suppression path. A synchronized
+issue closed without technical resolution could have unreadable or absent local
+closure metadata, decode as no closure, and disappear from plant-condition
+attention. Its previously stored derived index could remain false even after a
+reader-only fix.
+
+The maintenance model now requires closure status and disposition evidence to be
+consistent. A typed read result exposes unreadable evidence to presentation. The
+persisted condition flag conservatively admits a review candidate; it does not
+assert a physical condition. The native query independently admits closure-status
+rows and resolved, nondeleted metadata candidates, then excludes only verified
+noncontributors. This catches old false-index records and contradictory retained
+closure evidence. Strict report/furnace readers refuse unqualified evidence, and
+the qualified overview records the uncertainty rather than claiming a clear state.
+
+Ten failures were reproduced before repair. The integration run passes 103 cases;
+151 native successor, complete-boundary and populated-upgrade compatibility cases
+also pass, with clean scoped analysis. Raw Isar export/import verifies old false
+index values, valid retained concerns, damaged closure evidence, contradictory
+status, ended relevance and tombstones. The wider query is a native database
+filter followed by candidate qualification, not the prior index-only feed. A local
+10,000-row representative historical-metadata run completed in 58 ms and returned
+no false active issues. This host result is not physical-device scale proof.
+Presentation qualification and final combined verification are recorded in the
+subsequent final-head evidence; these local counts do not replace hosted review.
+
+
+## Final local source verification for the follow-up
+
+The final combined native service/stream/UI run passes 170 tests; the final
+presentation rerun passes 44, scoped analysis is clean, and independent bounded
+review found no further blocker. Focused governance contracts pass 19/19, both
+inventory regression files pass 24/24, and the canonical audit passes 150/150.
+Earlier focused counts above overlap and are not an additive test total.
+
+A03 retains 628 operations across 2,190 sites and 83 surfaces. A04 retains all 55
+schema field policies and the existing extension/generation rules, with 123
+inherited decoder surfaces. A05 now tracks 123 decoder surfaces, 108 discovered
+catch sites, 64 strict-reader consumer files, 58 raw-JSON consumer files and 552
+risk sites. All 59 prior catch policies remain unchanged; the 49 added policies
+state their actual evidence and verification limits. No unclassified or stale
+catch policy remains. A02's two reviewed file-size bounds reflect only the native
+candidate query and qualified closed-ticket UI additions; ownership and other
+bounds remain unchanged. These results establish a source checkpoint, subject to
+fresh bot review and final-head hosted checks before merge.

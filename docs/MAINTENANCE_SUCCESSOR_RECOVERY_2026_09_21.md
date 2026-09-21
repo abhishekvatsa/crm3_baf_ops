@@ -102,3 +102,38 @@ The only added A05 risk site explicitly preserves uncertainty for unclassified
 errors. Previously reviewed schema, extension, catch and timestamp policies are
 unchanged. These checks accompany the native and UI results above; fresh hosted
 checks and bot review still govern merge.
+
+
+## Dependent-target follow-up
+
+The next bot review found that known dependent evidence still allowed the UI to
+suggest a fresh registered target even though the server necessarily refuses it.
+A shared eligibility check now withholds that suggestion and picker in both the
+ordinary correction dialog and the successor review. It covers known continuation,
+workflow, operational-link, recorded-work, acknowledgement, resolved, specialized
+and producer-backed quality states. Malformed present work, metadata, team or
+quality evidence also withholds the action; absent legacy metadata remains valid.
+
+The same check runs before target selection and submission. Narrative corrections
+remain available. The UI explicitly says that the server checks related records;
+it does not infer absence of reverse links or server-only provenance from a local
+snapshot. Server dependency checks remain unchanged. Nineteen additional target
+cases bring the combined UI/compatibility run to 62 passing tests, with clean
+scoped analysis. The preceding head passed all five release jobs and four security
+jobs, but this final source still requires its own fresh review and hosted checks.
+
+
+## Closure qualification and recovery coexist
+
+Strict closure admission now exposes damaged local evidence without hiding the
+saved-draft review route. Ordinary lifecycle actions and complete PDF export are
+withheld while closure evidence is unreadable; detail and closed-ticket screens
+show the retained record and a clear review message. The separate successor
+service can still verify original A and fresh server C, compare and archive the
+entire damaged B, and perform a reasoned keep-server reconciliation. Two native
+missing/malformed-closure cases verify the raw retained archive, and a screen
+regression follows the actual detail-to-keep-server path. The combined final
+UI, native service and stream run passes 170 tests after explicitly selecting the
+existing verified native library. An earlier missing-library setup error was not
+a source test result and is not counted as a pass. Fresh hosted checks and bot
+review remain required before merge.

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
+import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
@@ -11,6 +13,130 @@ import '../tool/test_support/test_isar_core.dart';
 
 void main() {
   setUpAll(initializeTestIsarCore);
+
+  test(
+    'old false index cannot hide damaged or still-relevant closure evidence',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final rows = [
+          for (final id in [
+            'damaged',
+            'retained',
+            'ended',
+            'contradictory',
+            'deleted',
+          ])
+            _record(
+              id: id,
+              status: TicketStatus.closedWithoutResolution,
+              isSynced: true,
+              disposition: id == 'ended'
+                  ? IssueAdministrativeClosureDisposition.relevanceEnded
+                  : IssueAdministrativeClosureDisposition.stillRelevant,
+            ),
+        ];
+        await isar.writeTxn(() => isar.maintenanceRecords.putAll(rows));
+        final exported = await isar.maintenanceRecords.where().exportJsonRaw(
+          (bytes) => utf8.decode(bytes),
+        );
+        final rawRows = (jsonDecode(exported) as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList();
+        for (final row in rawRows) {
+          row['plantConditionContributionActive'] = false;
+          if (row['firestoreId'] == 'damaged') {
+            row['metadataJson'] = '{"administrativeClosure":';
+          }
+          if (row['firestoreId'] == 'contradictory' ||
+              row['firestoreId'] == 'deleted') {
+            row['status'] = TicketStatus.resolved.name;
+            row['isDeleted'] = row['firestoreId'] == 'deleted';
+          }
+        }
+        // Import raw native rows, bypassing the repaired Dart projection getter.
+        await isar.writeTxn(() => isar.maintenanceRecords.importJson(rawRows));
+        expect(
+          await isar.maintenanceRecords
+              .where()
+              .plantConditionContributionActiveEqualTo(true)
+              .count(),
+          0,
+        );
+        final streamed = await IsarMaintenanceRepository()
+            .watchPlantConditionTickets()
+            .first;
+        expect(streamed.map((row) => row.firestoreId).toSet(), {
+          'damaged',
+          'retained',
+          'contradictory',
+        });
+        final damaged = streamed.singleWhere(
+          (row) => row.firestoreId == 'damaged',
+        );
+        expect(damaged.metadataJson, '{"administrativeClosure":');
+        expect(
+          () => damaged.canStillAffectPlantCondition,
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+        final priorVersion = damaged.version;
+        final priorUpdatedAt = damaged.updatedAt;
+        final priorSynced = damaged.isSynced;
+        await expectLater(
+          IsarMaintenanceRepository().saveTicket(damaged),
+          throwsStateError,
+        );
+        final retained = await isar.maintenanceRecords.get(damaged.id);
+        expect(retained!.metadataJson, '{"administrativeClosure":');
+        expect(retained.version, priorVersion);
+        expect(retained.updatedAt, priorUpdatedAt);
+        expect(retained.isSynced, priorSynced);
+        expect(damaged.version, priorVersion);
+        expect(damaged.updatedAt, priorUpdatedAt);
+        expect(damaged.isSynced, priorSynced);
+        expect(
+          streamed
+              .singleWhere((row) => row.firestoreId == 'retained')
+              .canStillAffectPlantCondition,
+          isTrue,
+        );
+        expect(
+          () => streamed
+              .singleWhere((row) => row.firestoreId == 'contradictory')
+              .canStillAffectPlantCondition,
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      });
+    },
+  );
+
+  test(
+    'native candidate query qualifies representative historical metadata',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final history = [
+          for (var i = 0; i < 10000; i++)
+            _record(
+              id: 'history-$i',
+              status: TicketStatus.resolved,
+              isSynced: true,
+            )..metadataJson = '{"retained":"historical assessment $i"}',
+        ];
+        await isar.writeTxn(() => isar.maintenanceRecords.putAll(history));
+        final elapsed = Stopwatch()..start();
+        final rows = await IsarMaintenanceRepository()
+            .watchPlantConditionTickets()
+            .first;
+        elapsed.stop();
+        expect(rows, isEmpty);
+        // Evidence for this bounded query tradeoff, not a timing-sensitive gate.
+        // ignore: avoid_print
+        print(
+          'Native closure admission: 10000 historical metadata rows, '
+          '${elapsed.elapsedMilliseconds} ms, ${rows.length} returned.',
+        );
+      });
+    },
+  );
 
   test(
     'Plant Condition stream retains open, unsynced, and still-relevant closures',
@@ -49,10 +175,9 @@ void main() {
         ];
         await isar.writeTxn(() => isar.maintenanceRecords.putAll(records));
 
-        final streamed =
-            await IsarMaintenanceRepository()
-                .watchPlantConditionTickets()
-                .first;
+        final streamed = await IsarMaintenanceRepository()
+            .watchPlantConditionTickets()
+            .first;
 
         expect(streamed.map((ticket) => ticket.firestoreId).toSet(), <String?>{
           'open',
@@ -67,10 +192,9 @@ void main() {
   test(
     'web stream excludes tombstones and atomically queries retained closures',
     () {
-      final source =
-          File(
-            'lib/features/maintenance/providers/maintenance_provider.remote.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+      ).readAsStringSync();
 
       expect(source, contains('Filter.or('));
       expect(source, contains('Filter.and('));
@@ -85,14 +209,16 @@ void main() {
     },
   );
 
-  test('native stream uses the indexed lifecycle projection', () {
-    final source =
-        File(
-          'lib/features/maintenance/providers/maintenance_provider.local.dart',
-        ).readAsStringSync();
+  test('native stream includes closures independently of the old index', () {
+    final source = File(
+      'lib/features/maintenance/providers/maintenance_provider.local.dart',
+    ).readAsStringSync();
 
-    expect(source, contains('.where()'));
     expect(source, contains('.plantConditionContributionActiveEqualTo(true)'));
+    expect(
+      source,
+      contains('.statusEqualTo(TicketStatus.closedWithoutResolution)'),
+    );
     expect(source, isNot(contains('.metadataJsonContains(')));
     expect(
       MaintenanceRecordSchema.indexes,
@@ -120,24 +246,22 @@ MaintenanceRecord _record({
   IssueAdministrativeClosureDisposition? disposition,
 }) {
   final time = DateTime.utc(2026, 9, 1, 8).add(Duration(minutes: id.length));
-  final record =
-      MaintenanceRecord()
-        ..firestoreId = id
-        ..version = 1
-        ..isSynced = isSynced
-        ..isDeleted = isDeleted
-        ..assetType = AssetType.base
-        ..assetNumber = 201
-        ..maintenanceType = MaintenanceType.breakdown
-        ..description = 'Plant Condition stream test'
-        ..plantConditionEffect =
-            MaintenanceIssuePlantConditionEffect.unavailable
-        ..routedTo = RoutedTo.mechanical
-        ..status = status
-        ..isResolved = status.isTerminal
-        ..startDate = time
-        ..createdAt = time
-        ..updatedAt = time;
+  final record = MaintenanceRecord()
+    ..firestoreId = id
+    ..version = 1
+    ..isSynced = isSynced
+    ..isDeleted = isDeleted
+    ..assetType = AssetType.base
+    ..assetNumber = 201
+    ..maintenanceType = MaintenanceType.breakdown
+    ..description = 'Plant Condition stream test'
+    ..plantConditionEffect = MaintenanceIssuePlantConditionEffect.unavailable
+    ..routedTo = RoutedTo.mechanical
+    ..status = status
+    ..isResolved = status.isTerminal
+    ..startDate = time
+    ..createdAt = time
+    ..updatedAt = time;
   if (disposition != null) {
     record.administrativeClosure = IssueAdministrativeClosure(
       disposition: disposition,

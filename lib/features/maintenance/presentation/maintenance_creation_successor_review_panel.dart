@@ -603,7 +603,7 @@ String _fieldLabel(String field) =>
       'loggedByUid': 'Original reporting account',
       'operationalEventIssueLinkIds': 'Linked operational event evidence',
       'performedBy': 'Work performed by',
-      'plantConditionContributionActive': 'Affects current plant condition',
+      'plantConditionContributionActive': 'Included in plant-condition review',
       'reopenReason': 'Reopening reason',
       'reopenedAt': 'Reopening time',
       'reopenedByName': 'Reopened by',

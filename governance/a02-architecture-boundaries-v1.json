@@ -508,12 +508,13 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. The 2026-09-21 reviewed extension admits closed or contradictory resolved native rows independently of an old false condition index, then removes only verified noncontributors; qualified consumers retain authority and malformed metadata stays unchanged.",
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart",
-        "test/maintenance_plant_condition_stream_test.dart"
+        "test/maintenance_plant_condition_stream_test.dart",
+        "test/maintenance_closure_evidence_admission_test.dart"
       ],
-      "maximumLines": 921,
+      "maximumLines": 934,
       "requiredMarkers": [
         "part of '"
       ],
@@ -1338,14 +1339,15 @@
       "authorityBoundary": "Approved-user capabilities control reopen and classification affordances; the backend revalidates issue finality, reopen-window expiry, asset identity, class version, and actor authority.",
       "persistenceOwnership": "Maintenance and maintenance-intelligence providers own reads; mutations use governed workflow commands and this screen owns no direct database access.",
       "transactionOwnership": "No client transaction is owned by the closed-ticket screen; server command handlers atomically own classification and cadence updates.",
-      "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner.",
+      "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority. The 2026-09-12 reviewed extension retains form entries while current-account loading, errors, permission changes or an origin-account switch disable privileged actions; it adds no persistence owner. The 2026-09-21 reviewed extension presents unreadable closure evidence explicitly and withholds actions whose closure basis is unverified; it adds no persistence or business decision owner.",
       "regressionTests": [
         "test/issue_administrative_closure_transition_test.dart",
         "test/operational_ux_restructure_test.dart",
         "functions/test/maintenanceIntelligence.test.js",
-        "test/maintenance_account_authority_test.dart"
+        "test/maintenance_account_authority_test.dart",
+        "test/maintenance_closure_review_ui_test.dart"
       ],
-      "maximumLines": 1604,
+      "maximumLines": 1647,
       "requiredMarkers": [
         "class ClosedTicketsScreen",
         "classifyMaintenanceTicket"

@@ -18,6 +18,8 @@ import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_creation
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_creation_successor_service.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
+import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -345,6 +347,55 @@ void main() {
   );
 
   testWidgets(
+    'unreadable local closure keeps reviewed reconciliation reachable from detail',
+    (tester) async {
+      final review = _review(
+        configure: (original, local, server) {
+          local
+            ..status = TicketStatus.closedWithoutResolution
+            ..isResolved = true
+            ..metadataJson = '{retained malformed closure';
+        },
+      );
+      await pump(tester, detail: true, review: review);
+      expect(
+        find.textContaining('Closure evidence needs review.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('ticket-detail-pdf')))
+            .onPressed,
+        isNull,
+      );
+      await open(tester);
+      expect(find.text('A · Original observation'), findsOneWidget);
+      expect(find.text('C · Current server observation'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('maintenance-successor-retained-metadataJson'),
+        ),
+        findsOneWidget,
+      );
+      await tap(tester, 'maintenance-successor-retain');
+      final reason = find.byKey(
+        const ValueKey('maintenance-successor-keep-reason'),
+      );
+      await tester.ensureVisible(reason);
+      await tester.enterText(
+        reason,
+        'Retain the unreadable device closure and keep the verified server issue',
+      );
+      await tap(tester, 'maintenance-successor-keep');
+      expect(service.keeps, 1);
+      expect(service.acknowledged, isTrue);
+      expect(service.keptReason, contains('unreadable device closure'));
+      expect(service.submissions, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'synced rows and unrelated operators do not enter successor review',
     (tester) async {
       await pump(tester, synced: true);
@@ -500,7 +551,7 @@ void main() {
         );
       }
       expect(
-        find.textContaining('Choose a fresh registered target'),
+        find.textContaining('Review a registered target'),
         findsNWidgets(3),
       );
       await tap(tester, 'maintenance-successor-select-description');
@@ -518,13 +569,165 @@ void main() {
         expect(field.enabled, isFalse);
       }
       expect(
-        find.text('Correct wrong registered component on this asset'),
+        find.text('Review registered target on this asset'),
         findsOneWidget,
       );
       expect(service.submissions, 0);
       expect(tester.takeException(), isNull);
     },
   );
+
+  final targetBlockers = <String, void Function(MaintenanceRecord)>{
+    'continued issue': (ticket) => ticket.continuesIssueId = 'earlier-issue',
+    'linked workflow': (ticket) =>
+        ticket.workflowAggregateId = 'linked-workflow',
+    'quality warning': (ticket) =>
+        ticket.qualityIntent = const IssueQualityIntent(
+          assessment: IssueQualityAssessment.suspected,
+          warningReason: 'Observed quality concern',
+          abnormalityTypeId: 'quality-concern',
+        ),
+    'operational event evidence': (ticket) =>
+        ticket.operationalEventIssueLinkIds = ['event-link'],
+    'recorded work': (ticket) => ticket.actions = [
+      ComponentAction(
+        asset: 'Furnace 7',
+        component: 'Server governed component',
+        actionType: ActionType.inspection,
+        createdAt: _at,
+      ),
+    ],
+    'unreadable work': (ticket) => ticket.actionsJson = '[',
+    'unreadable team evidence': (ticket) =>
+        ticket.metadataJson = '{"issueLanePlan":false}',
+    'unreadable quality evidence': (ticket) =>
+        ticket.metadataJson = '{"qualityIntent":false}',
+    'malformed metadata': (ticket) => ticket.metadataJson = '{',
+    'non-object metadata': (ticket) => ticket.metadataJson = '[]',
+    'null team evidence': (ticket) =>
+        ticket.metadataJson = '{"issueLanePlan":null}',
+    'resolved state': (ticket) => ticket.isResolved = true,
+    'acknowledged issue': (ticket) => ticket
+      ..status = TicketStatus.acknowledged
+      ..acknowledgedByUid = 'reviewer'
+      ..acknowledgedByName = 'Reviewer'
+      ..acknowledgedAt = _at
+      ..issueLanePlan = IssueLanePlan.initial([
+        'mechanical',
+      ]).acknowledge('mechanical'),
+    for (final classification in [
+      burnerLockoutClassification,
+      furnaceStuckupClassification,
+      baseInnerCoverUnavailableClassification,
+    ])
+      classification: (ticket) => _specialize(ticket, classification),
+  };
+  for (final blocker in targetBlockers.entries) {
+    testWidgets(
+      '${blocker.key} removes target guidance and picker from both correction entry paths',
+      (tester) async {
+        final review = _review(
+          registered: true,
+          configure: (original, local, server) => blocker.value(server),
+        );
+        await pump(tester, review: review);
+        await open(tester);
+        expect(find.textContaining('Review a registered target'), findsNothing);
+        for (final field in ['component', 'subsystem', 'tag']) {
+          expect(
+            find.byKey(ValueKey('maintenance-successor-select-$field')),
+            findsNothing,
+          );
+        }
+        await tap(tester, 'maintenance-successor-select-description');
+        await tap(tester, 'maintenance-successor-retain');
+        await tap(tester, 'maintenance-successor-correct');
+        expect(
+          find.byKey(const ValueKey('ticket-correction-target')),
+          findsNothing,
+        );
+        expect(
+          find.text('Review registered target on this asset'),
+          findsNothing,
+        );
+        expect(
+          find.textContaining(
+            'Device labels are retained without being copied',
+          ),
+          findsNothing,
+        );
+        if (const {
+          'continued issue',
+          'linked workflow',
+        }.contains(blocker.key)) {
+          final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+          await tester.ensureVisible(reason);
+          await tester.enterText(
+            reason,
+            'Confirm the narrative while preserving linked equipment scope',
+          );
+          await tester.tap(find.text('Record correction'));
+          await tester.pumpAndSettle();
+          expect(service.submitted?.corrections, {
+            'description': 'Retained device observation',
+          });
+          expect(service.submitted?.targetReferenceJson, isNull);
+          expect(service.acknowledged, isTrue);
+          expect(find.text('Compare saved issue changes'), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              home: Scaffold(
+                body: MaintenanceTicketCorrectionDialog(ticket: review.server),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('ticket-correction-target')),
+          findsNothing,
+        );
+        expect(
+          find.text('Review registered target on this asset'),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final metadata in [null, '', '{}']) {
+    testWidgets(
+      'ordinary open unworked unlinked issue with legacy metadata $metadata retains a target review option',
+      (tester) async {
+        final ticket = _review(registered: true).server
+          ..metadataJson = metadata;
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              home: Scaffold(
+                body: MaintenanceTicketCorrectionDialog(ticket: ticket),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('ticket-correction-target')),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('server checks related records'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'acknowledged route is retained while narrative correction remains available',
