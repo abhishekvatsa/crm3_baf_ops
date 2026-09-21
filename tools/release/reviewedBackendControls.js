@@ -35,6 +35,13 @@ function explicitFleetMaxInstances(ts,texts,policy){
   const expected=bindings[name].workloadClass.includes('CALLABLE')?['onCall']:bindings[name].workloadClass==='SCHEDULED_FIRESTORE_MUTATION'?['onSchedule']:['onDocumentCreated','onDocumentUpdated','onDocumentWritten'];
   assert.ok(expected.includes(init.expression.getText()),'Unexpected endpoint provider');
   const opts=init.arguments[0];assert.ok(opts&&ts.isObjectLiteralExpression(opts),'Endpoint options must be a literal');
+  const expectedSpread=name==='beginGlobalPullRun'?'GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS':name==='getBackendReleaseIdentity'?'BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS':name==='stampGlobalPullServerClock'?'GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS':bindings[name].workloadClass==='CALLABLE_FIRESTORE_MUTATION'?'MUTATING_CALLABLE_SECURITY_OPTIONS':null;
+  const propertyNames=new Set();let spreadCount=0;
+  for(const p of opts.properties){
+   if(ts.isSpreadAssignment(p)){assert.ok(expectedSpread!==null&&ts.isIdentifier(p.expression)&&p.expression.text===expectedSpread,'Unchecked endpoint spread could override the cap');spreadCount++;equal(spreadCount,1,'Duplicate endpoint spread');continue;}
+   assert.ok(ts.isPropertyAssignment(p)&&ts.isIdentifier(p.name),'Computed/method endpoint properties could override the cap');
+   assert.ok(!propertyNames.has(p.name.text),'Duplicate endpoint option');propertyNames.add(p.name.text);
+  }
   const caps=opts.properties.filter(p=>ts.isPropertyAssignment(p)&&ts.isIdentifier(p.name)&&p.name.text==='maxInstances');
   equal(caps.length,1,'One direct maxInstances per endpoint required');assert.ok(ts.isNumericLiteral(caps[0].initializer)&&caps[0].initializer.getText()==='20','Only literal maxInstances20 admitted');
  }
@@ -83,8 +90,22 @@ function sourceOptions(repoRoot,sourceCommit){
  equal(shared.enforceAppCheck.getText(),'MUTATING_CALLABLE_ENFORCE_APP_CHECK');
  equal(shared.consumeAppCheckToken.kind,ts.SyntaxKind.FalseKeyword);
  const identity=properties(initializer('functions/src/stage2dSecurityConfig.ts','BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS'));
+ eq(Object.keys(identity).sort(),['consumeAppCheckToken','enforceAppCheck','serviceAccount'],'Identity security spread fields differ');
  equal(identity.enforceAppCheck.kind,ts.SyntaxKind.TrueKeyword);
  equal(identity.consumeAppCheckToken.kind,ts.SyntaxKind.FalseKeyword);
+ if(declaredMaxInstances!==null){
+  const readOnly=properties(initializer(security,'READ_ONLY_CALLABLE_SECURITY_OPTIONS'));
+  eq(Object.keys(readOnly).sort(),['consumeAppCheckToken','enforceAppCheck'],'Read-only security spread fields differ');
+  equal(readOnly.enforceAppCheck.kind,ts.SyntaxKind.FalseKeyword);equal(readOnly.consumeAppCheckToken.kind,ts.SyntaxKind.FalseKeyword);
+  const globalFile='functions/src/globalPullSecurityConfig.ts',globalPull=unwrap(initializer(globalFile,'GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS'));
+  assert.ok(ts.isObjectLiteralExpression(globalPull));
+  equal(globalPull.properties.length,2,'Global pull security spread fields differ');
+  const [readonlySpread,serviceProperty]=globalPull.properties;
+  assert.ok(ts.isSpreadAssignment(readonlySpread)&&ts.isIdentifier(readonlySpread.expression)&&readonlySpread.expression.text==='READ_ONLY_CALLABLE_SECURITY_OPTIONS','Global pull security spread differs');
+  assert.ok(ts.isPropertyAssignment(serviceProperty)&&ts.isIdentifier(serviceProperty.name)&&serviceProperty.name.text==='serviceAccount','Global pull runtime binding differs');
+  const globalTrigger=properties(initializer(globalFile,'GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS'));
+  eq(Object.keys(globalTrigger),['serviceAccount'],'Global pull trigger security spread fields differ');
+ }
  const identityCallable=initializer('functions/src/index.ts','getBackendReleaseIdentity');
  assert.ok(ts.isCallExpression(identityCallable));equal(identityCallable.expression.getText(),'onCall');
  const identityOptions=identityCallable.arguments[0];assert.ok(ts.isObjectLiteralExpression(identityOptions));
