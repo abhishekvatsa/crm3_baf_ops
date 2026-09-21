@@ -68,13 +68,17 @@ test('all current manual workflows keep dispatch inputs out of run blocks', () =
   assert.deepEqual(
     workflowPaths.map((workflowPath) => path.relative(repositoryRoot, workflowPath)),
     [
+      path.join('.github', 'workflows', 'codeql.yml'),
       path.join('.github', 'workflows', 'production-artifact.yml'),
       path.join('.github', 'workflows', 'verification-artifact.yml'),
     ],
   );
   assert.deepEqual(auditManualWorkflows(), []);
 
-  const sources = workflowPaths.map((workflowPath) =>
+  // CodeQL accepts no manual inputs; release workflows retain their validation.
+  const codeql = parseWorkflow(fs.readFileSync(workflowPaths[0], 'utf8'));
+  assert.deepEqual(codeql.on.workflow_dispatch, {});
+  const sources = workflowPaths.slice(1).map((workflowPath) =>
     fs.readFileSync(workflowPath, 'utf8'));
   assert.ok(sources.every((source) => source.includes('CRM_DISPATCH_')));
   assert.ok(sources.every((source) =>

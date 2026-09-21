@@ -1,0 +1,158 @@
+name: CodeQL source security
+
+# Kotlin needs a traced Flutter/Android build; build-mode:none omits Kotlin.
+# CRM3_CODEQL_PREVIEW is a temporary migration switch. With it absent, uploads
+# are enabled. Keep default setup active until all four preview jobs pass.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+  schedule:
+    - cron: '23 2 * * 1'
+  workflow_dispatch: {}
+
+concurrency:
+  group: codeql-source-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
+    env:
+      CRM3_CI_PACKAGE_PROOF: 'true'
+      GRADLE_USER_HOME: ${{ runner.temp }}/codeql-gradle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Explain temporary preview
+        if: vars.CRM3_CODEQL_PREVIEW == 'true'
+        run: echo 'Preview analysis only. Default setup remains the active scanner until migration is verified.'
+
+      - name: Set up Java 21
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Flutter 3.44.0
+        if: matrix.language == 'java-kotlin'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.0'
+          cache: true
+
+      - name: Prepare isolated Android compilation
+        if: matrix.language == 'java-kotlin'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          flutter precache --android
+          flutter pub get
+          python3 tools/security/codeql/prepare_android.py
+          python3 -m unittest discover -s tools/security/codeql -p 'test_*.py'
+
+      - name: Initialize CodeQL
+        id: init
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Compile Kotlin inside CodeQL tracing
+        if: matrix.language == 'java-kotlin'
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --no-build-cache --no-configuration-cache \
+            --rerun-tasks \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -Pkotlin.incremental=false \
+            -Pdart-defines=Q1JNM19DSV9QQUNLQUdFX1BST09GPXRydWU= \
+            clean :app:assembleDebug
+
+      - name: Analyze without implicit upload
+        id: analyze
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd
+        with:
+          category: /language:${{ matrix.language }}
+          output: ${{ runner.temp }}/codeql-sarif
+          # 'false' means failure-only in this action; 'never' is intentional.
+          upload: never
+          upload-database: false
+
+      - name: Prove app Kotlin method bodies were extracted
+        if: matrix.language == 'java-kotlin'
+        env:
+          CODEQL_BINARY: ${{ steps.init.outputs.codeql-path }}
+          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations).java }}
+          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/kotlin-extraction"
+          # Resolve java-all and its dependencies from this same CLI bundle.
+          # Do not install a separately versioned pack from a network registry.
+          CODEQL_BUNDLE="$(dirname "$CODEQL_BINARY")"
+          test -f "$CODEQL_BUNDLE/.codeqlmanifest.json"
+          test -d "$CODEQL_BUNDLE/qlpacks/codeql/java-all"
+          "$CODEQL_BINARY" query run \
+            --search-path="$CODEQL_BUNDLE" \
+            --database="$CODEQL_DATABASE" \
+            --output="$RUNNER_TEMP/kotlin-extraction/methods.bqrs" \
+            tools/security/codeql/MainActivityBodies.ql
+          "$CODEQL_BINARY" bqrs decode --format=csv \
+            --output="$RUNNER_TEMP/kotlin-extraction/methods.csv" \
+            "$RUNNER_TEMP/kotlin-extraction/methods.bqrs"
+          python3 tools/security/codeql/verify_kotlin_extraction.py \
+            --csv "$RUNNER_TEMP/kotlin-extraction/methods.csv" \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --commit "$(git rev-parse HEAD)" \
+            --codeql-version "$CODEQL_VERSION" \
+            --output "$RUNNER_TEMP/kotlin-extraction/proof.json"
+
+      - name: Upload accepted security analysis
+        if: vars.CRM3_CODEQL_PREVIEW != 'true'
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd
+        with:
+          sarif_file: ${{ steps.analyze.outputs.sarif-output }}
+          category: /language:${{ matrix.language }}
+          wait-for-processing: true
+
+      - name: Retain analysis and extraction evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: codeql-${{ matrix.language }}-evidence
+          path: |
+            ${{ runner.temp }}/codeql-sarif/*.sarif
+            ${{ runner.temp }}/kotlin-extraction/*.csv
+            ${{ runner.temp }}/kotlin-extraction/*.json
+          if-no-files-found: warn
+          retention-days: 14
