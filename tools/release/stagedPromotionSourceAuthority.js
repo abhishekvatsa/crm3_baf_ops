@@ -429,6 +429,9 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
     requireEvidence(releasePolicy?.firebaseProjectId === PROJECT,
       "Release policy: Firebase project differs from production authority.");
     const versionPolicy = releasePolicy.versionPolicy;
+    requireEvidence(Number.isSafeInteger(versionPolicy?.buildNumber) &&
+      versionPolicy.buildNumber > 0 && versionPolicy.buildNumber <= 2147483647,
+    "Version policy: build number must be a positive signed 32-bit integer.");
     requireEvidence(SHA256.test(versionPolicy?.sourceDocumentSha256 ?? ""),
       "Version source: physical SHA-256 authority is absent.");
     const version = readChild(root, versionPolicy.sourceDocumentFile,
@@ -453,22 +456,25 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       candidate.sourceAuthority?.pullRequestNumber === expectedPr,
     "Candidate backend: deployed commit, Git tree or pull request differs from version authority.");
     verifyDeployment(root, candidate, "Candidate backend");
-    const build28 = versionPolicy.buildNumber === 28;
+    const anchoredPromotionBytes = gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
+      BUILD27_PROMOTION_RECEIPT_PATH);
+    const anchoredPromotion = JSON.parse(anchoredPromotionBytes);
+    const preservedPilotBuildNumber = anchoredPromotion.admittedEvidence.governedBuild.buildNumber;
+    const successorOfPreservedPilot = versionPolicy.buildNumber > preservedPilotBuildNumber;
     let historicalFile = finalization.exactFunctionFleetDeploymentReceiptFile;
     let historicalRead = candidateRead;
-    if (build28) {
+    if (successorOfPreservedPilot) {
       requireEvidence(releasePolicy.postBuildPromotion?.status === "completed-staged-controlled-pilot-only",
-      "Build28 candidate: preserved Build27 promotion is required; candidate approval is verified separately.");
+      "Successor candidate: preserved pilot promotion is required; candidate approval is verified separately.");
       // The successor's version/finalization selects its candidate backend. It
-      // cannot redirect the retained pilot's historical deployment authority.
-      const anchoredPromotion = JSON.parse(gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
-        BUILD27_PROMOTION_RECEIPT_PATH));
+      // cannot redirect the retained pilot's historical deployment authority,
+      // including after more than one build-number rollover.
       const authority = anchoredPromotion.admittedEvidence.productionBackend;
       historicalFile = authority.receipt;
       historicalRead = readChild(root, historicalFile, authority.sha256, "Historical backend");
       verifyDeployment(root, historicalRead.value, "Historical backend");
       requireEvidence(expectedCommit !== historicalRead.value.sourceAuthority.commit,
-        "Build28 candidate: historical Build27 deployment cannot replace the separately governed successor backend.");
+        "Successor candidate: historical pilot deployment cannot replace the separately governed successor backend.");
     }
     const historical = historicalRead.value;
 
@@ -548,9 +554,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       const promotion = promotionRead.value;
       const deviceAuthority = promotion.admittedEvidence?.deviceAcceptance;
       const device = readChild(root, deviceAuthority?.receipt, deviceAuthority?.sha256, "Promotion device evidence").value;
-      const anchoredPromotionBytes = gitSourceValue(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
-        BUILD27_PROMOTION_RECEIPT_PATH);
-      const anchoredPilot = JSON.parse(anchoredPromotionBytes).ownerApproval;
+      const anchoredPilot = anchoredPromotion.ownerApproval;
       pilotApprovalCustody = readApprovalCustody(root, BUILD27_PILOT_APPROVAL_CUSTODY_COMMIT,
         {file: anchoredPilot.receipt, sha256: anchoredPilot.sha256}, "Pilot");
       const pilotApproval = readChild(root, promotion.ownerApproval?.receipt,
@@ -573,7 +577,7 @@ function verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy}) {
       historicalBackendReceiptSha256: historicalRead.hash,
       currentBackendReceiptFile: deployed.functionFleetEvidenceFile,
       currentBackendReceiptSha256: current.hash,
-      ...(build28 ? {candidateBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
+      ...(successorOfPreservedPilot ? {candidateBackendReceiptFile: finalization.exactFunctionFleetDeploymentReceiptFile,
         candidateBackendReceiptSha256: candidateRead.hash} : {}),
       ...(pilotApprovalCustody ? {pilotOwnerApprovalFile: pilotApprovalCustody.file,
         pilotOwnerApprovalSha256: pilotApprovalCustody.sha256} : {}),

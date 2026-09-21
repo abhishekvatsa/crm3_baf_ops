@@ -130,7 +130,7 @@ function fixture(t) {
     exactFunctionFleetDeploymentPullRequest: 355,
     exactFunctionFleetDeploymentReceiptFile: backendPath}};
   const policy = {firebaseProjectId: PROJECT,
-    versionPolicy: {sourceDocumentFile: versionPath},
+    versionPolicy: {buildNumber: 27, sourceDocumentFile: versionPath},
     finalization: {exactFunctionFleetDeploymentReceiptFile: backendPath}};
   const deployed = {functionFleetEvidenceFile: backendPath,
     functionFleetSourceCommit: commit, deploymentApprovalFile: approvalPath};
@@ -578,7 +578,7 @@ test('new delegated custody rejects altered approval bytes and invalid CI even w
   assert.equal(f.verify().ok,false,'uncommitted coherent rehash cannot replace Git custody');
 });
 
-function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
+function rolloverFixture(t, currentFixture = delegatedCurrentFixture, buildNumber = 28) {
   const f = currentFixture(t);
   const promotionFile = 'release/evidence/build-27-staged-controlled-pilot-authorization.json';
   const promotion = readMeasured(promotionFile);
@@ -593,7 +593,7 @@ function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
   }
   f.policy.postBuildPromotion = {status: 'completed-staged-controlled-pilot-only',
     promotionReceiptFile: promotionFile, promotionReceiptSha256: sha(fs.readFileSync(path.join(f.root, promotionFile)))};
-  f.policy.versionPolicy.buildNumber = 28;
+  f.policy.versionPolicy.buildNumber = buildNumber;
   f.version.sourceBaseline.commit = f.currentReceipt.sourceAuthority.commit;
   Object.assign(f.version.requiredSource, {
     exactFunctionFleetDeploymentSourceCommit: f.currentReceipt.sourceAuthority.commit,
@@ -613,6 +613,119 @@ function rolloverFixture(t, currentFixture = delegatedCurrentFixture) {
   persistCandidate();
   return {...f, history, historical, persistCandidate};
 }
+
+test('Build27 retains its admitted backend without inventing a successor candidate', (t) => {
+  const f = fixture(t);
+  f.policy.versionPolicy.buildNumber = 27;
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.equal(result.currentBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.equal(Object.hasOwn(result, 'candidateBackendReceiptFile'), false);
+});
+
+test('malformed build numbers cannot fall through to the historical Build27 authority', (t) => {
+  const f = fixture(t);
+  assert.equal(f.verify().ok, true);
+  for (const buildNumber of ['29', 29.5, null, undefined, 0, -1, 2147483648,
+    Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, true, [29]]) {
+    f.policy.versionPolicy.buildNumber = buildNumber;
+    const result = f.verify();
+    assert.equal(result.ok, false, `malformed selector ${String(buildNumber)}`);
+    assert.match(result.reasons.join('; '), /build number must be a positive signed 32-bit integer/);
+  }
+  delete f.policy.versionPolicy.buildNumber;
+  assert.equal(f.verify().ok, false, 'absent selector');
+  f.policy.versionPolicy.buildNumber = 27;
+  assert.equal(f.verify().ok, true, 'restored historical positive control');
+});
+
+test('Build29 rollover preserves the admitted Build27 pilot and verifies distinct candidate and current backends', (t) => {
+  const f = rolloverFixture(t, successorDelegatedFixture, 29);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptFile, f.history.receipt);
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+  assert.notEqual(result.candidateBackendReceiptSha256, result.historicalBackendReceiptSha256);
+  assert.equal(result.promotionReceiptFile, f.policy.postBuildPromotion.promotionReceiptFile);
+
+  // A later current observation cannot replace either the approved candidate
+  // evidence or the preserved pilot's immutable backend decision.
+  f.deployed.functionFleetEvidenceFile = 'release/later-current29.json';
+  f.currentReceipt.recordedAtUtc = new Date(Date.parse(f.currentReceipt.recordedAtUtc) + 1000).toISOString();
+  f.persistCurrent();
+  const later = f.verify();
+  assert.equal(later.ok, true, later.reasons.join('; '));
+  assert.notEqual(later.candidateBackendReceiptSha256, later.currentBackendReceiptSha256);
+  assert.equal(later.candidateBackendReceiptSha256, result.candidateBackendReceiptSha256);
+  assert.equal(later.historicalBackendReceiptSha256, f.history.sha256);
+});
+
+test('Build29 rollover rejects borrowed historical deployment and forged preserved-pilot authority', (t) => {
+  const f = rolloverFixture(t, delegatedCurrentFixture, 29);
+  assert.equal(f.verify().ok, true);
+  const required = structuredClone(f.version.requiredSource);
+  Object.assign(f.version.requiredSource, {
+    exactFunctionFleetDeploymentReceiptFile: f.history.receipt,
+    exactFunctionFleetDeploymentSourceCommit: f.historical.sourceAuthority.commit,
+    exactFunctionFleetDeploymentPullRequest: f.historical.sourceAuthority.pullRequestNumber,
+  });
+  f.persistCandidate();
+  assert.match(f.verify().reasons.join('; '), /historical pilot deployment cannot replace/);
+  Object.assign(f.version.requiredSource, required);
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+
+  const promotionFile = f.policy.postBuildPromotion.promotionReceiptFile;
+  const originalBytes = fs.readFileSync(path.join(f.root, promotionFile));
+  for (const mutate of [
+    (promotion) => {
+      promotion.admittedEvidence.productionBackend = {
+        receipt: f.deployed.functionFleetEvidenceFile,
+        sha256: f.deployed.functionFleetEvidenceSha256, decision: PASS,
+      };
+    },
+    (promotion) => {
+      promotion.admittedEvidence.governedBuild.buildNumber = 29;
+      promotion.promotion.authorizedBuildNumber = 29;
+    },
+  ]) {
+    const promotion = JSON.parse(originalBytes);
+    mutate(promotion);
+    f.policy.postBuildPromotion.promotionReceiptSha256 = f.write(promotionFile, promotion);
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), /Promotion decision custody/);
+  }
+  fs.writeFileSync(path.join(f.root, promotionFile), originalBytes);
+  f.policy.postBuildPromotion.promotionReceiptSha256 = sha(originalBytes);
+  assert.equal(f.verify().ok, true);
+  delete f.policy.postBuildPromotion;
+  assert.match(f.verify().reasons.join('; '), /preserved pilot promotion is required/);
+});
+
+test('Build29 rollover independently rejects a damaged candidate when the current backend is valid', (t) => {
+  const f = rolloverFixture(t, delegatedCurrentFixture, 29);
+  const candidate = structuredClone(f.currentReceipt);
+  const candidateFile = 'release/candidate29.json';
+  f.write(candidateFile, candidate);
+  f.version.requiredSource.exactFunctionFleetDeploymentReceiptFile = candidateFile;
+  f.persistCandidate();
+  assert.equal(f.verify().ok, true);
+
+  const child = structuredClone(f.currentChildren.functionFleet);
+  child.outputs.functions[0].firebaseFunctionsHash = '0'.repeat(40);
+  const sealed = sealReceipt(child);
+  candidate.cleanMainLiveReadbacks.functionFleet = {file: 'release/candidate29-bad-fleet.json',
+    physicalSha256: f.write('release/candidate29-bad-fleet.json', sealed),
+    canonicalReceiptSha256: sealed.receiptSha256};
+  f.write(candidateFile, candidate);
+  f.persistCandidate();
+  const result = f.verify();
+  assert.equal(result.ok, false);
+  assert.match(result.reasons.join('; '), /functionFleet: measured function source hashes/);
+});
 
 test('new source delegated custody supports a Build28 candidate while preserving immutable Build27 history', (t) => {
   const f = rolloverFixture(t, successorDelegatedFixture);
