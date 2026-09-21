@@ -12639,6 +12639,9 @@ a05_decoder_inventory_manifest = data(
 a05_decoder_inventory_tool = text(
     "tools/v4/a05_persisted_decoder_inventory.py"
 )
+a05_decoder_catch_inventory_test = text(
+    "tools/v4/test_a05_decoder_catch_inventory.py"
+)
 a05_production_sweep = text(
     "tools/v4/a05_production_persisted_integrity_sweep.mjs"
 )
@@ -12731,6 +12734,23 @@ a03_manifest = data("governance/a03-persistence-boundaries-v1.json")
 a03_profiles = a03_manifest.get("profiles", {})
 a03_surfaces = a03_manifest.get("surfaces", [])
 a03_dedicated_surface_tests = {
+    "lib/features/maintenance/providers/maintenance_creation_successor_provider.dart": {
+        "test/maintenance_creation_successor_complete_boundary_test.dart",
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_creation_successor_service_test.dart",
+        "test/maintenance_creation_successor_review_ui_test.dart",
+    },
+    "lib/features/maintenance/repositories/maintenance_creation_successor_repository.dart": {
+        "test/maintenance_creation_successor_complete_boundary_test.dart",
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_creation_successor_service_test.dart",
+        "test/maintenance_creation_successor_review_ui_test.dart",
+    },
+    "lib/features/maintenance/providers/maintenance_provider.local.dart": {
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart",
+        "test/maintenance_closure_evidence_admission_test.dart",
+    },
     "lib/features/planned_maintenance/providers/template_governance_publication.dart": {
         "test/template_publication_transaction_test.dart",
     },
@@ -13016,16 +13036,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 623
-    and a03_inventory_report.get("siteCount") == 2171
+    and a03_inventory_report.get("operationCount") == 628
+    and a03_inventory_report.get("siteCount") == 2190
     and a03_inventory_report.get("inventoryDigest")
-        == "319280FA616F5B908EEB62129C75A3F834353BDA56A5DCABB8C478C9E766DFF4"
+        == "1E2E0AE79C1CC523DBF848D65DB9DE3208896F19ED3A9F6EAED0CEF96029080B"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 81
-    and len({surface.get("path") for surface in a03_surfaces}) == 81
+    and len(a03_surfaces) == 83
+    and len({surface.get("path") for surface in a03_surfaces}) == 83
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -13075,9 +13095,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 119
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 123
     and a04_inventory_report.get("inventoryDigest")
-        == "FB9D4F566B48A9C17DB124F79BC5B83F7B3DF8B564018B494C32675BF6861CB9"
+        == "9A29F28368E4F025651B540C30095B5C57091D71B4C17511EA289FE6CE2F4248"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13085,8 +13105,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 119
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 119
+    and len(a04_inherited_decoders) == 123
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 123
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13396,20 +13416,29 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 119
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 59
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 63
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 56
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 528
+    and a05_decoder_inventory_report.get("surfaceCount") == 123
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 108
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 64
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 58
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 552
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 119
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 59
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 123
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 108
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
+    and "test_bare_typed_decoder_refusal_is_not_omitted"
+        in a05_decoder_catch_inventory_test
+    and "test_every_handler_in_mixed_chain_is_governed"
+        in a05_decoder_catch_inventory_test
+    and "test_original_first_catch_fingerprint_is_preserved"
+        in a05_decoder_catch_inventory_test
+    and "test_decoder_names_in_try_comments_or_strings_do_not_qualify"
+        in a05_decoder_catch_inventory_test
+    and "test_a05_*inventory.py" in release_gate_source
     and "A05_COLLECTION_REGISTRY" in a05_production_sweep
     and "pilot_record_purge_receipts: 'SERVER_CONTROL_RECORD'"
         in a05_production_sweep

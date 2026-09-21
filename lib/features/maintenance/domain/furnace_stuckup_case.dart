@@ -224,7 +224,11 @@ String mergeFurnaceStuckupIntoMaintenanceMetadata(
   if (existing != null && existing.trim().isNotEmpty) {
     try {
       final decoded = jsonDecode(existing);
-      if (decoded is Map) root.addAll(Map<String, dynamic>.from(decoded));
+      if (decoded is Map) {
+        root.addAll(Map<String, dynamic>.from(decoded));
+      } else {
+        root['legacyMetadata'] = existing;
+      }
     } on FormatException {
       root['legacyMetadata'] = existing;
     }

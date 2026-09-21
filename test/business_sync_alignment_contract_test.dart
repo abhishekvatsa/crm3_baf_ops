@@ -270,6 +270,14 @@ void main() {
               'BurnerDirectiveComplianceResult.fromCallableData(',
               'store.settleAccepted(',
             ],
+        'lib/features/maintenance/services/maintenance_creation_successor_service.dart':
+            [
+              'WorkflowCommandReceipt.fromMap(',
+              'validateMaintenanceTicketCorrectionReceipt(',
+              'decodePersistedAuditEvent(',
+              'store.settleAccepted(',
+              'store.markReconciled(',
+            ],
         'lib/features/operational_events/services/operational_event_amendment_service.dart':
             [
               'OperationalEventAmendmentReceipt.fromMap(raw, request)',

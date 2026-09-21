@@ -272,3 +272,23 @@ This addendum records current source validation only. It changes no persisted
 field policy or extension authority and makes no production reconciliation,
 deployment or installed-client compatibility claim. Earlier closure receipts
 remain evidence for their original snapshots.
+
+## Maintenance successor recovery — 21 September 2026
+
+The current derived inventory retains all 55 persisted schema fields and inherits
+122 classified decoder surfaces. Its digest is
+`16458D200F2C16E46C48B4A18D3E5A65B652B0358C9A96B220460EAA5B30EC09`.
+The three added surfaces cover accepted creation/comparison evidence, complete
+native snapshot/adoption, and the separate durable successor correction. No Isar
+schema or field was added. Shared strict timestamp admission remains unchanged.
+Historical hashes and release receipts have not been renewed by this refresh.
+
+## Maintenance bot-review verification refresh
+
+The complete-field regression is now named in the reviewed decoder contracts.
+The current derived A04 digest is
+`BA68BCB9F82AAA714CB196583055CD15319E3AFC300EF00636F3B1F55B7E48EC`.
+Counts remain 55 schema fields and 122 inherited decoder surfaces. The A05 risk
+inventory increases from 538 to 539 for the explicit false result when an error
+has no verified refusal pair; this preserves uncertainty. Prior schema fields,
+catch policies, timestamp readers and historical evidence remain unchanged.

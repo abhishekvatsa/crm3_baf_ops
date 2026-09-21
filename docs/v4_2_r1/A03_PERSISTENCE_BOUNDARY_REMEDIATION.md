@@ -448,3 +448,15 @@ Current source: 601 operations / 2,097 sites / 72 surfaces. The additional reads
 ## Current domain-repair inventory, 21 September 2026
 
 Current source has 623 operations / 2,171 sites / 81 classified surfaces. Digest `319280FA616F5B908EEB62129C75A3F834353BDA56A5DCABB8C478C9E766DFF4`. Reviewed additions include origin-bound directive recovery, online access checks, complete qualified report feeds and exact knowledge adoption. The latest four surfaces are the UV installation-correction and operational closure-amendment repositories and their provider composition roots. They admit server-confirmed original records, complete correction history and exact accepted evidence; native journals retain original-account requests, while backend transactions own business mutations. Presentation continues to delegate persistence. This addendum records current source only; historical closure and production activation evidence remain unchanged.
+
+## Maintenance successor recovery — 21 September 2026
+
+The current source inventory contains 628 operations across 2185 primitive sites
+and 83 classified persistence surfaces. Its digest is
+`A9F4ECAFC7C532EBDBC628C49BA2565792A03E36BCC0658AD8DD08FA661F8D46`.
+The added server-only correction-audit read is restricted to the approved review
+composition. The native repository retains the complete Isar draft and performs
+full-row comparison, projection adoption and review archival atomically. Concrete
+regressions are in `test/maintenance_creation_successor_service_test.dart` and
+`test/maintenance_creation_successor_review_ui_test.dart`. Existing historical
+inventories remain evidence of their own checkpoints.

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "319280FA616F5B908EEB62129C75A3F834353BDA56A5DCABB8C478C9E766DFF4",
+  "inventoryDigest": "1E2E0AE79C1CC523DBF848D65DB9DE3208896F19ED3A9F6EAED0CEF96029080B",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -70,6 +70,12 @@
       "authorityBoundary": "Composes server-read repositories and callable adapters for correction services. The service requires current Admin/SI and the retained original actor, and the backend rechecks authority; provider construction grants no mutation authority.",
       "offlineSemantics": "Reads are server-confirmed. Callable dispatch occurs only through a retained native command; uncertain results remain recoverable instead of being treated as acceptance.",
       "transactionOwnership": "Provider owns no direct business write or transaction. The durable service owns dispatch/settlement; backend owns atomic correction and evidence writes."
+    },
+    "maintenance-successor-composition": {
+      "layer": "provider-composition",
+      "authorityBoundary": "Current approved Admin/SI and live Firebase identity must agree before review. Accepted creation A remains read-only evidence from its original workflow owner; a supervisor correction is a distinct original-supervisor-bound command. Firestore Rules independently authorize immutable correction audit point reads.",
+      "offlineSemantics": "Current maintenance state and correction audits require exact server observations; cached, pending, missing or malformed evidence cannot settle native B. Unconfirmed corrections retain their original request and actor for recovery.",
+      "transactionOwnership": "Provider performs no business write or transaction. The durable submission owner dispatches the existing backend correction; native repository atomically archives complete B, adopts only an unchanged full row, and settles that correction owner."
     }
   },
   "surfaces": [
@@ -613,7 +619,9 @@
         "read"
       ],
       "regressionTests": [
-        "test/a03_persistence_boundary_contract_test.dart"
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart",
+        "test/maintenance_closure_evidence_admission_test.dart"
       ]
     },
     {
@@ -1225,6 +1233,40 @@
         "test/operational_event_interval_amendment_test.dart",
         "test/firestore.rules.test.js"
       ]
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_creation_successor_provider.dart",
+      "profile": "maintenance-successor-composition",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_creation_successor_service_test.dart",
+        "test/maintenance_creation_successor_review_ui_test.dart",
+        "test/maintenance_creation_successor_complete_boundary_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance/repositories/maintenance_creation_successor_repository.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/maintenance_creation_successor_service_test.dart",
+        "test/maintenance_creation_successor_review_ui_test.dart",
+        "test/maintenance_creation_successor_complete_boundary_test.dart"
+      ],
+      "reviewContract": "Complete native Isar export retains every persisted B property and raw JSON value. Adoption and a local reconciliation audit share the durable owner transaction and full-row CAS; keep-server checks for a concurrent correction owner inside that transaction. Accepted correction plus newer B archives the reviewed evidence and leaves newer B unchanged and unsynced for another review. Duplicate rows and malformed or unavailable evidence fail closed."
     }
   ]
 }

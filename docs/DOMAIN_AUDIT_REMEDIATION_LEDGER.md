@@ -372,3 +372,30 @@ The next confirmed source defect is the unreachable review of a newer dirty
 maintenance draft after its original creation was accepted. The draft is
 preserved; the synced-only correction screen currently cannot review it.
 Broader remaining programmes listed in the linked checkpoint remain open.
+
+## Maintenance successor review — 21 September 2026
+
+See `MAINTENANCE_SUCCESSOR_RECOVERY_2026_09_21.md`. The confirmed dead end after
+accepted creation A and preserved newer device draft B now has a dedicated
+Admin/SI comparison against fresh server C. Supported selections use a distinct
+original-account governed correction; keep-server adoption records a reasoned
+local reconciliation. Complete native B evidence is retained, and concurrent B2
+work is preserved for another review. Original creation replay, ordinary synced
+correction gates and backend target/dependency protections remain in force.
+This closes the reachable native review gap, not unsupported lifecycle/physical
+asset retargeting, unavailable-account recovery or off-device restoration.
+
+
+## Current-state clarification after maintenance review
+
+The preceding "next confirmed source defect" is repaired by the maintenance
+successor review described above. The latest bot follow-up also withholds target
+selection when known linked or recorded evidence locks it, while preserving
+narrative correction and retained device evidence.
+
+The D06 follow-through bullet must be read narrowly: existing whole-event
+withdrawal already handles a duplicate or erroneous event and preserves its raw
+history. The new closed-occurrence end amendment is separate. Changed starts and
+individual-occurrence withdrawal/adjudication within an otherwise retained event
+are not claimed as complete. See `AUDIT_CLOSURE_AND_KOTLIN_2026_09_21.md` for the
+precise remaining programmes and accepted four-language Kotlin migration evidence.

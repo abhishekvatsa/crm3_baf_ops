@@ -42,3 +42,20 @@ the advanced workflow normally.
 Run `python3 -m unittest discover -s tools/security/codeql -p 'test_*.py'`.
 These tests verify evidence rejection and commit binding. They do not establish
 that Kotlin was extracted; only the actual traced CI build and query do that.
+
+## Migration readback details
+
+The REST default-setup state used to disable it is `not-configured`. Before
+removing `CRM3_CODEQL_PREVIEW`, read that state back. Existing default analyses
+can have the same main SHA as the new workflow; require new accepted analyses
+whose `analysis_key` identifies `.github/workflows/codeql.yml:analyze`, with all
+four language categories and no analysis errors. Retain the corresponding Kotlin
+proof, require its exact main commit and zero app extraction errors, and inspect
+open alerts separately. Do not delete earlier failed analyses to make this pass.
+
+Restoring default setup can return an asynchronous validation run. Check that
+run and the restored three-language analyses before reporting rollback complete.
+Enabling default setup can disable an existing advanced workflow; inspect its
+state and explicitly re-enable it before a later advanced migration retry.
+See GitHub's [default-setup REST API](https://docs.github.com/en/rest/code-scanning/code-scanning)
+and [setup interaction guidance](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/results-different-than-expected).

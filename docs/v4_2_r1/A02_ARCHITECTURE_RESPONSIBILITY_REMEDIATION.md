@@ -141,3 +141,23 @@ with 49 hotspots and digest
 `BCDCC1648EEDDD7508C51EAA2A5EFE4CAFFE329F0C0DCE0CBAE7C7E13F1993E9`.
 This is a working-tree classification, not a new CI closure or operational
 acceptance result. Historical evidence is unchanged.
+
+
+## Native maintenance closure evidence review, 2026-09-21
+
+The reviewed local repository growth is bounded to 934 lines. Its condition
+candidate query now includes closed or contradictory resolved rows whose old
+stored index may be false, then excludes only verified noncontributors. The
+repository retains its existing Isar ownership; condition authority remains in
+the qualified consumers. `maintenance_plant_condition_stream_test.dart` and
+`maintenance_closure_evidence_admission_test.dart` exercise the native old-index
+and malformed-evidence boundaries.
+
+The closed-ticket history presentation is bounded to 1,647 lines. It displays
+unreadable closure evidence and withholds dependent actions instead of treating
+unknown relevance as ended. `maintenance_closure_review_ui_test.dart` exercises
+that presentation boundary. No direct persistence or new business authority is
+introduced. Only these two measured ceilings and their regression references
+were re-armed; global growth limits and all other ownership rules remain. Future
+growth still requires review. Historical inventory and release evidence above
+remain unchanged; this addendum is not deployment or device qualification.

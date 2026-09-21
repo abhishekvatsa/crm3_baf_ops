@@ -254,6 +254,14 @@ class ResolutionHistoryReadResult {
   bool get isValid => error == null;
 }
 
+class IssueAdministrativeClosureReadResult {
+  const IssueAdministrativeClosureReadResult({this.value, this.error});
+
+  final IssueAdministrativeClosure? value;
+  final FormatException? error;
+  bool get isValid => error == null;
+}
+
 class ValidatedResolutionHistoryPayload {
   final List<Map<String, dynamic>> rows;
   final List<ResolutionHistory> entries;
@@ -635,8 +643,27 @@ class MaintenanceRecord {
   String? metadataJson;
 
   @ignore
-  IssueAdministrativeClosure? get administrativeClosure =>
-      IssueAdministrativeClosure.tryDecodeLocal(metadataJson);
+  IssueAdministrativeClosure? get administrativeClosure {
+    final closure = IssueAdministrativeClosure.tryDecodeLocal(metadataJson);
+    if ((status == TicketStatus.closedWithoutResolution) != (closure != null)) {
+      throw PersistedDataFormatException(
+        field: 'administrativeClosure',
+        source: 'local maintenance record $firestoreId',
+        detail:
+            'closed-without-resolution status and disposition must be present together',
+      );
+    }
+    return closure;
+  }
+
+  @ignore
+  IssueAdministrativeClosureReadResult get administrativeClosureReadResult {
+    try {
+      return IssueAdministrativeClosureReadResult(value: administrativeClosure);
+    } on FormatException catch (error) {
+      return IssueAdministrativeClosureReadResult(error: error);
+    }
+  }
 
   set administrativeClosure(IssueAdministrativeClosure? value) {
     metadataJson = mergeIssueAdministrativeClosureIntoMaintenanceMetadata(
@@ -812,16 +839,26 @@ class MaintenanceRecord {
 
   @ignore
   bool get canStillAffectPlantCondition {
+    if (isSynced && isDeleted) return false;
+    // Missing closure evidence is unknown, never proof that relevance ended.
+    final closure = administrativeClosure;
     if (!isSynced) return true;
-    if (isDeleted) return false;
     if (!isResolved) return true;
     return status == TicketStatus.closedWithoutResolution &&
-        administrativeClosure?.disposition ==
+        closure?.disposition ==
             IssueAdministrativeClosureDisposition.stillRelevant;
   }
 
   @Index()
-  bool get plantConditionContributionActive => canStillAffectPlantCondition;
+  bool get plantConditionContributionActive {
+    try {
+      return canStillAffectPlantCondition;
+    } on PersistedDataFormatException {
+      // This index admits candidates for review; it cannot establish a physical
+      // condition. Preserve unreadable rows so qualified consumers report them.
+      return true;
+    }
+  }
 
   set plantConditionContributionActive(bool _) {
     // Isar must deserialize the persisted projection, but the authoritative

@@ -64,10 +64,29 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   @override
   Stream<List<MaintenanceRecord>> watchPlantConditionTickets() {
     return isar.maintenanceRecords
-        .where()
+        .filter()
         .plantConditionContributionActiveEqualTo(true)
+        .or()
+        .statusEqualTo(TicketStatus.closedWithoutResolution)
+        .or()
+        .group((query) => query.isResolvedEqualTo(true)
+            .and().isDeletedEqualTo(false)
+            .and().metadataJsonIsNotNull()
+            .and().metadataJsonIsNotEmpty())
         .watch(fireImmediately: true)
-        .map((tickets) {
+        .map((candidates) {
+          // Older stores may contain a false derived index for a closure whose
+          // metadata was unreadable. Admit closures independently of that index,
+          // including resolved rows with potentially contradictory metadata,
+          // then omit only verified noncontributors. Unknown evidence remains
+          // visible to the qualified plant-condition and strict report readers.
+          final tickets = candidates.where((ticket) {
+            try {
+              return ticket.canStillAffectPlantCondition;
+            } on FormatException {
+              return true;
+            }
+          }).toList();
           tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return tickets;
         });
