@@ -405,6 +405,22 @@
           "occurrence": 1
         }
       ]
+    },
+    {
+      "id": "uv-correction-native-audit-timestamp-canonicalization",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "furnace-reliability",
+      "purpose": "Decode the exact numeric Timestamp representation retained by backend stableJson inside original-event audit evidence before comparison to native Firestore readback.",
+      "authorityBoundary": "Only exact two-key seconds/nanoseconds or underscore equivalents with bounded safe integers, valid Firestore range and whole-millisecond precision; used for immutable accepted audit content equality, never a date fallback.",
+      "regression": "test/uv_detector_correction_readback_test.dart",
+      "reArmCondition": "Invalid shape/range/precision is accepted or canonicalization changes accepted audit identity.",
+      "sites": [
+        {
+          "file": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+          "expression": "DateTime.fromMillisecondsSinceEpoch(",
+          "occurrence": 1
+        }
+      ]
     }
   ]
 }

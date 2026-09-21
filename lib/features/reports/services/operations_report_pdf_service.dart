@@ -17,6 +17,7 @@ import '../../operational_events/data/operational_event.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../domain/operations_report_document.dart';
+import '../domain/operations_report_query_plan.dart';
 import '../domain/report_provenance.dart';
 import '../models/operations_report.dart';
 
@@ -41,6 +42,13 @@ class OperationsReportPdfService {
     required List<AssetInstanceRecord> furnaceAssets,
     required Map<String, BurnerConditionRound> currentBurnerRounds,
   }) async {
+    if (!report.filter.queryPlan.covers(
+      OperationsReportQueryPlan.forSections(request.sections),
+    )) {
+      throw StateError(
+        'This snapshot does not include all sources required by the selected report.',
+      );
+    }
     final sailData = await rootBundle.load(BafBrand.sailMarkAsset);
     final manmithasData = await rootBundle.load(BafBrand.markAsset);
     final regularFontData = await rootBundle.load(BafBrand.reportFontAsset);
@@ -627,7 +635,9 @@ class OperationsReportPdfService {
       pw.SizedBox(height: 12),
       if (report.dueStates.isEmpty)
         _emptyStatement(
-          'No maintenance cadence projection is present in this scope.',
+          report.unreadableDueStateCount > 0
+              ? 'No readable cadence projection is available; obligations remain unknown until the incomplete evidence is reviewed.'
+              : 'No maintenance cadence projection is present in this scope.',
         )
       else
         ..._simpleTables(
@@ -1990,20 +2000,28 @@ class OperationsReportPdfService {
         .join(' ');
   }
 
-  static String _sourceRowSummary(OperationsReport report) =>
-      'Source rows: issues ${report.sourceTicketCount} | '
-      'PM ${report.sourceExecutionCount} | events ${report.sourceEventCount} | '
-      'counters ${report.sourceDueStateCount} | '
-      'inspections ${report.sourceInspectionFindingCount} | '
-      'warnings ${report.sourceQualityWarningCount} | '
-      'monitoring ${report.sourceQualityMonitoringCount} | '
-      'abnormalities ${report.sourceAbnormalityCount} | '
-      'directives ${report.sourceDirectiveCount} | '
-      'lanes ${report.sourceWorkflowLaneCount} | '
-      'compliance ${report.sourceComplianceRequestCount} | '
-      'alarms ${report.sourceCriticalAlarmCount} | '
-      '${report.unreadableExecutionCount == 0 ? 'PM source complete' : 'PM unreadable ${report.unreadableExecutionCount}'} | '
-      'Long narrative cells may be abbreviated; complete records remain in the app.';
+  static String _sourceRowSummary(OperationsReport report) {
+    String count(OperationsReportSource source, int value) =>
+        report.filter.queryPlan.includes(source) ? '$value' : 'not included';
+    return 'Source rows: issues ${count(OperationsReportSource.issues, report.sourceTicketCount)} | '
+        'PM ${count(OperationsReportSource.plannedWork, report.sourceExecutionCount)} | '
+        'events ${count(OperationsReportSource.disruptions, report.sourceEventCount)} | '
+        'counters ${count(OperationsReportSource.cadence, report.sourceDueStateCount)} | '
+        'inspections ${count(OperationsReportSource.inspections, report.sourceInspectionFindingCount)} | '
+        'warnings ${count(OperationsReportSource.qualityWarnings, report.sourceQualityWarningCount)} | '
+        'monitoring ${count(OperationsReportSource.monitoring, report.sourceQualityMonitoringCount)} | '
+        'abnormalities ${count(OperationsReportSource.abnormalities, report.sourceAbnormalityCount)} | '
+        'directives ${count(OperationsReportSource.directives, report.sourceDirectiveCount)} | '
+        'lanes ${count(OperationsReportSource.workflowLanes, report.sourceWorkflowLaneCount)} | '
+        'compliance ${count(OperationsReportSource.compliance, report.sourceComplianceRequestCount)} | '
+        'alarms ${count(OperationsReportSource.alarms, report.sourceCriticalAlarmCount)} | '
+        '${!report.filter.queryPlan.includes(OperationsReportSource.plannedWork)
+            ? 'PM source not included'
+            : report.unreadableExecutionCount == 0
+            ? 'PM source complete'
+            : 'PM unreadable ${report.unreadableExecutionCount}'} | '
+        'Long narrative cells may be abbreviated; complete records remain in the app.';
+  }
 
   static String _criticalAlarmStatusLabel(CriticalAlarmStatus status) =>
       switch (status) {

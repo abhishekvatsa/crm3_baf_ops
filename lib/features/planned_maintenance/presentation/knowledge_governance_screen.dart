@@ -29,6 +29,8 @@ import '../domain/baf_knowledge_repository.dart';
 import '../domain/knowledge_governance_export.dart';
 import '../domain/knowledge_revision_settlement.dart';
 import '../providers/knowledge_governance_provider.dart';
+import '../repositories/knowledge_import_journal_repository.dart';
+import 'widgets/knowledge_import_recovery_panel.dart';
 import 'widgets/knowledge_filters_panel.dart';
 import 'widgets/knowledge_row_editor.dart';
 import 'widgets/knowledge_version_dashboard.dart';
@@ -97,17 +99,24 @@ class _KnowledgeGovernanceScreenState
         ],
       ),
       body: SafeArea(
-        child: TabBarView(
-          controller: _tab,
+        child: Column(
           children: [
-            _RowsTab(
-              appUser: appUser,
-              searchController: _searchController,
-              onSearchChanged: _onSearchChanged,
+            const KnowledgeImportRecoveryPanel(),
+            Expanded(
+              child: TabBarView(
+                controller: _tab,
+                children: [
+                  _RowsTab(
+                    appUser: appUser,
+                    searchController: _searchController,
+                    onSearchChanged: _onSearchChanged,
+                  ),
+                  KnowledgeCorrectionPromoterPanel(appUser: appUser),
+                  const KnowledgeAuditTimeline(),
+                  const _ConflictsTab(),
+                ],
+              ),
             ),
-            KnowledgeCorrectionPromoterPanel(appUser: appUser),
-            const KnowledgeAuditTimeline(),
-            const _ConflictsTab(),
           ],
         ),
       ),
@@ -353,7 +362,7 @@ class _RowsTab extends ConsumerWidget {
       }
       _showKnowledgeSnack(
         context,
-        'Import: ${result.applied} written, ${result.rejectedAtSave} rejected. '
+        'Import: ${result.applied} accepted, ${result.rejectedAtSave} rejected, ${result.pending} not confirmed. '
         '${result.writes.where((write) => write.adoption == KnowledgeRevisionAdoption.pending).length} '
         'awaiting verified local adoption; refresh and review conflicts if needed.',
       );
@@ -362,6 +371,8 @@ class _RowsTab extends ConsumerWidget {
         return;
       }
       _showKnowledgeSnack(context, 'Import failed: $e');
+    } finally {
+      ref.invalidate(knowledgeImportRecoveryProvider);
     }
   }
 

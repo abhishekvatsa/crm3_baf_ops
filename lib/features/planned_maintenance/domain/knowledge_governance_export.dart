@@ -14,6 +14,7 @@ import 'dart:convert';
 
 import '../data/baf_knowledge_model.dart';
 import '../data/job_module_model.dart';
+import '../data/remote_baf_knowledge_reader.dart';
 import 'knowledge_governance_models.dart';
 import 'module_composer_models.dart';
 
@@ -63,6 +64,9 @@ class KnowledgeImportRowResult {
   final int? sourceVersion;
   final String? sourceEntryJson;
 
+  /// Full reviewed pre-image, frozen at preview time for durable retry.
+  final String? sourceCloudJson;
+
   const KnowledgeImportRowResult({
     required this.rowCode,
     required this.accepted,
@@ -70,6 +74,7 @@ class KnowledgeImportRowResult {
     this.draft,
     this.sourceVersion,
     this.sourceEntryJson,
+    this.sourceCloudJson,
   });
 }
 
@@ -318,6 +323,14 @@ class KnowledgeGovernanceExport {
           sourceEntryJson: existing == null
               ? null
               : jsonEncode(existing.toEntryMap()),
+          sourceCloudJson: existing == null
+              ? null
+              : jsonEncode(
+                  strictJsonSafeBafKnowledgeMap(
+                    existing.toCloudMap(),
+                    source: 'knowledge import preview',
+                  ),
+                ),
         ),
       );
     }

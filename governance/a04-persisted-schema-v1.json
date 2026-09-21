@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3",
+  "inventoryDigest": "FB9D4F566B48A9C17DB124F79BC5B83F7B3DF8B564018B494C32675BF6861CB9",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "0C44EAA98DFC413A6A470418F1A7595A0B72D1CD9C3A7E2ED76EED4A93949037",
+  "a05ManifestSha256": "000FB55714EC743C5AF3F2C9B8793B365EDED2B42C3AD90A5CD44B991CC32D9A",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1347,6 +1347,33 @@
       "regression": "test/knowledge_governance_export_test.dart"
     },
     {
+      "id": "knowledge-import-durable-execution",
+      "file": "lib/features/planned_maintenance/providers/knowledge_governance_provider.imports.dart",
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "authorityBoundary": "Freeze all reviewed drafts/full before-images/original actor before first network; persist intent first; each row transaction matches exact deterministic original audit or exact reviewed before-image.",
+      "malformedDisposition": "Different audit actor/reason/content or changed baseline is rejected without another revision; unknown transport/readback errors remain pending; each outcome persists before next row; original actor must remain approved.",
+      "compatibility": "Existing single-row audit producer shape reused; stored accepted audit timestamp strictly decoded, while fresh commit display time is not replay proof; newer cloud and dirty local drafts are preserved during adoption.",
+      "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_import_recovery_test.dart; test/knowledge_import_recovery.rules.test.js"
+    },
+    {
+      "id": "knowledge-import-immutable-journal-model",
+      "file": "lib/features/planned_maintenance/domain/knowledge_import_journal.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Immutable original actor, ordered exact reviewed row drafts/full before-images and version-bound per-row outcomes; draft reconstruction must roundtrip exactly.",
+      "malformedDisposition": "Unknown fields/versions, malformed JSON, duplicate rows, invalid drafts and incompatible outcomes fail closed and leave bytes retained.",
+      "compatibility": "Local schema 1 journal only. Fixed year-2000 and retained-import identity are nonpersisted scaffolding solely to validate entry content through the existing row decoder; they never supply audit time, original actor or dispatch authority.",
+      "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart"
+    },
+    {
+      "id": "knowledge-import-journal-repository",
+      "file": "lib/features/planned_maintenance/repositories/knowledge_import_journal_repository.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Append-only RequestIdentityJournal slots for original import and per-row outcomes; every outcome binds retained import/row/version; conflicting terminal outcomes refuse either iteration order.",
+      "malformedDisposition": "Corrupt or orphaned entries throw and remain stored; rejected/accepted terminal evidence dominates transient pending; accepted adoption cannot regress.",
+      "compatibility": "SharedPreferences local restart recovery; no reset/off-device restore qualification and no batch atomicity claim.",
+      "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart"
+    },
+    {
       "id": "maintenance-creation-owner",
       "file": "lib/features/maintenance/services/maintenance_creation_owner.dart",
       "classification": "LOCAL_CONTROL_STATE",
@@ -1491,6 +1518,24 @@
       "regression": "test/morning_review_integrity_test.dart; test/morning_review_agenda_test.dart; functions/test/morningReviewMutation.test.js"
     },
     {
+      "id": "operational-amendment-durable-command",
+      "file": "lib/features/operational_events/services/operational_event_amendment_service.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Native assetHierarchy.v2 original-owner envelope, occurrence-specific resource claim and capability check; frozen reviewed original interval, predecessor and expected version.",
+      "malformedDisposition": "Malformed saved request/receipt cannot dispatch or settle; post-dispatch errors retain original intent; first-attempt known precommit refusal may reject but retries stay uncertain.",
+      "compatibility": "New amendment capability required before dispatch; accepted retained receipts can finish strict readback without recreating a command or changing actor.",
+      "regression": "test/operational_event_amendment_service_test.dart; test/operational_event_amendment_controls_test.dart"
+    },
+    {
+      "id": "operational-amendment-server-review",
+      "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "Exact original interval from a server-confirmed event and immutable amendment readback bound to retained actor/request/version/occurrence/reason/predecessor plus accepted SHA-256 evidence digest. Full immutable chain additionally verifies every record digest/schema/original physical interval, explicit predecessor, prior effective end, chronology/version progression and exact terminal overlay; later projected issue link additions do not alter physical original evidence.",
+      "malformedDisposition": "Unavailable/cached/pending snapshots and malformed or altered source, digest, identity, reviewer or chronology fail closed; acceptance stays pending reconciliation.",
+      "compatibility": "Sorted JSON keys and exact whole-millisecond UTC timestamp normalization; later amendments and recurrences do not invalidate prior immutable acceptance.",
+      "regression": "test/operational_event_interval_amendment_test.dart; test/operational_event_amendment_service_test.dart"
+    },
+    {
       "id": "operational-directive",
       "file": "lib/features/directives/data/remote_operational_directive_reader.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
@@ -1539,10 +1584,19 @@
       "id": "operational-event-records",
       "file": "lib/features/operational_events/data/operational_event.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence; optional occurrence-indexed closure amendment overlay strictly binds original interval, unique amendment identity, adjacent occurrence limits and event updatedAt",
       "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
       "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
-      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js; test/operational_event_interval_amendment_test.dart"
+    },
+    {
+      "id": "operational-interval-amendment-record",
+      "file": "lib/features/operational_events/data/operational_event_interval_amendment.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "Exact original/corrected closure and server amendment chronology, explicit reviewer/reason/UUID predecessor; original interval stays unchanged.",
+      "malformedDisposition": "Unknown or missing fields, unsupported timestamp precision, invalid identities and contradictory chronology fail closed without a replacement date.",
+      "compatibility": "Schema-compatible optional event overlay; absence means no amendment, explicit malformed overlay remains an error; canonical UTC milliseconds/native Timestamp supported.",
+      "regression": "test/operational_event_interval_amendment_test.dart"
     },
     {
       "id": "operations-report-identity-query-scope",
@@ -1687,6 +1741,33 @@
       "malformedDisposition": "quarantine local record and report sync failure",
       "compatibility": "none",
       "regression": "test/a05_template_governance_integrity_test.dart"
+    },
+    {
+      "id": "uv-detector-correction-durable-command",
+      "file": "lib/features/assets/services/uv_detector_correction_command_service.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Original-account-bound maintenanceWorkflow.v2 correction envelope, fixed event/predecessor/current basis, and exact accepted receipt retained before dispatch and before readback.",
+      "malformedDisposition": "Invalid saved command or receipt blocks adoption and preserves original bytes; only first-attempt explicit precommit refusal rejects, while ambiguous retry refusal remains uncertain.",
+      "compatibility": "Native durable submission contract and new correctUvDetectorInstallation command; no actor inference or legacy envelope reconstruction.",
+      "regression": "test/uv_detector_correction_command_service_test.dart; test/uv_detector_correction_controls_test.dart; test/uv_detector_correction_readback_test.dart"
+    },
+    {
+      "id": "uv-detector-correction-server-review",
+      "file": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "Source.server original event, complete event-scoped correction chain/current installation and immutable audit; full correction and original event content bind to original actor/command, accepted audit fingerprint and server review time.",
+      "malformedDisposition": "Missing, malformed, duplicate, cached, pending or conflicting evidence propagates; accepted readback failure retains durable acceptance rather than synthesizing a clean state.",
+      "compatibility": "Later valid current installations may supersede the corrected event. Exact native Firestore timestamps and the backend numeric Timestamp representation inside immutable audit JSON normalize without losing milliseconds; malformed or extra timestamp map keys refuse.",
+      "regression": "test/uv_detector_installation_correction_test.dart; test/uv_detector_correction_command_service_test.dart; test/uv_detector_correction_readback_test.dart"
+    },
+    {
+      "id": "uv-detector-installation-correction-record",
+      "file": "lib/features/assets/data/uv_detector_installation_correction.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "Immutable original UV event identity, exact whole-millisecond original/effective/review timestamps, reviewer and one complete predecessor chain.",
+      "malformedDisposition": "Malformed schema, identity, chronology, native sub-millisecond timestamps, unknown fields, branching/disconnected/cyclic predecessor evidence fail closed; no current-time substitution.",
+      "compatibility": "New correction schema 1 only; original event and shared current projection schemas remain unchanged; canonical UTC strings and exact native Firestore timestamps supported.",
+      "regression": "test/uv_detector_installation_correction_test.dart; test/uv_detector_correction_controls_test.dart"
     },
     {
       "id": "uv-detector-lifecycle-record",

@@ -884,6 +884,8 @@ test('successor business collections have exact app or server authority', () => 
 
 test('every successor app collection reaches a strict Dart decoder', async () => {
   const successorCollections = [
+    'operational_event_interval_amendments',
+    'uv_detector_lifecycle_corrections',
     'asset_availability_current',
     'asset_condition_declarations',
     'burner_block_lifecycle_corrections',
@@ -1317,6 +1319,100 @@ test('actual Dart reader reconciles immutable UV-detector lifecycle events', asy
     result.collectionDispositions.uv_detector_lifecycle_current,
     'DART_STRICT_RECONCILIATION_PASS',
   );
+});
+
+test('real Dart bridge preserves native precision and never promotes stored transport tags', async () => {
+  // Use the same installed Admin SDK as the read-only sweep's real adapter.
+  const functionsRequire = createRequire(path.join(ROOT, 'functions/package.json'));
+  const {Timestamp} = functionsRequire('firebase-admin/firestore');
+  const seconds = Date.parse('2026-09-17T10:00:00.000Z') / 1000;
+  const storedTag = {
+    __a05FirestoreType: 'timestamp', seconds, nanoseconds: 123000000,
+  };
+  const specimens = [
+    {value: new Timestamp(seconds, 0), result: 'PASS'},
+    {value: new Timestamp(seconds, 123000000), result: 'PASS'},
+    {value: new Timestamp(seconds, 123001000), result: 'FAIL'},
+    {value: new Timestamp(seconds, 123000001), result: 'FAIL'},
+    {value: storedTag, result: 'FAIL'},
+    {value: {...storedTag, extraEvidence: true}, result: 'FAIL'},
+    {
+      value: {__a05FirestoreType: 'map', entries: Object.entries(storedTag)},
+      result: 'FAIL',
+    },
+    {
+      value: {__a05FirestoreType: 'nonFiniteNumber', value: 'NaN'},
+      result: 'FAIL',
+    },
+  ];
+  const documents = {
+    ...emptyDocuments(),
+    uv_detector_lifecycle_corrections: specimens.map((specimen, index) => ({
+      id: `private-correction-${index}`,
+      data: {
+        schemaVersion: 1,
+        version: 1,
+        correctionId: `private-correction-${index}`,
+        correctsEventId: 'private-event-a',
+        expectedCurrentEventId: 'private-current-a',
+        expectedCurrentActionPerformedAt: '2026-09-19T10:00:00.000Z',
+        assetInstanceId: 'private-furnace-a',
+        assetClassId: 'furnace',
+        assetNumber: 1,
+        componentTag: 'UV-1',
+        burnerPosition: 1,
+        recordedActionPerformedAt: '2026-09-18T10:00:00.000Z',
+        correctedActionPerformedAt: specimen.value,
+        correctedAt: '2026-09-20T10:00:00.000Z',
+        reason: 'Correct physical time.',
+        correctedByUid: 'private-admin-a',
+        correctedByName: 'Admin A',
+        supersedesCorrectionId: null,
+      },
+    })),
+    audit_logs: [{
+      id: 'private-audit-id',
+      data: {
+        entityType: 'maintenance_record',
+        entityId: 'private-ticket-id',
+        action: 'create',
+        performedByUid: 'private-admin-a',
+        timestamp: new Timestamp(seconds, 123000000),
+        severity: 'low',
+        // Ordinary map keys remain data even when they resemble transport.
+        before: storedTag,
+        after: {
+          __a05FirestoreType: 'map',
+          entries: [['nested', {__a05FirestoreType: 'nonFiniteNumber', value: 'NaN'}]],
+        },
+      },
+    }],
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  const corrections = reconciliation.filter(
+    (row) => row.collection === 'uv_detector_lifecycle_corrections',
+  );
+  assert.deepEqual(corrections.map((row) => row.result), specimens.map((row) => row.result));
+  assert.ok(corrections.filter((row) => row.result === 'FAIL').every((row) =>
+    row.errorType === 'PERSISTED_DATA_FORMAT' && row.field === 'correctedActionPerformedAt',
+  ));
+  assert.equal(reconciliation.find((row) => row.collection === 'audit_logs')?.result, 'PASS');
+  assert.equal(JSON.stringify(reconciliation).includes('private-'), false);
+
+  // This is decoder admission; parent linkage and correction-chain review are
+  // separate checks and cannot be inferred from a valid standalone record.
+  const result = classify({
+    documents,
+    roots: ['uv_detector_lifecycle_corrections', 'audit_logs'],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.hold);
+  assert.equal(result.collectionDispositions.uv_detector_lifecycle_corrections,
+    'DART_RECONCILIATION_REQUIRED');
+  assert.equal(result.collectionDispositions.audit_logs, 'DART_STRICT_RECONCILIATION_PASS');
 });
 
 test('quality warning identity mismatch fails closed in the real Dart reader', async () => {

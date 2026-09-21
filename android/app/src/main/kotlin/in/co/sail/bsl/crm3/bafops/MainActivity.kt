@@ -309,7 +309,9 @@ class MainActivity : FlutterActivity() {
         body: String,
     ) {
         ensureCriticalAlarmChannel()
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
+        // Keep an explicit target for this Activity without a Kotlin/JVM
+        // class-mapping intrinsic that the security extractor cannot model.
+        val launchIntent = Intent().setComponent(componentName).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             data = Uri.parse(
                 "crm3://critical-alarm/${Uri.encode(alarmId)}",

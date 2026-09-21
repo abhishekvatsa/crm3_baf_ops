@@ -1,4 +1,6 @@
 import '../../assets/domain/plant_asset_overview.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../critical_alarm/domain/critical_alarm_models.dart';
@@ -11,6 +13,7 @@ import '../../operational_events/data/operational_event.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../quality/data/quality_warning.dart';
+import '../domain/operations_report_query_plan.dart';
 
 enum OperationsReportSubjectKind { numberedAsset, innerCover }
 
@@ -28,6 +31,7 @@ class OperationsReportFilter {
     this.assetClassId,
     this.assetInstanceId,
     this.subjectKind = OperationsReportSubjectKind.numberedAsset,
+    this.queryPlan = const OperationsReportQueryPlan.all(),
   });
 
   final DateTime startDate;
@@ -37,6 +41,7 @@ class OperationsReportFilter {
   // The native collection is part of subject identity. A serial cover is not
   // represented by a synthetic numbered asset merely to support reporting.
   final OperationsReportSubjectKind subjectKind;
+  final OperationsReportQueryPlan queryPlan;
 
   DateTime get startInclusive => DateTime.utc(
     startDate.year,
@@ -57,7 +62,8 @@ class OperationsReportFilter {
       other.endDate == endDate &&
       other.assetClassId == assetClassId &&
       other.assetInstanceId == assetInstanceId &&
-      other.subjectKind == subjectKind;
+      other.subjectKind == subjectKind &&
+      other.queryPlan == queryPlan;
 
   @override
   int get hashCode => Object.hash(
@@ -66,6 +72,7 @@ class OperationsReportFilter {
     assetClassId,
     assetInstanceId,
     subjectKind,
+    queryPlan,
   );
 }
 
@@ -175,6 +182,8 @@ class OperationsReport {
     this.unreadableDueStateCount = 0,
     required this.inspectionFindings,
     required this.assetStates,
+    this.sourceAssetClasses = const [],
+    this.sourceAssetInstances = const [],
     this.innerCoverProfiles = const [],
     required this.classSummaries,
     required this.topComponents,
@@ -227,6 +236,11 @@ class OperationsReport {
   final int unreadableDueStateCount;
   final List<InspectionFinding> inspectionFindings;
   final List<PlantAssetState> assetStates;
+
+  /// The same registry emission used to resolve this report's population.
+  /// Extra sections and labels must not use an earlier composer snapshot.
+  final List<AssetClassRecord> sourceAssetClasses;
+  final List<AssetInstanceRecord> sourceAssetInstances;
   final List<InnerCoverProfile> innerCoverProfiles;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;

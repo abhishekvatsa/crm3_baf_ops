@@ -568,6 +568,84 @@ void main() {
       },
     );
 
+    test(
+      'a corrected UV current row restores a later observed fault despite raw history',
+      () {
+        final original = _uvEvent(
+          id: 'uv-corrected',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 23),
+          completedAt: DateTime.utc(2026, 8, 24),
+        );
+        final corrected = _uvEvent(
+          id: 'uv-corrected',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 21),
+          completedAt: DateTime.utc(2026, 8, 24),
+        );
+        BurnerBlockConditionProjection project(
+          List<UvDetectorLifecycleEvent> current,
+        ) => projectBurnerBlockCondition(
+          round: _round(
+            id: 'uv-fault',
+            observedAt: DateTime.utc(2026, 8, 22),
+            redHot: [],
+            uvConditions: {3: BurnerUvCondition.melted},
+          ),
+          newerRedHotObservations: {},
+          lifecycleEvents: [],
+          uvLifecycleEvents: [original],
+          currentUvLifecycleEvents: current,
+          currentCollectionsAuthoritative: true,
+          assetInstanceId: 'furnace-7',
+        );
+        final before = project([original]);
+        final after = project([corrected]);
+        expect(before.uvConditionsByPosition[3], BurnerUvCondition.serviceable);
+        expect(after.uvConditionsByPosition[3], BurnerUvCondition.melted);
+        expect(
+          after.uvReplacementsByPosition[3]?.actionPerformedAt,
+          DateTime.utc(2026, 8, 21),
+        );
+        expect(before.sourceKey, isNot(after.sourceKey));
+        final missing = project([]);
+        expect(missing.uvReplacementsByPosition, isEmpty);
+        expect(missing.uvConditionsByPosition[3], BurnerUvCondition.melted);
+      },
+    );
+
+    test(
+      'UV correction can select an earlier event as authoritative current installation',
+      () {
+        final original = _uvEvent(
+          id: 'later-raw',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 29),
+          completedAt: DateTime.utc(2026, 8, 30),
+        );
+        final nowCurrent = _uvEvent(
+          id: 'earlier-current',
+          position: 3,
+          actionPerformedAt: DateTime.utc(2026, 8, 27),
+          completedAt: DateTime.utc(2026, 8, 28),
+        );
+        final projection = projectBurnerBlockCondition(
+          round: null,
+          newerRedHotObservations: {},
+          lifecycleEvents: [],
+          uvLifecycleEvents: [original, nowCurrent],
+          currentUvLifecycleEvents: [nowCurrent],
+          currentCollectionsAuthoritative: true,
+          assetInstanceId: 'furnace-7',
+        );
+        expect(
+          projection.uvReplacementsByPosition[3]?.eventId,
+          'earlier-current',
+        );
+        expect(projection.latestEvidenceAt, nowCurrent.actionPerformedAt);
+      },
+    );
+
     test('a late report of earlier work stays history', () {
       // The same sequence the backend's own regression uses: the block at
       // position 3 was replaced on the 28th, and a replacement carried out on

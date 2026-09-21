@@ -192,7 +192,7 @@ final class UvDetectorLifecycleEvent {
     if (actionPerformedAt.isAfter(
           completedAt.add(const Duration(minutes: 5)),
         ) ||
-        recordedAt != completedAt) {
+        recordedAt.isBefore(completedAt)) {
       throw PersistedDataFormatException(
         field: 'completedAt',
         source: source,

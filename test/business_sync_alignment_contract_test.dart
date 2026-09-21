@@ -216,6 +216,11 @@ void main() {
             ['MorningReviewCommandResult.fromMap'],
         'lib/features/operational_events/services/operational_event_issue_link_service.dart':
             ['OperationalEventIssueLinkCommandResult.fromMap'],
+        'lib/features/operational_events/providers/operational_event_amendment_provider.dart':
+            [
+              'OperationalEventAmendmentService(',
+              '.call(durableSubmissionJsonObject(envelope))',
+            ],
         'lib/features/operational_events/services/operational_event_service.dart':
             ['OperationalEventCommandResult.fromMap'],
         'lib/features/planned_maintenance/services/planned_job_server_completion_service.dart':
@@ -264,6 +269,13 @@ void main() {
               'BurnerConditionRoundResult.fromCallableData(',
               'BurnerDirectiveComplianceResult.fromCallableData(',
               'store.settleAccepted(',
+            ],
+        'lib/features/operational_events/services/operational_event_amendment_service.dart':
+            [
+              'OperationalEventAmendmentReceipt.fromMap(raw, request)',
+              'OperationalEventAmendmentReceipt.fromMap(data, _request(row))',
+              'store.settleAccepted(',
+              'await confirmReadback(saved, receipt)',
             ],
         'lib/features/quality/services/quality_monitoring_submission_controller.dart':
             [

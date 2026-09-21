@@ -26,11 +26,14 @@ import '../data/remote_baf_knowledge_reader.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/baf_knowledge_model.dart';
 import '../domain/baf_knowledge_layer.dart';
 import '../domain/baf_knowledge_repository.dart';
@@ -39,6 +42,10 @@ import '../domain/knowledge_governance_diff.dart';
 import '../domain/knowledge_governance_export.dart';
 import '../domain/knowledge_governance_models.dart';
 import '../domain/knowledge_revision_settlement.dart';
+import '../domain/knowledge_import_journal.dart';
+import '../repositories/knowledge_import_journal_repository.dart';
+
+part 'knowledge_governance_provider.imports.dart';
 
 /// Result of a single governed write.
 class KnowledgeGovernanceWriteResult {
@@ -79,12 +86,14 @@ class KnowledgeGovernanceImportApplyResult {
   final int rejectedAtSave;
   final List<KnowledgeGovernanceWriteResult> writes;
   final List<String> errors;
+  final int pending;
 
   const KnowledgeGovernanceImportApplyResult({
     required this.applied,
     required this.rejectedAtSave,
     required this.writes,
     required this.errors,
+    this.pending = 0,
   });
 }
 
@@ -99,13 +108,19 @@ class KnowledgeGovernanceController {
     FirebaseFirestore? firestore,
     BafKnowledgeRepository? knowledgeRepository,
     AuditRepository? auditRepository,
+    KnowledgeImportJournalRepository? importJournal,
+    AppUser? Function()? currentActor,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _knowledge = knowledgeRepository ?? BafKnowledgeRepository(),
-       _audit = auditRepository ?? AuditRepository();
+       _audit = auditRepository ?? AuditRepository(),
+       _importJournal = importJournal ?? KnowledgeImportJournalRepository(),
+       _currentActor = currentActor;
 
   final FirebaseFirestore _firestore;
   final BafKnowledgeRepository _knowledge;
   final AuditRepository _audit;
+  final KnowledgeImportJournalRepository _importJournal;
+  final AppUser? Function()? _currentActor;
 
   static const String _collectionPath = BafKnowledgeRepository.collectionPath;
   static const int _changeReasonMinLength =
@@ -354,70 +369,12 @@ class KnowledgeGovernanceController {
   Future<KnowledgeGovernanceImportApplyResult> applyImport({
     required KnowledgeImportSummary summary,
     required AppUser actor,
-  }) async {
-    _assertCanWrite(actor);
-    final writes = <KnowledgeGovernanceWriteResult>[];
-    final errors = <String>[];
-    var rejected = 0;
-    final byCode = await _localRowsByCode();
-    for (final entry in summary.accepted) {
-      final draft = entry.draft;
-      if (draft == null) {
-        rejected++;
-        errors.add('${entry.rowCode}: empty draft');
-        continue;
-      }
-      try {
-        final existing = byCode[draft.rowCode];
-        final reviewedVersion = entry.sourceVersion;
-        if (existing != null &&
-            (entry.sourceEntryJson == null ||
-                !persistedJsonEquivalent(
-                  entry.sourceEntryJson!,
-                  jsonEncode(existing.toEntryMap()),
-                ))) {
-          throw const KnowledgeGovernanceException(
-            'This row changed after import review. Review the proposed import against the current row.',
-          );
-        }
-        if (reviewedVersion == null) {
-          if (existing != null) {
-            throw KnowledgeGovernanceException(
-              '${draft.rowCode} appeared after this import was reviewed. Re-export and review it again.',
-            );
-          }
-        } else if (existing == null || existing.version != reviewedVersion) {
-          throw KnowledgeGovernanceException(
-            '${draft.rowCode} changed after this import was reviewed (expected v$reviewedVersion). Re-export and review it again.',
-          );
-        }
-        final result = existing == null
-            ? await createRow(
-                draft: draft,
-                actor: actor,
-                governanceAction:
-                    KnowledgeGovernanceAction.importedFromExternal,
-              )
-            : await updateRow(
-                before: existing,
-                draft: draft,
-                actor: actor,
-                governanceAction:
-                    KnowledgeGovernanceAction.importedFromExternal,
-              );
-        writes.add(result);
-      } catch (e) {
-        rejected++;
-        errors.add('${draft.rowCode}: $e');
-      }
-    }
-    return KnowledgeGovernanceImportApplyResult(
-      applied: writes.length,
-      rejectedAtSave: rejected,
-      writes: writes,
-      errors: errors,
-    );
-  }
+  }) => _startDurableImport(summary: summary, actor: actor);
+
+  Future<KnowledgeGovernanceImportApplyResult> resumeImport({
+    required String importId,
+    required AppUser actor,
+  }) => _resumeDurableImport(importId: importId, actor: actor);
 
   /// Recent governance audit events, used by the conflict-review tab.
   Future<List<AuditEvent>> recentKnowledgeBaseAudits({int limit = 100}) async {
@@ -560,6 +517,29 @@ class KnowledgeGovernanceController {
     required AuditAction action,
     required KnowledgeGovernanceAction governanceAction,
   }) {
+    transaction.set(
+      _firestore
+          .collection('audit_logs')
+          .doc('knowledge_revision_${draft.rowCode}_$version'),
+      _revisionAuditMap(
+        draft: draft,
+        actor: actor,
+        version: version,
+        before: before,
+        action: action,
+        governanceAction: governanceAction,
+      ),
+    );
+  }
+
+  Map<String, dynamic> _revisionAuditMap({
+    required KnowledgeRowDraft draft,
+    required AppUser actor,
+    required int version,
+    required BafKnowledgeRow? before,
+    required AuditAction action,
+    required KnowledgeGovernanceAction governanceAction,
+  }) {
     final beforeJson = before == null
         ? null
         : jsonEncode(
@@ -587,30 +567,25 @@ class KnowledgeGovernanceController {
         'This revision exceeds the retained audit size. Split the reviewed change before saving.',
       );
     }
-    transaction.set(
-      _firestore
-          .collection('audit_logs')
-          .doc('knowledge_revision_${draft.rowCode}_$version'),
-      {
-        'entityType': 'knowledge_base',
-        'entityId': draft.rowCode,
-        'action': action.name,
-        'performedByUid': actor.uid,
-        'performedByName': actor.name,
-        'timestamp': FieldValue.serverTimestamp(),
-        'reason': AuditReason.manualOverride.name,
-        'reasonNotes': draft.changeSummary.trim(),
-        'summary':
-            '${governanceAction.displayLabel} ${draft.rowCode} (v$version)',
-        'severity': _severityFor(
-          draft,
-          isCreate: before == null,
-          lifecycle: governanceAction,
-        ).name,
-        'beforeJson': beforeJson,
-        'afterJson': afterJson,
-      },
-    );
+    return {
+      'entityType': 'knowledge_base',
+      'entityId': draft.rowCode,
+      'action': action.name,
+      'performedByUid': actor.uid,
+      'performedByName': actor.name,
+      'timestamp': FieldValue.serverTimestamp(),
+      'reason': AuditReason.manualOverride.name,
+      'reasonNotes': draft.changeSummary.trim(),
+      'summary':
+          '${governanceAction.displayLabel} ${draft.rowCode} (v$version)',
+      'severity': _severityFor(
+        draft,
+        isCreate: before == null,
+        lifecycle: governanceAction,
+      ).name,
+      'beforeJson': beforeJson,
+      'afterJson': afterJson,
+    };
   }
 
   // Timestamps are server-generated. Retain every other accepted field before
@@ -684,11 +659,6 @@ class KnowledgeGovernanceController {
       );
     }
   }
-
-  Future<Map<String, BafKnowledgeRow>> _localRowsByCode() async {
-    final rows = await _knowledge.getAllLocalRows();
-    return <String, BafKnowledgeRow>{for (final row in rows) row.rowCode: row};
-  }
 }
 
 class KnowledgeGovernanceException implements Exception {
@@ -741,6 +711,8 @@ final knowledgeGovernanceControllerProvider =
       return KnowledgeGovernanceController(
         knowledgeRepository: ref.watch(bafKnowledgeRepositoryProvider),
         auditRepository: ref.read(auditRepositoryProvider),
+        importJournal: ref.watch(knowledgeImportJournalRepositoryProvider),
+        currentActor: () => ref.read(currentAppUserProvider).valueOrNull,
       );
     });
 

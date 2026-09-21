@@ -4,6 +4,8 @@
  *
  * The tool has no cloud mutation path. It emits only collection counts and
  * HMAC-pseudonymized identities for records that still require reconciliation.
+ * Dart reconciliation establishes decoder admission, not cross-record chain
+ * completeness or authority to activate correction producers.
  */
 import fs from 'node:fs';
 import http from 'node:http';
@@ -45,6 +47,7 @@ const DART_RECONCILIATION_COLLECTIONS = new Set([
   'burner_block_lifecycle_corrections',
   'burner_condition_rounds',
   'uv_detector_lifecycle_events',
+  'uv_detector_lifecycle_corrections',
   'uv_detector_lifecycle_current',
   'critical_alarm_contacts',
   'critical_alarm_definitions',
@@ -72,6 +75,7 @@ const DART_RECONCILIATION_COLLECTIONS = new Set([
   'morning_review_sessions',
   'morning_review_standing_concerns',
   'operational_events',
+  'operational_event_interval_amendments',
   'operational_event_issue_links',
   'quality_monitoring_requests',
   'quality_warnings',
@@ -105,6 +109,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   burner_block_lifecycle_corrections: 'DART_RECONCILIATION_REQUIRED',
   burner_condition_rounds: 'DART_RECONCILIATION_REQUIRED',
   uv_detector_lifecycle_events: 'DART_RECONCILIATION_REQUIRED',
+  uv_detector_lifecycle_corrections: 'DART_RECONCILIATION_REQUIRED',
   uv_detector_lifecycle_current: 'DART_RECONCILIATION_REQUIRED',
   critical_alarm_audits: 'SERVER_CONTROL_RECORD',
   critical_alarm_contact_audits: 'SERVER_CONTROL_RECORD',
@@ -207,6 +212,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   quality_mutation_receipts: 'SERVER_CONTROL_RECORD',
   operational_event_audits: 'SERVER_CONTROL_RECORD',
   operational_event_receipts: 'SERVER_CONTROL_RECORD',
+  operational_event_interval_amendments: 'DART_RECONCILIATION_REQUIRED',
   workflow_notification_receipts: 'SERVER_CONTROL_RECORD',
   notification_event_receipts: 'SERVER_CONTROL_RECORD',
   device_recovery_requests: 'SERVER_CONTROL_RECORD',
@@ -688,12 +694,16 @@ function bridgeFirestoreValue(value) {
     if (prototype !== Object.prototype && prototype !== null) {
       throw new TypeError('unsupported Firestore value type');
     }
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [
-        key,
-        bridgeFirestoreValue(nested),
-      ]),
-    );
+    const entries = Object.entries(value).map(([key, nested]) => [
+      key,
+      bridgeFirestoreValue(nested),
+    ]);
+    // A stored map may use the transport discriminator as an ordinary key.
+    // Escape it so the Dart bridge restores its entries exactly once instead
+    // of promoting user data to a Timestamp or another transport value.
+    return Object.hasOwn(value, '__a05FirestoreType')
+      ? {__a05FirestoreType: 'map', entries}
+      : Object.fromEntries(entries);
   }
   throw new TypeError('unsupported Firestore value type');
 }

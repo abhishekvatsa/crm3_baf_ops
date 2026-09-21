@@ -1373,3 +1373,151 @@ describe('operational event mutation', () => {
     expect(partialLinkMemory.writes).toHaveLength(0);
   });
 });
+
+describe('governed operational interval amendments', () => {
+  const {rawOperationalInterval, intervalAmendmentDigest} = require('../lib/operationalEventIntervalAmendment');
+  const amendmentId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const secondId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const eventPath = `operational_events/${IDS.event}`;
+  const correctionPath = `operational_event_interval_amendments/${amendmentId}`;
+  const receiptPath = `operational_event_receipts/${amendmentId}`;
+  const auditPath = `operational_event_audits/operational_event_${amendmentId}`;
+  const end = '2026-08-14T11:00:00.000Z';
+  const corrected = '2026-08-14T10:45:00.000Z';
+  const closed = () => persistedEvent({status: 'resolved', resolvedAt: new Date(end),
+    resolvedByUid: 'ops-1', resolvedByName: 'Operations One', resolutionNote: 'Restored after inspection.',
+    updatedAt: new Date(end)});
+  const amendment = (overrides = {}) => ({requestId: amendmentId,
+    operation: 'AMEND_OPERATIONAL_EVENT_INTERVAL', eventId: IDS.event, expectedVersion: 1,
+    reason: 'Correct the entered restoration time using the shift log.',
+    intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: end,
+      correctedResolvedAt: corrected, supersedesAmendmentId: null}, ...overrides});
+  const seeded = (event = closed()) => fakeDb({...baseSeed(), 'users/si-1': user('si'), [eventPath]: event});
+
+  test('preserves original raw closure and commits reviewed correction, audit and receipt atomically', async () => {
+    const original = closed();
+    const memory = seeded(original);
+    const result = await invoke(memory, 'admin-1', amendment());
+    expect(result).toMatchObject({ok: true, version: 2, occurrenceIndex: 0,
+      amendmentId, correctedResolvedAt: corrected, supersedesAmendmentId: null});
+    const next = memory.store.get(eventPath);
+    expect(rawOperationalInterval(next, 0)).toEqual(rawOperationalInterval(original, 0));
+    expect(next.completedIntervals).toEqual(original.completedIntervals);
+    expect(next.intervalEndAmendments['0']).toMatchObject({amendmentId,
+      originalResolvedAt: new Date(end), correctedResolvedAt: new Date(corrected)});
+    const retained = memory.store.get(correctionPath);
+    expect(Object.keys(retained)).toHaveLength(15);
+    expect(retained.evidenceDigest).toBe(intervalAmendmentDigest(retained));
+    expect(JSON.parse(retained.originalIntervalJson)).not.toHaveProperty('issueLinkIds');
+    expect(memory.writes.map(write => write.path)).toEqual([correctionPath, eventPath, auditPath, receiptPath]);
+    const writes = memory.writes.length;
+    memory.store.delete(eventPath);
+    expect(await invoke(memory, 'admin-1', amendment())).toEqual({...result, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test('SI may review a correction; ordinary event writers may not', async () => {
+    await expect(invoke(seeded(), 'si-1', amendment())).resolves.toMatchObject({ok: true});
+    for (const uid of ['ops-1', 'contract-1']) {
+      const memory = seeded();
+      await expect(invoke(memory, uid, amendment())).rejects.toMatchObject({code: 'permission-denied'});
+      expect(memory.writes).toHaveLength(0);
+    }
+  });
+
+  test.each([
+    ['version', {expectedVersion: 2}],
+    ['effective end', {intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: corrected, correctedResolvedAt: end, supersedesAmendmentId: null}}],
+    ['predecessor', {intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: end, correctedResolvedAt: corrected, supersedesAmendmentId: secondId}}],
+    ['start boundary', {intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: end, correctedResolvedAt: '2026-08-14T09:59:00.000Z', supersedesAmendmentId: null}}],
+    ['future time', {intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: end, correctedResolvedAt: '2026-08-14T12:01:00.000Z', supersedesAmendmentId: null}}],
+    ['no change', {intervalAmendment: {occurrenceIndex: 0, expectedEffectiveResolvedAt: end, correctedResolvedAt: end, supersedesAmendmentId: null}}],
+    ['not closed', {intervalAmendment: {occurrenceIndex: 1, expectedEffectiveResolvedAt: end, correctedResolvedAt: corrected, supersedesAmendmentId: null}}],
+  ])('refuses stale or impossible %s without writes', async (_, overrides) => {
+    const memory = seeded();
+    await expect(invoke(memory, 'admin-1', amendment(overrides))).rejects.toBeDefined();
+    expect(memory.writes).toHaveLength(0);
+    expect(memory.store.get(eventPath)).toEqual(closed());
+  });
+
+  test('successive corrections preserve their predecessor and replay independently of later correction', async () => {
+    const memory = seeded();
+    const first = await invoke(memory, 'admin-1', amendment());
+    const input = amendment({requestId: secondId, expectedVersion: 2, intervalAmendment: {
+      occurrenceIndex: 0, expectedEffectiveResolvedAt: corrected,
+      correctedResolvedAt: '2026-08-14T10:50:00.000Z', supersedesAmendmentId: amendmentId}});
+    await expect(invoke(memory, 'si-1', input, new Date('2026-08-14T12:01:00.000Z')))
+      .resolves.toMatchObject({version: 3, supersedesAmendmentId: amendmentId});
+    expect(await invoke(memory, 'admin-1', amendment())).toEqual({...first, idempotentReplay: true});
+    expect(memory.store.get(correctionPath).supersedesAmendmentId).toBeNull();
+    expect(memory.store.get(eventPath).resolvedAt).toEqual(new Date(end));
+  });
+
+  test('reopen, update and withdrawal retain archived raw bytes and effective amendment', async () => {
+    const memory = seeded();
+    await invoke(memory, 'admin-1', amendment());
+    await invoke(memory, 'ops-1', {requestId: IDS.reopen, operation: 'REOPEN_OPERATIONAL_EVENT',
+      eventId: IDS.event, expectedVersion: 2, reason: 'Record the actual recurrence.'}, new Date('2026-08-14T12:05:00.000Z'));
+    const rawHistory = clone(memory.store.get(eventPath).completedIntervals);
+    const head = clone(memory.store.get(eventPath).intervalEndAmendments);
+    await invoke(memory, 'ops-1', request({requestId: IDS.update, operation: 'UPDATE_OPERATIONAL_EVENT', expectedVersion: 3,
+      eventDraft: {...request().eventDraft, startedAt: '2026-08-14T12:04:00.000Z'}}), new Date('2026-08-14T12:10:00.000Z'));
+    await invoke(memory, 'admin-1', {requestId: secondId, operation: 'WITHDRAW_OPERATIONAL_EVENT',
+      eventId: IDS.event, expectedVersion: 4, reason: 'Withdraw duplicate entry after review.'}, new Date('2026-08-14T12:15:00.000Z'));
+    expect(memory.store.get(eventPath)).toMatchObject({completedIntervals: rawHistory, intervalEndAmendments: head, isWithdrawn: true});
+  });
+
+  test('archived amendment preserves current recurrence and cannot overlap its next start', async () => {
+    const archived = rawOperationalInterval(closed(), 0);
+    const current = persistedEvent({completedIntervals: [archived], startedAt: new Date('2026-08-14T11:30:00.000Z'),
+      updatedAt: new Date('2026-08-14T11:30:00.000Z')});
+    const memory = seeded(current);
+    await invoke(memory, 'admin-1', amendment());
+    expect(memory.store.get(eventPath)).toMatchObject({completedIntervals: [archived], status: 'open', startedAt: current.startedAt, resolvedAt: null});
+    const invalid = amendment({requestId: secondId, expectedVersion: 2, intervalAmendment: {occurrenceIndex: 0,
+      expectedEffectiveResolvedAt: corrected, correctedResolvedAt: '2026-08-14T11:31:00.000Z', supersedesAmendmentId: amendmentId}});
+    await expect(invoke(memory, 'admin-1', invalid)).rejects.toMatchObject({details: {reasonCode: 'operational-interval-amendment-chronology'}});
+    expect(memory.writes).toHaveLength(4);
+  });
+
+  test('competing reviewed corrections commit one atomic outcome', async () => {
+    const memory = seeded();
+    const outcomes = await Promise.allSettled([invoke(memory, 'admin-1', amendment()),
+      invoke(memory, 'admin-1', amendment({requestId: secondId}))]);
+    expect(outcomes.filter(value => value.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter(value => value.status === 'rejected')).toHaveLength(1);
+    expect(memory.writes).toHaveLength(4);
+    expect(memory.store.get(eventPath).version).toBe(2);
+  });
+
+  test.each(['archive', 'actor', 'receipt result', 'missing audit digest', 'audit time', 'receipt time'])(
+    'replay refuses corrupted %s without mutable projection reads or writes', async kind => {
+      const memory = seeded();
+      await invoke(memory, 'admin-1', amendment());
+      memory.store.delete(eventPath);
+      if (kind === 'archive') memory.store.get(correctionPath).originalIntervalJson = '{}';
+      if (kind === 'actor') memory.store.get(correctionPath).amendedByName = 'Someone else';
+      if (kind === 'receipt result') memory.store.get(receiptPath).correctedResolvedAt = end;
+      if (kind === 'missing audit digest') delete memory.store.get(receiptPath).evidenceDigest;
+      if (kind === 'audit time' || kind === 'receipt time') {
+        const path = kind === 'audit time' ? auditPath : receiptPath;
+        const field = kind === 'audit time' ? 'performedAt' : 'committedAt';
+        memory.store.get(path)[field] = {seconds: Date.parse('2026-08-14T12:00:00.000Z') / 1000, nanoseconds: 1000};
+      }
+      await expect(invoke(memory, 'admin-1', amendment())).rejects.toBeDefined();
+      expect(memory.writes).toHaveLength(4);
+    });
+
+  test('orphan identity and tampered overlay refuse all further producers', async () => {
+    const memory = seeded();
+    memory.store.set(correctionPath, {amendmentId});
+    await expect(invoke(memory, 'admin-1', amendment())).rejects.toMatchObject({details: {reasonCode: 'operational-interval-amendment-orphan'}});
+    expect(memory.writes).toHaveLength(0);
+    memory.store.delete(correctionPath);
+    await invoke(memory, 'admin-1', amendment());
+    memory.store.get(eventPath).intervalEndAmendments['0'].reason = 'Unreviewed edit';
+    await expect(invoke(memory, 'ops-1', {requestId: IDS.reopen, operation: 'REOPEN_OPERATIONAL_EVENT',
+      eventId: IDS.event, expectedVersion: 2, reason: 'Recur.'})).rejects.toMatchObject({details: {reasonCode: 'operational-interval-amendment-head-drift'}});
+    expect(memory.writes).toHaveLength(4);
+  });
+});

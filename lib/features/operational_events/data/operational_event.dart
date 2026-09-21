@@ -1,4 +1,5 @@
 import '../../../core/serialization/persisted_data_reader.dart';
+import 'operational_event_interval_amendment.dart';
 
 enum OperationalEventType {
   water,
@@ -109,6 +110,7 @@ String canonicalOperationalEventCommandTimestamp(DateTime value) {
 
 class OperationalEventInterval {
   const OperationalEventInterval({
+    this.occurrenceIndex,
     required this.eventType,
     required this.title,
     required this.description,
@@ -140,6 +142,27 @@ class OperationalEventInterval {
   final String? resolvedByName;
   final String? resolutionNote;
 
+  final int? occurrenceIndex;
+
+  OperationalEventInterval withEffectiveEnd({DateTime? end, int? index}) =>
+      OperationalEventInterval(
+        occurrenceIndex: index ?? occurrenceIndex,
+        eventType: eventType,
+        title: title,
+        description: description,
+        severity: severity,
+        startedAt: startedAt,
+        resolvedAt: end ?? resolvedAt,
+        scope: scope,
+        affectedAssetClassIds: affectedAssetClassIds,
+        affectedAssetInstanceIds: affectedAssetInstanceIds,
+        issueLinkIds: issueLinkIds,
+        linkedIssueIds: linkedIssueIds,
+        resolvedByUid: resolvedByUid,
+        resolvedByName: resolvedByName,
+        resolutionNote: resolutionNote,
+      );
+
   bool overlaps(DateTime startInclusive, DateTime endExclusive) =>
       startedAt.isBefore(endExclusive) && resolvedAt.isAfter(startInclusive);
 
@@ -169,6 +192,7 @@ class OperationalEvent {
     this.issueLinkIds = const <String>[],
     this.linkedIssueIds = const <String>[],
     this.completedIntervals = const [],
+    this.intervalEndAmendments = const {},
     required this.startedAt,
     required this.status,
     required this.createdAt,
@@ -201,6 +225,26 @@ class OperationalEvent {
   final List<String> issueLinkIds;
   final List<String> linkedIssueIds;
   final List<OperationalEventInterval> completedIntervals;
+  final Map<int, OperationalEventIntervalAmendment> intervalEndAmendments;
+  int get currentOccurrenceIndex => completedIntervals.length;
+
+  OperationalEventInterval? closedOccurrence(int index) {
+    if (index < 0 || index > currentOccurrenceIndex) return null;
+    if (index < currentOccurrenceIndex) {
+      return completedIntervals[index].withEffectiveEnd(index: index);
+    }
+    return resolvedAt == null ? null : occurrencesUntil(resolvedAt!).last;
+  }
+
+  int? occurrenceIndexForLink(String linkId) {
+    final matches = <int>[
+      for (var index = 0; index < completedIntervals.length; index++)
+        if (completedIntervals[index].issueLinkIds.contains(linkId)) index,
+      if (issueLinkIds.contains(linkId)) currentOccurrenceIndex,
+    ];
+    return matches.length == 1 ? matches.single : null;
+  }
+
   final DateTime startedAt;
   final OperationalEventStatus status;
   final DateTime createdAt;
@@ -232,8 +276,11 @@ class OperationalEvent {
   bool get isOpen => isEffective && status == OperationalEventStatus.open;
 
   Iterable<OperationalEventInterval> occurrencesUntil(DateTime asOf) sync* {
-    yield* completedIntervals;
+    for (var index = 0; index < completedIntervals.length; index++) {
+      yield completedIntervals[index].withEffectiveEnd(index: index);
+    }
     yield OperationalEventInterval(
+      occurrenceIndex: currentOccurrenceIndex,
       eventType: eventType,
       title: title,
       description: description,
@@ -258,7 +305,12 @@ class OperationalEvent {
     DateTime asOf,
   ) sync* {
     if (!isEffective) return;
-    yield* occurrencesUntil(asOf);
+    for (final interval in occurrencesUntil(asOf)) {
+      yield interval.withEffectiveEnd(
+        end: intervalEndAmendments[interval.occurrenceIndex]
+            ?.correctedResolvedAt,
+      );
+    }
   }
 
   Duration durationUntil(DateTime end) => effectiveOccurrencesUntil(end).fold(
@@ -679,7 +731,7 @@ class OperationalEvent {
         detail: 'withdrawal disposition requires complete accountable evidence',
       );
     }
-    return OperationalEvent(
+    final event = OperationalEvent(
       eventId: eventId,
       eventType: readRequiredPersistedEnum(
         OperationalEventType.values,
@@ -766,6 +818,94 @@ class OperationalEvent {
       withdrawnAt: withdrawnAt,
       withdrawnByUid: withdrawnByUid,
       withdrawnByName: withdrawnByName,
+      intervalEndAmendments: _readEndAmendments(
+        map,
+        source,
+        completedIntervals,
+        startedAt,
+        resolvedAt,
+        readRequiredPersistedDateTime(
+          map['updatedAt'],
+          field: 'updatedAt',
+          source: source,
+        ),
+      ),
+    );
+    return event;
+  }
+}
+
+Map<int, OperationalEventIntervalAmendment> _readEndAmendments(
+  Map<String, dynamic> map,
+  String source,
+  List<OperationalEventInterval> completed,
+  DateTime currentStart,
+  DateTime? currentEnd,
+  DateTime updatedAt,
+) {
+  if (!map.containsKey('intervalEndAmendments')) return const {};
+  final raw = map['intervalEndAmendments'];
+  if (raw is! Map<String, dynamic> || raw.length > 101) {
+    throw PersistedDataFormatException(
+      field: 'intervalEndAmendments',
+      source: source,
+      detail: 'requires a bounded occurrence map',
     );
   }
+  final result = <int, OperationalEventIntervalAmendment>{};
+  final identities = <String>{};
+  for (final entry in raw.entries) {
+    final index = int.tryParse(entry.key);
+    if (index == null ||
+        index < 0 ||
+        index > 100 ||
+        '$index' != entry.key ||
+        index > completed.length ||
+        (index == completed.length && currentEnd == null) ||
+        entry.value is! Map<String, dynamic>) {
+      throw PersistedDataFormatException(
+        field: 'intervalEndAmendments.${entry.key}',
+        source: source,
+        detail: 'must name one recorded closed occurrence',
+      );
+    }
+    final rawInterval = index < completed.length
+        ? (map['completedIntervals'] as List)[index] as Map<String, dynamic>
+        : map;
+    for (final field in ['startedAt', 'resolvedAt']) {
+      readOperationalAmendmentInstant(
+        rawInterval[field],
+        field: field,
+        source: source,
+      );
+    }
+    final amendment = OperationalEventIntervalAmendment.fromMap(
+      entry.value as Map<String, dynamic>,
+      '$source/intervalEndAmendments/${entry.key}',
+    );
+    final originalEnd = index < completed.length
+        ? completed[index].resolvedAt
+        : currentEnd!;
+    final originalStart = index < completed.length
+        ? completed[index].startedAt
+        : currentStart;
+    final nextStart = index + 1 < completed.length
+        ? completed[index + 1].startedAt
+        : index < completed.length
+        ? currentStart
+        : amendment.amendedAt;
+    if (!amendment.originalResolvedAt.isAtSameMomentAs(originalEnd) ||
+        amendment.correctedResolvedAt.isBefore(originalStart) ||
+        amendment.correctedResolvedAt.isAfter(nextStart) ||
+        amendment.amendedAt.isAfter(updatedAt) ||
+        !identities.add(amendment.amendmentId)) {
+      throw PersistedDataFormatException(
+        field: 'intervalEndAmendments.${entry.key}',
+        source: source,
+        detail: 'contradicts recorded occurrence chronology or identity',
+      );
+    }
+    result[index] = amendment;
+  }
+  return Map.unmodifiable(result);
 }

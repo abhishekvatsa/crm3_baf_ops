@@ -65,7 +65,7 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
   }
 
   Future<void> _createPdfReport({
-    required OperationsReport report,
+    required OperationsReportFilter filter,
     required String actorUid,
     required String actorName,
     required String actorEmail,
@@ -101,83 +101,19 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
     );
     if (!mounted || request == null) return;
 
-    var currentBurnerRounds = const <String, BurnerConditionRound>{};
-    if (request.sections.contains(OperationsReportSection.burnerUvCondition) &&
-        furnaceAssets.isNotEmpty) {
-      final messenger = ScaffoldMessenger.of(context);
-      final progress = messenger.showSnackBar(
-        const SnackBar(
-          duration: Duration(days: 1),
-          content: Row(
-            children: <Widget>[
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text('Loading current Burner and UV evidence...'),
-              ),
-            ],
-          ),
-        ),
-      );
-      try {
-        final fetchedBurnerRounds = await ref.read(
-          latestBurnerConditionRoundsProvider(
-            LatestBurnerConditionRoundsQuery(
-              actorUid: actorUid,
-              assetInstanceIds: furnaceAssets.map((asset) => asset.id),
-            ),
-          ).future,
-        );
-        // The report object was captured before the composer opened. A round
-        // observed after that boundary belongs to a newer application
-        // snapshot and must not silently enter this export. It will render as
-        // unknown rather than being presented as evidence for the older
-        // report.
-        currentBurnerRounds = Map<String, BurnerConditionRound>.fromEntries(
-          fetchedBurnerRounds.entries.where(
-            (entry) => !entry.value.observedAt.isAfter(report.asOf),
-          ),
-        );
-      } on Object catch (error) {
-        progress.close();
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'The current Burner and UV evidence could not be verified: $error',
-            ),
-            backgroundColor: BafColors.danger,
-          ),
-        );
-        return;
-      }
-      progress.close();
-    }
-    if (!mounted) return;
-
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => OperationsReportPdfPreviewScreen(
-          report: report,
+        builder: (_) => OperationsReportPreparationScreen(
+          actorUid: actorUid,
+          filter: OperationsReportFilter(
+            startDate: filter.startDate,
+            endDate: filter.endDate,
+            assetClassId: filter.assetClassId,
+            assetInstanceId: filter.assetInstanceId,
+            subjectKind: filter.subjectKind,
+            queryPlan: OperationsReportQueryPlan.forSections(request.sections),
+          ),
           request: request,
-          assetClassLabel: _assetClassScopeLabel(
-            classes,
-            selection.assetClassId,
-          ),
-          assetLabel: operationsReportAssetScopeLabel(
-            assets,
-            innerCovers,
-            selection,
-          ),
-          furnaceAssets: furnaceAssets,
-          currentBurnerRounds: currentBurnerRounds,
         ),
       ),
     );
@@ -199,17 +135,6 @@ OperationsReportDocumentPreset _recommendedReportPreset(AppUser actor) {
     return OperationsReportDocumentPreset.maintenance;
   }
   return OperationsReportDocumentPreset.executive;
-}
-
-String _assetClassScopeLabel(
-  List<AssetClassRecord> classes,
-  String? assetClassId,
-) {
-  if (assetClassId == null) return 'All asset classes';
-  for (final assetClass in classes) {
-    if (assetClass.id == assetClassId) return assetClass.name;
-  }
-  return 'Selected asset class';
 }
 
 String operationsReportAssetScopeLabel(

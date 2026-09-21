@@ -825,6 +825,10 @@ class DurableSubmissionRepository {
       }
       return 'monitoringRequestId';
     }
+    if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'AMEND_OPERATIONAL_EVENT_INTERVAL') {
+      return 'eventId';
+    }
     if (protocol == 'assetHierarchy.v2') {
       final key = _registryIdentityKeys[inner['operation']];
       if (key != null) return key;
@@ -892,6 +896,11 @@ class DurableSubmissionRepository {
     String protocol,
     Map<String, dynamic> inner,
   ) {
+    if (protocol == 'assetHierarchy.v2' &&
+        inner['operation'] == 'AMEND_OPERATIONAL_EVENT_INTERVAL') {
+      final version = inner['expectedVersion'];
+      return version is int && version >= 1 && version <= 9007199254740990;
+    }
     if (protocol == 'assetHierarchy.v2' &&
         _registryIdentityKeys.containsKey(inner['operation'])) {
       final operation = inner['operation'] as String;

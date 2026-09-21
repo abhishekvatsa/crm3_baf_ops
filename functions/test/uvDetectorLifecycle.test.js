@@ -1,169 +1,12 @@
 'use strict';
 
 const {
-  applyUvDetectorLifecycleWritePlan,
-  prepareUvDetectorLifecycleWritePlan,
-} = require('../lib/maintenanceWorkflow/uvDetectorLifecycle');
-const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
-const {
   workflowFirestoreDataForTest,
 } = require('../lib/maintenanceWorkflow/firebaseStore');
 
-const IDS = {
-  assetClass: 'class-furnace',
-  asset: 'furnace-7',
-  node: 'node-uv-detector',
-};
+const {MaintenanceWorkflowCommandService} = require('../lib/maintenanceWorkflow/dispatcher');
 
-const actor = {
-  uid: 'supervisor-1',
-  name: 'Supervisor One',
-  roles: new Set(['shiftSupervisor']),
-};
-
-function reference() {
-  return {
-    schemaVersion: 4,
-    scope: 'componentDefinitionOnAsset',
-    assetClassId: IDS.assetClass,
-    assetClassCode: 'FURNACE',
-    assetClassName: 'Furnace',
-    nodeId: IDS.node,
-    nodeVersion: 3,
-    nodeName: 'UV flame scanner and peep sight',
-    assetInstanceId: IDS.asset,
-    assetInstanceVersion: 4,
-    assetNumber: 7,
-    assetInstanceName: 'Furnace 7',
-    componentInstanceId: null,
-    componentInstanceVersion: null,
-    componentTag: null,
-    hierarchyPath: [
-      'Furnace',
-      'Burner and flame supervision',
-      'UV flame scanner and peep sight',
-    ],
-    ownershipStatus: 'confirmed',
-    ownerDiscipline: 'Instrumentation & Automation',
-    accountableRoleKeys: ['seniorInstrumentation'],
-    innerCoverAssociation: null,
-  };
-}
-
-function action(overrides = {}) {
-  return {
-    schemaVersion: 1,
-    id: 'action-uv-1',
-    asset: 'Furnace 7',
-    component: 'UV flame scanner and peep sight',
-    hierarchyPath: reference().hierarchyPath,
-    assetHierarchyRef: reference(),
-    system: 'Furnace',
-    subsystem: 'Burner and flame supervision',
-    subComponent: null,
-    tag: null,
-    instance: null,
-    actionType: 'replacement',
-    replacement: 'newPart',
-    issue: 'UV detector was missing.',
-    resolution: 'UV detector installed.',
-    remarks: null,
-    templateFieldKey: null,
-    isAutoResolved: true,
-    status: 'resolved',
-    createdAt: '2026-08-28T08:00:00.000Z',
-    severity: 'high',
-    performedBy: 'I&A Technician One',
-    updatedAt: null,
-    version: 1,
-    metadataJson: null,
-    attendanceSessionId: null,
-    burnerPosition: 3,
-    burnerActionCode: null,
-    burnerOutcome: null,
-    burnerMicroampReading: null,
-    burnerBlockSupplyMode: null,
-    burnerBlockSupplierName: null,
-    burnerBlockPurchaseOrderNumber: null,
-    ...overrides,
-  };
-}
-
-function lockoutAction(overrides = {}) {
-  return action({
-    id: 'burner_ticket-1_3_uvDetectorReplacement',
-    component: 'Burner 3',
-    hierarchyPath: null,
-    assetHierarchyRef: null,
-    system: 'Combustion system',
-    subsystem: 'Burner system',
-    subComponent: 'UV detector replacement',
-    tag: 'FR-07-B03',
-    instance: '3',
-    attendanceSessionId: 'burner_ticket-1_3',
-    burnerActionCode: 'uvDetectorReplacement',
-    burnerOutcome: 'returnedToService',
-    ...overrides,
-  });
-}
-
-function seedStore() {
-  const store = new MemoryWorkflowStore();
-  store.seed(`asset_classes/${IDS.assetClass}`, {
-    schemaVersion: 1,
-    assetClassId: IDS.assetClass,
-    code: 'FURNACE',
-    name: 'Furnace',
-    legacyAssetTypeKey: 'furnace',
-    status: 'active',
-  });
-  store.seed(`asset_instances/${IDS.asset}`, {
-    schemaVersion: 1,
-    assetInstanceId: IDS.asset,
-    assetClassId: IDS.assetClass,
-    assetClassCode: 'FURNACE',
-    assetClassName: 'Furnace',
-    assetNumber: 7,
-    name: 'Furnace 7',
-    status: 'active',
-    version: 4,
-  });
-  store.seed(`asset_hierarchy_nodes/${IDS.node}`, {
-    schemaVersion: 1,
-    nodeId: IDS.node,
-    assetClassId: IDS.assetClass,
-    name: 'UV flame scanner and peep sight',
-    hierarchyPath: reference().hierarchyPath,
-    nodeType: 'component',
-    componentTag: null,
-    status: 'active',
-    version: 3,
-  });
-  return store;
-}
-
-async function prepare(store, row = action(), overrides = {}) {
-  return store.runTransaction(async (tx) => {
-    const plan = await prepareUvDetectorLifecycleWritePlan({
-      tx,
-      sourceType: 'workflowPlannedJob',
-      sourceId: 'execution-1',
-      assetType: 'furnace',
-      assetNumber: 7,
-      actionSources: [{
-        sourceModuleId: 'module-1',
-        discipline: 'instrumentation',
-        actionsJson: JSON.stringify([row]),
-      }],
-      completedAt: '2026-08-28T09:00:00.000Z',
-      recordedAt: '2026-08-28T09:00:00.000Z',
-      completedBy: actor,
-      ...overrides,
-    });
-    applyUvDetectorLifecycleWritePlan(tx, plan);
-    return plan;
-  });
-}
+const {IDS, actor, action, reference, lockoutAction, seedStore, prepare} = require('./fixtures/uvDetectorLifecycleFixture');
 
 describe('UV-detector lifecycle projection', () => {
   test.each(['maintenanceIssue', 'legacyPlannedJob', 'workflowPlannedJob'])(
@@ -540,4 +383,460 @@ describe('UV-detector parent-scoped physical action identity', () => {
     }
     expect(new Set(ids).size).toBe(3);
   });
+});
+
+describe('uv-detector installation correction command', () => {
+  const commandActor = {
+    uid: 'admin-1',
+    name: 'Admin One',
+    roles: new Set(['admin']),
+  };
+
+  const eventRows = (store) => store.entries()
+    .filter(([entryPath]) => entryPath.startsWith('uv_detector_lifecycle_events/'))
+    .map(([, data]) => data);
+  const currentRow = (store) => store.entries()
+    .find(([entryPath]) => entryPath.startsWith('uv_detector_lifecycle_current/'))?.[1];
+
+  async function seededCommandState(producerOverrides = {}) {
+    const store = seedStore();
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}), producerOverrides);
+    store.seed(`users/${commandActor.uid}`, {
+      isApproved: true,
+      roles: ['admin'],
+      name: commandActor.name,
+    });
+    const event = eventRows(store)[0];
+    const current = currentRow(store);
+    const command = {
+      commandId: 'correction-command-1',
+      commandType: 'correctUvDetectorInstallation',
+      aggregateId: 'correction-1',
+      expectedVersion: 0,
+      payload: {
+        eventId: event.eventId,
+        expectedCurrentEventId: current.currentEventId,
+        expectedCurrentActionPerformedAt: current.actionPerformedAt,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+        reason: 'The register shows the UV detector was fitted on the 10th, not the 12th.',
+        supersedesCorrectionId: null,
+      },
+    };
+    return {store, command, event, current};
+  }
+
+  test('writes correction evidence, rebuilds current state and replays without writes', async () => {
+    const {store, command, event} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    };
+
+    const receipt = await service.execute(command, context);
+    expect(receipt.result).toMatchObject({
+      correctionId: 'correction-1',
+      correctsEventId: event.eventId,
+      currentEventId: event.eventId,
+      currentActionPerformedAt: '2026-08-10T08:00:00.000Z',
+    });
+    expect(store.read('uv_detector_lifecycle_corrections/correction-1'))
+      .toMatchObject({
+        correctsEventId: event.eventId,
+        expectedCurrentEventId: event.eventId,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+      });
+    expect(store.read('audit_logs/server_uv_detector_correction_correction-command-1'))
+      .toMatchObject({entityType: 'uvDetectorInstallationCorrection'});
+
+    // A real Firestore round trip changes ISO strings into Timestamp-shaped
+    // values. Replay must compare the instant, not the JavaScript object.
+    const correctionPath =
+      'uv_detector_lifecycle_corrections/correction-1';
+    store.seed(
+      correctionPath,
+      workflowFirestoreDataForTest(store.read(correctionPath)),
+    );
+    const afterFirst = store.entries();
+    await expect(service.execute(command, context)).resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(afterFirst);
+  });
+
+  test.each([
+    ['target', false], ['target', true],
+    ['historical sibling', false], ['historical sibling', true],
+  ])('corrects actual producer history with a late-recorded %s (native timestamps: %s)', async (lateEntry, native) => {
+    const lateRecording = {recordedAt: '2026-08-28T12:00:00.000Z'};
+    const {store, command, event} = await seededCommandState(
+      lateEntry === 'target' ? lateRecording : {},
+    );
+    let expectedCurrentEventId = event.eventId;
+    if (lateEntry === 'historical sibling') {
+      const plan = await prepare(store, action({
+        id: 'late-entered-earlier-installation',
+        createdAt: '2026-08-11T08:00:00.000Z',
+      }), {...lateRecording, sourceId: 'late-entered-earlier-work'});
+      expectedCurrentEventId = plan.events[0].data.eventId;
+    }
+    expect(eventRows(store).find(row => row.recordedAt === lateRecording.recordedAt))
+      .toMatchObject({completedAt: '2026-08-28T09:00:00.000Z'});
+    if (native) {
+      for (const [path, data] of store.entries()) {
+        if (path.startsWith('uv_detector_lifecycle_events/') ||
+            path.startsWith('uv_detector_lifecycle_current/')) {
+          store.seed(path, workflowFirestoreDataForTest(data));
+        }
+      }
+    }
+    const originals = eventRows(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    expect(receipt.result).toMatchObject({
+      correctionId: 'correction-1',
+      correctsEventId: event.eventId,
+      currentEventId: expectedCurrentEventId,
+      currentActionPerformedAt: lateEntry === 'target' ?
+        '2026-08-10T08:00:00.000Z' : '2026-08-11T08:00:00.000Z',
+    });
+    expect(eventRows(store)).toEqual(originals);
+    const afterCorrection = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, context))
+      .resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(afterCorrection);
+  });
+
+  test.each(['target', 'historical sibling'])(
+    'correction refuses a %s recorded before completion without partial writes', async invalidEntry => {
+      const {store, command, event} = await seededCommandState();
+      let invalidEventId = event.eventId;
+      if (invalidEntry === 'historical sibling') {
+        const plan = await prepare(store, action({
+          id: 'earlier-installation', createdAt: '2026-08-11T08:00:00.000Z',
+        }), {sourceId: 'earlier-work'});
+        invalidEventId = plan.events[0].data.eventId;
+      }
+      const path = `uv_detector_lifecycle_events/${invalidEventId}`;
+      store.seed(path, workflowFirestoreDataForTest({
+        ...store.read(path), recordedAt: '2026-08-28T08:59:00.000Z',
+      }));
+      const before = store.entries();
+      await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+        actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+      })).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'uv-detector-correction-history-invalid'},
+      });
+      expect(store.entries()).toEqual(before);
+    },
+  );
+
+  test.each([
+    ['reason', 'A different unreviewed explanation'],
+    ['supersedesCorrectionId', 'a-different-predecessor'],
+    ['correctedByUid', 'another-reviewer'],
+    ['correctedByName', 'Another reviewer'],
+    ['recordedActionPerformedAt', '2026-08-11T08:00:00.000Z'],
+    ['correctedAt', '2026-08-30T09:00:00.000Z'],
+    ['assetInstanceId', 'a-different-furnace'],
+    ['version', 2],
+  ])('replay refuses changed retained correction %s without rewriting evidence', async (field, value) => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = 'uv_detector_lifecycle_corrections/correction-1';
+    store.seed(path, {...store.read(path), [field]: value});
+    const before = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-correction-replay-invalid'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('replay binds the original audit fingerprint and tolerates its Firestore timestamp', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await service.execute(command, context);
+    const path = 'audit_logs/server_uv_detector_correction_correction-command-1';
+    store.seed(path, workflowFirestoreDataForTest(store.read(path)));
+    const beforeReplay = store.entries();
+    await expect(service.execute(command, context)).resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+    const audit = store.read(path);
+    const alteredAfter = JSON.parse(audit.afterJson);
+    alteredAfter.currentInstallation.actionPerformedAt = '2026-08-09T08:00:00.000Z';
+    store.seed(path, {...audit, afterJson: JSON.stringify(alteredAfter)});
+    const beforeRefusal = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-correction-replay-invalid'},
+    });
+    expect(store.entries()).toEqual(beforeRefusal);
+  });
+
+  test('an installation committed after correction review makes that new command stale', async () => {
+    const {store, command} = await seededCommandState();
+    await prepare(store, action({id: 'later-installation', createdAt: '2026-08-28T08:00:00.000Z'}), {
+      sourceId: 'execution-after-review',
+    });
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-lifecycle-current-version-conflict'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('accepted correction replay preserves a later legitimate installation', async () => {
+    const {store, command} = await seededCommandState();
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    await prepare(store, action({id: 'later-installation', createdAt: '2026-08-30T08:00:00.000Z'}), {
+      sourceId: 'execution-after-correction',
+      completedAt: '2026-08-30T09:00:00.000Z',
+      recordedAt: '2026-08-30T09:00:00.000Z',
+    });
+    const before = store.entries();
+    const current = currentRow(store);
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      ...context, serverNow: new Date('2026-08-31T09:00:00.000Z'),
+    })).resolves.toEqual(receipt);
+    expect(currentRow(store)).toEqual(current);
+    expect(current.sourceId).toBe('execution-after-correction');
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a restarted successor names the exact predecessor while older accepted replay remains valid', async () => {
+    const {store, command} = await seededCommandState();
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const firstReceipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    const successor = {...command, commandId: 'correction-command-2', aggregateId: 'correction-2', payload: {
+      ...command.payload, expectedCurrentActionPerformedAt: currentRow(store).actionPerformedAt, supersedesCorrectionId: 'correction-1', correctedActionPerformedAt: '2026-08-11T08:00:00.000Z',
+    }};
+    await new MaintenanceWorkflowCommandService(store).execute(successor, context);
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, context)).resolves.toEqual(firstReceipt);
+    await expect(new MaintenanceWorkflowCommandService(store).execute({
+      ...successor, commandId: 'correction-command-3', aggregateId: 'correction-3',
+      payload: {...successor.payload, expectedCurrentActionPerformedAt: currentRow(store).actionPerformedAt, correctedActionPerformedAt: '2026-08-09T08:00:00.000Z'},
+    }, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-lifecycle-correction-stale'}});
+    expect(currentRow(store).actionPerformedAt).toBe('2026-08-11T08:00:00.000Z');
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('refuses a future physical installation before any write', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'future-correction-command',
+      aggregateId: 'future-correction',
+      payload: {
+        ...command.payload,
+        correctedActionPerformedAt: '2026-09-01T08:00:00.000Z',
+      },
+    }, {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'uv-detector-correction-future-dated'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('refuses a correction that installed clients cannot decode', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'after-closure-correction-command',
+      aggregateId: 'after-closure-correction',
+      payload: {
+        ...command.payload,
+        correctedActionPerformedAt: '2026-08-29T08:00:00.000Z',
+      },
+    }, {
+      actor: commandActor,
+      serverNow: new Date('2026-09-01T09:00:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'uv-detector-lifecycle-correction-after-completion',
+      },
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('refuses a command that would make no change without writing evidence', async () => {
+    const {store, command, event} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {
+      actor: commandActor,
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    };
+    await service.execute(command, context);
+    const before = store.entries();
+    const current = currentRow(store);
+
+    await expect(service.execute({
+      ...command,
+      commandId: 'correction-command-no-change',
+      aggregateId: 'correction-2',
+      payload: {
+        ...command.payload,
+        expectedCurrentEventId: current.currentEventId,
+        expectedCurrentActionPerformedAt: current.actionPerformedAt,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+        supersedesCorrectionId: 'correction-1',
+      },
+    }, context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'uv-detector-lifecycle-correction-no-change'},
+    });
+    expect(event.eventId).toBeDefined();
+    expect(store.entries()).toEqual(before);
+  });
+  test('a correction changing only current time invalidates another reviewed basis', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const before = store.entries();
+    await expect(service.execute({...command, commandId: 'stale-time', aggregateId: 'stale-time', payload: {
+      ...command.payload, supersedesCorrectionId: 'correction-1',
+      correctedActionPerformedAt: '2026-08-09T08:00:00.000Z',
+    }}, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-lifecycle-current-version-conflict'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('correction rebuilds the actual current event and keeps both original installations immutable', async () => {
+    const {store, command, event} = await seededCommandState();
+    await prepare(store, action({id: 'earlier-install', createdAt: '2026-08-11T08:00:00.000Z'}), {
+      sourceId: 'earlier-work-late-report',
+    });
+    const originals = eventRows(store);
+    const receipt = await new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    });
+    expect(receipt.result.currentEventId).not.toBe(event.eventId);
+    expect(currentRow(store).actionPerformedAt).toBe('2026-08-11T08:00:00.000Z');
+    expect(eventRows(store)).toEqual(originals);
+  });
+
+  test('correcting old history leaves a later physical installation current', async () => {
+    const {store, command} = await seededCommandState();
+    await prepare(store, action({id: 'later-install', createdAt: '2026-08-20T08:00:00.000Z'}), {sourceId: 'later-work'});
+    const reviewed = currentRow(store);
+    const originals = eventRows(store);
+    const result = await new MaintenanceWorkflowCommandService(store).execute({...command, payload: {
+      ...command.payload, expectedCurrentEventId: reviewed.currentEventId,
+      expectedCurrentActionPerformedAt: reviewed.actionPerformedAt,
+    }}, {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')});
+    expect(result.result.currentEventId).toBe(reviewed.eventId);
+    expect(currentRow(store)).toEqual(reviewed);
+    expect(eventRows(store)).toEqual(originals);
+  });
+
+  test('audit failure commits neither correction nor changed current projection nor receipt', async () => {
+    const {store, command} = await seededCommandState();
+    store.seed('audit_logs/server_uv_detector_correction_correction-command-1', {reserved: true});
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toThrow('already-exists');
+    expect(store.entries()).toEqual(before);
+  });
+
+  test.each(['operations', 'seniorInstrumentation'])('ordinary %s authority cannot correct an installation', async (role) => {
+    const {store, command} = await seededCommandState();
+    store.seed('users/operator', {isApproved: true, roles: [role], name: 'Operator'});
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: {uid: 'operator', name: 'Operator', roles: new Set([role])},
+      serverNow: new Date('2026-08-29T09:00:00.000Z'),
+    })).rejects.toMatchObject({code: 'permission-denied'});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test.each([
+    ['aggregateVersion', 2], ['currentEventId', 'fabricated-event'], ['burnerPosition', 8],
+    ['assetInstanceId', 'another-furnace'], ['currentActionPerformedAt', '2026-08-09T08:00:00.000Z'],
+    ['expectedCurrentActionPerformedAt', '2026-08-09T08:00:00.000Z'],
+  ])('replay refuses mutated acceptance result %s', async (field, value) => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = `maintenance_workflow_command_receipts/${command.commandId}`;
+    const receipt = store.read(path);
+    store.seed(path, field === 'aggregateVersion' ? {...receipt, aggregateVersion: value} :
+      {...receipt, result: {...receipt.result, [field]: value}});
+    const before = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-correction-replay-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test.each(['audit', 'correction', 'receipt'])('native sub-millisecond %s tampering cannot replay as the same accepted instant', async (target) => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = target === 'audit' ? 'audit_logs/server_uv_detector_correction_correction-command-1' :
+      target === 'correction' ? 'uv_detector_lifecycle_corrections/correction-1' :
+      'maintenance_workflow_command_receipts/correction-command-1';
+    const row = workflowFirestoreDataForTest(store.read(path));
+    const field = target === 'audit' ? 'timestamp' : target === 'correction' ? 'correctedAt' : 'currentActionPerformedAt';
+    const container = target === 'receipt' ? row.result : row;
+    const stamp = container[field];
+    container[field] = {_seconds: stamp.seconds, _nanoseconds: stamp.nanoseconds + 1};
+    store.seed(path, row);
+    const before = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-correction-replay-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a correction chain with a missing predecessor is held rather than normalized', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = 'uv_detector_lifecycle_corrections/correction-1';
+    store.seed(path, {...store.read(path), supersedesCorrectionId: 'missing-original'});
+    const before = store.entries();
+    await expect(service.execute({...command, commandId: 'successor', aggregateId: 'successor', payload: {
+      ...command.payload, expectedCurrentActionPerformedAt: currentRow(store).actionPerformedAt,
+      supersedesCorrectionId: 'correction-1', correctedActionPerformedAt: '2026-08-09T08:00:00.000Z',
+    }}, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-correction-history-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a backward recording clock refuses a correction without partial writes', async () => {
+    const {store, command} = await seededCommandState();
+    const before = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+      actor: commandActor, serverNow: new Date('2026-08-27T09:00:00.000Z'),
+    })).rejects.toMatchObject({details: {reasonCode: 'uv-detector-lifecycle-correction-chronology-invalid'}});
+    expect(store.entries()).toEqual(before);
+  });
+
+  test('a successor cannot be recorded before the correction it supersedes', async () => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(command, {actor: commandActor, serverNow: new Date('2026-08-30T09:00:00.000Z')});
+    const before = store.entries();
+    await expect(service.execute({...command, commandId: 'clock-regression', aggregateId: 'clock-regression', payload: {
+      ...command.payload, expectedCurrentActionPerformedAt: currentRow(store).actionPerformedAt,
+      supersedesCorrectionId: 'correction-1', correctedActionPerformedAt: '2026-08-11T08:00:00.000Z',
+    }}, {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')})).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-lifecycle-correction-chronology-invalid'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
 });

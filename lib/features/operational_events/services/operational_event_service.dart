@@ -14,7 +14,8 @@ enum OperationalEventCommand {
   update('UPDATE_OPERATIONAL_EVENT'),
   resolve('RESOLVE_OPERATIONAL_EVENT'),
   reopen('REOPEN_OPERATIONAL_EVENT'),
-  withdraw('WITHDRAW_OPERATIONAL_EVENT');
+  withdraw('WITHDRAW_OPERATIONAL_EVENT'),
+  amendInterval('AMEND_OPERATIONAL_EVENT_INTERVAL');
 
   const OperationalEventCommand(this.wireName);
   final String wireName;

@@ -8,6 +8,14 @@ import {stableJson} from "./stableJson";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 import {operationalEventDisposition} from "./operationalEventDisposition";
 
+import {
+  OPERATIONAL_INTERVAL_AMENDMENT, OPERATIONAL_INTERVAL_AMENDMENTS,
+  IntervalAmendmentRequest, parseIntervalAmendment, intervalAmendmentHeads,
+  prepareOperationalIntervalAmendment, intervalAmendmentDigest,
+  intervalAmendmentInstant, canonicalIntervalEvidence, rawOperationalInterval, verifyOperationalIntervalHeads,
+  sameRetainedOperationalInterval,
+} from "./operationalEventIntervalAmendment";
+
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {
   exists: boolean;
@@ -30,7 +38,8 @@ export type OperationalEventOperation =
   | "UPDATE_OPERATIONAL_EVENT"
   | "RESOLVE_OPERATIONAL_EVENT"
   | "REOPEN_OPERATIONAL_EVENT"
-  | "WITHDRAW_OPERATIONAL_EVENT";
+  | "WITHDRAW_OPERATIONAL_EVENT"
+  | "AMEND_OPERATIONAL_EVENT_INTERVAL";
 
 type EventType =
   | "water"
@@ -82,6 +91,7 @@ interface ParsedRequest {
   resolvedAtIso: string | null;
   fingerprint: string;
   expectedActorUid: string | null;
+  intervalAmendment: IntervalAmendmentRequest | null;
 }
 
 type RejectedCreation = {ok: false; error: AssetHierarchyMutationError};
@@ -96,6 +106,11 @@ export interface OperationalEventMutationResult {
   auditId: string;
   committedAt: string;
   idempotentReplay: boolean;
+  amendmentId?: string;
+  occurrenceIndex?: number;
+  correctedResolvedAt?: string;
+  supersedesAmendmentId?: string | null;
+  amendmentEvidenceDigest?: string;
 }
 
 const UUID =
@@ -106,6 +121,7 @@ const OPERATIONS = new Set<OperationalEventOperation>([
   "RESOLVE_OPERATIONAL_EVENT",
   "REOPEN_OPERATIONAL_EVENT",
   "WITHDRAW_OPERATIONAL_EVENT",
+  OPERATIONAL_INTERVAL_AMENDMENT,
 ]);
 const EVENT_TYPES = new Set<EventType>([
   "water", "nitrogen", "mixedGas", "hydrogen", "powerTrip", "crane",
@@ -254,7 +270,7 @@ export function isOperationalEventOperation(
 export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedRequest {
   const allowed = new Set([
     "requestId", "operation", "eventId", "expectedVersion", "reason",
-    "eventDraft", "resolutionNote", "resolvedAt", "expectedActorUid",
+    "eventDraft", "resolutionNote", "resolvedAt", "expectedActorUid", "intervalAmendment",
   ]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) invalid(key, "is unsupported");
@@ -279,6 +295,12 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     invalid("expectedVersion", "must be a non-negative integer");
   }
   const reason = requiredString(raw.reason, "reason", 1000);
+  const intervalAmendment = operation === OPERATIONAL_INTERVAL_AMENDMENT ? parseIntervalAmendment(raw.intervalAmendment) : null;
+  if (intervalAmendment == null && raw.intervalAmendment != null) invalid("intervalAmendment", "is not allowed for this operation");
+  if (intervalAmendment != null && ((raw.expectedVersion as number) < 1 ||
+      (raw.expectedVersion as number) >= Number.MAX_SAFE_INTEGER)) {
+    invalid("expectedVersion", "must name an existing reviewed event with a safe next revision");
+  }
   const hasDraft = operation === "CREATE_OPERATIONAL_EVENT" ||
     operation === "UPDATE_OPERATIONAL_EVENT";
   const eventDraft = hasDraft ? parseDraft(raw.eventDraft) : null;
@@ -310,11 +332,11 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     eventDraft,
     resolutionNote,
   };
-  const fingerprintPayload = hasRequestedResolutionTime ? {
+  const fingerprintPayload = intervalAmendment != null ? {...requestWithoutResolutionTime, intervalAmendment} : hasRequestedResolutionTime ? {
     ...requestWithoutResolutionTime,
     resolvedAt: resolvedAtIso,
   } : requestWithoutResolutionTime;
-  const fingerprintVersion = hasRequestedResolutionTime ? 2 : 1;
+  const fingerprintVersion = intervalAmendment != null ? 3 : hasRequestedResolutionTime ? 2 : 1;
   const fingerprint = `operationalevent${fingerprintVersion}-sha256:${
     createHash("sha256").update(stableJson(fingerprintPayload), "utf8")
       .digest("hex")}`;
@@ -325,6 +347,7 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     // This authorization guard must not invalidate a legacy receipt when an
     // existing saved intent is retried by a newer client.
     expectedActorUid,
+    intervalAmendment,
   };
 }
 
@@ -334,7 +357,7 @@ export function userCanMutateOperationalEvent(
 ): boolean {
   const authority = canonicalApprovedUserAuthority(data);
   if (authority == null) return false;
-  const allowed = operation === "RESOLVE_OPERATIONAL_EVENT" ||
+  const allowed = operation === OPERATIONAL_INTERVAL_AMENDMENT ? new Set(["admin", "si"]) : operation === "RESOLVE_OPERATIONAL_EVENT" ||
     operation === "REOPEN_OPERATIONAL_EVENT" ?
     RESOLUTION_ROLES : WRITE_ROLES;
   return [...authority.roles].some((role) => allowed.has(role));
@@ -628,6 +651,7 @@ export function validateCurrentEvent(
       {reasonCode: "operational-event-projection-malformed"},
     );
   }
+  intervalAmendmentHeads(data);
   return data.version as number;
 }
 
@@ -645,6 +669,7 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     issueLinkIds: data.issueLinkIds ?? [],
     linkedIssueIds: data.linkedIssueIds ?? [],
     completedIntervals: data.completedIntervals,
+    ...(Object.prototype.hasOwnProperty.call(data, "intervalEndAmendments") ? {intervalEndAmendments: data.intervalEndAmendments} : {}),
     startedAt: data.startedAt,
     status: data.status,
     resolvedAt: data.resolvedAt,
@@ -684,7 +709,9 @@ function operationalEventAuditDigest(audit: JsonMap): string {
     }
     return value;
   };
-  return createHash("sha256").update(stableJson(canonicalEvidenceValue({
+  const canonical = audit.operation === OPERATIONAL_INTERVAL_AMENDMENT ?
+    canonicalIntervalEvidence : canonicalEvidenceValue;
+  return createHash("sha256").update(stableJson(canonical({
     schemaVersion: audit.schemaVersion,
     auditId: audit.auditId,
     requestId: audit.requestId,
@@ -878,6 +905,13 @@ function resultFromReceipt(
     auditId: data.auditId as string,
     committedAt: data.committedAtIso as string,
     idempotentReplay: true,
+    ...(request.intervalAmendment == null ? {} : {
+      amendmentId: data.amendmentId as string,
+      occurrenceIndex: data.occurrenceIndex as number,
+      correctedResolvedAt: data.correctedResolvedAt as string,
+      supersedesAmendmentId: data.supersedesAmendmentId as string | null,
+      amendmentEvidenceDigest: data.amendmentEvidenceDigest as string,
+    }),
   };
 }
 
@@ -909,6 +943,7 @@ export async function mutateOperationalEventWithDb(args: {
   const receipts = db.collection("operational_event_receipts");
   const classes = db.collection("asset_classes");
   const assets = db.collection("asset_instances");
+  const amendments = db.collection(OPERATIONAL_INTERVAL_AMENDMENTS);
   const actorRef = users.doc(actorUid);
   const eventRef = events.doc(request.eventId);
   const auditId = `operational_event_${request.requestId}`;
@@ -966,7 +1001,7 @@ export async function mutateOperationalEventWithDb(args: {
           {reasonCode: "operational-event-replay-evidence-drift"},
         );
       }
-      if (receiptData.evidenceDigest != null) {
+      if (receiptData.evidenceDigest != null || request.intervalAmendment != null) {
         const digest = receiptData.evidenceDigest;
         if (typeof digest !== "string" || auditData.evidenceDigest !== digest ||
             operationalEventAuditDigest(auditData) !== digest) {
@@ -975,6 +1010,35 @@ export async function mutateOperationalEventWithDb(args: {
             "The operational-event receipt no longer matches its committed evidence.",
             {reasonCode: "operational-event-replay-evidence-drift"},
           );
+        }
+      }
+      if (request.intervalAmendment != null) {
+        const retained = record(asSnapshot(await transaction.get(amendments.doc(request.requestId)), "Interval amendment"), "Interval amendment");
+        const a = request.intervalAmendment;
+        const beforeHeads = intervalAmendmentHeads({...before!, updatedAt: auditData.performedAt});
+        const afterHeads = intervalAmendmentHeads({...after!, updatedAt: auditData.performedAt});
+        const acceptedHead = afterHeads[String(a.occurrenceIndex)] as JsonMap | undefined;
+        if (retained.schemaVersion !== 1 || retained.amendmentId !== request.requestId ||
+            retained.eventId !== request.eventId || retained.occurrenceIndex !== a.occurrenceIndex ||
+            retained.expectedEventVersion !== request.expectedVersion || retained.resultVersion !== replay.version ||
+            retained.amendedByUid !== actorUid || retained.reason !== request.reason ||
+            retained.amendedByName !== auditData.performedByName ||
+            intervalAmendmentInstant(auditData.performedAt) !== replay.committedAt ||
+            intervalAmendmentInstant(receiptData.committedAt) !== replay.committedAt ||
+            intervalAmendmentInstant(retained.amendedAt) !== replay.committedAt ||
+            intervalAmendmentInstant(retained.correctedResolvedAt) !== a.correctedResolvedAt ||
+            intervalAmendmentInstant(retained.priorEffectiveResolvedAt) !== a.expectedEffectiveResolvedAt ||
+            retained.supersedesAmendmentId !== a.supersedesAmendmentId ||
+            !sameRetainedOperationalInterval(retained.originalIntervalJson, rawOperationalInterval(before!, a.occurrenceIndex)) ||
+            retained.evidenceDigest !== intervalAmendmentDigest(retained) ||
+            replay.amendmentEvidenceDigest !== retained.evidenceDigest ||
+            replay.amendmentId !== request.requestId || replay.occurrenceIndex !== a.occurrenceIndex ||
+            replay.correctedResolvedAt !== a.correctedResolvedAt || replay.supersedesAmendmentId !== a.supersedesAmendmentId ||
+            acceptedHead?.amendmentId !== request.requestId ||
+            intervalAmendmentInstant(acceptedHead?.correctedResolvedAt) !== a.correctedResolvedAt ||
+            ((beforeHeads[String(a.occurrenceIndex)] as JsonMap | undefined)?.amendmentId ?? null) !== a.supersedesAmendmentId) {
+          throw new AssetHierarchyMutationError("data-loss", "The retained interval amendment disagrees with its accepted audit or request.",
+            {reasonCode: "operational-interval-amendment-replay-drift"});
         }
       }
       // Acceptance is historical evidence, not a replacement for the live event.
@@ -993,6 +1057,15 @@ export async function mutateOperationalEventWithDb(args: {
     );
     const current = eventValue.exists ? eventValue.data() ?? {} : null;
     const currentVersion = validateCurrentEvent(current, request.eventId);
+    if (current != null) await verifyOperationalIntervalHeads(current, async id => {
+      const snapshot = asSnapshot(await transaction.get(amendments.doc(id)), "Retained interval amendment");
+      return snapshot.exists ? snapshot.data() ?? null : null;
+    });
+    if (request.intervalAmendment != null) {
+      const existingAmendment = asSnapshot(await transaction.get(amendments.doc(request.requestId)), "Interval amendment identity");
+      if (existingAmendment.exists) throw new AssetHierarchyMutationError("data-loss", "An interval amendment exists without its acceptance receipt.",
+        {reasonCode: "operational-interval-amendment-orphan"});
+    }
     if (request.operation === "CREATE_OPERATIONAL_EVENT" && current != null) {
       throw new AssetHierarchyMutationError(
         "already-exists",
@@ -1198,14 +1271,10 @@ export async function mutateOperationalEventWithDb(args: {
           },
         );
       }
-      // A link's identity is derived from the occurrence start, so correcting
-      // the start leaves every existing link stored under an identity nothing
-      // can reach again: the association is neither current nor relinkable,
-      // and the event goes on listing it. The correction is held while links
-      // exist, naming them, so nobody strands one by correcting a time. The
-      // route through is to review those links first. A durable occurrence
-      // identity that survives a corrected start is the larger repair and is
-      // recorded as still open.
+      // Legacy links retain their start-based identity and every link retains
+      // the original start snapshot. New ordinal identities preserve membership,
+      // but changing linked start evidence still needs its own governed review.
+      // Closed-end amendments do not authorize rewriting these original facts.
       const storedStart = timestampDate(current.startedAt);
       if (links.length > 0 &&
           (storedStart == null ||
@@ -1223,7 +1292,15 @@ export async function mutateOperationalEventWithDb(args: {
     }
     const version = currentVersion + 1;
     let next: JsonMap;
-    if (draft != null) {
+    let amendmentRecord: JsonMap | null = null;
+    if (request.intervalAmendment != null) {
+      const plan = prepareOperationalIntervalAmendment({current: current!, requestId: request.requestId,
+        eventId: request.eventId, expectedVersion: request.expectedVersion, amendment: request.intervalAmendment,
+        reason: request.reason, actorUid, actorName: actorName(actorData), now: committed, timestampFromDate});
+      amendmentRecord = plan.record;
+      next = {...current!, intervalEndAmendments: plan.heads, version, updatedAt: committedAt,
+        updatedByUid: actorUid, updatedByName: actorName(actorData), lastMutationId: request.requestId};
+    } else if (draft != null) {
       next = {
         schemaVersion: 1,
         eventId: request.eventId,
@@ -1237,6 +1314,7 @@ export async function mutateOperationalEventWithDb(args: {
         issueLinkIds: current?.issueLinkIds ?? [],
         linkedIssueIds: current?.linkedIssueIds ?? [],
         completedIntervals: current?.completedIntervals ?? [],
+        ...(current != null && Object.prototype.hasOwnProperty.call(current, "intervalEndAmendments") ? {intervalEndAmendments: current.intervalEndAmendments} : {}),
         startedAt: timestampFromDate(new Date(draft.startedAtIso)),
         status: current?.status ?? "open",
         createdAt: current?.createdAt ?? committedAt,
@@ -1337,7 +1415,15 @@ export async function mutateOperationalEventWithDb(args: {
     audit.evidenceDigest = operationalEventAuditDigest(audit);
     assertOperationalEventStoredSize(next, "operational event");
     assertOperationalEventStoredSize(audit, "operational-event audit");
+    if (amendmentRecord != null) assertOperationalEventStoredSize(amendmentRecord, "operational interval amendment");
+    const amendmentResult = amendmentRecord == null ? {} : {
+      amendmentId: request.requestId, occurrenceIndex: request.intervalAmendment!.occurrenceIndex,
+      correctedResolvedAt: request.intervalAmendment!.correctedResolvedAt,
+      supersedesAmendmentId: request.intervalAmendment!.supersedesAmendmentId,
+      amendmentEvidenceDigest: amendmentRecord.evidenceDigest as string,
+    };
     const receipt: JsonMap = {
+      ...amendmentResult,
       schemaVersion: 1,
       requestId: request.requestId,
       actorUid,
@@ -1351,6 +1437,7 @@ export async function mutateOperationalEventWithDb(args: {
       committedAtIso: committed.toISOString(),
       evidenceDigest: audit.evidenceDigest,
     };
+    if (amendmentRecord != null) transaction.set(amendments.doc(request.requestId) as unknown as DocumentRefLike, amendmentRecord);
     transaction.set(eventRef as unknown as DocumentRefLike, next);
     transaction.set(auditRef as unknown as DocumentRefLike, audit);
     transaction.set(receiptRef as unknown as DocumentRefLike, receipt);
@@ -1364,6 +1451,7 @@ export async function mutateOperationalEventWithDb(args: {
       auditId,
       committedAt: committed.toISOString(),
       idempotentReplay: false,
+      ...amendmentResult,
     };
   });
   if (!outcome.ok) throw outcome.error;

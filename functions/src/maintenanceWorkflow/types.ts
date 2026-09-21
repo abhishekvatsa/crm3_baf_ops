@@ -109,6 +109,7 @@ export type WorkflowCommandType =
   | "correctMaintenanceTicket"
   | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup"
   | "correctBurnerBlockInstallation"
+  | "correctUvDetectorInstallation"
   | "raiseCriticalAlarm" | "provideCriticalAlarmDetails"
   | "confirmCriticalAlarmSupport" | "resolveCriticalAlarm"
   | "withdrawCriticalAlarmInError"
