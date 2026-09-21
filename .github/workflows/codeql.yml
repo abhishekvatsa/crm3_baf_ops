@@ -71,7 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
           flutter precache --android
           flutter pub get
           python3 tools/security/codeql/prepare_android.py
@@ -111,7 +112,7 @@ jobs:
         if: matrix.language == 'java-kotlin'
         env:
           CODEQL_BINARY: ${{ steps.init.outputs.codeql-path }}
-          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations).java }}
+          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations || '{}').java }}
           CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
         shell: bash
         run: |
