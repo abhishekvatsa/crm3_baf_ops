@@ -88,6 +88,17 @@ $ExpectedBuild28ReadOnlySurfaces = @(
   'issue-report-pdf-zoom-page-print-and-share-controls'
   'home-form-and-child-screen-back-navigation'
 )
+# Build29 retains this limited owner read-side qualification only. Completing
+# these surfaces does not qualify mutating business flows or authorize a pilot.
+$ExpectedBuild29ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issues-horizontal-actions-and-resolved-record-evidence'
+  'planned-maintenance-jobs-and-personal-workflow-filters'
+  'inner-cover-filtering-inventory-and-registration-form'
+  'inspection-programmes-unused-audit-deletion-guard'
+  'issue-report-pdf-zoom-page-print-and-share-controls'
+  'home-form-and-child-screen-back-navigation'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -276,6 +287,87 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     [string]$CompletionReceiptSha256,
     [Parameter(Mandatory)][object]$ExpectedLocalStoreSchema
   )
+  Test-OwnerReadOnlyDeviceAcceptanceForBuild -BuildNumber 28 `
+    -Receipt $Receipt -CompletionReceipt $CompletionReceipt `
+    -CompletionReceiptPath $CompletionReceiptPath `
+    -CompletionReceiptSha256 $CompletionReceiptSha256 `
+    -ExpectedLocalStoreSchema $ExpectedLocalStoreSchema
+}
+
+function Test-Build29ReadOnlyDeviceAcceptance {
+  param(
+    [object]$Receipt,
+    [object]$CompletionReceipt,
+    [string]$CompletionReceiptPath,
+    [string]$CompletionReceiptSha256,
+    [Parameter(Mandatory)][object]$ExpectedLocalStoreSchema,
+    [object]$VersionSource,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+  # This owner exception retains the actual completed28 and its historical27
+  # pilot; a coherently relabelled predecessor cannot grant the exception.
+  if ($VersionSource -isnot [pscustomobject]) { return $false }
+  $property = $VersionSource.PSObject.Properties['preservedCompletedBuild']
+  if ($null -eq $property) { return $false }
+  $preserved = $property.Value
+  foreach ($expected in @(
+    @{ Build = 28; File = 'release/evidence/build-28-finalization-closure.json';
+      Sha = '65E3840620D58F9BA8E34AA536361CAC69ADACCD22236FF6740BA68C7004106D';
+      Runtime = $false; Pilot = $false }
+    @{ Build = 27; File = 'release/evidence/build-27-finalization-closure.json';
+      Sha = '8F789CB5B8727048E541BCDA0DED6591A66DD04D440CFF10DE935481F6C281A6';
+      Runtime = $true; Pilot = $true }
+  )) {
+    if ($null -eq $preserved -or $preserved -isnot [pscustomobject]) { return $false }
+    foreach ($fact in @(
+      @{ Name = 'buildNumber'; Value = $expected.Build }
+      @{ Name = 'status'; Value = 'completed-non-distributable' }
+      @{ Name = 'completionReceiptFile'; Value = $expected.File }
+      @{ Name = 'completionReceiptSha256'; Value = $expected.Sha }
+      @{ Name = 'runtimeValidationPassed'; Value = $expected.Runtime }
+      @{ Name = 'controlledPilotApproved'; Value = $expected.Pilot }
+    )) {
+      $property = $preserved.PSObject.Properties[$fact.Name]
+      if ($null -eq $property) { return $false }
+      $value = $property.Value
+      if ($fact.Value -is [bool]) {
+        if ($value -isnot [bool] -or $value -ne $fact.Value) { return $false }
+      } elseif ($fact.Value -is [int]) {
+        if (($value -isnot [int] -and $value -isnot [int64]) -or
+            $value -ne $fact.Value) { return $false }
+      } elseif ($value -isnot [string] -or $value -cne $fact.Value) { return $false }
+    }
+    try {
+      if ((Get-Sha256 (Join-Path $RepositoryRoot $expected.File)) -cne $expected.Sha) {
+        return $false
+      }
+    } catch { return $false }
+    $property = $preserved.PSObject.Properties['priorCompletedBuild']
+    if ($null -ne $property) { $preserved = $property.Value } else { $preserved = $null }
+  }
+  Test-OwnerReadOnlyDeviceAcceptanceForBuild -BuildNumber 29 `
+    -Receipt $Receipt -CompletionReceipt $CompletionReceipt `
+    -CompletionReceiptPath $CompletionReceiptPath `
+    -CompletionReceiptSha256 $CompletionReceiptSha256 `
+    -ExpectedLocalStoreSchema $ExpectedLocalStoreSchema
+}
+
+function Test-OwnerReadOnlyDeviceAcceptanceForBuild {
+  param(
+    [Parameter(Mandatory)][object]$BuildNumber,
+    [object]$Receipt,
+    [object]$CompletionReceipt,
+    [string]$CompletionReceiptPath,
+    [string]$CompletionReceiptSha256,
+    [Parameter(Mandatory)][object]$ExpectedLocalStoreSchema
+  )
+  if (($BuildNumber -isnot [int] -and $BuildNumber -isnot [int64]) -or
+      $BuildNumber -notin @(28, 29)) { return $false }
+  $expectedSurfaces = if ($BuildNumber -eq 28) {
+    $ExpectedBuild28ReadOnlySurfaces
+  } else {
+    $ExpectedBuild29ReadOnlySurfaces
+  }
   if ($ExpectedLocalStoreSchema.sourceCommit -cne $CompletionReceipt.sourceAuthority.commit -or
       $ExpectedLocalStoreSchema.sourceTree -cne $CompletionReceipt.sourceAuthority.tree) {
     return $false
@@ -287,8 +379,8 @@ function Test-Build28ReadOnlyDeviceAcceptance {
   $facts = @(
     @{ Path = 'schemaVersion'; Expected = 1 }
     @{ Path = 'evidenceType'; Expected = 'production-build-device-acceptance' }
-    @{ Path = 'status'; Expected = 'passed-exact-build28-physical-in-place-authenticated-read-only-surfaces' }
-    @{ Path = 'release.buildNumber'; Expected = 28 }
+    @{ Path = 'status'; Expected = "passed-exact-build$BuildNumber-physical-in-place-authenticated-read-only-surfaces" }
+    @{ Path = 'release.buildNumber'; Expected = $BuildNumber }
     @{ Path = 'release.releaseId'; Expected = $CompletionReceipt.release.releaseId }
     @{ Path = 'release.versionName'; Expected = $CompletionReceipt.release.versionName }
     @{ Path = 'release.applicationId'; Expected = $CompletionReceipt.release.applicationId }
@@ -301,7 +393,7 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     @{ Path = 'release.apkSizeBytes'; Expected = [int64]$CompletionReceipt.governedPackage.apkSizeBytes }
     @{ Path = 'release.certificateSha256'; Expected = $CompletionReceipt.governedPackage.certificateSha256 }
     @{ Path = 'physicalDevice.targetCount'; Expected = 1 }
-    @{ Path = 'physicalDevice.installedVersionCode'; Expected = 28 }
+    @{ Path = 'physicalDevice.installedVersionCode'; Expected = $BuildNumber }
     @{ Path = 'physicalDevice.installedVersionName'; Expected = $CompletionReceipt.release.versionName }
     @{ Path = 'physicalDevice.deviceSerialRecorded'; Expected = $false }
     @{ Path = 'physicalDevice.accountIdentifierRecorded'; Expected = $false }
@@ -349,6 +441,9 @@ function Test-Build28ReadOnlyDeviceAcceptance {
     @{ Path = 'releaseBoundary.appCheckActivationPerformed'; Expected = $false }
     @{ Path = 'releaseBoundary.deviceDataClearPerformed'; Expected = $false }
   )
+  if ($BuildNumber -eq 29) {
+    $facts += @{ Path = 'releaseBoundary.build28FinalizationReceiptChanged'; Expected = $false }
+  }
   if ($null -ne $Receipt.localStoreMigration -and
       $null -ne $Receipt.localStoreMigration.PSObject.Properties['targetSchemaFingerprintSha256']) {
     $facts += @{ Path = 'localStoreMigration.targetSchemaFingerprintSha256'; Expected = $ExpectedLocalStoreSchema.targetSchemaFingerprintSha256 }
@@ -386,7 +481,7 @@ function Test-Build28ReadOnlyDeviceAcceptance {
   if ($null -eq $priorProperty) { return $false }
   $priorVersion = $priorProperty.Value
   if (($priorVersion -isnot [int] -and $priorVersion -isnot [int64]) -or
-      $priorVersion -lt 1 -or $priorVersion -ge 28) { return $false }
+      $priorVersion -lt 1 -or $priorVersion -ge $BuildNumber) { return $false }
   $passesProperty = $Receipt.synchronization.PSObject.Properties['automaticStartupSyncPassesObserved']
   if ($null -eq $passesProperty) { return $false }
   $passes = $passesProperty.Value
@@ -395,10 +490,10 @@ function Test-Build28ReadOnlyDeviceAcceptance {
   if ($null -eq $surfacesProperty) { return $false }
   $surfaces = $surfacesProperty.Value
   if ($surfaces -isnot [array] -or
-      $surfaces.Count -ne $ExpectedBuild28ReadOnlySurfaces.Count) { return $false }
+      $surfaces.Count -ne $expectedSurfaces.Count) { return $false }
   for ($index = 0; $index -lt $surfaces.Count; $index++) {
     if ($surfaces[$index] -isnot [string] -or
-        $surfaces[$index] -cne $ExpectedBuild28ReadOnlySurfaces[$index]) { return $false }
+        $surfaces[$index] -cne $expectedSurfaces[$index]) { return $false }
   }
   $recordedProperty = $Receipt.PSObject.Properties['recordedAtUtc']
   $inventoryProperty = $Receipt.synchronization.PSObject.Properties['inventoryCapturedAtUtc']
@@ -412,9 +507,9 @@ function Test-Build28ReadOnlyDeviceAcceptance {
   }
   try {
     $recordedAt = Get-UtcEvidenceInstant -Value $recordedProperty.Value `
-      -FieldName 'Build 28 acceptance recordedAtUtc'
+      -FieldName "Build $BuildNumber acceptance recordedAtUtc"
     $inventoryAt = Get-UtcEvidenceInstant -Value $inventoryProperty.Value `
-      -FieldName 'Build 28 acceptance synchronization.inventoryCapturedAtUtc'
+      -FieldName "Build $BuildNumber acceptance synchronization.inventoryCapturedAtUtc"
   } catch { return $false }
   if ($recordedAt -lt $inventoryAt) { return $false }
   return ((Test-ZeroSynchronizationFailureCounters $Receipt.synchronization) -and
@@ -3024,6 +3119,20 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
             -VersionSource $versionSource)))) {
       throw 'Build 28 owner acceptance requires exact healthy read-only evidence and installation authority.'
     }
+    if ($currentBuildNumber -eq 29 -and (
+        -not (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval) -or
+        -not (Test-Build29ReadOnlyDeviceAcceptance `
+          -Receipt $deviceAcceptance `
+          -CompletionReceipt $completionReceipt `
+          -CompletionReceiptPath $completionReceiptPath `
+          -CompletionReceiptSha256 (Get-Sha256 $completionReceiptPath) `
+          -ExpectedLocalStoreSchema (Get-ArtifactLocalStoreSchemaAuthority `
+            -RepositoryRoot $RepositoryRoot `
+            -CompletionReceipt $completionReceipt `
+            -VersionSource $versionSource) `
+          -VersionSource $versionSource -RepositoryRoot $RepositoryRoot))) {
+      throw 'Build 29 owner acceptance requires exact healthy read-only evidence, retained history and installation authority.'
+    }
     $mutationValues = @(
       $deviceAcceptance.businessMutationBoundary.PSObject.Properties |
         ForEach-Object { $_.Value }
@@ -3047,6 +3156,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       18 { $ExpectedBuild18ReadOnlySurfaces; break }
       27 { $ExpectedBuild27ReadOnlySurfaces; break }
       28 { $ExpectedBuild28ReadOnlySurfaces; break }
+      29 { $ExpectedBuild29ReadOnlySurfaces; break }
       default {
         throw "No exact read-only surface contract exists for Build $currentBuildNumber."
       }
@@ -3093,7 +3203,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $unresolvedRejections -eq 0
     $synchronizationHealthy =
       $synchronizationInventoryHealthy -and
-      ($currentBuildNumber -notin @(27, 28) -or (
+      ($currentBuildNumber -notin @(27, 28, 29) -or (
         [int64]$deviceAcceptance.synchronization.pushFailed -eq 0 -and
         [int64]$deviceAcceptance.synchronization.fullSyncConflicts -eq 0 -and
         [int64]$deviceAcceptance.synchronization.processingErrors -eq 0 -and
@@ -3213,7 +3323,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
             $false -or
           $policy.finalization.runtimeValidationPassed -ne $true -or
           (-not $currentStagedPilotAuthorized -and -not (
-            $currentBuildNumber -eq 28 -and
+            $currentBuildNumber -in @(28, 29) -and
             $historicalStagedPilotAuthorityPreserved -and
             (Test-Build28OwnerInstallationAuthority $versionSource $environmentApproval)))) {
         throw 'Device-acceptance receipt differs from its exact physical-installation boundary.'

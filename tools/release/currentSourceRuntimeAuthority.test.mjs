@@ -754,7 +754,9 @@ $rows | ConvertTo-Json -Depth 4 -Compress
   }
 });
 
-test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy or broadened evidence", (t) => {
+for (const buildNumber of [28, 29]) {
+test(`Build ${buildNumber} owner acceptance binds the exact artifact and rejects unhealthy or broadened evidence`, (t) => {
+  const versionName = buildNumber === 28 ? "1.0.0-rc.18" : "1.0.0-rc.19";
   const read = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, name), "utf8"));
   const originalDevice = read("release/evidence/build-27-device-acceptance.json");
   const originalCompletion = read("release/evidence/build-27-finalization-closure.json");
@@ -772,12 +774,12 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   const device = structuredClone(originalDevice);
   const completion = structuredClone(originalCompletion);
   Object.assign(completion.release, {
-    buildNumber: 28, versionName: "1.0.0-rc.18",
-    releaseId: "crm3-baf-ops-1.0.0-rc.18-b28",
+    buildNumber, versionName,
+    releaseId: `crm3-baf-ops-${versionName}-b${buildNumber}`,
   });
   completion.sourceAuthority.commit = candidateCommit;
   completion.sourceAuthority.tree = candidateTree;
-  completion.governedPackage.version = "1.0.0-rc.18+28";
+  completion.governedPackage.version = `${versionName}+${buildNumber}`;
   Object.assign(device.release, {
     ...completion.release,
     sourceCommit: completion.sourceAuthority.commit,
@@ -785,10 +787,10 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
     finalizationReceiptFile: "completion.json",
   });
   Object.assign(device.physicalDevice, {
-    priorVersionCode: 27, installedVersionCode: 28,
-    installedVersionName: "1.0.0-rc.18",
+    priorVersionCode: buildNumber - 1, installedVersionCode: buildNumber,
+    installedVersionName: versionName,
   });
-  device.status = "passed-exact-build28-physical-in-place-authenticated-read-only-surfaces";
+  device.status = `passed-exact-build${buildNumber}-physical-in-place-authenticated-read-only-surfaces`;
   device.releaseBoundary.build27FinalizationReceiptChanged = false;
   device.localStoreMigration.targetSchemaVersion = candidateSchemaVersion;
   device.localStoreMigration.targetSchemaFingerprintSha256 = schemaFingerprintSha256;
@@ -797,6 +799,19 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
     pilot: false, installationAuthorized: true, environmentInstallationAuthorized: true,
     requiredSource,
   };
+  if (buildNumber === 29) {
+    device.releaseBoundary.build28FinalizationReceiptChanged = false;
+    const predecessorFile = "release/evidence/build-28-finalization-closure.json";
+    const predecessorBytes = fs.readFileSync(path.join(repositoryRoot, predecessorFile));
+    assert.equal(JSON.parse(predecessorBytes).release.buildNumber, 28);
+    base.preservedCompletedBuild = {
+      buildNumber: 28, status: "completed-non-distributable",
+      completionReceiptFile: predecessorFile,
+      completionReceiptSha256: createHash("sha256").update(predecessorBytes).digest("hex").toUpperCase(),
+      runtimeValidationPassed: false, controlledPilotApproved: false,
+      priorCompletedBuild: read("release/approvals/build-number-28-successor-approval.json").preservedCompletedBuild,
+    };
+  }
   const historical = {
     ...structuredClone(base), label: "historical Build 27 unchanged",
     device: originalDevice, completion: originalCompletion, pilot: true,
@@ -940,6 +955,33 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
       change(`adverse boundary ${field}: ${JSON.stringify(value)}`, (row) => set(row.device, field, value));
     }
   }
+  if (buildNumber === 29) {
+    for (const value of [true, "false", 0, null, [], [false], undefined]) {
+      change(`retained28 adverse boundary: ${JSON.stringify(value)}`, (row) =>
+        set(row.device, "releaseBoundary.build28FinalizationReceiptChanged", value));
+    }
+    for (const prefix of ["preservedCompletedBuild", "preservedCompletedBuild.priorCompletedBuild"]) {
+      for (const value of [undefined, null, [], [base.preservedCompletedBuild], false]) {
+        change(`retained history must be an object ${prefix}: ${JSON.stringify(value)}`, (row) => set(row, prefix, value));
+      }
+      for (const [field, invalid] of [
+        ["buildNumber", [29, "28", null, undefined, [28]]],
+        ["status", ["pending-source-authorized", null, undefined, ["completed-non-distributable"]]],
+        ["completionReceiptFile", ["completion.json", null, undefined, ["release/evidence/build-28-finalization-closure.json"]]],
+        ["completionReceiptSha256", ["0".repeat(64), null, undefined]],
+        ["runtimeValidationPassed", ["false", null, undefined, [false]]],
+        ["controlledPilotApproved", ["false", null, undefined, [false]]],
+      ]) {
+        for (const value of invalid) change(`retained history ${prefix}.${field}: ${JSON.stringify(value)}`, (row) => set(row, `${prefix}.${field}`, value));
+      }
+    }
+    change("retained28 cannot invent device acceptance", (row) => { row.preservedCompletedBuild.runtimeValidationPassed = true; });
+    change("retained28 cannot acquire a pilot", (row) => { row.preservedCompletedBuild.controlledPilotApproved = true; });
+    change("nested27 cannot lose measured acceptance", (row) => { row.preservedCompletedBuild.priorCompletedBuild.runtimeValidationPassed = false; });
+    change("nested27 cannot lose its separate pilot", (row) => { row.preservedCompletedBuild.priorCompletedBuild.controlledPilotApproved = false; });
+    const arrayHistory = structuredClone(base.preservedCompletedBuild.priorCompletedBuild);
+    change("single-element historical record array cannot unwrap", (row) => { row.preservedCompletedBuild.priorCompletedBuild = [arrayHistory]; });
+  }
   change("missing mutation inventory", (row) => { row.device.businessMutationBoundary = {}; });
   change("surface missing", (row) => row.device.validatedReadOnlySurfaces.pop());
   change("surface non-scalar", (row) => { row.device.validatedReadOnlySurfaces[0] = [row.device.validatedReadOnlySurfaces[0]]; });
@@ -968,10 +1010,10 @@ test("Build 28 owner acceptance binds the exact artifact and rejects unhealthy o
   equalInstants.device.synchronization.inventoryCapturedAtUtc = "2026-09-08T13:00:00Z";
   cases.push(equalInstants);
   change("two phones are not single-owner evidence", (row) => { row.device.physicalDevice.targetCount = 2; });
-  change("unproven prior version", (row) => { row.device.physicalDevice.priorVersionCode = 28; });
+  change("unproven prior version", (row) => { row.device.physicalDevice.priorVersionCode = buildNumber; });
   change("prior version must be integer", (row) => { row.device.physicalDevice.priorVersionCode = "27"; });
 
-  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-build28-acceptance-"));
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), `crm3-build${buildNumber}-acceptance-`));
   try {
     fs.writeFileSync(path.join(fixtureRoot, "cases.json"), JSON.stringify(cases));
     fs.writeFileSync(path.join(fixtureRoot, "check.ps1"), String.raw`
@@ -984,7 +1026,7 @@ if ($parseErrors.Count) { throw 'Production verifier does not parse' }
 foreach ($definition in $ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) {
   Invoke-Expression $definition.Extent.Text
 }
-foreach ($name in @('$ExpectedBuild18ReadOnlySurfaces', '$ExpectedBuild27ReadOnlySurfaces', '$ExpectedBuild28ReadOnlySurfaces')) {
+foreach ($name in @('$ExpectedBuild18ReadOnlySurfaces', '$ExpectedBuild27ReadOnlySurfaces', '$ExpectedBuild28ReadOnlySurfaces', '$ExpectedBuild29ReadOnlySurfaces')) {
   $assignment = $ast.Find({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq $name}, $false)
   if ($null -ne $assignment) { Invoke-Expression $assignment.Extent.Text }
 }
@@ -1006,6 +1048,9 @@ $rows = foreach ($case in (Get-Content cases.json -Raw | ConvertFrom-Json)) {
   $versionSource = [pscustomobject]@{ controls = [pscustomobject]@{ attachedPhoneInPlaceInstallationAuthorized = $case.installationAuthorized } }
   if ($null -ne $case.PSObject.Properties['requiredSource']) {
     $versionSource | Add-Member -NotePropertyName requiredSource -NotePropertyValue $case.requiredSource
+  }
+  if ($null -ne $case.PSObject.Properties['preservedCompletedBuild']) {
+    $versionSource | Add-Member -NotePropertyName preservedCompletedBuild -NotePropertyValue $case.preservedCompletedBuild
   }
   $environmentApproval = [pscustomobject]@{ controls = [pscustomobject]@{ installationApproved = $case.environmentInstallationAuthorized } }
   $policy = [pscustomobject]@{
@@ -1037,7 +1082,8 @@ $rows | ConvertTo-Json -Compress -Depth 4
     t.diagnostic(`${rows.length} actual-branch acceptance cases, including the historical Build 27 control`);
   } finally {
     assert.equal(path.dirname(path.resolve(fixtureRoot)), path.resolve(os.tmpdir()));
-    assert.ok(path.basename(fixtureRoot).startsWith("crm3-build28-acceptance-"));
+    assert.ok(path.basename(fixtureRoot).startsWith(`crm3-build${buildNumber}-acceptance-`));
     fs.rmSync(fixtureRoot, {recursive: true, force: true});
   }
 });
+}

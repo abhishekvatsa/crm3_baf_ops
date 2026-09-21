@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "additive-firestore-index-prestage",
+  "recordedAtUtc": "2026-09-21T14:11:38.346Z",
+  "status": "ONE_INDEX_ADDED_ALL_67_READY",
+  "decision": {
+    "schemaVersion": 1,
+    "evidenceType": "delegated-additive-index-prestage-decision",
+    "approvedAtUtc": "2026-09-21T14:03:27.595Z",
+    "authorityType": "owner-delegated agent decision",
+    "ownerInstructionExcerpt": "ok so lets move towards making the build",
+    "reason": "Prepare the sole source-required missing audit-history index before the planned coordinated update. This does not start the client pause or deploy Functions or Rules.",
+    "projectId": "crm3-baf-ops-b8638",
+    "databaseId": "(default)",
+    "sourceCommit": "61b72c7a53d4594435bb22fb306ea4ba812a1d7b",
+    "sourceIndexFileSha256": "DB1A9FB5964FDCF3D885EA829B633231D8356784A018ACB75F5B06406E96F97B",
+    "beforeIndexCount": 66,
+    "expectedAfterIndexCount": 67,
+    "additions": [
+      {
+        "collectionGroup": "audit_logs",
+        "fields": [
+          {
+            "fieldPath": "entityType",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "timestamp",
+            "order": "DESCENDING"
+          }
+        ],
+        "queryScope": "COLLECTION"
+      }
+    ],
+    "extraIndexes": [],
+    "scope": {
+      "createOneCompositeIndex": true,
+      "deleteIndexes": false,
+      "updateFieldOverrides": false,
+      "deployRules": false,
+      "deployFunctions": false,
+      "alterIam": false,
+      "writeBusinessDocuments": false,
+      "beginClientPause": false
+    },
+    "qualification": "Only this index preparation stage changes indexes. The later Rules/Functions cohort must observe them already exact and preserve them."
+  },
+  "execution": {
+    "startedAtUtc": "2026-09-21T14:03:32.7652580Z",
+    "completedAtUtc": "2026-09-21T14:03:34.5272980Z",
+    "exitCode": 0,
+    "projectId": "crm3-baf-ops-b8638",
+    "target": "audit_logs",
+    "queryScope": "COLLECTION",
+    "fields": [
+      "entityType ASCENDING",
+      "timestamp DESCENDING"
+    ],
+    "operation": {
+      "@type": "type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata",
+      "index": "projects/crm3-baf-ops-b8638/databases/(default)/collectionGroups/audit_logs/indexes/CICAgPi9ipAK",
+      "startTime": "2026-09-21T14:03:33.900897Z",
+      "state": "INITIALIZING"
+    },
+    "arguments": [
+      "firestore",
+      "indexes",
+      "composite",
+      "create",
+      "--project=crm3-baf-ops-b8638",
+      "--database=(default)",
+      "--collection-group=audit_logs",
+      "--query-scope=collection",
+      "--field-config=field-path=entityType,order=ascending",
+      "--field-config=field-path=timestamp,order=descending",
+      "--async",
+      "--format=json"
+    ]
+  },
+  "verification": {
+    "capturedAtUtc": "2026-09-21T14:10:12.390Z",
+    "oldCompositeCount": 66,
+    "expectedCompositeCount": 67,
+    "readyCompositeCount": 67,
+    "original66DefinitionsAndResourceIdsRetained": true,
+    "indexSetSha256": "901BB6BAAB1F0C47A4C202156206BCE1CADEE0FD73008D780783E25E5CC7B626",
+    "sourceIndexSetSha256": "901BB6BAAB1F0C47A4C202156206BCE1CADEE0FD73008D780783E25E5CC7B626",
+    "fieldOverrideCount": 8,
+    "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+    "activeRulesSha256": "9A64BF17BF0B2B7B5953F845ACE164804A59087C33749F8164B4DD715BC90A13",
+    "rulesUnchanged": true,
+    "fieldOverridesUnchanged": true,
+    "observationMode": "OBSERVE",
+    "observationCanonicalSha256": "71ebb5480595164912ec6e979559366e9d69748922031676bdb071f29ad264ed",
+    "observationPhysicalSha256": "7E228A30D38479F83448F8E67F4FEC2051AD4B42807FC9D3F086599CCA166CF6",
+    "observationFailedChecks": [
+      "sourceBranchMain",
+      "sourceCommitMatchesOriginMain",
+      "governedSourceClean",
+      "rulesByteExact"
+    ],
+    "qualification": "The retained observation came from the preparation branch with further tooling edits; its expected branch, clean-source and new-Rules parity failures remain visible. This receipt qualifies only the additive index pre-stage, not an exact-main Rules or Functions deployment."
+  },
+  "controlBoundary": {
+    "indexesMutated": true,
+    "indexesDeleted": false,
+    "fieldOverridesMutated": false,
+    "securityRulesMutated": false,
+    "functionsDeployed": false,
+    "iamMutated": false,
+    "businessDocumentsWrittenByThisOperation": false,
+    "clientPauseStarted": false,
+    "artifactConstructed": false,
+    "deviceInstalled": false,
+    "distributionPerformed": false
+  },
+  "custody": {
+    "privateEvidenceDirectory": "C:/Users/abhis/Downloads/CRM3_BUILD29_PREPARATION_20260921",
+    "observationFile": "rules-indexes-post-index-observation.json"
+  }
+}

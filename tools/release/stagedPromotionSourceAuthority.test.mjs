@@ -206,7 +206,15 @@ function delegatedCurrentFixture(t) {
 // Synthetic successor deployment, with the actual19-endpoint source graph and
 // real Git approval/CI custody. Every readback is produced by the real pure
 // collector adjudicator. No record here describes a production deployment.
-function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b', childDirectory = 'release'} = {}) {
+function successorDelegatedFixture(t, {
+  delegationBuild = 28,
+  sourceCommit = delegationBuild === 29
+    ? 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4' : 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b',
+  childDirectory = 'release',
+  approvalFile = `release/approvals/build${delegationBuild}-current-source-backend-deployment-approval.json`,
+  ciFile = `release/evidence/build${delegationBuild}-current-source-backend-ci.json`,
+  delegationPolicyId = delegationBuild === 29 ? 'BUILD29-OWNER-DELEGATION-20260921' : 'BUILD28-OWNER-DELEGATION-20260913',
+} = {}) {
   const f = delegatedCurrentFixture(t);
   const sourceTree = f.git('rev-parse', `${sourceCommit}^{tree}`);
   const functionTree = f.git('rev-parse', `${sourceCommit}:functions`);
@@ -214,13 +222,11 @@ function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7a
   const baseTime = Math.floor(Date.now() / 1000) * 1000 - 600000;
   const at = (seconds) => new Date(baseTime + seconds * 1000).toISOString();
   const approval = f.currentApproval, receipt = f.currentReceipt;
-  const approvalFile = 'release/approvals/build28-current-source-backend-deployment-approval.json';
-  const ciFile = 'release/evidence/build28-current-source-backend-ci.json';
   const runId = 99990001, prNumber = 9999;
   approval.approverName = 'Codex acting under project-owner delegation';
   approval.approvedAtUtc = at(60);
   approval.approvalEvidence = {authorityType: 'owner-delegated agent decision',
-    delegationPolicyId: 'BUILD28-OWNER-DELEGATION-20260913', delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
+    delegationPolicyId, delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
     instructionExcerpts: ['you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward']};
   Object.assign(approval.sourceAuthority, {commit: sourceCommit, tree: sourceTree, functionTree,
     pullRequestNumber: prNumber, requiredPostMergeReleaseGateRunId: runId});
@@ -266,6 +272,19 @@ function successorDelegatedFixture(t, {sourceCommit = 'f3d299d03ac9d034272519e7a
           source: {files: [{name: 'firestore.rules', content: rulesRaw}]}}});
       approval.approvedDeployment.firestoreRulesSha256 = child.outputs.rules.sourceSha256;
       receipt.firestoreDeployment.rulesSha256 = child.outputs.rules.sourceSha256;
+      // This synthetic observation represents indexes already READY. It does
+      // not claim, authorize or exercise a production index mutation.
+      const indexesRaw = getSource('firestore.indexes.json');
+      const indexDefinition = JSON.parse(indexesRaw);
+      child.outputs.indexes = firestoreCollector.summarizeIndexes({
+        sourceDefinition: indexDefinition, cliDefinition: indexDefinition,
+        apiIndexes: indexDefinition.indexes.map((index) => ({...index, state: 'READY'})),
+        sourceRaw: indexesRaw,
+      });
+      approval.approvedDeployment.firestoreIndexCount = receipt.firestoreDeployment.indexCount =
+        child.outputs.indexes.sourceCount;
+      approval.approvedDeployment.firestoreIndexSetSha256 = receipt.firestoreDeployment.indexSetSha256 =
+        child.outputs.indexes.sourceSetSha256;
       const result = firestoreCollector.adjudicateReadback({projectId:PROJECT,sourceBefore:child.source.before,sourceAfter:child.source.after,
         rules:child.outputs.rules,indexes:child.outputs.indexes,observe:false});
       assert.deepEqual(result.failedChecks,[]); Object.assign(child,result.evidence); continue;
@@ -548,8 +567,48 @@ test('new source delegated custody verifies real Git, exact five-job CI and the 
   const result=f.verify(); assert.equal(result.ok,true,result.reasons.join('; '));
 });
 
-test('new delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted', (t)=>{
-  const f=successorDelegatedFixture(t);
+test('Build29 delegated custody admits its separate Git decision and 67-index source while preserving the Build27 pilot', (t) => {
+  const f = rolloverFixture(t, (context) => successorDelegatedFixture(context, {delegationBuild: 29}), 29);
+  const predeployment = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority});
+  assert.equal(predeployment.ok, true);
+  assert.equal(predeployment.approvalFile, 'release/approvals/build29-current-source-backend-deployment-approval.json');
+  assert.equal(predeployment.ciFile, 'release/evidence/build29-current-source-backend-ci.json');
+  assert.equal(predeployment.approvalCommit, f.currentReceipt.approvalAuthority.commit);
+  assert.equal(f.currentChildren.firestoreRulesAndIndexes.outputs.indexes.apiReadyCount, 67);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+  assert.equal(result.historicalBackendReceiptSha256, f.history.sha256);
+  assert.equal(result.candidateBackendReceiptSha256, f.deployed.functionFleetEvidenceSha256);
+});
+
+for (const [label, options, expected] of [
+  ['Build29 approval with Build28 CI', {delegationBuild: 29,
+    ciFile: 'release/evidence/build28-current-source-backend-ci.json'}, /immutable exact-main CI evidence/],
+  ['Build28 approval with Build29 CI', {delegationBuild: 28,
+    ciFile: 'release/evidence/build29-current-source-backend-ci.json'}, /immutable exact-main CI evidence/],
+  ['Build29 path with Build28 policy', {delegationBuild: 29,
+    delegationPolicyId: 'BUILD28-OWNER-DELEGATION-20260913'}, /exact path, known delegation/],
+  ['Build28 path with Build29 policy', {delegationBuild: 28,
+    delegationPolicyId: 'BUILD29-OWNER-DELEGATION-20260921'}, /exact path, known delegation/],
+  ['unadmitted approval path', {delegationBuild: 29,
+    approvalFile: 'release/approvals/build30-current-source-backend-deployment-approval.json'}, /exact path, known delegation/],
+  ['source before Build29 minimum', {delegationBuild: 29,
+    sourceCommit: 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b'}, /merge-base --is-ancestor/],
+]) {
+  test(`Build29 delegation refuses ${label} despite coherent committed custody`, (t) => {
+    const f = successorDelegatedFixture(t, options);
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority}), expected);
+    const result = f.verify();
+    assert.equal(result.ok, false);
+    assert.match(result.reasons.join('; '), expected);
+  });
+}
+
+for (const delegationBuild of [28, 29]) {
+test(`Build${delegationBuild} delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted`, (t)=>{
+  const f=successorDelegatedFixture(t, {delegationBuild});
   assert.equal(f.verify().ok,true,f.verify().reasons.join('; '));
   const approval=structuredClone(f.currentApproval),ci=structuredClone(f.ci),receipt=structuredClone(f.currentReceipt);
   const cases=[
@@ -577,6 +636,7 @@ test('new delegated custody rejects altered approval bytes and invalid CI even w
   f.currentApproval.approvalEvidence.agentDecision='An uncommitted different decision'; f.persistCurrent();
   assert.equal(f.verify().ok,false,'uncommitted coherent rehash cannot replace Git custody');
 });
+}
 
 function rolloverFixture(t, currentFixture = delegatedCurrentFixture, buildNumber = 28) {
   const f = currentFixture(t);

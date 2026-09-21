@@ -1,8 +1,8 @@
 # Build 29 release preparation — 21 September 2026
 
-Status: preparation in progress. No production deployment, build-number reservation,
+Status: preparation in progress. No Functions or Rules deployment, build-number reservation,
 production-signed Build 29, device installation or Play release has been performed
-by this preparation.
+by this preparation. The separate additive index pre-stage is recorded below.
 
 ## Owner decision and source
 
@@ -104,6 +104,71 @@ policy verifier and diff validation. The real historical Build 28 proof remains
 accepted unchanged. Independent custody review found no actionable blocker. These
 are preparation checks; fresh hosted checks and review must cover the final head.
 
+The complete `61b72c7a` preparation head subsequently passed all five release jobs
+and all four language security jobs, and received a clean bot review. Further
+deployment/device-tooling changes require another review and check run.
+
+The successor backend verifier also retained Build 28-only approval/CI paths.
+Build 29 now has a separate admitted path pair and delegation policy, retaining
+the existing source ancestry, committed-byte, predecision exact-main CI and
+postdecision deployment chronology requirements. The old path pair remains
+unchanged. The new positive regression failed against the original committed
+helper; ten focused tests passed after repair, including crossed path/policy/CI
+pairs and coherently recommitted invalid evidence. No actual new deployment
+decision or deployment is inferred from these synthetic fixtures.
+
+The strict owner-device acceptance path now explicitly admits Build 29 alongside
+the unchanged Build 28 contract. It still requires the exact APK, signer,
+artifact-derived local schema, preserved approved session, completed idle sync,
+strict zero failure counters and the seven measured read-only surfaces. Build 29
+additionally binds the actual retained Build 28 closure and nested Build 27 history.
+The actual policy-branch tests passed 420 Build 28 and 490 Build 29 cases. This
+adds verification support only; no device-acceptance receipt, business-flow pass
+or distribution decision is created.
+
+The complete staged-promotion/deployment-authority suite subsequently passed all
+118 tests, and the final production policy verifier passed with both new paths.
+Independent device-contract and index-evidence review found no blocking defect.
+
+The owner subsequently connected a Samsung SM-G990E running Android 16. Read-only
+package inspection found installed version `1.0.0-rc.18+28`; its extracted APK
+SHA-256 is `A488857B5740514E2286B550442A0734A53777FF1B672032956D7830AF73D659`,
+exactly the retained governed Build 28 APK, and its verified signer is the original
+`6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C`.
+No account identifier or device serial is recorded here. This establishes the
+upgrade starting package; it is not a new runtime/business-flow acceptance result.
+
+## Additive index pre-stage
+
+On 21 September at `14:03:33.900897Z`, the agent created the sole missing
+source-defined composite index under the owner's build delegation:
+`audit_logs` collection scope, `entityType ASC`, `timestamp DESC`. Its resource
+ends in `CICAgPi9ipAK`. All original 66 index definitions and resource identities
+remain present. At `14:10:12.39Z`, API and CLI observations matched all 67 source
+indexes, all READY, with the same eight field overrides and unchanged active Rules.
+
+`release/evidence/build29-audit-index-prestage.json` records the actual decision,
+command and readback. This changes indexes only: Functions, Rules, IAM and business
+documents were not changed by the operation, and the client pause did not start.
+The observation retains its expected preparation-branch/dirty-source and pending
+Rules failures; it is not presented as a strict deployment pass. The later
+Functions/Rules cohort must freshly observe the indexes already exact and preserve
+them; only that later cohort can record that it made no index change.
+
+Normal scheduler/event processing can continue during the planned client-work
+pause. The inspected background paths preserve old-reader-compatible business
+formats: quality retention does not promote schemas 1/2/3 to 4, escalation adds
+only an event payload field accepted by the old readers, and notification/stamp
+paths do not invoke the incompatible domain producers. This is not a database
+freeze or evidence that old client requests have drained. The affected devices
+must remain stopped until admitted after upgrade.
+
+Build 29 version/source metadata can be reviewed before the pause with backend
+deployment explicitly pending and artifact construction refused. After deployment,
+only the measured backend/readback metadata should change before the protected
+artifact run. This reduces work during the pause without bypassing source or
+backend checks.
+
 ## Compatibility and cutover
 
 The new client is not a fully isolated read-only compatibility release against the
@@ -124,8 +189,8 @@ acceptance of an old request.
 2. Agree the pause window and verify affected users have stopped app work. Account
    for pending clients, background workers and the existing scheduler; an operator
    announcement alone is not proof that all writes have stopped.
-3. Deploy the reviewed complete Function fleet, Rules and added index under the
-   agreed window, preserving approved identities and access. Read back actual
+3. Deploy the reviewed complete Function fleet and Rules under the agreed window,
+   preserving approved identities, access and the prepared indexes. Read back actual
    deployed source, Rules, index readiness, capabilities and runtime settings.
    Do not invoke scheduled work or edit business records merely to obtain proof.
 4. Complete the exact-source Build 29 approval/reservation and protected APK/AAB

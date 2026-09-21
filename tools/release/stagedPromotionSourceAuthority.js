@@ -48,6 +48,19 @@ const BUILD28_SUCCESSOR_DELEGATION = Object.freeze({
   ownerInstruction: "you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward",
   minimumSource: "f3d299d03ac9d034272519e7ac52ac4b4a216a9b",
 });
+// A separate successor path preserves Build28's exact approval and CI custody.
+// This admits the same proof protocol, not an approval or a deployment itself.
+const BUILD29_SUCCESSOR_DELEGATION = Object.freeze({
+  approvalFile: "release/approvals/build29-current-source-backend-deployment-approval.json",
+  ciFile: "release/evidence/build29-current-source-backend-ci.json",
+  policyId: "BUILD29-OWNER-DELEGATION-20260921",
+  ownerInstruction: "you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward",
+  minimumSource: "a2464d63c797e2e0b511ba3be789e7f5a522c5a4",
+});
+const SUCCESSOR_DELEGATIONS = Object.freeze([
+  BUILD28_SUCCESSOR_DELEGATION,
+  BUILD29_SUCCESSOR_DELEGATION,
+]);
 const EXACT_MAIN_JOBS = Object.freeze([
   "Flutter host analysis + tests + no-loss contracts",
   "Android release package + cold-start proof (non-production)",
@@ -158,16 +171,16 @@ function requireApprovalCustody(receiptAuthority, measuredApproval, custody, lab
   `${label}: approval differs from immutable owner-instruction custody.`);
 }
 
-// A future source hash cannot be embedded before its approval exists. Admit a
-// single new, explicit delegated-custody protocol instead: exact committed bytes,
+// A future source hash cannot be embedded before its approval exists. Admit
+// explicit delegated-custody paths instead: exact committed bytes,
 // ancestor/source binding, full predecision main CI and measured postdecision
 // update times. This does not change either fixed historical approval anchor.
 function verifySuccessorDelegatedDecision({repoRoot, approval, approvalAuthority, sourceAuthority}) {
-  const contract = BUILD28_SUCCESSOR_DELEGATION;
   const custody = approvalAuthority;
+  const contract = SUCCESSOR_DELEGATIONS.find((candidate) => candidate.approvalFile === custody?.file);
   const source = sourceAuthority;
   const evidence = approval.approvalEvidence;
-  requireEvidence(custody?.file === contract.approvalFile && COMMIT.test(custody.commit ?? "") &&
+  requireEvidence(contract != null && COMMIT.test(custody.commit ?? "") &&
     SHA256.test(custody.sha256 ?? "") && approval.approverName === "Codex acting under project-owner delegation" &&
     evidence?.authorityType === "owner-delegated agent decision" && evidence.delegationPolicyId === contract.policyId &&
     isDeepStrictEqual(evidence.instructionExcerpts, [contract.ownerInstruction]) &&
@@ -269,7 +282,8 @@ function verifyApproval(repoRoot, receipt, approval) {
   const successorRulesChange = delegated && !historicalDelegated && scope?.firestoreRulesMutationAuthorized === true;
   if (delegated && !historicalDelegated) successorDelegatedCustody(repoRoot, receipt, approval);
   const authorityExact = delegated
-    ? (historicalDelegated || receipt.approvalAuthority?.file === BUILD28_SUCCESSOR_DELEGATION.approvalFile) &&
+    ? (historicalDelegated || SUCCESSOR_DELEGATIONS.some((contract) =>
+      receipt.approvalAuthority?.file === contract.approvalFile)) &&
       explicitUtcInstant(evidence.delegatedDecisionAtUtc) === approvedAt &&
       (!historicalDelegated || explicitUtcInstant(evidence.recordedAtUtc) === approvedAt) &&
       !Object.hasOwn(evidence, "messageReceivedAtUtc") &&
