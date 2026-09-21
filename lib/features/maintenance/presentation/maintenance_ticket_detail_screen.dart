@@ -24,6 +24,7 @@ import 'maintenance_form.dart';
 import 'burner_attendance_history_view.dart';
 import 'maintenance_continuation_links.dart';
 import 'maintenance_ticket_correction_history.dart';
+import 'maintenance_creation_successor_review_panel.dart';
 
 part 'maintenance_ticket_workflow_evidence.dart';
 
@@ -70,13 +71,19 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
           accent: BafColors.maintenance,
         ),
         actions: [
-          if (actor?.isApproved == true && ticket.administrativeClosure?.disposition ==
-              IssueAdministrativeClosureDisposition.stillRelevant && ticket.firestoreId != null)
+          if (actor?.isApproved == true &&
+              ticket.administrativeClosure?.disposition ==
+                  IssueAdministrativeClosureDisposition.stillRelevant &&
+              ticket.firestoreId != null)
             IconButton(
               tooltip: 'Create linked work for this retained concern',
               icon: const Icon(Icons.add_link),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => MaintenanceForm(continuesIssueId: ticket.firestoreId))),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      MaintenanceForm(continuesIssueId: ticket.firestoreId),
+                ),
+              ),
             ),
           if (actor?.canViewReports == true)
             IconButton(
@@ -110,7 +117,7 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                       if (current?.uid == actor!.uid &&
                           current?.canCorrectMaintenanceTicket == true) {
                         onCorrect!();
-                          }
+                      }
                     }
                   : null,
               icon: const Icon(Icons.edit_note_rounded),
@@ -122,10 +129,19 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
         children: [
           if (!account.isReady) CurrentActorNotice(message: account.message),
           _IssueIdentityHeader(ticket: ticket),
+          MaintenanceCreationSuccessorReviewPanel(ticket: ticket),
           BurnerAttendanceHistoryView(metadataJson: ticket.metadataJson),
-          if (actor?.isApproved == true && (ticket.continuesIssueId != null ||
-              ticket.administrativeClosure != null))
-            MaintenanceContinuationLinks(ticket: ticket, onOpen: (linked) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => MaintenanceTicketDetailScreen(ticket: linked)))),
+          if (actor?.isApproved == true &&
+              (ticket.continuesIssueId != null ||
+                  ticket.administrativeClosure != null))
+            MaintenanceContinuationLinks(
+              ticket: ticket,
+              onOpen: (linked) => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MaintenanceTicketDetailScreen(ticket: linked),
+                ),
+              ),
+            ),
           _DetailSection(
             title: 'Issue context',
             icon: Icons.tune_rounded,
@@ -147,7 +163,10 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                   value: '${ticket.chargeNoAtEvent}',
                 ),
               if (ticket.continuesIssueId != null)
-                _DetailValue(label: 'Continues retained concern', value: ticket.continuesIssueId!),
+                _DetailValue(
+                  label: 'Continues retained concern',
+                  value: ticket.continuesIssueId!,
+                ),
               if (_hasText(ticket.component))
                 _DetailValue(label: 'Component', value: ticket.component!),
               if (_hasText(ticket.subsystem))

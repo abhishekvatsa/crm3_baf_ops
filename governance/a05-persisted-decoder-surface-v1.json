@@ -1916,6 +1916,58 @@
       "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_import_recovery_test.dart; test/knowledge_import_recovery.rules.test.js",
       "reArmCondition": "Lost response creates a duplicate revision, partial progress is discarded, stale draft content is sent, malformed acceptance becomes success, or original owner changes.",
       "riskFingerprint": "39fdc8b74519752c2caf864159465cc7ffc89b43ca29471834bb16f0d76b8e09"
+    },
+    {
+      "id": "maintenance-successor-accepted-creation-review",
+      "file": "lib/features/maintenance/domain/maintenance_creation_successor_review.dart",
+      "markers": [
+        "factory MaintenanceCreationAcceptance.fromRecord(",
+        "String maintenanceReviewServerBoundary(",
+        "Map<String, Object?> evidence({"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "reactive-maintenance",
+      "authorityBoundary": "Exact protocol-two original-actor creation envelope and matching creation receipt are read-only A evidence. Explicit A/B/C comparison binds complete native B bytes and a server identity/version boundary; selected, unselected and unsupported dispositions plus reason are retained before native reconciliation.",
+      "malformedDisposition": "Incomplete or inconsistent creation identity, receipt, actor, server origin or creation time refuses review. Dirty or duplicate local identity cannot be replaced. Optional display text normalization never alters the complete archived native B bytes or permits lifecycle/physical scope changes.",
+      "compatibility": "Existing accepted creation wrapper and receipt contract only; no dispatch or actor reassignment of uncertain A. Existing maintenance fields remain unchanged, and unsupported target/lifecycle edits are retained rather than inferred as applied.",
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
+      "reArmCondition": "A is reconstructed or dispatched by a supervisor, partial audit maps replace full native B, same-version contradictory C is accepted, or unsupported/unselected changes are silently represented as applied.",
+      "riskFingerprint": "4fe4eaf6c363d38c0d3663f15d270aadfd4118716f096c953b5db8ec2c2ac558"
+    },
+    {
+      "id": "maintenance-successor-native-snapshot-adoption",
+      "file": "lib/features/maintenance/repositories/maintenance_creation_successor_repository.dart",
+      "markers": [
+        "Future<({MaintenanceRecord record, String snapshot})> _local(",
+        "Future<bool> adoptInTransaction({",
+        "Future<void> keepServer({"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "reactive-maintenance",
+      "authorityBoundary": "One exact native ticket row is exported in full and retained under bounded immutable JSON evidence. Exact server state can replace B only under same-transaction full-row comparison, live reviewer checks and a complete native review audit.",
+      "malformedDisposition": "Missing/duplicate rows, invalid native export or changed B refuse replacement. Keep-server concurrent owners block adoption atomically. If a distinct correction already succeeded but B changed, retain both reviewed evidence and newer B without falsely marking newer B synchronized.",
+      "compatibility": "No Isar schema change or hand-maintained partial serializer. Existing native row and AuditEvent collections retain complete raw fields; current strict maintenance reader supplies C.",
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
+      "reArmCondition": "Native export omits fields, local adoption uses only version/time, archive and adoption are not atomic, another owner is bypassed, or concurrent newer B is overwritten.",
+      "riskFingerprint": "29253946cd2a85b06269885282bcae4e977c26fe6595af5412de57f0e13bb16a"
+    },
+    {
+      "id": "maintenance-successor-durable-correction",
+      "file": "lib/features/maintenance/services/maintenance_creation_successor_service.dart",
+      "markers": [
+        "WorkflowCommand _command(",
+        "Map<String, dynamic> _evidence(",
+        "Future<void> resume(",
+        "Future<void> _adopt("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "reactive-maintenance",
+      "authorityBoundary": "Distinct native maintenanceWorkflow.v2 supervisor correction binds expected C version, selected fields/fresh target, reason, complete A/B/C evidence, original reviewer account and exact request/receipt. Shared strict audit admission plus immutable command/audit identity and exact native timestamp equality precede local settlement.",
+      "malformedDisposition": "Malformed envelopes, receipts, audit metadata or selected-value/target/time mismatch remain retained and cannot adopt C. First-attempt enumerated precommit refusals permit a fresh review; ambiguous or later refusals preserve uncertainty. Account switches cannot dispatch or adopt another actor request.",
+      "compatibility": "Existing correctMaintenanceTicket backend and AuditEvent reader only. Exact native Firestore Timestamp and canonical receipt time agree without losing nanoseconds. Same-version C must match accepted selected values; a later legitimate C version may supersede them. Keep-server records local-only reconciliation with no fake remote receipt.",
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
+      "reArmCondition": "A is resent, an uncertain request rotates identity, actor continuity breaks, native timestamp is compared as ISO text or truncated, accepted evidence is discarded, or an accepted correction traps preserved newer B without a fresh review path.",
+      "riskFingerprint": "492eb284e5c72fd17c316a8fb8d85a46aac718f17b5558c68cb9b85d3d303943"
     }
   ],
   "catchSites": [

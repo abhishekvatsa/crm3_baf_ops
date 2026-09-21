@@ -129,3 +129,18 @@ its proof binds synthetic merge `b96d16afe5debef90a3d7d06d046723d30aee7af`, four
 required app methods and zero app extraction errors. Release run 35557398231
 passed backend, Rules/transactions and both Android jobs, but its Flutter job
 failed on the dependency issue above. Neither run certifies the follow-up head.
+
+## PR 374 merged checkpoint
+
+PR 374 merged normally as `0058002ccf52010584fa398326773912b1622ad6` after
+release run 35558595269 passed all five jobs and security run 35558595251 passed
+all four languages at reviewed head `38a6eeed`. The bot's fresh review completed
+at 03:53 UTC with no new findings and its earlier P1 thread was resolved with
+regression evidence. The Kotlin proof binds the tested synthetic PR merge
+`313b477f5ce9475bd2f0563f8f5ba35fdb76bf3a`, four required method bodies and zero
+app extraction errors. Exact-main verification and active analysis publication
+remain separate checks; this paragraph does not claim their completion.
+
+The subsequent maintenance successor repair is described in
+`MAINTENANCE_SUCCESSOR_RECOVERY_2026_09_21.md`. It closes the concrete native review
+dead end without closing the broader recovery or release programmes listed above.

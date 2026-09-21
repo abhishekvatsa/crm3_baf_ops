@@ -272,3 +272,13 @@ This addendum records current source validation only. It changes no persisted
 field policy or extension authority and makes no production reconciliation,
 deployment or installed-client compatibility claim. Earlier closure receipts
 remain evidence for their original snapshots.
+
+## Maintenance successor recovery — 21 September 2026
+
+The current derived inventory retains all 55 persisted schema fields and inherits
+122 classified decoder surfaces. Its digest is
+`16458D200F2C16E46C48B4A18D3E5A65B652B0358C9A96B220460EAA5B30EC09`.
+The three added surfaces cover accepted creation/comparison evidence, complete
+native snapshot/adoption, and the separate durable successor correction. No Isar
+schema or field was added. Shared strict timestamp admission remains unchanged.
+Historical hashes and release receipts have not been renewed by this refresh.
