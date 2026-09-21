@@ -1322,7 +1322,9 @@ test('actual Dart reader reconciles immutable UV-detector lifecycle events', asy
 });
 
 test('real Dart bridge preserves native precision and never promotes stored transport tags', async () => {
-  const {Timestamp} = require('firebase/firestore');
+  // Use the same installed Admin SDK as the read-only sweep's real adapter.
+  const functionsRequire = createRequire(path.join(ROOT, 'functions/package.json'));
+  const {Timestamp} = functionsRequire('firebase-admin/firestore');
   const seconds = Date.parse('2026-09-17T10:00:00.000Z') / 1000;
   const storedTag = {
     __a05FirestoreType: 'timestamp', seconds, nanoseconds: 123000000,

@@ -84,3 +84,14 @@ revalidation, populated-device upgrade/restoration and representative business
 flows remain separate release requirements. Historical production receipts and
 approvals are unchanged. No live business-data repair, backend activation,
 signing change or app distribution has occurred in this follow-through.
+
+
+## First combined CI follow-up
+
+The Flutter job at `d22dca4c` passed canonical verification but stopped in the
+new timestamp-transport regression: it imported the root web Firebase package,
+which that isolated job does not install. The regression now loads Timestamp
+from the installed Functions Admin SDK, matching the sweep's actual adapter.
+The same real-bridge precision and forged-map cases pass with that dependency.
+No test is skipped and no acceptance condition is relaxed. Final-head CI remains
+required; the earlier failed job is not reported as a green release gate.
