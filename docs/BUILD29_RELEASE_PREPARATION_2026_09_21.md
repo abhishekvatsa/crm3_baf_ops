@@ -250,3 +250,12 @@ The historical 15-existing/four-new comparison remains historical. The new
 deployment must separately prove all 19 existing services retain their effective
 limits, identities, access and other governed settings. No capacity increase or
 historical reset permission is inherited by this preparation.
+
+The subsequent review reproduced the same generation risk for a future Build 30
+using the complete Build 29 approval tuple. Build 29 now requires an immutable
+intended build number, an independently selected expected build number, and
+coherent version policy, package version and allocation ledger read from the
+exact source Git commit. The backend may be deployed from the predecessor's
+Build 28 metadata before the final Build 29 metadata merge. Future or mixed
+source generations cannot borrow that permission; the final candidate verifier
+also binds the actual selected build to its admitted deployment contract.
