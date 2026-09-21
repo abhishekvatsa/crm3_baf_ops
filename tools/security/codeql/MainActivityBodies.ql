@@ -11,7 +11,8 @@ where
     "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt" and
   method.hasQualifiedName(
     "in.co.sail.bsl.crm3.bafops", "MainActivity",
-    ["configureFlutterEngine", "configureCriticalAlarmChannel", "configureNetworkAccessChannel"]
+    ["configureFlutterEngine", "configureCriticalAlarmChannel", "configureNetworkAccessChannel",
+      "showCriticalAlarmNotification"]
   ) and
   exists(method.getBody())
 select

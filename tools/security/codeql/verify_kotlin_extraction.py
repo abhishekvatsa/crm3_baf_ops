@@ -24,6 +24,7 @@ EXPECTED_METHODS = (
     "configureFlutterEngine",
     "configureCriticalAlarmChannel",
     "configureNetworkAccessChannel",
+    "showCriticalAlarmNotification",
 )
 CSV_COLUMNS = (
     "source_path",

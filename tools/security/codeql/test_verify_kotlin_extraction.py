@@ -25,7 +25,7 @@ def evidence(rows=None, header=verifier.CSV_COLUMNS):
 def valid_rows():
     return [
         [verifier.SOURCE_PATH, verifier.CLASS_NAME, method, str(line), str(line + 1)]
-        for method, line in zip(verifier.EXPECTED_METHODS, (3, 5, 7))
+        for method, line in zip(verifier.EXPECTED_METHODS, range(3, 11, 2))
     ]
 
 
@@ -114,7 +114,8 @@ class BoundProofTests(unittest.TestCase):
             "class MainActivity {\n"
             "  fun configureFlutterEngine() {\n  }\n"
             "  fun configureCriticalAlarmChannel() {\n  }\n"
-            "  fun configureNetworkAccessChannel() {\n  }\n}\n"
+            "  fun configureNetworkAccessChannel() {\n  }\n"
+            "  fun showCriticalAlarmNotification() {\n  }\n}\n"
         ).encode("utf-8")
         cls.source.write_bytes(cls.source_bytes)
         cls.git("init", "--quiet")
@@ -178,7 +179,7 @@ class BoundProofTests(unittest.TestCase):
         self.assertEqual(proof["sourceSha256"], hashlib.sha256(self.source_bytes).hexdigest())
         self.assertEqual(proof["committedSourceSha256"], proof["sourceSha256"])
         self.assertEqual(proof["queryCsvSha256"], hashlib.sha256(evidence()).hexdigest())
-        self.assertEqual(len(proof["methodBodies"]), 3)
+        self.assertEqual(len(proof["methodBodies"]), 4)
 
     def test_metadata_cannot_use_unverified_commit_or_malformed_version(self):
         for commit in ("", "0" * 40, "A" * 40, "abc1234", "HEAD", "1" * 40, self.commit + "\n"):
