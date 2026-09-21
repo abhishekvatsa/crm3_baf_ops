@@ -214,8 +214,16 @@ function successorDelegatedFixture(t, {
   approvalFile = `release/approvals/build${delegationBuild}-current-source-backend-deployment-approval.json`,
   ciFile = `release/evidence/build${delegationBuild}-current-source-backend-ci.json`,
   delegationPolicyId = delegationBuild === 29 ? 'BUILD29-OWNER-DELEGATION-20260921' : 'BUILD28-OWNER-DELEGATION-20260913',
+  deriveSourceChild = false,
 } = {}) {
   const f = delegatedCurrentFixture(t);
+  if (deriveSourceChild) {
+    // A real isolated Git child with identical source bytes tests ancestry;
+    // changing the receipt's declared hash alone would fail an earlier guard.
+    sourceCommit = f.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+      'commit-tree', f.git('rev-parse', `${sourceCommit}^{tree}`), '-p', sourceCommit,
+      '-m', 'Synthetic unadmitted source descendant');
+  }
   const sourceTree = f.git('rev-parse', `${sourceCommit}^{tree}`);
   const functionTree = f.git('rev-parse', `${sourceCommit}:functions`);
   const getSource = (file) => f.git('show', `${sourceCommit}:${file}`) + '\n';
@@ -637,6 +645,47 @@ test(`Build${delegationBuild} delegated custody rejects altered approval bytes a
   assert.equal(f.verify().ok,false,'uncommitted coherent rehash cannot replace Git custody');
 });
 }
+
+for (const [label, options] of [
+  ['complete Build28 tuple on the Build29 baseline', {delegationBuild: 28,
+    sourceCommit: 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4'}],
+  ['complete Build28 tuple after the Build29 baseline', {delegationBuild: 28,
+    sourceCommit: 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4', deriveSourceChild: true}],
+  ['complete Build28 tuple on a new divergent child of its old baseline', {delegationBuild: 28,
+    sourceCommit: 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b', deriveSourceChild: true}],
+  ['complete Build29 tuple on the final historical Build28 source', {delegationBuild: 29,
+    sourceCommit: 'fc5825875293ac703449002a49799d70a6bf5351'}],
+]) {
+  test(`release generation rejects ${label} despite coherent Git approval and CI`, (t) => {
+    const f = successorDelegatedFixture(t, options);
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority}),
+    /source generation|merge-base --is-ancestor/);
+    const result = f.verify();
+    assert.equal(result.ok, false, 'A complete stale tuple must not grant deployment authority');
+    assert.match(result.reasons.join('; '), /source generation|merge-base --is-ancestor/);
+  });
+}
+
+test('historical Build28 source generation retains its actual deployment approval and CI bytes', () => {
+  const approval = readMeasured('release/approvals/build28-current-source-backend-deployment-approval.json');
+  const receipt = readMeasured('release/evidence/build28-current-source-backend-deployment-closure.json');
+  const proof = verifySuccessorDelegatedDecision({repoRoot: repositoryRoot, approval,
+    approvalAuthority: receipt.approvalAuthority, sourceAuthority: receipt.sourceAuthority});
+  assert.equal(proof.ok, true);
+  assert.equal(proof.sourceCommit, 'fc0ac09fc51b370bee419909ad510b044765b540');
+  assert.equal(proof.approvalSha256, receipt.approvalAuthority.sha256);
+});
+
+test('historical Build28 source generation includes its immutable signed upper boundary', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 28,
+    sourceCommit: 'fc5825875293ac703449002a49799d70a6bf5351'});
+  const proof = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority});
+  assert.equal(proof.ok, true);
+  const result = f.verify();
+  assert.equal(result.ok, true, result.reasons.join('; '));
+});
 
 function rolloverFixture(t, currentFixture = delegatedCurrentFixture, buildNumber = 28) {
   const f = currentFixture(t);

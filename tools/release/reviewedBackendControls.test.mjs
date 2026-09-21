@@ -3,8 +3,26 @@ const require=createRequire(import.meta.url);
 // Synthetic local checks only. Does not execute the live collector or assembler.
 const test=require('node:test'),assert=require('node:assert/strict'),cp=require('node:child_process');
 const helper=require('./reviewedBackendControls.js');
-const root=process.cwd(),source=cp.execFileSync('git',['--no-replace-objects','rev-parse','HEAD'],{encoding:'utf8'}).trim();
+// These15-plus4 controls belong to the preserved historical deployment. New
+// source now has19 existing endpoints and must not reinterpret this fixture.
+const root=process.cwd(),source='fc0ac09fc51b370bee419909ad510b044765b540';
 const options=helper.sourceOptions(root,source),newNames=Object.keys(options.policy.runtimeIdentityAliases);
+const ts=require('../../functions/node_modules/typescript');
+function capTexts(){return {'synthetic-fleet.ts':Object.entries(options.policy.functionBindings).map(([name,b])=>
+ `export const ${name} = ${b.workloadClass.includes('CALLABLE')?'onCall':b.workloadClass==='SCHEDULED_FIRESTORE_MUTATION'?'onSchedule':'onDocumentCreated'}({maxInstances: 20}, async () => {});`).join('\n')};}
+test('source cap parser admits all19 direct literal20 definitions',()=>{const p=helper.explicitFleetMaxInstances(ts,capTexts(),options.policy);assert.equal(p.declaredMaxInstances,20);assert.equal(p.functionNames.length,19);assert.equal(p.capPolicy,'explicit-literal20-v1');});
+for(const [name,change]of [
+ ['one omitted cap',t=>t.replace('maxInstances: 20','')],
+ ['one larger cap',t=>t.replace('maxInstances: 20','maxInstances: 100')],
+ ['dynamic cap',t=>t.replace('maxInstances: 20','maxInstances: Number(20)')],
+ ['equivalent nonliteral spelling',t=>t.replace('maxInstances: 20','maxInstances: 2e1')],
+ ['computed property',t=>t.replace('maxInstances: 20','["maxInstances"]: 20')],
+ ['spread cap',t=>t.replace('maxInstances: 20','...{maxInstances: 20}')],
+ ['duplicate cap',t=>t.replace('maxInstances: 20','maxInstances: 20, maxInstances: 20')],
+ ['extra cap outside endpoints',t=>t+'\nconst extra = {maxInstances: 20};'],
+ ['missing endpoint',t=>t.slice(t.indexOf('\n')+1)],
+ ])test(`source cap parser refuses ${name}`,()=>{const texts=capTexts();texts['synthetic-fleet.ts']=change(texts['synthetic-fleet.ts']);assert.throws(()=>helper.explicitFleetMaxInstances(ts,texts,options.policy));});
+test('historical comparator refuses the successor explicit20 mode',()=>{const d=fixture();d.options=structuredClone(options);d.options.sdkReset.sourceMaxInstancesOmitted=false;d.options.declaredMaxInstances=20;assert.throws(()=>helper.compareFunctionViews(d),/Historical15-plus4/);});
 function fixture(){const after=Object.entries(options.policy.functionBindings).map(([name,binding])=>({
  name:`projects/crm3-baf-ops-b8638/locations/asia-south1/functions/${name}`,state:'ACTIVE',environment:'GEN_2',
  buildConfig:{runtime:options.runtime,entryPoint:name},labels:{'firebase-functions-hash':'a'.repeat(40)},
@@ -16,7 +34,7 @@ function fixture(){const after=Object.entries(options.policy.functionBindings).m
  ...(binding.workloadClass.startsWith('FIRESTORE_')?{eventTrigger:{serviceAccountEmail:`${binding.runtimeServiceAccountId}@crm3-baf-ops-b8638.iam.gserviceaccount.com`}}:{}),
 }));return {options,after,before:structuredClone(after.filter(x=>!newNames.includes(x.buildConfig.entryPoint)))};}
 const find=(data,name)=>data.after.find(x=>x.buildConfig.entryPoint===name);
-test('actual Git source options distinguish 15 existing and four new controls',()=>{
+test('historical Git source options distinguish 15 existing and four new controls',()=>{
  const result=helper.compareFunctionViews(fixture());assert.equal(result.existingFunctionCount,15);assert.equal(result.newFunctionCount,4);
  assert.equal(result.allMutatingCallableAppCheckEnforcementFalse,true);assert.equal(result.existingBackendIdentityAppCheckEnforcementTruePreserved,true);
  assert.equal(Object.hasOwn(result,'allAppCheckEnforcementFalse'),false);

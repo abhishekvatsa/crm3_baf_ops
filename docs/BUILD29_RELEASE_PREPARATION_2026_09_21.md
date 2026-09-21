@@ -210,3 +210,43 @@ acceptance of an old request.
 The existing submission-recovery activation record is a separate control. New
 domain finalization requires its own compatible callable/worker and recovery
 evidence; a fresh binary does not silently activate it.
+
+## Owner-reported client pause
+
+After being asked explicitly about all current users, including offline phones,
+the owner confirmed: "All users are stopped and will wait until the update is
+ready". The agent recorded that answer at `2026-09-21T14:41:14Z`; this is the
+observation time, not an invented message timestamp or exact pause-start time.
+The owner was told to keep users paused until readiness is confirmed.
+
+This supplies the operational cohort-pause attestation. It does not establish
+automated device enumeration, network or pending-command drainage, or a database
+freeze. Compatible background processing can continue. The release checks,
+deployment readback, signed artifact, retained-data upgrade and required runtime
+qualification still have to pass before workflows are resumed.
+
+## Final review corrections
+
+The bot review of `654cc40d` identified that a coherent historical Build 28
+approval/CI tuple could still authorize newer source. This was reproduced for
+the Build 29 baseline, its descendant and a divergent descendant of the old
+baseline. Historical Build 28 delegation is now bounded above by its actual
+signed source `fc5825875293ac703449002a49799d70a6bf5351`, using Git ancestry.
+The actual historical approval and CI remain valid; Build 29 uses its separate
+source boundary and approval contract.
+
+A separate deployment rehearsal found that the pinned Functions SDK and Firebase
+CLI submit `maxInstanceCount: null` with that field in the update mask for all
+19 previously uncapped source definitions. That is a reset request, not proof
+that the live limits will be preserved. A fresh read-only observation completed
+at `2026-09-21T14:43:54.1909997Z` confirmed a service limit of 20 on all 19 live
+services; the 15 older services also have revision limits of 20, while those
+fields are absent on the four V2 services.
+
+The source now explicitly declares `maxInstances: 20` on each of the 19 endpoint
+definitions. The bounded source verifier admits either the preserved historical
+all-omitted configuration or the complete literal-20 successor configuration.
+The historical 15-existing/four-new comparison remains historical. The new
+deployment must separately prove all 19 existing services retain their effective
+limits, identities, access and other governed settings. No capacity increase or
+historical reset permission is inherited by this preparation.

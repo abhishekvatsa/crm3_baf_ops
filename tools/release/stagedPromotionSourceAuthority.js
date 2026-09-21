@@ -47,6 +47,10 @@ const BUILD28_SUCCESSOR_DELEGATION = Object.freeze({
   policyId: "BUILD28-OWNER-DELEGATION-20260913",
   ownerInstruction: "you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward",
   minimumSource: "f3d299d03ac9d034272519e7ac52ac4b4a216a9b",
+  // Historical Build28 ends at its actually signed artifact source. A new
+  // coherent approval/CI tuple cannot extend this contract to later or divergent
+  // source history merely by retaining the old paths and policy identifier.
+  maximumSource: "fc5825875293ac703449002a49799d70a6bf5351",
 });
 // A separate successor path preserves Build28's exact approval and CI custody.
 // This admits the same proof protocol, not an approval or a deployment itself.
@@ -211,7 +215,10 @@ function verifySuccessorDelegatedDecision({repoRoot, approval, approvalAuthority
   const committed = readApprovalCustody(repoRoot, custody.commit, custody, "Successor delegated");
   const actual = readChild(repoRoot, custody.file, custody.sha256, "Successor delegated");
   requireEvidence(isDeepStrictEqual(actual.value, approval), "Successor delegated custody: loaded approval differs from immutable bytes.");
-  for (const [before, after] of [[contract.minimumSource, source.commit], [source.commit, custody.commit]]) {
+  const sourceAncestry = [[contract.minimumSource, source.commit],
+    ...(contract.maximumSource ? [[source.commit, contract.maximumSource]] : []),
+    [source.commit, custody.commit]];
+  for (const [before, after] of sourceAncestry) {
     execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "merge-base", "--is-ancestor", before, after],
       {windowsHide: true, stdio: ["ignore", "pipe", "pipe"]});
   }

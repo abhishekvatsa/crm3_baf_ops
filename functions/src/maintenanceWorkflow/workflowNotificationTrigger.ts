@@ -263,6 +263,7 @@ async function processCriticalAlarmRaisedNotification(args: {
 
 export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
   {
+    maxInstances: 20,
     document: "maintenance_workflow_events/{eventId}",
     region: REGION,
     retry: true,
