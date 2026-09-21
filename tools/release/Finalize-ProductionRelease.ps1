@@ -246,6 +246,10 @@ function Copy-BackupCustody {
       -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber) `
       -SourcePath $SourcePath -ExpectedSha256 $ExpectedSha256 -Purpose $Purpose `
       -GcloudCommand $GcloudCommand
+    if (($proof.buildNumber -isnot [int] -and $proof.buildNumber -isnot [int64]) -or
+        $proof.buildNumber -ne $manifest.release.buildNumber) {
+      throw 'Private custody proof build number differs from the verified artifact.'
+    }
     $cloudCustodyProofs.Add($proof)
     return $proof.generationUri
   }
@@ -1207,10 +1211,16 @@ if ($privateCloudCustody) {
   if ($cloudCustodyProofs.Count -ne 6 -or @($cloudCustodyProofs.purpose | Select-Object -Unique).Count -ne 6) {
     throw 'Private custody did not independently verify every required package, sidecar and custody record.'
   }
+  foreach ($proof in $cloudCustodyProofs) {
+    if (($proof.buildNumber -isnot [int] -and $proof.buildNumber -isnot [int64]) -or
+        $proof.buildNumber -ne $manifest.release.buildNumber) {
+      throw 'Private custody proof build number differs from the verified artifact.'
+    }
+  }
   # External evidence includes the custody-record copy itself without a self-hash cycle.
   $cloudVerification = [ordered]@{
     schemaVersion = 1; evidenceType = 'private-gcs-release-custody'
-    mode = 'local-primary-private-gcs-backup'; buildNumber = 28
+    mode = 'local-primary-private-gcs-backup'; buildNumber = [int]$manifest.release.buildNumber
     sourceCommit = $expected; githubRunId = [string]$GitHubRunId
     primaryDirectory = $primaryRoot; backupPrefix = $BackupCustodyGsPrefix
     independentlyStored = $true; approval = $privateCloudApproval

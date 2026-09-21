@@ -1,5 +1,5 @@
 #requires -Version 7.0
-# This library performs only the explicitly selected Build28 private backup.
+# This library performs only separately approved, fixed-custody private backups.
 # Its command seam is replaced by in-memory fixtures in tests, never by a CLI flag.
 function Invoke-PrivateGcsCommand {
   param([string]$Command, [string[]]$ArgumentList)
@@ -10,13 +10,46 @@ function Invoke-PrivateGcsCommand {
   $output -join "`n"
 }
 
+function Get-PrivateGcsCustodyDescriptor {
+  param([object]$BuildNumber)
+  if (($BuildNumber -isnot [int] -and $BuildNumber -isnot [int64]) -or
+      $BuildNumber -notin @(28, 29)) {
+    throw 'Private cloud custody requires an explicitly admitted integer build number.'
+  }
+  $decision = switch ($BuildNumber) {
+    28 {
+      @{
+        commit = 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4'
+        sha256 = '3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88'
+        approvedAtUtc = '2026-09-08T21:21:49Z'
+      }
+    }
+    29 {
+      @{
+        commit = '53cb4737e87af00b22053d8669661f097b27c18a'
+        sha256 = '25A45E45832C79F05FD199CB71E08BCB4BCB8A3B2B50CB46B7DDF13FF00619BE'
+        approvedAtUtc = '2026-09-21T13:42:52.7777297Z'
+      }
+    }
+  }
+  [pscustomobject]@{
+    buildNumber = $BuildNumber; commit = $decision.commit; sha256 = $decision.sha256
+    file = "release/approvals/build$BuildNumber-private-cloud-custody-approval.json"
+    approvedAtUtc = $decision.approvedAtUtc
+    proofFile = "release/evidence/build$BuildNumber-private-gcs-custody-readback.json"
+    bucket = 'crm3-baf-ops-b8638-firestore-restore'
+    prefixPattern = "^gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-$BuildNumber/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+  }
+}
+
 function Assert-PrivateGcsCustodyAuthority {
-  param([string]$RepositoryRoot, [string]$Prefix, [int]$BuildNumber)
-  $commit = 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4'
-  $file = 'release/approvals/build28-private-cloud-custody-approval.json'
-  $sha256 = '3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88'
-  if ($BuildNumber -ne 28 -or $Prefix -cnotmatch '^gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') {
-    throw 'Private cloud custody is admitted only for Build28 and its unique approved campaign prefix.'
+  param([string]$RepositoryRoot, [string]$Prefix, [object]$BuildNumber)
+  $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $BuildNumber
+  $commit = $descriptor.commit
+  $file = $descriptor.file
+  $sha256 = $descriptor.sha256
+  if ($Prefix -cnotmatch $descriptor.prefixPattern) {
+    throw 'Private cloud custody requires the selected build and its unique approved campaign prefix.'
   }
   $approvalPath = Join-Path $RepositoryRoot $file
   if ((Get-FileHash -LiteralPath $approvalPath -Algorithm SHA256).Hash -cne $sha256) {
@@ -62,7 +95,7 @@ function Copy-PrivateGcsCustodyFile {
   param(
     [Parameter(Mandatory)][string]$RepositoryRoot,
     [Parameter(Mandatory)][string]$Prefix,
-    [Parameter(Mandatory)][int]$BuildNumber,
+    [Parameter(Mandatory)][object]$BuildNumber,
     [Parameter(Mandatory)][string]$SourcePath,
     [Parameter(Mandatory)][ValidatePattern('^[0-9A-Fa-f]{64}$')][string]$ExpectedSha256,
     [Parameter(Mandatory)][ValidateSet('productionPackage','productionPackageSidecar','closurePackage','closurePackageSidecar','custodyRecord','custodyRecordSidecar')][string]$Purpose,
@@ -117,7 +150,7 @@ function Copy-PrivateGcsCustodyFile {
       throw 'Verified local source changed during private backup.'
     }
     [pscustomobject]@{
-      schemaVersion = 1; provider = 'gcs'; purpose = $Purpose; buildNumber = 28
+      schemaVersion = 1; provider = 'gcs'; purpose = $Purpose; buildNumber = $BuildNumber
       bucket = $controls.bucket; prefix = $Prefix; objectName = $objectName
       objectUri = $uri; generation = $generation; generationUri = $generationUri
       bytes = [long]$source.Length; sha256 = $ExpectedSha256.ToUpperInvariant()

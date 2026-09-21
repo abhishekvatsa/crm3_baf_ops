@@ -68,6 +68,42 @@ change. An earlier full helper run was stopped after the selector change; it is
 not claimed as a complete passing run. Fresh hosted review and checks are required
 before merge.
 
+The first preparation head `7cfe4ec9` subsequently received a clean bot review and
+passed the hosted backend/custody and Rules checks. This is evidence for that head,
+not approval of subsequent custody changes.
+
+The original Build 28 six-object private-cloud proof was recovered from its local
+custody directory. Its exact SHA-256 is
+`2CFC51F7BE04E31413DC11653A031EF8EE108EE2F8530E159BF0B807D31293AA`.
+All six primary files/sidecars and all 18 closure-archive entries were independently
+checked. The measured construction-only closure is now retained at
+`release/evidence/build-28-finalization-closure.json`; it binds the original proof
+at `release/evidence/build28-private-gcs-custody-readback.json`. Git attributes
+preserve both files' physical bytes. The existing completed-custody validator
+accepted the real evidence. No device acceptance or distribution is inferred.
+
+Build 29 has a separate private-backup decision in
+`release/approvals/build29-private-cloud-custody-approval.json`, committed as
+`53cb4737e87af00b22053d8669661f097b27c18a`. It retains the same private bucket controls
+and limits the new prefix to `release-custody/build-29/`. The decision records the
+agent's interpretation of the owner's release delegation, not invented
+source-specific owner wording. It does not start the pause or authorize a build
+without the existing construction checks.
+
+Private-custody support selects separately fixed Build 28 and Build 29 approval
+objects. Per-file and aggregate records carry the verified artifact's build number;
+the finalizer and completed-custody verifier reject mixed-build proofs. Build 28's
+original authority and proof bytes remain intact. Other unapproved numbers,
+cross-build prefixes, altered approval objects and weakened bucket controls remain
+inadmissible. No backup upload or bucket change is performed by these source edits.
+
+Final local checks passed: 53 private-custody producer/finalizer tests, all eight
+current-source authority tests (including 334 completed-custody acceptance and
+rejection cases), 31 focused Flutter release-contract tests, the complete production
+policy verifier and diff validation. The real historical Build 28 proof remains
+accepted unchanged. Independent custody review found no actionable blocker. These
+are preparation checks; fresh hosted checks and review must cover the final head.
+
 ## Compatibility and cutover
 
 The new client is not a fully isolated read-only compatibility release against the

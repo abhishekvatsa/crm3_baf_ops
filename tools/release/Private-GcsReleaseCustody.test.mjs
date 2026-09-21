@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const quote = (value) => `'${value.replaceAll("'", "''")}'`;
-function probe(mode, extra = '') {
+function probe(mode, extra = '', buildNumber = 28) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gcs-test-'));
   try {
     const script = `
@@ -16,6 +16,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 . ${quote(path.join(root, 'tools/release/Private-GcsReleaseCustody.ps1'))}
 $script:mode = ${quote(mode)}
+$script:build = ${buildNumber}
 $script:calls = [Collections.Generic.List[object]]::new()
 $source = Join-Path ${quote(directory)} 'release.zip'
 [IO.File]::WriteAllBytes($source, [byte[]](1,2,3,4))
@@ -49,11 +50,11 @@ function Invoke-PrivateGcsCommand([string]$Command, [string[]]$ArgumentList) {
     return "Created: $($ArgumentList[3])#1788912345678901"
   }
   if ($ArgumentList[1] -eq 'objects') {
-    if ($ArgumentList[3] -cne 'gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/test-campaign/release.zip#1788912345678901') { throw 'Metadata lookup is not pinned to the created generation' }
-    return (@{bucket='crm3-baf-ops-b8638-firestore-restore';name='release-custody/build-28/test-campaign/release.zip';generation=$(if ($script:mode -eq 'wrong-generation') {'1788912345678902'} else {'1788912345678901'});size=$(if ($script:mode -eq 'wrong-size') {5} else {4})} | ConvertTo-Json)
+    if ($ArgumentList[3] -cne "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-$script:build/test-campaign/release.zip#1788912345678901") { throw 'Metadata lookup is not pinned to the created generation' }
+    return (@{bucket='crm3-baf-ops-b8638-firestore-restore';name="release-custody/build-$script:build/test-campaign/release.zip";generation=$(if ($script:mode -eq 'wrong-generation') {'1788912345678902'} else {'1788912345678901'});size=$(if ($script:mode -eq 'wrong-size') {5} else {4})} | ConvertTo-Json)
   }
   if ($ArgumentList[1] -eq 'cp' -and $ArgumentList[2] -like 'gs://*') {
-    if ($ArgumentList[2] -cne 'gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/test-campaign/release.zip#1788912345678901') { throw 'Download is not pinned to the created generation' }
+    if ($ArgumentList[2] -cne "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-$script:build/test-campaign/release.zip#1788912345678901") { throw 'Download is not pinned to the created generation' }
     if (Test-Path -LiteralPath $ArgumentList[3]) { throw 'Readback destination is not fresh' }
     if ($script:mode -eq 'download-failure') { throw 'Download unavailable' }
     $bytes = if ($script:mode -eq 'corrupt-download') { [byte[]](9,2,3,4) } else { $script:uploaded }
@@ -62,8 +63,8 @@ function Invoke-PrivateGcsCommand([string]$Command, [string[]]$ArgumentList) {
   }
   throw 'Unexpected cloud command'
 }
-$prefix='gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/test-campaign'
-$build=28
+$prefix="gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-$script:build/test-campaign"
+$build=$script:build
 ${extra}
 try {
   $proof=Copy-PrivateGcsCustodyFile -RepositoryRoot ${quote(root)} -Prefix $prefix -BuildNumber $build -SourcePath $source -ExpectedSha256 $expected -Purpose productionPackage -GcloudCommand fake
@@ -96,6 +97,19 @@ test('private backup creates once and proves bytes from the created generation',
   assert.equal(result.calls.filter((args) => args[1] === 'cp').length, 2);
   assert.equal(result.calls.some((args) => args.some((arg) => ['delete','rm','update','set-iam-policy'].includes(arg))), false);
 });
+test('Build29 backup uses its own immutable approval and preserves the selected build in the proof', () => {
+  const result = probe('ok', '', 29);
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.proof.buildNumber, 29);
+  assert.equal(result.proof.prefix, 'gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-29/test-campaign');
+  assert.deepEqual(result.proof.approval, {
+    commit: '53cb4737e87af00b22053d8669661f097b27c18a',
+    file: 'release/approvals/build29-private-cloud-custody-approval.json',
+    sha256: '25A45E45832C79F05FD199CB71E08BCB4BCB8A3B2B50CB46B7DDF13FF00619BE',
+  });
+  assert.equal(result.proof.downloadedSha256, result.proof.sha256);
+  assert.equal(result.calls.filter((args) => args[1] === 'cp').length, 2);
+});
 for (const mode of ['public','public-iam','versioning','retention','soft-delete','location','acl']) {
   test(`changed ${mode} controls stop before any upload`, () => {
     const result = probe(mode);
@@ -113,6 +127,11 @@ for (const mode of ['exists','lost-upload-response','missing-generation','wrong-
 }
 for (const [name, extra] of [
   ['wrong build', '$build=27'],
+  ['unapproved future build', '$build=30'],
+  ['string build', "$build='28'"],
+  ['fractional build', '$build=28.5'],
+  ['array build', '$build=@(28)'],
+  ['Build29 using Build28 prefix', '$build=29'],
   ['other bucket', "$prefix='gs://gcf-v2-sources-894346496105-asia-south1/release-custody/build-28/test'"],
   ['outside prefix', "$prefix='gs://crm3-baf-ops-b8638-firestore-restore/pre-live/test'"],
   ['path traversal', "$prefix += '/../escape'"],
@@ -124,8 +143,82 @@ for (const [name, extra] of [
     assert.deepEqual(result.calls, []);
   });
 }
+test('Build28 cannot use the Build29 prefix', () => {
+  const result = probe('ok', '$build=28', 29);
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.calls, []);
+});
 
-function finalizerGate(mode) {
+function authorityProbe(mode, buildNumber) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gcs-authority-'));
+  const run = (command, args, cwd = directory) => {
+    const result = spawnSync(command, args, {cwd, encoding: 'utf8', windowsHide: true, timeout: 30000});
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    return result.stdout.trim();
+  };
+  try {
+    run('git', ['init', '--quiet']);
+    const objects = run('git', ['rev-parse', '--path-format=absolute', '--git-path', 'objects'], root);
+    const alternatives = path.join(directory, '.git/objects/info/alternates');
+    fs.mkdirSync(path.dirname(alternatives), {recursive: true});
+    fs.writeFileSync(alternatives, `${objects.replaceAll('\\', '/')}\n`);
+    const file = `release/approvals/build${buildNumber}-private-cloud-custody-approval.json`;
+    const location = path.join(directory, file);
+    const original = fs.readFileSync(path.join(root, file));
+    fs.mkdirSync(path.dirname(location), {recursive: true});
+    fs.writeFileSync(location, original);
+    if (mode === 'missing-custody') fs.unlinkSync(alternatives);
+    if (mode === 'coherent-replacement' || mode === 'replacement-ref') {
+      const altered = JSON.parse(original);
+      altered.approved = false;
+      fs.writeFileSync(location, `${JSON.stringify(altered, null, 2)}\n`);
+      // A coherent new commit and its hash sidecar are not the fixed decision.
+      run('git', ['add', '.']);
+      run('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '--quiet', '-m', 'Unadmitted custody replacement']);
+      const anchor = buildNumber === 28 ? 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4'
+        : '53cb4737e87af00b22053d8669661f097b27c18a';
+      run('git', ['replace', anchor, run('git', ['rev-parse', 'HEAD'])]);
+      if (mode === 'replacement-ref') fs.writeFileSync(location, original);
+    }
+    const scriptFile = path.join(directory, 'authority.ps1');
+    fs.writeFileSync(scriptFile, `
+$ErrorActionPreference='Stop'
+. ${quote(path.join(root, 'tools/release/Private-GcsReleaseCustody.ps1'))}
+$approvalPath=${quote(location)}
+if (${quote(mode)} -eq 'coherent-replacement') {
+  [IO.File]::WriteAllText("$approvalPath.sha256", (Get-FileHash -LiteralPath $approvalPath -Algorithm SHA256).Hash)
+}
+try {
+  $authority=Assert-PrivateGcsCustodyAuthority -RepositoryRoot ${quote(directory)} -Prefix 'gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-${buildNumber}/test' -BuildNumber ${buildNumber}
+  @{ok=$true;authority=$authority} | ConvertTo-Json -Compress
+} catch { @{ok=$false;error=$_.Exception.Message} | ConvertTo-Json -Compress }
+`);
+    return JSON.parse(run('pwsh', ['-NoProfile', '-File', scriptFile]));
+  } finally {
+    assert.equal(path.dirname(fs.realpathSync(directory)), fs.realpathSync(os.tmpdir()));
+    assert.match(path.basename(directory), /^crm3-gcs-authority-/);
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+}
+for (const buildNumber of [28, 29]) {
+  test(`Build${buildNumber} custody rejects a coherent local approval/hash/Git replacement`, () => {
+    const result = authorityProbe('coherent-replacement', buildNumber);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /fixed custody digest/);
+  });
+  test(`Build${buildNumber} custody requires its actual Git object`, () => {
+    const result = authorityProbe('missing-custody', buildNumber);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /Git custody is unavailable/);
+  });
+  test(`Build${buildNumber} custody ignores mutable replacement refs`, () => {
+    const result = authorityProbe('replacement-ref', buildNumber);
+    assert.equal(result.ok, true, result.error);
+  });
+}
+
+function finalizerGate(mode, buildNumber = 28) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gcs-gate-'));
   try {
     const script = `
@@ -148,14 +241,15 @@ function Copy-PrivateGcsCustodyFile {
   param($RepositoryRoot,$Prefix,$BuildNumber,$SourcePath,$ExpectedSha256,$Purpose,$GcloudCommand)
   $script:backupPurposes.Add($Purpose)
   if ($mode -eq $Purpose -or $mode -eq "tail-$Purpose") { throw 'Independent cloud verification failed' }
-  [pscustomobject]@{purpose=$Purpose;generationUri="$Prefix/$(Split-Path -Leaf $SourcePath)#123";verified=$true}
+  $proofBuild = if ($mode -eq "tail-cross-build-$Purpose") { 28 } else { $BuildNumber }
+  [pscustomobject]@{purpose=$Purpose;buildNumber=$proofBuild;generationUri="$Prefix/$(Split-Path -Leaf $SourcePath)#123";verified=$true}
 }
 $repo=${quote(root)}
 $temporary=${quote(directory)}
 $PrimaryCustodyDirectory=Join-Path $temporary 'primary'
 $BackupCustodyDirectory=Join-Path $temporary 'backup'
-$BackupCustodyGsPrefix='gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/test-campaign'
-$manifest=@{release=@{buildNumber=28}}
+$BackupCustodyGsPrefix='gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-${buildNumber}/test-campaign'
+$manifest=@{release=@{buildNumber=${buildNumber}}}
 $GcloudCommand='fake'
 $CustodyApprover='Fixture'; $CustodyReference='Fixture'
 $packageZip=Join-Path $temporary 'release.zip'
@@ -177,6 +271,7 @@ try {
   . ([scriptblock]::Create($text.Substring($start,$end-$start)))
   $tagReached=$true
   if ($mode -like 'tail-*') {
+    if ($mode -eq 'tail-mutated-earlier-build') { $cloudCustodyProofs[0].buildNumber=28 }
     $closureZip=Join-Path $temporary 'closure.zip'
     [IO.File]::WriteAllBytes($closureZip,[byte[]](5,6,7,8))
     $closureSha256=Get-Sha256 $closureZip
@@ -260,6 +355,29 @@ test('actual finalizer emits its new typed manifest only after all six backup ve
   assert.equal(Object.hasOwn(result.custody,'backupProductionPackagePath'),false);
   assert.equal(Object.hasOwn(result.custody,'backupClosurePackagePath'),false);
   assert.equal(Object.hasOwn(result.custody,'backupClosureSidecarPath'),false);
+});
+test('actual Build29 finalizer emits Build29 only after six Build29 proofs', () => {
+  const result = finalizerGate('tail-ok', 29);
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.verification.buildNumber, 29);
+  assert.equal(result.verification.objects.length, 6);
+  assert.equal(result.verification.objects.every((proof) => proof.buildNumber === 29), true);
+});
+for (const purpose of ['productionPackage', 'productionPackageSidecar', 'closurePackage',
+  'closurePackageSidecar', 'custodyRecord', 'custodyRecordSidecar']) {
+  test(`Build29 finalizer refuses a Build28 ${purpose} proof`, () => {
+    const result = finalizerGate(`tail-cross-build-${purpose}`, 29);
+    assert.equal(result.ok, false);
+    assert.equal(result.verificationExists, false);
+    assert.equal(result.tagReached, !['productionPackage', 'productionPackageSidecar'].includes(purpose));
+    assert.match(result.error, /proof build number differs/);
+  });
+}
+test('Build29 finalizer rechecks all six proof identities before claiming final success', () => {
+  const result = finalizerGate('tail-mutated-earlier-build', 29);
+  assert.equal(result.ok, false);
+  assert.equal(result.verificationExists, false);
+  assert.match(result.error, /proof build number differs/);
 });
 for (const purpose of ['closurePackage','closurePackageSidecar','custodyRecord','custodyRecordSidecar']) {
   test(`actual finalizer does not emit completed cloud custody after failed ${purpose}`, () => {

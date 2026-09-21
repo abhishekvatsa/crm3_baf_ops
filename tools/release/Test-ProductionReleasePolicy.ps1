@@ -454,8 +454,8 @@ function Test-CompletedReleaseCustody {
   param([object]$Receipt, [string]$RepositoryRoot)
   $modeProperty = $Receipt.dualCustody.PSObject.Properties['mode']
   if ($null -eq $modeProperty) {
-    # Only historical builds have the mode-less filesystem contract. Build28's
-    # decision selects private cloud custody; removing its discriminator cannot
+    # Only historical builds have the mode-less filesystem contract. Later
+    # scoped decisions select private cloud custody; removing the discriminator cannot
     # turn an absent or invalid cloud proof into a claimed second local volume.
     $legacyBuild = $Receipt.release.buildNumber
     return (($legacyBuild -is [int] -or $legacyBuild -is [int64]) -and
@@ -463,15 +463,20 @@ function Test-CompletedReleaseCustody {
       $Receipt.dualCustody.distinctVolumes -eq $true)
   }
   try {
+    # Resolve only an explicitly registered build decision. The descriptor and
+    # its immutable approval are shared with the producer; loading these
+    # functions performs no bucket or upload calls.
+    . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
+    $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $Receipt.release.buildNumber
     if ($modeProperty.Value -isnot [string] -or
         $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
         -not (Test-PrivateCustodyFacts $Receipt @(
-          @{ Path = 'release.buildNumber'; Expected = 28 }
+          @{ Path = 'release.buildNumber'; Expected = $descriptor.buildNumber }
           @{ Path = 'dualCustody.distinctVolumes'; Expected = $false }
           @{ Path = 'dualCustody.independentlyStored'; Expected = $true }
           @{ Path = 'dualCustody.status'; Expected = 'passed' }
           @{ Path = 'dualCustody.allFileHashesMatched'; Expected = $true }
-          @{ Path = 'dualCustody.backupVerification.file'; Expected = 'release/evidence/build28-private-gcs-custody-readback.json' }
+          @{ Path = 'dualCustody.backupVerification.file'; Expected = $descriptor.proofFile }
         ))) { return $false }
     $binding = $Receipt.dualCustody.backupVerification
     if ($binding.sha256 -isnot [string] -or $binding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
@@ -486,16 +491,16 @@ function Test-CompletedReleaseCustody {
           @{ Path = 'schemaVersion'; Expected = 1 }
           @{ Path = 'evidenceType'; Expected = 'private-gcs-release-custody' }
           @{ Path = 'mode'; Expected = 'local-primary-private-gcs-backup' }
-          @{ Path = 'buildNumber'; Expected = 28 }
+          @{ Path = 'buildNumber'; Expected = $descriptor.buildNumber }
           @{ Path = 'sourceCommit'; Expected = $Receipt.sourceAuthority.commit }
           @{ Path = 'githubRunId'; Expected = [string]$Receipt.workflow.runId }
           @{ Path = 'independentlyStored'; Expected = $true }
           @{ Path = 'status'; Expected = 'passed' }
         ))) { return $false }
-    $bucket = 'crm3-baf-ops-b8638-firestore-restore'
+    $bucket = $descriptor.bucket
     $prefix = $verification.backupPrefix
     if ($prefix -isnot [string] -or
-        $prefix -cnotmatch '^gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-28/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+        $prefix -cnotmatch $descriptor.prefixPattern -or
         $verification.primaryDirectory -isnot [string] -or
         $verification.primaryDirectory -cnotmatch '^[A-Za-z]:[\\/]' -or
         $verification.primaryDirectory -match '(^|[\\/])\.{1,2}([\\/]|$)' -or
@@ -506,12 +511,12 @@ function Test-CompletedReleaseCustody {
         $primary.StartsWith("$repository/", [StringComparison]::OrdinalIgnoreCase)) { return $false }
     $completedAt = Get-PrivateCustodyUtcInstant $verification.completedAtUtc
     $approvalFacts = @(
-      @{ Path = 'commit'; Expected = 'e1db8eaa4b34c26254d3fd2a4cfc533747e187a4' }
-      @{ Path = 'file'; Expected = 'release/approvals/build28-private-cloud-custody-approval.json' }
-      @{ Path = 'sha256'; Expected = '3DEB2A9E26FCFDBBAC20A591256ABB3A29FA3EBEF75D3A91FDACCEA2BA64FC88' }
+      @{ Path = 'commit'; Expected = $descriptor.commit }
+      @{ Path = 'file'; Expected = $descriptor.file }
+      @{ Path = 'sha256'; Expected = $descriptor.sha256 }
     )
     if (-not (Test-PrivateCustodyFacts $verification.approval $approvalFacts)) { return $false }
-    $approvedAt = Get-PrivateCustodyUtcInstant '2026-09-08T21:21:49Z'
+    $approvedAt = Get-PrivateCustodyUtcInstant $descriptor.approvedAtUtc
     $purposes = @('productionPackage', 'productionPackageSidecar', 'closurePackage', 'closurePackageSidecar', 'custodyRecord', 'custodyRecordSidecar')
     $proofs = @{}
     $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -521,7 +526,7 @@ function Test-CompletedReleaseCustody {
           -not (Test-PrivateCustodyFacts $proof @(
             @{ Path = 'schemaVersion'; Expected = 1 }
             @{ Path = 'provider'; Expected = 'gcs' }
-            @{ Path = 'buildNumber'; Expected = 28 }
+            @{ Path = 'buildNumber'; Expected = $descriptor.buildNumber }
             @{ Path = 'bucket'; Expected = $bucket }
             @{ Path = 'prefix'; Expected = $prefix }
             @{ Path = 'createOnly'; Expected = $true }
@@ -579,8 +584,7 @@ function Test-CompletedReleaseCustody {
         $proofs.closurePackageSidecar.sha256 -cne $Receipt.closure.closurePackageSidecarSha256) { return $false }
     # This function only reads the fixed approval's file/Git object. It does not
     # call the helper's upload or bucket APIs, so CI needs no cloud credentials.
-    . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
-    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix 28
+    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix $descriptor.buildNumber
     return (Test-PrivateCustodyFacts $authority $approvalFacts)
   } catch { return $false }
 }
