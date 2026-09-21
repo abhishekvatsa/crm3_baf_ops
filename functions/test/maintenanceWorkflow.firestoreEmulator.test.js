@@ -1367,4 +1367,85 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       nextDueAt: null,
     });
   });
+
+  async function seededUvCorrection() {
+    const fixture = require('./fixtures/uvDetectorLifecycleFixture');
+    const {workflowFirestoreDataForTest} = require('../lib/maintenanceWorkflow/firebaseStore');
+    const memory = fixture.seedStore();
+    await fixture.prepare(memory, fixture.action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    for (const [path, data] of memory.entries()) await db.doc(path).set(workflowFirestoreDataForTest(data));
+    const event = memory.entries().find(([path]) => path.startsWith('uv_detector_lifecycle_events/'))[1];
+    const currentPath = memory.entries().find(([path]) => path.startsWith('uv_detector_lifecycle_current/'))[0];
+    const command = {commandId: 'uv-correction', commandType: 'correctUvDetectorInstallation',
+      aggregateId: 'uv-correction', expectedVersion: 0, payload: {
+        eventId: event.eventId, expectedCurrentEventId: event.eventId,
+        expectedCurrentActionPerformedAt: event.actionPerformedAt,
+        correctedActionPerformedAt: '2026-08-10T08:00:00.000Z',
+        reason: 'The verified physical installation occurred on the tenth.', supersedesCorrectionId: null,
+      }};
+    return {command, event, currentPath, context: {actor, serverNow: new Date('2026-08-29T09:00:00.000Z')}};
+  }
+
+  test('UV correction native replay preserves a later physical installation and immutable original', async () => {
+    const {command, event, currentPath, context} = await seededUvCorrection();
+    const original = (await db.doc(`uv_detector_lifecycle_events/${event.eventId}`).get()).data();
+    const accepted = await service.execute(command, context);
+    const correction = (await db.doc('uv_detector_lifecycle_corrections/uv-correction').get()).data();
+    expect(correction.correctedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(correction.expectedCurrentActionPerformedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect((await db.doc(`uv_detector_lifecycle_events/${event.eventId}`).get()).data()).toEqual(original);
+    const {prepareUvDetectorLifecycleWritePlan, applyUvDetectorLifecycleWritePlan} = require('../lib/maintenanceWorkflow/uvDetectorLifecycle');
+    const fixture = require('./fixtures/uvDetectorLifecycleFixture');
+    await new FirebaseWorkflowStore(db).runTransaction(async tx => {
+      const plan = await prepareUvDetectorLifecycleWritePlan({tx, sourceType: 'workflowPlannedJob',
+        sourceId: 'later-physical-uv-installation', assetType: 'furnace', assetNumber: 7,
+        actionSources: [{sourceModuleId: 'module-later', discipline: 'instrumentation', actionsJson: JSON.stringify([
+          fixture.action({id: 'later-uv', createdAt: '2026-08-30T08:00:00.000Z'}),
+        ])}], completedAt: '2026-08-30T09:00:00.000Z', recordedAt: '2026-08-30T09:00:00.000Z', completedBy: actor});
+      applyUvDetectorLifecycleWritePlan(tx, plan);
+    });
+    const current = (await db.doc(currentPath).get()).data();
+    const replay = await service.execute(command, {...context, serverNow: new Date('2026-08-31T09:00:00.000Z')});
+    expect(replay.aggregateVersion).toBe(accepted.aggregateVersion);
+    expect(replay.result.currentActionPerformedAt.toDate().toISOString()).toBe(accepted.result.currentActionPerformedAt);
+    expect((await db.doc(currentPath).get()).data()).toEqual(current);
+    expect(current.sourceId).toBe('later-physical-uv-installation');
+    expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(1);
+  });
+
+  test('UV competing corrections retain one winner and reject the original stale time', async () => {
+    const {command, context} = await seededUvCorrection();
+    const commands = [command, {...command, commandId: 'uv-correction-b', aggregateId: 'uv-correction-b',
+      payload: {...command.payload, correctedActionPerformedAt: '2026-08-11T08:00:00.000Z'}}];
+    const results = await Promise.allSettled(commands.map(candidate => service.execute(candidate, context)));
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const losingIndex = results.findIndex(result => result.status === 'rejected');
+    expect(losingIndex).toBeGreaterThanOrEqual(0);
+    await expect(service.execute(commands[losingIndex], context)).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-lifecycle-current-version-conflict'},
+    });
+    expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(1);
+    expect((await db.collection('maintenance_workflow_command_receipts').get()).size).toBe(1);
+  });
+
+  test.each(['audit-microsecond', 'correction-reviewer', 'receipt-version', 'receipt-current-event'])(
+    'UV replay refuses altered native acceptance: %s', async mode => {
+      const {command, context} = await seededUvCorrection();
+      await service.execute(command, context);
+      const auditRef = db.doc('audit_logs/server_uv_detector_correction_uv-correction');
+      const receiptRef = db.doc('maintenance_workflow_command_receipts/uv-correction');
+      if (mode === 'audit-microsecond') {
+        const timestamp = (await auditRef.get()).data().timestamp;
+        await auditRef.update({timestamp: new admin.firestore.Timestamp(timestamp.seconds, timestamp.nanoseconds + 1000)});
+      } else if (mode === 'correction-reviewer') {
+        await db.doc('uv_detector_lifecycle_corrections/uv-correction').update({correctedByUid: 'someone-else'});
+      } else if (mode === 'receipt-version') await receiptRef.update({aggregateVersion: 2});
+      else await receiptRef.update({'result.currentEventId': 'fabricated-event'});
+      await expect(service.execute(command, context)).rejects.toMatchObject({
+        details: {reasonCode: 'uv-detector-correction-replay-invalid'},
+      });
+      expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(1);
+    },
+  );
+
 });

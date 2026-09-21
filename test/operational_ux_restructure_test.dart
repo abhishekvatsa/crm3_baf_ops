@@ -130,7 +130,19 @@ void main() {
     expect(reports, contains('occurrence.interval.startedAt'));
     expect(reports, contains('occurrence.interval.resolvedByName'));
     expect(reports, contains('occurrence.interval.resolutionNote'));
-    expect(operationalEvents, contains('event.completedIntervals.reversed'));
+    // Archived cards keep raw recorded closure evidence while retaining the
+    // stable ordinal needed to review an amendment after a recurrence opens.
+    expect(
+      operationalEvents.replaceAll(RegExp(r'\s+'), ''),
+      contains(
+        'event.occurrencesUntil(asOf).take(event.completedIntervals.length).toList().reversed',
+      ),
+    );
+    expect(operationalEvents, contains('OperationalEventAmendmentControls('));
+    expect(
+      operationalEvents,
+      contains('occurrenceIndex: interval.occurrenceIndex!'),
+    );
     expect(operationalEvents, contains('interval.resolvedByName'));
     expect(operationalEvents, contains('interval.resolutionNote'));
 

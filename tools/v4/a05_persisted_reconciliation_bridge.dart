@@ -13,6 +13,7 @@ import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/uv_detector_lifecycle_event.dart';
+import 'package:crm3_baf_ops/features/assets/data/uv_detector_installation_correction.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/domain/critical_alarm_models.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
@@ -20,6 +21,7 @@ import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/morning_review/domain/morning_review_models.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
+import 'package:crm3_baf_ops/features/operational_events/repositories/operational_event_amendment_repository.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
@@ -39,6 +41,7 @@ const _supportedCollections = <String>{
   'burner_block_lifecycle_corrections',
   'burner_condition_rounds',
   'uv_detector_lifecycle_events',
+  'uv_detector_lifecycle_corrections',
   'uv_detector_lifecycle_current',
   'critical_alarm_contacts',
   'critical_alarm_definitions',
@@ -66,6 +69,7 @@ const _supportedCollections = <String>{
   'morning_review_sessions',
   'morning_review_standing_concerns',
   'operational_events',
+  'operational_event_interval_amendments',
   'operational_event_issue_links',
   'quality_monitoring_requests',
   'quality_warnings',
@@ -131,6 +135,8 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         BurnerBlockInstallationCorrection.fromMap(data, documentId);
       case 'uv_detector_lifecycle_events':
         UvDetectorLifecycleEvent.fromMap(data, documentId);
+      case 'uv_detector_lifecycle_corrections':
+        UvDetectorInstallationCorrection.fromMap(data, documentId);
       case 'uv_detector_lifecycle_current':
         UvDetectorLifecycleEvent.fromCurrentMap(data, documentId);
       case 'critical_alarm_contacts':
@@ -189,6 +195,11 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         MorningReviewSession.fromMap(data, documentId);
       case 'morning_review_standing_concerns':
         MorningReviewStandingConcern.fromMap(data, documentId);
+      case 'operational_event_interval_amendments':
+        OperationalEventAmendmentRepository.validateRetainedRecord(
+          data,
+          documentId,
+        );
       case 'operational_events':
         OperationalEvent.fromMap(data, documentId);
       case 'operational_event_issue_links':
@@ -226,18 +237,44 @@ dynamic _restoreFirestoreValue(dynamic value) {
   if (value['__a05FirestoreType'] == 'timestamp') {
     final seconds = value['seconds'];
     final nanoseconds = value['nanoseconds'];
-    if (seconds is! int || nanoseconds is! int) {
+    if (value.length != 3 || seconds is! int || nanoseconds is! int) {
       throw const FormatException('invalid timestamp transport');
     }
     return Timestamp(seconds, nanoseconds);
   }
   if (value['__a05FirestoreType'] == 'nonFiniteNumber') {
+    if (value.length != 2) {
+      throw const FormatException('invalid non-finite transport');
+    }
     return switch (value['value']) {
       'NaN' => double.nan,
       'Infinity' => double.infinity,
       '-Infinity' => double.negativeInfinity,
       _ => throw const FormatException('invalid non-finite transport'),
     };
+  }
+  if (value['__a05FirestoreType'] == 'map') {
+    final entries = value['entries'];
+    if (value.length != 2 || entries is! List) {
+      throw const FormatException('invalid map transport');
+    }
+    final restored = <String, dynamic>{};
+    for (final entry in entries) {
+      if (entry is! List || entry.length != 2 || entry[0] is! String) {
+        throw const FormatException('invalid map transport entry');
+      }
+      final key = entry[0] as String;
+      if (restored.containsKey(key)) {
+        throw const FormatException('duplicate map transport key');
+      }
+      restored[key] = _restoreFirestoreValue(entry[1]);
+    }
+    // The restored discriminator is ordinary stored data. Do not interpret
+    // this map a second time; only nested encoded values need restoration.
+    return restored;
+  }
+  if (value.containsKey('__a05FirestoreType')) {
+    throw const FormatException('unknown Firestore transport type');
   }
   return Map<String, dynamic>.fromEntries(
     value.entries.map(

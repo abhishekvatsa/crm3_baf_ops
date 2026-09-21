@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/burner_condition_round.dart';
+import '../../assets/providers/burner_condition_round_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../providers/operations_report_provider.dart';
+import '../domain/operations_report_asset_inventory.dart';
 import '../domain/operations_report_document.dart';
 import '../domain/report_provenance.dart';
 import '../models/operations_report.dart';
@@ -42,23 +49,183 @@ Future<OperationsReportDocumentRequest?> showOperationsReportComposer({
   ),
 );
 
+/// Watches only the families required by the selected report, even when the
+/// integrated dashboard cannot load an unrelated family. Authority is rechecked
+/// by the actor-scoped provider throughout preparation and preview.
+class OperationsReportPreparationScreen extends ConsumerStatefulWidget {
+  const OperationsReportPreparationScreen({
+    super.key,
+    required this.actorUid,
+    required this.filter,
+    required this.request,
+  });
+
+  final String actorUid;
+  final OperationsReportFilter filter;
+  final OperationsReportDocumentRequest request;
+
+  @override
+  ConsumerState<OperationsReportPreparationScreen> createState() =>
+      _OperationsReportPreparationState();
+}
+
+class _OperationsReportPreparationState
+    extends ConsumerState<OperationsReportPreparationScreen> {
+  OperationsReportPdfPreviewScreen? _prepared;
+  Future<Uint8List>? _preparedBytes;
+  bool _accessLost = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final actor = ref.watch(currentAppUserProvider);
+    if (actor.asData != null &&
+        (actor.value?.uid != widget.actorUid ||
+            actor.value?.canViewReports != true)) {
+      _accessLost = true;
+    }
+    if (_accessLost ||
+        actor.isLoading ||
+        actor.hasError ||
+        actor.value?.uid != widget.actorUid ||
+        actor.value?.canViewReports != true) {
+      return BafScreenStateScaffold(
+        appBarTitle: 'Prepare report',
+        appBarSubtitle: 'Checking access to the selected information',
+        appBarIcon: Icons.picture_as_pdf_outlined,
+        accent: BafColors.maintenance,
+        state: actor.isLoading
+            ? const BafLoadingPanel(label: 'Checking report access')
+            : const BafStatePanel(
+                icon: Icons.lock_outline_rounded,
+                color: BafColors.danger,
+                title: 'Report access required',
+                message:
+                    'Close this preview and create a new report after signing in with approved report access.',
+              ),
+      );
+    }
+    // A document identity always refers to the initially prepared bytes.
+    // New live emissions require creating a new report, not changing this one.
+    if (_prepared != null) return _prepared!;
+    final source = ref.watch(
+      operationsReportProvider((
+        actorUid: widget.actorUid,
+        filter: widget.filter,
+      )),
+    );
+    final sourceReport = source.asData?.value;
+    final furnaceAssets = sourceReport == null
+        ? <AssetInstanceRecord>[]
+        : furnaceAssetsForOperationsReport(
+            assetClasses: sourceReport.sourceAssetClasses,
+            assets: sourceReport.sourceAssetInstances,
+            selectedAssetClassId: widget.filter.assetClassId,
+            selectedAssetInstanceId: widget.filter.assetInstanceId,
+          );
+    final needsBurner =
+        widget.request.sections.contains(
+          OperationsReportSection.burnerUvCondition,
+        ) &&
+        furnaceAssets.isNotEmpty;
+    final rounds =
+        needsBurner && source.hasValue && !source.hasError && !source.isLoading
+        ? ref.watch(
+            latestBurnerConditionRoundsProvider(
+              LatestBurnerConditionRoundsQuery(
+                actorUid: widget.actorUid,
+                assetInstanceIds: furnaceAssets.map((asset) => asset.id),
+              ),
+            ),
+          )
+        : const AsyncData<Map<String, BurnerConditionRound>>({});
+    if (source.hasError || rounds.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Prepare report',
+        appBarSubtitle: 'The selected information needs attention',
+        appBarIcon: Icons.picture_as_pdf_outlined,
+        accent: BafColors.maintenance,
+        title: 'Report could not be prepared',
+        message: '${source.error ?? rounds.error}',
+      );
+    }
+    if (source.isLoading || rounds.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Prepare report',
+        appBarSubtitle: 'Verifying the selected information',
+        appBarIcon: Icons.picture_as_pdf_outlined,
+        accent: BafColors.maintenance,
+        label: 'Preparing selected report sections',
+      );
+    }
+    final report = source.requireValue;
+    final assetClassLabel = _preparedClassLabel(report);
+    final assetLabel = _preparedAssetLabel(report);
+    // Authority placeholders dispose the preview subtree. Keep its single PDF
+    // future here so the same document identity still means the same bytes when
+    // this account's temporary access check completes.
+    _preparedBytes = OperationsReportPdfService.build(
+      report: report,
+      request: widget.request,
+      assetClassLabel: assetClassLabel,
+      assetLabel: assetLabel,
+      furnaceAssets: List.unmodifiable(furnaceAssets),
+      currentBurnerRounds: Map.fromEntries(
+        rounds.requireValue.entries.where(
+          (entry) => !entry.value.observedAt.isAfter(report.asOf),
+        ),
+      ),
+    );
+    _prepared = OperationsReportPdfPreviewScreen(
+      bytes: _preparedBytes!,
+      request: widget.request,
+      assetClassLabel: assetClassLabel,
+      assetLabel: assetLabel,
+    );
+    return _prepared!;
+  }
+}
+
+String _preparedClassLabel(OperationsReport report) {
+  final id = report.filter.assetClassId;
+  if (id == null) return 'All asset classes';
+  return report.sourceAssetClasses
+          .where((value) => value.id == id)
+          .firstOrNull
+          ?.name ??
+      'Selected asset class';
+}
+
+String _preparedAssetLabel(OperationsReport report) {
+  final id = report.filter.assetInstanceId;
+  if (id == null) return 'All assets in scope';
+  if (report.filter.subjectKind == OperationsReportSubjectKind.innerCover) {
+    final cover = report.innerCoverProfiles
+        .where((value) => value.id == id)
+        .firstOrNull;
+    return cover == null
+        ? 'Selected serial cover'
+        : 'Inner Cover ${cover.serialNumber}';
+  }
+  return report.sourceAssetInstances
+          .where((value) => value.id == id)
+          .firstOrNull
+          ?.name ??
+      'Selected asset';
+}
+
 class OperationsReportPdfPreviewScreen extends StatelessWidget {
   const OperationsReportPdfPreviewScreen({
     super.key,
-    required this.report,
+    required this.bytes,
     required this.request,
     required this.assetClassLabel,
     required this.assetLabel,
-    required this.furnaceAssets,
-    required this.currentBurnerRounds,
   });
 
-  final OperationsReport report;
+  final Future<Uint8List> bytes;
   final OperationsReportDocumentRequest request;
   final String assetClassLabel;
   final String assetLabel;
-  final List<AssetInstanceRecord> furnaceAssets;
-  final Map<String, BurnerConditionRound> currentBurnerRounds;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -78,14 +245,7 @@ class OperationsReportPdfPreviewScreen extends StatelessWidget {
       documentSubject: assetLabel.trim().isEmpty
           ? assetClassLabel
           : '$assetClassLabel / $assetLabel',
-      documentBuilder: (_) => OperationsReportPdfService.build(
-        report: report,
-        request: request,
-        assetClassLabel: assetClassLabel,
-        assetLabel: assetLabel,
-        furnaceAssets: furnaceAssets,
-        currentBurnerRounds: currentBurnerRounds,
-      ),
+      documentBuilder: (_) => bytes,
     ),
   );
 }

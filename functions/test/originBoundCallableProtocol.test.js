@@ -3,7 +3,7 @@ const {executeOriginBoundCallable} = require('../lib/originBoundCallableProtocol
 const names = [
   ['mutateChargeAbnormalityV2', 'request', ['chargeAbnormality.v2', 'qualityMonitoring.v1', 'qualityMonitoring.review.v1', 'savedSubmissionReview.v1']],
   ['assignPublishedTemplateVersionV2', 'request', ['publishedTemplateAssignment.v2', 'savedSubmissionReview.v1']],
-  ['mutateAssetHierarchyV2', 'request', ['assetHierarchy.v2', 'assetRegistry.durable.v1', 'ordinaryDirective.v1', 'innerCoverAcceptance.v1',
+  ['mutateAssetHierarchyV2', 'request', ['assetHierarchy.v2', 'operationalEventIntervalAmendment.v1', 'assetRegistry.durable.v1', 'ordinaryDirective.v1', 'innerCoverAcceptance.v1',
     'morningReviewExpectedPlantDay.v1', 'morningReviewReceiptLookup.v1', 'morningReviewRecoveryEvidence.v1', 'savedSubmissionReview.v1']],
   ['executeMaintenanceWorkflowCommandV2', 'command', ['maintenanceWorkflow.v2',
     'inspectionFindingExpectedVersion.v1', 'inspectionCampaignReopen.v1', 'maintenancePlanRevalidation.v1', 'inspectionTargetContextRevalidation.v1', 'savedSubmissionReview.v1']],

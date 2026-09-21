@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {OPERATIONAL_INTERVAL_AMENDMENTS, verifyOperationalIntervalHeads} from "./operationalEventIntervalAmendment";
 
 import {
   AssetHierarchyMutationError,
@@ -438,9 +439,13 @@ function validateScope(event: JsonMap, issue: IssueEvidence): void {
   );
 }
 
-function linkIdentity(eventId: string, startedAt: Date, issueId: string): string {
+// Occurrences are append-only: reopen appends the prior interval and starts
+// ordinal completedIntervals.length. Editable display time is not identity.
+// Existing link IDs remain stored and replayed verbatim; membership projections
+// prevent a second link to a legacy occurrence under this new identity scheme.
+function linkIdentity(eventId: string, occurrenceIndex: number, issueId: string): string {
   const digest = createHash("sha256")
-    .update(`${eventId}\n${startedAt.toISOString()}\n${issueId}`, "utf8")
+    .update(`${eventId}\noccurrence:${occurrenceIndex}\n${issueId}`, "utf8")
     .digest("hex");
   return `event_issue_${digest.slice(0, 48)}`;
 }
@@ -632,6 +637,10 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     const event = record(eventValue, "Operational event");
     const issue = record(issueValue, "Maintenance issue");
     const eventVersion = validateCurrentEvent(event, request.eventId);
+    await verifyOperationalIntervalHeads(event, async id => {
+      const retained = asSnapshot(await transaction.get(db.collection(OPERATIONAL_INTERVAL_AMENDMENTS).doc(id)), "Retained interval amendment");
+      return retained.exists ? retained.data() ?? null : null;
+    });
     if (!isOperationalEventEffective(event)) {
       throw new AssetHierarchyMutationError(
         "failed-precondition",
@@ -648,7 +657,8 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
         {reasonCode: "operational-event-link-occurrence-malformed"},
       );
     }
-    const linkId = linkIdentity(request.eventId, startedAt, request.issueId);
+    const occurrenceIndex = (event.completedIntervals as unknown[]).length;
+    const linkId = linkIdentity(request.eventId, occurrenceIndex, request.issueId);
     const linkRef = links.doc(linkId);
     const linkValue = asSnapshot(
       await transaction.get(linkRef),
@@ -732,6 +742,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       eventId: request.eventId,
       eventVersionAtLink: eventVersion,
       eventOccurrenceStartedAt: event.startedAt,
+      eventOccurrenceIndex: occurrenceIndex,
       eventType: event.eventType,
       eventTitle: event.title,
       eventSeverity: event.severity,
@@ -796,7 +807,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       committedAtIso: committed.toISOString(),
       evidenceDigest,
     };
-    transaction.set(eventRef as unknown as DocumentRefLike, {
+    const nextEvent = {
       ...event,
       issueLinkIds: nextEventLinkIds,
       linkedIssueIds: nextLinkedIssueIds,
@@ -805,7 +816,9 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       updatedByUid: actorUid,
       updatedByName: actorName(actorData),
       lastMutationId: request.requestId,
-    });
+    };
+    validateCurrentEvent(nextEvent, request.eventId);
+    transaction.set(eventRef as unknown as DocumentRefLike, nextEvent);
     transaction.set(issueRef as unknown as DocumentRefLike, {
       ...issue,
       operationalEventIssueLinkIds: nextIssueLinkIds,

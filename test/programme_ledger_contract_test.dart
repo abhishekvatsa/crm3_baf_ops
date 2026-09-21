@@ -699,7 +699,9 @@ void main() {
     );
     expect(a03Manifest['findingId'], 'A-03');
     expect(a03Manifest['inventoryDigest'], matches(RegExp(r'^[A-F0-9]{64}$')));
-    expect(_objects(a03Manifest['surfaces']), hasLength(77));
+    // Current source includes the reviewed knowledge import, UV correction and
+    // operational amendment boundaries; sealed closure counts above stay fixed.
+    expect(_objects(a03Manifest['surfaces']), hasLength(81));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');
@@ -760,10 +762,10 @@ void main() {
     // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      '7BB337CA301F9B5F45137A77B6334554E541172CB6C71EA92B46B066838EBFD3',
+      'FB9D4F566B48A9C17DB124F79BC5B83F7B3DF8B564018B494C32675BF6861CB9',
     );
     expect(_objects(a04Manifest['fields']), hasLength(55));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(110));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(119));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

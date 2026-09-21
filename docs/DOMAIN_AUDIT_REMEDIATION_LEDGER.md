@@ -333,3 +333,42 @@ See `REMAINING_FUNCTIONS_REMEDIATION_2026_09_20.md` for the finding-by-finding d
 ## Remaining domains 15–18 deep audit — 21 September 2026
 
 See `REMAINING_DOMAINS_DEEP_AUDIT_REMEDIATION_2026_09_21.md`. The supplied contract-model evidence was verified against the current working tree. Repaired planned replacement definition applicability, explicit correction of legacy installation dates, web guidance withdrawal/cache handling, exact accepted-content adoption, truthful saved-review eligibility, canonical monitoring report identity and report time basis. Actual-producer regressions confirm existing continuation-purge and permanent anti-resurrection controls. Single-row atomic audit publication already existed and is now exercised through the concrete controller. Off-device restoration, universal administrative recovery, catalogue edition/import manifests, report reproducibility/scale/privacy qualification and the retained Quality/Abnormality programme remain open. These source repairs do not certify deployment, an upgrade or a distributable artifact.
+
+
+## Audit follow-through and Kotlin scanning — 21 September 2026
+
+Current source checkpoint and verification are recorded in
+`AUDIT_CLOSURE_AND_KOTLIN_2026_09_21.md`; the older dated dispositions above remain
+historical evidence.
+
+- **D04-06, UV installation chronology:** a separate reviewed installation-date
+  correction now preserves the original event, binds its exact accepted audit,
+  recomputes the physical chronology and supports durable original-account
+  recovery. Earlier Burner correction work is retained. This closes the source
+  gap for date correction; deployed readers and device qualification are separate.
+- **D06-02 / D06-03:** new issue links use a stable completed-occurrence ordinal.
+  A reviewed closed-interval end amendment preserves the original interval and
+  existing link identities, with exact immutable evidence and recovery. This is
+  an end-time correction route. Withdrawal of an interval that never happened,
+  duplicate adjudication and changed start times are not claimed as implemented.
+- **K16 interrupted bulk import:** native durable intent and per-row outcomes
+  recover an accepted atomic revision after a lost response without inventing
+  success or overwriting a newer local draft. A multi-row import is still not an
+  atomic transaction or a certified catalogue edition.
+- **RP18 focused reports:** selected sections now select source subscriptions;
+  unrelated unavailable families do not block a focused report. Prepared bytes,
+  labels and registry membership remain fixed for a document identity. This does
+  not establish a common database cutoff, source-version certification, privacy
+  after external sharing, or measured production scale.
+- **Audit-tool integrity:** inventory coverage and timestamp transport admission
+  are hardened against three independently reproduced false-pass paths. Decoder
+  admission is still distinct from full parent/chain integrity.
+- **Kotlin:** actual traced native compilation and a method-body proof are now
+  required alongside the established language scans. Security setup migration
+  requires accepted analyses on the merged main commit; a preview is not its
+  completion.
+
+The next confirmed source defect is the unreachable review of a newer dirty
+maintenance draft after its original creation was accepted. The draft is
+preserved; the synced-only correction screen currently cannot review it.
+Broader remaining programmes listed in the linked checkpoint remain open.

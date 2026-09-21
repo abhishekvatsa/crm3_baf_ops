@@ -12,6 +12,10 @@ import '../data/operational_event_issue_link.dart';
 import '../services/operational_event_issue_link_service.dart';
 import '../services/operational_event_service.dart';
 
+final operationalEventFirestoreProvider = Provider<FirebaseFirestore>(
+  (ref) => FirebaseFirestore.instance,
+);
+
 const operationalEventLiveWindowLimit = 500;
 const operationalEventResolvedHistoryDisclosure =
     'Showing up to $operationalEventLiveWindowLimit most recently updated '
@@ -119,7 +123,8 @@ final operationalEventIssueLinksProvider = StreamProvider.autoDispose
     ) {
       _requireActorUid(scope.actorUid);
       return admitActorSessionSnapshots(
-        FirebaseFirestore.instance
+        ref
+            .watch(operationalEventFirestoreProvider)
             .collection('operational_event_issue_links')
             .where('eventId', isEqualTo: scope.eventId)
             .snapshots(includeMetadataChanges: true),
@@ -154,7 +159,8 @@ final operationalIssueEventLinksProvider = StreamProvider.autoDispose
     ) {
       _requireActorUid(scope.actorUid);
       return admitActorSessionSnapshots(
-        FirebaseFirestore.instance
+        ref
+            .watch(operationalEventFirestoreProvider)
             .collection('operational_event_issue_links')
             .where('issueId', isEqualTo: scope.issueId)
             .snapshots(includeMetadataChanges: true),
@@ -208,9 +214,9 @@ final operationalEventsProvider = StreamProvider.autoDispose
     .family<List<OperationalEvent>, String>((ref, actorUid) {
       _requireActorUid(actorUid);
       final cacheTrust = ref.watch(operationalEventCacheTrustProvider);
-      final events = FirebaseFirestore.instance.collection(
-        'operational_events',
-      );
+      final events = ref
+          .watch(operationalEventFirestoreProvider)
+          .collection('operational_events');
       final open =
           admitActorSessionSnapshots(
                 events
@@ -301,7 +307,8 @@ final operationalEventsForReportsProvider = StreamProvider.autoDispose
     .family<List<OperationalEvent>, String>((ref, actorUid) {
       _requireActorUid(actorUid);
       return admitActorSessionSnapshots(
-        FirebaseFirestore.instance
+        ref
+            .watch(operationalEventFirestoreProvider)
             .collection('operational_events')
             .snapshots(includeMetadataChanges: true),
         trust: ref.watch(operationalEventCacheTrustProvider),

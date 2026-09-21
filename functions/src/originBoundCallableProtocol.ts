@@ -21,7 +21,7 @@ const CONTRACTS = Object.freeze({
     payloadKey: "request",
     capabilityRevision: "assetHierarchy.v2.20260913",
     capabilities: Object.freeze([
-      "assetHierarchy.v2", "assetRegistry.durable.v1", "ordinaryDirective.v1", "innerCoverAcceptance.v1",
+      "assetHierarchy.v2", "operationalEventIntervalAmendment.v1", "assetRegistry.durable.v1", "ordinaryDirective.v1", "innerCoverAcceptance.v1",
       "morningReviewExpectedPlantDay.v1", "morningReviewReceiptLookup.v1",
       "morningReviewRecoveryEvidence.v1",
       "savedSubmissionReview.v1",

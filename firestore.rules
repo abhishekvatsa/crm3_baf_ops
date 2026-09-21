@@ -4211,6 +4211,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /uv_detector_lifecycle_corrections/{docId} {
+      allow read: if isAdminOrSI();
+      allow write: if false;
+    }
+
     match /uv_detector_lifecycle_events/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;
@@ -4265,6 +4270,11 @@ service cloud.firestore {
     match /operational_events/{docId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if false;
+    }
+
+    match /operational_event_interval_amendments/{docId} {
+      allow read: if isAdminOrSI();
+      allow write: if false;
     }
 
     match /operational_event_audits/{docId} {
@@ -4687,7 +4697,28 @@ service cloud.firestore {
     match /audit_logs/{docId} {
       allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit()
         || (isTemplateGovernor() && resource.data.get('entityType', null) == 'knowledge_base');
-      allow get: if canGetOwnWorkflowModuleReopenAudit(docId);
+      allow get: if canGetOwnWorkflowModuleReopenAudit(docId)
+        // Supervisory correction readback verifies one retained server audit.
+        // This adds no list access or permission to inspect an absent record.
+        || (isAdminOrSI()
+          && resource.data.get('schemaVersion', null) == 2
+          && resource.data.get('auditId', null) == docId
+          && resource.data.get('requestId', null) is string
+          && resource.data.get('requestId', '').size() > 0
+          && docId == 'server_uv_detector_correction_' + resource.data.requestId
+          && resource.data.get('entityType', null) == 'uvDetectorInstallationCorrection'
+          && resource.data.get('entityId', null) is string
+          && resource.data.get('entityId', '').size() > 0
+          && resource.data.get('action', null) == 'update'
+          && resource.data.get('operation', null) == 'correctUvDetectorInstallation'
+          && resource.data.get('resultVersion', null) == 1)
+        // A governor checks this exact immutable revision before an import
+        // transaction. Absence is readable; a pre-existing unrelated audit is
+        // never exposed merely because its ID occupies the reserved namespace.
+        || (isTemplateGovernor()
+          && docId.matches('^knowledge_revision_[A-Za-z0-9._-]{2,64}_[1-9][0-9]*$')
+          && (!exists(/databases/$(database)/documents/audit_logs/$(docId))
+            || resource.data.get('entityType', null) == 'knowledge_base'));
       // Every server-owned audit identity shares this namespace. Keeping the
       // reservation generic also protects future server audit operations.
       allow create: if !docId.matches('^server_.*')

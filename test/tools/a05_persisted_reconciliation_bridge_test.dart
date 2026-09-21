@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tools/v4/a05_persisted_reconciliation_bridge.dart';
+import '../uv_detector_installation_correction_test.dart' as uv;
+import '../../tool/test_support/operational_event_amendment_fixtures.dart'
+    as operational;
 
 void main() {
   test(
@@ -66,6 +69,120 @@ void main() {
       ]);
       expect(jsonEncode(result), isNot(contains('reviewer-a')));
       expect(jsonEncode(result), isNot(contains('furnace-a')));
+    },
+  );
+
+  test('UV and operational correction evidence uses the exact app readers', () {
+    final review = operational.amendmentReview();
+    final operationalData = operational.amendmentEvidence({
+      'requestId': operational.amendmentId,
+      'eventId': operational.amendmentEventId,
+      'expectedVersion': 3,
+      'reason': 'Verified restoration.',
+      'intervalAmendment': {
+        'occurrenceIndex': 0,
+        'expectedEffectiveResolvedAt': operational
+            .amendmentTime(12)
+            .toIso8601String(),
+        'correctedResolvedAt': operational.amendmentTime(11).toIso8601String(),
+        'supersedesAmendmentId': null,
+      },
+    }, review.originalIntervalJson);
+    for (final specimen in [
+      (
+        collection: 'uv_detector_lifecycle_corrections',
+        id: 'uv-correction',
+        data: uv.correction('uv-correction'),
+        corruptField: 'correctedByUid',
+      ),
+      (
+        collection: 'operational_event_interval_amendments',
+        id: operational.amendmentId,
+        data: operationalData,
+        corruptField: 'reason',
+      ),
+    ]) {
+      final result = reconcileA05Envelope({
+        'records': [
+          {
+            'collection': specimen.collection,
+            'subjectPseudonym': 'valid',
+            'documentId': specimen.id,
+            'data': specimen.data,
+          },
+          {
+            'collection': specimen.collection,
+            'subjectPseudonym': 'invalid',
+            'documentId': specimen.id,
+            'data': {...specimen.data, specimen.corruptField: null},
+          },
+        ],
+      });
+      final rows = (result['results'] as List).cast<Map>();
+      expect(rows[0]['result'], 'PASS', reason: specimen.collection);
+      expect(rows[1]['result'], 'FAIL', reason: specimen.collection);
+      expect(rows[1]['errorType'], isNot('UNSUPPORTED_COLLECTION'));
+      expect(jsonEncode(result), isNot(contains('admin-a')));
+      expect(jsonEncode(result), isNot(contains('furnace-a')));
+    }
+  });
+
+  test(
+    'malformed tagged transport cannot be admitted as correction evidence',
+    () {
+      final timestamp = <String, Object?>{
+        '__a05FirestoreType': 'timestamp',
+        'seconds': DateTime.utc(2026, 9, 17, 10).millisecondsSinceEpoch ~/ 1000,
+        'nanoseconds': 0,
+      };
+      final malformed = <Object?>[
+        {...timestamp, 'unreviewed': true},
+        {...timestamp, 'nanoseconds': '0'},
+        {
+          '__a05FirestoreType': 'nonFiniteNumber',
+          'value': 'NaN',
+          'extra': true,
+        },
+        {'__a05FirestoreType': 'map', 'entries': {}},
+        {
+          '__a05FirestoreType': 'map',
+          'entries': [
+            ['same', 1],
+            ['same', 2],
+          ],
+        },
+        {
+          '__a05FirestoreType': 'map',
+          'entries': [
+            ['key', 1, 2],
+          ],
+        },
+        {'__a05FirestoreType': 'unknown'},
+      ];
+      final result = reconcileA05Envelope({
+        'records': [
+          for (var index = 0; index < malformed.length; index++)
+            {
+              'collection': 'uv_detector_lifecycle_corrections',
+              'subjectPseudonym': 'malformed-$index',
+              'documentId': 'uv-correction',
+              'data': {
+                ...uv.correction('uv-correction'),
+                'correctedActionPerformedAt': malformed[index],
+              },
+            },
+        ],
+      });
+      final rows = (result['results'] as List).cast<Map>();
+      expect(rows, hasLength(malformed.length));
+      for (final row in rows) {
+        expect(
+          row['result'],
+          'FAIL',
+          reason: row['subjectPseudonym'] as String,
+        );
+        expect(row['errorType'], 'DECODER_REJECTION');
+      }
     },
   );
 

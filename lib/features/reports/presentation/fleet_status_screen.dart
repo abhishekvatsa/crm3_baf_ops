@@ -10,9 +10,7 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
-import '../../assets/data/burner_condition_round.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
-import '../../assets/providers/burner_condition_round_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../assets/presentation/asset_condition_board.dart';
 import '../../abnormalities/presentation/abnormalities_home_screen.dart';
@@ -38,6 +36,7 @@ import '../../planned_maintenance/presentation/templates_screen.dart';
 import '../../quality/presentation/quality_home_screen.dart';
 import '../../quality/providers/quality_provider.dart';
 import '../domain/operations_report_document.dart';
+import '../domain/operations_report_query_plan.dart';
 import '../domain/operations_report_asset_inventory.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
@@ -93,7 +92,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       );
     }
     final actor = actorAsync.value;
-    if (actor == null || !actor.isApproved) {
+    if (actor == null || !actor.canViewReports) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Operations report',
         appBarSubtitle: 'Asset health, work and failure performance',
@@ -163,20 +162,17 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     );
     final reportScope = (actorUid: actor.uid, filter: filter);
     final reportAsync = ref.watch(operationsReportProvider(reportScope));
-    final readyReport = reportAsync.asData?.value;
-    final createPdfReport = readyReport == null
-        ? null
-        : () => _createPdfReport(
-            report: readyReport,
-            actorUid: actor.uid,
-            actorName: actor.name,
-            actorEmail: actor.email,
-            initialPreset: _recommendedReportPreset(actor),
-            classes: classes,
-            assets: assets,
-            innerCovers: innerCovers,
-            selection: selection,
-          );
+    Future<void> createPdfReport() => _createPdfReport(
+      filter: filter,
+      actorUid: actor.uid,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      initialPreset: _recommendedReportPreset(actor),
+      classes: classes,
+      assets: assets,
+      innerCovers: innerCovers,
+      selection: selection,
+    );
 
     return Scaffold(
       backgroundColor: BafColors.background,

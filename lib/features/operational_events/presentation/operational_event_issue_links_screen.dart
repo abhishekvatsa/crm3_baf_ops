@@ -104,16 +104,21 @@ class _OperationalEventIssueLinksScreenState
         data: (records) {
           final current = records
               .where(
-                (link) => link.eventOccurrenceStartedAt.isAtSameMomentAs(
-                  event.startedAt,
-                ),
+                (link) =>
+                    operationalEventLinkOccurrenceIndex(event, link) ==
+                    event.currentOccurrenceIndex,
               )
               .toList(growable: false);
           final prior = records
+              .where((link) {
+                final index = operationalEventLinkOccurrenceIndex(event, link);
+                return index != null && index < event.currentOccurrenceIndex;
+              })
+              .toList(growable: false);
+          final unassigned = records
               .where(
-                (link) => !link.eventOccurrenceStartedAt.isAtSameMomentAs(
-                  event.startedAt,
-                ),
+                (link) =>
+                    operationalEventLinkOccurrenceIndex(event, link) == null,
               )
               .toList(growable: false);
           final expectedLinkIds = <String>{
@@ -178,6 +183,17 @@ class _OperationalEventIssueLinksScreenState
                   _IssueLinkCard(link: link),
                   const SizedBox(height: 10),
                 ],
+              if (unassigned.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const _SectionTitle(
+                  title: 'Occurrence membership needs review',
+                  icon: Icons.warning_amber_rounded,
+                ),
+                for (final link in unassigned) ...[
+                  _IssueLinkCard(link: link, showOccurrence: true),
+                  const SizedBox(height: 10),
+                ],
+              ],
               if (prior.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 const _SectionTitle(
@@ -229,10 +245,12 @@ class _OperationalEventIssueLinksScreenState
     final currentIssueIds = existing
         .where(
           (link) =>
-              link.eventOccurrenceStartedAt.isAtSameMomentAs(event.startedAt),
+              operationalEventLinkOccurrenceIndex(event, link) ==
+              event.currentOccurrenceIndex,
         )
         .map((link) => link.issueId)
         .toSet();
+    currentIssueIds.addAll(event.linkedIssueIds);
     final eligible = tickets
         .where(
           (ticket) =>

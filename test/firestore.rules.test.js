@@ -5957,6 +5957,86 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
   });
 
+  test("UV correction history is readable only by approved Admin or SI and never client-writable", async () => {
+    await seedUser("correctionAdmin", ["admin"]);
+    await seedUser("correctionSi", ["si"]);
+    await seedUser("correctionOps", ["operations"]);
+    await seedUser("correctionPending", ["si"], false);
+    const path = "uv_detector_lifecycle_corrections/correction-1";
+    await seedDoc(path, {correctionId: "correction-1", correctsEventId: "event-1"});
+    for (const uid of ["correctionAdmin", "correctionSi"]) {
+      await assertSucceeds(getDoc(doc(dbAs(uid), path)));
+      await assertSucceeds(getDocs(query(collection(dbAs(uid), "uv_detector_lifecycle_corrections"),
+        where("correctsEventId", "==", "event-1"))));
+      await assertFails(updateDoc(doc(dbAs(uid), path), {reason: "rewrite"}));
+      await assertFails(deleteDoc(doc(dbAs(uid), path)));
+      await assertFails(setDoc(doc(dbAs(uid), "uv_detector_lifecycle_corrections/new"), {correctsEventId: "event-1"}));
+    }
+    for (const uid of ["correctionOps", "correctionPending"]) {
+      await assertFails(getDoc(doc(dbAs(uid), path)));
+      await assertFails(getDocs(query(collection(dbAs(uid), "uv_detector_lifecycle_corrections"),
+        where("correctsEventId", "==", "event-1"))));
+    }
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
+  });
+
+  test("UV correction audit point read binds reserved identity and preserves SI list denial", async () => {
+    await seedUser("uvAuditAdmin", ["admin"]);
+    await seedUser("uvAuditSi", ["si"]);
+    await seedUser("uvAuditOps", ["operations"]);
+    await seedUser("uvAuditPending", ["si"], false);
+    const id = "server_uv_detector_correction_review-1";
+    const path = `audit_logs/${id}`;
+    const valid = {schemaVersion: 2, auditId: id, requestId: "review-1",
+      entityType: "uvDetectorInstallationCorrection", entityId: "correction-1",
+      action: "update", operation: "correctUvDetectorInstallation", resultVersion: 1};
+    await seedDoc(path, valid);
+    await assertSucceeds(getDoc(doc(dbAs("uvAuditAdmin"), path)));
+    await assertSucceeds(getDoc(doc(dbAs("uvAuditSi"), path)));
+    for (const uid of ["uvAuditOps", "uvAuditPending"]) {
+      await assertFails(getDoc(doc(dbAs(uid), path)));
+    }
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
+    await assertFails(getDoc(doc(dbAs("uvAuditSi"), "audit_logs/server_uv_detector_correction_absent")));
+    await assertFails(getDocs(query(collection(dbAs("uvAuditSi"), "audit_logs"),
+      where("entityType", "==", "uvDetectorInstallationCorrection"))));
+    for (const [field, value] of Object.entries({schemaVersion: 1, auditId: "other",
+      requestId: "other", entityType: "unrelated", entityId: "", action: "create",
+      operation: "other", resultVersion: 2})) {
+      await seedDoc(path, {...valid, [field]: value});
+      await assertFails(getDoc(doc(dbAs("uvAuditSi"), path)));
+    }
+    await seedDoc(path, valid);
+    for (const uid of ["uvAuditAdmin", "uvAuditSi"]) {
+      await assertFails(updateDoc(doc(dbAs(uid), path), {reasonNotes: "rewrite"}));
+      await assertFails(deleteDoc(doc(dbAs(uid), path)));
+      await assertFails(setDoc(doc(dbAs(uid), "audit_logs/server_uv_detector_correction_new"), valid));
+    }
+  });
+
+  test("Operational interval amendment history is readable only by approved Admin or SI and never client-writable", async () => {
+    await seedUser("correctionAdmin", ["admin"]);
+    await seedUser("correctionSi", ["si"]);
+    await seedUser("correctionOps", ["operations"]);
+    await seedUser("correctionPending", ["si"], false);
+    const path = "operational_event_interval_amendments/correction-1";
+    await seedDoc(path, {amendmentId: "correction-1", eventId: "event-1"});
+    for (const uid of ["correctionAdmin", "correctionSi"]) {
+      await assertSucceeds(getDoc(doc(dbAs(uid), path)));
+      await assertSucceeds(getDocs(query(collection(dbAs(uid), "operational_event_interval_amendments"),
+        where("eventId", "==", "event-1"))));
+      await assertFails(updateDoc(doc(dbAs(uid), path), {reason: "rewrite"}));
+      await assertFails(deleteDoc(doc(dbAs(uid), path)));
+      await assertFails(setDoc(doc(dbAs(uid), "operational_event_interval_amendments/new"), {eventId: "event-1"}));
+    }
+    for (const uid of ["correctionOps", "correctionPending"]) {
+      await assertFails(getDoc(doc(dbAs(uid), path)));
+      await assertFails(getDocs(query(collection(dbAs(uid), "operational_event_interval_amendments"),
+        where("eventId", "==", "event-1"))));
+    }
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
+  });
+
   test("burner rounds and component lifecycles are approved-readable and immutable", async () => {
     await seedUser("burnerPending", ["operations"], false);
     await seedDoc("burner_condition_rounds/round-1", {

@@ -9,13 +9,18 @@ import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/baf_knowledge_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/remote_baf_knowledge_reader.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_layer.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/knowledge_governance_models.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/knowledge_governance_export.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/knowledge_import_journal.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/repositories/knowledge_import_journal_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/knowledge_revision_settlement.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/knowledge_governance_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart' hide Query;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 
@@ -27,6 +32,8 @@ void main() {
   late Directory directory;
   late BafKnowledgeRepository repository;
   late KnowledgeGovernanceController controller;
+  late KnowledgeImportJournalRepository journal;
+  AppUser? currentActor;
   final actor = AppUser(
     uid: 'admin',
     name: 'Administrator',
@@ -36,6 +43,9 @@ void main() {
     createdAt: DateTime.utc(2026),
   );
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    currentActor = actor;
+    journal = KnowledgeImportJournalRepository();
     directory = await Directory.systemTemp.createTemp('knowledge_governance_');
     db = await Isar.open(
       [
@@ -52,6 +62,8 @@ void main() {
     controller = KnowledgeGovernanceController(
       firestore: cloud,
       knowledgeRepository: repository,
+      importJournal: journal,
+      currentActor: () => currentActor,
     );
   });
   tearDown(() async {
@@ -282,6 +294,368 @@ void main() {
       expect(cloud.commits, hasLength(1));
     },
   );
+
+  test(
+    'lost import response resumes original atomic revision after controller restart',
+    () async {
+      cloud.afterCommit = () async => throw StateError('response lost');
+      final result = await controller.applyImport(
+        summary: _summary([_draft()]),
+        actor: actor,
+      );
+      expect(result.pending, 1);
+      final retained = (await journal.readAll()).single;
+      expect(
+        retained.outcomes.values.single.state,
+        KnowledgeImportOutcomeState.pending,
+      );
+      cloud.afterCommit = null;
+      final restarted = KnowledgeGovernanceController(
+        firestore: cloud,
+        knowledgeRepository: repository,
+        importJournal: KnowledgeImportJournalRepository(),
+        currentActor: () => currentActor,
+      );
+      final resumed = await restarted.resumeImport(
+        importId: retained.intent.requestId,
+        actor: actor,
+      );
+      expect(resumed.applied, 1);
+      expect(resumed.writes.single.versionAfter, 1);
+      expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(1));
+      expect((await journal.readAll()).single.needsRecovery, isFalse);
+    },
+  );
+
+  test(
+    'all row drafts freeze before the first transaction and outcome persistence precedes next row',
+    () async {
+      final first = _draft();
+      final second = _draft()..rowCode = 'SECOND-IMPORT';
+      cloud.afterCommit = () async {
+        if (cloud.commits.length == 1) {
+          second.taskText = 'Changed editor text after dispatch';
+          final saved = (await journal.readAll()).single;
+          expect(saved.intent.rows, hasLength(2));
+          expect(
+            saved.intent.rows.last.draft.taskText,
+            'New accepted governed instruction',
+          );
+        } else if (cloud.commits.length == 2) {
+          expect(
+            (await journal.readAll()).single.outcomes[first.rowCode]?.state,
+            KnowledgeImportOutcomeState.accepted,
+          );
+        }
+      };
+      final result = await controller.applyImport(
+        summary: _summary([first, second]),
+        actor: actor,
+      );
+      expect(result.applied, 2);
+      expect(
+        cloud.rows[second.rowCode]!['taskText'],
+        'New accepted governed instruction',
+      );
+    },
+  );
+
+  test('journal failure before dispatch sends nothing', () async {
+    controller = KnowledgeGovernanceController(
+      firestore: cloud,
+      knowledgeRepository: repository,
+      importJournal: _FailingImportJournal(failRetain: true),
+      currentActor: () => currentActor,
+    );
+    await expectLater(
+      controller.applyImport(summary: _summary([_draft()]), actor: actor),
+      throwsStateError,
+    );
+    expect(cloud.commits, isEmpty);
+  });
+
+  test(
+    'outcome persistence failure stops batch and restart checks first audit before sending remaining rows',
+    () async {
+      controller = KnowledgeGovernanceController(
+        firestore: cloud,
+        knowledgeRepository: repository,
+        importJournal: _FailingImportJournal(failRetain: false),
+        currentActor: () => currentActor,
+      );
+      final second = _draft()..rowCode = 'SECOND-IMPORT';
+      await expectLater(
+        controller.applyImport(
+          summary: _summary([_draft(), second]),
+          actor: actor,
+        ),
+        throwsStateError,
+      );
+      expect(cloud.rows, hasLength(1));
+      final saved = (await journal.readAll()).single;
+      expect(saved.outcomes, isEmpty);
+      controller = KnowledgeGovernanceController(
+        firestore: cloud,
+        knowledgeRepository: repository,
+        importJournal: journal,
+        currentActor: () => currentActor,
+      );
+      final resumed = await controller.resumeImport(
+        importId: saved.intent.requestId,
+        actor: actor,
+      );
+      expect(resumed.applied, 2);
+      expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(2));
+      expect(cloud.rows.values.every((row) => row['version'] == 1), isTrue);
+    },
+  );
+
+  test(
+    'actor switch pauses original batch and another administrator cannot resume',
+    () async {
+      final other = AppUser(
+        uid: 'other-admin',
+        name: 'Other',
+        email: 'other@test.invalid',
+        roles: [AppRole.admin],
+        isApproved: true,
+        createdAt: DateTime.utc(2026),
+      );
+      cloud.afterCommit = () async => currentActor = other;
+      final second = _draft()..rowCode = 'SECOND-IMPORT';
+      await controller.applyImport(
+        summary: _summary([_draft(), second]),
+        actor: actor,
+      );
+      expect(cloud.rows, hasLength(1));
+      final saved = (await journal.readAll()).single;
+      await expectLater(
+        controller.resumeImport(importId: saved.intent.requestId, actor: other),
+        throwsA(isA<KnowledgeGovernanceException>()),
+      );
+      expect(cloud.rows, hasLength(1));
+      currentActor = actor;
+      cloud.afterCommit = null;
+      await controller.resumeImport(
+        importId: saved.intent.requestId,
+        actor: actor,
+      );
+      expect(cloud.rows, hasLength(2));
+      expect(
+        cloud.documents.values
+            .where((row) => row['entityType'] == 'knowledge_base')
+            .every((row) => row['performedByUid'] == actor.uid),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'accepted import replay preserves later cloud revision and newer unsent local draft',
+    () async {
+      cloud.afterCommit = () async => throw StateError('response lost');
+      await controller.applyImport(summary: _summary([_draft()]), actor: actor);
+      final saved = (await journal.readAll()).single;
+      cloud.afterCommit = null;
+      final dirty = _row()
+        ..version = 3
+        ..isSynced = false
+        ..taskText = 'New local draft';
+      await db.writeTxn(() => db.bafKnowledgeRows.put(dirty));
+      cloud.rows[dirty.rowCode]!['version'] = 2;
+      cloud.rows[dirty.rowCode]!['taskText'] = 'Later cloud revision';
+      final resumed = await controller.resumeImport(
+        importId: saved.intent.requestId,
+        actor: actor,
+      );
+      expect(resumed.writes.single.versionAfter, 1);
+      expect(resumed.writes.single.adoption, KnowledgeRevisionAdoption.pending);
+      expect(cloud.rows[dirty.rowCode]!['version'], 2);
+      expect(
+        (await repository.getAllLocalRows()).single.taskText,
+        'New local draft',
+      );
+      expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(1));
+    },
+  );
+
+  test(
+    'different audit content never authorizes a duplicate import revision',
+    () async {
+      cloud.afterCommit = () async => throw StateError('response lost');
+      await controller.applyImport(summary: _summary([_draft()]), actor: actor);
+      final saved = (await journal.readAll()).single;
+      cloud.afterCommit = null;
+      final audit =
+          cloud.documents['audit_logs/${saved.intent.rows.single.auditId}']!;
+      audit['performedByUid'] = 'another-actor';
+      final resumed = await controller.resumeImport(
+        importId: saved.intent.requestId,
+        actor: actor,
+      );
+      expect(resumed.rejectedAtSave, 1);
+      expect(resumed.applied, 0);
+      expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(1));
+    },
+  );
+
+  test(
+    'reviewed update baseline is retained and refuses a changed cloud pre-image',
+    () async {
+      final before = _row();
+      cloud.rows[before.rowCode] = before.toCloudMap();
+      await repository.pullCloudToLocal();
+      final reviewed = (await repository.getAllLocalRows()).single;
+      cloud.rows[before.rowCode]!['taskText'] =
+          'Unreviewed cloud edit at same version';
+      final result = await controller.applyImport(
+        summary: _summary([_draft()], before: reviewed),
+        actor: actor,
+      );
+      expect(result.rejectedAtSave, 1);
+      expect(cloud.commits, isEmpty);
+      expect(
+        (await journal.readAll()).single.intent.rows.single.before!.taskText,
+        reviewed.taskText,
+      );
+    },
+  );
+
+  test(
+    'lost update response replays its exact timestamped audit after the actor is renamed',
+    () async {
+      final before = _row();
+      cloud.rows[before.rowCode] = before.toCloudMap();
+      await repository.pullCloudToLocal();
+      final reviewed = (await repository.getAllLocalRows()).single;
+      cloud.afterCommit = () async => throw StateError('reply lost');
+      await controller.applyImport(
+        summary: _summary([_draft()], before: reviewed),
+        actor: actor,
+      );
+      final saved = (await journal.readAll()).single;
+      final audit =
+          cloud.documents['audit_logs/${saved.intent.rows.single.auditId}']!;
+      audit['timestamp'] = Timestamp.fromDate(DateTime.utc(2026, 9, 20));
+      cloud.afterCommit = null;
+      currentActor = actor.copyWith(name: 'Renamed administrator');
+      final result = await controller.resumeImport(
+        importId: saved.intent.requestId,
+        actor: currentActor!,
+      );
+      expect(result.applied, 1);
+      expect(result.writes.single.versionAfter, 2);
+      expect(
+        result.writes.single.performedAt.toUtc(),
+        DateTime.utc(2026, 9, 20),
+      );
+      expect(cloud.rows[before.rowCode]!['version'], 2);
+      expect(audit['performedByName'], actor.name);
+      expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(1));
+    },
+  );
+
+  for (final changedField in ['beforeJson', 'afterJson', 'reasonNotes']) {
+    test(
+      'changed $changedField cannot satisfy a retained import audit',
+      () async {
+        cloud.afterCommit = () async => throw StateError('reply lost');
+        await controller.applyImport(
+          summary: _summary([_draft()]),
+          actor: actor,
+        );
+        final saved = (await journal.readAll()).single;
+        final audit =
+            cloud.documents['audit_logs/${saved.intent.rows.single.auditId}']!;
+        audit[changedField] = changedField == 'reasonNotes'
+            ? 'Different reason'
+            : '{"different":true}';
+        cloud.afterCommit = null;
+        final result = await controller.resumeImport(
+          importId: saved.intent.requestId,
+          actor: actor,
+        );
+        expect(result.rejectedAtSave, 1);
+        expect(result.applied, 0);
+        expect(cloud.commits.where((value) => value.isNotEmpty), hasLength(1));
+      },
+    );
+  }
+
+  test(
+    'parser freezes full reviewed pre-image before later local object changes',
+    () async {
+      final reviewed = _row();
+      cloud.rows[reviewed.rowCode] = reviewed.toCloudMap();
+      final draft = _draft();
+      final summary = KnowledgeGovernanceExport.parse(
+        body: jsonEncode([
+          {...draft.toEntryMap(), 'changeSummary': draft.changeSummary},
+        ]),
+        format: KnowledgeBundleFormat.json,
+        existingRowsByCode: {reviewed.rowCode: reviewed},
+      );
+      expect(summary.accepted, hasLength(1));
+      expect(summary.accepted.single.sourceCloudJson, isNotNull);
+      final originalText = reviewed.taskText;
+      reviewed.taskText = 'Local object changed after review';
+      final result = await controller.applyImport(
+        summary: summary,
+        actor: actor,
+      );
+      expect(result.applied, 1);
+      expect(
+        (await journal.readAll()).single.intent.rows.single.before!.taskText,
+        originalText,
+      );
+      expect(cloud.rows[reviewed.rowCode]!['version'], 2);
+    },
+  );
+}
+
+KnowledgeImportSummary _summary(
+  List<KnowledgeRowDraft> drafts, {
+  BafKnowledgeRow? before,
+}) => KnowledgeImportSummary(
+  rowsConsidered: drafts.length,
+  rowsAccepted: drafts.length,
+  rowsRejected: 0,
+  rejected: const [],
+  accepted: [
+    for (final draft in drafts)
+      KnowledgeImportRowResult(
+        rowCode: draft.rowCode,
+        accepted: true,
+        messages: const [],
+        draft: draft,
+        sourceVersion: before?.version,
+        sourceEntryJson: before == null
+            ? null
+            : jsonEncode(before.toEntryMap()),
+        sourceCloudJson: before == null
+            ? null
+            : jsonEncode(
+                strictJsonSafeBafKnowledgeMap(
+                  before.toCloudMap(),
+                  source: 'test reviewed import',
+                ),
+              ),
+      ),
+  ],
+);
+
+class _FailingImportJournal extends KnowledgeImportJournalRepository {
+  final bool failRetain;
+  _FailingImportJournal({required this.failRetain});
+  @override
+  Future<KnowledgeImportIntent> retain(KnowledgeImportIntent intent) =>
+      failRetain
+      ? Future.error(StateError('disk unavailable'))
+      : super.retain(intent);
+  @override
+  Future<void> recordOutcome(KnowledgeImportOutcome outcome) async {
+    throw StateError('disk unavailable after commit');
+  }
 }
 
 BafKnowledgeRow _row() => BafKnowledgeRow.fromEntry(

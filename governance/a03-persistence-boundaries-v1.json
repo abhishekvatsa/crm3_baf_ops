@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "D07DA8DEB4E167358DFADA0E2C5C0EAB8D0220AECE8C8EA2023356DE3D52D5AE",
+  "inventoryDigest": "319280FA616F5B908EEB62129C75A3F834353BDA56A5DCABB8C478C9E766DFF4",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -52,6 +52,24 @@
       "authorityBoundary": "Approved Admin/SI admission is checked by the correction UI and command service; Firestore Rules independently restrict original-event, correction-chain and current-installation reads. Stored correction data grants no role or write authority.",
       "offlineSemantics": "Requires Source.server and rejects cached or pending-write snapshots. Missing or conflicting original, complete predecessor chain, accepted correction or current evidence remains unconfirmed; no offline snapshot is adopted as server acceptance.",
       "transactionOwnership": "Owns read-only Firestore queries and strict typed decoding. The native durable journal owns local request settlement; the backend workflow transaction alone creates corrections, audits and rebuilt current projections."
+    },
+    "uv-correction-server-read": {
+      "layer": "repository",
+      "authorityBoundary": "Approved Admin/SI reads server-confirmed immutable installation, correction and audit evidence; full request and original physical subject remain bound before local acknowledgement. Firestore Rules remain final authority.",
+      "offlineSemantics": "No cached success or offline correction; preserve the original native command while remote evidence cannot be confirmed.",
+      "transactionOwnership": "Read-only repository; server workflow transaction owns the immutable correction, audit, receipt and effective projection."
+    },
+    "operational-amendment-server-read": {
+      "layer": "repository",
+      "authorityBoundary": "Approved Admin/SI reviews a closed occurrence and confirms its immutable amendment against the saved original-account request and complete evidence digest. Stored metadata does not grant authority.",
+      "offlineSemantics": "Server-confirmed review and readback required; inaccessible, stale or conflicting evidence keeps the original command available for recovery.",
+      "transactionOwnership": "Read-only repository; server callable owns the atomic interval overlay, immutable amendment, audit and request receipt."
+    },
+    "governed-correction-composition": {
+      "layer": "provider-composition",
+      "authorityBoundary": "Composes server-read repositories and callable adapters for correction services. The service requires current Admin/SI and the retained original actor, and the backend rechecks authority; provider construction grants no mutation authority.",
+      "offlineSemantics": "Reads are server-confirmed. Callable dispatch occurs only through a retained native command; uncertain results remain recoverable instead of being treated as acceptance.",
+      "transactionOwnership": "Provider owns no direct business write or transaction. The durable service owns dispatch/settlement; backend owns atomic correction and evidence writes."
     }
   },
   "surfaces": [
@@ -1145,6 +1163,67 @@
       ],
       "regressionTests": [
         "test/online_access_gate_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/providers/uv_detector_correction_provider.dart",
+      "profile": "governed-correction-composition",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/uv_detector_correction_command_service_test.dart",
+        "test/firestore.rules.test.js"
+      ]
+    },
+    {
+      "path": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+      "profile": "uv-correction-server-read",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/uv_detector_installation_correction_test.dart",
+        "test/uv_detector_correction_command_service_test.dart",
+        "test/firestore.rules.test.js"
+      ]
+    },
+    {
+      "path": "lib/features/operational_events/providers/operational_event_amendment_provider.dart",
+      "profile": "governed-correction-composition",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/operational_event_interval_amendment_test.dart",
+        "test/firestore.rules.test.js"
+      ]
+    },
+    {
+      "path": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+      "profile": "operational-amendment-server-read",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/operational_event_interval_amendment_test.dart",
+        "test/firestore.rules.test.js"
       ]
     }
   ]

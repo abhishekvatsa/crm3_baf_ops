@@ -39,6 +39,7 @@ import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../../quality/data/quality_warning.dart';
 import '../../quality/providers/quality_provider.dart';
 import '../domain/operations_report_asset_inventory.dart';
+import '../domain/operations_report_query_plan.dart';
 import '../models/operations_report.dart';
 
 export '../../../core/providers/operations_report_clock_provider.dart';
@@ -153,42 +154,72 @@ final operationsReportProvider = Provider.autoDispose
         );
       }
       final filter = scope.filter;
+      final plan = filter.queryPlan;
       final periodScope = (
         actorUid: scope.actorUid,
         startInclusive: filter.startInclusive,
         endExclusive: filter.endExclusive,
       );
-      final tickets = ref.watch(operationsReportTicketsProvider(periodScope));
-      final executions = ref.watch(
-        operationsReportExecutionsProvider(periodScope),
-      );
-      final executionBatch = ref.watch(
-        operationsReportExecutionBatchProvider(periodScope),
-      );
-      final events = ref.watch(
-        operationalEventsForReportsProvider(scope.actorUid),
-      );
-      final dueStates = ref.watch(maintenanceDueStatesProvider);
-      final inspectionFindings = ref.watch(allInspectionFindingsProvider);
-      final qualityWarnings = ref.watch(
-        qualityWarningsForReportsProvider(scope.actorUid),
-      );
-      final qualityMonitoring = ref.watch(
-        qualityMonitoringRequestsForReportsProvider(scope.actorUid),
-      );
-      final abnormalities = ref.watch(
-        operationsReportAbnormalitiesProvider(scope.actorUid),
-      );
-      final directives = ref.watch(openDirectivesProvider);
-      final workflowLanes = ref.watch(workflowAllLanesProvider);
-      final complianceRequests = ref.watch(workflowAllComplianceProvider);
-      final criticalAlarms = ref.watch(
-        criticalAlarmsForReportsProvider(scope.actorUid),
-      );
+      final tickets = plan.includes(OperationsReportSource.issues)
+          ? ref.watch(operationsReportTicketsProvider(periodScope))
+          : const AsyncData<List<MaintenanceRecord>>([]);
+      final executions = plan.includes(OperationsReportSource.plannedWork)
+          ? ref.watch(operationsReportExecutionsProvider(periodScope))
+          : const AsyncData<List<JobExecution>>([]);
+      final executionBatch = plan.includes(OperationsReportSource.plannedWork)
+          ? ref.watch(operationsReportExecutionBatchProvider(periodScope))
+          : const AsyncData(
+              DecodedSnapshotBatch<JobExecution>(
+                records: [],
+                rejectedDocumentIds: [],
+              ),
+            );
+      final events = plan.includes(OperationsReportSource.disruptions)
+          ? ref.watch(operationalEventsForReportsProvider(scope.actorUid))
+          : const AsyncData<List<OperationalEvent>>([]);
+      final dueStates = plan.includes(OperationsReportSource.cadence)
+          ? ref.watch(maintenanceDueStatesProvider)
+          : const AsyncData(
+              DecodedSnapshotBatch<MaintenanceDueState>(
+                records: [],
+                rejectedDocumentIds: [],
+              ),
+            );
+      final inspectionFindings =
+          plan.includes(OperationsReportSource.inspections)
+          ? ref.watch(allInspectionFindingsProvider)
+          : const AsyncData<List<InspectionFinding>>([]);
+      final qualityWarnings =
+          plan.includes(OperationsReportSource.qualityWarnings)
+          ? ref.watch(qualityWarningsForReportsProvider(scope.actorUid))
+          : const AsyncData<List<QualityWarning>>([]);
+      final qualityMonitoring = plan.includes(OperationsReportSource.monitoring)
+          ? ref.watch(
+              qualityMonitoringRequestsForReportsProvider(scope.actorUid),
+            )
+          : const AsyncData<List<QualityMonitoringRequest>>([]);
+      final abnormalities = plan.includes(OperationsReportSource.abnormalities)
+          ? ref.watch(operationsReportAbnormalitiesProvider(scope.actorUid))
+          : const AsyncData<List<ChargeAbnormality>>([]);
+      final directives = plan.includes(OperationsReportSource.directives)
+          ? ref.watch(openDirectivesProvider)
+          : const AsyncData<List<OperationalDirective>>([]);
+      final workflowLanes = plan.includes(OperationsReportSource.workflowLanes)
+          ? ref.watch(workflowAllLanesProvider)
+          : const AsyncData<List<JobLaneRecord>>([]);
+      final complianceRequests =
+          plan.includes(OperationsReportSource.compliance)
+          ? ref.watch(workflowAllComplianceProvider)
+          : const AsyncData<List<ComplianceRequestRecord>>([]);
+      final criticalAlarms = plan.includes(OperationsReportSource.alarms)
+          ? ref.watch(criticalAlarmsForReportsProvider(scope.actorUid))
+          : const AsyncData<List<CriticalAlarm>>([]);
       final classes = ref.watch(assetClassesProvider);
       final assets = ref.watch(allAssetInstancesProvider);
       final innerCovers = ref.watch(innerCoverProfilesProvider);
-      final overview = ref.watch(plantAssetOverviewProvider);
+      final overview = plan.includes(OperationsReportSource.plantCondition)
+          ? ref.watch(plantAssetOverviewProvider)
+          : const AsyncData(PlantAssetOverview(classes: [], assets: []));
       final asOf =
           ref.watch(operationsReportClockProvider).value ?? DateTime.now();
       final error =

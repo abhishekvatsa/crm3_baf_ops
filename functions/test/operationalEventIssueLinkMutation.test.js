@@ -485,3 +485,50 @@ describe('operational event issue-link mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 });
+
+describe('stable operational occurrence link identity', () => {
+  test('new link identity is ordinal-based and independent of an unlinked corrected start', async () => {
+    const first = fakeDb(baseSeed());
+    const shifted = fakeDb(baseSeed({[`operational_events/${IDS.event}`]: persistedEvent({startedAt: new Date('2026-08-14T10:01:00.000Z')})}));
+    const left = await invoke(first);
+    const right = await invoke(shifted);
+    expect(left.linkId).toBe(right.linkId);
+    expect(first.store.get(`operational_event_issue_links/${left.linkId}`)).toMatchObject({eventOccurrenceIndex: 0});
+    expect(shifted.store.get(`operational_event_issue_links/${left.linkId}`).eventOccurrenceStartedAt)
+      .toEqual(new Date('2026-08-14T10:01:00.000Z'));
+  });
+
+  test('a retained legacy link in the current occurrence prevents a duplicate ordinal link', async () => {
+    const oldId = 'event_issue_' + 'a'.repeat(48);
+    const memory = fakeDb(baseSeed({[`operational_events/${IDS.event}`]: persistedEvent({
+      issueLinkIds: [oldId], linkedIssueIds: [IDS.issue]}),
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({operationalEventIssueLinkIds: [oldId]}),
+      [`operational_event_issue_links/${oldId}`]: {linkId: oldId, eventId: IDS.event, issueId: IDS.issue}}));
+    await expect(invoke(memory)).rejects.toMatchObject({details: {reasonCode: 'operational-event-issue-link-already-exists'}});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('later issue linking preserves amended closure and its immutable original evidence', async () => {
+    const {mutateOperationalEventWithDb} = require('../lib/operationalEventMutation');
+    const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const eventPath = `operational_events/${IDS.event}`;
+    const memory = fakeDb(baseSeed({
+      'users/admin-1': user('admin'),
+      [eventPath]: persistedEvent({scope: 'plantWide', affectedAssetClassIds: [], affectedAssetInstanceIds: [], status: 'resolved', resolvedAt: new Date('2026-08-14T11:00:00.000Z'),
+        resolvedByUid: 'ops-1', resolvedByName: 'Operations One', resolutionNote: 'Service restored.', updatedAt: new Date('2026-08-14T11:00:00.000Z')}),
+    }));
+    const eventCommand = (data, now = '2026-08-14T12:00:00.000Z') => mutateOperationalEventWithDb({
+      db: memory.db, authUid: 'admin-1', data, now: () => new Date(now), timestampFromDate: value => value});
+    await eventCommand({requestId: id, operation: 'AMEND_OPERATIONAL_EVENT_INTERVAL', eventId: IDS.event,
+      expectedVersion: 1, reason: 'Correct verified restoration time.', intervalAmendment: {occurrenceIndex: 0,
+        expectedEffectiveResolvedAt: '2026-08-14T11:00:00.000Z', correctedResolvedAt: '2026-08-14T10:45:00.000Z', supersedesAmendmentId: null}});
+    const original = memory.store.get(`operational_event_interval_amendments/${id}`).originalIntervalJson;
+    const linked = await invoke(memory, 'ops-1', request({expectedEventVersion: 2}));
+    await eventCommand({requestId: IDS.duplicate, operation: 'REOPEN_OPERATIONAL_EVENT', eventId: IDS.event,
+      expectedVersion: 3, reason: 'Actual recurrence.'}, '2026-08-14T12:05:00.000Z');
+    expect(memory.store.get(eventPath).completedIntervals[0].issueLinkIds).toEqual([linked.linkId]);
+    expect(memory.store.get(eventPath).intervalEndAmendments['0'].amendmentId).toBe(id);
+    expect(memory.store.get(`operational_event_interval_amendments/${id}`).originalIntervalJson).toBe(original);
+    expect(JSON.parse(original)).not.toHaveProperty('issueLinkIds');
+  });
+});

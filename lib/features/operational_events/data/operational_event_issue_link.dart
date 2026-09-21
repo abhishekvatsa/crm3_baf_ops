@@ -29,6 +29,7 @@ class OperationalEventIssueLink {
     required this.eventId,
     required this.eventVersionAtLink,
     required this.eventOccurrenceStartedAt,
+    this.eventOccurrenceIndex,
     required this.eventType,
     required this.eventTitle,
     required this.eventSeverity,
@@ -61,6 +62,7 @@ class OperationalEventIssueLink {
   final String eventId;
   final int eventVersionAtLink;
   final DateTime eventOccurrenceStartedAt;
+  final int? eventOccurrenceIndex;
   final OperationalEventType eventType;
   final String eventTitle;
   final OperationalEventSeverity eventSeverity;
@@ -155,6 +157,19 @@ class OperationalEventIssueLink {
         field: 'eventScope',
         source: source,
         detail: 'does not agree with the frozen event asset scope',
+      );
+    }
+    final occurrenceIndex = readOptionalPersistedInt(
+      map['eventOccurrenceIndex'],
+      field: 'eventOccurrenceIndex',
+      source: source,
+      minimum: 0,
+    );
+    if (occurrenceIndex != null && occurrenceIndex > 100) {
+      throw PersistedDataFormatException(
+        field: 'eventOccurrenceIndex',
+        source: source,
+        detail: 'outside the governed occurrence range',
       );
     }
     final occurrenceStartedAt = readRequiredPersistedDateTime(
@@ -260,6 +275,7 @@ class OperationalEventIssueLink {
         minimum: 1,
       ),
       eventOccurrenceStartedAt: occurrenceStartedAt,
+      eventOccurrenceIndex: occurrenceIndex,
       eventType: readRequiredPersistedEnum(
         OperationalEventType.values,
         map['eventType'],
@@ -424,3 +440,19 @@ bool _validScope(
   OperationalEventScope.assetClasses => classIds.isNotEmpty && assetIds.isEmpty,
   OperationalEventScope.assets => assetIds.isNotEmpty,
 };
+
+/// Membership is retained across reviewed time changes; recorded start remains
+/// historical context only. Missing, conflicting or unindexed evidence is held.
+int? operationalEventLinkOccurrenceIndex(
+  OperationalEvent event,
+  OperationalEventIssueLink link,
+) {
+  if (link.eventId != event.eventId) return null;
+  final index = event.occurrenceIndexForLink(link.linkId);
+  if (index == null ||
+      (link.eventOccurrenceIndex != null &&
+          link.eventOccurrenceIndex != index)) {
+    return null;
+  }
+  return index;
+}

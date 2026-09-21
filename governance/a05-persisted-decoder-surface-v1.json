@@ -843,16 +843,17 @@
       "id": "operational-event-records",
       "file": "lib/features/operational_events/data/operational_event.dart",
       "markers": [
-        "factory OperationalEvent.fromMap"
+        "factory OperationalEvent.fromMap",
+        "Map<int, OperationalEventIntervalAmendment> _readEndAmendments("
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "plant-operations",
-      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, closure, and accountable withdrawal evidence; optional occurrence-indexed closure amendment overlay strictly binds original interval, unique amendment identity, adjacent occurrence limits and event updatedAt",
       "malformedDisposition": "fail closed before malformed event, partial resolution, or incomplete/inconsistent withdrawal evidence can enter reports or the plant dashboard",
       "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence; absent isWithdrawn remains false for legacy records, while withdrawn records require complete reason, timestamp, and actor evidence",
-      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js; test/operational_event_interval_amendment_test.dart",
       "reArmCondition": "event identity, scope, status, actor, timestamp, or version fields are defaulted from malformed input",
-      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "riskFingerprint": "87eb400d59784991b3331db7656db532e88bd9fa252b480dbdaa7668b0f96cba"
     },
     {
       "id": "operational-event-command-result",
@@ -1753,7 +1754,168 @@
       "compatibility": "Server timestamps are excluded before retaining accepted content; all retained non-timestamp values must match.",
       "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_revision_settlement_test.dart",
       "reArmCondition": "Malformed or different same-version content is adopted, or a pending local draft is discarded.",
-      "riskFingerprint": "833cfea9e697f629a1bb97f100d17afc3482cf437b63f5080d4f13d7f6b1b168"
+      "riskFingerprint": "b129087ea115d8323bc1ada45cf0d069e3c3ffec21ecaad3ff05f828d89e61ef"
+    },
+    {
+      "id": "uv-detector-installation-correction-record",
+      "file": "lib/features/assets/data/uv_detector_installation_correction.dart",
+      "markers": [
+        "factory UvDetectorInstallationCorrection.fromMap",
+        "UvDetectorInstallationCorrection? effectiveUvDetectorCorrection(",
+        "DateTime _readCorrectionInstant("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "Immutable original UV event identity, exact whole-millisecond original/effective/review timestamps, reviewer and one complete predecessor chain.",
+      "malformedDisposition": "Malformed schema, identity, chronology, native sub-millisecond timestamps, unknown fields, branching/disconnected/cyclic predecessor evidence fail closed; no current-time substitution.",
+      "compatibility": "New correction schema 1 only; original event and shared current projection schemas remain unchanged; canonical UTC strings and exact native Firestore timestamps supported.",
+      "regression": "test/uv_detector_installation_correction_test.dart; test/uv_detector_correction_controls_test.dart",
+      "reArmCondition": "Malformed correction supplies authority, raw event time overrides corrected effective time, or incomplete predecessor evidence is treated as an uncorrected event.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "uv-detector-correction-server-review",
+      "file": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+      "markers": [
+        "class UvDetectorCorrectionRepository",
+        "Future<UvDetectorCorrectionReview> review(",
+        "Future<void> confirmReadback(",
+        "static UvDetectorInstallationCorrection verifyCorrectionReadback(",
+        "static UvDetectorInstallationCorrection verifyRetainedEvidence(",
+        "String _canonicalEvidence("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "Source.server original event, complete event-scoped correction chain/current installation and immutable audit; full correction and original event content bind to original actor/command, accepted audit fingerprint and server review time.",
+      "malformedDisposition": "Missing, malformed, duplicate, cached, pending or conflicting evidence propagates; accepted readback failure retains durable acceptance rather than synthesizing a clean state.",
+      "compatibility": "Later valid current installations may supersede the corrected event. Exact native Firestore timestamps and the backend numeric Timestamp representation inside immutable audit JSON normalize without losing milliseconds; malformed or extra timestamp map keys refuse.",
+      "regression": "test/uv_detector_installation_correction_test.dart; test/uv_detector_correction_command_service_test.dart; test/uv_detector_correction_readback_test.dart",
+      "reArmCondition": "Readback trusts cache, mismatched physical subject or accepted content is reconciled, or current state is forced to equal a historical after-image.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "uv-detector-correction-durable-command",
+      "file": "lib/features/assets/services/uv_detector_correction_command_service.dart",
+      "markers": [
+        "Map<String, dynamic> _command(",
+        "Future<WorkflowCommandReceipt> resume(",
+        "WorkflowCommandReceipt _receipt(",
+        "Future<WorkflowCommandReceipt> _adopt(",
+        "static void validateReceiptEvidence("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "Original-account-bound maintenanceWorkflow.v2 correction envelope, fixed event/predecessor/current basis, and exact accepted receipt retained before dispatch and before readback.",
+      "malformedDisposition": "Invalid saved command or receipt blocks adoption and preserves original bytes; only first-attempt explicit precommit refusal rejects, while ambiguous retry refusal remains uncertain.",
+      "compatibility": "Native durable submission contract and new correctUvDetectorInstallation command; no actor inference or legacy envelope reconstruction.",
+      "regression": "test/uv_detector_correction_command_service_test.dart; test/uv_detector_correction_controls_test.dart; test/uv_detector_correction_readback_test.dart",
+      "reArmCondition": "Dispatch precedes retention/claim, a different actor resumes, receipt does not bind original intent, or failed readback discards acceptance.",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
+    },
+    {
+      "id": "operational-interval-amendment-record",
+      "file": "lib/features/operational_events/data/operational_event_interval_amendment.dart",
+      "markers": [
+        "DateTime readOperationalAmendmentInstant(",
+        "factory OperationalEventIntervalAmendment.fromMap("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "plant-operations",
+      "authorityBoundary": "Exact original/corrected closure and server amendment chronology, explicit reviewer/reason/UUID predecessor; original interval stays unchanged.",
+      "malformedDisposition": "Unknown or missing fields, unsupported timestamp precision, invalid identities and contradictory chronology fail closed without a replacement date.",
+      "compatibility": "Schema-compatible optional event overlay; absence means no amendment, explicit malformed overlay remains an error; canonical UTC milliseconds/native Timestamp supported.",
+      "regression": "test/operational_event_interval_amendment_test.dart",
+      "reArmCondition": "Amendment changes original closure evidence, unknown overlays become absence, or lossy timestamp normalization certifies a different interval.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-amendment-server-review",
+      "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+      "markers": [
+        "String operationalAmendmentCanonicalJson(",
+        "static OperationalEventAmendmentReview decodeReview(",
+        "static void verifyReadback(",
+        "static OperationalEventIntervalAmendment validateRetainedRecord(",
+        "static List<OperationalEventIntervalAmendment> verifyHistory("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "plant-operations",
+      "authorityBoundary": "Exact original interval from a server-confirmed event and immutable amendment readback bound to retained actor/request/version/occurrence/reason/predecessor plus accepted SHA-256 evidence digest. Full immutable chain additionally verifies every record digest/schema/original physical interval, explicit predecessor, prior effective end, chronology/version progression and exact terminal overlay; later projected issue link additions do not alter physical original evidence.",
+      "malformedDisposition": "Unavailable/cached/pending snapshots and malformed or altered source, digest, identity, reviewer or chronology fail closed; acceptance stays pending reconciliation.",
+      "compatibility": "Sorted JSON keys and exact whole-millisecond UTC timestamp normalization; later amendments and recurrences do not invalidate prior immutable acceptance.",
+      "regression": "test/operational_event_interval_amendment_test.dart; test/operational_event_amendment_service_test.dart",
+      "reArmCondition": "Mutable current event replaces immutable acceptance proof, malformed evidence is coerced, or a changed source/digest is adopted.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-amendment-durable-command",
+      "file": "lib/features/operational_events/services/operational_event_amendment_service.dart",
+      "markers": [
+        "factory OperationalEventAmendmentReceipt.fromMap(",
+        "static Map<String, dynamic> _request(",
+        "Future<OperationalEventAmendmentReceipt> resume(",
+        "Future<OperationalEventAmendmentReceipt> _adopt("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "plant-operations",
+      "authorityBoundary": "Native assetHierarchy.v2 original-owner envelope, occurrence-specific resource claim and capability check; frozen reviewed original interval, predecessor and expected version.",
+      "malformedDisposition": "Malformed saved request/receipt cannot dispatch or settle; post-dispatch errors retain original intent; first-attempt known precommit refusal may reject but retries stay uncertain.",
+      "compatibility": "New amendment capability required before dispatch; accepted retained receipts can finish strict readback without recreating a command or changing actor.",
+      "regression": "test/operational_event_amendment_service_test.dart; test/operational_event_amendment_controls_test.dart",
+      "reArmCondition": "Current actor inherits old intent, a new identity bypasses uncertainty, malformed receipt settles, or a later retry refusal fences a possible earlier commit.",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
+    },
+    {
+      "id": "knowledge-import-immutable-journal-model",
+      "file": "lib/features/planned_maintenance/domain/knowledge_import_journal.dart",
+      "markers": [
+        "factory KnowledgeImportRowIntent.fromMap(",
+        "factory KnowledgeImportIntent.decode(",
+        "factory KnowledgeImportOutcome.decode("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "Immutable original actor, ordered exact reviewed row drafts/full before-images and version-bound per-row outcomes; draft reconstruction must roundtrip exactly.",
+      "malformedDisposition": "Unknown fields/versions, malformed JSON, duplicate rows, invalid drafts and incompatible outcomes fail closed and leave bytes retained.",
+      "compatibility": "Local schema 1 journal only. Fixed year-2000 and retained-import identity are nonpersisted scaffolding solely to validate entry content through the existing row decoder; they never supply audit time, original actor or dispatch authority.",
+      "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart",
+      "reArmCondition": "Malformed requests obtain actor/time authority, mutable drafts replace retained content, duplicate rows survive, or invalid before-images are reconstructed.",
+      "riskFingerprint": "796de416fe76a26ac180cac95d07ff04a9e108275224ee2d3862f955c1abf3e7"
+    },
+    {
+      "id": "knowledge-import-journal-repository",
+      "file": "lib/features/planned_maintenance/repositories/knowledge_import_journal_repository.dart",
+      "markers": [
+        "class KnowledgeImportJournalRepository",
+        "Future<void> recordOutcome(",
+        "Future<List<KnowledgeImportRecovery>> readAll()"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "Append-only RequestIdentityJournal slots for original import and per-row outcomes; every outcome binds retained import/row/version; conflicting terminal outcomes refuse either iteration order.",
+      "malformedDisposition": "Corrupt or orphaned entries throw and remain stored; rejected/accepted terminal evidence dominates transient pending; accepted adoption cannot regress.",
+      "compatibility": "SharedPreferences local restart recovery; no reset/off-device restore qualification and no batch atomicity claim.",
+      "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart",
+      "reArmCondition": "A damaged/conflicting outcome is silently discarded, another row or request adopts it, terminal rejection reopens, or local writes overwrite immutable evidence.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "knowledge-import-durable-execution",
+      "file": "lib/features/planned_maintenance/providers/knowledge_governance_provider.imports.dart",
+      "markers": [
+        "Future<KnowledgeGovernanceImportApplyResult> _startDurableImport(",
+        "Future<KnowledgeGovernanceImportApplyResult> _resumeDurableImport(",
+        "Future<KnowledgeGovernanceWriteResult> _applyRetainedImportRow(",
+        "bool _matchesImportAudit("
+      ],
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "Freeze all reviewed drafts/full before-images/original actor before first network; persist intent first; each row transaction matches exact deterministic original audit or exact reviewed before-image.",
+      "malformedDisposition": "Different audit actor/reason/content or changed baseline is rejected without another revision; unknown transport/readback errors remain pending; each outcome persists before next row; original actor must remain approved.",
+      "compatibility": "Existing single-row audit producer shape reused; stored accepted audit timestamp strictly decoded, while fresh commit display time is not replay proof; newer cloud and dirty local drafts are preserved during adoption.",
+      "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_import_recovery_test.dart; test/knowledge_import_recovery.rules.test.js",
+      "reArmCondition": "Lost response creates a duplicate revision, partial progress is discarded, stale draft content is sent, malformed acceptance becomes success, or original owner changes.",
+      "riskFingerprint": "39fdc8b74519752c2caf864159465cc7ffc89b43ca29471834bb16f0d76b8e09"
     }
   ],
   "catchSites": [
@@ -2510,6 +2672,19 @@
       "malformedDisposition": "Display the save failure; do not manufacture a replacement row or successful audit.",
       "regression": "test/remaining_diary_local_test.dart",
       "reArmCondition": "Malformed data is treated as valid, rejected identities disappear, or save/authority semantics change."
+    },
+    {
+      "id": "operational-amendment-dispatch-uncertainty",
+      "file": "lib/features/operational_events/services/operational_event_amendment_service.dart",
+      "siteFingerprint": "b0bf0dc09f57d9f0be847a72b1bb0b96114e28879051631c82671a84d52c6fe6",
+      "classification": "DURABLE_REPAIR_STATE",
+      "purpose": "Retain original request after transport, strict receipt decoding or readback failure and distinguish first-attempt proven refusal from uncertain retry.",
+      "authorityBoundary": "Original-owner native amendment envelope and matching acceptance; decode failure grants no mutation or settlement authority.",
+      "mutability": "Append durable rejected/uncertain status without replacing frozen request; already accepted state is preserved and re-adopted.",
+      "dataScope": "One exact occurrence amendment command, accepted receipt and retained server evidence.",
+      "malformedDisposition": "Malformed receipt cannot settle acceptance; original request remains for checked replay, and failed readback preserves prior acceptance.",
+      "regression": "test/operational_event_amendment_service_test.dart",
+      "reArmCondition": "Catch turns malformed receipt into success, replaces original request, changes actor, or a retry refusal clears a potentially committed original attempt."
     }
   ],
   "staleRegressionReferences": [

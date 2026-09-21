@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../data/uv_detector_lifecycle_event.dart';
+import 'uv_detector_correction_controls.dart';
 
-class UvDetectorLifecycleList extends StatelessWidget {
+class UvDetectorLifecycleList extends ConsumerWidget {
   const UvDetectorLifecycleList({super.key, required this.events});
 
   final List<UvDetectorLifecycleEvent> events;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actor = ref.watch(currentAppUserProvider);
+    final canCorrect =
+        !actor.isLoading &&
+        !actor.hasError &&
+        actor.valueOrNull?.canAdjudicateFurnaceStuckup == true;
     if (events.isEmpty) {
       return const Center(
         child: Padding(
@@ -92,6 +100,7 @@ class UvDetectorLifecycleList extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (canCorrect) UvDetectorCorrectionControls(event: event),
                 ],
               ),
               const SizedBox(height: BafSpacing.sm),

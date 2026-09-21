@@ -15,6 +15,7 @@ import '../data/operational_event.dart';
 import '../data/operational_event_impact.dart';
 import '../providers/operational_event_provider.dart';
 import 'operational_event_issue_links_screen.dart';
+import 'operational_event_amendment_controls.dart';
 
 part 'operational_events_screen.summary.dart';
 part 'operational_event_resolution_dialog.dart';
@@ -597,6 +598,11 @@ class _EventCard extends StatelessWidget {
                   '${event.resolvedByName == null ? '' : ' by ${event.resolvedByName}'}',
             ),
           ],
+          if (event.resolvedAt != null)
+            OperationalEventAmendmentControls(
+              event: event,
+              occurrenceIndex: event.currentOccurrenceIndex,
+            ),
           const SizedBox(height: 6),
           _DetailLine(
             icon: Icons.timer_outlined,
@@ -644,16 +650,30 @@ class _EventCard extends StatelessWidget {
                 ),
               ),
               children: [
-                for (final interval in event.completedIntervals.reversed)
+                for (final interval
+                    in event
+                        .occurrencesUntil(asOf)
+                        .take(event.completedIntervals.length)
+                        .toList()
+                        .reversed)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _DetailLine(
-                      icon: Icons.task_alt_rounded,
-                      text:
-                          '${interval.title} · ${interval.eventType.label} · ${interval.severity.label}\n'
-                          '${DateFormat('dd MMM yyyy, HH:mm').format(interval.startedAt.toLocal())} - '
-                          '${DateFormat('dd MMM yyyy, HH:mm').format(interval.resolvedAt.toLocal())}\n'
-                          'Resolved by ${interval.resolvedByName}: ${interval.resolutionNote}',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _DetailLine(
+                          icon: Icons.task_alt_rounded,
+                          text:
+                              '${interval.title} · ${interval.eventType.label} · ${interval.severity.label}\n'
+                              '${DateFormat('dd MMM yyyy, HH:mm').format(interval.startedAt.toLocal())} - '
+                              '${DateFormat('dd MMM yyyy, HH:mm').format(interval.resolvedAt.toLocal())}\n'
+                              'Resolved by ${interval.resolvedByName}: ${interval.resolutionNote}',
+                        ),
+                        OperationalEventAmendmentControls(
+                          event: event,
+                          occurrenceIndex: interval.occurrenceIndex!,
+                        ),
+                      ],
                     ),
                   ),
               ],

@@ -132,6 +132,127 @@ def _line_number(source: str, offset: int) -> int:
     return source.count("\n", 0, offset) + 1
 
 
+def _calls(body: str, reader: str) -> list[str]:
+    """Extract complete calls without interpreting string contents as syntax."""
+    cleaned = strip_strings_and_comments(body)
+    result = []
+    for match in re.finditer(rf"\b{re.escape(reader)}\s*\(", cleaned):
+        depth = 1
+        for offset in range(match.end(), len(cleaned)):
+            if cleaned[offset] == "(":
+                depth += 1
+            elif cleaned[offset] == ")":
+                depth -= 1
+                if depth == 0:
+                    result.append(body[match.start():offset + 1])
+                    break
+        else:
+            raise ValueError(f"unterminated {reader} call")
+    return result
+
+
+def _body_digest(body: str) -> str:
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _reviewed_dynamic_calls(entry: dict, body: str) -> list[dict]:
+    """A dynamic label is an explicitly pinned exception, never a wildcard."""
+    declarations = entry.get("dynamicCalls", [])
+    if not isinstance(declarations, list):
+        raise ValueError("dynamicCalls must be a list")
+    if declarations and entry.get("readerBodySha256") != _body_digest(body):
+        raise ValueError("reviewed dynamic reader body changed")
+    actual = []
+    for reader in READER_TOKENS:
+        for call in _calls(body, reader):
+            try:
+                literal_fields = _reader_fields(call, reader)
+            except ValueError as error:
+                if not str(error).startswith("unsupported scalar timestamp input"):
+                    raise  # An incorrectly labelled literal is never exempted.
+                literal_fields = []
+            if not literal_fields:
+                actual.append((reader, call))
+    declared = []
+    for call in declarations:
+        fields = call.get("reviewedFields")
+        if (call.get("reader") not in READER_TOKENS or
+                not isinstance(call.get("callSource"), str) or
+                not isinstance(fields, list) or not fields or
+                any(not isinstance(field, str) or not field.strip() for field in fields) or
+                len(set(fields)) != len(fields)):
+            raise ValueError("dynamic call requires exact source and unique reviewed fields")
+        literal_fields = re.findall(r"\bfield:\s*'([^']+)'", call["callSource"])
+        if not set(literal_fields).issubset(fields):
+            raise ValueError("dynamic call contains an unreviewed literal field")
+        declared.append((call["reader"], call["callSource"]))
+    if sorted(actual) != sorted(declared):
+        raise ValueError("dynamic strict timestamp call count or source changed")
+    return declarations
+
+
+def _without_reviewed_calls(body: str, declarations: list[dict]) -> str:
+    reviewed = {(call["reader"], call["callSource"])
+                for call in declarations}
+    masked = body
+    for reader in READER_TOKENS:
+        for call in _calls(body, reader):
+            if (reader, call) in reviewed:
+                masked = masked.replace(call, " " * len(call))
+    return masked
+
+
+def _reviewed_wrapper_callers(entry: dict, root: Path, start: int, end: int) -> None:
+    wrapper = entry.get("wrapperName")
+    if wrapper is None:
+        return
+    if not isinstance(wrapper, str) or not re.fullmatch(r"[A-Za-z_]\w*", wrapper):
+        raise ValueError("invalid reviewed wrapper name")
+    marker = entry.get("readerMarker", "")
+    declarations = list(re.finditer(rf"\b{re.escape(wrapper)}\s*\(", marker))
+    if len(declarations) != 1:
+        raise ValueError("wrapper reader marker must identify its declaration")
+    declaration_offset = start + declarations[0].start()
+    callers = entry.get("reviewedCallers", [])
+    if not callers:
+        raise ValueError("dynamic wrapper needs explicit reviewed callers")
+    spans = {}
+    for caller in callers:
+        path = root / caller["file"]
+        first, last, body = _function_span(path, caller["marker"])
+        if caller.get("bodySha256") != _body_digest(body):
+            raise ValueError(f"reviewed wrapper caller changed: {caller['file']} {caller['marker']}")
+        calls = _calls(body, wrapper)
+        fields = caller.get("fields")
+        if (type(caller.get("callCount")) is not int or
+                caller["callCount"] < 1 or len(calls) != caller["callCount"] or
+                not isinstance(fields, list) or not fields or
+                any(not isinstance(field, str) or not field.strip() for field in fields) or
+                len(set(fields)) != len(fields)):
+            raise ValueError("wrapper caller requires exact call count and reviewed fields")
+        literal_fields = [field for call in calls
+                          for field in re.findall(r"\bfield:\s*'([^']+)'", call)]
+        if not set(literal_fields).issubset(fields):
+            raise ValueError("wrapper caller contains an unreviewed literal field")
+        spans.setdefault(caller["file"], []).append((first, last))
+    for path in sorted((root / "lib").rglob("*.dart")):
+        if path.name.endswith(".g.dart"):
+            continue
+        relative = path.relative_to(root).as_posix()
+        cleaned = strip_strings_and_comments(path.read_text(encoding="utf-8"))
+        if relative == entry["readerFile"] and not cleaned.startswith(marker, start):
+            raise ValueError("wrapper declaration no longer matches its reader marker")
+        # A tear-off can pass the wrapper to an alias or callback without a direct
+        # call here. Every executable identifier reference needs reviewed coverage.
+        for match in re.finditer(rf"\b{re.escape(wrapper)}\b", cleaned):
+            if relative == entry["readerFile"] and match.start() == declaration_offset:
+                continue  # Only the declaration name, never its entire body.
+            owners = sum(first <= match.start() < last
+                         for first, last in spans.get(relative, []))
+            if owners != 1:
+                raise ValueError(f"wrapper reference needs exactly one reviewed caller: {relative}:{_line_number(cleaned, match.start())}")
+
+
 def main() -> int:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     candidate_manifest = json.loads(CANDIDATE_MANIFEST.read_text(encoding="utf-8"))
@@ -165,8 +286,11 @@ def main() -> int:
         reader_path = ROOT / entry["readerFile"]
         try:
             start, end, body = _function_span(reader_path, entry["readerMarker"])
-            required = _reader_fields(body, "readRequiredPersistedDateTime")
-            optional = _reader_fields(body, "readOptionalPersistedDateTime")
+            dynamic = _reviewed_dynamic_calls(entry, body)
+            literal_body = _without_reviewed_calls(body, dynamic)
+            required = _reader_fields(literal_body, "readRequiredPersistedDateTime")
+            optional = _reader_fields(literal_body, "readOptionalPersistedDateTime")
+            _reviewed_wrapper_callers(entry, ROOT, start, end)
         except (OSError, ValueError) as exc:
             failures.append(f"{entry_id}: {exc}")
             continue
@@ -181,7 +305,7 @@ def main() -> int:
             failures.append(
                 f"{entry_id}: optional fields {optional} != {expected_optional}"
             )
-        if not required and not optional:
+        if not required and not optional and not dynamic:
             failures.append(f"{entry_id}: classified body has no strict timestamp calls")
 
         relative = reader_path.relative_to(ROOT).as_posix()
@@ -201,6 +325,10 @@ def main() -> int:
                 "authorityBoundary": entry["authorityBoundary"],
                 "requiredFields": required,
                 "optionalFields": optional,
+                **({"dynamicCalls": dynamic,
+                    "readerBodySha256": entry["readerBodySha256"],
+                    "reviewedCallers": entry.get("reviewedCallers", [])}
+                   if dynamic else {}),
                 "readerSha256": hashlib.sha256(reader_path.read_bytes()).hexdigest(),
             }
         )

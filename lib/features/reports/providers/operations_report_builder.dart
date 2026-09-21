@@ -797,6 +797,8 @@ OperationsReport buildOperationsReport({
     ),
     assetStates: inventory.numberedAssetStates,
     innerCoverProfiles: inventory.innerCovers,
+    sourceAssetClasses: List.unmodifiable(assetClasses),
+    sourceAssetInstances: List.unmodifiable(assetInstances),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(componentDimension),
     topSubsystemPaths: rank(recordedSubsystemPathDimension),

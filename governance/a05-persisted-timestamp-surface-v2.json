@@ -776,6 +776,7 @@
       "requiredFields": [
         "startedAt",
         "createdAt",
+        "updatedAt",
         "updatedAt"
       ],
       "optionalFields": [
@@ -783,10 +784,27 @@
         "withdrawnAt"
       ],
       "owner": "plant-operations",
-      "purpose": "restore operational disruption chronology and complete resolution or accountable withdrawal evidence",
+      "purpose": "restore operational disruption chronology and complete resolution or accountable withdrawal evidence; the additional updatedAt read bounds optional immutable interval amendment evidence; completed interval start/end readers use exact indexed labels and are pinned with the complete decoder body",
       "authorityBoundary": "remote-operational-event-record",
-      "regression": "test/operational_event_model_test.dart",
-      "reArmCondition": "any operational-event timestamp schema change"
+      "regression": "test/operational_event_model_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "any operational-event timestamp schema change",
+      "readerBodySha256": "7ce4e31fa1d8de0228e3674b1f2886ec04d28b6eb9118ca8232a8dff3d149f8d",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n        raw['startedAt'],\n        field: 'completedIntervals[$index].startedAt',\n        source: source,\n      )",
+          "reviewedFields": [
+            "completedIntervals[$index].startedAt"
+          ]
+        },
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n        raw['resolvedAt'],\n        field: 'completedIntervals[$index].resolvedAt',\n        source: source,\n      )",
+          "reviewedFields": [
+            "completedIntervals[$index].resolvedAt"
+          ]
+        }
+      ]
     },
     {
       "id": "operational-event-command-response",
@@ -1356,10 +1374,20 @@
         "dueAt"
       ],
       "owner": "morning-review",
-      "purpose": "restore action assignment, acceptance, completion, due, revision, and retention chronology",
+      "purpose": "restore action assignment, acceptance, completion, due, revision, and retention chronology, including the exact cancellation at timestamp inside mandatory attributed cancellation evidence",
       "authorityBoundary": "remote-morning-review-action",
-      "regression": "test/morning_review_integrity_test.dart",
-      "reArmCondition": "any Morning Review action timestamp or lifecycle schema change"
+      "regression": "test/morning_review_integrity_test.dart; test/morning_review_recovery_regression_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "any Morning Review action timestamp or lifecycle schema change",
+      "readerBodySha256": "2380eecf1eb0c023c0cfe86fe44b123da4bfa4ee24b0926be891d2d83af5580c",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n        cancellation['at'],\n        field: 'at',\n        source: source,\n      )",
+          "reviewedFields": [
+            "at"
+          ]
+        }
+      ]
     },
     {
       "id": "morning-review-standing-concern",
@@ -1602,6 +1630,301 @@
       "authorityBoundary": "remote-audited-business-evidence",
       "regression": "test/reactive_burner_attendance_test.dart",
       "reArmCondition": "Malformed attendance timestamp is defaulted or physical and recording time are conflated."
+    },
+    {
+      "id": "uv-correction-exact-time-wrapper",
+      "readerFile": "lib/features/assets/data/uv_detector_installation_correction.dart",
+      "readerMarker": "DateTime _readCorrectionInstant(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Decode every correction original/effective/review/current-basis instant without lossy sub-millisecond coercion.",
+      "authorityBoundary": "Immutable correction schema 1 timestamp evidence; canonical UTC text or exact native Timestamp only.",
+      "regression": "test/uv_detector_installation_correction_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Wrapper, caller field coverage, precision or timestamp fallback changes.",
+      "readerBodySha256": "0ec0f009824e507b3b5c65ed5c905f989eb24fe92c44670ad36c2091dd83def5",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n    raw,\n    field: field,\n    source: source,\n  )",
+          "reviewedFields": [
+            "recordedActionPerformedAt",
+            "correctedActionPerformedAt",
+            "correctedAt",
+            "expectedCurrentActionPerformedAt"
+          ]
+        }
+      ],
+      "wrapperName": "_readCorrectionInstant",
+      "reviewedCallers": [
+        {
+          "file": "lib/features/assets/data/uv_detector_installation_correction.dart",
+          "marker": "factory UvDetectorInstallationCorrection.fromMap(",
+          "bodySha256": "42ba9a198391b243afa44cda5bd488dbce136b44fbed934861e308f50232fed3",
+          "callCount": 4,
+          "fields": [
+            "recordedActionPerformedAt",
+            "correctedActionPerformedAt",
+            "correctedAt",
+            "expectedCurrentActionPerformedAt"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uv-correction-retained-command-time",
+      "readerFile": "lib/features/assets/services/uv_detector_correction_command_service.dart",
+      "readerMarker": "Map<String, dynamic> _command(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Validate the two frozen correction command timestamps before any retry.",
+      "authorityBoundary": "Exact original-account native command envelope; bad time remains retained and cannot dispatch.",
+      "regression": "test/uv_detector_correction_command_service_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Saved request time is repaired or rounded, field set expands, or malformed dates reach dispatch.",
+      "readerBodySha256": "59e7ecbdbd4c40ff1a412cb2074825800e25664851f1c1f5a90598f0fd968489",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n        payload[field],\n        field: field,\n        source: 'saved UV installation correction',\n      )",
+          "reviewedFields": [
+            "expectedCurrentActionPerformedAt",
+            "correctedActionPerformedAt"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uv-correction-durable-receipt-time",
+      "readerFile": "lib/features/assets/services/uv_detector_correction_command_service.dart",
+      "readerMarker": "WorkflowCommandReceipt _receipt(",
+      "requiredFields": [
+        "expectedCurrentActionPerformedAt",
+        "expectedCurrentActionPerformedAt",
+        "correctedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Compare receipt expected-current and corrected instants to the frozen request before acceptance adoption.",
+      "authorityBoundary": "Receipt request identity plus exact physical timestamp agreement.",
+      "regression": "test/uv_detector_correction_command_service_test.dart",
+      "reArmCondition": "Receipt times mismatch or malformed values acquire success."
+    },
+    {
+      "id": "uv-correction-server-readback-time",
+      "readerFile": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+      "readerMarker": "static UvDetectorInstallationCorrection verifyCorrectionReadback(",
+      "requiredFields": [
+        "expectedCurrentActionPerformedAt",
+        "expectedCurrentActionPerformedAt",
+        "recordedActionPerformedAt",
+        "correctedActionPerformedAt"
+      ],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Compare accepted immutable correction chronology against receipt and original command.",
+      "authorityBoundary": "Source.server correction evidence; later current installation is not required to equal historical after-image.",
+      "regression": "test/uv_detector_installation_correction_test.dart",
+      "reArmCondition": "Wrong current basis, original/effective/review time or audit evidence confirms reconciliation."
+    },
+    {
+      "id": "operational-amendment-exact-time-wrapper",
+      "readerFile": "lib/features/operational_events/data/operational_event_interval_amendment.dart",
+      "readerMarker": "DateTime readOperationalAmendmentInstant(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "plant-operations",
+      "purpose": "Validate reviewed, frozen, accepted and readback closure amendment chronology at exact whole-millisecond precision.",
+      "authorityBoundary": "New immutable amendment evidence and supported shared event overlay; no invented time or lossy timestamp normalization.",
+      "regression": "test/operational_event_interval_amendment_test.dart; test/operational_event_amendment_service_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Any wrapper/caller body changes, a new caller or field appears, or unsupported precision silently rounds.",
+      "readerBodySha256": "a9660918fb09dd2c2525a0a50c1f9603daeda4c5e90d6a2f4d4c257f09223912",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n    raw,\n    field: field,\n    source: source,\n  )",
+          "reviewedFields": [
+            "originalResolvedAt",
+            "correctedResolvedAt",
+            "amendedAt",
+            "committedAt",
+            "expectedEffectiveResolvedAt",
+            "startedAt",
+            "resolvedAt",
+            "original.startedAt",
+            "original.resolvedAt",
+            "priorEffectiveResolvedAt",
+            "timestamp"
+          ]
+        }
+      ],
+      "wrapperName": "readOperationalAmendmentInstant",
+      "reviewedCallers": [
+        {
+          "file": "lib/features/operational_events/data/operational_event_interval_amendment.dart",
+          "marker": "factory OperationalEventIntervalAmendment.fromMap(",
+          "bodySha256": "19dbc0a5c5fdc2017cea484d34b13bb4a589c52194711b5838cd4ef046b8bd02",
+          "callCount": 3,
+          "fields": [
+            "originalResolvedAt",
+            "correctedResolvedAt",
+            "amendedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/services/operational_event_amendment_service.dart",
+          "marker": "factory OperationalEventAmendmentReceipt.fromMap(",
+          "bodySha256": "d18421bb5f28b9640b5f439faa5f9f99424bbfb9892594178503e47ee58661d5",
+          "callCount": 3,
+          "fields": [
+            "committedAt",
+            "correctedResolvedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/services/operational_event_amendment_service.dart",
+          "marker": "static Map<String, dynamic> _request(",
+          "bodySha256": "9c1eab9db13ee3e695e3342e3325a30437e815f15204e73a0f67491f3884cf29",
+          "callCount": 1,
+          "fields": [
+            "expectedEffectiveResolvedAt",
+            "correctedResolvedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+          "marker": "String operationalAmendmentCanonicalJson(",
+          "bodySha256": "7960ecb4c0562682604e9ac53c64f68e16889af500446c6b1af5fb8373d13d85",
+          "callCount": 1,
+          "fields": [
+            "timestamp"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+          "marker": "static OperationalEventAmendmentReview decodeReview(",
+          "bodySha256": "58d592bdb4e4af62df9402ec19b38e63517bfac23b296f2d68c6c75a8aa57171",
+          "callCount": 1,
+          "fields": [
+            "startedAt",
+            "resolvedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+          "marker": "static void verifyReadback(",
+          "bodySha256": "6a05e99420eb52be62f9a5333fbe7550697ccae8db00854fd3ddb9e06da0bcfb",
+          "callCount": 7,
+          "fields": [
+            "original.startedAt",
+            "original.resolvedAt",
+            "priorEffectiveResolvedAt",
+            "correctedResolvedAt",
+            "amendedAt",
+            "expectedEffectiveResolvedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/data/operational_event.dart",
+          "marker": "Map<int, OperationalEventIntervalAmendment> _readEndAmendments(",
+          "bodySha256": "6c5d2edf9a104643d9f315a6a05fe11e507ad54fb5444f8c230c0f9664b5cdc0",
+          "callCount": 1,
+          "fields": [
+            "startedAt",
+            "resolvedAt"
+          ]
+        },
+        {
+          "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+          "marker": "static OperationalEventIntervalAmendment validateRetainedRecord(",
+          "fields": [
+            "startedAt",
+            "resolvedAt",
+            "priorEffectiveResolvedAt"
+          ],
+          "bodySha256": "f09376df5aa4fa953811d88b26b298bbb47d5702dd4f2d89b39f3fbd72e75bfc",
+          "callCount": 3
+        },
+        {
+          "file": "lib/features/operational_events/repositories/operational_event_amendment_repository.dart",
+          "marker": "static List<OperationalEventIntervalAmendment> verifyHistory(",
+          "fields": [
+            "priorEffectiveResolvedAt"
+          ],
+          "bodySha256": "91c4093cdf1e7689a746aff0173b5c86ccfbaee17fe1610ad904de0c33cc89be",
+          "callCount": 1
+        }
+      ]
+    },
+    {
+      "id": "knowledge-import-accepted-audit-time",
+      "readerFile": "lib/features/planned_maintenance/providers/knowledge_governance_provider.imports.dart",
+      "readerMarker": "if (audit.exists)",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "knowledge-governance",
+      "purpose": "Read the actual committed timestamp only after exact deterministic audit content/actor/reason matches the retained row.",
+      "authorityBoundary": "Server transaction audit acceptance; this branch has no fresh-commit display clock and never falls back to now.",
+      "regression": "test/knowledge_governance_runtime_test.dart; test/knowledge_import_recovery.rules.test.js",
+      "reArmCondition": "Malformed audit time confirms replay or a different accepted audit is adopted.",
+      "readerBodySha256": "d9646d52631aa04a2dcaae6e9d5a5e130642ff431999e59893fc3a7c712fc1f4",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n          accepted['timestamp'],\n          field: 'timestamp',\n          source: row.auditId,\n        )",
+          "reviewedFields": [
+            "timestamp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uv-correction-retained-audit-canonical-time",
+      "readerFile": "lib/features/assets/repositories/uv_detector_correction_repository.dart",
+      "readerMarker": "String _canonicalEvidence(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Normalize exact whole-millisecond native audit/original-event timestamps for accepted digest and immutable before/after comparisons; numeric timestamp maps require exact keys and bounded integer seconds/nanoseconds.",
+      "authorityBoundary": "Exact retained UV correction request/receipt/audit/original event evidence; no lossy normalization or inferred chronology.",
+      "regression": "test/uv_detector_correction_readback_test.dart; test/uv_detector_correction_command_service_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Missing/unsupported chronology or timestamp shape is accepted, changed audit content preserves acceptance, or unsupported precision silently rounds.",
+      "readerBodySha256": "c6f0a70664e885b89a7bb124b3aaa1fcb614cd0ed8046fbd36f892628a7a11a8",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n        item,\n        field: 'evidenceTimestamp',\n      )",
+          "reviewedFields": [
+            "evidenceTimestamp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uv-correction-receipt-complete-evidence-time",
+      "readerFile": "lib/features/assets/services/uv_detector_correction_command_service.dart",
+      "readerMarker": "static void validateReceiptEvidence(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "Require all accepted receipt chronology fields as canonical UTC millisecond strings before durable acceptance and readback.",
+      "authorityBoundary": "Exact retained UV correction request/receipt/audit/original event evidence; no lossy normalization or inferred chronology.",
+      "regression": "test/uv_detector_correction_readback_test.dart; test/uv_detector_correction_command_service_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Missing/unsupported chronology or timestamp shape is accepted, changed audit content preserves acceptance, or unsupported precision silently rounds.",
+      "readerBodySha256": "b24e2eb4a136e344336b7e29c32a6c29034e3a62d5c8a87285516be817395f2c",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(raw, field: field)",
+          "reviewedFields": [
+            "expectedCurrentActionPerformedAt",
+            "recordedActionPerformedAt",
+            "correctedActionPerformedAt",
+            "currentActionPerformedAt"
+          ]
+        }
+      ]
     }
   ]
 }
