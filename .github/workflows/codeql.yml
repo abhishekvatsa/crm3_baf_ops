@@ -42,7 +42,6 @@ jobs:
             build-mode: manual
     env:
       CRM3_CI_PACKAGE_PROOF: 'true'
-      GRADLE_USER_HOME: ${{ runner.temp }}/codeql-gradle
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -71,6 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
           flutter precache --android
           flutter pub get
