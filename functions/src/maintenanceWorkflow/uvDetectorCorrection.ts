@@ -172,7 +172,9 @@ const validateHistory = (
         !["newPart", "repaired", "revised"].includes(String(event.replacementDisposition)) ||
         Date.parse(parseInstant(event.actionPerformedAt, "actionPerformedAt")) >
           Date.parse(parseInstant(event.completedAt, "completedAt")) + 300000 ||
-        Date.parse(parseInstant(event.completedAt, "completedAt")) !==
+        // Match the lifecycle producer: late entry preserves a later recording
+        // instant; only recording before the physical completion is invalid.
+        Date.parse(parseInstant(event.completedAt, "completedAt")) >
           Date.parse(parseInstant(event.recordedAt, "recordedAt"))) invalid();
     byEvent.set(id, event);
   }

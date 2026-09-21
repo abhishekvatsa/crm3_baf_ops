@@ -398,9 +398,9 @@ describe('uv-detector installation correction command', () => {
   const currentRow = (store) => store.entries()
     .find(([entryPath]) => entryPath.startsWith('uv_detector_lifecycle_current/'))?.[1];
 
-  async function seededCommandState() {
+  async function seededCommandState(producerOverrides = {}) {
     const store = seedStore();
-    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    await prepare(store, action({createdAt: '2026-08-12T08:00:00.000Z'}), producerOverrides);
     store.seed(`users/${commandActor.uid}`, {
       isApproved: true,
       roles: ['admin'],
@@ -461,6 +461,74 @@ describe('uv-detector installation correction command', () => {
     await expect(service.execute(command, context)).resolves.toEqual(receipt);
     expect(store.entries()).toEqual(afterFirst);
   });
+
+  test.each([
+    ['target', false], ['target', true],
+    ['historical sibling', false], ['historical sibling', true],
+  ])('corrects actual producer history with a late-recorded %s (native timestamps: %s)', async (lateEntry, native) => {
+    const lateRecording = {recordedAt: '2026-08-28T12:00:00.000Z'};
+    const {store, command, event} = await seededCommandState(
+      lateEntry === 'target' ? lateRecording : {},
+    );
+    let expectedCurrentEventId = event.eventId;
+    if (lateEntry === 'historical sibling') {
+      const plan = await prepare(store, action({
+        id: 'late-entered-earlier-installation',
+        createdAt: '2026-08-11T08:00:00.000Z',
+      }), {...lateRecording, sourceId: 'late-entered-earlier-work'});
+      expectedCurrentEventId = plan.events[0].data.eventId;
+    }
+    expect(eventRows(store).find(row => row.recordedAt === lateRecording.recordedAt))
+      .toMatchObject({completedAt: '2026-08-28T09:00:00.000Z'});
+    if (native) {
+      for (const [path, data] of store.entries()) {
+        if (path.startsWith('uv_detector_lifecycle_events/') ||
+            path.startsWith('uv_detector_lifecycle_current/')) {
+          store.seed(path, workflowFirestoreDataForTest(data));
+        }
+      }
+    }
+    const originals = eventRows(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    const receipt = await new MaintenanceWorkflowCommandService(store).execute(command, context);
+    expect(receipt.result).toMatchObject({
+      correctionId: 'correction-1',
+      correctsEventId: event.eventId,
+      currentEventId: expectedCurrentEventId,
+      currentActionPerformedAt: lateEntry === 'target' ?
+        '2026-08-10T08:00:00.000Z' : '2026-08-11T08:00:00.000Z',
+    });
+    expect(eventRows(store)).toEqual(originals);
+    const afterCorrection = store.entries();
+    await expect(new MaintenanceWorkflowCommandService(store).execute(command, context))
+      .resolves.toEqual(receipt);
+    expect(store.entries()).toEqual(afterCorrection);
+  });
+
+  test.each(['target', 'historical sibling'])(
+    'correction refuses a %s recorded before completion without partial writes', async invalidEntry => {
+      const {store, command, event} = await seededCommandState();
+      let invalidEventId = event.eventId;
+      if (invalidEntry === 'historical sibling') {
+        const plan = await prepare(store, action({
+          id: 'earlier-installation', createdAt: '2026-08-11T08:00:00.000Z',
+        }), {sourceId: 'earlier-work'});
+        invalidEventId = plan.events[0].data.eventId;
+      }
+      const path = `uv_detector_lifecycle_events/${invalidEventId}`;
+      store.seed(path, workflowFirestoreDataForTest({
+        ...store.read(path), recordedAt: '2026-08-28T08:59:00.000Z',
+      }));
+      const before = store.entries();
+      await expect(new MaintenanceWorkflowCommandService(store).execute(command, {
+        actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z'),
+      })).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'uv-detector-correction-history-invalid'},
+      });
+      expect(store.entries()).toEqual(before);
+    },
+  );
 
   test.each([
     ['reason', 'A different unreviewed explanation'],

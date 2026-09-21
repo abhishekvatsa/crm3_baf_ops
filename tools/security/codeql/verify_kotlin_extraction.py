@@ -196,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ProofError, OSError) as error:
         print(f"Kotlin extraction proof refused: {error}", file=sys.stderr)
         return 1
-    print("Verified extracted MainActivity bodies for all three required methods.")
+    print(f"Verified extracted MainActivity bodies for all {len(EXPECTED_METHODS)} required methods.")
     return 0
 
 

@@ -95,3 +95,37 @@ from the installed Functions Admin SDK, matching the sweep's actual adapter.
 The same real-bridge precision and forged-map cases pass with that dependency.
 No test is skipped and no acceptance condition is relaxed. Final-head CI remains
 required; the earlier failed job is not reported as a green release gate.
+
+
+## Bot P1 and related reader repair
+
+Review 5262839192 at `d22dca4c` correctly identified the UV correction validator's
+incorrect equality between completion and recording time. The actual lifecycle
+producer allows a later recording; only a recording before completion is invalid.
+The correction now enforces that ordering for the complete retained history.
+Four producer-based target/sibling positives failed before the repair, including
+native Firestore conversion. Backward chronology still fails without writes.
+
+A related-source sweep found the same obsolete equality in both Burner and UV
+Flutter readers. Both now admit truthful late recording while retaining all
+other identity and chronology checks. A committed fixture is compared to the
+actual producers in the backend suite and read by the real Dart history/current
+factories, including native timestamp representations. Eight positive cases
+failed before the reader repair. The final 24-case consumer regression and 24
+existing lifecycle/readback tests pass; native dates are compared by instant.
+The Burner current projection's pre-existing separate correction chronology is
+preserved, and original events still enforce the physical closure tolerance.
+
+Final follow-up local results: Functions build and inventories plus all 79 host
+suites / 2,347 tests pass; both workflow Firestore emulator suites / 39 tests
+pass, including the two new late-recording transactions; scoped Flutter analysis
+is clean; canonical audit remains 150/150. Existing full governed-emulator/Rules
+results are earlier evidence; final-head CI must execute the complete gate again.
+This adds a further reader-first qualification requirement for late-recorded
+lifecycle evidence. It does not authorize live producer activation.
+
+Combined preview run 35557398190 at `d22dca4c` passed all four security languages;
+its proof binds synthetic merge `b96d16afe5debef90a3d7d06d046723d30aee7af`, four
+required app methods and zero app extraction errors. Release run 35557398231
+passed backend, Rules/transactions and both Android jobs, but its Flutter job
+failed on the dependency issue above. Neither run certifies the follow-up head.

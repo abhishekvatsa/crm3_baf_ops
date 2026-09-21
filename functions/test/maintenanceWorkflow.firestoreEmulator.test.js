@@ -1368,11 +1368,11 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     });
   });
 
-  async function seededUvCorrection() {
+  async function seededUvCorrection(producerOverrides = {}) {
     const fixture = require('./fixtures/uvDetectorLifecycleFixture');
     const {workflowFirestoreDataForTest} = require('../lib/maintenanceWorkflow/firebaseStore');
     const memory = fixture.seedStore();
-    await fixture.prepare(memory, fixture.action({createdAt: '2026-08-12T08:00:00.000Z'}));
+    await fixture.prepare(memory, fixture.action({createdAt: '2026-08-12T08:00:00.000Z'}), producerOverrides);
     for (const [path, data] of memory.entries()) await db.doc(path).set(workflowFirestoreDataForTest(data));
     const event = memory.entries().find(([path]) => path.startsWith('uv_detector_lifecycle_events/'))[1];
     const currentPath = memory.entries().find(([path]) => path.startsWith('uv_detector_lifecycle_current/'))[0];
@@ -1385,6 +1385,59 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       }};
     return {command, event, currentPath, context: {actor, serverNow: new Date('2026-08-29T09:00:00.000Z')}};
   }
+
+  test('UV correction accepts actual late-recorded target and sibling history without rewriting either instant', async () => {
+    const {command, event, currentPath, context} = await seededUvCorrection({
+      recordedAt: '2026-08-28T12:00:00.000Z',
+    });
+    const {prepareUvDetectorLifecycleWritePlan, applyUvDetectorLifecycleWritePlan} = require('../lib/maintenanceWorkflow/uvDetectorLifecycle');
+    const fixture = require('./fixtures/uvDetectorLifecycleFixture');
+    const siblingPlan = await new FirebaseWorkflowStore(db).runTransaction(async tx => {
+      const plan = await prepareUvDetectorLifecycleWritePlan({
+        tx, sourceType: 'workflowPlannedJob', sourceId: 'late-entered-earlier-installation',
+        assetType: 'furnace', assetNumber: 7,
+        actionSources: [{sourceModuleId: 'module-earlier', discipline: 'instrumentation',
+          actionsJson: JSON.stringify([fixture.action({id: 'earlier-uv', createdAt: '2026-08-11T08:00:00.000Z'})])}],
+        completedAt: '2026-08-28T09:00:00.000Z', recordedAt: '2026-08-28T13:00:00.000Z', completedBy: actor,
+      });
+      applyUvDetectorLifecycleWritePlan(tx, plan);
+      return plan;
+    });
+    const historyBefore = (await db.collection('uv_detector_lifecycle_events').get()).docs.map(doc => doc.data());
+    for (const original of historyBefore) {
+      expect(original.recordedAt).toBeInstanceOf(admin.firestore.Timestamp);
+      expect(original.recordedAt.toMillis()).toBeGreaterThan(original.completedAt.toMillis());
+    }
+    const accepted = await service.execute(command, context);
+    expect(accepted.result.correctsEventId).toBe(event.eventId);
+    expect(accepted.result.currentEventId).toBe(siblingPlan.events[0].data.eventId);
+    const current = (await db.doc(currentPath).get()).data();
+    expect(current.actionPerformedAt.toDate().toISOString()).toBe('2026-08-11T08:00:00.000Z');
+    expect(current.completedAt.toDate().toISOString()).toBe('2026-08-28T09:00:00.000Z');
+    expect(current.recordedAt.toDate().toISOString()).toBe('2026-08-28T13:00:00.000Z');
+    const replay = await service.execute(command, context);
+    expect(replay.result.currentEventId).toBe(accepted.result.currentEventId);
+    expect((await db.doc(currentPath).get()).data()).toEqual(current);
+    expect((await db.collection('uv_detector_lifecycle_events').get()).docs.map(doc => doc.data()))
+      .toEqual(historyBefore);
+    expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(1);
+    expect((await db.collection('maintenance_workflow_command_receipts').get()).size).toBe(1);
+  });
+
+  test('UV correction rejects native history recorded before completion atomically', async () => {
+    const {command, event, currentPath, context} = await seededUvCorrection();
+    await db.doc(`uv_detector_lifecycle_events/${event.eventId}`).update({
+      recordedAt: admin.firestore.Timestamp.fromDate(new Date('2026-08-28T08:59:00.000Z')),
+    });
+    const current = (await db.doc(currentPath).get()).data();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'uv-detector-correction-history-invalid'},
+    });
+    expect((await db.doc(currentPath).get()).data()).toEqual(current);
+    expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(0);
+    expect((await db.collection('maintenance_workflow_command_receipts').get()).size).toBe(0);
+    expect((await db.collection('audit_logs').get()).size).toBe(0);
+  });
 
   test('UV correction native replay preserves a later physical installation and immutable original', async () => {
     const {command, event, currentPath, context} = await seededUvCorrection();
