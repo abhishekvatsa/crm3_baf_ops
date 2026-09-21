@@ -6,10 +6,13 @@ import 'package:crm3_baf_ops/features/audit/providers/audit_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/furnace_stuckup_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/maintenance_creation_successor_review.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/maintenance_ticket_correction.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_creation_successor_review_panel.dart';
+import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_correction_dialog.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_detail_screen.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_creation_successor_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_creation_successor_service.dart';
@@ -63,6 +66,12 @@ MaintenanceCreationSuccessorReview _review({
   bool equal = false,
   bool unsupported = false,
   bool registered = false,
+  void Function(
+    MaintenanceRecord original,
+    MaintenanceRecord local,
+    MaintenanceRecord server,
+  )?
+  configure,
 }) {
   final original = _ticket();
   final local = _ticket(description: 'Retained device observation');
@@ -107,6 +116,7 @@ MaintenanceCreationSuccessorReview _review({
     local.subsystem = 'Unreviewed device subsystem';
     local.tag = 'DEVICE-TAG';
   }
+  configure?.call(original, local, server);
   final command = WorkflowCommand(
     commandId: 'createMaintenanceTicket_issue-review',
     type: WorkflowCommandType.createMaintenanceTicket,
@@ -148,6 +158,34 @@ MaintenanceCreationSuccessorReview _review({
     server: server,
     localSnapshotJson: '{"fixture":"retained-device-row"}',
   );
+}
+
+void _specialize(MaintenanceRecord row, String classification) {
+  row.classification = classification;
+  if (classification == burnerLockoutClassification) {
+    row.routedTo = RoutedTo.instrumentation;
+    row.component = 'Burner system';
+    row.isCritical = true;
+    row.burnerLockoutCase = BurnerLockoutCase(
+      positions: [1],
+      commonMode: false,
+      cycleStage: BurnerCycleStage.firing,
+      flameObservation: BurnerObservation.seen,
+      sparkObservation: BurnerObservation.notChecked,
+      relightAttempts: 0,
+      remainsLockedOut: true,
+      redHotPositions: [1],
+    );
+  } else if (classification == furnaceStuckupClassification) {
+    row.component = 'Furnace / Inner Cover interface';
+    row.plantConditionEffect = MaintenanceIssuePlantConditionEffect.stuckUp;
+  } else {
+    row.assetType = AssetType.base;
+    row.component = baseInnerCoverAvailabilityComponent;
+    row.subsystem = baseInnerCoverAvailabilitySubsystem;
+    row.plantConditionEffect = MaintenanceIssuePlantConditionEffect.unavailable;
+  }
+  row.issueLanePlan = IssueLanePlan.initial([row.routedTo.name]);
 }
 
 class _Service implements MaintenanceCreationSuccessorService {
@@ -405,6 +443,17 @@ void main() {
       await pump(tester, review: _review(unsupported: true));
       await open(tester);
       expect(find.textContaining('Physical asset number'), findsOneWidget);
+      final difference = find.byKey(
+        const ValueKey('maintenance-successor-retained-assetNumber'),
+      );
+      expect(
+        find.descendant(of: difference, matching: find.text('B · 8')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: difference, matching: find.text('C · 7')),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<FilledButton>(
@@ -473,6 +522,342 @@ void main() {
         findsOneWidget,
       );
       expect(service.submissions, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'acknowledged route is retained while narrative correction remains available',
+    (tester) async {
+      final review = _review(
+        configure: (original, local, server) {
+          local.routedTo = RoutedTo.electrical;
+          server
+            ..status = TicketStatus.acknowledged
+            ..acknowledgedByUid = 'mechanical-reviewer'
+            ..acknowledgedByName = 'Mechanical reviewer'
+            ..acknowledgedAt = _at
+            ..issueLanePlan = IssueLanePlan.initial([
+              'mechanical',
+            ]).acknowledge('mechanical');
+        },
+      );
+      await pump(tester, review: review);
+      await open(tester);
+      expect(
+        find.byKey(const ValueKey('maintenance-successor-select-routedTo')),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('Accountability is locked after acknowledgement'),
+        findsOneWidget,
+      );
+      await tap(tester, 'maintenance-successor-select-description');
+      await tap(tester, 'maintenance-successor-retain');
+      await tap(tester, 'maintenance-successor-correct');
+      final route = tester.widget<DropdownButtonFormField<RoutedTo>>(
+        find.byKey(const ValueKey('ticket-correction-route')),
+      );
+      expect(route.initialValue, RoutedTo.mechanical);
+      expect(route.onChanged, isNull);
+      final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+      await tester.ensureVisible(reason);
+      await tester.enterText(
+        reason,
+        'Verified narrative; retain earlier device routing',
+      );
+      await tester.tap(find.text('Record correction'));
+      await tester.pumpAndSettle();
+      expect(service.submitted!.corrections, {
+        'description': 'Retained device observation',
+      });
+      expect(service.acknowledged, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final classification in [
+    burnerLockoutClassification,
+    furnaceStuckupClassification,
+    baseInnerCoverUnavailableClassification,
+  ]) {
+    testWidgets(
+      '$classification locked values stay retained while narrative can be corrected',
+      (tester) async {
+        final locked = <String>{
+          'component',
+          'subsystem',
+          'tag',
+          'classification',
+          if (classification != baseInnerCoverUnavailableClassification) ...[
+            'routedTo',
+            'maintenanceType',
+          ],
+          if (classification == burnerLockoutClassification) 'isCritical',
+          if (classification != burnerLockoutClassification)
+            'plantConditionEffect',
+        };
+        final review = _review(
+          configure: (original, local, server) {
+            for (final row in [original, local, server]) {
+              _specialize(row, classification);
+            }
+            local
+              ..component = 'Device component'
+              ..subsystem = 'Device subsystem'
+              ..tag = 'DEVICE'
+              ..classification = 'Device classification';
+            if (locked.contains('routedTo')) {
+              local.routedTo = RoutedTo.electrical;
+            }
+            if (locked.contains('maintenanceType')) {
+              local.maintenanceType = MaintenanceType.scheduled;
+            }
+            if (locked.contains('isCritical')) local.isCritical = false;
+            if (locked.contains('plantConditionEffect')) {
+              local.plantConditionEffect =
+                  MaintenanceIssuePlantConditionEffect.unfit;
+            }
+          },
+        );
+        await pump(tester, review: review);
+        await open(tester);
+        for (final field in locked) {
+          expect(
+            find.byKey(ValueKey('maintenance-successor-select-$field')),
+            findsNothing,
+            reason: '$field is fixed by the accepted issue',
+          );
+        }
+        expect(
+          find.textContaining('fixed by the specialized issue'),
+          findsWidgets,
+        );
+        await tap(tester, 'maintenance-successor-select-description');
+        await tap(tester, 'maintenance-successor-retain');
+        await tap(tester, 'maintenance-successor-correct');
+        final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+        await tester.ensureVisible(reason);
+        await tester.enterText(
+          reason,
+          'Retain specialized identity and confirm narrative',
+        );
+        await tester.tap(find.text('Record correction'));
+        await tester.pumpAndSettle();
+        expect(service.submitted!.corrections, {
+          'description': 'Retained device observation',
+        });
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'programmatic defaults cannot override locked correction controls',
+    (tester) async {
+      for (final classification in [
+        null,
+        burnerLockoutClassification,
+        furnaceStuckupClassification,
+        baseInnerCoverUnavailableClassification,
+      ]) {
+        final ticket = _ticket(synced: true);
+        if (classification != null) {
+          _specialize(ticket, classification);
+        } else {
+          ticket
+            ..status = TicketStatus.acknowledged
+            ..acknowledgedByUid = 'reviewer'
+            ..acknowledgedByName = 'Reviewer'
+            ..acknowledgedAt = _at
+            ..issueLanePlan = IssueLanePlan.initial([
+              'mechanical',
+            ]).acknowledge('mechanical');
+        }
+        MaintenanceTicketCorrectionDraft? submitted;
+        final defaults = {
+          'description': 'Reviewed narrative',
+          'routedTo': RoutedTo.electrical.name,
+          if (classification != null) ...{
+            'component': 'Device component',
+            'subsystem': 'Device subsystem',
+            'tag': 'DEVICE',
+            'classification': 'Device classification',
+            if (classification != baseInnerCoverUnavailableClassification)
+              'maintenanceType': MaintenanceType.scheduled.name,
+            if (classification == burnerLockoutClassification)
+              'isCritical': false,
+            if (classification != burnerLockoutClassification)
+              'plantConditionEffect': 'unfit',
+          },
+        };
+        if (classification == baseInnerCoverUnavailableClassification) {
+          defaults.remove('routedTo');
+        }
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              home: Scaffold(
+                body: MaintenanceTicketCorrectionDialog(
+                  key: ValueKey(classification),
+                  ticket: ticket,
+                  initialValues: defaults,
+                  onSubmit: (draft) async {
+                    submitted = draft;
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+        await tester.ensureVisible(reason);
+        await tester.enterText(
+          reason,
+          'Reviewed narrative with server identity retained',
+        );
+        await tester.tap(find.text('Record correction'));
+        await tester.pumpAndSettle();
+        expect(
+          submitted?.corrections,
+          {'description': 'Reviewed narrative'},
+          reason: 'Disabled fields must preserve C even for direct callers',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
+
+  testWidgets(
+    'acknowledged other department is retained without blocking narrative',
+    (tester) async {
+      final review = _review(
+        configure: (original, local, server) {
+          for (final row in [original, local, server]) {
+            row
+              ..routedTo = RoutedTo.others
+              ..otherDepartment = 'Accepted team'
+              ..issueLanePlan = IssueLanePlan.initial(['others']);
+          }
+          local.otherDepartment = 'Device team';
+          server
+            ..status = TicketStatus.acknowledged
+            ..acknowledgedByUid = 'team-reviewer'
+            ..acknowledgedByName = 'Team reviewer'
+            ..acknowledgedAt = _at
+            ..issueLanePlan = IssueLanePlan.initial([
+              'others',
+            ]).acknowledge('others');
+        },
+      );
+      await pump(tester, review: review);
+      await open(tester);
+      expect(
+        find.byKey(
+          const ValueKey('maintenance-successor-select-otherDepartment'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('team has already acknowledged'),
+        findsOneWidget,
+      );
+      await tap(tester, 'maintenance-successor-select-description');
+      await tap(tester, 'maintenance-successor-retain');
+      await tap(tester, 'maintenance-successor-correct');
+      final department = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('ticket-correction-other-department')),
+      );
+      expect(department.controller!.text, 'Accepted team');
+      expect(department.enabled, isFalse);
+      final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+      await tester.ensureVisible(reason);
+      await tester.enterText(
+        reason,
+        'Confirm observation and retain acknowledged team',
+      );
+      await tester.tap(find.text('Record correction'));
+      await tester.pumpAndSettle();
+      expect(service.submitted!.corrections, {
+        'description': 'Retained device observation',
+      });
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'unsupported provenance and workflow values show complete B and C disposition',
+    (tester) async {
+      final review = _review(
+        configure: (original, local, server) {
+          local
+            ..reportedBy = 'Device reporter'
+            ..performedBy = 'Device worker'
+            ..teamsInvolved = ['Device team']
+            ..chargeNoAtEvent = 41
+            ..metadataJson = '{"reviewNote":"Retained device evidence"}';
+          server
+            ..reportedBy = 'Server reporter'
+            ..performedBy = 'Server worker'
+            ..teamsInvolved = ['Server team']
+            ..chargeNoAtEvent = 42
+            ..workflowAggregateId = 'current-workflow'
+            ..metadataJson = '{"reviewNote":"Current server evidence"}';
+        },
+      );
+      await pump(tester, review: review);
+      await open(tester);
+      expect(
+        find.text('Device/server differences retained, not applied'),
+        findsOneWidget,
+      );
+      for (final entry in {
+        'reportedBy': ['Device reporter', 'Server reporter'],
+        'performedBy': ['Device worker', 'Server worker'],
+        'teamsInvolved': ['Device team', 'Server team'],
+        'chargeNoAtEvent': ['41', '42'],
+        'workflowAggregateId': ['Not recorded', 'current-workflow'],
+      }.entries) {
+        final difference = find.byKey(
+          ValueKey('maintenance-successor-retained-${entry.key}'),
+        );
+        expect(difference, findsOneWidget);
+        expect(
+          find.descendant(
+            of: difference,
+            matching: find.text('B · ${entry.value[0]}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: difference,
+            matching: find.text('C · ${entry.value[1]}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: difference,
+            matching: find.text(
+              'Retain device evidence and keep the server value.',
+            ),
+          ),
+          findsOneWidget,
+        );
+      }
+      await tap(tester, 'maintenance-successor-evidence-B-metadataJson');
+      expect(
+        find.text('{"reviewNote":"Retained device evidence"}'),
+        findsOneWidget,
+      );
+      await tap(tester, 'maintenance-successor-evidence-C-metadataJson');
+      expect(
+        find.text('{"reviewNote":"Current server evidence"}'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );

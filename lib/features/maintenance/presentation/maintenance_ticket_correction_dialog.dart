@@ -9,6 +9,92 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/maintenance_ticket_correction.dart';
 
+/// Presentation eligibility; the correction builder and server remain authority.
+String? maintenanceCorrectionFieldRetentionReason(
+  MaintenanceRecord ticket,
+  String field, {
+  Object? proposedValue,
+}) {
+  final burner = ticket.classification == burnerLockoutClassification;
+  final stuckup = ticket.classification == furnaceStuckupClassification;
+  final availability =
+      ticket.classification == baseInnerCoverUnavailableClassification;
+  final specialized = burner || stuckup;
+  if ((specialized &&
+          const {
+            'routedTo',
+            'maintenanceType',
+            'component',
+            'subsystem',
+            'tag',
+            'classification',
+          }.contains(field)) ||
+      (availability &&
+          const {
+            'component',
+            'subsystem',
+            'tag',
+            'classification',
+            'plantConditionEffect',
+          }.contains(field)) ||
+      (stuckup && field == 'plantConditionEffect')) {
+    return 'This field is fixed by the specialized issue. The device value is retained without being applied.';
+  }
+  if (field == 'isCritical' &&
+      burner &&
+      ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true) {
+    return 'Criticality is required by red-hot burner evidence. The device value is retained without being applied.';
+  }
+  if (field == 'routedTo') {
+    if (ticket.status != TicketStatus.open ||
+        ticket.acknowledgedByUid != null ||
+        ticket.acknowledgedByName != null ||
+        ticket.acknowledgedAt != null) {
+      return 'Accountability is locked after acknowledgement or closure. The device value is retained without being applied.';
+    }
+    try {
+      if (ticket
+          .issueLanePlanForOtherDepartmentRepair
+          .acknowledgedLanes
+          .isNotEmpty) {
+        return 'Accountability is locked after acknowledgement or closure. The device value is retained without being applied.';
+      }
+    } on FormatException {
+      return 'Saved team accountability needs reconciliation before routing can change. The device value is retained without being applied.';
+    }
+  }
+  if (field == 'otherDepartment' &&
+      ticket.otherDepartment?.trim().isNotEmpty == true) {
+    try {
+      final lanes = ticket.issueLanePlanForOtherDepartmentRepair;
+      if (lanes.acknowledgedLanes.contains(RoutedTo.others.name) ||
+          lanes.completedLanes.contains(RoutedTo.others.name)) {
+        return 'The other accountable team has already acknowledged this issue. The device value is retained without being applied.';
+      }
+    } on FormatException {
+      return 'Saved team accountability needs reconciliation before the department can change. The device value is retained without being applied.';
+    }
+  }
+  if (ticket.assetHierarchyRefJson != null &&
+      const {'component', 'subsystem', 'tag'}.contains(field)) {
+    return 'Choose a fresh registered target in the correction form to change this field. Device labels are retained without being copied.';
+  }
+  if (field == 'classification' &&
+      const {
+        burnerLockoutClassification,
+        furnaceStuckupClassification,
+        baseInnerCoverUnavailableClassification,
+      }.contains(proposedValue)) {
+    return 'A standard issue cannot be reclassified as a specialized issue. The device value is retained without being applied.';
+  }
+  if (field == 'plantConditionEffect' &&
+      proposedValue != null &&
+      !const {'unfit', 'unavailable'}.contains(proposedValue)) {
+    return 'This issue must mark the asset Unfit or Unavailable. The device value is retained without being applied.';
+  }
+  return null;
+}
+
 class MaintenanceTicketCorrectionDialog extends ConsumerStatefulWidget {
   const MaintenanceTicketCorrectionDialog({
     super.key,
@@ -57,10 +143,8 @@ class _MaintenanceTicketCorrectionDialogState
 
   bool get _isSpecialized => _isBurnerLockout || _isFurnaceStuckup;
 
-  bool get _hasImmutableIssueIdentity =>
-      _isSpecialized ||
-      _isBaseInnerCoverUnavailable ||
-      widget.ticket.assetHierarchyRefJson != null;
+  bool _canEdit(String field) =>
+      maintenanceCorrectionFieldRetentionReason(widget.ticket, field) == null;
 
   Future<void> _selectCorrectedTarget() async {
     try {
@@ -96,12 +180,7 @@ class _MaintenanceTicketCorrectionDialogState
   bool get _hasRedHotBurner =>
       widget.ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true;
 
-  bool get _canCorrectRoute =>
-      !_isSpecialized &&
-      widget.ticket.status == TicketStatus.open &&
-      widget.ticket.acknowledgedByUid == null &&
-      widget.ticket.acknowledgedByName == null &&
-      widget.ticket.acknowledgedAt == null;
+  bool get _canCorrectRoute => _canEdit('routedTo');
 
   bool get _usesOtherDepartment =>
       tryMaintenanceTicketCorrectionLanes(
@@ -114,7 +193,17 @@ class _MaintenanceTicketCorrectionDialogState
   void initState() {
     super.initState();
     final ticket = widget.ticket;
-    final initial = widget.initialValues ?? const <String, Object?>{};
+    final initial = <String, Object?>{
+      for (final entry
+          in (widget.initialValues ?? const <String, Object?>{}).entries)
+        if (maintenanceCorrectionFieldRetentionReason(
+              ticket,
+              entry.key,
+              proposedValue: entry.value,
+            ) ==
+            null)
+          entry.key: entry.value,
+    };
     String text(String field, String? fallback) =>
         (initial.containsKey(field) ? initial[field] as String? : fallback) ??
         '';
@@ -322,8 +411,12 @@ class _MaintenanceTicketCorrectionDialogState
                           'ticket-correction-other-department',
                         ),
                         controller: _otherDepartment,
-                        decoration: const InputDecoration(
+                        enabled: _canEdit('otherDepartment'),
+                        decoration: InputDecoration(
                           labelText: 'Other accountable team',
+                          helperText: _canEdit('otherDepartment')
+                              ? null
+                              : 'Accountability is locked after this team acknowledges the issue.',
                         ),
                         validator: (value) {
                           if (_usesOtherDepartment &&
@@ -353,25 +446,26 @@ class _MaintenanceTicketCorrectionDialogState
                             child: Text(_maintenanceTypeLabel(type)),
                           ),
                       ],
-                      onChanged: _isSpecialized
-                          ? null
-                          : (value) {
+                      onChanged: _canEdit('maintenanceType')
+                          ? (value) {
                               if (value != null) {
                                 setState(() => _maintenanceType = value);
                               }
-                            },
+                            }
+                          : null,
                     ),
                     const SizedBox(height: BafSpacing.sm),
                     SwitchListTile.adaptive(
+                      key: const ValueKey('ticket-correction-critical'),
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Critical issue'),
                       subtitle: _hasRedHotBurner
                           ? const Text('Required by red-hot burner evidence')
                           : null,
                       value: _critical,
-                      onChanged: _hasRedHotBurner
-                          ? null
-                          : (value) => setState(() => _critical = value),
+                      onChanged: _canEdit('isCritical')
+                          ? (value) => setState(() => _critical = value)
+                          : null,
                     ),
                     const SizedBox(height: BafSpacing.sm),
                     DropdownButtonFormField<
@@ -407,14 +501,13 @@ class _MaintenanceTicketCorrectionDialogState
                             child: Text(effect.label),
                           ),
                       ],
-                      onChanged:
-                          _isFurnaceStuckup || _isBaseInnerCoverUnavailable
-                          ? null
-                          : (value) {
+                      onChanged: _canEdit('plantConditionEffect')
+                          ? (value) {
                               if (value != null) {
                                 setState(() => _plantConditionEffect = value);
                               }
-                            },
+                            }
+                          : null,
                     ),
                     if (!_isSpecialized &&
                         !_isBaseInnerCoverUnavailable &&
@@ -432,7 +525,7 @@ class _MaintenanceTicketCorrectionDialogState
                     TextFormField(
                       key: const ValueKey('ticket-correction-component'),
                       controller: _component,
-                      enabled: !_hasImmutableIssueIdentity,
+                      enabled: _canEdit('component'),
                       decoration: const InputDecoration(
                         labelText: 'Component (optional)',
                       ),
@@ -455,7 +548,7 @@ class _MaintenanceTicketCorrectionDialogState
                     TextFormField(
                       key: const ValueKey('ticket-correction-subsystem'),
                       controller: _subsystem,
-                      enabled: !_hasImmutableIssueIdentity,
+                      enabled: _canEdit('subsystem'),
                       decoration: const InputDecoration(
                         labelText: 'Subsystem (optional)',
                       ),
@@ -466,7 +559,7 @@ class _MaintenanceTicketCorrectionDialogState
                     TextFormField(
                       key: const ValueKey('ticket-correction-tag'),
                       controller: _tag,
-                      enabled: !_hasImmutableIssueIdentity,
+                      enabled: _canEdit('tag'),
                       decoration: const InputDecoration(
                         labelText: 'Tag (optional)',
                       ),
@@ -476,7 +569,7 @@ class _MaintenanceTicketCorrectionDialogState
                     TextFormField(
                       key: const ValueKey('ticket-correction-classification'),
                       controller: _classification,
-                      enabled: !_isSpecialized && !_isBaseInnerCoverUnavailable,
+                      enabled: _canEdit('classification'),
                       decoration: const InputDecoration(
                         labelText: 'Classification (optional)',
                       ),

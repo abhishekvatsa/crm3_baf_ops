@@ -65,3 +65,40 @@ checks and 31 focused governance contracts. Explicit inventory classification
 retains all existing decoder and catch policies, all 55 schema fields and the
 existing extension/generation protections. Hosted checks and bot review must pass
 on the committed head before merge.
+
+## Bot-review repairs on the maintenance follow-up
+
+The first maintenance PR head passed all five release checks and all four
+security checks, but bot review found five real gaps. They were held for repair
+rather than treated as closed by CI success.
+
+- Audit adoption now requires a native Firestore `Timestamp` with exact value and
+  precision. ISO strings, DateTime objects, numeric substitutes and hidden
+  precision cannot authorize adoption.
+- The server comparison uses the actual generated maintenance serializer and
+  validates every generated property/type. Only device id and sync flag are
+  excluded. The proof compares all stored properties against actual Isar export.
+- Every unsupported device/server difference has frozen values and an explicit
+  retain-device-evidence/keep-server disposition. This is a comparison, not an
+  invented claim about who edited a field. Raw evidence is retained in full.
+- Review selections and correction-form initial values share current-state
+  restrictions. Locked routing, specialist fields and registered labels remain
+  retained; ordinary narrative corrections can still proceed.
+- First-attempt refusal recognizes 38 traced pre-write error-code/reason pairs.
+  A later refusal after an uncertain attempt, mismatched error pairs, replay
+  failures, account errors and transport failures do not erase uncertainty.
+
+The complete-field regression reproduced 30 failures before repair and now passes
+35 cases, including actual native serialization and unchanged-version races.
+The final service suite passes 110 cases; final UI/compatibility tests pass 43
+cases (19 review widgets and 24 existing cases). Scoped analysis is clean.
+Independent read-only review of the generated comparison found no further
+concrete defect. Current inventory checks, fresh bot review and final-head CI
+remain required for this repair commit.
+
+Final local verification after all five repairs: current A03/A04/A05 inventories
+pass, canonical audit passes 150/150, and focused governance contracts pass31/31.
+The only added A05 risk site explicitly preserves uncertainty for unclassified
+errors. Previously reviewed schema, extension, catch and timestamp policies are
+unchanged. These checks accompany the native and UI results above; fresh hosted
+checks and bot review still govern merge.

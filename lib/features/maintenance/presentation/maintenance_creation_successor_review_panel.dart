@@ -167,7 +167,11 @@ class _SuccessorReviewDialogState
         _review = review;
         _pending = null;
         _retainAcknowledged = false;
-        _selected.removeWhere((field) => !review.changedFields.contains(field));
+        _selected.removeWhere(
+          (field) =>
+              !review.changedFields.contains(field) ||
+              _retentionReason(review, field) != null,
+        );
       });
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -211,7 +215,7 @@ class _SuccessorReviewDialogState
           ticket: review.server,
           initialValues: {
             for (final field in _selected)
-              if (!_requiresFreshTarget(review, field))
+              if (_retentionReason(review, field) == null)
                 field: review.localValues[field],
           },
           onSubmit: (draft) async {
@@ -364,19 +368,40 @@ class _SuccessorReviewDialogState
                         'The supported issue fields already match the server. Confirming this review records local reconciliation; it does not create a server correction.',
                       ),
                     ),
-                  if (review.unsupportedChanges.isNotEmpty) ...[
+                  if (review.unsupportedDifferences.isNotEmpty) ...[
                     const SizedBox(height: BafSpacing.md),
                     Text(
-                      'Changes retained without applying',
+                      'Device/server differences retained, not applied',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const Text(
-                      'These changes cannot be applied through this correction. They remain in the retained review evidence.',
+                      'The server may have advanced since this device copy was saved. These differences remain in the retained review evidence; the current server values are kept.',
                     ),
-                    for (final change in review.unsupportedChanges)
+                    for (final entry in review.unsupportedDifferences.entries)
                       Padding(
                         padding: const EdgeInsets.only(top: BafSpacing.sm),
-                        child: Text('• ${_fieldLabel(change)}'),
+                        child: Column(
+                          key: ValueKey(
+                            'maintenance-successor-retained-${entry.key}',
+                          ),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_fieldLabel(entry.key)),
+                            _retainedValue(
+                              entry.key,
+                              'B',
+                              entry.value.deviceValue,
+                            ),
+                            _retainedValue(
+                              entry.key,
+                              'C',
+                              entry.value.serverValue,
+                            ),
+                            const Text(
+                              'Retain device evidence and keep the server value.',
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                   CheckboxListTile(
@@ -451,7 +476,7 @@ class _SuccessorReviewDialogState
     final deviceChanged = review.changedFields.contains(field);
     final matchesServer =
         review.localValues[field] == review.serverValues[field];
-    final needsTarget = _requiresFreshTarget(review, field);
+    final retentionReason = _retentionReason(review, field);
     return Card(
       margin: const EdgeInsets.only(top: BafSpacing.md),
       child: Padding(
@@ -466,10 +491,8 @@ class _SuccessorReviewDialogState
             Text('A · ${_value(review.originalValues[field])}'),
             Text('B · ${_value(review.localValues[field])}'),
             Text('C · ${_value(review.serverValues[field])}'),
-            if (deviceChanged && !matchesServer && needsTarget)
-              const Text(
-                'Choose a fresh registered target in the correction form to change this field. Device labels are retained without being copied.',
-              )
+            if (deviceChanged && !matchesServer && retentionReason != null)
+              Text(retentionReason)
             else if (deviceChanged && !matchesServer)
               CheckboxListTile(
                 key: ValueKey('maintenance-successor-select-$field'),
@@ -499,12 +522,14 @@ class _SuccessorReviewDialogState
     );
   }
 
-  bool _requiresFreshTarget(
+  String? _retentionReason(
     MaintenanceCreationSuccessorReview review,
     String field,
-  ) =>
-      review.server.assetHierarchyRefJson != null &&
-      const {'component', 'subsystem', 'tag'}.contains(field);
+  ) => maintenanceCorrectionFieldRetentionReason(
+    review.server,
+    field,
+    proposedValue: review.localValues[field],
+  );
 }
 
 String _value(Object? value) => value == null || value == ''
@@ -512,6 +537,24 @@ String _value(Object? value) => value == null || value == ''
     : value is bool
     ? (value ? 'Yes' : 'No')
     : '$value';
+
+Widget _retainedValue(String field, String side, Object? value) {
+  if (field.endsWith('Json') && value is String && value.isNotEmpty) {
+    return ExpansionTile(
+      key: ValueKey('maintenance-successor-evidence-$side-$field'),
+      tilePadding: EdgeInsets.zero,
+      title: Text('$side · ${_fieldLabel(field)}'),
+      subtitle: const Text('Open to inspect the exact retained evidence.'),
+      children: [SelectableText(value)],
+    );
+  }
+  final display = value is List
+      ? (value.isEmpty
+            ? 'None recorded'
+            : value.map(_value).join(field == 'hierarchyPath' ? ' → ' : ', '))
+      : _value(value);
+  return Text('$side · $display');
+}
 
 String _fieldLabel(String field) =>
     const {
@@ -536,5 +579,60 @@ String _fieldLabel(String field) =>
       'actionsJson': 'Recorded work',
       'resolutionHistoryJson': 'Resolution history',
       'metadataJson': 'Saved issue evidence',
+      'acknowledgedAt': 'Acknowledgement time',
+      'acknowledgedByName': 'Acknowledged by',
+      'acknowledgedByUid': 'Acknowledging account',
+      'chargeNoAtEvent': 'Charge number at the event',
+      'closedByName': 'Closed by',
+      'closedByUid': 'Closing account',
+      'continuesIssueId': 'Continued issue reference',
+      'createdAt': 'Original record time',
+      'debugLabel': 'Saved issue label',
+      'deleteReason': 'Removal reason',
+      'deletedAt': 'Removal time',
+      'deletedByName': 'Removed by',
+      'deletedByUid': 'Removing account',
+      'downtimeHours': 'Elapsed downtime (hours)',
+      'firestoreId': 'Issue reference',
+      'hasComponentContext': 'Equipment details available',
+      'hierarchyPath': 'Equipment path',
+      'isClosed': 'Issue closed',
+      'isDeleted': 'Issue removed',
+      'isOpen': 'Issue open',
+      'loggedByName': 'Originally recorded by',
+      'loggedByUid': 'Original reporting account',
+      'operationalEventIssueLinkIds': 'Linked operational event evidence',
+      'performedBy': 'Work performed by',
+      'plantConditionContributionActive': 'Affects current plant condition',
+      'reopenReason': 'Reopening reason',
+      'reopenedAt': 'Reopening time',
+      'reopenedByName': 'Reopened by',
+      'reopenedByUid': 'Reopening account',
+      'reportedBy': 'Reported by',
+      'teamsInvolved': 'Teams involved',
+      'updatedAt': 'Last record update',
+      'version': 'Record revision',
+      'workflowAggregateId': 'Linked workflow reference',
+      'workflowComplianceId': 'Linked compliance reference',
+      'workflowConditionRef': 'Linked condition reference',
+      'workflowConditionTypeKey': 'Linked condition type',
+      'workflowCorrectionReason': 'Workflow correction reason',
+      'workflowDeferred': 'Work deferred',
+      'workflowDeferredAt': 'Deferral time',
+      'workflowDeferredByName': 'Deferred by',
+      'workflowDeferredByUid': 'Deferring account',
+      'workflowOriginLaneKey': 'Original responsible team',
+      'workflowQueueState': 'Work status',
+      'workflowReactivatedAt': 'Reactivation time',
+      'workflowReactivatedByName': 'Reactivated by',
+      'workflowReactivatedByUid': 'Reactivating account',
+      'workflowReleasedAt': 'Work release time',
+      'workflowReleasedByName': 'Work released by',
+      'workflowReleasedByUid': 'Work releasing account',
+      'workflowTargetLaneKey': 'Current responsible team',
+      'workflowUpdatedAt': 'Work status update time',
     }[field] ??
-    field;
+    field.replaceAllMapped(
+      RegExp(r'([a-z])([A-Z])'),
+      (match) => '${match[1]} ${match[2]}',
+    );

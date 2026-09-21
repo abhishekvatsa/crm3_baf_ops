@@ -144,3 +144,28 @@ remain separate checks; this paragraph does not claim their completion.
 The subsequent maintenance successor repair is described in
 `MAINTENANCE_SUCCESSOR_RECOVERY_2026_09_21.md`. It closes the concrete native review
 dead end without closing the broader recovery or release programmes listed above.
+
+## Active Kotlin scanning verified
+
+On 21 September 2026, main `0058002ccf52010584fa398326773912b1622ad6`
+passed release run 35559419957 (all five jobs) and security preview run
+35559419931 (all four jobs). Default setup was then disabled and read back as
+`not-configured`; temporary `CRM3_CODEQL_PREVIEW` was removed.
+
+Active publication run [35560291657](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/35560291657)
+passed all four jobs. Readback confirms new accepted analyses for the exact main
+commit and `.github/workflows/codeql.yml:analyze`:
+
+| Category | Accepted analysis |
+| --- | --- |
+| Actions | 1808735379 |
+| JavaScript/TypeScript | 1808739672 |
+| Python | 1808739874 |
+| Java/Kotlin | 1808765043 |
+
+All four report empty error/warning fields and zero results. The separate open
+alert readback returned zero. The published Kotlin proof binds this actual main
+SHA, CodeQL 2.27.0, the four required app method bodies and zero app extraction
+errors. Earlier default/failed analyses remain historical evidence. This closes
+the scanner migration at that commit; future source changes require their own
+normal analysis and release checks.

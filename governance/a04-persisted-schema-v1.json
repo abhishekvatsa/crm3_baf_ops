@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "16458D200F2C16E46C48B4A18D3E5A65B652B0358C9A96B220460EAA5B30EC09",
+  "inventoryDigest": "BA68BCB9F82AAA714CB196583055CD15319E3AFC300EF00636F3B1F55B7E48EC",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "636651D641066CD1F4238B1EB11805607CE162FD11359F29A6A9469D04E216A5",
+  "a05ManifestSha256": "83B2D7A6DCF41F0A0EAE51C87E32A9A53DE9C0283897D7A3D1DF77122C9E13C9",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1443,7 +1443,7 @@
       "authorityBoundary": "Exact protocol-two original-actor creation envelope and matching creation receipt are read-only A evidence. Explicit A/B/C comparison binds complete native B bytes and a server identity/version boundary; selected, unselected and unsupported dispositions plus reason are retained before native reconciliation.",
       "malformedDisposition": "Incomplete or inconsistent creation identity, receipt, actor, server origin or creation time refuses review. Dirty or duplicate local identity cannot be replaced. Optional display text normalization never alters the complete archived native B bytes or permits lifecycle/physical scope changes.",
       "compatibility": "Existing accepted creation wrapper and receipt contract only; no dispatch or actor reassignment of uncertain A. Existing maintenance fields remain unchanged, and unsupported target/lifecycle edits are retained rather than inferred as applied.",
-      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart; test/maintenance_creation_successor_complete_boundary_test.dart"
     },
     {
       "id": "maintenance-successor-durable-correction",
@@ -1452,7 +1452,7 @@
       "authorityBoundary": "Distinct native maintenanceWorkflow.v2 supervisor correction binds expected C version, selected fields/fresh target, reason, complete A/B/C evidence, original reviewer account and exact request/receipt. Shared strict audit admission plus immutable command/audit identity and exact native timestamp equality precede local settlement.",
       "malformedDisposition": "Malformed envelopes, receipts, audit metadata or selected-value/target/time mismatch remain retained and cannot adopt C. First-attempt enumerated precommit refusals permit a fresh review; ambiguous or later refusals preserve uncertainty. Account switches cannot dispatch or adopt another actor request.",
       "compatibility": "Existing correctMaintenanceTicket backend and AuditEvent reader only. Exact native Firestore Timestamp and canonical receipt time agree without losing nanoseconds. Same-version C must match accepted selected values; a later legitimate C version may supersede them. Keep-server records local-only reconciliation with no fake remote receipt.",
-      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart; test/maintenance_creation_successor_complete_boundary_test.dart"
     },
     {
       "id": "maintenance-successor-native-snapshot-adoption",
@@ -1461,7 +1461,7 @@
       "authorityBoundary": "One exact native ticket row is exported in full and retained under bounded immutable JSON evidence. Exact server state can replace B only under same-transaction full-row comparison, live reviewer checks and a complete native review audit.",
       "malformedDisposition": "Missing/duplicate rows, invalid native export or changed B refuse replacement. Keep-server concurrent owners block adoption atomically. If a distinct correction already succeeded but B changed, retain both reviewed evidence and newer B without falsely marking newer B synchronized.",
       "compatibility": "No Isar schema change or hand-maintained partial serializer. Existing native row and AuditEvent collections retain complete raw fields; current strict maintenance reader supplies C.",
-      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart"
+      "regression": "test/maintenance_creation_successor_service_test.dart; test/maintenance_creation_successor_review_ui_test.dart; test/maintenance_creation_owner_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart; test/maintenance_creation_successor_complete_boundary_test.dart"
     },
     {
       "id": "module-registry-hash",

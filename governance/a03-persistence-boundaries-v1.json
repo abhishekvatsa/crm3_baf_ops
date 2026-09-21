@@ -1244,7 +1244,8 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_creation_successor_service_test.dart",
-        "test/maintenance_creation_successor_review_ui_test.dart"
+        "test/maintenance_creation_successor_review_ui_test.dart",
+        "test/maintenance_creation_successor_complete_boundary_test.dart"
       ]
     },
     {
@@ -1260,7 +1261,8 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_creation_successor_service_test.dart",
-        "test/maintenance_creation_successor_review_ui_test.dart"
+        "test/maintenance_creation_successor_review_ui_test.dart",
+        "test/maintenance_creation_successor_complete_boundary_test.dart"
       ],
       "reviewContract": "Complete native Isar export retains every persisted B property and raw JSON value. Adoption and a local reconciliation audit share the durable owner transaction and full-row CAS; keep-server checks for a concurrent correction owner inside that transaction. Accepted correction plus newer B archives the reviewed evidence and leaves newer B unchanged and unsynced for another review. Duplicate rows and malformed or unavailable evidence fail closed."
     }

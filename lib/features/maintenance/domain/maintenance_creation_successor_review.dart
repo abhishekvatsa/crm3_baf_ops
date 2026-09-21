@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:isar_community/isar.dart';
+
 import '../../../core/persistence/durable_submission.dart';
 import '../../maintenance_workflow/data/workflow_command_receipt_record.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
@@ -35,30 +37,110 @@ Map<String, Object?> maintenanceCorrectionValues(MaintenanceRecord row) => {
   'remarks': cleanMaintenanceOptionalText(row.remarks ?? ''),
 };
 
-/// A server version fences all fields, including server-only lifecycle data.
-/// The additional values make a same-version contradictory read fail closed.
+/// Only device transport identity/state is excluded. Business identity,
+/// chronology, provenance, workflow fields and generated projections remain.
+const maintenanceReviewLocalFieldExclusions = {
+  'id': 'Device-only Isar primary key; server identity is firestoreId.',
+  'isSynced': 'Device-only transport flag; it grants no business authority.',
+};
+
+/// Uses the very serializer that writes native records, rather than maintaining
+/// another field list. New supported schema fields participate automatically;
+/// an unsupported generated writer method or incomplete schema fails closed.
+Map<String, Object?> maintenancePersistedReviewValues(MaintenanceRecord row) {
+  final writer = _MaintenanceReviewWriter();
+  final offsets = List<int>.generate(
+    MaintenanceRecordSchema.properties.length,
+    (index) => index,
+  );
+  // Intentional read-only use of the generated codec; no database is written.
+  // ignore: invalid_use_of_protected_member
+  MaintenanceRecordSchema.serialize(row, writer, offsets, {});
+  if (writer.values.length != MaintenanceRecordSchema.properties.length ||
+      !writer.values.keys.toSet().containsAll(
+        MaintenanceRecordSchema.properties.keys,
+      )) {
+    throw StateError(
+      'The complete persisted maintenance review could not be constructed.',
+    );
+  }
+  return Map.unmodifiable({
+    for (final entry in writer.values.entries)
+      if (!maintenanceReviewLocalFieldExclusions.containsKey(entry.key))
+        entry.key: entry.value,
+  });
+}
+
+class _MaintenanceReviewWriter implements IsarWriter {
+  final values = <String, Object?>{};
+  final _properties = {
+    for (final property in MaintenanceRecordSchema.properties.values)
+      property.id: property,
+  };
+
+  void _write(int offset, IsarType type, Object? value) {
+    final property = _properties[offset];
+    if (property == null ||
+        property.type != type ||
+        values.containsKey(property.name)) {
+      throw StateError(
+        'The persisted maintenance schema disagrees with its generated serializer.',
+      );
+    }
+    values[property.name] = value;
+  }
+
+  @override
+  void writeBool(int offset, bool? value) =>
+      _write(offset, IsarType.bool, value);
+  @override
+  void writeLong(int offset, int? value) =>
+      _write(offset, IsarType.long, value);
+  @override
+  void writeDouble(int offset, double? value) {
+    if (value != null && !value.isFinite) {
+      throw StateError(
+        'A non-finite persisted maintenance number cannot be reviewed as valid evidence.',
+      );
+    }
+    _write(offset, IsarType.double, value);
+  }
+
+  @override
+  void writeString(int offset, String? value) =>
+      _write(offset, IsarType.string, value);
+  @override
+  void writeDateTime(int offset, DateTime? value) =>
+      _write(offset, IsarType.dateTime, value?.toUtc().toIso8601String());
+  @override
+  void writeStringList(int offset, List<String?>? values) => _write(
+    offset,
+    IsarType.stringList,
+    values == null ? null : List<String?>.unmodifiable(values),
+  );
+
+  // A future schema using a new native type must be reviewed explicitly; never
+  // omit that field and falsely certify a partial comparison as complete.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw StateError(
+    'Unsupported persisted maintenance review field type: ${invocation.memberName}.',
+  );
+}
+
+/// Every persisted server field fences same-version contradictions.
 String maintenanceReviewServerBoundary(MaintenanceRecord row) =>
-    maintenanceReviewJson({
-      'ticketId': row.firestoreId,
-      'version': row.version,
-      'updatedAt': row.updatedAt.toUtc().toIso8601String(),
-      'createdAt': row.createdAt.toUtc().toIso8601String(),
-      'loggedByUid': row.loggedByUid,
-      'assetType': row.assetType.name,
-      'assetNumber': row.assetNumber,
-      'assetHierarchyRefJson': row.assetHierarchyRefJson,
-      'startDate': row.startDate.toUtc().toIso8601String(),
-      'endDate': row.endDate?.toUtc().toIso8601String(),
-      'isDeleted': row.isDeleted,
-      'status': row.status.name,
-      'metadataJson': row.metadataJson,
-      'actionsJson': row.actionsJson,
-      'resolutionHistoryJson': row.resolutionHistoryJson,
-      'workflowAggregateId': row.workflowAggregateId,
-      'workflowQueueState': row.workflowQueueState,
-      'operationalEventIssueLinkIds': row.operationalEventIssueLinkIds,
-      'values': maintenanceCorrectionValues(row),
-    });
+    maintenanceReviewJson(maintenancePersistedReviewValues(row));
+
+class MaintenanceRetainedFieldDifference {
+  const MaintenanceRetainedFieldDifference(this.deviceValue, this.serverValue);
+  final Object? deviceValue, serverValue;
+  String get disposition => 'retainDeviceEvidenceKeepServer';
+  Map<String, Object?> toMap() => {
+    'deviceValue': deviceValue,
+    'serverValue': serverValue,
+    'disposition': disposition,
+  };
+}
 
 Map<String, Object?> maintenanceReviewReceiptMap(
   WorkflowCommandReceipt receipt,
@@ -164,7 +246,8 @@ class MaintenanceCreationSuccessorReview {
     required this.local,
     required this.server,
     required this.localSnapshotJson,
-  }) : serverBoundaryJson = maintenanceReviewServerBoundary(server) {
+  }) : _localPersisted = maintenancePersistedReviewValues(local),
+       _serverPersisted = maintenancePersistedReviewValues(server) {
     acceptance.validateServer(server);
     if (local.firestoreId != server.firestoreId ||
         local.isSynced ||
@@ -180,7 +263,8 @@ class MaintenanceCreationSuccessorReview {
   /// Complete native Isar export, including every persisted property and raw
   /// JSON string. Never substitute MaintenanceRecord.toAuditMap for this.
   final String localSnapshotJson;
-  final String serverBoundaryJson;
+  final Map<String, Object?> _localPersisted, _serverPersisted;
+  String get serverBoundaryJson => maintenanceReviewJson(_serverPersisted);
   String get ticketId => acceptance.command.aggregateId;
   String get originalActorUid => acceptance.actorUid;
   String get originalEnvelopeJson => acceptance.envelopeJson;
@@ -200,49 +284,24 @@ class MaintenanceCreationSuccessorReview {
           maintenanceReviewJson(localValues[key]))
         key,
   ];
-  List<String> get unsupportedChanges {
-    final original = acceptance.command.payload['ticket'] as Map;
-    final result = <String>[];
-    void compare(String key, Object? value) {
-      if (maintenanceReviewJson(original[key]) !=
-          maintenanceReviewJson(value)) {
-        result.add(key);
-      }
-    }
 
-    compare('assetType', local.assetType.name);
-    compare('assetNumber', local.assetNumber);
-    compare('startDate', local.startDate.toUtc().toIso8601String());
-    compare('chargeNoAtEvent', local.chargeNoAtEvent);
-    compare('continuesIssueId', local.continuesIssueId);
-    if (local.assetHierarchyRefJson != original['assetHierarchyRefJson']) {
-      result.add(
-        'registered target (requires a fresh explicit target selection)',
-      );
-    }
-    if (local.status != TicketStatus.open ||
-        local.isResolved ||
-        local.endDate != null ||
-        local.acknowledgedByUid != null ||
-        local.closedByUid != null ||
-        local.reopenedByUid != null ||
-        local.actionsJson != '[]' ||
-        local.resolutionHistoryJson != '[]' ||
-        local.teamsInvolved.isNotEmpty ||
-        local.performedBy != null) {
-      result.add('work, acknowledgement or closure history');
-    }
-    if (local.metadataJson != server.metadataJson) {
-      result.add('retained assessment, lane or specialist metadata');
-    }
-    if (local.workflowAggregateId != server.workflowAggregateId ||
-        local.workflowQueueState != server.workflowQueueState ||
-        maintenanceReviewJson(local.operationalEventIssueLinkIds) !=
-            maintenanceReviewJson(server.operationalEventIssueLinkIds)) {
-      result.add('workflow or linked operational evidence');
-    }
-    return List.unmodifiable(result);
-  }
+  /// B-versus-C differences are not proof that the user edited B: C may have
+  /// advanced since A. Every unsupported persisted difference is disclosed
+  /// with both values and its retained-evidence/keep-server disposition.
+  Map<String, MaintenanceRetainedFieldDifference> get unsupportedDifferences =>
+      Map.unmodifiable({
+        for (final field in _localPersisted.keys)
+          if (!localValues.containsKey(field) &&
+              maintenanceReviewJson(_localPersisted[field]) !=
+                  maintenanceReviewJson(_serverPersisted[field]))
+            field: MaintenanceRetainedFieldDifference(
+              _localPersisted[field],
+              _serverPersisted[field],
+            ),
+      });
+
+  List<String> get unsupportedChanges =>
+      List.unmodifiable(unsupportedDifferences.keys);
 
   bool get hasDifferences =>
       changedFields.isNotEmpty || unsupportedChanges.isNotEmpty;
@@ -270,6 +329,10 @@ class MaintenanceCreationSuccessorReview {
     ],
     'targetReferenceJson': targetReferenceJson,
     'retainedUnsupportedChanges': unsupportedChanges,
+    'retainedUnsupportedDifferences': {
+      for (final entry in unsupportedDifferences.entries)
+        entry.key: entry.value.toMap(),
+    },
     'reason': reason,
     'disposition': disposition,
   };

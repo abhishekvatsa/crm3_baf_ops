@@ -12732,11 +12732,13 @@ a03_profiles = a03_manifest.get("profiles", {})
 a03_surfaces = a03_manifest.get("surfaces", [])
 a03_dedicated_surface_tests = {
     "lib/features/maintenance/providers/maintenance_creation_successor_provider.dart": {
+        "test/maintenance_creation_successor_complete_boundary_test.dart",
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_creation_successor_service_test.dart",
         "test/maintenance_creation_successor_review_ui_test.dart",
     },
     "lib/features/maintenance/repositories/maintenance_creation_successor_repository.dart": {
+        "test/maintenance_creation_successor_complete_boundary_test.dart",
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_creation_successor_service_test.dart",
         "test/maintenance_creation_successor_review_ui_test.dart",
@@ -13087,7 +13089,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 122
     and a04_inventory_report.get("inventoryDigest")
-        == "16458D200F2C16E46C48B4A18D3E5A65B652B0358C9A96B220460EAA5B30EC09"
+        == "BA68BCB9F82AAA714CB196583055CD15319E3AFC300EF00636F3B1F55B7E48EC"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13410,7 +13412,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 59
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 63
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 58
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 538
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 539
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []

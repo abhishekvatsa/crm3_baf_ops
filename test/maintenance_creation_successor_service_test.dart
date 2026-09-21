@@ -236,7 +236,7 @@ void main() {
       if (!receipts.containsKey(id)) {
         if (raw['expectedVersion'] != server.version) {
           throw const WorkflowException(
-            WorkflowErrorCode.failedPrecondition,
+            WorkflowErrorCode.versionConflict,
             'Stale server',
             details: {'reasonCode': 'maintenance-ticket-version-conflict'},
           );
@@ -361,7 +361,7 @@ void main() {
       expect(audit.before!['originalEnvelopeJson'], originalEnvelope);
       expect(
         audit.before!['retainedUnsupportedChanges'],
-        contains('retained assessment, lane or specialist metadata'),
+        contains('metadataJson'),
       );
       expect(audit.after!['remoteMutationPerformed'], isTrue);
       expect(
@@ -663,59 +663,183 @@ void main() {
     },
   );
 
-  for (final reason in [
-    'maintenance-ticket-department-review-required',
-    'maintenance-ticket-route-locked',
-    'maintenance-burner-specialization-immutable',
-  ]) {
+  // These are the fresh correction handler's named semantic refusals, using
+  // their actual callable error type rather than treating all exceptions alike.
+  final precommitRefusals = <WorkflowErrorCode, List<String>>{
+    WorkflowErrorCode.versionConflict: ['maintenance-ticket-version-conflict'],
+    WorkflowErrorCode.notFound: [
+      'maintenance-ticket-not-found',
+      'maintenance-ticket-governed-asset-not-found',
+    ],
+    WorkflowErrorCode.aborted: [
+      'maintenance-ticket-governed-asset-changed',
+      'maintenance-ticket-component-definition-changed',
+      'maintenance-ticket-governed-component-changed',
+    ],
+    WorkflowErrorCode.invalidArgument: [
+      'maintenance-ticket-asset-reference-required',
+      'maintenance-ticket-route-department-invalid',
+    ],
+    WorkflowErrorCode.failedPrecondition: [
+      'maintenance-ticket-evidence-invalid',
+      'maintenance-ticket-deleted',
+      'maintenance-ticket-workflow-deferred',
+      'maintenance-ticket-timestamp-invalid',
+      'maintenance-ticket-lane-plan-partial',
+      'maintenance-ticket-lane-plan-invalid',
+      'maintenance-ticket-lane-completion-evidence-invalid',
+      'maintenance-ticket-route-invalid',
+      'maintenance-ticket-lane-route-inconsistent',
+      'maintenance-ticket-lane-status-inconsistent',
+      'maintenance-ticket-lane-acknowledgement-incomplete',
+      'maintenance-ticket-target-correction-required',
+      'maintenance-ticket-target-dependent-evidence',
+      'maintenance-ticket-saved-actions-invalid',
+      'maintenance-ticket-asset-reference-scope-invalid',
+      'maintenance-ticket-inner-cover-class-ambiguous',
+      'maintenance-ticket-component-definition-tag-invalid',
+      'maintenance-ticket-governed-tag-mismatch',
+      'maintenance-ticket-asset-ownership-invalid',
+      'maintenance-ticket-inner-cover-not-linked',
+      'maintenance-ticket-inner-cover-projection-invalid',
+      'maintenance-ticket-inner-cover-linkage-after-event',
+      'maintenance-ticket-department-review-required',
+      'maintenance-burner-evidence-malformed',
+      'maintenance-burner-specialization-immutable',
+      'maintenance-stuckup-specialization-immutable',
+      'maintenance-inner-cover-availability-immutable',
+      'maintenance-ticket-plant-condition-effect-invalid',
+      'maintenance-ticket-route-locked',
+      'maintenance-ticket-correction-noop',
+    ],
+  };
+  for (final refusal in precommitRefusals.entries.expand(
+    (entry) => entry.value.map((reason) => (code: entry.key, reason: reason)),
+  )) {
     test(
-      'first-attempt precommit $reason leaves another review reachable',
+      'first-attempt precommit ${refusal.reason} permits reviewed local reconciliation',
       () async {
         gateway = _Gateway((envelope) async {
           sent.add(envelope);
           throw WorkflowException(
-            WorkflowErrorCode.failedPrecondition,
+            refusal.code,
             'Explicit refusal',
-            details: {'reasonCode': reason},
+            details: {'reasonCode': refusal.reason},
+          );
+        });
+        final review = await service().review(_ticketId);
+        await expectLater(apply(review), throwsA(isA<WorkflowException>()));
+        expect((await saved()).state, DurableSubmissionState.rejected);
+        expect(await service().pending(_ticketId), isNull);
+        expect((await local()).isSynced, isFalse);
+        expect((await saved()).displayMetadataJson, contains('Newer B'));
+        expect(await localAudits(), isEmpty);
+        expect(receipts, isEmpty);
+        await service().keepServer(
+          review: review,
+          reason:
+              'Keep the confirmed server record after reviewing the refusal',
+          acknowledgeRetainedDifferences: true,
+        );
+        expect((await local()).isSynced, isTrue);
+        expect((await localAudits()).single.beforeJson, contains('Newer B'));
+        expect(sent, hasLength(1));
+      },
+    );
+    test(
+      'later ${refusal.reason} cannot erase a previously accepted lost reply',
+      () async {
+        loseReply = true;
+        await expectLater(
+          apply(await service().review(_ticketId)),
+          throwsA(isA<SocketException>()),
+        );
+        final row = await saved();
+        clock = clock.add(const Duration(hours: 1));
+        gateway = _Gateway((envelope) async {
+          sent.add(envelope);
+          throw WorkflowException(
+            refusal.code,
+            'Later refusal',
+            details: {'reasonCode': refusal.reason},
+          );
+        });
+        await expectLater(
+          service().resume(row.submissionId),
+          throwsA(isA<WorkflowException>()),
+        );
+        expect((await saved()).state, DurableSubmissionState.uncertain);
+        expect(await service().pending(_ticketId), isNotNull);
+        expect((await local()).isSynced, isFalse);
+        expect(await localAudits(), isEmpty);
+        expect(receipts, hasLength(1));
+        expect(sent, [row.envelopeJson, row.envelopeJson]);
+        expect((await saved()).displayMetadataJson, row.displayMetadataJson);
+      },
+    );
+  }
+
+  for (final failure in [
+    (
+      WorkflowErrorCode.permissionDenied,
+      'maintenance-burner-evidence-malformed',
+    ),
+    (
+      WorkflowErrorCode.unauthenticated,
+      'maintenance-burner-evidence-malformed',
+    ),
+    (WorkflowErrorCode.unavailable, 'maintenance-burner-evidence-malformed'),
+    (
+      WorkflowErrorCode.deadlineExceeded,
+      'maintenance-burner-evidence-malformed',
+    ),
+    (WorkflowErrorCode.internal, 'maintenance-burner-evidence-malformed'),
+    (
+      WorkflowErrorCode.failedPrecondition,
+      'maintenance-ticket-component-definition-changed',
+    ),
+    (
+      WorkflowErrorCode.failedPrecondition,
+      'maintenance-ticket-audit-collision',
+    ),
+    (
+      WorkflowErrorCode.failedPrecondition,
+      'maintenance-ticket-replay-audit-invalid',
+    ),
+    (
+      WorkflowErrorCode.failedPrecondition,
+      'maintenance-ticket-replay-content-invalid',
+    ),
+    (WorkflowErrorCode.failedPrecondition, 'workflow-receipt-result-malformed'),
+    (
+      WorkflowErrorCode.invalidArgument,
+      'maintenance-ticket-corrections-invalid',
+    ),
+    (WorkflowErrorCode.failedPrecondition, 'unknown-future-refusal'),
+  ]) {
+    test(
+      'unproven ${failure.$1.name}/${failure.$2} retains its owner',
+      () async {
+        gateway = _Gateway((envelope) async {
+          sent.add(envelope);
+          throw WorkflowException(
+            failure.$1,
+            'Unconfirmed outcome',
+            details: {'reasonCode': failure.$2},
           );
         });
         await expectLater(
           apply(await service().review(_ticketId)),
           throwsA(isA<WorkflowException>()),
         );
-        expect((await saved()).state, DurableSubmissionState.rejected);
-        expect(await service().pending(_ticketId), isNull);
+        expect((await saved()).state, DurableSubmissionState.uncertain);
+        expect(await service().pending(_ticketId), isNotNull);
         expect((await local()).isSynced, isFalse);
-        expect((await saved()).displayMetadataJson, contains('Newer B'));
+        expect(await localAudits(), isEmpty);
+        expect(sent, hasLength(1));
       },
     );
   }
-
-  test(
-    'later explicit refusal cannot erase uncertainty from an earlier lost reply',
-    () async {
-      loseReply = true;
-      await expectLater(
-        apply(await service().review(_ticketId)),
-        throwsA(isA<SocketException>()),
-      );
-      final row = await saved();
-      clock = clock.add(const Duration(hours: 1));
-      gateway = _Gateway(
-        (_) async => throw const WorkflowException(
-          WorkflowErrorCode.failedPrecondition,
-          'Later refusal',
-          details: {'reasonCode': 'maintenance-ticket-version-conflict'},
-        ),
-      );
-      await expectLater(
-        service().resume(row.submissionId),
-        throwsA(isA<WorkflowException>()),
-      );
-      expect((await saved()).state, DurableSubmissionState.uncertain);
-      expect(await service().pending(_ticketId), isNotNull);
-    },
-  );
 
   test(
     'keep-server atomic adoption refuses a correction owner prepared during server read',
@@ -809,6 +933,47 @@ void main() {
       expect(sent, hasLength(1));
     },
   );
+
+  for (final representation in [
+    'ISO string',
+    'DateTime',
+    'epoch milliseconds',
+  ]) {
+    test(
+      'audit $representation cannot stand in for a native server timestamp',
+      () async {
+        denyAudit = true;
+        await expectLater(
+          apply(await service().review(_ticketId)),
+          throwsStateError,
+        );
+        final row = await saved();
+        final audit = audits.values.single;
+        final instant = audit['timestamp'] as Timestamp;
+        final before = (await service().review(_ticketId)).localSnapshotJson;
+        audit['timestamp'] = switch (representation) {
+          'ISO string' => instant.toDate().toUtc().toIso8601String(),
+          'DateTime' => instant.toDate(),
+          _ => instant.millisecondsSinceEpoch,
+        };
+        denyAudit = false;
+        await expectLater(service().resume(row.submissionId), throwsStateError);
+        expect((await service().review(_ticketId)).localSnapshotJson, before);
+        expect((await local()).isSynced, isFalse);
+        expect(
+          (await saved()).state,
+          DurableSubmissionState.acceptedPendingAdoption,
+        );
+        expect(await localAudits(), isEmpty);
+        expect(sent, hasLength(1));
+        audit['timestamp'] = instant;
+        await service().resume(row.submissionId);
+        expect((await local()).isSynced, isTrue);
+        expect((await saved()).state, DurableSubmissionState.reconciled);
+        expect(sent, hasLength(1));
+      },
+    );
+  }
 
   test('uncertain A cannot be adopted or dispatched by supervisor', () async {
     await db.writeTxn(() => db.workflowCommandReceiptRecords.clear());

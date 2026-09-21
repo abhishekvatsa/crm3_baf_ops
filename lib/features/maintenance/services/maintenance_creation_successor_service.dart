@@ -16,6 +16,59 @@ import '../domain/maintenance_ticket_correction.dart';
 import '../repositories/maintenance_creation_successor_repository.dart';
 import 'maintenance_issue_command_reconciler.dart';
 
+// These paired codes are emitted by correctMaintenanceTicket's fresh-command
+// validation (ticketHandlers.ts and ticketLanePlan.ts), before any writes.
+// Audit collisions, replay/receipt failures, unclassified validation failures,
+// and transport/authority errors do not establish a rejected outcome.
+const _precommitCorrectionRefusals = <WorkflowErrorCode, Set<String>>{
+  WorkflowErrorCode.versionConflict: {'maintenance-ticket-version-conflict'},
+  WorkflowErrorCode.notFound: {
+    'maintenance-ticket-not-found',
+    'maintenance-ticket-governed-asset-not-found',
+  },
+  WorkflowErrorCode.aborted: {
+    'maintenance-ticket-governed-asset-changed',
+    'maintenance-ticket-component-definition-changed',
+    'maintenance-ticket-governed-component-changed',
+  },
+  WorkflowErrorCode.invalidArgument: {
+    'maintenance-ticket-asset-reference-required',
+    'maintenance-ticket-route-department-invalid',
+  },
+  WorkflowErrorCode.failedPrecondition: {
+    'maintenance-ticket-evidence-invalid',
+    'maintenance-ticket-deleted',
+    'maintenance-ticket-workflow-deferred',
+    'maintenance-ticket-timestamp-invalid',
+    'maintenance-ticket-lane-plan-partial',
+    'maintenance-ticket-lane-plan-invalid',
+    'maintenance-ticket-lane-completion-evidence-invalid',
+    'maintenance-ticket-route-invalid',
+    'maintenance-ticket-lane-route-inconsistent',
+    'maintenance-ticket-lane-status-inconsistent',
+    'maintenance-ticket-lane-acknowledgement-incomplete',
+    'maintenance-ticket-target-correction-required',
+    'maintenance-ticket-target-dependent-evidence',
+    'maintenance-ticket-saved-actions-invalid',
+    'maintenance-ticket-asset-reference-scope-invalid',
+    'maintenance-ticket-inner-cover-class-ambiguous',
+    'maintenance-ticket-component-definition-tag-invalid',
+    'maintenance-ticket-governed-tag-mismatch',
+    'maintenance-ticket-asset-ownership-invalid',
+    'maintenance-ticket-inner-cover-not-linked',
+    'maintenance-ticket-inner-cover-projection-invalid',
+    'maintenance-ticket-inner-cover-linkage-after-event',
+    'maintenance-ticket-department-review-required',
+    'maintenance-burner-evidence-malformed',
+    'maintenance-burner-specialization-immutable',
+    'maintenance-stuckup-specialization-immutable',
+    'maintenance-inner-cover-availability-immutable',
+    'maintenance-ticket-plant-condition-effect-invalid',
+    'maintenance-ticket-route-locked',
+    'maintenance-ticket-correction-noop',
+  },
+};
+
 class MaintenanceSuccessorNewerDraftRetained extends StateError {
   MaintenanceSuccessorNewerDraftRetained()
     : super(
@@ -393,24 +446,7 @@ class MaintenanceCreationSuccessorService {
       final refusal =
           claim.submission.attemptCount == 1 &&
           error is WorkflowException &&
-          const {
-            'maintenance-ticket-version-conflict',
-            'maintenance-ticket-correction-noop',
-            'maintenance-ticket-target-dependent-evidence',
-            'maintenance-ticket-target-correction-required',
-            'maintenance-ticket-department-review-required',
-            'maintenance-ticket-governed-asset-not-found',
-            'maintenance-ticket-governed-asset-changed',
-            'maintenance-ticket-asset-ownership-invalid',
-            'maintenance-ticket-route-locked',
-            'maintenance-ticket-route-department-invalid',
-            'maintenance-ticket-plant-condition-effect-invalid',
-            'maintenance-burner-specialization-immutable',
-            'maintenance-stuckup-specialization-immutable',
-            'maintenance-inner-cover-availability-immutable',
-            'maintenance-ticket-workflow-deferred',
-            'maintenance-ticket-deleted',
-          }.contains(code);
+          (_precommitCorrectionRefusals[error.code]?.contains(code) ?? false);
       await store.recordOutcome(
         claim,
         state: refusal
@@ -437,8 +473,9 @@ class MaintenanceCreationSuccessorService {
     );
     _actor(actor.uid);
     // Admit every shared audit-reader field before checking this command's
-    // request, version and selected-value evidence. The Firestore adapter
-    // persists audit timestamps natively although handler fixtures use ISO.
+    // request, version and selected-value evidence. This server-only audit
+    // requires a native Timestamp even though the shared decoder admits older
+    // representations elsewhere; exact native equality also preserves nanos.
     final decodedAudit = decodePersistedAuditEvent(
       audit,
       documentId: receipt.result['auditId'] as String,
@@ -460,7 +497,7 @@ class MaintenanceCreationSuccessorService {
         audit['performedByUid'] != actor.uid ||
         audit['reasonNotes'] != command.payload['reason'] ||
         !decodedAudit.timestamp.isAtSameMomentAs(receipt.appliedAt) ||
-        (rawTimestamp is Timestamp &&
+        (rawTimestamp is! Timestamp ||
             rawTimestamp != Timestamp.fromDate(receipt.appliedAt)) ||
         before['version'] != command.expectedVersion ||
         after['version'] != receipt.aggregateVersion ||
