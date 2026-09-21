@@ -124,7 +124,7 @@ def _git(repository_root: Path, *arguments: str) -> bytes:
 
 
 def build_proof(
-    *, csv_path: Path, repository_root: Path, commit: str, codeql_version: str
+    *, csv_path: Path, diagnostics_path: Path, repository_root: Path, commit: str, codeql_version: str
 ) -> dict[str, object]:
     if not COMMIT_PATTERN.fullmatch(commit) or commit == "0" * 40:
         raise ProofError("Commit must be a nonzero, lowercase, full 40-character Git SHA")
@@ -147,8 +147,17 @@ def build_proof(
         raise ProofError("Checked-out Kotlin source differs from the supplied commit")
     csv_bytes = _read_bounded(csv_path, MAX_CSV_BYTES, "Query CSV")
     methods = verify_rows(csv_bytes, len(source_text.splitlines()))
+    diagnostics_bytes = _read_bounded(diagnostics_path, MAX_SOURCE_BYTES, "Diagnostics CSV")
+    try:
+        diagnostic_rows = list(csv.reader(io.StringIO(diagnostics_bytes.decode("utf-8"), newline=""), strict=True))
+    except (UnicodeDecodeError, csv.Error) as error:
+        raise ProofError("Diagnostics CSV is malformed") from error
+    if not diagnostic_rows or diagnostic_rows[0] != ["source_path", "severity", "tag", "message", "full_message"]:
+        raise ProofError("Diagnostics CSV has an unexpected header")
+    if len(diagnostic_rows) != 1:
+        raise ProofError("CodeQL reported app extraction errors; inspect diagnostics.csv before claiming coverage")
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "verified",
         "commitSha": commit,
         "codeqlVersion": codeql_version,
@@ -157,6 +166,8 @@ def build_proof(
         "sourceSha256": _sha256(source_bytes),
         "committedSourceSha256": _sha256(committed_bytes),
         "queryCsvSha256": _sha256(csv_bytes),
+        "diagnosticsCsvSha256": _sha256(diagnostics_bytes),
+        "appExtractionErrorCount": 0,
         "methodBodies": methods,
     }
 
@@ -164,6 +175,7 @@ def build_proof(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", required=True, type=Path)
+    parser.add_argument("--diagnostics", required=True, type=Path)
     parser.add_argument("--repository-root", required=True, type=Path)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--codeql-version", required=True)
@@ -172,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         proof = build_proof(
             csv_path=args.csv,
+            diagnostics_path=args.diagnostics,
             repository_root=args.repository_root,
             commit=args.commit,
             codeql_version=args.codeql_version,

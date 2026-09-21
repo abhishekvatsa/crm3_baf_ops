@@ -143,10 +143,13 @@ class BoundProofTests(unittest.TestCase):
         self.csv_path = Path(self.case_directory.name) / "extraction.csv"
         self.csv_path.write_bytes(evidence())
         self.output = Path(self.case_directory.name) / "proof.json"
+        self.diagnostics_path = Path(self.case_directory.name) / "diagnostics.csv"
+        self.diagnostics_path.write_text('source_path,severity,tag,message,full_message\n', encoding='utf-8')
 
     def build(self, **changes):
         arguments = {
             "csv_path": self.csv_path,
+            "diagnostics_path": self.diagnostics_path,
             "repository_root": self.root,
             "commit": self.commit,
             "codeql_version": "2.27.0",
@@ -157,6 +160,7 @@ class BoundProofTests(unittest.TestCase):
     def invoke(self, **changes):
         arguments = {
             "csv": self.csv_path, "repository-root": self.root,
+            "diagnostics": self.diagnostics_path,
             "commit": self.commit, "codeql-version": "2.27.0", "output": self.output,
         }
         arguments.update(changes)
@@ -230,6 +234,24 @@ class BoundProofTests(unittest.TestCase):
         self.assertEqual(self.output.read_text(encoding="utf-8"), "prior artifact")
         self.assertEqual(self.invoke(output=self.csv_path), 1)
         self.assertEqual(self.csv_path.read_bytes(), evidence())
+
+    def test_extraction_error_cannot_be_hidden_by_existing_method_bodies(self):
+        diagnostics = self.diagnostics_path
+        diagnostics.write_text('source_path,severity,tag,message,full_message\nandroid/app/src/MainActivity.kt,5,extractor,error,details\n', encoding='utf-8')
+        with self.assertRaisesRegex(verifier.ProofError, "extraction errors"):
+            self.build()
+        self.assertEqual(self.invoke(), 1)
+        self.assertFalse(self.output.exists())
+
+    def test_missing_or_malformed_diagnostics_cannot_mean_zero_errors(self):
+        for content in (b'', b'bad header\n', b'\xff', b'source_path,severity,tag,message,full_message\n\n'):
+            diagnostics = self.diagnostics_path
+            diagnostics.write_bytes(content)
+            self.assertEqual(self.invoke(), 1)
+            self.assertFalse(self.output.exists())
+        self.diagnostics_path.unlink()
+        self.assertEqual(self.invoke(), 1)
+        self.assertFalse(self.output.exists())
 
 
 if __name__ == "__main__":

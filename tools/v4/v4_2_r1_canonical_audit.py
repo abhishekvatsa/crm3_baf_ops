@@ -1551,7 +1551,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 27
+    and len(workflow_action_refs) == 34
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")

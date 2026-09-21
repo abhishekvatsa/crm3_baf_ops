@@ -131,8 +131,17 @@ jobs:
           "$CODEQL_BINARY" bqrs decode --format=csv \
             --output="$RUNNER_TEMP/kotlin-extraction/methods.csv" \
             "$RUNNER_TEMP/kotlin-extraction/methods.bqrs"
+          "$CODEQL_BINARY" query run \
+            --search-path="$CODEQL_BUNDLE" \
+            --database="$CODEQL_DATABASE" \
+            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs" \
+            tools/security/codeql/AppExtractionDiagnostics.ql
+          "$CODEQL_BINARY" bqrs decode --format=csv \
+            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
+            "$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs"
           python3 tools/security/codeql/verify_kotlin_extraction.py \
             --csv "$RUNNER_TEMP/kotlin-extraction/methods.csv" \
+            --diagnostics "$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
             --repository-root "$GITHUB_WORKSPACE" \
             --commit "$(git rev-parse HEAD)" \
             --codeql-version "$CODEQL_VERSION" \
