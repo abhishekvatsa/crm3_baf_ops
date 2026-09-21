@@ -21,3 +21,7 @@ release/evidence/build28-current-source-source-verification-build.log -text whit
 # Keep the recovered original private-custody proof and measured closure byte-exact.
 release/evidence/build28-private-gcs-custody-readback.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/evidence/build-28-finalization-closure.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Preserve original bytes of the measured Build29 campaign receipts and approvals.
+release/evidence/build29-current-source-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build29-current-source-source-verification-build.log -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/approvals/build29-current-source-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

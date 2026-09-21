@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build29-pinned-update-cap-preservation-assessment",
+  "decision": "PASS_PINNED_UPDATE_PRESERVES_OBSERVED_CAPS",
+  "sourceCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+  "sourceTree": "39ef8e74974153abefab08ed99997568ee8eb149",
+  "functionsTree": "8de3ae3a6218ad6ab3f7c74d6d400ab45d17f794",
+  "assessmentStartedAtUtc": "2026-09-21T18:56:58.204Z",
+  "assessmentCompletedAtUtc": "2026-09-21T18:57:12.842Z",
+  "assessedAtUtc": "2026-09-21T18:57:12.842Z",
+  "noResetSubmitted": true,
+  "noExistingCapIncreaseAuthorized": true,
+  "firebaseCli": {
+    "version": "15.22.4",
+    "measuredAtUtc": "2026-09-21T16:22:08.343Z",
+    "fabricatorSha256": "F65985CE60CE8E97B9A50D4C59CE132A3B0683841FFBB9F49A8499DB53F23544",
+    "runApiSha256": "10A1C601D1A743E88BFFDEB9CEE11D84731309AF3B5092C75BAF63D6247D459E",
+    "lockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
+  },
+  "sdkResetEvidence": {
+    "version": "7.2.5",
+    "manifestSha256": "98784FE5BB13D6593FCA2B9DC7A3B57C3F22E9F35464A169BDB25AABCF396F46",
+    "maxInstancesResetVerified": true,
+    "sourceMaxInstancesOmitted": false,
+    "sourcePreserveExternalChangesOmitted": true,
+    "sourceGlobalOptionsAbsent": true,
+    "sourceExplicitMaxInstanceCount": 20,
+    "sourceExplicitMaxInstanceFunctionCount": 19
+  },
+  "expectedScalingObservations": [
+    {
+      "name": "assignPublishedTemplateVersion",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "beginGlobalPullRun",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommand",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "getBackendReleaseIdentity",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "maintenanceWorkflowEscalationSweep",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateAssetHierarchy",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateChargeAbnormality",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "cloudFunctionsMaxInstanceCount": null,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": null,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateRuntimeJobModulePopulation",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateUserAuthority",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onJobAssigned",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onMaintenanceWorkflowEventCreated",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onTicketCreated",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onTicketResolved",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "stampGlobalPullServerClock",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    }
+  ],
+  "sourceEvidence": [
+    {
+      "file": "functions/node_modules/firebase-functions/lib/common/options.js",
+      "sha256": "0D760D987D3B867C8FF7905CCDE5CD788BA570699AB9D39E7B3EA901670A51AE",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/runtime/manifest.js",
+      "sha256": "98784FE5BB13D6593FCA2B9DC7A3B57C3F22E9F35464A169BDB25AABCF396F46",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/package-lock.json",
+      "sha256": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/package.json",
+      "sha256": "9FCB551E961A5642F011BE8017B54766AB6250F2E656C54A81655F407077486F",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/callableSecurityConfig.ts",
+      "sha256": "76C5A7A1A9C430D3E02B5106333D679D1FFF4AC3721241DA5096872496809E46",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/globalPullSecurityConfig.ts",
+      "sha256": "366CC67C322FC5F9A51C45EE8906746A31415F1FC6085E4783E429DF301DF0A3",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/index.ts",
+      "sha256": "9BD675881011658659ED238188EFD978B2CBE1F17CA7ECE5CE4F0276D77401E0",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/maintenanceWorkflow/callable.ts",
+      "sha256": "07BA422665C47E8B24AE7AD89099F57AB0F9B5DFAAA464738F95CAB46F7ABD49",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/maintenanceWorkflow/escalationSweep.ts",
+      "sha256": "38756251E897D927842F2593143E7B5243829BAA8550557B6AA0B4C7ADFA2F19",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts",
+      "sha256": "DA297B377CE88797B8E73FE1B9401EF2A774DE96ACDD0CF58B3513C01269F8D9",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "functions/src/stage2dSecurityConfig.ts",
+      "sha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "release/function-fleet-runtime-identity-policy.json",
+      "sha256": "F08BB9B62EC6162DA6249F3F92058A4914DF0EB878739D79B622B273C94477BA",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/build.js",
+      "sha256": "7445B3C2C1F5A167FEF14373CD76ED49090F07A7159D53829ADEDC0196C35025",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/prepare.js",
+      "sha256": "842C320C5F2098B0820407BF7505A532FDB8C0327D3CC4AB14640A460930E1A1",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/release/fabricator.js",
+      "sha256": "F65985CE60CE8E97B9A50D4C59CE132A3B0683841FFBB9F49A8499DB53F23544",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/release/planner.js",
+      "sha256": "D5DFDB9A278F64DFCC568AFB9086675760BB5DE42B5F2F93D40848F30917B06E",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/runtimes/discovery/v1alpha1.js",
+      "sha256": "0B81CFE816FDEA1BEC22C090188E5A75782C692E7A91836B9A700B019552890D",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/services/firestore.js",
+      "sha256": "C91E4656ADCF8A0AD2FB02C476C42803C02EBF94E7833C569AF5B57E0B08FC82",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/deploy/functions/triggerRegionHelper.js",
+      "sha256": "43666839BC1F9B56DDA65275DF29118F083E3EC6D03BD1789B566F273A5DB70E",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/gcp/cloudfunctionsv2.js",
+      "sha256": "5706CA42C746246A109E3938E63519B5DBCBE0E49B3C134F694A6FB84613DDB1",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/gcp/firestore.js",
+      "sha256": "DE97AF237BDF2158A5F6D6F50661EC4ABA58E948B347DE10A84898775958BF8A",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/node_modules/firebase-tools/lib/gcp/proto.js",
+      "sha256": "461E5B1BF0B223064ED5C4530A8E29A856A9118D40FEA5386B099CD9EDA02676",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    },
+    {
+      "file": "tooling/firebase-cli/package-lock.json",
+      "sha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+      "explanation": "Actual local source or pinned package bytes used to verify all19 explicit max-instance20 update fields."
+    }
+  ],
+  "offlineManifestAndPlannerEvidence": [
+    {
+      "name": "assignPublishedTemplateVersion",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "beginGlobalPullRun",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommand",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "getBackendReleaseIdentity",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "maintenanceWorkflowEscalationSweep",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateAssetHierarchy",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateChargeAbnormality",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateRuntimeJobModulePopulation",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "mutateUserAuthority",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "onJobAssigned",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "onMaintenanceWorkflowEventCreated",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "onTicketCreated",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "onTicketResolved",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    },
+    {
+      "name": "stampGlobalPullServerClock",
+      "manifestMaxInstances": 20,
+      "plannedMaxInstances": 20,
+      "requestMaxInstanceCount": 20,
+      "updateMaskIncludesMaxInstanceCount": true,
+      "deleteAndRecreate": false
+    }
+  ],
+  "triggerRegionResolutionEvidence": {
+    "databaseName": "projects/crm3-baf-ops-b8638/databases/(default)",
+    "locationId": "asia-south1",
+    "observedMetadataLookups": 1,
+    "qualification": "Actual pinned CLI region-resolution logic with its read-only database lookup supplied from the source-bound live observation; deployment networking remains blocked."
+  },
+  "buildStage": {
+    "command": "node npm-cli.js run build",
+    "cleanEmitted": true,
+    "emittedOutputAudited": true,
+    "callableInventoryAudited": true,
+    "notificationInventoryAudited": true,
+    "buildLogFile": "functions-build-attempt3.log",
+    "buildLogSha256": "2BE3D7B3305B1FB2A2A82B81F0B1D4D833D79A55ED0940637E785403A4E3381E"
+  },
+  "observation": {
+    "startedAtUtc": "2026-09-21T18:56:04.098Z",
+    "capturedAtUtc": "2026-09-21T18:56:07.984Z",
+    "physicalSha256": "44DD24714ADBE405EC5D8BE77EC830D96A494B91EA36EFB29002E6FBCC5D492A",
+    "deploymentAuthority": false
+  },
+  "qualification": "noResetSubmitted refers specifically to maxInstanceCount: all19 actual SDK exports and pinned CLI update fields explicitly submit20. This local preparation does not execute deployment or replace mandatory complete before/after runtime/IAM readback. Omitted-to20 Function/revision representation is admitted only under the separate reviewed preservation comparator; effective cap stays20.",
+  "mutationBoundary": {
+    "deploymentPerformed": false,
+    "networkRequestsPerformed": 0,
+    "cloudResourcesMutated": false,
+    "businessPayloadsRead": false,
+    "offlinePlanningStageZeroNetwork": true
+  }
+}
