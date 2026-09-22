@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-post-deployment-preservation-adjudication-amendment",
+  "status": "CONFIRMED_BY_OWNER",
+  "intendedBuildNumber": 29,
+  "notice": "Confirmed by the owner in their own words (ownerConfirmation). This record is additive: it supplements the Build 29 approval and changes none of its bytes, pinned helpers or campaign receipts.",
+  "supplementsApproval": {
+    "commit": "611080fa6f9001f0b531b67b6e047f55835ae294",
+    "file": "release/approvals/build29-current-source-backend-deployment-approval.json",
+    "sha256": "5F9EB65385535B9DB918A51007D531F76A623E7D70C927C1B83B9B87EEC3AC8A",
+    "effect": "Additive. The approval, its pinned helpers and every existing campaign receipt remain exactly as recorded."
+  },
+  "sourceAuthority": {
+    "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+    "functionTree": "8de3ae3a6218ad6ab3f7c74d6d400ab45d17f794"
+  },
+  "defect": {
+    "helper": {
+      "file": "tmp/build29-preparation/backend-execution/preserved-backend-controls.cjs",
+      "sha256": "B230F1D35725EE65EA56034FF57938DAF36530E27D71A4ADF8DE5DD46C669D60"
+    },
+    "observedRefusal": "Existing runtime/environment/scaling drift: assignPublishedTemplateVersion",
+    "firstStagePassed": [
+      "projectNumber",
+      "mapping",
+      "servicePolicies",
+      "accountPolicies",
+      "projectPolicy",
+      "excluded"
+    ],
+    "cause": "controlView() keeps the Cloud Run service buildConfig, whose build name, source archive and shared image tag change on every legitimate deployment, and it has no allowance for the Google-managed framework fields a redeploy adds or drops. The sealed tests use synthetic Cloud Run services without a buildConfig, so the defect was not exercised before production.",
+    "consequence": "The sealed proof cannot pass for any real redeploy. Readback admission, private custody, the public projection and closure assembly all depend on it."
+  },
+  "adjudication": {
+    "adjudicator": {
+      "file": "tmp/build29-preparation/preservation-adjudication/adjudicate-preserved-backend-controls.cjs",
+      "sha256": "0597BAC87AE51C07509BA951317ED6D8D248FED5ACEF33C8A2CC8A20D68F89CF"
+    },
+    "testSuite": {
+      "file": "tmp/build29-preparation/preservation-adjudication/adjudicate-preserved-backend-controls.test.cjs",
+      "sha256": "59E35A30D78BBE29B37602E72AF14C2A157E6FA2268AC0D92054D4CA1326C177",
+      "result": "29 tests passed on the real captures, read-only.",
+      "biteProof": "Four deliberately weakened copies each failed exactly the tests aimed at their weakness: any function allowed to change the signature variable (2 failed), the whole buildConfig omitted (5), no deployment-window binding (2), framework labels stripped everywhere (2)."
+    },
+    "receipt": {
+      "file": "existing-controls-adjudication.json",
+      "physicalSha256": "813BF647C3A8E4FB96D18B2F85C55116B7BEB08F6158F9E137F3E08A1B4D8EEE",
+      "receiptSha256": "534afa80f4d748be8a7c8d37dfc1dc46e2ffb31f5ad1bb8ac091ad4d9a7c58aa",
+      "independentlyReDerived": true
+    },
+    "admittedSummary": {
+      "buildIdentityChanged": 19,
+      "sourceArchiveChanged": 19,
+      "sharedImageTagChanged": 13,
+      "signatureAdded": [
+        "assignPublishedTemplateVersionV2",
+        "mutateChargeAbnormalityV2"
+      ],
+      "signatureRemoved": [
+        "beginGlobalPullRun",
+        "completePlannedJobExecution"
+      ],
+      "aliasFrameworkMetadataAdded": [
+        "assignPublishedTemplateVersionV2",
+        "executeMaintenanceWorkflowCommandV2",
+        "mutateAssetHierarchyV2",
+        "mutateChargeAbnormalityV2"
+      ]
+    },
+    "protectedArtifactsUnchanged": "All 110 campaign evidence files that existed before adjudication, and all 27 files in backend-execution, are byte-identical. The only new campaign files are adjudication-config.json and existing-controls-adjudication.json."
+  },
+  "proposedDecision": "For this campaign only - Build 29, source d513843e, these exact before/after captures and the three cohort receipts - admit existing-controls-adjudication.json as the preservation proof in place of existing-controls-proof.json.",
+  "consumerChangesRequired": [
+    {
+      "step": "readback admission",
+      "sealedFile": "Invoke-ReviewedBackendCohort.ps1 (1A3E4334...)",
+      "newFile": "Invoke-AdjudicatedReadback.ps1",
+      "diffSha256": "9C3C2561DC80C344DA9431B2F9F61D5ED399AAADDBD166D932D935C9A3F8E201",
+      "change": "Copy restricted to -Phase readback with a required -AmendmentCommit. Sealed helpers are loaded from backend-execution and checked against their pins as before. validateFinalScopedProof runs adjudicated-preservation.cjs --admit in a separate Node process instead of the sealed validateProof."
+    },
+    {
+      "step": "private proof composition",
+      "newFile": "adjudicated-preservation.cjs --compose",
+      "change": "Writes existing-controls-adjudicated-proof.json once: the adjudication receipt with the exact captures and deployment receipts it binds, sealed and re-derivable. Refuses without the confirmed amendment."
+    },
+    {
+      "step": "private custody",
+      "sealedFile": "validate-private-controls-upload.cjs (BD1E857C...) and Save-PrivateBackendControlsCustody.ps1 (950C5ADB...)",
+      "newFile": "validate-adjudicated-controls-upload.cjs and Save-AdjudicatedControlsCustody.ps1",
+      "diffSha256": "21A2BE4AF3F018C0693D4AC6D1DB280E00D5E7FE92D7D9CC1D52AEE0060BCEFB",
+      "change": "Admits the adjudicated private proof and the named reviewer's privacy review. The bound Build 29 prefix, approved custody helper bytes, credential scan, live-main check and the upload itself are unchanged."
+    },
+    {
+      "step": "public projection",
+      "sealedFile": "public-preserved-backend-controls.cjs (457E5C2B...)",
+      "newFile": "public-adjudicated-backend-controls.cjs",
+      "change": "Same public shape as the sealed projection plus the adjudication summary and qualifications; passes the sealed public-evidence boundary."
+    },
+    {
+      "step": "closure assembly",
+      "sealedFile": "assemble-current-backend-closure.cjs (3A28571F...)",
+      "newFile": "assemble-adjudicated-backend-closure.cjs",
+      "diffSha256": "99A8EB6C9F0ABAAA0A1E42A6C50F36FC01B1A32397E927DF151183ED68A6BC62",
+      "change": "Only the preservation section differs: admits the adjudicated private proof and regenerates the adjudicated public projection. Closure schema, public copy map and both committed boundary validators are unchanged."
+    }
+  ],
+  "consumerChangeRules": [
+    "Each change is a new, separately named and hashed file. No sealed file is edited.",
+    "Only the preservation-proof admission changes. Every other check in each step is kept as it is.",
+    "Every adjudicated tool is pinned in adjudicatedToolSha256 and verified on disk before anything is admitted.",
+    "Each step runs validation-only first; nothing is written or uploaded until that passes."
+  ],
+  "unchanged": [
+    "Firestore Rules stay on strict hold until this is confirmed. The Rules phase itself is unchanged.",
+    "No Functions redeploy and no new before-capture are needed.",
+    "This adjudication changed no production resource and read no cloud resource.",
+    "Deployed code identity still has to be established by the source-archive verification in the readback stage."
+  ],
+  "ownerConfirmation": {
+    "confirmed": true,
+    "confirmedByName": "Abhishek Vatsa",
+    "confirmedAtUtc": "2026-09-22T17:28:42.000Z",
+    "ownerStatementInOwnWords": "I confirm the Build 29 preservation adjudication amendment as drafted, including the two FUNCTION_SIGNATURE_TYPE removals, and authorize the steps listed.",
+    "timestampSource": "Time the confirmation was recorded by the agent; no owner message timestamp or identifier was supplied."
+  },
+  "preparedBy": "Claude (Claude Code) at the owner's request. Preparation only, not an approval.",
+  "preparedAtUtc": "2026-09-22T17:23:12.000Z",
+  "disclosures": [
+    {
+      "topic": "FUNCTION_SIGNATURE_TYPE removal departs from the Build 28 rule",
+      "detail": "The committed Build 28 comparator (tools/release/reviewedBackendControls.js at d513843e) admitted only the platform addition of FUNCTION_SIGNATURE_TYPE=http on HTTP callables and refused removal ('Existing HTTP signature cannot be replaced or removed'). This adjudication also admits the two observed removals, on beginGlobalPullRun and completePlannedJobExecution, value http, on HTTP callables only. http is the Functions Framework default for an HTTP target, so invocation is unchanged, but this is a departure from an earlier reviewed rule and needs the owner's explicit acceptance."
+    },
+    {
+      "topic": "Why the sealed helper failed where Build 28 did not",
+      "detail": "The Build 28 comparator is written for 15 existing plus 4 new functions and refuses the Build 29 fleet, so a new helper was written for Build 29. That helper kept the Cloud Run buildConfig in its control view and did not carry over the Build 28 handling of the signature variable. Its tests use synthetic Cloud Run services without a buildConfig."
+    }
+  ],
+  "committedGateImpact": "None. The committed release gate reads the closure's decision, deployment and controlBoundary fields and the final readbacks, not the control-comparison decision. The committed validateDeploymentIamBoundary requires only controlBoundary.iamMutated === false for this campaign, and validateRulesDeploymentBoundary does not read the control comparison. No change on main is needed, so the approval's stop-if-main-moves condition is unaffected.",
+  "executionNotes": [
+    "The Rules phase does not consume the preservation proof. It can run through the sealed Invoke-ReviewedBackendCohort.ps1 unchanged, validation first and then -Execute, once the owner lifts the hold.",
+    "Claude's attempt to run the sealed Rules phase in validation-only mode was refused by the session's permission classifier as a production deploy. Nothing ran."
+  ],
+  "ownerInstructionsReceived": [
+    {
+      "statement": "go ahead",
+      "context": "Reply to a summary listing three steps: confirm the draft; build and test the four replacement steps; then deploy Rules, run the readback and assemble the closure.",
+      "treatedAs": "Instruction to proceed. Not recorded as the final confirmation, because this document requires the replacement steps' hashes before any of them runs, and those files do not exist yet."
+    }
+  ],
+  "adjudicatedToolSha256": {
+    "adjudicate-preserved-backend-controls.cjs": "0597BAC87AE51C07509BA951317ED6D8D248FED5ACEF33C8A2CC8A20D68F89CF",
+    "adjudicate-preserved-backend-controls.test.cjs": "59E35A30D78BBE29B37602E72AF14C2A157E6FA2268AC0D92054D4CA1326C177",
+    "adjudicated-preservation.cjs": "6FD8EA1E33D7D34EE46291AB392A841CC7FA5AC40D538A9FEA560B5B47F4B1B9",
+    "adjudicated-preservation.test.cjs": "A424FC68244865010C97B56C3FB6F6374BAD659F452BBA32E1823EB5610FBFAC",
+    "Invoke-AdjudicatedReadback.ps1": "C2C9BA36FD7A86D45F0FD537DE87BF1EFE15E605B3C56C4DCA169D9D506E5666",
+    "validate-adjudicated-controls-upload.cjs": "598EFBB7F40D7FF85733F8C8C56ADB66BC27FBAF1224895D7ADDCE9BCEADB08B",
+    "Save-AdjudicatedControlsCustody.ps1": "F81F42B01E9C0805B42067FEC630E8DF0FC7793123CC09B19DA28014FACD147A",
+    "public-adjudicated-backend-controls.cjs": "AFA4667A308EF8B4582BC1CF74D2377391B1E048B4856023A87D5E98C51B72B3",
+    "assemble-adjudicated-backend-closure.cjs": "EA4B42A5A103787DABB842401DF50FDAE04168949342F6FF721DE6F75689E414"
+  },
+  "adjudicatedFiles": {
+    "privateProofFile": "existing-controls-adjudicated-proof.json",
+    "publicProofFile": "existing-controls-adjudicated-public.json",
+    "privateCustodyFile": "existing-controls-adjudicated-private-custody.json",
+    "privacyReviewFile": "existing-controls-adjudicated-privacy-review.json"
+  },
+  "privacyReviewer": "Claude (Claude Code) at the owner's request",
+  "testEvidence": {
+    "adjudicator": "29 tests pass on the real captures; four weakened copies each fail exactly the tests aimed at them (bite-proof.log).",
+    "sharedModule": "27 tests pass, including two end-to-end admissions that run the real adjudicator; seven weakened copies each fail exactly the tests aimed at them (adjudicated-preservation-bite-proof.log). Amendment commits in these tests are made only in a throwaway clone.",
+    "wrappers": "The three copies are generated from hash-checked sealed originals by exact single-match substitutions, with a diff for each. All JavaScript passes node --check, including the code embedded in the readback script; both PowerShell scripts pass the PowerShell parser. Their positive paths need the real campaign artifacts and are exercised in validation-only mode, first, at execution."
+  },
+  "ownerAuthorizedSteps": [
+    "Commit and push this confirmed amendment to the custody branch, not main.",
+    "Rules: validate, then deploy, through the sealed Invoke-ReviewedBackendCohort.ps1.",
+    "Readback through Invoke-AdjudicatedReadback.ps1: validate, then run; then the deployed-code archive check.",
+    "Compose the private proof, record the privacy review, and upload it to the private bucket (validate first).",
+    "Public projection and closure assembly: validate, then write.",
+    "Stop before the Build 29 artifact build."
+  ]
+}
