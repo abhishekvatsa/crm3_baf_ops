@@ -1,0 +1,50 @@
+{
+  "phase": "callables",
+  "sourceCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+  "approvalCommit": "611080fa6f9001f0b531b67b6e047f55835ae294",
+  "approvalSha256": "5F9EB65385535B9DB918A51007D531F76A623E7D70C927C1B83B9B87EEC3AC8A",
+  "functions": [
+    "assignPublishedTemplateVersion",
+    "assignPublishedTemplateVersionV2",
+    "beginGlobalPullRun",
+    "completePlannedJobExecution",
+    "executeMaintenanceWorkflowCommand",
+    "executeMaintenanceWorkflowCommandV2",
+    "getBackendReleaseIdentity",
+    "mutateAssetHierarchy",
+    "mutateAssetHierarchyV2",
+    "mutateChargeAbnormality",
+    "mutateChargeAbnormalityV2",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority"
+  ],
+  "deploymentStartedAtUtc": "2026-09-22T15:11:15.8384040Z",
+  "deploymentCommandCompletedAtUtc": "2026-09-22T15:13:04.5675758Z",
+  "exitCode": 0,
+  "command": {
+    "executable": "node",
+    "arguments": [
+      "--no-global-search-paths",
+      "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js",
+      "deploy",
+      "--only",
+      "functions:assignPublishedTemplateVersion,functions:assignPublishedTemplateVersionV2,functions:beginGlobalPullRun,functions:completePlannedJobExecution,functions:executeMaintenanceWorkflowCommand,functions:executeMaintenanceWorkflowCommandV2,functions:getBackendReleaseIdentity,functions:mutateAssetHierarchy,functions:mutateAssetHierarchyV2,functions:mutateChargeAbnormality,functions:mutateChargeAbnormalityV2,functions:mutateRuntimeJobModulePopulation,functions:mutateUserAuthority",
+      "--project",
+      "crm3-baf-ops-b8638",
+      "--non-interactive"
+    ]
+  },
+  "schedulerManuallyInvoked": false,
+  "businessProbePerformed": false,
+  "completionRequiresReadback": true,
+  "preservedControlsPreflight": {
+    "file": "controls-before.json",
+    "physicalSha256": "C4EB6803B10EBBDB44D8B957ECAD7BB2BA1681CDFB396A505DC677A8ADA50D7E",
+    "canonicalReceiptSha256": "650084d30233909a4d290e12e2a1a937cced5311a71a870eefd4b157c00e3a65"
+  },
+  "ciAuthority": {
+    "file": "release/evidence/build29-current-source-backend-ci.json",
+    "sha256": "246AD07BDFAFE4A0AE3FBE5453AF9017148B97AA93863BB99847C0E0123CF4B9",
+    "commit": "611080fa6f9001f0b531b67b6e047f55835ae294"
+  }
+}
