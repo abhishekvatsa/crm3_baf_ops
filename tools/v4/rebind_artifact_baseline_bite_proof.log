@@ -11,3 +11,74 @@
    FAILS: test_duplicate_ledger_entries_are_refused
 == directory-exemption-instead-of-delta: 1 failed
    FAILS: test_change_outside_the_declared_delta_is_refused
+
+# Second review round: the four boundaries, each weakened in turn.
+
+== candidate-chooses-its-own-scope: 1 failed
+   FAILS: test_a_candidate_cannot_narrow_the_inspected_path_list
+== decision-not-recorded-in-output: 5 failed
+   FAILS: test_a_failure_part_way_through_replacement_is_rolled_back
+   FAILS: test_a_stale_proposal_is_refused
+   FAILS: test_the_decision_is_recorded_into_the_approval
+   FAILS: test_the_proposal_differs_with_and_without_a_decision
+   FAILS: test_write_applies_every_record_and_leaves_them_coherent
+== no-rollback-after-partial-replacement: 1 failed
+   FAILS: test_a_failure_part_way_through_replacement_is_rolled_back
+== no-stale-proposal-check: 1 failed
+   FAILS: test_a_stale_proposal_is_refused
+== suffix-lifecycle-instead-of-exact: 2 failed
+   FAILS: test_a_cancelled_next_candidate_is_refused
+   FAILS: test_a_status_for_another_build_is_refused
+
+# Third review round: proposal-only publication, decision provenance,
+# evidence completeness and the main reference.
+
+== annotation-compared-by-digest-only: 1 failed
+   FAILS: test_a_tampered_annotation_is_refused
+== nested-confirmation-unchecked: 1 failed
+   FAILS: test_a_contradictory_owner_confirmation_is_refused
+== confirmation-time-unchecked: 1 failed
+   FAILS: test_an_invalid_confirmation_time_is_refused
+== thin-evidence-accepted: 1 failed
+   FAILS: test_evidence_without_a_run_identity_is_refused
+== any-reference-may-stand-in-for-main: 1 failed
+   FAILS: test_a_local_reference_cannot_stand_in_for_main
+== proposal-writes-into-the-checkout: 2 failed
+   FAILS: test_a_written_proposal_is_coherent_and_touches_nothing_active
+   FAILS: test_the_proposal_never_writes_to_the_checkout
+
+# Fourth review round: the proposal export boundary.
+
+== prefix-suffix-custody-check-only: 3 failed
+   FAILS: test_a_decision_without_a_custody_path_is_refused
+   FAILS: test_a_traversing_custody_path_cannot_reach_an_active_record
+   FAILS: test_a_traversing_custody_path_is_refused
+== no-collision-check: 1 failed
+   FAILS: test_a_custody_path_colliding_with_a_proposed_record_is_refused
+== decision-reread-at-export: 1 failed
+   FAILS: test_a_decision_changed_after_validation_is_refused
+== non-exclusive-creation: 0 failed
+# Note on non-exclusive-creation: this variant fails no test, and that is
+# reported rather than hidden. Given the fresh-directory requirement and the
+# case-insensitive collision check, no two writes can target the same path, so
+# exclusive creation has no distinct failure mode to catch. It is kept as
+# defence in depth against future changes, not because a test proves it bites.
+
+# Fourth review round: the proposal export boundary.
+
+== prefix-suffix-custody-check-only: 3 failed
+   FAILS: test_a_decision_without_a_custody_path_is_refused
+   FAILS: test_a_traversing_custody_path_cannot_reach_an_active_record
+   FAILS: test_a_traversing_custody_path_is_refused
+== no-collision-check: 1 failed
+   FAILS: test_a_custody_path_colliding_with_a_proposed_record_is_refused
+== decision-reread-at-export: 1 failed
+   FAILS: test_a_decision_changed_after_validation_is_refused
+== non-exclusive-creation: 1 failed
+   FAILS: test_a_destination_appearing_after_preflight_is_not_overwritten
+
+# Correction to the note above: review showed the case IS testable — another
+# process creating an intended destination after the output map is assembled.
+# test_a_destination_appearing_after_preflight_is_not_overwritten now covers it,
+# and the non-exclusive-creation variant fails exactly that test. Four of four
+# variants in this round bite.

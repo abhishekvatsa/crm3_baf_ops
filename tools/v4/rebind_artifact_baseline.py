@@ -6,44 +6,52 @@ version approval selected. Restoring it means selecting a new baseline. That is
 a source-approval decision, not a field edit, and it touches five records that
 must all agree on the same approval bytes.
 
-The first version of this tool changed three records, compared no pubspec, and
-wrote the approval before discovering whether the rest of the inputs were
-usable. External review reproduced all three defects. This version separates
-the work so that nothing is written until the whole transition is known to be
-coherent:
+Four boundaries, each of which review found missing in an earlier version:
 
-    inspect_inputs   load and validate every record, the source delta and the
-                     decision; refuse on anything unexpected
-    build_proposal   a pure transformation: serialise the approval once, hash
-                     those exact bytes once, derive every pointer from that one
-                     digest
-    validate_proposal re-read the proposal as a consumer would and require the
-                     records to agree
-    emit_proposal    stage every file, then move them into place, so a refusal
-                     cannot leave a partially rebound set of records
+  trusted source inspection
+      The protected-path obligations come from the PREVIOUS APPROVED baseline,
+      not from the candidate. A candidate that drops a path from its own list
+      would otherwise choose the scope it is audited against, and a change
+      under a dropped path would never be seen.
 
-It authorises nothing. A successful run reports a validated proposal; actual
-construction remains subject to the protected workflow and its reviewer.
+  retained decision authority
+      The confirmed decision is recorded INTO the approval, so a later reader
+      can establish which decision selected this baseline. A transient
+      command-line check leaves no such evidence. Application additionally
+      requires the target to be merged and to carry its own successful
+      post-merge check evidence.
+
+  safe publication
+      There is no in-place writer. Three review rounds found one unsafe in a
+      different way each time, so the tool now emits a complete proposal to a
+      fresh directory and applying it is an ordinary reviewable commit. Git is
+      the publication boundary; this tool never writes to the checkout.
+
+  exact lifecycle validation
+      The starting and resulting states must be the exact expected values for
+      this build, not merely strings carrying or lacking a suffix.
+
+It authorises nothing and changes no active record. Construction remains
+subject to the protected workflow and its required reviewer.
 
 Usage
     python tools/v4/rebind_artifact_baseline.py --target-commit <M> \\
-        --expected-delta <manifest.json> [--decision <decision.json>] [--write]
-
-Without --write it validates and reports. --write additionally requires the
-owner-confirmed rebind decision.
+        --expected-delta <manifest.json> [--decision <decision.json>] \\
+        [--post-merge-evidence <run.json>] [--main-ref origin/main] \
+        [--out <fresh directory>]
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+from datetime import datetime, timezone
 import json
 import os
 import re
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "release/production-release-policy.json"
@@ -52,14 +60,18 @@ STATE = "release/current-successor-state.json"
 VERSION_POINTER = "release/approvals/version-policy-approval.json"
 POLICY_SCRIPT = "tools/release/Test-ProductionReleasePolicy.ps1"
 EXPECTED_SLUG = "abhishekvatsa/crm3_baf_ops"
-REBIND_SUFFIX = "_AWAITING_ARTIFACT_SOURCE_REBIND"
+EXPECTED_REMOTES = {
+    "https://github.com/abhishekvatsa/crm3_baf_ops.git",
+    "https://github.com/abhishekvatsa/crm3_baf_ops",
+    "git@github.com:abhishekvatsa/crm3_baf_ops.git",
+}
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
-SHA256 = re.compile(r"^[0-9A-Fa-f]{64}$")
 VERSION_LINE = re.compile(r"^version:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+PATH_LIST = re.compile(r"\$ApprovedArtifactExactSourcePaths\s*=\s*@\((.*?)\n\)", re.DOTALL)
 
 
 class RebindRefused(Exception):
-    """Raised for every refusal, so no caller mistakes one for a soft warning."""
+    """Every refusal, so no caller mistakes one for a soft warning."""
 
 
 def need(condition: object, message: str) -> None:
@@ -67,24 +79,18 @@ def need(condition: object, message: str) -> None:
         raise RebindRefused(message)
 
 
-def git(*arguments: str, check: bool = True) -> str:
+def git(*arguments: str) -> str:
     result = subprocess.run(
         ["git", "--no-replace-objects", "-C", str(ROOT), *arguments],
         capture_output=True, text=True,
     )
-    if check and result.returncode != 0:
-        raise RebindRefused(
-            f"git {' '.join(arguments)} failed: {result.stderr.strip()}"
-        )
+    if result.returncode != 0:
+        raise RebindRefused(f"git {' '.join(arguments)} failed: {result.stderr.strip()}")
     return result.stdout.strip()
 
 
 def git_object(commit: str, path: str) -> str | None:
-    """The object id at a path, or None when the path is genuinely absent.
-
-    A failure that is not 'this path does not exist' is a refusal, so a corrupt
-    object or the wrong repository cannot be read as an absent path.
-    """
+    """The object id at a path, or None when the path is genuinely absent."""
     result = subprocess.run(
         ["git", "--no-replace-objects", "-C", str(ROOT), "rev-parse", "--verify",
          f"{commit}:{path}"],
@@ -93,65 +99,89 @@ def git_object(commit: str, path: str) -> str | None:
     if result.returncode == 0:
         return result.stdout.strip()
     stderr = result.stderr.lower()
-    if "does not exist" in stderr or "unknown revision" in stderr or "not a valid object" in stderr:
+    if any(hint in stderr for hint in ("does not exist", "unknown revision", "not a valid object")):
         return None
     raise RebindRefused(f"could not read {commit}:{path}: {result.stderr.strip()}")
 
 
 def git_text(commit: str, path: str) -> str:
-    return subprocess.run(
+    result = subprocess.run(
         ["git", "--no-replace-objects", "-C", str(ROOT), "show", f"{commit}:{path}"],
-        capture_output=True, text=True, check=True,
-    ).stdout
+        capture_output=True, text=True,
+    )
+    need(result.returncode == 0, f"could not read {commit}:{path}")
+    return result.stdout
 
 
-def read_json(relative: str) -> dict:
-    absolute = ROOT / relative
-    need(absolute.is_file(), f"{relative} is missing")
-    need(not absolute.is_symlink(), f"{relative} is a symlink")
-    text = absolute.read_text(encoding="utf-8")
-    keys: list[str] = []
+def read_json_bytes(data: bytes, label: str) -> dict:
+    duplicates: list[str] = []
 
-    def duplicate_guard(pairs: list[tuple[str, object]]) -> dict:
+    def guard(pairs: list[tuple[str, object]]) -> dict:
         names = [name for name, _ in pairs]
         if len(names) != len(set(names)):
-            keys.append("duplicate")
+            duplicates.append(label)
         return dict(pairs)
 
-    value = json.loads(text, object_pairs_hook=duplicate_guard)
-    need(not keys, f"{relative} contains duplicate JSON keys")
-    need(isinstance(value, dict), f"{relative} is not a JSON object")
+    value = json.loads(data.decode("utf-8"), object_pairs_hook=guard)
+    need(not duplicates, f"{label} contains duplicate JSON keys")
+    need(isinstance(value, dict), f"{label} is not a JSON object")
     return value
 
 
-def approved_artifact_paths() -> list[str]:
-    """Read the path list from the production policy rather than copying it.
+def read_record(relative: str) -> tuple[dict, bytes]:
+    absolute = ROOT / relative
+    need(absolute.is_file(), f"{relative} is missing")
+    need(not absolute.is_symlink(), f"{relative} is a symlink")
+    data = absolute.read_bytes()
+    return read_json_bytes(data, relative), data
 
-    A copied list silently diverges the first time the policy gains a path.
-    """
-    text = (ROOT / POLICY_SCRIPT).read_text(encoding="utf-8")
-    match = re.search(
-        r"\$ApprovedArtifactExactSourcePaths\s*=\s*@\((.*?)\n\)", text, re.DOTALL
-    )
-    need(match is not None, "could not read the approved artifact source paths")
+
+def parse_path_list(text: str, label: str) -> list[str]:
+    match = PATH_LIST.search(text)
+    need(match is not None, f"could not read the approved artifact source paths from {label}")
     paths = re.findall(r"'([^']+)'", match.group(1))
-    need(len(paths) >= 10, "the approved artifact source path list looks wrong")
+    need(len(paths) >= 10, f"the approved artifact source path list in {label} looks wrong")
     return paths
 
 
 def normalised_pubspec(text: str, expected_version: str | None) -> str:
-    """The pubspec with only the governed version declaration normalised.
-
-    Mirrors the production verifier: the version may change, nothing else may.
-    """
     found = VERSION_LINE.findall(text)
     need(len(found) == 1, "the pubspec must declare exactly one version")
     if expected_version is not None:
-        need(
-            found[0] == expected_version,
-            f"the proposed pubspec declares {found[0]}, expected {expected_version}",
-        )
+        need(found[0] == expected_version,
+             f"the proposed pubspec declares {found[0]}, expected {expected_version}")
     return VERSION_LINE.sub("version: <normalised>", text)
+
+
+MANIFEST_NAME = "PROPOSAL.json"
+
+
+def safe_relative(path: object, label: str) -> str:
+    """A repository-relative path that cannot escape the directory it is joined to.
+
+    A prefix and suffix check is not enough: 'release/approvals/../../x.json'
+    satisfies both and still leaves the tree.
+    """
+    need(isinstance(path, str) and path, f"{label} is not a path")
+    need(not path.startswith("/") and not path.startswith("\\"),
+         f"{label} is absolute")
+    need(":" not in path, f"{label} carries a drive or scheme")
+    need("\\" not in path, f"{label} uses backslashes; use forward slashes")
+    parts = PurePosixPath(path).parts
+    need(parts and all(part not in ("..", ".") for part in parts),
+         f"{label} contains parent or current directory components")
+    need(PurePosixPath(path).as_posix() == path, f"{label} is not in normal form")
+    return path
+
+
+def utc_instant(value: object) -> datetime | None:
+    """An explicit UTC instant, or None. No local times, no bare dates."""
+    if not isinstance(value, str) or not value.endswith("Z"):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def digest(data: bytes) -> str:
@@ -159,100 +189,97 @@ def digest(data: bytes) -> str:
 
 
 def serialise(document: dict) -> bytes:
-    """One serialisation, used for both the hash and the bytes written."""
     return (json.dumps(document, indent=2) + "\n").encode("utf-8")
 
 
 # --------------------------------------------------------------- inspection
 
 
-def inspect_inputs(target: str, delta_path: str, decision_path: str | None) -> dict:
+def inspect_inputs(target: str, delta_path: str, decision_path: str | None,
+                   evidence_path: str | None, main_ref: str) -> dict:
     need(COMMIT.match(target or ""), "the target commit must be 40 hex characters")
-
-    remotes = git("remote", "-v")
-    need(EXPECTED_SLUG in remotes, f"this checkout is not {EXPECTED_SLUG}")
+    remote = git("remote", "get-url", "origin")
+    need(remote in EXPECTED_REMOTES, f"origin is {remote}, which is not the expected repository")
     need(not git("status", "--porcelain"), "the working tree is not clean")
 
-    policy = read_json(POLICY)
-    ledger = read_json(LEDGER)
-    state = read_json(STATE)
-    pointer = read_json(VERSION_POINTER)
+    policy, policy_bytes = read_record(POLICY)
+    ledger, ledger_bytes = read_record(LEDGER)
+    state, state_bytes = read_record(STATE)
+    pointer, pointer_bytes = read_record(VERSION_POINTER)
 
     build = policy.get("release", {}).get("buildNumber")
     need(isinstance(build, int), "the policy does not record a build number")
     version_policy = policy.get("versionPolicy", {})
-    need(
-        version_policy.get("buildNumber") in (None, build),
-        "the policy version section names a different build",
-    )
-    need(
-        pointer.get("buildNumber") == build,
-        f"the version pointer names build {pointer.get('buildNumber')}, policy says {build}",
-    )
+    need(version_policy.get("buildNumber") in (None, build),
+         "the policy version section names a different build")
+    need(pointer.get("buildNumber") == build,
+         f"the version pointer names build {pointer.get('buildNumber')}, policy says {build}")
 
     approval_path = version_policy.get("sourceDocumentFile")
     need(isinstance(approval_path, str), "the policy does not name a source approval")
-    approval = read_json(approval_path)
-    approval_bytes = (ROOT / approval_path).read_bytes()
+    approval, approval_bytes = read_record(approval_path)
     current_digest = digest(approval_bytes)
+    need(approval.get("approved") is True,
+         "the source approval does not record approved true; it cannot authorise a baseline")
 
-    # Every active pointer must currently agree, or the starting state is already
-    # incoherent and a re-bind would paper over it.
-    for label, value in (
-        ("the policy", version_policy.get("sourceDocumentSha256")),
-        ("the version pointer", pointer.get("sourceDocumentSha256")),
-    ):
-        need(
-            isinstance(value, str) and value.upper() == current_digest,
-            f"{label} does not currently pin the source approval bytes",
-        )
-    need(
-        pointer.get("sourceDocumentFile") == approval_path,
-        "the version pointer names a different source approval than the policy",
-    )
+    for label, value in (("the policy", version_policy.get("sourceDocumentSha256")),
+                         ("the version pointer", pointer.get("sourceDocumentSha256"))):
+        need(isinstance(value, str) and value.upper() == current_digest,
+             f"{label} does not currently pin the source approval bytes")
+    need(pointer.get("sourceDocumentFile") == approval_path,
+         "the version pointer names a different source approval than the policy")
 
     entries = [e for e in ledger.get("entries", []) if e.get("buildNumber") == build]
-    need(len(entries) == 1, f"expected exactly one ledger entry for build {build}, found {len(entries)}")
+    need(len(entries) == 1,
+         f"expected exactly one ledger entry for build {build}, found {len(entries)}")
     entry = entries[0]
-    need(
-        str(entry.get("versionApprovalDocumentSha256", "")).upper() == current_digest,
-        "the ledger does not currently pin the source approval bytes",
-    )
-    need(
-        entry.get("status") == "source-reserved-awaiting-remote-consumption",
-        f"the ledger entry is {entry.get('status')}, which is not an unconsumed reservation",
-    )
+    need(str(entry.get("versionApprovalDocumentSha256", "")).upper() == current_digest,
+         "the ledger does not currently pin the source approval bytes")
+    need(entry.get("status") == "source-reserved-awaiting-remote-consumption",
+         f"the ledger entry is {entry.get('status')}, which is not an unconsumed reservation")
     for consumed in ("githubRunId", "githubArtifactId", "artifactConstructed"):
         need(entry.get(consumed) in (None, False), f"the ledger entry already records {consumed}")
 
-    # The lifecycle must be the pending rebind state; construction authority is
-    # derived, never assumed.
-    need(
-        str(state.get("status", "")).endswith(REBIND_SUFFIX),
-        f"the successor state is {state.get('status')}, not awaiting an artifact source rebind",
-    )
-    current_source = state.get("authorityPlanes", {}).get("currentSource", {})
-    need(
-        current_source.get("artifactConstructionAuthority") is False,
-        "construction authority is already true; there is nothing to re-bind",
-    )
+    # Exact lifecycle, not a suffix. A Build 30 status on a Build 29 policy, or a
+    # cancelled next candidate, must not pass.
+    expected_status = f"BUILD{build}_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND"
+    expected_next = f"SOURCE_SUCCESSOR_AWAITING_BUILD{build}_ARTIFACT_SOURCE_REBIND"
+    need(state.get("status") == expected_status,
+         f"the successor state is {state.get('status')}, expected {expected_status}")
+    planes = state.get("authorityPlanes", {})
+    need(planes.get("nextCandidate", {}).get("status") == expected_next,
+         f"the next candidate is {planes.get('nextCandidate', {}).get('status')}, expected {expected_next}")
+    current_source = planes.get("currentSource", {})
+    need(current_source.get("artifactConstructionAuthority") is False,
+         "construction authority is already true; there is nothing to re-bind")
 
-    # A is the previously approved artifact baseline. D is the deployed backend
-    # source. They are separate identities and must not be conflated.
     baseline = approval.get("sourceBaseline", {})
     previous = baseline.get("commit")
     need(COMMIT.match(previous or ""), "the approval does not record a baseline commit")
-    deployed = state.get("authorityPlanes", {}).get("deployedBackend", {}).get(
-        "functionFleetSourceCommit")
+    deployed = planes.get("deployedBackend", {}).get("functionFleetSourceCommit")
     need(COMMIT.match(deployed or ""), "the state does not record a deployed backend source")
-
     need(previous != target, "the baseline already names the target commit")
     git("merge-base", "--is-ancestor", previous, target)
     need(git("rev-parse", f"{target}^{{commit}}") == target, "the target is not a commit")
     target_tree = git("rev-parse", f"{target}^{{tree}}")
 
-    # The declared delta is the permission. A directory exemption would admit
-    # any change inside it, including a replaced gate or a deleted test tree.
+    # The target must actually be on the main line, not a local feature branch.
+    need(main_ref.startswith("refs/remotes/") or main_ref.startswith("origin/"),
+         f"the main reference {main_ref} is not a remote-tracking reference; "
+         "a caller-selected local reference cannot establish the main line")
+    main_tip = git("rev-parse", "--verify", main_ref)
+    git("merge-base", "--is-ancestor", target, main_tip)
+
+    # The obligations come from the previously approved source. A candidate that
+    # narrows its own list must not thereby narrow what is inspected.
+    approved_list = parse_path_list(git_text(previous, POLICY_SCRIPT), "the approved baseline")
+    candidate_list = parse_path_list(git_text(target, POLICY_SCRIPT), "the target")
+    removed = sorted(set(approved_list) - set(candidate_list))
+    need(not removed,
+         "the target removes protected artifact source paths from the policy: "
+         + ", ".join(removed) + "; that is a change to the inspection contract and needs its own review")
+    inspect_list = sorted(set(approved_list) | set(candidate_list))
+
     manifest = json.loads(Path(delta_path).read_text(encoding="utf-8"))
     need(manifest.get("fromCommit") == previous, "the delta manifest names a different previous baseline")
     need(manifest.get("toCommit") == target, "the delta manifest names a different target")
@@ -260,58 +287,96 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None) -> d
     need(isinstance(declared, dict) and declared, "the delta manifest declares no paths")
 
     observed: dict[str, dict[str, str | None]] = {}
-    for path in approved_artifact_paths():
+    for path in inspect_list:
         if path == "pubspec.yaml":
             continue
         before, after = git_object(previous, path), git_object(target, path)
         if before != after:
             observed[path] = {"before": before, "after": after}
-    need(
-        set(observed) == set(declared),
-        "the source delta differs from the manifest: "
-        f"observed {sorted(observed)}, declared {sorted(declared)}",
-    )
+    need(set(observed) == set(declared),
+         "the source delta differs from the manifest: "
+         f"observed {sorted(observed)}, declared {sorted(declared)}")
     for path, moved in observed.items():
         stated = declared[path]
-        need(
-            stated.get("before") == moved["before"] and stated.get("after") == moved["after"],
-            f"{path} moved to object identities the manifest does not declare",
-        )
+        need(stated.get("before") == moved["before"] and stated.get("after") == moved["after"],
+             f"{path} moved to object identities the manifest does not declare")
         need(moved["after"] is not None, f"{path} is deleted at the target commit")
 
-    # pubspec is compared separately, with only the governed version normalised,
-    # and before the baseline moves. Afterwards it would compare M with itself.
-    expected_version = f"{pointer.get('versionName')}+{build}" if pointer.get("versionName") else None
+    expected_version = (f"{pointer.get('versionName')}+{build}"
+                        if pointer.get("versionName") else None)
     before_pubspec = normalised_pubspec(git_text(previous, "pubspec.yaml"), None)
     after_pubspec = normalised_pubspec(git_text(target, "pubspec.yaml"), expected_version)
-    need(
-        before_pubspec == after_pubspec,
-        "pubspec.yaml differs beyond its version declaration",
-    )
+    need(before_pubspec == after_pubspec, "pubspec.yaml differs beyond its version declaration")
 
-    decision = None
+    decision = decision_digest = validated_decision_bytes = None
     if decision_path is not None:
-        decision = json.loads(Path(decision_path).read_text(encoding="utf-8"))
-        need(
-            decision.get("documentType") == "governed-artifact-source-rebind-decision",
-            "the decision document is not an artifact source rebind decision",
-        )
+        decision_bytes = Path(decision_path).read_bytes()
+        decision = read_json_bytes(decision_bytes, "the decision")
+        validated_decision_bytes = decision_bytes
+        decision_digest = digest(decision_bytes)
+        need(decision.get("documentType") == "governed-artifact-source-rebind-decision",
+             "the decision document is not an artifact source rebind decision")
         need(decision.get("confirmed") is True, "the rebind decision is not confirmed")
-        need(decision.get("previousBaselineCommit") == previous, "the decision names a different previous baseline")
+        need(decision.get("previousBaselineCommit") == previous,
+             "the decision names a different previous baseline")
         need(decision.get("targetCommit") == target, "the decision names a different target commit")
-        need(
-            str(decision.get("sourceApprovalSha256", "")).upper() == current_digest,
-            "the decision does not name the source approval bytes it was made against",
-        )
+        need(str(decision.get("sourceApprovalSha256", "")).upper() == current_digest,
+             "the decision does not name the source approval bytes it was made against")
         need(decision.get("deployedBackendCommit") == deployed,
              "the decision names a different deployed backend source")
+        confirmation = decision.get("ownerConfirmation", {})
+        need(isinstance(confirmation, dict), "the decision records no owner confirmation")
+        need(confirmation.get("confirmed") is True,
+             "the decision's owner confirmation does not record confirmed true, "
+             "whatever the top level claims")
+        statement = confirmation.get("ownerStatementInOwnWords")
+        need(isinstance(statement, str) and statement.strip(),
+             "the decision records no owner statement")
+        confirmed_at = utc_instant(confirmation.get("confirmedAtUtc"))
+        need(confirmed_at is not None,
+             "the decision's confirmation time is not an explicit UTC instant")
+        need(confirmed_at <= datetime.now(timezone.utc),
+             "the decision's confirmation time is in the future")
+        custody = decision.get("custodyPath")
+        safe_relative(custody, "the decision custody path")
+        need(custody.startswith("release/approvals/") and custody.endswith(".json"),
+             "the decision does not name a custody path under release/approvals")
+
+    evidence = None
+    if evidence_path is not None:
+        evidence = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+        need(evidence.get("headSha") == target,
+             "the post-merge evidence is for a different commit")
+        need(evidence.get("conclusion") == "success",
+             f"the post-merge checks concluded {evidence.get('conclusion')}")
+        need(evidence.get("status") in (None, "completed"),
+             f"the post-merge run is {evidence.get('status')}, not completed")
+        need(isinstance(evidence.get("runId"), int),
+             "the post-merge evidence records no run identity")
+        need(evidence.get("repository") in (None, EXPECTED_SLUG),
+             "the post-merge evidence names a different repository")
+        need(evidence.get("workflowName") in (None, "release-gate"),
+             "the post-merge evidence names a different workflow")
+        failed = [job for job in evidence.get("jobs", []) or []
+                  if job.get("conclusion") not in (None, "success")]
+        need(not failed,
+             "the post-merge evidence carries jobs that did not succeed: "
+             + ", ".join(sorted(str(job.get("name")) for job in failed)))
 
     return {
         "build": build, "policy": policy, "ledger": ledger, "state": state,
         "pointer": pointer, "approval": approval, "approvalPath": approval_path,
         "previous": previous, "deployed": deployed, "target": target,
         "targetTree": target_tree, "currentDigest": current_digest,
-        "delta": observed, "decision": decision, "entry": entry,
+        "delta": observed, "decision": decision, "decisionPath": decision_path,
+        "decisionDigest": decision_digest, "evidence": evidence, "entry": entry,
+        "decisionBytes": validated_decision_bytes,
+        "inspectedPaths": inspect_list,
+        "expectedStatus": expected_status, "expectedNext": expected_next,
+        "priorBytes": {
+            approval_path: approval_bytes, POLICY: policy_bytes,
+            VERSION_POINTER: pointer_bytes, LEDGER: ledger_bytes, STATE: state_bytes,
+        },
     }
 
 
@@ -320,9 +385,31 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None) -> d
 
 def build_proposal(inputs: dict) -> dict:
     """Pure: validated inputs in, proposed bytes and digests out. Writes nothing."""
+    build = inputs["build"]
     approval = json.loads(json.dumps(inputs["approval"]))
     approval["sourceBaseline"]["commit"] = inputs["target"]
     approval["sourceBaseline"]["tree"] = inputs["targetTree"]
+
+    # The decision that selected this baseline is recorded in the document whose
+    # baseline moved, so a later reader can establish what authorised it.
+    decision = inputs.get("decision")
+    if decision is not None:
+        confirmation = decision.get("ownerConfirmation", {})
+        evidence = inputs.get("evidence")
+        approval["artifactBaselineRebind"] = {
+            "previousBaselineCommit": inputs["previous"],
+            "targetCommit": inputs["target"],
+            "decisionFile": Path(inputs["decisionPath"]).name,
+            "decisionSha256": inputs["decisionDigest"],
+            "decisionCustodyPath": decision.get("custodyPath"),
+            "decisionDocumentType": decision.get("documentType"),
+            "ownerStatementInOwnWords": confirmation.get("ownerStatementInOwnWords"),
+            "confirmedAtUtc": confirmation.get("confirmedAtUtc"),
+            "deployedBackendCommitUnchanged": inputs["deployed"],
+            "postMergeEvidence": (
+                {"runId": evidence.get("runId"), "headSha": evidence.get("headSha"),
+                 "conclusion": evidence.get("conclusion")} if evidence else None),
+        }
     approval_bytes = serialise(approval)
     approval_digest = digest(approval_bytes)
 
@@ -334,23 +421,20 @@ def build_proposal(inputs: dict) -> dict:
 
     ledger = json.loads(json.dumps(inputs["ledger"]))
     for entry in ledger["entries"]:
-        if entry.get("buildNumber") == inputs["build"]:
+        if entry.get("buildNumber") == build:
             entry["versionApprovalDocumentSha256"] = approval_digest
             if "baselineCommit" in entry:
                 entry["baselineCommit"] = inputs["target"]
 
     state = json.loads(json.dumps(inputs["state"]))
     state["authorityPlanes"]["currentSource"]["artifactConstructionAuthority"] = True
-    state["status"] = str(state["status"]).replace(
-        REBIND_SUFFIX, "_AWAITING_SIGNED_CONSTRUCTION"
-    ).replace("_SOURCE_SUCCESSOR_", "_SOURCE_AUTHORIZED_")
-    nxt = state["authorityPlanes"]["nextCandidate"]
-    nxt["status"] = str(nxt.get("status", "")).replace(
-        "SOURCE_SUCCESSOR_AWAITING_BUILD", "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD"
-    ).replace("_ARTIFACT_SOURCE_REBIND", "_CONSTRUCTION")
+    state["status"] = f"BUILD{build}_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION"
+    state["authorityPlanes"]["nextCandidate"]["status"] = (
+        f"SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD{build}_CONSTRUCTION")
 
     return {
         "approvalDigest": approval_digest,
+        "decisionRecorded": decision is not None,
         "files": {
             inputs["approvalPath"]: approval_bytes,
             POLICY: serialise(policy),
@@ -365,7 +449,6 @@ def build_proposal(inputs: dict) -> dict:
 
 
 def validate_proposal(inputs: dict, proposal: dict) -> None:
-    """Read the proposal back as a consumer would, before anything is written."""
     expected = proposal["approvalDigest"]
     files = proposal["files"]
     approval_bytes = files[inputs["approvalPath"]]
@@ -375,68 +458,165 @@ def validate_proposal(inputs: dict, proposal: dict) -> None:
     pointer = json.loads(files[VERSION_POINTER])
     ledger = json.loads(files[LEDGER])
     state = json.loads(files[STATE])
+    approval = json.loads(approval_bytes)
+    build = inputs["build"]
 
     need(policy["versionPolicy"]["sourceDocumentSha256"] == expected,
          "the proposed policy does not pin the proposed approval")
     need(pointer["sourceDocumentSha256"] == expected,
          "the proposed version pointer does not pin the proposed approval")
-    entries = [e for e in ledger["entries"] if e.get("buildNumber") == inputs["build"]]
+    entries = [e for e in ledger["entries"] if e.get("buildNumber") == build]
     need(len(entries) == 1, "the proposed ledger does not hold exactly one entry for the build")
     need(entries[0]["versionApprovalDocumentSha256"] == expected,
          "the proposed ledger does not pin the proposed approval")
-
-    approval = json.loads(approval_bytes)
     need(approval["sourceBaseline"]["commit"] == inputs["target"],
          "the proposed approval does not select the target commit")
+    need(approval.get("approved") is True, "the proposed approval is not approved")
+
+    if inputs.get("decision") is not None:
+        # Re-derive every recorded field from the decision itself. Comparing only
+        # the digest would accept an annotation whose statement or time had been
+        # altered while the digest was left untouched.
+        decision = inputs["decision"]
+        confirmation = decision.get("ownerConfirmation", {})
+        evidence = inputs.get("evidence")
+        expected_annotation = {
+            "previousBaselineCommit": inputs["previous"],
+            "targetCommit": inputs["target"],
+            "decisionFile": Path(inputs["decisionPath"]).name,
+            "decisionSha256": inputs["decisionDigest"],
+            "decisionCustodyPath": decision.get("custodyPath"),
+            "decisionDocumentType": decision.get("documentType"),
+            "ownerStatementInOwnWords": confirmation.get("ownerStatementInOwnWords"),
+            "confirmedAtUtc": confirmation.get("confirmedAtUtc"),
+            "deployedBackendCommitUnchanged": inputs["deployed"],
+            "postMergeEvidence": (
+                {"runId": evidence.get("runId"), "headSha": evidence.get("headSha"),
+                 "conclusion": evidence.get("conclusion")} if evidence else None),
+        }
+        recorded = approval.get("artifactBaselineRebind")
+        need(recorded == expected_annotation,
+             "the recorded rebind annotation does not match the decision it cites")
+
+    # Exact resulting lifecycle, not merely the absence of a suffix.
+    need(state["status"]
+         == f"BUILD{build}_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+         f"the proposed state is {state['status']}, which is not the expected resulting state")
+    need(state["authorityPlanes"]["nextCandidate"]["status"]
+         == f"SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD{build}_CONSTRUCTION",
+         "the proposed next candidate is not the expected resulting state")
     need(state["authorityPlanes"]["currentSource"]["artifactConstructionAuthority"] is True,
          "the proposed state does not restore construction authority")
-    need(REBIND_SUFFIX not in str(state.get("status", "")),
-         "the proposed state still records an awaited rebind")
-    need(REBIND_SUFFIX not in str(state["authorityPlanes"]["nextCandidate"].get("status", "")),
-         "the proposed next candidate still records an awaited rebind")
-
-    # The deployed backend identity is not a function of the artifact baseline
-    # and must survive the transition untouched.
-    need(
-        state["authorityPlanes"]["deployedBackend"]["functionFleetSourceCommit"] == inputs["deployed"],
-        "the proposal moved the deployed backend source",
-    )
+    need(state["authorityPlanes"]["deployedBackend"]["functionFleetSourceCommit"] == inputs["deployed"],
+         "the proposal moved the deployed backend source")
 
 
-# -------------------------------------------------------------------- emit
+# ------------------------------------------------------------------ publish
 
 
-def emit_proposal(proposal: dict, write: bool) -> None:
-    """Stage every file, then move them into place.
+def write_proposal(inputs: dict, proposal: dict, out_dir: str) -> dict:
+    """Write the complete proposal to a fresh directory. Nothing active is touched.
 
-    A refusal while staging leaves nothing changed. The moves themselves are
-    individually atomic; staging first keeps the window between them small and
-    means a validation failure cannot half-apply a transition.
+    The whole output map is assembled and validated before a single file is
+    created: every destination must be a relative path that cannot escape the
+    output directory, no two entries may claim the same destination, and the
+    manifest name is reserved. Files are created exclusively and read back.
+
+    Review reproduced both failures this prevents: a custody path whose parent
+    components reached back into the checkout and overwrote an active record
+    while the tool reported activeRecordsUnchanged, and a custody path equal to
+    a proposed record's path, which overwrote it and left the manifest
+    self-consistent while the cross-record references were broken.
     """
-    if not write:
-        return
-    staged: list[tuple[Path, Path]] = []
-    try:
-        for relative, data in proposal["files"].items():
-            destination = (ROOT / relative).resolve()
-            need(
-                str(destination).startswith(str(ROOT.resolve()) + os.sep),
-                f"{relative} resolves outside the checkout",
-            )
-            need(not (ROOT / relative).is_symlink(), f"{relative} is a symlink")
-            need(destination.is_file(), f"{relative} is not a regular file")
-            handle, temporary = tempfile.mkstemp(
-                dir=str(destination.parent), prefix=".rebind-", suffix=".tmp"
-            )
-            with os.fdopen(handle, "wb") as stream:
-                stream.write(data)
-            staged.append((Path(temporary), destination))
-        for temporary, destination in staged:
-            os.replace(temporary, destination)
-        staged = []
-    finally:
-        for temporary, _ in staged:
-            temporary.unlink(missing_ok=True)
+    given = Path(out_dir)
+    need(not given.is_symlink(), "the output directory is a symlink")
+    destination = given.resolve()
+    need(not destination.exists() or not any(destination.iterdir()),
+         f"{out_dir} already exists and is not empty")
+    # Choosing a root inside the checkout is the caller's decision, not something
+    # this tool forbids, but the applying review should be able to see it.
+    repository_root = ROOT.resolve()
+    inside_checkout = (destination == repository_root
+                       or str(destination).startswith(str(repository_root) + os.sep))
+
+    # One complete map, assembled before anything is written.
+    outputs: dict[str, bytes] = {}
+
+    def claim(relative: object, data: bytes, label: str) -> None:
+        path = safe_relative(relative, label)
+        need(path != MANIFEST_NAME, f"{label} claims the reserved manifest name")
+        collision = next((held for held in outputs if held.lower() == path.lower()), None)
+        need(collision is None,
+             f"{label} claims {path}, which {collision} already claims; "
+             "two proposal files cannot share a destination")
+        resolved = (destination / path).resolve()
+        need(str(resolved).startswith(str(destination) + os.sep),
+             f"{label} resolves outside the proposal directory")
+        outputs[path] = data
+
+    for relative, data in proposal["files"].items():
+        claim(relative, data, f"the proposed record {relative}")
+
+    decision = inputs.get("decision")
+    if decision is not None:
+        # The exact bytes validated during inspection, never a fresh read of a
+        # mutable path: re-reading would let the exported decision differ from
+        # the one the approval annotation identifies.
+        validated = inputs["decisionBytes"]
+        need(digest(validated) == inputs["decisionDigest"],
+             "the retained decision bytes do not match the validated digest")
+        current = Path(inputs["decisionPath"]).read_bytes()
+        need(digest(current) == inputs["decisionDigest"],
+             "the decision file changed after it was validated; re-run the inspection")
+        claim(decision["custodyPath"], validated, "the decision custody path")
+
+    manifest = {
+        "schemaVersion": 1,
+        "recordType": "artifact-source-rebind-proposal",
+        "status": "PROPOSAL_ONLY_NOT_APPLIED",
+        "outputRootInsideCheckout": inside_checkout,
+        "buildNumber": inputs["build"],
+        "previousBaselineCommit": inputs["previous"],
+        "targetCommit": inputs["target"],
+        "targetTree": inputs["targetTree"],
+        "deployedBackendCommitUnchanged": inputs["deployed"],
+        "sourceApprovalShaBefore": inputs["currentDigest"],
+        "sourceApprovalShaAfter": proposal["approvalDigest"],
+        "inspectedPaths": inputs["inspectedPaths"],
+        "sourceDelta": inputs["delta"],
+        "decisionSha256": inputs.get("decisionDigest"),
+        "decisionCustodyPath": decision.get("custodyPath") if decision else None,
+        "postMergeEvidence": inputs.get("evidence"),
+        "expectedPriorSha256": {name: digest(data)
+                                for name, data in inputs["priorBytes"].items()},
+        "proposedSha256": {name: digest(data) for name, data in outputs.items()},
+        "certifies": (
+            "Nothing. This proposal does not certify main, the post-merge checks, "
+            "or permission to apply it. The applying review must verify those, the "
+            "decision's custody, every proposed hash and every expected prior hash."
+        ),
+        "howToApply": [
+            "On an isolated review branch or worktree, not directly on main.",
+            "Confirm each destination still holds the bytes in expectedPriorSha256; "
+            "if any differs, this proposal is stale and must be regenerated.",
+            "Copy the files, then confirm git diff shows exactly these paths.",
+            "Run the production release policy, the strict construction gate, the "
+            "canonical audit and the Dart suite against the committed candidate.",
+            "Open the commit for review. This tool does not write to the checkout "
+            "and a manual copy is not a substitute for that review.",
+        ],
+    }
+    outputs[MANIFEST_NAME] = serialise(manifest)
+
+    for path, data in outputs.items():
+        target = destination / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "xb") as stream:   # exclusive: never overwrite
+            stream.write(data)
+    for path, data in outputs.items():
+        need((destination / path).read_bytes() == data,
+             f"{path} does not hold the proposed bytes after writing")
+    return manifest
 
 
 def main(argv: list[str]) -> int:
@@ -444,30 +624,41 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--target-commit", required=True)
     parser.add_argument("--expected-delta", required=True)
     parser.add_argument("--decision")
-    parser.add_argument("--write", action="store_true")
+    parser.add_argument("--post-merge-evidence")
+    parser.add_argument("--main-ref", default="origin/main")
+    parser.add_argument("--out", help="write the complete proposal to this fresh directory")
     options = parser.parse_args(argv)
 
     try:
-        inputs = inspect_inputs(options.target_commit, options.expected_delta, options.decision)
-        if options.write:
+        inputs = inspect_inputs(options.target_commit, options.expected_delta,
+                                options.decision, options.post_merge_evidence,
+                                options.main_ref)
+        if options.out:
             need(inputs["decision"] is not None,
-                 "--write requires the owner-confirmed rebind decision")
+                 "emitting a proposal requires the owner-confirmed rebind decision")
+            need(inputs["evidence"] is not None,
+                 "emitting a proposal requires the target's post-merge check evidence")
         proposal = build_proposal(inputs)
         validate_proposal(inputs, proposal)
-        emit_proposal(proposal, options.write)
+        if options.out:
+            write_proposal(inputs, proposal, options.out)
     except RebindRefused as refusal:
         print(json.dumps({"status": "REBIND_REFUSED", "reason": str(refusal)}, indent=2))
         return 1
 
     print(json.dumps({
-        "status": "REBIND_APPLIED" if options.write else "PROPOSAL_VALIDATED",
+        "status": "PROPOSAL_WRITTEN" if options.out else "PROPOSAL_VALIDATED",
+        "activeRecordsUnchanged": True,
         "noProductionActionPerformed": True,
         "previousBaseline": inputs["previous"],
         "targetBaseline": inputs["target"],
         "deployedBackendUnchanged": inputs["deployed"],
         "approvalSha256": proposal["approvalDigest"],
-        "recordsUpdated": sorted(proposal["files"]),
+        "decisionRecordedInApproval": proposal["decisionRecorded"],
+        "inspectedPathCount": len(inputs["inspectedPaths"]),
+        "recordsProposed": sorted(proposal["files"]),
         "sourceDelta": sorted(inputs["delta"]),
+        "outputDirectory": options.out,
     }, indent=2))
     return 0
 
