@@ -130,8 +130,27 @@ changes its bytes, so every active pointer at it must follow the same digest:
 | `release/build-number-ledger.json` | the build's `versionApprovalDocumentSha256` |
 | `release/current-successor-state.json` | construction authority and the rebind statuses |
 
-Serialize the proposed approval once, hash those exact bytes once, and derive
-every pointer from that one digest. Do not re-serialize per consumer.
+`tools/v4/rebind_artifact_baseline.py` performs this as one validated
+transition: it inspects every record, the source delta and the decision before
+building anything, serialises the approval once and derives every pointer from
+that single digest, re-reads the proposal as a consumer would, and only then
+stages and moves the files. Without `--write` it validates and reports; it
+authorises nothing either way.
+
+**A re-bind needs its own decision.** The existing source approval recorded a
+decision made against the previous baseline. Repointing `sourceBaseline` without
+a new decision would make that earlier timestamp appear to authorise source that
+did not exist when it was made. `--write` therefore requires an owner-confirmed
+decision recording `documentType`
+`governed-artifact-source-rebind-decision`, `confirmed`, the previous baseline
+commit, the target commit, the source approval digest it was made against, and
+the deployed backend commit, which the re-bind must leave untouched.
+
+**Permission is the exact reviewed delta, not a directory.** The tool requires a
+manifest naming each moved path with its before and after object identities, and
+refuses anything the manifest does not declare — an unreviewed change to a gate
+under `tools/release/`, or a deleted test tree, is refused even though both sit
+inside otherwise permitted directories.
 
 Compare the previous baseline against the proposed one **before** adopting it,
 including `pubspec.yaml` with only the governed version declaration normalized:

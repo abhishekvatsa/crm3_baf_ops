@@ -1,0 +1,13 @@
+# Each weakened copy of the re-bind implementation reintroduces one reviewed
+# defect. Every one must fail the tests aimed at it.
+
+== no-policy-and-pointer-update: 2 failed
+   FAILS: test_valid_transition_is_proposed_and_every_pointer_follows
+   FAILS: test_write_applies_every_record_and_leaves_them_coherent
+== no-pubspec-comparison: 2 failed
+   FAILS: test_non_version_pubspec_change_is_refused
+   FAILS: test_wrong_target_version_is_refused
+== no-unique-ledger-entry: 1 failed
+   FAILS: test_duplicate_ledger_entries_are_refused
+== directory-exemption-instead-of-delta: 1 failed
+   FAILS: test_change_outside_the_declared_delta_is_refused

@@ -69,6 +69,9 @@ jobs:
       - name: Decoder and timestamp inventory rejection contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_a05_*inventory.py'
 
+      - name: Artifact baseline re-bind contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_rebind_*.py'
+
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
