@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "recordType": "actual-artifact-source-rebind-application-verification",
+  "recordedAtUtc": "2026-09-23T19:26:03.000Z",
+  "intendedBuildNumber": 29,
+  "dependsOn": {
+    "decisionFile": "release/approvals/build29-artifact-source-rebind-decision.json",
+    "decisionSha256": "67C5EAEA2875E579095D2AF6BAFA2E7ED85CD978C4E1E7339A771DFE54F54EF1",
+    "decisionOwnerStatement": "I confirm f48f0ae8 as the Build 29 artifact baseline"
+  },
+  "measuredOutcome": {
+    "resultingApprovalFile": "release/approvals/build-number-29-successor-approval.json",
+    "resultingApprovalSha256": "F49CE0EAA32195875758E391B0DA5C7F5F7127EF5FCCCBBFE1BA367967B9E80B",
+    "previousBaselineCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "selectedBaselineCommit": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+    "selectedBaselineTree": "60e8cc083819ffe1e9e3ee5098f9b6dc815b2253",
+    "deployedBackendCommitUnchanged": "d513843e2fb728ebd097e760e145ab125787bb51"
+  },
+  "activePointersAgree": {
+    "policyVersionPolicySha256": "F49CE0EAA32195875758E391B0DA5C7F5F7127EF5FCCCBBFE1BA367967B9E80B",
+    "versionPointerSha256": "F49CE0EAA32195875758E391B0DA5C7F5F7127EF5FCCCBBFE1BA367967B9E80B",
+    "ledgerVersionApprovalSha256": "F49CE0EAA32195875758E391B0DA5C7F5F7127EF5FCCCBBFE1BA367967B9E80B",
+    "allThreeMatchResultingApproval": true
+  },
+  "targetPostMergeChecks": {
+    "runId": 35887176803,
+    "headSha": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+    "conclusion": "success",
+    "status": "completed",
+    "workflowName": "release-gate",
+    "jobConclusions": {
+      "Android release package + cold-start proof (non-production)": "success",
+      "Firestore Rules + governed callable emulator": "success",
+      "Cloud Functions host build + non-emulator tests": "success",
+      "Android emulator app-shell integration (not physical-device evidence)": "success",
+      "Flutter host analysis + tests + no-loss contracts": "success"
+    }
+  },
+  "supersededAssertion": {
+    "what": "An earlier draft of the decision carried verification.proposedApprovalSha256 = F775DAD40449C0EA6FA279D34FFEBA42EDC1ED8FE0D21D929A48D1306329182E.",
+    "why": "That value came from a preview proposal run made before the decision gained a custody path and before its source-approval fields were renamed to AtDecision. Each of those corrections changed the decision's bytes and therefore the approval derived from them.",
+    "status": "Not reproducible. The intermediate decision bytes that would have produced it were not retained, so no claim is made about which preview it represents.",
+    "resolution": "The assertion was removed from the decision rather than restated, because a decision cannot verify an output that did not exist when it was made. The measured value is resultingApprovalSha256 in this record."
+  },
+  "dependencyDirection": "original approval and source-selection decision -> resulting approval and pointers -> this record. Nothing here is referenced by the records it verifies.",
+  "limits": "This records what was measured on the applied state in this checkout. It does not certify construction, distribution, or anything about the device."
+}
