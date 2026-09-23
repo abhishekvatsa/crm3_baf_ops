@@ -116,7 +116,7 @@ class Fixture:
              "versionApprovalDocumentSha256": approval_sha, "baselineCommit": commit},
         ]})
         write(self.repo, rebind.STATE, {
-            "status": "BUILD29_SOURCE_SUCCESSOR_BACKEND_READY" + rebind.REBIND_SUFFIX,
+            "status": "BUILD29_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
             "authorityPlanes": {
                 "currentSource": {"artifactConstructionAuthority": False},
                 "deployedBackend": {"functionFleetSourceCommit": "d" * 40},
@@ -132,7 +132,9 @@ class Fixture:
             mutate(self.repo)
         run(self.repo, "add", "-A")
         run(self.repo, "commit", "-qm", "M")
-        return run(self.repo, "rev-parse", "HEAD")
+        head = run(self.repo, "rev-parse", "HEAD")
+        run(self.repo, "update-ref", "refs/remotes/origin/main", head)
+        return head
 
     @property
     def previous(self) -> str:
@@ -166,10 +168,23 @@ class Fixture:
             "targetCommit": target,
             "sourceApprovalSha256": sha_of(self.repo, APPROVAL),
             "deployedBackendCommit": "d" * 40,
+            "ownerConfirmation": {
+                "confirmed": True,
+                "confirmedByName": "Fixture Owner",
+                "ownerStatementInOwnWords": "I confirm the fixture target as the baseline",
+                "confirmedAtUtc": "2026-09-23T00:00:00.000Z",
+            },
         }
         document.update(overrides)
         path = self.workspace / "decision.json"
         path.write_text(json.dumps(document, indent=2), encoding="utf-8", newline="\n")
+        return str(path)
+
+    def evidence(self, target: str, conclusion: str = "success") -> str:
+        path = self.workspace / "postmerge.json"
+        path.write_text(json.dumps(
+            {"runId": 1234567, "headSha": target, "conclusion": conclusion},
+            indent=2), encoding="utf-8", newline="\n")
         return str(path)
 
     def close(self) -> None:
@@ -187,8 +202,10 @@ class RebindTests(unittest.TestCase):
         rebind.ROOT = self._root
         self.fixture.close()
 
-    def inspect(self, target, manifest=None, decision=None):
-        return rebind.inspect_inputs(target, manifest or self.fixture.manifest(target), decision)
+    def inspect(self, target, manifest=None, decision=None, evidence=None):
+        return rebind.inspect_inputs(
+            target, manifest or self.fixture.manifest(target), decision, evidence,
+            "refs/remotes/origin/main")
 
     # --- the supported transition ------------------------------------------
 
@@ -209,7 +226,7 @@ class RebindTests(unittest.TestCase):
         inputs = self.inspect(target, decision=self.fixture.decision(target))
         proposal = rebind.build_proposal(inputs)
         rebind.validate_proposal(inputs, proposal)
-        rebind.emit_proposal(proposal, write=True)
+        rebind.emit_proposal(inputs, proposal, write=True)
         applied = sha_of(self.fixture.repo, APPROVAL)
         policy = json.loads((self.fixture.repo / rebind.POLICY).read_text(encoding="utf-8"))
         pointer = json.loads((self.fixture.repo / rebind.VERSION_POINTER).read_text(encoding="utf-8"))
@@ -350,7 +367,8 @@ class RebindTests(unittest.TestCase):
     def test_write_without_a_decision_is_refused(self):
         target = self.fixture.make_target()
         manifest = self.fixture.manifest(target)
-        code = rebind.main(["--target-commit", target, "--expected-delta", manifest, "--write"])
+        code = rebind.main(["--target-commit", target, "--expected-delta", manifest,
+                            "--main-ref", "refs/remotes/origin/main", "--write"])
         self.assertEqual(code, 1)
 
     def test_a_decision_for_another_target_is_refused(self):
@@ -377,7 +395,7 @@ class RebindTests(unittest.TestCase):
         broken.unlink()
         broken.mkdir()
         with self.assertRaises(rebind.RebindRefused):
-            rebind.emit_proposal(proposal, write=True)
+            rebind.emit_proposal(inputs, proposal, write=True)
         for name, data in before.items():
             if name == rebind.STATE:
                 continue
