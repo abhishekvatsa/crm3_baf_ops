@@ -15333,6 +15333,54 @@ check(
         in stage2d_f5_contract_test,
 )
 
+# Build 28 was finalized in the ledger while the LR-07 containment list and the
+# reconciliation snapshot still named Build 27. Nothing failed for a whole build
+# cycle, because no single check compared the documents to each other. This
+# compares them directly and names the ones that disagree.
+xdoc_finalization = combined_policy.get("finalization", {})
+
+
+def xdoc_newest_dual_custody(rows: object) -> object:
+    picks = [
+        row.get("buildNumber")
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict)
+        and row.get("dualCustodyCompleted") is True
+        and isinstance(row.get("buildNumber"), int)
+    ]
+    return max(picks) if picks else None
+
+
+xdoc_latest_finalized = {
+    "release/build-number-ledger.json": xdoc_newest_dual_custody(
+        build_number_ledger.get("entries")
+    ),
+    "release/lr07-distribution-installation-readback-policy.json":
+        xdoc_newest_dual_custody(
+            lr07_policy.get("expectedArtifactsForContainment")
+        ),
+    "docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json": recon.get(
+        "latestFinalizationSource", {}
+    ).get("buildNumber"),
+    "release/production-release-policy.json": (
+        xdoc_finalization.get("priorCompletedBuild", {}).get("buildNumber")
+        if xdoc_finalization.get("status") == "pending-source-authorized"
+        else combined_policy.get("release", {}).get("buildNumber")
+    ),
+}
+xdoc_values = set(xdoc_latest_finalized.values())
+xdoc_agreed = len(xdoc_values) == 1 and None not in xdoc_values
+check(
+    "Every authority document agrees on the latest finalized build",
+    xdoc_agreed,
+    ""
+    if xdoc_agreed
+    else "disagreement: "
+    + ", ".join(
+        f"{path}={value}" for path, value in sorted(xdoc_latest_finalized.items())
+    ),
+)
+
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:
