@@ -528,9 +528,16 @@ def write_proposal(inputs: dict, proposal: dict, out_dir: str) -> dict:
     a proposed record's path, which overwrote it and left the manifest
     self-consistent while the cross-record references were broken.
     """
-    destination = Path(out_dir).resolve()
+    given = Path(out_dir)
+    need(not given.is_symlink(), "the output directory is a symlink")
+    destination = given.resolve()
     need(not destination.exists() or not any(destination.iterdir()),
          f"{out_dir} already exists and is not empty")
+    # Choosing a root inside the checkout is the caller's decision, not something
+    # this tool forbids, but the applying review should be able to see it.
+    repository_root = ROOT.resolve()
+    inside_checkout = (destination == repository_root
+                       or str(destination).startswith(str(repository_root) + os.sep))
 
     # One complete map, assembled before anything is written.
     outputs: dict[str, bytes] = {}
@@ -567,6 +574,7 @@ def write_proposal(inputs: dict, proposal: dict, out_dir: str) -> dict:
         "schemaVersion": 1,
         "recordType": "artifact-source-rebind-proposal",
         "status": "PROPOSAL_ONLY_NOT_APPLIED",
+        "outputRootInsideCheckout": inside_checkout,
         "buildNumber": inputs["build"],
         "previousBaselineCommit": inputs["previous"],
         "targetCommit": inputs["target"],

@@ -158,6 +158,32 @@ class ExportBoundary(unittest.TestCase):
         self.assertEqual(intruder.read_bytes(), INTRUDER_BYTES,
                          "another process's file was overwritten")
 
+    # --- the output root -----------------------------------------------------
+
+    def test_a_symlinked_output_root_is_refused(self):
+        inputs, proposal = self.prepared()
+        real = self.fixture.workspace / "real-output"
+        real.mkdir()
+        link = self.fixture.workspace / "linked-output"
+        try:
+            link.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("this platform does not allow creating symlinks here")
+        with self.assertRaises(rebind.RebindRefused):
+            rebind.write_proposal(inputs, proposal, str(link))
+        self.assertEqual(list(real.rglob("*")), [])
+
+    def test_the_manifest_records_whether_the_root_is_inside_the_checkout(self):
+        # one prepared transition, written to two roots: the second write would
+        # dirty the checkout, so no further inspection may follow it
+        inputs, proposal = self.prepared()
+        outside = rebind.write_proposal(inputs, proposal, str(self.out))
+        self.assertFalse(outside["outputRootInsideCheckout"])
+        inside = rebind.write_proposal(
+            inputs, proposal, str(self.fixture.repo / "proposal-inside"))
+        self.assertTrue(inside["outputRootInsideCheckout"],
+                        "a root inside the checkout is not reported as such")
+
     # --- the ordinary case still works --------------------------------------
 
     def test_a_normal_proposal_is_written_whole(self):
