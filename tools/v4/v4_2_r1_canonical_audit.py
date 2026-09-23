@@ -15381,6 +15381,81 @@ check(
     ),
 )
 
+# Recorded hash pointers at immutable evidence and approvals must still
+# resolve to those exact bytes. Pointers are paired by name (file + sha256,
+# <prefix>File + <prefix>Sha256) so a hash describing some other document is
+# not mistaken for a pointer at this one. Pointers at mutable source are
+# skipped: those are historical snapshots and are expected to drift. A hash
+# recorded from CRLF bytes is accepted because it describes the same content;
+# only a hash matching neither encoding is a stale or wrong pin.
+XPTR_RETAINED = ("release/evidence/", "release/approvals/")
+XPTR_LF = bytes([10])
+XPTR_CRLF = bytes([13, 10])
+
+
+def xptr_partners(key: str) -> tuple[str, ...]:
+    if key in ("file", "path"):
+        return ("sha256", "physicalSha256")
+    if key.endswith("File"):
+        return (key + "Sha256", key[:-4] + "Sha256")
+    return ()
+
+
+xptr_checked = 0
+xptr_bad: list[str] = []
+
+
+def xptr_walk(node: object, origin: str) -> None:
+    global xptr_checked
+    if isinstance(node, dict):
+        for key, target in node.items():
+            if not isinstance(target, str):
+                continue
+            for partner in xptr_partners(key):
+                digest = node.get(partner)
+                if not isinstance(digest, str):
+                    continue
+                if re.fullmatch(r"[0-9A-Fa-f]{64}", digest) is None:
+                    continue
+                if not target.startswith(XPTR_RETAINED):
+                    break
+                resolved = ROOT / target
+                if not resolved.is_file():
+                    break
+                raw = resolved.read_bytes()
+                xptr_checked += 1
+                flat = raw.replace(XPTR_CRLF, XPTR_LF)
+                accepted = {
+                    hashlib.sha256(raw).hexdigest().upper(),
+                    hashlib.sha256(
+                        flat.replace(XPTR_LF, XPTR_CRLF)
+                    ).hexdigest().upper(),
+                }
+                if digest.upper() not in accepted:
+                    xptr_bad.append(origin + ":" + key + " -> " + target)
+                break
+        for value in node.values():
+            xptr_walk(value, origin)
+    elif isinstance(node, list):
+        for value in node:
+            xptr_walk(value, origin)
+
+
+for xptr_path in sorted((ROOT / "release").rglob("*.json")):
+    try:
+        xptr_walk(
+            json.loads(xptr_path.read_text(encoding="utf-8")),
+            xptr_path.relative_to(ROOT).as_posix(),
+        )
+    except (ValueError, OSError):
+        continue
+check(
+    "Recorded hash pointers at retained evidence still resolve to those bytes",
+    not xptr_bad,
+    f"{xptr_checked} pointers checked"
+    if not xptr_bad
+    else "stale or wrong pins: " + "; ".join(sorted(xptr_bad)[:10]),
+)
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:

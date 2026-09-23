@@ -62,7 +62,50 @@ clause, and a mutation touching a field read by two clauses names both.
 reasons must say which one. When adding a clause to a composite gate, add it as
 a named entry. Do not extend a monolithic boolean.
 
-## 3. Deployed-but-unreceipted deployments (deferred, by decision)
+## 3. Recorded hash pointers must still resolve
+
+`tools/v4/v4_2_r1_canonical_audit.py` carries **"Recorded hash pointers at
+retained evidence still resolve to those bytes"**. It walks every JSON document
+under `release/`, pairs file and hash keys **by name** (`file` + `sha256`,
+`<prefix>File` + `<prefix>Sha256`), and verifies each pointer at
+`release/evidence/` or `release/approvals/` against the bytes on disk. 420
+pointers are covered today. A failure names the origin document, the key and
+the target.
+
+Two deliberate exclusions, both justified:
+
+- **Pointers at mutable source are skipped.** Build 8's approval records the
+  hash of `firestore.rules` as it was at Build 8. That file has legitimately
+  changed since. Sixty-three such pointers exist; treating them as stale pins
+  would be wrong, and a check that cried wolf sixty-three times would be turned
+  off within a week.
+- **A hash recorded from CRLF bytes is accepted**, because it describes the
+  same content.
+
+Verified to bite: corrupting a single pin fails the check and names it.
+
+### Finding: one pin is line-ending dependent
+
+`release/production-release-policy.json` records
+`restorationReceiptSha256 = FAD4C151...` for
+`release/approvals/firebase-production-signing-restoration-receipt.json`. The
+file in Git hashes to `CCE70C3F...`; `FAD4C151...` is the hash of the same
+content **with CRLF line endings**. The same value appears in
+`docs/FIREBASE_CONFIGURATION_CUSTODY.md` and
+`docs/v4_2_r1/FIREBASE_COMBINED_AUTHORITY_RECONCILIATION.json`.
+
+Nothing verified this pointer, which is why it survived. It is correct on a
+CRLF checkout and wrong on an LF one, so the repository would validate
+differently depending on a local Git setting.
+
+**Recommended, not done here:** extend the `-text` attribute coverage in
+`.gitattributes` from the Build 28/29 receipt patterns to all of
+`release/approvals/` and `release/evidence/`, so physical hashes are stable on
+every platform, and then re-record that pin from the LF bytes. This was not
+done during the Build 29 cutover because changing normalisation attributes
+touches byte custody broadly and deserves its own change.
+
+## 4. Deployed-but-unreceipted deployments (deferred, by decision)
 
 **Status: designed, not implemented. Deliberately deferred past Build 29.**
 
