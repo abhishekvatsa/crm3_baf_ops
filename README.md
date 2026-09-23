@@ -33,15 +33,22 @@ mutating business-flow convergence must be gathered there before expansion.
 Every handout requires a privacy-safe receipt. Build 27 is consumed and cannot
 be reused. Its artifact, device acceptance and pilot approval remain historical.
 
-Build 28 (`1.0.0-rc.18+28`) has fresh source authorization based on
-merged source `d0daccfc`, its successful five-job main gate and
+Build 29 (`1.0.0-rc.19+29`) has fresh source authorization based on
+merged source `d513843e`, its successful five-job main gate and
 canonical audit. The current 19-Function backend and reviewed Firestore Rules
-were deployed from `fc0ac09f` and passed exact-source readback.
+were deployed from `d513843e` and passed exact-source readback: rules are
+byte-exact to that source, all 67 indexes are ready, and the deployed archives
+match the built source exactly. Existing control preservation is admitted under
+the owner-confirmed adjudication amendment.
 This decision permits one protected signed construction, verified local and
 private-cloud custody, a Downloads copy and an in-place owner-phone evaluation.
 Signing, independent finalization, exact-device and business-flow validation
-remain pending. Build 28 requires its own exact-package pilot decision before
+remain pending. Build 29 requires its own exact-package pilot decision before
 any pilot handout or wider distribution.
+
+Build 28 (`1.0.0-rc.18+28`) was constructed and dual-custodied as a
+non-distributable finalized artifact. Its exact-device and business-flow
+validation and its pilot promotion remain open.
 
 Authoritative status sources:
 

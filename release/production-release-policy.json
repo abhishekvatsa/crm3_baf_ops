@@ -454,10 +454,10 @@
       "governedPackageSha256": "3D70CC00A8EEBEECE13C3EEAA4654A774B2DDF7FD4A407B6E4AD838B8F1391BA",
       "closurePackageSha256": "40481407ACA34211E13C3AE68E1C2AAE16C9BE0375B26C3B26DFF5AD16B20236",
       "custodyRecordSha256": "D3205B3DB214E274A0CFD2D73A5D05F9C3F7624FFA77C4AE4CB723121FADA63A",
-      "physicalInstallationReceiptFile": "",
-      "physicalInstallationReceiptSha256": "",
-      "deviceAcceptanceReceiptFile": "",
-      "deviceAcceptanceReceiptSha256": "",
+      "physicalInstallationReceiptFile": null,
+      "physicalInstallationReceiptSha256": null,
+      "deviceAcceptanceReceiptFile": null,
+      "deviceAcceptanceReceiptSha256": null,
       "knownOpenGates": [
         "BUILD28_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
         "BUILD28_EXPLICIT_PILOT_PROMOTION"
