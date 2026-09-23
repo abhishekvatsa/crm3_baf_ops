@@ -47,10 +47,11 @@ import argparse
 import hashlib
 from datetime import datetime, timezone
 import json
+import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "release/production-release-policy.json"
@@ -150,6 +151,27 @@ def normalised_pubspec(text: str, expected_version: str | None) -> str:
         need(found[0] == expected_version,
              f"the proposed pubspec declares {found[0]}, expected {expected_version}")
     return VERSION_LINE.sub("version: <normalised>", text)
+
+
+MANIFEST_NAME = "PROPOSAL.json"
+
+
+def safe_relative(path: object, label: str) -> str:
+    """A repository-relative path that cannot escape the directory it is joined to.
+
+    A prefix and suffix check is not enough: 'release/approvals/../../x.json'
+    satisfies both and still leaves the tree.
+    """
+    need(isinstance(path, str) and path, f"{label} is not a path")
+    need(not path.startswith("/") and not path.startswith("\\"),
+         f"{label} is absolute")
+    need(":" not in path, f"{label} carries a drive or scheme")
+    need("\\" not in path, f"{label} uses backslashes; use forward slashes")
+    parts = PurePosixPath(path).parts
+    need(parts and all(part not in ("..", ".") for part in parts),
+         f"{label} contains parent or current directory components")
+    need(PurePosixPath(path).as_posix() == path, f"{label} is not in normal form")
+    return path
 
 
 def utc_instant(value: object) -> datetime | None:
@@ -286,10 +308,11 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None,
     after_pubspec = normalised_pubspec(git_text(target, "pubspec.yaml"), expected_version)
     need(before_pubspec == after_pubspec, "pubspec.yaml differs beyond its version declaration")
 
-    decision = decision_digest = None
+    decision = decision_digest = validated_decision_bytes = None
     if decision_path is not None:
         decision_bytes = Path(decision_path).read_bytes()
         decision = read_json_bytes(decision_bytes, "the decision")
+        validated_decision_bytes = decision_bytes
         decision_digest = digest(decision_bytes)
         need(decision.get("documentType") == "governed-artifact-source-rebind-decision",
              "the decision document is not an artifact source rebind decision")
@@ -315,8 +338,8 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None,
         need(confirmed_at <= datetime.now(timezone.utc),
              "the decision's confirmation time is in the future")
         custody = decision.get("custodyPath")
-        need(isinstance(custody, str) and custody.startswith("release/approvals/")
-             and custody.endswith(".json"),
+        safe_relative(custody, "the decision custody path")
+        need(custody.startswith("release/approvals/") and custody.endswith(".json"),
              "the decision does not name a custody path under release/approvals")
 
     evidence = None
@@ -347,6 +370,7 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None,
         "targetTree": target_tree, "currentDigest": current_digest,
         "delta": observed, "decision": decision, "decisionPath": decision_path,
         "decisionDigest": decision_digest, "evidence": evidence, "entry": entry,
+        "decisionBytes": validated_decision_bytes,
         "inspectedPaths": inspect_list,
         "expectedStatus": expected_status, "expectedNext": expected_next,
         "priorBytes": {
@@ -493,32 +517,51 @@ def validate_proposal(inputs: dict, proposal: dict) -> None:
 def write_proposal(inputs: dict, proposal: dict, out_dir: str) -> dict:
     """Write the complete proposal to a fresh directory. Nothing active is touched.
 
-    Three rounds of review found the in-place writer unsafe in a different way
-    each time: stale inputs, partial replacement, failed rollback. Rather than
-    patch it again, the writer is gone. The proposal is emitted as files, and
-    applying it is an ordinary reviewable commit, which is the publication
-    boundary review kept pointing at and which Git already provides.
+    The whole output map is assembled and validated before a single file is
+    created: every destination must be a relative path that cannot escape the
+    output directory, no two entries may claim the same destination, and the
+    manifest name is reserved. Files are created exclusively and read back.
+
+    Review reproduced both failures this prevents: a custody path whose parent
+    components reached back into the checkout and overwrote an active record
+    while the tool reported activeRecordsUnchanged, and a custody path equal to
+    a proposed record's path, which overwrote it and left the manifest
+    self-consistent while the cross-record references were broken.
     """
-    destination = Path(out_dir)
+    destination = Path(out_dir).resolve()
     need(not destination.exists() or not any(destination.iterdir()),
          f"{out_dir} already exists and is not empty")
-    files: dict[str, str] = {}
-    for relative, data in proposal["files"].items():
-        target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-        files[relative] = digest(data)
 
-    # The decision travels with the proposal, at the custody path it names, so
-    # applying the proposal commits the decision that authorised it.
+    # One complete map, assembled before anything is written.
+    outputs: dict[str, bytes] = {}
+
+    def claim(relative: object, data: bytes, label: str) -> None:
+        path = safe_relative(relative, label)
+        need(path != MANIFEST_NAME, f"{label} claims the reserved manifest name")
+        collision = next((held for held in outputs if held.lower() == path.lower()), None)
+        need(collision is None,
+             f"{label} claims {path}, which {collision} already claims; "
+             "two proposal files cannot share a destination")
+        resolved = (destination / path).resolve()
+        need(str(resolved).startswith(str(destination) + os.sep),
+             f"{label} resolves outside the proposal directory")
+        outputs[path] = data
+
+    for relative, data in proposal["files"].items():
+        claim(relative, data, f"the proposed record {relative}")
+
     decision = inputs.get("decision")
     if decision is not None:
-        custody = decision["custodyPath"]
-        decision_bytes = Path(inputs["decisionPath"]).read_bytes()
-        target = destination / custody
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(decision_bytes)
-        files[custody] = digest(decision_bytes)
+        # The exact bytes validated during inspection, never a fresh read of a
+        # mutable path: re-reading would let the exported decision differ from
+        # the one the approval annotation identifies.
+        validated = inputs["decisionBytes"]
+        need(digest(validated) == inputs["decisionDigest"],
+             "the retained decision bytes do not match the validated digest")
+        current = Path(inputs["decisionPath"]).read_bytes()
+        need(digest(current) == inputs["decisionDigest"],
+             "the decision file changed after it was validated; re-run the inspection")
+        claim(decision["custodyPath"], validated, "the decision custody path")
 
     manifest = {
         "schemaVersion": 1,
@@ -534,20 +577,37 @@ def write_proposal(inputs: dict, proposal: dict, out_dir: str) -> dict:
         "inspectedPaths": inputs["inspectedPaths"],
         "sourceDelta": inputs["delta"],
         "decisionSha256": inputs.get("decisionDigest"),
+        "decisionCustodyPath": decision.get("custodyPath") if decision else None,
         "postMergeEvidence": inputs.get("evidence"),
         "expectedPriorSha256": {name: digest(data)
                                 for name, data in inputs["priorBytes"].items()},
-        "proposedSha256": files,
+        "proposedSha256": {name: digest(data) for name, data in outputs.items()},
+        "certifies": (
+            "Nothing. This proposal does not certify main, the post-merge checks, "
+            "or permission to apply it. The applying review must verify those, the "
+            "decision's custody, every proposed hash and every expected prior hash."
+        ),
         "howToApply": [
-            "Copy every file in this directory over the checkout, preserving paths.",
-            "Confirm git diff shows exactly these paths and nothing else.",
+            "On an isolated review branch or worktree, not directly on main.",
+            "Confirm each destination still holds the bytes in expectedPriorSha256; "
+            "if any differs, this proposal is stale and must be regenerated.",
+            "Copy the files, then confirm git diff shows exactly these paths.",
             "Run the production release policy, the strict construction gate, the "
-            "canonical audit and the Dart suite.",
-            "Commit. The commit is the publication boundary; this tool does not write "
-            "to the checkout.",
+            "canonical audit and the Dart suite against the committed candidate.",
+            "Open the commit for review. This tool does not write to the checkout "
+            "and a manual copy is not a substitute for that review.",
         ],
     }
-    (destination / "PROPOSAL.json").write_bytes(serialise(manifest))
+    outputs[MANIFEST_NAME] = serialise(manifest)
+
+    for path, data in outputs.items():
+        target = destination / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "xb") as stream:   # exclusive: never overwrite
+            stream.write(data)
+    for path, data in outputs.items():
+        need((destination / path).read_bytes() == data,
+             f"{path} does not hold the proposed bytes after writing")
     return manifest
 
 

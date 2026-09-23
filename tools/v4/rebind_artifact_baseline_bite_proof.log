@@ -46,3 +46,20 @@
 == proposal-writes-into-the-checkout: 2 failed
    FAILS: test_a_written_proposal_is_coherent_and_touches_nothing_active
    FAILS: test_the_proposal_never_writes_to_the_checkout
+
+# Fourth review round: the proposal export boundary.
+
+== prefix-suffix-custody-check-only: 3 failed
+   FAILS: test_a_decision_without_a_custody_path_is_refused
+   FAILS: test_a_traversing_custody_path_cannot_reach_an_active_record
+   FAILS: test_a_traversing_custody_path_is_refused
+== no-collision-check: 1 failed
+   FAILS: test_a_custody_path_colliding_with_a_proposed_record_is_refused
+== decision-reread-at-export: 1 failed
+   FAILS: test_a_decision_changed_after_validation_is_refused
+== non-exclusive-creation: 0 failed
+# Note on non-exclusive-creation: this variant fails no test, and that is
+# reported rather than hidden. Given the fresh-directory requirement and the
+# case-insensitive collision check, no two writes can target the same path, so
+# exclusive creation has no distinct failure mode to catch. It is kept as
+# defence in depth against future changes, not because a test proves it bites.
