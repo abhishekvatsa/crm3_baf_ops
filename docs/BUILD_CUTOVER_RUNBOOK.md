@@ -17,7 +17,16 @@ moment you commit. Commit first, then run the gate.
 source away from the approved baseline, `ArtifactSourceMatchesApproval` goes
 false, and construction authority is withdrawn. This is why a one-line contract
 test fix is not a small change during a cutover. `docs/`, `tools/v4/` and
-`release/` (except two named files) are outside that set and are safe.
+`release/` (except two named files) are outside that set, meaning they do not
+move the artifact baseline.
+
+**That is not the same as harmless.** Two questions are separate: does the file
+affect constructed artifact inputs, and does it influence release decisions or
+evidence? A no to the first does not imply a no to the second. The rebind
+helper written during this cutover lived outside the artifact source paths and
+changed approval state; it was withdrawn after review found it produced an
+incoherent transition. Tools that touch authority records need reviewed
+identities even when they cannot change the application binary.
 
 **The baseline must already contain any `test/` change you need.** A commit
 whose tests expect the new metadata cannot be green until the metadata lands,
@@ -35,9 +44,15 @@ an exit code.
 spends 70 to 90 seconds on runtime measurement, source verification and its
 before-readback before the CLI's first call, which is longer than the
 endpoint's state lasts. Three probe-gated attempts still failed at compile.
-What worked was rapid back-to-back retries with the prior release already
-restored, so each failure changed nothing. Probe the release-write path if you
-want to understand the platform; do not gate on it.
+Probe the release-write path if you want to understand the platform; do not
+gate on it.
+
+**Do not read this as licence to retry through production.** The standing rule
+is: preserve the failed command's evidence, establish what is actually live,
+and resolve that uncertainty before any further mutation. Do not roll back or
+redeploy a correct live state merely to obtain exit code zero. Build 29 did
+restore and retry, and that is precisely the cost the deferred
+deployed-but-unreceipted evidence path exists to remove.
 
 **Generators do not advance every document they invalidate.** The metadata
 generators move the ledger and `finalization.priorCompletedBuild` but not the
@@ -104,9 +119,28 @@ inventing one.
   merge commit, follows it with the ledger's `versionApprovalDocumentSha256`,
   and restores construction authority. Drift returns to zero.
 
-The ledger pin is easy to forget; the canonical check "The ledger version
-approval pin matches the approval the policy names" exists because re-pinning a
-baseline rewrites the approval and changes its hash.
+**Five records participate in a re-bind, not three.** Rewriting the approval
+changes its bytes, so every active pointer at it must follow the same digest:
+
+| Record | What moves |
+| --- | --- |
+| `release/approvals/build-number-29-successor-approval.json` | `sourceBaseline` commit and tree |
+| `release/production-release-policy.json` | `versionPolicy.sourceDocumentSha256` |
+| `release/approvals/version-policy-approval.json` | `sourceDocumentSha256` |
+| `release/build-number-ledger.json` | the build's `versionApprovalDocumentSha256` |
+| `release/current-successor-state.json` | construction authority and the rebind statuses |
+
+Serialize the proposed approval once, hash those exact bytes once, and derive
+every pointer from that one digest. Do not re-serialize per consumer.
+
+Compare the previous baseline against the proposed one **before** adopting it,
+including `pubspec.yaml` with only the governed version declaration normalized:
+once the new commit is the baseline, comparing it against itself proves
+nothing. The canonical checks "Recorded hash pointers at retained evidence
+still resolve to those bytes" and "The ledger version approval pin matches the
+approval the policy names" refuse an incoherent result, but they catch it after
+the fact; the transition should be validated in full before anything is
+written.
 
 ## What only the owner can do
 
