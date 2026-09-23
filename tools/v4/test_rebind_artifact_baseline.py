@@ -166,7 +166,7 @@ class Fixture:
             "confirmed": True,
             "previousBaselineCommit": self.previous,
             "targetCommit": target,
-            "sourceApprovalSha256": sha_of(self.repo, APPROVAL),
+            "sourceApprovalSha256AtDecision": sha_of(self.repo, APPROVAL),
             "deployedBackendCommit": "d" * 40,
             "custodyPath": "release/approvals/fixture-rebind-decision.json",
             "ownerConfirmation": {

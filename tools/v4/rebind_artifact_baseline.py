@@ -320,7 +320,11 @@ def inspect_inputs(target: str, delta_path: str, decision_path: str | None,
         need(decision.get("previousBaselineCommit") == previous,
              "the decision names a different previous baseline")
         need(decision.get("targetCommit") == target, "the decision names a different target commit")
-        need(str(decision.get("sourceApprovalSha256", "")).upper() == current_digest,
+        # Named "AtDecision" because it records the approval as it stood when the
+        # decision was made. The re-bind then changes those bytes, so a key that
+        # looked like a live pointer would be read as a stale one by the
+        # canonical hash-pointer check, and correctly so.
+        need(str(decision.get("sourceApprovalSha256AtDecision", "")).upper() == current_digest,
              "the decision does not name the source approval bytes it was made against")
         need(decision.get("deployedBackendCommit") == deployed,
              "the decision names a different deployed backend source")
@@ -402,6 +406,7 @@ def build_proposal(inputs: dict) -> dict:
             "decisionFile": Path(inputs["decisionPath"]).name,
             "decisionSha256": inputs["decisionDigest"],
             "decisionCustodyPath": decision.get("custodyPath"),
+            "sourceApprovalShaAtDecision": decision.get("sourceApprovalSha256AtDecision"),
             "decisionDocumentType": decision.get("documentType"),
             "ownerStatementInOwnWords": confirmation.get("ownerStatementInOwnWords"),
             "confirmedAtUtc": confirmation.get("confirmedAtUtc"),
@@ -486,6 +491,7 @@ def validate_proposal(inputs: dict, proposal: dict) -> None:
             "decisionFile": Path(inputs["decisionPath"]).name,
             "decisionSha256": inputs["decisionDigest"],
             "decisionCustodyPath": decision.get("custodyPath"),
+            "sourceApprovalShaAtDecision": decision.get("sourceApprovalSha256AtDecision"),
             "decisionDocumentType": decision.get("documentType"),
             "ownerStatementInOwnWords": confirmation.get("ownerStatementInOwnWords"),
             "confirmedAtUtc": confirmation.get("confirmedAtUtc"),
