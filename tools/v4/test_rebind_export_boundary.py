@@ -20,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rebind_artifact_baseline as rebind  # noqa: E402
 from test_rebind_artifact_baseline import APPROVAL, Fixture  # noqa: E402
 
+INTRUDER_BYTES = b"written by another process\n"
+
 
 class ExportBoundary(unittest.TestCase):
     def setUp(self) -> None:
@@ -126,6 +128,35 @@ class ExportBoundary(unittest.TestCase):
         self.assertEqual(rebind.digest(exported), inputs["decisionDigest"],
                          "the exported decision is not the one that was validated")
         self.assertEqual(manifest["proposedSha256"][custody], inputs["decisionDigest"])
+
+    # --- exclusive creation --------------------------------------------------
+
+    def test_a_destination_appearing_after_preflight_is_not_overwritten(self):
+        """Review showed this case can be tested, so the earlier gap is closed.
+
+        The output map is assembled, then something else creates one of the
+        intended destinations. Exclusive creation must refuse rather than
+        overwrite it, and the other process's bytes must survive.
+        """
+        inputs, proposal = self.prepared()
+        intruder = self.out / APPROVAL
+        real_serialise = rebind.serialise
+
+        def serialise_then_intrude(document):
+            data = real_serialise(document)
+            if not intruder.exists():
+                intruder.parent.mkdir(parents=True, exist_ok=True)
+                intruder.write_bytes(INTRUDER_BYTES)
+            return data
+
+        rebind.serialise = serialise_then_intrude
+        try:
+            with self.assertRaises(FileExistsError):
+                rebind.write_proposal(inputs, proposal, str(self.out))
+        finally:
+            rebind.serialise = real_serialise
+        self.assertEqual(intruder.read_bytes(), INTRUDER_BYTES,
+                         "another process's file was overwritten")
 
     # --- the ordinary case still works --------------------------------------
 

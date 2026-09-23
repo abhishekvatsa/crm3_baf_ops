@@ -63,3 +63,22 @@
 # case-insensitive collision check, no two writes can target the same path, so
 # exclusive creation has no distinct failure mode to catch. It is kept as
 # defence in depth against future changes, not because a test proves it bites.
+
+# Fourth review round: the proposal export boundary.
+
+== prefix-suffix-custody-check-only: 3 failed
+   FAILS: test_a_decision_without_a_custody_path_is_refused
+   FAILS: test_a_traversing_custody_path_cannot_reach_an_active_record
+   FAILS: test_a_traversing_custody_path_is_refused
+== no-collision-check: 1 failed
+   FAILS: test_a_custody_path_colliding_with_a_proposed_record_is_refused
+== decision-reread-at-export: 1 failed
+   FAILS: test_a_decision_changed_after_validation_is_refused
+== non-exclusive-creation: 1 failed
+   FAILS: test_a_destination_appearing_after_preflight_is_not_overwritten
+
+# Correction to the note above: review showed the case IS testable — another
+# process creating an intended destination after the output map is assembled.
+# test_a_destination_appearing_after_preflight_is_not_overwritten now covers it,
+# and the non-exclusive-creation variant fails exactly that test. Four of four
+# variants in this round bite.
