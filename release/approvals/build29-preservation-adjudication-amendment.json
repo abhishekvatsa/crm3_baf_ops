@@ -124,6 +124,38 @@
     "ownerStatementInOwnWords": "I confirm the Build 29 preservation adjudication amendment as drafted, including the two FUNCTION_SIGNATURE_TYPE removals, and authorize the steps listed.",
     "timestampSource": "Time the confirmation was recorded by the agent; no owner message timestamp or identifier was supplied."
   },
+  "revisions": [
+    {
+      "revision": 1,
+      "recordedAtUtc": "2026-09-23T08:40:12.000Z",
+      "why": "The closure assembly refused in execution. The adjudicated assembler resolved its campaign evidence with local(), which requires a bare filename, and then handed the adjudicated public projection its own config, whose proof and custody entries the projection resolves with evidenceFile(), which requires an absolute path. No configuration could satisfy both: bare names were refused by the projection, absolute paths by the assembler.",
+      "introducedBy": "The adjudicated copy, when its call site was adapted. The sealed original does not have this defect because it passes already-read bytes rather than the config.",
+      "whatChanged": {
+        "file": "assemble-adjudicated-backend-closure.cjs",
+        "change": "One call site. createPublicProof is now given the config with its privateProofFile and privateCustodyFile resolved by local(), so the projection receives the absolute paths its evidenceFile check requires. evidenceFile still re-verifies the basename and that the file sits in the approved campaign directory.",
+        "previousSha256": "EA4B42A5A103787DABB842401DF50FDAE04168949342F6FF721DE6F75689E414",
+        "sha256": "DE29F095084F8B9FAD9A3A8CB07BA45A6A1184A2BE2AAFBD514AFB4292B0E3D0",
+        "diffRegenerated": "assemble-adjudicated-backend-closure.cjs.diff",
+        "diffReproducesTheFile": "The sealed original with this .diff applied reproduces the adjudicated file byte for byte; verified."
+      },
+      "nothingElseChanged": "No other adjudicated tool, no sealed helper, no approval, no campaign receipt and no production state. The closure schema, public copy map and both committed boundary validators are untouched.",
+      "regressionTestAdded": {
+        "file": "assemble-adjudicated-backend-closure.test.cjs",
+        "sha256": "B44B8E2F7BAF16ADF1D103C4E65F231D8EEA0285B4B853F43F7DF18E1096CE33",
+        "tests": 4,
+        "biteProof": "adjudicated-closure-contract-bite-proof.log",
+        "biteProofSha256": "E14B492E20E49F6EE2B3F52E91B98163C057C6DBB3086BA59FD8FB665BD9019A",
+        "runLog": "adjudicated-closure-contract-test-run.log",
+        "enforcement": "Recorded as evidence, not added to adjudicatedToolSha256: the admission module verifies a fixed list of nine tools, so an entry outside that list would be a pin nothing checks."
+      },
+      "ownerAuthorisation": {
+        "ownerStatementInOwnWords": "so do what is needed and correct",
+        "recordedAtUtc": "2026-09-23T08:40:12.000Z",
+        "scope": "Correcting the defect and re-running the affected steps. The original confirmation above is unchanged and still governs what the adjudication admits.",
+        "timestampSource": "Time the instruction was recorded by the agent; no owner message timestamp or identifier was supplied."
+      }
+    }
+  ],
   "preparedBy": "Claude (Claude Code) at the owner's request. Preparation only, not an approval.",
   "preparedAtUtc": "2026-09-22T17:23:12.000Z",
   "disclosures": [
@@ -157,7 +189,7 @@
     "validate-adjudicated-controls-upload.cjs": "598EFBB7F40D7FF85733F8C8C56ADB66BC27FBAF1224895D7ADDCE9BCEADB08B",
     "Save-AdjudicatedControlsCustody.ps1": "F81F42B01E9C0805B42067FEC630E8DF0FC7793123CC09B19DA28014FACD147A",
     "public-adjudicated-backend-controls.cjs": "AFA4667A308EF8B4582BC1CF74D2377391B1E048B4856023A87D5E98C51B72B3",
-    "assemble-adjudicated-backend-closure.cjs": "EA4B42A5A103787DABB842401DF50FDAE04168949342F6FF721DE6F75689E414"
+    "assemble-adjudicated-backend-closure.cjs": "DE29F095084F8B9FAD9A3A8CB07BA45A6A1184A2BE2AAFBD514AFB4292B0E3D0"
   },
   "adjudicatedFiles": {
     "privateProofFile": "existing-controls-adjudicated-proof.json",
