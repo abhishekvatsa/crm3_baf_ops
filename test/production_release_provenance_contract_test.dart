@@ -399,7 +399,9 @@ void main() {
       );
       expect(
         text,
-        contains('Current source backend authority differs from source state.'),
+        // The refusal now names the differing clause after the colon, so the
+        // pin is the prefix rather than the whole sentence.
+        contains('Current source backend authority differs from source state: '),
       );
       expect(
         text,

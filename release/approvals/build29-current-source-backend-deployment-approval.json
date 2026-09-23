@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "intendedBuildNumber": 29,
+  "approved": true,
+  "status": "DELEGATED_BACKEND_DECISION_RECORDED_EXECUTION_GATED",
+  "approvedAtUtc": "2026-09-21T20:20:00.000Z",
+  "approverName": "Codex acting under project-owner delegation",
+  "approvalEvidence": {
+    "authorityType": "owner-delegated agent decision",
+    "delegationPolicyId": "BUILD29-OWNER-DELEGATION-20260921",
+    "projectOwnerName": "Abhishek Vatsa",
+    "delegatedDecisionAtUtc": "2026-09-21T20:20:00.000Z",
+    "recordedAtUtc": "2026-09-21T20:20:00.000Z",
+    "timestampSource": "Actual parent-agent decision and recording instants; no owner message time or identifier was supplied.",
+    "quotedEvidenceScope": "Exact supplied delegation; source-specific wording below belongs to the agent.",
+    "instructionExcerpts": [
+      "you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward"
+    ],
+    "agentDecision": "I record the actual source-specific deployment decision for d513843e2fb728ebd097e760e145ab125787bb51, after successful exact-main CI and refreshed sealed production observations. I approve only this 19-Function/15-existing-principal deployment, the preserved instance caps across all 19 endpoints, and the reviewed exact Rules-only update.",
+    "scopeInterpretation": "One exact-source update of all19 existing Functions and matching Rules; preserve existing IAM, identities, effective instance caps and AppCheck posture. Indexes were separately prepared. No business operation, manual scheduler invocation or distribution is included."
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+    "functionTree": "8de3ae3a6218ad6ab3f7c74d6d400ab45d17f794",
+    "pullRequestNumber": 376,
+    "requiredPostMergeReleaseGateRunId": 35622614527,
+    "postMergeReleaseGateConclusion": "success",
+    "requiredJobCount": 5,
+    "allRequiredJobsPassed": true,
+    "requiredPostMergeReleaseGateEvidence": {
+      "file": "release/evidence/build29-current-source-backend-ci.json",
+      "sha256": "246AD07BDFAFE4A0AE3FBE5453AF9017148B97AA93863BB99847C0E0123CF4B9"
+    },
+    "role": "Exact merged source and successful main-push CI; distinct from the subsequent approval custody commit."
+  },
+  "deploymentExecutionAuthority": {
+    "mode": "exact-baseline-clean-main-checkout",
+    "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+    "functionTree": "8de3ae3a6218ad6ab3f7c74d6d400ab45d17f794",
+    "executionMustMatchFreshOriginMain": true,
+    "executionCommitTreeAndReleaseGateMustBeRecorded": true,
+    "allFiveExecutionReleaseGateJobsMustPass": true,
+    "approvalCustodyMustBeImmutableAndIndependentlyVerified": true,
+    "approvalMustBeCommittedBeforeDeployment": true,
+    "approvalMustRemainOnFeatureBranchUntilBackendReadback": true,
+    "remoteMainMustRemainAtApprovedCommit": true,
+    "stopIfRemoteMainMoves": true,
+    "qualification": "Keep the approval and CI in a separate immutable descendant custody commit. Deploy only from the exact approved clean main source with fresh remote-main equality. A source move or partial failure requires assessment; it does not admit a different source."
+  },
+  "approvedDeployment": {
+    "functionCount": 19,
+    "callableCount": 13,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "runtimePrincipalCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "sourceScalingAuthority": {
+      "version": "7.2.5",
+      "manifestSha256": "98784FE5BB13D6593FCA2B9DC7A3B57C3F22E9F35464A169BDB25AABCF396F46",
+      "maxInstancesResetVerified": true,
+      "sourceMaxInstancesOmitted": false,
+      "sourcePreserveExternalChangesOmitted": true,
+      "sourceGlobalOptionsAbsent": true,
+      "sourceExplicitMaxInstanceCount": 20,
+      "sourceExplicitMaxInstanceFunctionCount": 19
+    },
+    "scheduledFunctionDeploymentAuthorized": true,
+    "scheduledFunctionManualInvocationAuthorized": false,
+    "firestoreRulesSha256": "7173B67BCA1627B546C3AA8D6A1CAEBA0378D071C2654B46629D01B6660E2927",
+    "firestoreRulesMutationAuthorized": true,
+    "reviewedRulesDeployment": {
+      "schemaVersion": 1,
+      "target": "firestore:rules",
+      "projectId": "crm3-baf-ops-b8638",
+      "databaseId": "(default)",
+      "releaseName": "projects/crm3-baf-ops-b8638/releases/cloud.firestore",
+      "priorRulesetName": "projects/crm3-baf-ops-b8638/rulesets/1b2b89ff-75b7-4e88-bfa3-6c8eda07fe93",
+      "priorRulesSha256": "9A64BF17BF0B2B7B5953F845ACE164804A59087C33749F8164B4DD715BC90A13",
+      "rulesSha256": "7173B67BCA1627B546C3AA8D6A1CAEBA0378D071C2654B46629D01B6660E2927",
+      "indexes": {
+        "fileSha256": "DB1A9FB5964FDCF3D885EA829B633231D8356784A018ACB75F5B06406E96F97B",
+        "setSha256": "901BB6BAAB1F0C47A4C202156206BCE1CADEE0FD73008D780783E25E5CC7B626",
+        "count": 67,
+        "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+        "fieldOverrideCount": 8
+      },
+      "executionRootSha256": "A8FF86A3229649DD92641F9C22A12A7CE7BBBAD21ECD7BB1F0C64EC469CB0A7B",
+      "preflight": {
+        "file": "release/evidence/build29-current-source-rules-preflight.json",
+        "physicalSha256": "1735D1F161E0E6DAF3EBFE3EA05F1C6B6A4D0FFA88649BF40891C3ED8D79698B",
+        "canonicalReceiptSha256": "15168b4c8ea981d86091450398ead32890df84c9970e5f36382449e04a183f44"
+      },
+      "commandEvidenceFile": "release/evidence/build29-current-source-rules-command.json",
+      "runtimeAuthority": {
+        "file": "release/evidence/build29-current-source-rules-runtime-install.json",
+        "physicalSha256": "D1B9D5215118010976FD86DFA7ECDD3D1EE93FA3B9EC0FA06D01EFFECFFE8F4D",
+        "canonicalReceiptSha256": "a61d2b43f973c959cef7f9963e569ad9cbc9bc3d2e992e91f6c1764892ecb52c"
+      }
+    },
+    "firestoreIndexCount": 67,
+    "firestoreIndexSetSha256": "901BB6BAAB1F0C47A4C202156206BCE1CADEE0FD73008D780783E25E5CC7B626",
+    "firestoreIndexMutationAuthorized": false,
+    "strictLiveReadbackRequired": true,
+    "postMergeReleaseGateMustPassBeforeDeployment": true,
+    "aggregateBacklogQueriesAuthorized": true,
+    "businessPayloadReadbackAuthorized": false,
+    "readOnlyCallableProbesAuthorized": true,
+    "callableProbeScope": "Unauthenticated empty-request rejection probes only; no authenticated business command or successful business mutation.",
+    "legacyMutatingFinalizeWrapperAuthorized": false
+  },
+  "reviewedCohortExecution": {
+    "executionRoot": "C:\\Users\\abhis\\AppData\\Local\\Temp\\crm3-build29-execution-20260921",
+    "evidenceDirectory": "C:\\Users\\abhis\\Downloads\\CRM3_BUILD29_D513843E_BACKEND_20260921",
+    "preflightReceipts": {
+      "fleet": {
+        "file": "preflight-fleet.json",
+        "sha256": "7F4B0AF21661C5543143E1DB9BFCA9F287335EA3E03126EDF32D444D4B8384E4"
+      },
+      "iamDependencies": {
+        "file": "preflight-iam-dependencies.json",
+        "sha256": "BD422889C8A01DA8D3DDA0E5D4AF6DD417751312FA7753AC124F11C54F695AEA"
+      },
+      "firestore": {
+        "file": "build29-current-source-rules-preflight.json",
+        "sha256": "1735D1F161E0E6DAF3EBFE3EA05F1C6B6A4D0FFA88649BF40891C3ED8D79698B"
+      },
+      "preservedControls": {
+        "file": "controls-before.json"
+      }
+    },
+    "preflightIamPosture": {
+      "missingFunctionNames": [],
+      "holds": [],
+      "dependencyDriftFunctionNames": [],
+      "priorDependencyInventories": [
+        {
+          "name": "assignPublishedTemplateVersion",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "assignPublishedTemplateVersionV2",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "beginGlobalPullRun",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "completePlannedJobExecution",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "executeMaintenanceWorkflowCommand",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "executeMaintenanceWorkflowCommandV2",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "getBackendReleaseIdentity",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "maintenanceWorkflowEscalationSweep",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateAssetHierarchy",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateAssetHierarchyV2",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateChargeAbnormality",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateChargeAbnormalityV2",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateRuntimeJobModulePopulation",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "mutateUserAuthority",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "onJobAssigned",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "onMaintenanceWorkflowEventCreated",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "onTicketCreated",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "onTicketResolved",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        },
+        {
+          "name": "stampGlobalPullServerClock",
+          "dependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01"
+        }
+      ],
+      "currentDependencyInventorySha256": "482FAE2FFEE5998B4ADBCF0A6902560BB97C1528D2CEE927F02A9E72E8409E01",
+      "sourcePackageSha256": "9FCB551E961A5642F011BE8017B54766AB6250F2E656C54A81655F407077486F",
+      "sourceLockSha256": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D"
+    },
+    "firebaseCli": {
+      "version": "15.22.4",
+      "measuredAtUtc": "2026-09-21T16:22:08.343Z",
+      "fabricatorSha256": "F65985CE60CE8E97B9A50D4C59CE132A3B0683841FFBB9F49A8499DB53F23544",
+      "runApiSha256": "10A1C601D1A743E88BFFDEB9CEE11D84731309AF3B5092C75BAF63D6247D459E",
+      "lockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
+    },
+    "preservedControls": {
+      "privateCustodyPrefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-29/campaign-d513843e",
+      "afterCaptureFile": "controls-after.json",
+      "finalReceiptFile": "existing-controls-proof.json",
+      "publicProofFile": "existing-controls-public.json",
+      "privateCustodyFile": "existing-controls-private-custody.json",
+      "privacyReviewFile": "existing-controls-privacy-review.json",
+      "helperSha256": {
+        "Invoke-ReviewedBackendCohort.ps1": "1A3E43347E4F36EF9233AED860223DB240D8266FC6A70116061F2E3E0F03582A",
+        "collect-preserved-backend-controls.cjs": "1B401A1D3836CEE403CF2BA2FF8536B990F11E746AA9A5B53B69E0F8B44A791F",
+        "preserved-backend-controls.cjs": "B230F1D35725EE65EA56034FF57938DAF36530E27D71A4ADF8DE5DD46C669D60",
+        "prepare-reviewed-rules-runtime.cjs": "2CA679DC661076004992C40C95875F72C8581EA0F36B1B1C813FC25BEE0AA989",
+        "reviewed-rules-runtime-inputs.cjs": "3B378EF4938A3FE43A2C30A9EA0A8FFE4EDCBE5CB67538A86421E3D3BFCCCF2B",
+        "record-reviewed-rules-command.cjs": "7E24A662A27D48DAE432D42C8F88D3D06FD3E8C8A6FB861120A18BE0FFF381D0",
+        "public-backend-evidence-boundary.cjs": "E56DFCC1CD9D73DECCB8F25DD2C988B5273E85C327BE7F7D5EB0E5D011D5FE4A",
+        "prepare-current-backend-approval.cjs": "3BF01D6ACBD403D300D0967B612FEC6A9CEE4EE1AC29113DB71940BEEDE634B8",
+        "assemble-current-backend-closure.cjs": "3A28571F8EE206802F970B9D4811B22F3C0CBF905F00023F00EC45C9757F2690",
+        "public-preserved-backend-controls.cjs": "457E5C2B069A800370F7C8C8318624DAB264262C2AFCE081AFA2A6F65F148783",
+        "Save-PrivateBackendControlsCustody.ps1": "950C5ADB43D4E5E807583A21E2FFEC6C808358AE0B01C86C1DB464E5FFDEA8C5",
+        "validate-private-controls-upload.cjs": "BD1E857C0A09DE4B9DC4C922B83A3FADE40D30453DD50752B2B918964B5F46A1",
+        "Verify-CurrentDeployedSourceArchives.ps1": "593240E6AA5B7E875429BF0E0674CE10512CC6CDD4AABD2E1691506ED6B4DF20",
+        "capture-current-source-ci.cjs": "48BE9B2CE65A315CB9CBBDBA1CF105DA2CC265FD422FC7C12276CC79AC01E92E"
+      },
+      "sourceScalingAssessment": {
+        "file": "release/evidence/build29-current-source-scaling-assessment-attempt3.json",
+        "physicalSha256": "05A45D5E80E9E1C324FFDD7A9CBC4C4C40E9AD103FA2AB4E464340395BB297C6"
+      }
+    }
+  },
+  "executionPrerequisites": [
+    "Commit this exact approval and raw CI wrapper, and independently verify their immutable custody before any production deployment.",
+    "Collect the existing19 preservation before-capture only after the approval hash exists. Its approved input is a path, never a circular child digest.",
+    "Run the existing reviewed cohort helper from the exact clean main checkout, stopping if live main moves or any prerequisite fails.",
+    "Retain the declared source-only preflights as observations; the all19-existing and measured dependency drift posture is not a final strict pass.",
+    "After all cohorts, independently collect and compare existing IAM/controls, complete fleet/dependencies/Rules/index readbacks and deployed-source archives.",
+    "Commit the exact Rules OBSERVE preflight with this decision. Execute only the declared firestore:rules command once, following an immediate source-bound before observation; preserve actual CLI stdout and independently collect final strict Rules/index readback.",
+    "No execution result or receipt is claimed by this approval. Preserve existing historical approvals and receipt bytes."
+  ],
+  "notAuthorizedByThisDecision": [
+    "Existing IAM policy mutation or any other grant",
+    "Service-account creation or role change",
+    "App Check activation",
+    "Firestore index deployment or any Rules outside the exact approved successor",
+    "Production business-data writes, deletion or backfill",
+    "Administrative saved-submission finalization activation",
+    "Manual scheduler invocation or authenticated business probes",
+    "Legacy mutating Finalize wrapper",
+    "Build reservation, artifact construction, phone installation or data clearing",
+    "Pilot distribution, public download or Play publication"
+  ],
+  "executionStatus": "NOT_EXECUTED",
+  "campaignPlanFile": "tmp/build29-preparation/backend-execution/README.md"
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "decision": "PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE",
+  "observedAtUtc": "2026-09-23T02:54:12.6891323Z",
+  "sourceCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+  "functionCount": 19,
+  "uniqueArchiveCount": 3,
+  "expectedFileCount": 512,
+  "archives": [
+    {
+      "archiveSha256": "178EE9967BB7224BA70289ED5368B1E343664844E1612CAAFF39C83D4CCD1538",
+      "bytes": 2529916,
+      "functionNames": [
+        "maintenanceWorkflowEscalationSweep"
+      ],
+      "sourceGeneration": "1790092001218478",
+      "fileCount": 512,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "4326C4F80D1F25D1DCA0F515E6D697D8850BCE37AA22FE73E101B73B92304FB3",
+      "bytes": 2529916,
+      "functionNames": [
+        "assignPublishedTemplateVersion",
+        "assignPublishedTemplateVersionV2",
+        "beginGlobalPullRun",
+        "completePlannedJobExecution",
+        "executeMaintenanceWorkflowCommand",
+        "executeMaintenanceWorkflowCommandV2",
+        "getBackendReleaseIdentity",
+        "mutateAssetHierarchy",
+        "mutateAssetHierarchyV2",
+        "mutateChargeAbnormality",
+        "mutateChargeAbnormalityV2",
+        "mutateRuntimeJobModulePopulation",
+        "mutateUserAuthority"
+      ],
+      "sourceGeneration": "1790089952468013",
+      "fileCount": 512,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "4822514F07118352DF21DD449334DC596B9E1B2DF0696B9B763C45E88034F8E5",
+      "bytes": 2529916,
+      "functionNames": [
+        "onJobAssigned",
+        "onMaintenanceWorkflowEventCreated",
+        "onTicketCreated",
+        "onTicketResolved",
+        "stampGlobalPullServerClock"
+      ],
+      "sourceGeneration": "1790091411588977",
+      "fileCount": 512,
+      "allFileBytesMatchExactBuiltSource": true
+    }
+  ],
+  "productionBusinessDataRead": false,
+  "productionMutationPerformed": false,
+  "localSourceVerificationBuild": {
+    "sourceCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "sha256": "BF68856DFE07F18BF10252C6B4EFFAAC2B54293665A1E362D9CFEDCD1F6EDC50",
+    "file": "source-archive-verification-build.txt",
+    "functionsTree": "8de3ae3a6218ad6ab3f7c74d6d400ab45d17f794",
+    "exitCode": 0
+  }
+}

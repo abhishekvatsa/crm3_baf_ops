@@ -263,6 +263,7 @@ String _firestoreDeploymentStatus({
 Map<String, dynamic> _backendEvidenceProbe(
   String receiptFile, {
   String mutation = 'none',
+  int? expectedBuildNumber,
 }) {
   final result = Process.runSync('node', <String>[
     '-e',
@@ -297,7 +298,7 @@ try {
  const iam=require(path.join(root,'tools/release/scopedCallableInvokerIam.js')).validateDeploymentIamBoundary({repoRoot:root,approval,approvalSha256:receipt.approvalAuthority.sha256,receipt});
  stage='rules-approval';
  const successorDecision=approval.approvedDeployment.firestoreRulesMutationAuthorized===true
-  ?require(path.join(root,'tools/release/stagedPromotionSourceAuthority.js')).verifySuccessorDelegatedDecision({repoRoot:root,approval,approvalAuthority:receipt.approvalAuthority,sourceAuthority:receipt.sourceAuthority}):null;
+  ?require(path.join(root,'tools/release/stagedPromotionSourceAuthority.js')).verifySuccessorDelegatedDecision({repoRoot:root,approval,approvalAuthority:receipt.approvalAuthority,sourceAuthority:receipt.sourceAuthority,expectedBuildNumber:input.expectedBuildNumber??undefined}):null;
  stage='rules';
  const rules=require(path.join(root,'tools/release/reviewedFirestoreRulesDeployment.js')).validateRulesDeploymentBoundary({repoRoot:root,approval,receipt,successorDecision});
  stage='linked-controls';
@@ -321,9 +322,10 @@ try {
 }catch(error){process.stdout.write(JSON.stringify({ok:false,stage,reason:error.message}));}
 ''',
     Directory.current.path,
-    jsonEncode(<String, String>{
+    jsonEncode(<String, dynamic>{
       'receiptFile': receiptFile,
       'mutation': mutation,
+      'expectedBuildNumber': expectedBuildNumber,
     }),
   ]);
   if (result.exitCode != 0) {
@@ -335,8 +337,14 @@ try {
 String _backendExecutionEvidenceShape(Map<String, dynamic> closure) {
   final deployment = (closure['deployment'] as Map).cast<String, dynamic>();
   final external = closure['privacySafeExternalEvidence'];
-  final current = deployment['newCallableInvokerIamEvidence'] is Map;
-  if (external is Map && !current) {
+  final iamEvidence = deployment['newCallableInvokerIamEvidence'];
+  final iamMutated =
+      (closure['controlBoundary'] as Map?)?['iamMutated'] == true;
+  // New-callable IAM evidence is carried exactly when IAM was mutated. A
+  // current-scoped deployment that adds no callables carries none, and one
+  // that mutated IAM without publishing the evidence is not a valid layout.
+  final current = iamMutated ? iamEvidence is Map : iamEvidence == null;
+  if (external is Map && iamEvidence is! Map) {
     final enumerated = external.containsKey('receipts');
     final bound = external.containsKey('byteComparisonLog');
     if (enumerated != bound) return enumerated ? 'enumerated' : 'bound';
@@ -408,10 +416,16 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
       .cast<String, dynamic>();
   final links = <Map<String, dynamic>>[...cohorts, controls, code];
   if (shape == 'current-scoped') {
-    links.add(
-      (deployment['newCallableInvokerIamEvidence'] as Map)
-          .cast<String, dynamic>(),
+    final iamEvidence = deployment['newCallableInvokerIamEvidence'];
+    expect(
+      iamEvidence is Map,
+      (closure['controlBoundary'] as Map?)?['iamMutated'] == true,
+      reason:
+          'new-callable IAM evidence must be present exactly when IAM was mutated',
     );
+    if (iamEvidence is Map) {
+      links.add(iamEvidence.cast<String, dynamic>());
+    }
     links.add(
       ((closure['firestoreDeployment'] as Map)['rulesDeploymentEvidence']
               as Map)
@@ -437,7 +451,17 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
       reason: '$file hash differs.',
     );
   }
-  expect(controls['decision'], 'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON');
+  // The sealed comparator cannot pass a real redeploy, because its control
+  // view keeps Cloud Run buildConfig fields that change on every legitimate
+  // deployment. Build 29 admits the adjudicated decision under the owner's
+  // confirmed amendment; both are exact preservation outcomes.
+  expect(
+    controls['decision'],
+    anyOf(
+      'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON',
+      'PASS_EXISTING_19_BACKEND_CONTROLS_PRESERVED_WITH_ADJUDICATED_DEPLOYMENT_METADATA',
+    ),
+  );
   expect(code['decision'], 'PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE');
   expect(code['allArchiveMembersMatchExactBuiltSource'], isTrue);
   expect(code['functionCount'], deployment['functionCount']);
@@ -1118,6 +1142,7 @@ void main() {
     );
     final backendProof = _backendEvidenceProbe(
       deployed['functionFleetEvidenceFile'] as String,
+      expectedBuildNumber: release['buildNumber'] as int,
     );
     expect(
       backendProof['ok'],

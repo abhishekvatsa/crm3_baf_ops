@@ -75,6 +75,7 @@ void main() {
         25,
         26,
         27,
+        28,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -101,10 +102,11 @@ void main() {
         9979349938,
         10003229149,
         10040078252,
+        10320699579,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(22),
+        hasLength(23),
       );
       expect(
         artifacts.singleWhere(
@@ -223,7 +225,7 @@ void main() {
       expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[10040078252],
+        <int>[10320699579],
       );
 
       final installation =

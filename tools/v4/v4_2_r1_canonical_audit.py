@@ -15333,6 +15333,173 @@ check(
         in stage2d_f5_contract_test,
 )
 
+# Build 28 was finalized in the ledger while the LR-07 containment list and the
+# reconciliation snapshot still named Build 27. Nothing failed for a whole build
+# cycle, because no single check compared the documents to each other. This
+# compares them directly and names the ones that disagree.
+xdoc_finalization = combined_policy.get("finalization", {})
+
+
+def xdoc_newest_dual_custody(rows: object) -> object:
+    picks = [
+        row.get("buildNumber")
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict)
+        and row.get("dualCustodyCompleted") is True
+        and isinstance(row.get("buildNumber"), int)
+    ]
+    return max(picks) if picks else None
+
+
+xdoc_latest_finalized = {
+    "release/build-number-ledger.json": xdoc_newest_dual_custody(
+        build_number_ledger.get("entries")
+    ),
+    "release/lr07-distribution-installation-readback-policy.json":
+        xdoc_newest_dual_custody(
+            lr07_policy.get("expectedArtifactsForContainment")
+        ),
+    "docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json": recon.get(
+        "latestFinalizationSource", {}
+    ).get("buildNumber"),
+    "release/production-release-policy.json": (
+        xdoc_finalization.get("priorCompletedBuild", {}).get("buildNumber")
+        if xdoc_finalization.get("status") == "pending-source-authorized"
+        else combined_policy.get("release", {}).get("buildNumber")
+    ),
+}
+xdoc_values = set(xdoc_latest_finalized.values())
+xdoc_agreed = len(xdoc_values) == 1 and None not in xdoc_values
+check(
+    "Every authority document agrees on the latest finalized build",
+    xdoc_agreed,
+    ""
+    if xdoc_agreed
+    else "disagreement: "
+    + ", ".join(
+        f"{path}={value}" for path, value in sorted(xdoc_latest_finalized.items())
+    ),
+)
+
+# Recorded hash pointers at immutable evidence and approvals must still
+# resolve to those exact bytes. Pointers are paired by name (file + sha256,
+# <prefix>File + <prefix>Sha256) so a hash describing some other document is
+# not mistaken for a pointer at this one. Pointers at mutable source are
+# skipped: those are historical snapshots and are expected to drift. A hash
+# recorded from CRLF bytes is accepted because it describes the same content;
+# only a hash matching neither encoding is a stale or wrong pin.
+XPTR_RETAINED = ("release/evidence/", "release/approvals/")
+XPTR_LF = bytes([10])
+XPTR_CRLF = bytes([13, 10])
+
+
+def xptr_partners(key: str) -> tuple[str, ...]:
+    if key in ("file", "path"):
+        return ("sha256", "physicalSha256")
+    if key.endswith("File"):
+        return (key + "Sha256", key[:-4] + "Sha256")
+    return ()
+
+
+xptr_checked = 0
+xptr_bad: list[str] = []
+
+
+def xptr_walk(node: object, origin: str) -> None:
+    global xptr_checked
+    if isinstance(node, dict):
+        for key, target in node.items():
+            if not isinstance(target, str):
+                continue
+            for partner in xptr_partners(key):
+                digest = node.get(partner)
+                if not isinstance(digest, str):
+                    continue
+                if re.fullmatch(r"[0-9A-Fa-f]{64}", digest) is None:
+                    continue
+                if not target.startswith(XPTR_RETAINED):
+                    break
+                resolved = ROOT / target
+                if not resolved.is_file():
+                    break
+                raw = resolved.read_bytes()
+                xptr_checked += 1
+                flat = raw.replace(XPTR_CRLF, XPTR_LF)
+                accepted = {
+                    hashlib.sha256(raw).hexdigest().upper(),
+                    hashlib.sha256(
+                        flat.replace(XPTR_LF, XPTR_CRLF)
+                    ).hexdigest().upper(),
+                }
+                if digest.upper() not in accepted:
+                    xptr_bad.append(origin + ":" + key + " -> " + target)
+                break
+        for value in node.values():
+            xptr_walk(value, origin)
+    elif isinstance(node, list):
+        for value in node:
+            xptr_walk(value, origin)
+
+
+for xptr_path in sorted((ROOT / "release").rglob("*.json")):
+    try:
+        xptr_walk(
+            json.loads(xptr_path.read_text(encoding="utf-8")),
+            xptr_path.relative_to(ROOT).as_posix(),
+        )
+    except (ValueError, OSError):
+        continue
+check(
+    "Recorded hash pointers at retained evidence still resolve to those bytes",
+    not xptr_bad,
+    f"{xptr_checked} pointers checked"
+    if not xptr_bad
+    else "stale or wrong pins: " + "; ".join(sorted(xptr_bad)[:10]),
+)
+# The ledger pins the hash of the version approval that authorised the current
+# build, and the policy names that approval by path. Re-pinning a source
+# baseline rewrites the approval and changes its hash, so the two drift apart
+# unless both are updated. Compare them directly.
+xapv_build = combined_policy.get("release", {}).get("buildNumber")
+xapv_file = combined_policy.get("versionPolicy", {}).get("sourceDocumentFile")
+xapv_entry = next(
+    (
+        entry
+        for entry in build_number_ledger.get("entries", [])
+        if entry.get("buildNumber") == xapv_build
+    ),
+    {},
+)
+xapv_pin = xapv_entry.get("versionApprovalDocumentSha256")
+xapv_detail = ""
+xapv_ok = False
+if isinstance(xapv_file, str) and isinstance(xapv_pin, str):
+    xapv_resolved = ROOT / xapv_file
+    if xapv_resolved.is_file():
+        xapv_raw = xapv_resolved.read_bytes()
+        xapv_flat = xapv_raw.replace(XPTR_CRLF, XPTR_LF)
+        xapv_accepted = {
+            hashlib.sha256(xapv_raw).hexdigest().upper(),
+            hashlib.sha256(
+                xapv_flat.replace(XPTR_LF, XPTR_CRLF)
+            ).hexdigest().upper(),
+        }
+        xapv_ok = xapv_pin.upper() in xapv_accepted
+        if not xapv_ok:
+            xapv_detail = (
+                "ledger pins " + xapv_pin.upper()[:16] + ".. for build "
+                + str(xapv_build) + " but " + xapv_file + " is "
+                + hashlib.sha256(xapv_raw).hexdigest().upper()[:16] + ".."
+            )
+    else:
+        xapv_detail = "the policy names a version approval that is not present: " + xapv_file
+else:
+    xapv_detail = "the policy or the ledger does not record the version approval"
+check(
+    "The ledger version approval pin matches the approval the policy names",
+    xapv_ok,
+    xapv_detail,
+)
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:

@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "reviewed-firestore-rules-deployment",
+  "decision": "PASS_EXACT_SOURCE_RULES_ONLY_DEPLOYED",
+  "projectId": "crm3-baf-ops-b8638",
+  "source": {
+    "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "tree": "39ef8e74974153abefab08ed99997568ee8eb149"
+  },
+  "approvalAuthority": {
+    "commit": "611080fa6f9001f0b531b67b6e047f55835ae294",
+    "file": "release/approvals/build29-current-source-backend-deployment-approval.json",
+    "sha256": "5F9EB65385535B9DB918A51007D531F76A623E7D70C927C1B83B9B87EEC3AC8A"
+  },
+  "ciAuthority": {
+    "file": "release/evidence/build29-current-source-backend-ci.json",
+    "sha256": "246AD07BDFAFE4A0AE3FBE5453AF9017148B97AA93863BB99847C0E0123CF4B9",
+    "commit": "611080fa6f9001f0b531b67b6e047f55835ae294"
+  },
+  "target": "firestore:rules",
+  "startedAtUtc": "2026-09-23T02:31:38.8487558Z",
+  "completedAtUtc": "2026-09-23T02:31:59.3636350Z",
+  "command": {
+    "executable": "node",
+    "arguments": [
+      "--no-global-search-paths",
+      "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js",
+      "deploy",
+      "--only",
+      "firestore:rules",
+      "--project",
+      "crm3-baf-ops-b8638",
+      "--non-interactive",
+      "--json"
+    ],
+    "resolvedNode": {
+      "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+      "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+      "byteCount": 84456080,
+      "version": "v22.15.0"
+    }
+  },
+  "executionSource": {
+    "rootSha256": "A8FF86A3229649DD92641F9C22A12A7CE7BBBAD21ECD7BB1F0C64EC469CB0A7B",
+    "before": {
+      "branch": "main",
+      "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+      "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+      "originMain": "d513843e2fb728ebd097e760e145ab125787bb51",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "after": {
+      "branch": "main",
+      "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+      "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+      "originMain": "d513843e2fb728ebd097e760e145ab125787bb51",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    }
+  },
+  "runtime": {
+    "before": {
+      "schemaVersion": 1,
+      "collectionStartedAtUtc": "2026-09-23T02:31:31.048Z",
+      "capturedAtUtc": "2026-09-23T02:31:38.835Z",
+      "identity": {
+        "source": {
+          "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+          "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+          "cliPackageSha256": "16940F4216247B450C4942DA33678BE56EEBA46E4DC4513847BCB1543451C252",
+          "cliLockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+          "npmrcSha256": "0ED44E7D606CD7A9EBA915A10F13A13A09EA85E4B2BB4415BB0C481DBDCDED51",
+          "executionRootSha256": "A8FF86A3229649DD92641F9C22A12A7CE7BBBAD21ECD7BB1F0C64EC469CB0A7B"
+        },
+        "node": {
+          "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+          "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+          "byteCount": 84456080,
+          "version": "v22.15.0"
+        },
+        "npm": {
+          "pathSha256": "48A7695329560A47FCEA73F90EBB4B9138DCC403A32D68EA02A58E7DB55E5F29",
+          "version": "10.9.2",
+          "treeScope": "installation-node-modules",
+          "treeRootPathSha256": "59FBDC80D899C3C588008E4B5EDFDB8C6207318CD9E53970641D880704E06244",
+          "tree": {
+            "sha256": "30F89855C33D38558D57CB7C6955E276A2A50B4A3A34611235C61D9A8B65E394",
+            "fileCount": 2434,
+            "byteCount": 13058856,
+            "symlinkCount": 0
+          }
+        },
+        "installedTree": {
+          "sha256": "19BD924DFEDD9BFB5723F1D51B83275514DC6568B672EC458BDDA3C38799F387",
+          "fileCount": 19049,
+          "byteCount": 200908869,
+          "symlinkCount": 0
+        },
+        "ancestorNodeModulesAbsent": true,
+        "nodeOptionsAbsent": true,
+        "nodePathAbsent": true
+      }
+    },
+    "after": {
+      "schemaVersion": 1,
+      "collectionStartedAtUtc": "2026-09-23T02:32:00.273Z",
+      "capturedAtUtc": "2026-09-23T02:32:08.64Z",
+      "identity": {
+        "source": {
+          "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
+          "tree": "39ef8e74974153abefab08ed99997568ee8eb149",
+          "cliPackageSha256": "16940F4216247B450C4942DA33678BE56EEBA46E4DC4513847BCB1543451C252",
+          "cliLockSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+          "npmrcSha256": "0ED44E7D606CD7A9EBA915A10F13A13A09EA85E4B2BB4415BB0C481DBDCDED51",
+          "executionRootSha256": "A8FF86A3229649DD92641F9C22A12A7CE7BBBAD21ECD7BB1F0C64EC469CB0A7B"
+        },
+        "node": {
+          "pathSha256": "9761839689EE6F8242D67EFE5DB8C84F9521C445F516832C2E9C9A5F2ECCC119",
+          "sha256": "77BDFF912B1C569B3E693FE126F619337C3E9D73DAFBC4D0BF1D4F1F6A145761",
+          "byteCount": 84456080,
+          "version": "v22.15.0"
+        },
+        "npm": {
+          "pathSha256": "48A7695329560A47FCEA73F90EBB4B9138DCC403A32D68EA02A58E7DB55E5F29",
+          "version": "10.9.2",
+          "treeScope": "installation-node-modules",
+          "treeRootPathSha256": "59FBDC80D899C3C588008E4B5EDFDB8C6207318CD9E53970641D880704E06244",
+          "tree": {
+            "sha256": "30F89855C33D38558D57CB7C6955E276A2A50B4A3A34611235C61D9A8B65E394",
+            "fileCount": 2434,
+            "byteCount": 13058856,
+            "symlinkCount": 0
+          }
+        },
+        "installedTree": {
+          "sha256": "19BD924DFEDD9BFB5723F1D51B83275514DC6568B672EC458BDDA3C38799F387",
+          "fileCount": 19049,
+          "byteCount": 200908869,
+          "symlinkCount": 0
+        },
+        "ancestorNodeModulesAbsent": true,
+        "nodeOptionsAbsent": true,
+        "nodePathAbsent": true
+      }
+    }
+  },
+  "exitCode": 0,
+  "cliResult": {
+    "file": "release/evidence/build29-current-source-rules-command-cli-result.json",
+    "physicalSha256": "57AED1D36261A4319EF01BF071626A98250EEF98831EFED940470E4EB077BF49"
+  },
+  "beforeReadback": {
+    "file": "release/evidence/build29-current-source-rules-command-before-readback.json",
+    "physicalSha256": "8B2BF0F4CDE31E5425AE9B9DE096C6F2D8EC6C5B9B42F581255DBC8BD501A15C",
+    "canonicalReceiptSha256": "cb3a125e5d7e2948e61c6e7df0fe62d3d08dd11e80413a340fdea4edf9cd6d5f"
+  },
+  "receiptSha256": "0122eeefa649367feedf9f742a0a6857bff62cb416019ae4e3a4e6d056c6d1e3"
+}

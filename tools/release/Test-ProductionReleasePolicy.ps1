@@ -2647,63 +2647,91 @@ if ($null -ne $requiredRulesShaProperty) {
     -ArtifactPilotApproved $currentStagedPilotAuthorized `
     -BackendMatchesDeployed $backendMatchesDeployed `
     -ApplicationMatchesPromotedArtifact $applicationMatchesPromotedArtifact
-  if ($currentSuccessorState.schemaVersion -lt 2 -or
-      [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
-      $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
-      $currentSourceAuthority.artifactConstructionAuthority -ne
-        $expectedArtifactConstructionAuthority -or
-      $currentSourceAuthority.deploymentAuthority -ne $false -or
-      $currentSourceAuthority.distributionAuthority -ne
-        $expectedCurrentSourceRuntimeAuthority -or
-      [string]$currentSourceAuthority.backendDeploymentStatus -ne
-        $expectedBackendDeploymentStatus -or
-      $currentSourceAuthority.productionRuntimeUseAuthorized -ne
-        $expectedCurrentSourceRuntimeAuthority -or
-      $currentSuccessorState.authorityPlanes.controlledPilot.
-        appliesToCurrentSource -ne $expectedCurrentSourceRuntimeAuthority -or
-      $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
-      $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
-      $currentIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' -or
-      $currentFieldOverrideSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
-      $currentIndexCount -le 0 -or
-      $currentFieldOverrideCount -lt 0 -or
-      (Get-Sha256 'firestore.rules') -ne
-        $currentRulesSha.ToUpperInvariant() -or
-      [int64]$sourceIndexBinding.count -ne $currentIndexCount -or
-      [string]$sourceIndexBinding.indexSetSha256 -ne $currentIndexSetSha -or
-      [string]$sourceIndexBinding.sourceFileSha256 -ne $currentIndexFileSha -or
-      [int64]$sourceIndexBinding.fieldOverrideCount -ne
-        $currentFieldOverrideCount -or
-      [string]$sourceIndexBinding.fieldOverrideSetSha256 -ne
-        $currentFieldOverrideSetSha -or
-      [string]$currentSourceFirestoreAuthority.
-        relationshipToDeployedBackend -ne
-        $expectedCurrentSourceRelationship -or
-      $currentSourceFirestoreAuthority.productionDeploymentPerformed -ne
-        $firestoreMatchesDeployed -or
-      $currentSourceFirestoreAuthority.productionRuntimeUseAuthorized -ne
-        $firestoreMatchesDeployed -or
-      [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile -ne
-        $functionFleetDeploymentReceiptPath -or
-      [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne
-        [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -or
-      [string]$currentDeployedBackendAuthority.functionFleetReadbackDecision -ne
-        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
-      [string]$currentDeployedBackendAuthority.
-        currentSourceFunctionDeployment -ne
-        $expectedCurrentSourceFunctionDeployment -or
-      [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne
-        $firestoreReadbackPath -or
-      [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
-        [string]$firestoreReadbackAuthority.sourceCommit -or
-      [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
-        [string]$firestoreReadback.source.before.commit -or
-      [string]$currentDeployedBackendAuthority.
-        currentSourceRulesAndIndexesDeployment -ne
-        $expectedCurrentSourceDeployment -or
-      $currentDeployedBackendAuthority.productionBackendRuntimeAuthorized -ne
-        $true) {
-    throw 'Current source backend authority differs from source state.'
+  # Each entry below is one of the original clauses, unchanged, under a name.
+  # Evaluating them individually means a failure says which one differs instead
+  # of naming thirty-three possibilities at once. A clause that cannot be
+  # evaluated is reported as a difference rather than crashing the gate.
+  $backendAuthorityClauses = [ordered]@{
+    'successor state schemaVersion is at least 2' =
+      { $currentSuccessorState.schemaVersion -lt 2 }
+    'currentSource.reference is refs/heads/main' =
+      { [string]$currentSourceAuthority.reference -ne 'refs/heads/main' }
+    'currentSource.sourceAndCiAuthority is true' =
+      { $currentSourceAuthority.sourceAndCiAuthority -ne $true }
+    'currentSource.artifactConstructionAuthority matches the classifier' =
+      { $currentSourceAuthority.artifactConstructionAuthority -ne $expectedArtifactConstructionAuthority }
+    'currentSource.deploymentAuthority is false' =
+      { $currentSourceAuthority.deploymentAuthority -ne $false }
+    'currentSource.distributionAuthority matches expected runtime authority' =
+      { $currentSourceAuthority.distributionAuthority -ne $expectedCurrentSourceRuntimeAuthority }
+    'currentSource.backendDeploymentStatus matches expected status' =
+      { [string]$currentSourceAuthority.backendDeploymentStatus -ne $expectedBackendDeploymentStatus }
+    'currentSource.productionRuntimeUseAuthorized matches expected runtime authority' =
+      { $currentSourceAuthority.productionRuntimeUseAuthorized -ne $expectedCurrentSourceRuntimeAuthority }
+    'controlledPilot.appliesToCurrentSource matches expected runtime authority' =
+      { $currentSuccessorState.authorityPlanes.controlledPilot.appliesToCurrentSource -ne $expectedCurrentSourceRuntimeAuthority }
+    'recorded rules hash is a sha256' =
+      { $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' }
+    'recorded index-set hash is a sha256' =
+      { $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' }
+    'recorded index-file hash is a sha256' =
+      { $currentIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' }
+    'recorded field-override-set hash is a sha256' =
+      { $currentFieldOverrideSetSha -notmatch '^[0-9A-Fa-f]{64}$' }
+    'recorded index count is positive' =
+      { $currentIndexCount -le 0 }
+    'recorded field-override count is not negative' =
+      { $currentFieldOverrideCount -lt 0 }
+    'firestore.rules on disk matches the recorded rules hash' =
+      { (Get-Sha256 'firestore.rules') -ne $currentRulesSha.ToUpperInvariant() }
+    'source index count matches the recorded count' =
+      { [int64]$sourceIndexBinding.count -ne $currentIndexCount }
+    'source index-set hash matches the recorded hash' =
+      { [string]$sourceIndexBinding.indexSetSha256 -ne $currentIndexSetSha }
+    'source index-file hash matches the recorded hash' =
+      { [string]$sourceIndexBinding.sourceFileSha256 -ne $currentIndexFileSha }
+    'source field-override count matches the recorded count' =
+      { [int64]$sourceIndexBinding.fieldOverrideCount -ne $currentFieldOverrideCount }
+    'source field-override-set hash matches the recorded hash' =
+      { [string]$sourceIndexBinding.fieldOverrideSetSha256 -ne $currentFieldOverrideSetSha }
+    'firestore authority relationship matches expected relationship' =
+      { [string]$currentSourceFirestoreAuthority.relationshipToDeployedBackend -ne $expectedCurrentSourceRelationship }
+    'firestore authority productionDeploymentPerformed matches backend parity' =
+      { $currentSourceFirestoreAuthority.productionDeploymentPerformed -ne $firestoreMatchesDeployed }
+    'firestore authority productionRuntimeUseAuthorized matches backend parity' =
+      { $currentSourceFirestoreAuthority.productionRuntimeUseAuthorized -ne $firestoreMatchesDeployed }
+    'deployedBackend.functionFleetEvidenceFile matches the receipt path' =
+      { [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile -ne $functionFleetDeploymentReceiptPath }
+    'deployedBackend.functionFleetSourceCommit matches the receipt commit' =
+      { [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne [string]$functionFleetDeploymentReceipt.sourceAuthority.commit }
+    'deployedBackend.functionFleetReadbackDecision is the exact pass decision' =
+      { [string]$currentDeployedBackendAuthority.functionFleetReadbackDecision -ne 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' }
+    'deployedBackend.currentSourceFunctionDeployment matches expected' =
+      { [string]$currentDeployedBackendAuthority.currentSourceFunctionDeployment -ne $expectedCurrentSourceFunctionDeployment }
+    'deployedBackend.rulesAndIndexesEvidenceFile matches the readback path' =
+      { [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne $firestoreReadbackPath }
+    'deployedBackend.rulesAndIndexesSourceCommit matches the readback authority' =
+      { [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne [string]$firestoreReadbackAuthority.sourceCommit }
+    'deployedBackend.rulesAndIndexesSourceCommit matches the readback before-commit' =
+      { [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne [string]$firestoreReadback.source.before.commit }
+    'deployedBackend.currentSourceRulesAndIndexesDeployment matches expected' =
+      { [string]$currentDeployedBackendAuthority.currentSourceRulesAndIndexesDeployment -ne $expectedCurrentSourceDeployment }
+    'deployedBackend.productionBackendRuntimeAuthorized is true' =
+      { $currentDeployedBackendAuthority.productionBackendRuntimeAuthorized -ne $true }
+  }
+  $backendAuthorityDifferences = @()
+  foreach ($clauseName in $backendAuthorityClauses.Keys) {
+    try {
+      if ([bool](& $backendAuthorityClauses[$clauseName])) {
+        $backendAuthorityDifferences += $clauseName
+      }
+    } catch {
+      $backendAuthorityDifferences += "$clauseName (could not be evaluated)"
+    }
+  }
+  if ($backendAuthorityDifferences.Count -gt 0) {
+    throw ('Current source backend authority differs from source state: ' +
+      ($backendAuthorityDifferences -join '; ') + '.')
   }
 }
 if ($RequireArtifactConstructionAuthority -and
