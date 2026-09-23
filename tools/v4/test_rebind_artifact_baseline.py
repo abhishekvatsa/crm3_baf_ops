@@ -168,6 +168,7 @@ class Fixture:
             "targetCommit": target,
             "sourceApprovalSha256": sha_of(self.repo, APPROVAL),
             "deployedBackendCommit": "d" * 40,
+            "custodyPath": "release/approvals/fixture-rebind-decision.json",
             "ownerConfirmation": {
                 "confirmed": True,
                 "confirmedByName": "Fixture Owner",
@@ -221,20 +222,31 @@ class RebindTests(unittest.TestCase):
                           f"{record} does not carry the proposed approval digest")
         self.assertEqual(len(proposal["files"]), 5)
 
-    def test_write_applies_every_record_and_leaves_them_coherent(self):
+    def test_a_written_proposal_is_coherent_and_touches_nothing_active(self):
         target = self.fixture.make_target()
-        inputs = self.inspect(target, decision=self.fixture.decision(target))
+        inputs = self.inspect(target, decision=self.fixture.decision(target),
+                              evidence=self.fixture.evidence(target))
         proposal = rebind.build_proposal(inputs)
         rebind.validate_proposal(inputs, proposal)
-        rebind.emit_proposal(inputs, proposal, write=True)
-        applied = sha_of(self.fixture.repo, APPROVAL)
-        policy = json.loads((self.fixture.repo / rebind.POLICY).read_text(encoding="utf-8"))
-        pointer = json.loads((self.fixture.repo / rebind.VERSION_POINTER).read_text(encoding="utf-8"))
-        ledger = json.loads((self.fixture.repo / rebind.LEDGER).read_text(encoding="utf-8"))
+        before = {name: (self.fixture.repo / name).read_bytes()
+                  for name in proposal["files"]}
+        out = self.fixture.workspace / "proposal"
+        manifest = rebind.write_proposal(inputs, proposal, str(out))
+
+        applied = manifest["sourceApprovalShaAfter"]
+        policy = json.loads((out / rebind.POLICY).read_text(encoding="utf-8"))
+        pointer = json.loads((out / rebind.VERSION_POINTER).read_text(encoding="utf-8"))
+        ledger = json.loads((out / rebind.LEDGER).read_text(encoding="utf-8"))
         self.assertEqual(policy["versionPolicy"]["sourceDocumentSha256"], applied)
         self.assertEqual(pointer["sourceDocumentSha256"], applied)
         entry = next(e for e in ledger["entries"] if e["buildNumber"] == BUILD)
         self.assertEqual(entry["versionApprovalDocumentSha256"], applied)
+        # the decision travels with the proposal at its custody path
+        self.assertTrue((out / "release/approvals/fixture-rebind-decision.json").is_file())
+        # and nothing in the checkout moved
+        for name, data in before.items():
+            self.assertEqual((self.fixture.repo / name).read_bytes(), data,
+                             name + " was modified; the tool must not write to the checkout")
 
     # --- finding 1: every active pointer must follow ------------------------
 
@@ -364,11 +376,12 @@ class RebindTests(unittest.TestCase):
 
     # --- decision integrity --------------------------------------------------
 
-    def test_write_without_a_decision_is_refused(self):
+    def test_emitting_a_proposal_without_a_decision_is_refused(self):
         target = self.fixture.make_target()
-        manifest = self.fixture.manifest(target)
-        code = rebind.main(["--target-commit", target, "--expected-delta", manifest,
-                            "--main-ref", "refs/remotes/origin/main", "--write"])
+        code = rebind.main(["--target-commit", target,
+                            "--expected-delta", self.fixture.manifest(target),
+                            "--main-ref", "refs/remotes/origin/main",
+                            "--out", str(self.fixture.workspace / "p")])
         self.assertEqual(code, 1)
 
     def test_a_decision_for_another_target_is_refused(self):
@@ -385,22 +398,13 @@ class RebindTests(unittest.TestCase):
 
     # --- write safety --------------------------------------------------------
 
-    def test_a_refusal_during_emit_leaves_every_record_unchanged(self):
-        target = self.fixture.make_target()
-        inputs = self.inspect(target, decision=self.fixture.decision(target))
-        proposal = rebind.build_proposal(inputs)
-        before = {name: (self.fixture.repo / name).read_bytes() for name in proposal["files"]}
-        # A destination that is not a regular file must stop the whole emit.
-        broken = self.fixture.repo / rebind.STATE
-        broken.unlink()
-        broken.mkdir()
-        with self.assertRaises(rebind.RebindRefused):
-            rebind.emit_proposal(inputs, proposal, write=True)
-        for name, data in before.items():
-            if name == rebind.STATE:
-                continue
-            self.assertEqual((self.fixture.repo / name).read_bytes(), data,
-                             f"{name} was modified despite the refusal")
+    def test_the_tool_has_no_in_place_writer(self):
+        # Three review rounds found an in-place writer unsafe in a different way
+        # each time. Its absence is the fix, so it is asserted.
+        self.assertFalse(hasattr(rebind, "emit_proposal"),
+                         "an in-place writer has been reintroduced")
+        source = (Path(rebind.__file__)).read_text(encoding="utf-8")
+        self.assertNotIn("os.replace", source)
 
     def test_a_dirty_working_tree_is_refused(self):
         target = self.fixture.make_target()

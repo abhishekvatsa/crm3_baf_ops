@@ -29,3 +29,20 @@
 == suffix-lifecycle-instead-of-exact: 2 failed
    FAILS: test_a_cancelled_next_candidate_is_refused
    FAILS: test_a_status_for_another_build_is_refused
+
+# Third review round: proposal-only publication, decision provenance,
+# evidence completeness and the main reference.
+
+== annotation-compared-by-digest-only: 1 failed
+   FAILS: test_a_tampered_annotation_is_refused
+== nested-confirmation-unchecked: 1 failed
+   FAILS: test_a_contradictory_owner_confirmation_is_refused
+== confirmation-time-unchecked: 1 failed
+   FAILS: test_an_invalid_confirmation_time_is_refused
+== thin-evidence-accepted: 1 failed
+   FAILS: test_evidence_without_a_run_identity_is_refused
+== any-reference-may-stand-in-for-main: 1 failed
+   FAILS: test_a_local_reference_cannot_stand_in_for_main
+== proposal-writes-into-the-checkout: 2 failed
+   FAILS: test_a_written_proposal_is_coherent_and_touches_nothing_active
+   FAILS: test_the_proposal_never_writes_to_the_checkout
