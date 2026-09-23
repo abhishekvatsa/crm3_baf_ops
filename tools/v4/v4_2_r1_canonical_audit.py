@@ -15456,6 +15456,50 @@ check(
     if not xptr_bad
     else "stale or wrong pins: " + "; ".join(sorted(xptr_bad)[:10]),
 )
+# The ledger pins the hash of the version approval that authorised the current
+# build, and the policy names that approval by path. Re-pinning a source
+# baseline rewrites the approval and changes its hash, so the two drift apart
+# unless both are updated. Compare them directly.
+xapv_build = combined_policy.get("release", {}).get("buildNumber")
+xapv_file = combined_policy.get("versionPolicy", {}).get("sourceDocumentFile")
+xapv_entry = next(
+    (
+        entry
+        for entry in build_number_ledger.get("entries", [])
+        if entry.get("buildNumber") == xapv_build
+    ),
+    {},
+)
+xapv_pin = xapv_entry.get("versionApprovalDocumentSha256")
+xapv_detail = ""
+xapv_ok = False
+if isinstance(xapv_file, str) and isinstance(xapv_pin, str):
+    xapv_resolved = ROOT / xapv_file
+    if xapv_resolved.is_file():
+        xapv_raw = xapv_resolved.read_bytes()
+        xapv_flat = xapv_raw.replace(XPTR_CRLF, XPTR_LF)
+        xapv_accepted = {
+            hashlib.sha256(xapv_raw).hexdigest().upper(),
+            hashlib.sha256(
+                xapv_flat.replace(XPTR_LF, XPTR_CRLF)
+            ).hexdigest().upper(),
+        }
+        xapv_ok = xapv_pin.upper() in xapv_accepted
+        if not xapv_ok:
+            xapv_detail = (
+                "ledger pins " + xapv_pin.upper()[:16] + ".. for build "
+                + str(xapv_build) + " but " + xapv_file + " is "
+                + hashlib.sha256(xapv_raw).hexdigest().upper()[:16] + ".."
+            )
+    else:
+        xapv_detail = "the policy names a version approval that is not present: " + xapv_file
+else:
+    xapv_detail = "the policy or the ledger does not record the version approval"
+check(
+    "The ledger version approval pin matches the approval the policy names",
+    xapv_ok,
+    xapv_detail,
+)
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:
