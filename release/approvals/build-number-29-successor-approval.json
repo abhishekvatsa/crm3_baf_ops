@@ -48,8 +48,8 @@
   "authorityBasis": "Allocate unused Build29 from reviewed freeze d513843e2fb728ebd097e760e145ab125787bb51, PR376 and successful exact-main run 35622614527, after that exact source's separately governed backend deployment and measured readback. The reviewed metadata-only main merge may enter protected construction only after all exact-source gates pass. Artifact, owner-device evaluation, business-flow qualification and distribution remain separate authorities.",
   "approvalScope": "One unused29 source allocation with exact deployed backend, conditional protected construction, independent verification, private custody and owner read-only evaluation. No business mutation or distribution approval.",
   "sourceBaseline": {
-    "commit": "d513843e2fb728ebd097e760e145ab125787bb51",
-    "tree": "39ef8e74974153abefab08ed99997568ee8eb149"
+    "commit": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+    "tree": "60e8cc083819ffe1e9e3ee5098f9b6dc815b2253"
   },
   "consumedBuild": {
     "buildNumber": 28,
@@ -822,5 +822,22 @@
     "Schema12 requires a compatible repair binary; do not clear data or lower markers to force rollback.",
     "No business mutation, saved-submission runtime activation, App Check activation, scheduler invocation or distribution is granted here.",
     "Remote reservation consumes29 even if construction fails; never reuse it."
-  ]
+  ],
+  "artifactBaselineRebind": {
+    "previousBaselineCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "targetCommit": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+    "decisionFile": "build29-artifact-source-rebind-decision.json",
+    "decisionSha256": "67C5EAEA2875E579095D2AF6BAFA2E7ED85CD978C4E1E7339A771DFE54F54EF1",
+    "decisionCustodyPath": "release/approvals/build29-artifact-source-rebind-decision.json",
+    "sourceApprovalShaAtDecision": "473FCD297108A845E30C3206BE631BD7055EF21AF27BDE669AFEDF7A9DC2EDDB",
+    "decisionDocumentType": "governed-artifact-source-rebind-decision",
+    "ownerStatementInOwnWords": "I confirm f48f0ae8 as the Build 29 artifact baseline",
+    "confirmedAtUtc": "2026-09-23T16:15:52.000Z",
+    "deployedBackendCommitUnchanged": "d513843e2fb728ebd097e760e145ab125787bb51",
+    "postMergeEvidence": {
+      "runId": 35887176803,
+      "headSha": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+      "conclusion": "success"
+    }
+  }
 }

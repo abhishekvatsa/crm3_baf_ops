@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-artifact-source-rebind-decision",
+  "status": "CONFIRMED_BY_OWNER",
+  "confirmed": true,
+  "intendedBuildNumber": 29,
+  "why": "Build 29's source authorization was bound to d513843e. Landing it required two governance contract tests to move, and the contract tests and the production policy script are approved artifact source paths, so the source drifted from the approved baseline and artifact construction authority was withdrawn. This decision selects the merged commit that contains those reviewed changes as the effective artifact baseline, so construction authority can be restored without changing what the build contains.",
+  "previousBaselineCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+  "targetCommit": "f48f0ae8bcb818073251818d3636bc7c7a0a0de5",
+  "sourceApprovalFileAtDecision": "release/approvals/build-number-29-successor-approval.json",
+  "sourceApprovalSha256AtDecision": "473FCD297108A845E30C3206BE631BD7055EF21AF27BDE669AFEDF7A9DC2EDDB",
+  "deployedBackendCommit": "d513843e2fb728ebd097e760e145ab125787bb51",
+  "whatChangedInTheSource": {
+    "pathsMoved": [
+      "test",
+      "tools/release"
+    ],
+    "test": "Governance contract tests reconciled with the Build 29 metadata: the LR-07 containment pins, an expectedBuildNumber the Build 29 delegation has required since the freeze, a backend evidence shape that assumed every current-scoped closure carries new-callable IAM evidence, and the sealed-versus-adjudicated control comparison decision.",
+    "tools/release": "The backend authority gate now evaluates its thirty-three clauses individually by name instead of as one short-circuiting boolean, so a refusal says which clause differs. The clauses themselves are unchanged expressions.",
+    "pathsNotMoved": "No change under lib, android, functions, assets, integration_test, tooling, firestore.rules or firestore.indexes.json. The application and backend inputs are identical to the previously approved baseline.",
+    "pubspecChange": "version only, 1.0.0-rc.18+28 to 1.0.0-rc.19+29, verified by normalised comparison of the previous baseline against the target before the baseline moves."
+  },
+  "whatThisAuthorises": "Selecting the target commit as the effective artifact baseline for Build 29, and restoring artifactConstructionAuthority accordingly.",
+  "whatThisDoesNotAuthorise": [
+    "Any change to the deployed backend, which remains bound to d513843e with its original approval at 611080fa and all historical deployment receipts untouched.",
+    "Artifact construction itself, which remains subject to the protected environment and its required reviewer.",
+    "Any distribution, pilot handout or Play Store delivery, which require their own separate decisions."
+  ],
+  "ownerConfirmation": {
+    "confirmed": true,
+    "confirmedByName": "Abhishek Vatsa",
+    "ownerStatementInOwnWords": "I confirm f48f0ae8 as the Build 29 artifact baseline",
+    "confirmedAtUtc": "2026-09-23T16:15:52.000Z",
+    "timestampSource": "Time the confirmation was recorded by the agent; no owner message timestamp or identifier was supplied."
+  },
+  "preparedBy": "Claude (Claude Code) at the owner's request. Preparation only, not an approval.",
+  "notice": "The original source approval recorded a decision made against the previous baseline. This document is the separate, later decision that selects the target commit; it does not reinterpret the earlier one, and the original committed decision is preserved and identified above.",
+  "custodyPath": "release/approvals/build29-artifact-source-rebind-decision.json",
+  "keyNamingNote": "These two fields are named AtDecision because they record the source approval as it stood when this decision was made. The re-bind rewrites that approval, so keys that read as live pointers would be reported as stale by the canonical hash-pointer check, correctly. The owner's statement, the commits and every other value are unchanged from the confirmed document.",
+  "verificationNote": "This decision records a source selection. It deliberately asserts nothing about the records the re-bind produces, because those did not exist when the decision was made and a decision cannot verify its own output. An earlier draft carried a proposed approval digest from a preview proposal run; that value was superseded by later corrections to this document and could not be reproduced, so it was removed rather than restated. The measured outcome is recorded separately in release/evidence/build29-artifact-source-rebind-application-verification.json, which depends on this decision and not the other way round."
+}
