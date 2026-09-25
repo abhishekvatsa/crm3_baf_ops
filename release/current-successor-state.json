@@ -92,9 +92,7 @@
       "status": "AWAITING_FRESH_GOVERNED_BUILD30_APPROVAL",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true,
-      "versionApprovalFile": "release/approvals/build-number-29-successor-approval.json",
-      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-29.json"
+      "pilotPromotionRequiresSeparateDecision": true
     }
   },
   "localStore": {

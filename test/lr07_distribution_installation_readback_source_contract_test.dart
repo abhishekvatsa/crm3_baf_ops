@@ -33,6 +33,8 @@ void main() {
         ),
         containsAll(<String>[
           '.github/workflows/production-artifact.yml',
+          'release/evidence/build-29-finalization-closure.json',
+          'release/evidence/build-28-finalization-closure.json',
           'release/evidence/build-27-finalization-closure.json',
           'release/evidence/build-26-finalization-closure.json',
           'release/evidence/build-25-finalization-closure.json',
@@ -76,6 +78,7 @@ void main() {
         26,
         27,
         28,
+        29,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -103,10 +106,11 @@ void main() {
         10003229149,
         10040078252,
         10320699579,
+        10787430893,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(23),
+        hasLength(24),
       );
       expect(
         artifacts.singleWhere(
@@ -223,9 +227,23 @@ void main() {
         'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
       );
       expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 29,
+        )['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+      );
+      expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[10320699579],
+        <int>[10787430893],
+      );
+      // The deletion phrase is re-keyed to the latest contained artifact, and it
+      // is what would later authorize deleting that artifact, so pin it here too
+      // rather than leaving the id assertion to stand alone.
+      expect(
+        (policy['executionAuthority']
+            as Map<String, dynamic>)['requiredOwnerApprovalPhrase'],
+        'APPROVE-LR07-DELETE-EXACT-ARTIFACTS-10787430893',
       );
 
       final installation =
