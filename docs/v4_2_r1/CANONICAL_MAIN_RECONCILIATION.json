@@ -14,10 +14,10 @@
     "purpose": "Immutable Build 25 candidate snapshot used to verify historical path and LR-07 source-evidence hashes while current source evolves as a governed successor"
   },
   "latestFinalizationSource": {
-    "buildNumber": 28,
-    "commit": "c7c7cef07066af5a0d920980179d0020081b3a8c",
-    "tree": "98dd92fef0d59a3033f613cf62728f29ff299739",
-    "purpose": "Immutable Build 28 finalization reconciliation snapshot used to verify current LR-07 source-evidence hashes without replacing the historical Build 25 or Build 27 candidate snapshots"
+    "buildNumber": 29,
+    "commit": "c383a53c2c367ca8c7dd9e4cefd422a75b8b24a0",
+    "tree": "2cb40a4ec32e58a321b5867a3e3fd310f8359988",
+    "purpose": "Immutable Build 29 finalization reconciliation snapshot used to verify current LR-07 source-evidence hashes without replacing the historical Build 25, Build 27 or Build 28 candidate snapshots"
   },
   "canonicalSourceCollector": {
     "fileName": "CRM3_MAINTENANCE_WORKFLOW_CURRENT_SOURCE_AUDIT_COLLECTOR_v1_0_20260720_222517.zip",

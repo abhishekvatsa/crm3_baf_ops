@@ -69,8 +69,8 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
-    "dualCustodyCompleted": false,
+    "status": "completed-non-distributable",
+    "dualCustodyCompleted": true,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build29-current-source-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "DFFA3528DAB7868F8B79D88928DBEA02942F5D897F0C3A76DA2BAA4AA461CB93",
     "exactFirestoreRulesIndexesLiveReadback": {
@@ -88,7 +88,7 @@
     },
     "physicalInstallationConditionPassed": false,
     "runtimeValidationPassed": false,
-    "runtimeDisposition": "not-adjudicated-before-artifact-construction",
+    "runtimeDisposition": "not-adjudicated-by-build-finalization",
     "fullBusinessFlowValidationCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
@@ -480,7 +480,27 @@
         "remoteBuiltTagCreated": false,
         "distributionPerformed": false
       }
-    ]
+    ],
+    "buildNumber": 29,
+    "completionReceiptFile": "release/evidence/build-29-finalization-closure.json",
+    "completionReceiptSha256": "C5EBE789AFBA1D9C40F3D25BB32824C0F29AE2D7AC8C5F269E2F7BFC2D2A3F20",
+    "sourceCommit": "770f1745f7f4440e92ad5ff409e124a48baa107e",
+    "githubRunId": 35944344304,
+    "remoteBuiltTag": "crm3-build-built/29",
+    "remoteReservationTagObject": "cf53b263f12a240e3523e8d41a4d355e02a70287",
+    "remoteBuiltTagObject": "8c0d2468a8dc8521f2b7d1fed8bbf4a98745b7bd",
+    "governedPackageSha256": "1A18CEA58A3D2664455C815876756F263C2C0756946896ADBFB61A150E5B26FD",
+    "closurePackageSha256": "D22FBF0C21130D11A5C2298C45FAF0071F03893281AE59C99FD72416542BC529",
+    "custodyRecordSha256": "0F492A0C1403BEB2E809EFE9F47364BBB37B837A243B833C6589D5CE9418A208",
+    "physicalInstallationReceiptFile": null,
+    "physicalInstallationReceiptSha256": null,
+    "deviceAcceptanceReceiptFile": null,
+    "deviceAcceptanceReceiptSha256": null,
+    "knownOpenGates": [
+      "BUILD29_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
+      "BUILD29_EXPLICIT_PILOT_PROMOTION"
+    ],
+    "ownerAcceptedCompatibilityRisks": []
   },
   "postBuildPromotion": {
     "status": "completed-staged-controlled-pilot-only",
@@ -655,7 +675,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD29_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD29_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD29_EXPLICIT_PILOT_PROMOTION"
   ],
