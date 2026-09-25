@@ -7,7 +7,7 @@
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.19+29",
-      "relationshipToLatestFinalizedArtifact": "BUILD29_SOURCE_CONTAINS_FINALIZED_BUILD29",
+      "relationshipToLatestFinalizedArtifact": "BUILD29_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD29",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
