@@ -77,7 +77,22 @@ android {
     }
 
     buildTypes {
+        // The development build installs alongside the production app under a
+        // distinct application id, so a debug session can never overwrite or
+        // require uninstalling the signed production app and its local records.
+        //
+        // This is deliberately a build-type suffix rather than a product
+        // flavor. Introducing flavors would rename every assemble task
+        // (assembleRelease becomes assembleProdRelease) and break the governed
+        // production-artifact workflow, which invokes the unflavored tasks.
+        // Release output, application id and signing are untouched here.
+        getByName("debug") {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["crm3AppLabel"] = "CRM-III BAF Ops DEV"
+        }
         getByName("release") {
+            manifestPlaceholders["crm3AppLabel"] = "CRM-III BAF Ops"
             signingConfig = signingConfigs.getByName("production")
             isDebuggable = false
             isMinifyEnabled = true

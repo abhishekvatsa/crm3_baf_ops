@@ -460,3 +460,26 @@ full-row comparison, projection adoption and review archival atomically. Concret
 regressions are in `test/maintenance_creation_successor_service_test.dart` and
 `test/maintenance_creation_successor_review_ui_test.dart`. Existing historical
 inventories remain evidence of their own checkpoints.
+
+## Development emulator wiring — 25 September 2026
+
+The current source inventory contains 629 operations across 2191 primitive sites
+and 84 classified persistence surfaces. Its digest is
+`06E833A6C74A8CBC75A082FE7AD581C9259735666E2851F79FA413F47361EFC7`.
+
+The added surface is `lib/core/dev/dev_environment.dart`, which points Auth,
+Firestore and Functions at the local emulator suite when `CRM_USE_EMULATORS` is
+passed as a dart-define. It is classified `composition-root` with store
+`firestore` and mode `lifecycle`, because it configures the client endpoint and
+reads or mutates no business record. That is the same reason `Isar.open` in
+`lib/main.dart` is a lifecycle operation rather than a read.
+
+The inventory tool previously returned `read` for every non-mutating Firestore
+method, so `useFirestoreEmulator()` was reported as a read of business data that
+never happens. `_modeForInvocation` now returns `lifecycle` for that method,
+mirroring the existing Isar branch. No other classification changed, and the
+operation and site counts moved by exactly one, which is the single added call.
+
+Production is unaffected. `crm3UseEmulators` is false in every build that does
+not explicitly set the dart-define, so the production startup path still uses
+`DefaultFirebaseOptions.currentPlatform` and contacts no emulator.
