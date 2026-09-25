@@ -12,6 +12,15 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..\..')
 
+# The development application id is opt-in, so ordinary debug builds - including
+# CI's app-shell integration and the CodeQL isolated Android compilation - keep
+# the production id and the Firebase configuration they already rely on.
+$env:CRM3_DEV_APP = 'true'
+
+if (-not (Test-Path 'android/app/src/debug/google-services.json')) {
+  & (Join-Path $PSScriptRoot 'setup_dev.ps1')
+}
+
 $projectId = $env:CRM_DEMO_PROJECT_ID
 if ([string]::IsNullOrWhiteSpace($projectId)) { $projectId = 'demo-crm3-baf-ops' }
 $emulatorHost = $env:CRM_EMULATOR_HOST

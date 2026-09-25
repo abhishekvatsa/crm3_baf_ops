@@ -8,6 +8,15 @@ The development app is the **real application**: same screens, repositories,
 Isar schemas, sync code and callables. Only the backend endpoints and the
 installed application id differ.
 
+## First run
+
+```powershell
+pwsh -File tool/dev/setup_dev.ps1
+```
+
+Writes the local development Firebase override. `run_dev.ps1` does it for you if
+the file is missing, so this is only needed if you want it done up front.
+
 ## Two terminals
 
 ```powershell
@@ -22,21 +31,27 @@ pwsh -File tool/dev/run_dev.ps1
 
 Emulator UI: <http://127.0.0.1:4000>
 
-Or without the scripts:
+Or without the scripts, setting the development identity yourself:
 
 ```bash
-flutter run --dart-define=CRM_USE_EMULATORS=true --dart-define=CRM_DEMO_PROJECT_ID=demo-crm3-baf-ops
+CRM3_DEV_APP=true flutter run --dart-define=CRM_USE_EMULATORS=true
 ```
 
 Hot reload works normally.
 
 ## What protects production
 
-**A separate installed app.** Debug builds get `applicationIdSuffix = ".dev"`, so
-the development app installs as `in.co.sail.bsl.crm3.bafops.dev` beside the
-signed production app, labelled **CRM-III BAF Ops DEV**. It can never overwrite
-the production app, and you never have to uninstall production — which would
-destroy its local records — just to debug.
+**A separate installed app, opt in.** With `CRM3_DEV_APP=true` a debug build
+takes `applicationIdSuffix = ".dev"`, so the development app installs as
+`in.co.sail.bsl.crm3.bafops.dev` beside the signed production app, labelled
+**CRM-III BAF Ops DEV**. It can never overwrite the production app, and you never
+have to uninstall production — which would destroy its local records — just to
+debug.
+
+The suffix is opt-in rather than automatic for every debug build, because CI
+also builds debug: the app-shell integration job and the CodeQL isolated Android
+compilation both need the unchanged production id and the Firebase configuration
+they already rely on.
 
 This is a build-type suffix, not a product flavor, on purpose. Flavors rename
 every Gradle task (`assembleRelease` becomes `assembleProdRelease`), which would
@@ -51,9 +66,14 @@ routed to an emulator **fails** instead of quietly reaching production.
 **Refusals.** `connectCrm3Emulators()` throws if it is called in a release build,
 without the dart-define, or against a non-demo project id.
 
-**Debug-scoped Firebase config.** `android/app/src/debug/google-services.json`
-carries the demo project and the `.dev` package. The production
-`android/app/google-services.json` is unchanged.
+**Debug-scoped Firebase config, never committed.**
+`android/app/src/debug/google-services.json` carries the demo project. It is
+gitignored and written locally by `setup_dev.ps1`, because
+`tools/security/codeql/prepare_android.py` writes its own isolated override to
+that same path inside the CodeQL runner and **refuses to replace an existing
+file** — a committed copy breaks that job. The local file lists both the
+suffixed and unsuffixed package ids so a debug build works either way. The
+production `android/app/google-services.json` is unchanged.
 
 ## Physical device vs Android emulator
 
@@ -69,6 +89,7 @@ flutter run --dart-define=CRM_USE_EMULATORS=true --dart-define=CRM_EMULATOR_HOST
 
 | Define | Default |
 | --- | --- |
+| `CRM3_DEV_APP` (environment, not a define) | unset (production identity) |
 | `CRM_USE_EMULATORS` | unset (production) |
 | `CRM_DEMO_PROJECT_ID` | `demo-crm3-baf-ops` |
 | `CRM_EMULATOR_HOST` | `127.0.0.1` |
