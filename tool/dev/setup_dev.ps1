@@ -38,7 +38,7 @@ $config = [ordered]@{
         android_client_info = [ordered]@{ package_name = $_ }
       }
       oauth_client = @()
-      api_key      = @(@{ current_key = 'emulator-only-not-a-real-key' })
+      api_key      = @(@{ current_key = 'AIzaSyDEMOEMULATORONLYNOTAREALKEY000000' })
       services     = [ordered]@{
         appinvite_service = [ordered]@{ other_platform_oauth_client = @() }
       }

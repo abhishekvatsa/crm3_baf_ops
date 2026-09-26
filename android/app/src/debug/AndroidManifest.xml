@@ -1,7 +1,17 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- The INTERNET permission is required for development. Specifically,
          the Flutter tool needs it to communicate with the running application
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Debug-only network posture. The Firebase emulator suite serves plain
+         HTTP, and the SDKs rewrite 127.0.0.1 to 10.0.2.2 on an Android
+         emulator. This overlay applies to debug builds only, so the release
+         manifest keeps Android's default cleartext prohibition.
+    -->
+    <application
+        android:networkSecurityConfig="@xml/crm3_dev_network_security_config"
+        tools:replace="android:networkSecurityConfig" />
 </manifest>

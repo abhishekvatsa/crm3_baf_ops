@@ -62,6 +62,33 @@ const String crm3DemoProjectId = String.fromEnvironment(
 /// them.
 const String crm3CallableRegion = 'asia-south1';
 
+/// The development sign-in identity.
+///
+/// Google Sign-In cannot work against the emulator suite: it needs a real OAuth
+/// client and a registered signing certificate, and a `demo-` project has
+/// neither. Attempting it fails with ApiException 10 (DEVELOPER_ERROR). The
+/// Auth emulator therefore stands in for the identity provider only; every step
+/// after the credential - profile hydration, the approval gate, roles, Firestore
+/// and every callable - runs exactly as it does in production.
+const String crm3DevSignInEmail = String.fromEnvironment(
+  'CRM_DEV_EMAIL',
+  defaultValue: 'dev.operations@example.invalid',
+);
+
+const String crm3DevSignInSecret = String.fromEnvironment(
+  'CRM_DEV_SECRET',
+  defaultValue: 'emulator-local-only',
+);
+
+/// Google Sign-In always supplies a display name, and `ensureUserDocument`
+/// requires one before it will create a pending profile. Email/password
+/// creation in the Auth emulator sets none, so the stand-in must provide it or
+/// it is not a faithful substitute for the provider it replaces.
+const String crm3DevSignInDisplayName = String.fromEnvironment(
+  'CRM_DEV_DISPLAY_NAME',
+  defaultValue: 'Dev Operations',
+);
+
 /// Raised when development wiring is asked to do something unsafe.
 class Crm3EmulatorConfigurationError extends Error {
   Crm3EmulatorConfigurationError(this.message);
@@ -84,7 +111,11 @@ FirebaseOptions get crm3DemoFirebaseOptions {
     );
   }
   return const FirebaseOptions(
-    apiKey: 'emulator-only-not-a-real-key',
+    // Firebase validates the shape of this value before it will contact any
+    // Firebase server API, and a callable rejects a malformed one with
+    // "Please set a valid API key". This is a syntactically valid placeholder
+    // for a demo project, not a real credential.
+    apiKey: 'AIzaSyDEMOEMULATORONLYNOTAREALKEY000000',
     appId: '1:000000000000:android:0000000000000000000000',
     messagingSenderId: '000000000000',
     projectId: crm3DemoProjectId,
@@ -140,4 +171,46 @@ Future<void> connectCrm3Emulators() async {
     'functions=$crm3EmulatorHost:$crm3FunctionsEmulatorPort '
     'region=$crm3CallableRegion',
   );
+}
+
+/// Signs in against the Auth emulator, creating the account on first use.
+///
+/// Refuses outside emulator mode so it cannot become a production sign-in path.
+/// In a production build `crm3UseEmulators` is a compile-time false, so the
+/// caller's branch is removed entirely.
+Future<UserCredential> signInToCrm3AuthEmulator() async {
+  if (!crm3UseEmulators || kReleaseMode) {
+    throw Crm3EmulatorConfigurationError(
+      'Emulator sign-in is only available in a development build.',
+    );
+  }
+  final auth = FirebaseAuth.instance;
+  try {
+    final existing = await auth.signInWithEmailAndPassword(
+      email: crm3DevSignInEmail,
+      password: crm3DevSignInSecret,
+    );
+    await _ensureDevDisplayName(existing.user);
+    return existing;
+  } on FirebaseAuthException catch (error) {
+    if (error.code != 'user-not-found' && error.code != 'invalid-credential') {
+      rethrow;
+    }
+    debugPrint('🧪 CRM-III DEV: creating $crm3DevSignInEmail in the Auth emulator');
+    final created = await auth.createUserWithEmailAndPassword(
+      email: crm3DevSignInEmail,
+      password: crm3DevSignInSecret,
+    );
+    await _ensureDevDisplayName(created.user);
+    return created;
+  }
+}
+
+/// Gives the emulator account the display name the real provider would carry.
+Future<void> _ensureDevDisplayName(User? user) async {
+  if (user == null) return;
+  final existing = user.displayName;
+  if (existing != null && existing.trim().isNotEmpty) return;
+  await user.updateDisplayName(crm3DevSignInDisplayName);
+  await user.reload();
 }
