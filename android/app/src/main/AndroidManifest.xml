@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <application
-        android:label="CRM-III BAF Ops"
+        android:label="${crm3AppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

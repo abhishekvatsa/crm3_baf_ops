@@ -58,3 +58,8 @@ output/
 outputs/
 preview-governed-hierarchy/
 tmp/
+
+# Development Firebase override. Written by tool/dev/setup_dev.ps1 locally, and
+# by tools/security/codeql/prepare_android.py inside the CodeQL runner, which
+# refuses to replace an existing file. It must never be committed.
+android/app/src/debug/google-services.json

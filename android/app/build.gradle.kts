@@ -22,6 +22,18 @@ if (ciPackageProofRaw != null && ciPackageProofRaw != "true") {
 }
 val ciPackageProof = ciPackageProofRaw == "true"
 
+// Opt-in development identity. Only tool/dev/run_dev.ps1 sets this, so ordinary
+// debug builds - including the CI app-shell integration job and the CodeQL
+// isolated Android compilation - keep the production application id and the
+// Firebase configuration they already rely on.
+val devAppRaw = System.getenv("CRM3_DEV_APP")
+if (devAppRaw != null && devAppRaw != "true") {
+    throw org.gradle.api.GradleException(
+        "CRM3_DEV_APP must be absent or exactly true."
+    )
+}
+val devApp = devAppRaw == "true"
+
 val missingReleaseInputs = mapOf(
     "CRM_ANDROID_RELEASE_STORE_FILE" to releaseStoreFilePath,
     "CRM_ANDROID_RELEASE_STORE_PASSWORD" to releaseStorePassword,
@@ -77,7 +89,25 @@ android {
     }
 
     buildTypes {
+        // The development build installs alongside the production app under a
+        // distinct application id, so a debug session can never overwrite or
+        // require uninstalling the signed production app and its local records.
+        //
+        // This is deliberately a build-type suffix rather than a product
+        // flavor. Introducing flavors would rename every assemble task
+        // (assembleRelease becomes assembleProdRelease) and break the governed
+        // production-artifact workflow, which invokes the unflavored tasks.
+        // Release output, application id and signing are untouched here.
+        getByName("debug") {
+            if (devApp) {
+                applicationIdSuffix = ".dev"
+                versionNameSuffix = "-dev"
+            }
+            manifestPlaceholders["crm3AppLabel"] =
+                if (devApp) "CRM-III BAF Ops DEV" else "CRM-III BAF Ops"
+        }
         getByName("release") {
+            manifestPlaceholders["crm3AppLabel"] = "CRM-III BAF Ops"
             signingConfig = signingConfigs.getByName("production")
             isDebuggable = false
             isMinifyEnabled = true

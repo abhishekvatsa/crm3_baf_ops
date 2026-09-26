@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "1E2E0AE79C1CC523DBF848D65DB9DE3208896F19ED3A9F6EAED0CEF96029080B",
+  "inventoryDigest": "06E833A6C74A8CBC75A082FE7AD581C9259735666E2851F79FA413F47361EFC7",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -1267,6 +1267,19 @@
         "test/maintenance_creation_successor_complete_boundary_test.dart"
       ],
       "reviewContract": "Complete native Isar export retains every persisted B property and raw JSON value. Adoption and a local reconciliation audit share the durable owner transaction and full-row CAS; keep-server checks for a concurrent correction owner inside that transaction. Accepted correction plus newer B archives the reviewed evidence and leaves newer B unchanged and unsynced for another review. Duplicate rows and malformed or unavailable evidence fail closed."
+    },
+    {
+      "path": "lib/core/dev/dev_environment.dart",
+      "profile": "composition-root",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "lifecycle"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
     }
   ]
 }

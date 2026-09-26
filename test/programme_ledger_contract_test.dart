@@ -699,9 +699,10 @@ void main() {
     );
     expect(a03Manifest['findingId'], 'A-03');
     expect(a03Manifest['inventoryDigest'], matches(RegExp(r'^[A-F0-9]{64}$')));
-    // Current source includes the reviewed knowledge import, UV correction and
-    // operational amendment boundaries; sealed closure counts above stay fixed.
-    expect(_objects(a03Manifest['surfaces']), hasLength(83));
+    // Current source includes the reviewed knowledge import, UV correction,
+    // operational amendment and development emulator boundaries; sealed closure
+    // counts above stay fixed.
+    expect(_objects(a03Manifest['surfaces']), hasLength(84));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');

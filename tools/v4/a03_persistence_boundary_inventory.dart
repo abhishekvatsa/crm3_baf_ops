@@ -604,6 +604,12 @@ final class _PersistenceVisitor extends RecursiveAstVisitor<void> {
     }.contains(method)) {
       return 'mutating';
     }
+    // Emulator wiring configures the client endpoint and reads no business
+    // record, so it is a lifecycle operation for the same reason Isar.open is
+    // classified as lifecycle rather than read above.
+    if (method == 'useFirestoreEmulator') {
+      return 'lifecycle';
+    }
     return 'read';
   }
 

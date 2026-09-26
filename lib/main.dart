@@ -73,6 +73,9 @@ import 'features/critical_alarm/presentation/critical_alarm_host.dart';
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
 
+// ── Development-only backend wiring (inert without CRM_USE_EMULATORS) ────────
+import 'core/dev/dev_environment.dart';
+
 // ─────────────────────────────────────────────────────────────
 
 const bool _ciPackageProof = bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF');
@@ -412,9 +415,18 @@ Future<StartupFailure> _captureStartupFailure({
 
 Future<StartupFailure?> _initializeFirebaseAndCrashReporting() async {
   try {
+    // The development build boots against the local emulator suite under a
+    // demo project so that ordinary feature work never touches production.
+    // crm3UseEmulators is a dart-define that production builds do not set, so
+    // this is the unchanged production path unless it is explicitly enabled.
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: crm3UseEmulators
+          ? crm3DemoFirebaseOptions
+          : DefaultFirebaseOptions.currentPlatform,
     );
+    if (crm3UseEmulators) {
+      await connectCrm3Emulators();
+    }
   } catch (e, st) {
     debugPrint('❌ Firebase initialization failed before app startup: $e');
     debugPrint('$st');
