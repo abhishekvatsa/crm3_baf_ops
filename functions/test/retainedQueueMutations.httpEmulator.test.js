@@ -28,11 +28,29 @@ suite('CF01 authenticated HTTP boundary',()=>{
       const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-only`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`${prefix}-${name}@example.invalid`,password:'synthetic-test-only',returnSecureToken:true})});
       const auth=await response.json();if(!auth.idToken)throw Error(`Auth fixture failed for ${name}`);
-      actors[name]={uid:auth.localId,token:auth.idToken};
-      await db.doc(`users/${auth.localId}`).set({isApproved:true,roles:[role],name:`Synthetic ${name}`});
+      // This suite shares the CI emulators with the later Android journeys.
+      // Leave complete AppUser records, including after authority negatives.
+      const profile={name:`Synthetic ${name}`,email:`${prefix}-${name}@example.invalid`,
+        isApproved:true,roles:[role],accessDisposition:'approved',authorityRevision:1,
+        createdAt:Timestamp.now(),photoUrl:null,fcmToken:null};
+      actors[name]={uid:auth.localId,token:auth.idToken,profile};
+      await db.doc(`users/${auth.localId}`).set(profile);
     }
   },120000);
-  afterAll(async()=>{if(app)await deleteApp(app);});
+  afterAll(async()=>{
+    try {
+      // Assert the shared roster retains the full readable profile and that
+      // no temporary revocation state leaks into the subsequent UI journeys.
+      for(const actor of Object.values(actors)) {
+        const profile=(await db.doc(`users/${actor.uid}`).get()).data();
+        expect(profile).toEqual(actor.profile);
+        expect(profile.createdAt).toBeInstanceOf(Timestamp);
+        expect(profile.email).toMatch(/@example\.invalid$/);
+        expect(profile.accessDisposition).toBe('approved');
+        expect(profile.isApproved).toBe(true);
+      }
+    } finally {if(app)await deleteApp(app);}
+  });
   test.each([
     ['upsertAbnormalityType','abnormality_types','admin','admin2',typeRecord],
     ['upsertLegacyJobTemplate','job_templates','si','admin2',templateRecord],
@@ -62,9 +80,13 @@ suite('CF01 authenticated HTTP boundary',()=>{
     expect((await invoke(actors[owner],{...cmd,payload:{...cmd.payload,projectId:'demo-wrong-project'}})).error).toMatchObject({status:'PERMISSION_DENIED',details:{reasonCode:'retained-queue-project-mismatch'}});
     expect((await invoke(actors[owner],{...cmd,payload:{...cmd.payload,record:{...record,updatedAt:'2026-09-27T00:02:00.000000Z'}}})).error.status).toBe('ABORTED');
     expect((await invoke(actors[other],cmd)).error.status).toBe('PERMISSION_DENIED');
-    await db.doc(`users/${actors[owner].uid}`).update({isApproved:false});
+    const profile=actors[owner].profile;
+    await db.doc(`users/${actors[owner].uid}`).update({isApproved:false,
+      accessDisposition:'revoked',authorityRevision:profile.authorityRevision+1});
     expect((await invoke(actors[owner],cmd)).error.status).toBe('PERMISSION_DENIED');
-    await db.doc(`users/${actors[owner].uid}`).update({isApproved:true});
+    profile.authorityRevision+=2;
+    await db.doc(`users/${actors[owner].uid}`).update({isApproved:true,
+      accessDisposition:'approved',authorityRevision:profile.authorityRevision});
     expect(await accepted(actors[owner],cmd)).toEqual(first);
   },120000);
   test('fresh wrong-role and forged work identity are refused without receipt',async()=>{
