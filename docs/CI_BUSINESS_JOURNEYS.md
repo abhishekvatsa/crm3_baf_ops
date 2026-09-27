@@ -34,6 +34,23 @@ assignment, worker acceptance, and closure are never seeded. A seed marker and
 create-only preconditions refuse existing evidence rather than overwriting it.
 App data is cleared only for the dedicated DEV package on a verified Android
 emulator before independent journeys; it is preserved for the restart check.
+Every Flutter test uses `--no-uninstall` so teardown preserves that evidence.
+
+Before each independent journey, the runner builds its declared source as a
+debug DEV APK with the same emulator/actor defines, checks its exact DEV package
+identity and debuggable flag with SDK `aapt`, clears only prior DEV app data,
+and installs the APK without launching it. It grants only
+`android.permission.POST_NOTIFICATIONS` on that verified emulator. This prevents
+the native Android permission dialog from blocking the application's real
+awaited startup before Flutter can show sign-in. Failed or unexpected identity,
+install, or permission responses stop the run. Flutter 3.44 `test` does not
+support a prebuilt binary argument: it still builds and launches its normal
+integration listener wrapper from source. This bootstrap does not replace the
+application startup, backend transport, or business assertions. If Flutter
+falls back to uninstalling an old package, the run fails rather than claiming
+data or permission continuity. The separate-process restart gets no bootstrap,
+clear, or permission change; it uses only force-stop and the normal update
+installation performed by Flutter.
 
 To inspect the commands without starting a device or writing data:
 
@@ -52,7 +69,8 @@ python3 tools/testing/run_ci_business_journeys.py --device-id emulator-5554
 CI uploads `output/ci-business-journeys` (per-suite logs and result JSON) plus
 Firebase/Firestore diagnostics even on failure. No automatic rerun masks a
 business failure. The job is bounded to 60 minutes to allow cold Android/backend
-setup and four separate Flutter integration invocations; each business process
+setup, two permission-bootstrap debug builds, and four separate Flutter
+integration invocations; each business process
 also has its own shorter deadline.
 
 All ten DEV suites are classified in the manifest. The seven excluded files

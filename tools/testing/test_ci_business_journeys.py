@@ -1,4 +1,5 @@
 import json
+import io
 from pathlib import Path
 import tempfile
 import subprocess
@@ -10,6 +11,117 @@ import seed_ci_business_journeys as seed
 
 
 class BusinessJourneyGateTest(unittest.TestCase):
+    def test_notification_setup_builds_matching_dev_source_before_install_and_grant(self):
+        journey = runner.load_manifest()["journeys"][0]
+        events = []
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            apk = root / "build/app/outputs/flutter-apk/app-debug.apk"
+            apk.parent.mkdir(parents=True)
+            apk.write_bytes(b"fixture-apk")
+            aapt = root / "sdk/build-tools/36.0.0/aapt"
+            aapt.parent.mkdir(parents=True)
+            aapt.write_bytes(b"fixture-tool")
+
+            def output(command, **kwargs):
+                events.append(command)
+                if command[-2:] == ["getprop", "ro.kernel.qemu"]:
+                    return "1\n"
+                if command[1:3] == ["dump", "badging"]:
+                    return f"package: name='{runner.DEV_APP}' versionCode='1'\napplication-debuggable\n"
+                if "install" in command:
+                    return "Performing Streamed Install\nSuccess\n"
+                if "grant" in command:
+                    return ""
+                raise AssertionError(command)
+
+            with patch.object(runner, "ROOT", root), \
+                    patch.object(runner, "run_logged", side_effect=lambda command, *args: events.append(command)), \
+                    patch.object(runner, "clear_ci_app", side_effect=lambda _: events.append("clear-dev")), \
+                    patch.object(runner.subprocess, "check_output", side_effect=output):
+                runner.prepare_ci_journey(journey, "emulator-5554", {
+                    "ANDROID_HOME": str(root / "sdk"), "CRM3_DEV_APP": "true",
+                    "CRM_DEMO_PROJECT_ID": runner.PROJECT,
+                })
+            self.assertEqual(events[0][-2:], ["getprop", "ro.kernel.qemu"])
+            build = events[1]
+            self.assertEqual(build[:3], ["flutter", "build", "apk"])
+            self.assertIn("--debug", build)
+            self.assertEqual(build[build.index("--target") + 1], journey["path"])
+            self.assertIn("--dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false", build)
+            self.assertEqual([v for v in build if v.startswith("--dart-define=CRM_")],
+                             [v for v in runner.flutter_command(journey, "emulator-5554") if v.startswith("--dart-define=")])
+            self.assertEqual(events[2][1:3], ["dump", "badging"])
+            self.assertEqual(events[3], "clear-dev")
+            self.assertEqual(events[4], ["adb", "-s", "emulator-5554", "install", "-r", "-t", str(apk)])
+            self.assertEqual(events[5], ["adb", "-s", "emulator-5554", "shell", "pm", "grant",
+                                         runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
+
+    def test_notification_setup_refuses_physical_device_before_build(self):
+        with patch.object(runner.subprocess, "check_output", return_value="0\n"), \
+                patch.object(runner, "run_logged") as build, self.assertRaises(RuntimeError):
+            runner.prepare_ci_journey(runner.load_manifest()["journeys"][0], "emulator-5554", {})
+        build.assert_not_called()
+
+    def test_notification_setup_refuses_unverified_build_environment(self):
+        for env in ({}, {"CRM3_DEV_APP": "false", "CRM_DEMO_PROJECT_ID": runner.PROJECT},
+                    {"CRM3_DEV_APP": "true", "CRM_DEMO_PROJECT_ID": "production"}):
+            with self.subTest(env=env), patch.object(runner.subprocess, "check_output", return_value="1\n"), \
+                    patch.object(runner, "run_logged") as build, self.assertRaises(RuntimeError):
+                runner.prepare_ci_journey(runner.load_manifest()["journeys"][0], "emulator-5554", env)
+            build.assert_not_called()
+
+    def test_notification_setup_identity_install_and_grant_fail_closed(self):
+        journey = runner.load_manifest()["journeys"][0]
+        valid_badging = f"package: name='{runner.DEV_APP}' versionCode='1'\napplication-debuggable\n"
+        for badging, installed, granted, failing_stage in (
+                (valid_badging.replace(runner.DEV_APP, "in.co.sail.bsl.crm3.bafops"), "Success", "", "identity"),
+                (valid_badging.replace("application-debuggable", ""), "Success", "", "identity"),
+                (valid_badging * 2, "Success", "", "identity"),
+                (valid_badging, "Failure [INSTALL_FAILED]", "", "install"),
+                (valid_badging, subprocess.CalledProcessError(1, ["adb", "install"]), "", "install"),
+                (valid_badging, "Success", "Error: permission grant failed", "grant"),
+                (valid_badging, "Success", subprocess.CalledProcessError(1, ["adb", "pm", "grant"]), "grant")):
+            with self.subTest(stage=failing_stage, badging=badging), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                apk = root / "build/app/outputs/flutter-apk/app-debug.apk"
+                apk.parent.mkdir(parents=True)
+                apk.write_bytes(b"fixture-apk")
+                aapt = root / "sdk/build-tools/36.0.0/aapt"
+                aapt.parent.mkdir(parents=True)
+                aapt.write_bytes(b"fixture-tool")
+                commands = []
+
+                def output(command, **kwargs):
+                    commands.append(command)
+                    if command[-2:] == ["getprop", "ro.kernel.qemu"]:
+                        return "1\n"
+                    if command[1:3] == ["dump", "badging"]:
+                        return badging
+                    if "install" in command:
+                        if isinstance(installed, Exception):
+                            raise installed
+                        return installed
+                    if "grant" in command:
+                        if isinstance(granted, Exception):
+                            raise granted
+                        return granted
+                    raise AssertionError(command)
+
+                with patch.object(runner, "ROOT", root), patch.object(runner, "run_logged"), \
+                        patch.object(runner, "clear_ci_app") as clear, \
+                        patch.object(runner.subprocess, "check_output", side_effect=output), \
+                        self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
+                    runner.prepare_ci_journey(journey, "emulator-5554", {
+                        "ANDROID_HOME": str(root / "sdk"), "CRM3_DEV_APP": "true",
+                        "CRM_DEMO_PROJECT_ID": runner.PROJECT,
+                    })
+                if failing_stage == "identity":
+                    clear.assert_not_called()
+                    self.assertFalse(any("install" in command for command in commands))
+                if failing_stage != "grant":
+                    self.assertFalse(any("grant" in command for command in commands))
+
     @staticmethod
     def _adb_output(command, **kwargs):
         if command[-2:] == ["getprop", "ro.kernel.qemu"]:
@@ -158,19 +270,19 @@ class BusinessJourneyGateTest(unittest.TestCase):
             return "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
-                patch.object(runner, "clear_ci_app", side_effect=lambda _: events.append("clear-dev")) as clear, \
+                patch.object(runner, "prepare_ci_journey", side_effect=lambda row, *args: events.append(Path(row["path"]).stem + "-prepare")) as prepare, \
                 patch.object(runner.subprocess, "run", side_effect=lambda *args, **kwargs: events.append("force-stop-dev")) as command:
             runner.execute_journeys("emulator-5554", manifest, {})
-            self.assertEqual(clear.call_count, 2)
+            self.assertEqual(prepare.call_count, 2)
             command.assert_called_once_with(["adb", "-s", "emulator-5554", "shell", "am",
                                              "force-stop", runner.DEV_APP], timeout=15, check=True)
             report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "passed")
             self.assertEqual(len(report["journeys"]), 3)
             self.assertEqual(events, [
-                "seed", "clear-dev", "dev_abnormality_journey_test",
+                "seed", "dev_abnormality_journey_test-prepare", "dev_abnormality_journey_test",
                 "force-stop-dev", "dev_restart_recovery_test",
-                "clear-dev", "dev_planned_work_journey_test", "android-logcat",
+                "dev_planned_work_journey_test-prepare", "dev_planned_work_journey_test", "android-logcat",
             ])
 
     def test_zero_exit_without_canonical_acceptance_marker_fails_and_stops_later_journeys(self):
@@ -180,7 +292,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
             return "Flutter exited, but no canonical acceptance was observed"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
-                patch.object(runner, "clear_ci_app"), self.assertRaises(RuntimeError):
+                patch.object(runner, "prepare_ci_journey"), self.assertRaises(RuntimeError):
             runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
         self.assertNotIn("dev_planned_work_journey_test", events)
 
@@ -188,8 +300,30 @@ class BusinessJourneyGateTest(unittest.TestCase):
         manifest = {"journeys": [runner.load_manifest()["journeys"][-1]]}
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", return_value="DEV_PLANNED_WORK_PASS"), \
-                patch.object(runner, "clear_ci_app"), self.assertRaisesRegex(RuntimeError, "publish through"):
+                patch.object(runner, "prepare_ci_journey"), self.assertRaisesRegex(RuntimeError, "publish through"):
             runner.execute_journeys("emulator-5554", manifest, {})
+
+    def test_flutter_fallback_uninstall_refuses_false_restart_acceptance(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
+                patch.object(runner, "run_logged", return_value="Uninstalling old version... DEV_JOURNEY_PASS"), \
+                patch.object(runner, "prepare_ci_journey"), self.assertRaisesRegex(RuntimeError, "continuity"):
+            runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
+
+    def test_plan_describes_both_permission_bootstraps_without_mutation(self):
+        output = io.StringIO()
+        with patch("sys.stdout", output), patch.object(runner, "run_logged") as run, \
+                patch.object(runner.subprocess, "run") as adb, \
+                patch.object(runner.subprocess, "check_output") as probe:
+            self.assertEqual(runner.main(["--plan"]), 0)
+        run.assert_not_called()
+        adb.assert_not_called()
+        probe.assert_not_called()
+        plan = json.loads(output.getvalue())
+        self.assertEqual([row["journey"] for row in plan["preparations"]],
+                         [row["path"] for row in runner.load_manifest()["journeys"] if not row["preserveAppData"]])
+        for row in plan["preparations"]:
+            self.assertEqual(row["steps"][-1][-2:], [runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
+        self.assertEqual(len(plan["commands"]), 3)
 
 
 if __name__ == "__main__":

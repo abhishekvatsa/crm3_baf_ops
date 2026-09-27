@@ -55,6 +55,13 @@ def flutter_command(journey, device):
             "--dart-define=CRM_DEV_SECRET=emulator-local-only"]
 
 
+def flutter_build_command(journey, device):
+    defines = [part for part in flutter_command(journey, device) if part.startswith("--dart-define=")]
+    return ["flutter", "build", "apk", "--debug", "--no-pub", "--target", journey["path"], *defines,
+            # flutter test supplies this itself when building its listener wrapper.
+            "--dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false"]
+
+
 def require_isolated_environment(env, *, inside):
     for name in ("GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_TOKEN"):
         if env.get(name):
@@ -116,12 +123,16 @@ def prepare_android_config(root=ROOT):
         output.write(json.dumps(expected, indent=2) + "\n")
 
 
-def clear_ci_app(device):
-    # Data clearing is allowed only on the disposable AVD and only for DEV.
+def require_android_emulator(device):
     qemu = subprocess.check_output(["adb", "-s", device_id(device), "shell", "getprop",
                                     "ro.kernel.qemu"], text=True, timeout=15).strip()
     if qemu != "1":
         raise RuntimeError("Selected device is not an Android emulator")
+
+
+def clear_ci_app(device):
+    # Data clearing is allowed only on the disposable AVD and only for DEV.
+    require_android_emulator(device)
     probe = subprocess.run(["adb", "-s", device, "shell", "pm", "path", DEV_APP],
                            capture_output=True, text=True, timeout=15, check=False)
     installed, error = probe.stdout.strip(), probe.stderr.strip()
@@ -138,6 +149,46 @@ def clear_ci_app(device):
         raise RuntimeError("Could not initialize the disposable DEV application")
 
 
+def prepare_ci_journey(journey, device, env):
+    """Install without launching so Android's native permission UI cannot block startup."""
+    require_android_emulator(device)
+    if env.get("CRM3_DEV_APP") != "true" or env.get("CRM_DEMO_PROJECT_ID") != PROJECT:
+        raise RuntimeError("Notification setup requires the isolated DEV build environment")
+    sdk = env.get("ANDROID_HOME") or env.get("ANDROID_SDK_ROOT")
+    build_tools = Path(sdk) / "build-tools" if sdk else None
+    versions = sorted(
+        (path for path in build_tools.iterdir() if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", path.name)),
+        key=lambda path: tuple(int(part) for part in path.name.split(".")), reverse=True,
+    ) if build_tools and build_tools.is_dir() else []
+    aapt = next((path / name for path in versions for name in ("aapt", "aapt.exe")
+                 if (path / name).is_file()), None)
+    if aapt is None:
+        raise RuntimeError("Android SDK aapt is required to verify the DEV APK identity")
+    run_logged(flutter_build_command(journey, device),
+               Path(journey["path"]).stem + "-build", journey["timeoutSeconds"], env)
+    apk = ROOT / "build/app/outputs/flutter-apk/app-debug.apk"
+    if not apk.is_file():
+        raise RuntimeError("The declared DEV journey did not produce its debug APK")
+    badging = subprocess.check_output([str(aapt), "dump", "badging", str(apk)],
+                                      text=True, timeout=30, stderr=subprocess.STDOUT)
+    identities = re.findall(r"^package: name='([^']+)'", badging, re.MULTILINE)
+    if identities != [DEV_APP] or "application-debuggable" not in badging.splitlines():
+        raise RuntimeError("Refusing to install a package other than the verified debug DEV app")
+    clear_ci_app(device)
+    installed = subprocess.check_output(["adb", "-s", device, "install", "-r", "-t", str(apk)],
+                                        text=True, timeout=120, stderr=subprocess.STDOUT).strip()
+    if not installed or installed.splitlines()[-1] != "Success":
+        raise RuntimeError("Could not install the verified DEV journey package")
+    granted = subprocess.check_output(["adb", "-s", device, "shell", "pm", "grant", DEV_APP,
+                                      "android.permission.POST_NOTIFICATIONS"],
+                                     text=True, timeout=15, stderr=subprocess.STDOUT).strip()
+    if granted:
+        raise RuntimeError("Could not grant the DEV app's startup notification permission")
+    # Flutter 3.44 test builds its own wrapper and has no prebuilt-APK option.
+    # Its ordinary update install retains this same package's permission; the
+    # actual startup and all business assertions still run in the real test.
+
+
 def execute_journeys(device, manifest, env):
     report = {"project": PROJECT, "physicalDeviceEvidence": False,
               "productionBackendUsed": False, "journeys": [], "status": "failed"}
@@ -145,7 +196,7 @@ def execute_journeys(device, manifest, env):
         run_logged([sys.executable, "tools/testing/seed_ci_business_journeys.py"], "seed", 180, env)
         for journey in manifest["journeys"]:
             if not journey["preserveAppData"]:
-                clear_ci_app(device)
+                prepare_ci_journey(journey, device, env)
             else:
                 # A real new process, retaining the preceding journey's local data.
                 subprocess.run(["adb", "-s", device, "shell", "am", "force-stop", DEV_APP],
@@ -153,6 +204,8 @@ def execute_journeys(device, manifest, env):
             started = time.monotonic()
             log = run_logged(flutter_command(journey, device), Path(journey["path"]).stem,
                              journey["timeoutSeconds"], env)
+            if "Uninstalling old version..." in log:
+                raise RuntimeError("Flutter replaced the installed app by uninstalling; data/permission continuity is unproven")
             if journey["successMarker"] not in log:
                 raise RuntimeError("Flutter exited without the journey's canonical-readback completion marker")
             if "dev_planned_work" in journey["path"] and "DEV_PLANNED_UI_PUBLISHED" not in log:
@@ -180,6 +233,15 @@ def main(argv=None):
            "CRM_FIRESTORE_EMULATOR": "127.0.0.1:18080"}
     if args.plan:
         print(json.dumps({"project": PROJECT, "config": manifest["firebaseConfig"],
+                          "preparations": [{"journey": row["path"],
+                                            "steps": ["Verify ro.kernel.qemu=1 and isolated DEV build environment",
+                                                      flutter_build_command(row, device),
+                                                      f"Verify debug APK identity is exactly {DEV_APP} with SDK aapt",
+                                                      f"Clear only {DEV_APP} data if already installed",
+                                                      ["adb", "-s", device, "install", "-r", "-t", "build/app/outputs/flutter-apk/app-debug.apk"],
+                                                      ["adb", "-s", device, "shell", "pm", "grant", DEV_APP, "android.permission.POST_NOTIFICATIONS"]]}
+                                           for row in manifest["journeys"] if not row["preserveAppData"]],
+                          "preservedRestart": "Force-stop only before the restart test; never clear, preinstall, or regrant",
                           "commands": [flutter_command(row, device) for row in manifest["journeys"]]}, indent=2))
         return 0
     require_isolated_environment(os.environ, inside=args.inside_emulators)
