@@ -18,15 +18,15 @@ suite('CF01 authenticated HTTP boundary',()=>{
   };
   const accepted=async(actor,cmd)=>{const result=await invoke(actor,cmd);expect(result.error).toBeUndefined();expect(result.result).toBeDefined();return result.result;};
   const make=(type,record,id)=>command(type,record,{projectId,commandId:`${prefix}-${id}`});
-  const seedStamped=async(path,record)=>{
-    await db.doc(path).set(record);
+  const waitForStamped=async(path,record,previousStamp)=>{
     // The real trigger asynchronously adds its pull watermark. Establish the
     // full canonical baseline after that legitimate write, then compare every
     // field (including the watermark) across each refused mutation.
     const deadline=Date.now()+15000;
     while(Date.now()<deadline) {
       const data=(await db.doc(path).get()).data();
-      if(data?._globalPullServerUpdatedAt instanceof Timestamp) {
+      if(data?._globalPullServerUpdatedAt instanceof Timestamp &&
+          (!previousStamp || !data._globalPullServerUpdatedAt.isEqual(previousStamp))) {
         expect(data).toEqual({...record,_globalPullServerUpdatedAt:data._globalPullServerUpdatedAt});
         return data;
       }
@@ -34,13 +34,17 @@ suite('CF01 authenticated HTTP boundary',()=>{
     }
     throw Error('Synthetic canonical fixture did not receive its server pull stamp.');
   };
+  const seedStamped=async(path,record)=>{
+    await db.doc(path).set(record);
+    return waitForStamped(path,record);
+  };
   const value=(v)=>v===null?{nullValue:null}:typeof v==='string'?{stringValue:v}:typeof v==='boolean'?{booleanValue:v}:typeof v==='number'?{integerValue:String(v)}:Array.isArray(v)?{arrayValue:{values:v.map(value)}}:{mapValue:{fields:Object.fromEntries(Object.entries(v).map(([k,x])=>[k,value(x)]))}};
   beforeAll(async()=>{
     if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)||!projectId?.startsWith('demo-')||
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST||'')||
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIREBASE_AUTH_EMULATOR_HOST||'')) throw Error('Isolated loopback demo emulators are required.');
     app=initializeApp({projectId},prefix);db=getFirestore(app);
-    for(const [name,role] of [['admin','admin'],['admin2','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
+    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
       const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-only`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`${prefix}-${name}@example.invalid`,password:'synthetic-test-only',returnSecureToken:true})});
       const auth=await response.json();if(!auth.idToken)throw Error(`Auth fixture failed for ${name}`);
@@ -145,6 +149,77 @@ suite('CF01 authenticated HTTP boundary',()=>{
       expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
       expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
     }
+
+    // Current V2 commands must not introduce UID-only or blank attribution.
+    // Historical read compatibility remains in the client; no historical row
+    // is repaired here. Full canonical data/updateTime and absent receipts
+    // prove refusals cannot add a malformed row to the later pull population.
+    // Keep this independent negative campaign within the existing per-actor
+    // anomaly budget; no counter resets or runtime guard exceptions are used.
+    const author=actors.catalogueAuthor, editor=actors.catalogueEditor;
+    const named=typeRecord(`${prefix}-actor-names`,author.uid);
+    named.createdByName='Original Catalogue Author';
+    named.lastEditedByName='Original Catalogue Author';
+    const namedCommand=make('upsertAbnormalityType',named,'valid-actor-names');
+    const firstNamed=await accepted(author,namedCommand);
+    expect(firstNamed.result.record).toEqual(named);
+    const namedPath=`abnormality_types/${named.firestoreId}`;
+    const namedBaseline=await waitForStamped(namedPath,named);
+    const namedSnapshot=await db.doc(namedPath).get();
+    for(const field of ['createdByName','lastEditedByName']) {
+      for(const [label,missingName] of [['missing',undefined],['null',null],['empty',''],['whitespace','  ']]) {
+        for(const mode of ['create','update']) {
+          const suffix=`name-${mode}-${field}-${label}`;
+          const candidate=mode==='create'?typeRecord(`${prefix}-${suffix}`,author.uid):{...named,version:2};
+          candidate[field]=missingName;
+          if(label==='missing') delete candidate[field];
+          const bad=make('upsertAbnormalityType',candidate,suffix);
+          expect((await invoke(author,bad)).error.status)
+            .toBe(mode==='update'&&field==='createdByName'?'PERMISSION_DENIED':'INVALID_ARGUMENT');
+          const retained=await db.doc(namedPath).get();
+          expect(retained.data()).toEqual(namedBaseline);
+          expect(retained.updateTime.isEqual(namedSnapshot.updateTime)).toBe(true);
+          if(mode==='create') expect((await db.doc(`abnormality_types/${candidate.firestoreId}`).get()).exists).toBe(false);
+          expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+          expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+        }
+      }
+    }
+    for(const [field,limit] of [['description',4000],['deletedByName',500],['deleteReason',2000]]) {
+      for(const [label,invalidText] of [['empty',''],['whitespace','  '],['wrong-type',7],['too-long','x'.repeat(limit+1)]]) {
+        const candidate={...named,version:2,[field]:invalidText};
+        if(field!=='description') Object.assign(candidate,{
+          isDeleted:true,isActive:false,deletedAt:named.updatedAt,deletedByUid:author.uid,
+        });
+        const bad=make('upsertAbnormalityType',candidate,`invalid-${field}-${label}`);
+        expect((await invoke(author,bad)).error.status).toBe('INVALID_ARGUMENT');
+        const retained=await db.doc(namedPath).get();
+        expect(retained.data()).toEqual(namedBaseline);
+        expect(retained.updateTime.isEqual(namedSnapshot.updateTime)).toBe(true);
+        expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+        expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+      }
+    }
+    const namedEdit={...named,version:2,title:'Reviewed catalogue title',
+      lastEditedByUid:editor.uid,lastEditedByName:'Second Catalogue Reviewer'};
+    expect((await accepted(editor,make('upsertAbnormalityType',namedEdit,'valid-actor-name-edit'))).result.record).toEqual(namedEdit);
+    const editedBaseline=await waitForStamped(namedPath,namedEdit,namedBaseline._globalPullServerUpdatedAt);
+    const editedSnapshot=await db.doc(namedPath).get();
+    expect(await accepted(author,namedCommand)).toEqual(firstNamed);
+    const afterOriginalReplay=await db.doc(namedPath).get();
+    expect(afterOriginalReplay.data()).toEqual(editedBaseline);
+    expect(afterOriginalReplay.updateTime.isEqual(editedSnapshot.updateTime)).toBe(true);
+    const namedDeleted={...namedEdit,version:3,isDeleted:true,isActive:false,
+      deletedAt:namedEdit.updatedAt,deletedByUid:editor.uid,deletedByName:null,deleteReason:null};
+    const deleteCommand=make('upsertAbnormalityType',namedDeleted,'valid-null-deletion-text');
+    const deleteReceipt=await accepted(editor,deleteCommand);
+    expect(deleteReceipt.result.record).toEqual(namedDeleted);
+    const deletedBaseline=await waitForStamped(namedPath,namedDeleted,editedBaseline._globalPullServerUpdatedAt);
+    const deletedSnapshot=await db.doc(namedPath).get();
+    expect(await accepted(editor,deleteCommand)).toEqual(deleteReceipt);
+    const afterDeleteReplay=await db.doc(namedPath).get();
+    expect(afterDeleteReplay.data()).toEqual(deletedBaseline);
+    expect(afterDeleteReplay.updateTime.isEqual(deletedSnapshot.updateTime)).toBe(true);
   },120000);
   test.each([
     ['abnormality_types','admin',typeRecord],['job_templates','si',templateRecord],['job_executions','worker',executionRecord],

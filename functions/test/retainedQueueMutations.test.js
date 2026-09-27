@@ -111,6 +111,70 @@ test('original creator name and historical creation instant cannot be revised',a
   const record=typeRecord();await execute(command('upsertAbnormalityType',record));
   await expect(execute(command('upsertAbnormalityType',{...record,version:2,createdByName:'Reattributed'}))).rejects.toMatchObject({code:'permission-denied'});
 });
+
+describe('abnormality catalogue actor names remain readable',()=>{
+  for (const field of ['createdByName','lastEditedByName']) {
+    for (const [label,value] of [['missing',undefined],['null',null],['empty',''],['whitespace','  ']]) {
+      test.each(['create','update'])(`%s refuses ${label} ${field} with a retained UID and no writes`,async(mode)=>{
+        const original=typeRecord();
+        if(mode==='update') await execute(command('upsertAbnormalityType',original));
+        const candidate={...original,version:mode==='create'?1:2,[field]:value};
+        if(label==='missing') delete candidate[field];
+        const cmd=command('upsertAbnormalityType',candidate);
+        const before=store.entries();
+        await expect(execute(cmd)).rejects.toMatchObject({
+          code:mode==='update'&&field==='createdByName'?'permission-denied':'invalid-argument',
+        });
+        expect(store.entries()).toEqual(before);
+        expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+        expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+      });
+    }
+  }
+  test('valid original and later editor names retain exact attribution and replay',async()=>{
+    const original={...typeRecord(),createdByName:'Original Author',lastEditedByName:'Original Author'};
+    const firstCommand=command('upsertAbnormalityType',original);
+    const first=await execute(firstCommand);
+    expect(first.result.record).toEqual(original);
+    const edited={...original,version:2,title:'Reviewed catalogue title',lastEditedByUid:'admin2',lastEditedByName:'Second Reviewer'};
+    const editCommand=command('upsertAbnormalityType',edited);
+    expect((await execute(editCommand,'admin2')).result.record).toEqual(edited);
+    const beforeReplay=store.entries();
+    expect(await execute(firstCommand)).toEqual(first);
+    expect(store.entries()).toEqual(beforeReplay);
+    expect(store.read('abnormality_types/type-1')).toEqual(edited);
+  });
+  for(const [field,limit] of [['description',4000],['deletedByName',500],['deleteReason',2000]]) {
+    test.each(['','  ',7,'x'.repeat(limit+1)])(`catalogue ${field} refuses unreadable present text without writes`,async(value)=>{
+      const original=typeRecord();
+      await execute(command('upsertAbnormalityType',original));
+      const candidate={...original,version:2,[field]:value};
+      if(field!=='description') Object.assign(candidate,{
+        isDeleted:true,isActive:false,deletedAt:original.updatedAt,deletedByUid:'admin',
+      });
+      const cmd=command('upsertAbnormalityType',candidate);
+      const before=store.entries();
+      await expect(execute(cmd)).rejects.toMatchObject({code:'invalid-argument'});
+      expect(store.entries()).toEqual(before);
+      expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+      expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+    });
+  }
+  test.each(['null','missing'])('legacy optional catalogue deletion text may remain %s',async(mode)=>{
+    const original=typeRecord();
+    await execute(command('upsertAbnormalityType',original));
+    const deleted={...original,version:2,isDeleted:true,isActive:false,
+      deletedAt:original.updatedAt,deletedByUid:'admin',description:null,deletedByName:null,deleteReason:null};
+    if(mode==='missing') for(const field of ['description','deletedByName','deleteReason']) delete deleted[field];
+    const cmd=command('upsertAbnormalityType',deleted);
+    const accepted=await execute(cmd);
+    expect(accepted.result.record).toMatchObject({isDeleted:true,isActive:false,createdByName:'admin',lastEditedByName:'admin'});
+    for(const field of ['description','deletedByName','deleteReason']) expect(accepted.result.record[field]??null).toBeNull();
+    const beforeReplay=store.entries();
+    expect(await execute(cmd)).toEqual(accepted);
+    expect(store.entries()).toEqual(beforeReplay);
+  });
+});
 test('permanent purge evidence prevents recreating a catalogue identity',async()=>{
   const hash=require('node:crypto').createHash('sha256').update('abnormality_types/type-1').digest('hex');
   store.seed(`pilot_record_purge_manifests/purge_${hash}`,{entityId:'type-1'});
@@ -214,8 +278,6 @@ describe('nested retained evidence uses the strict persisted payload readers',()
     expect((await execute(command('updateJobExecutionWork',next),'worker')).result.record).toEqual(next);
   });
   test.each(['','  '])('client optional text can remain blank without changing evidence %j',async(blank)=>{
-    const type={...typeRecord(),description:blank,createdByName:blank,lastEditedByName:blank};
-    expect((await execute(command('upsertAbnormalityType',type))).result.record).toEqual(type);
     const template={...templateRecord(),description:blank,component:blank,subsystem:blank,createdByName:blank};
     expect((await execute(command('upsertLegacyJobTemplate',template),'si')).result.record).toEqual(template);
     const original=executionRecord();store.seed('job_executions/execution-1',original);

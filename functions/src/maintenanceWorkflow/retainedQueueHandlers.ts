@@ -238,7 +238,12 @@ function record(raw: unknown, fields: string[], command: WorkflowCommand): Mutab
   return result;
 }
 function validateType(data: Mutable, actor: Actor, before: JsonMap | null): void {
-  text(data.code, "code", 160); text(data.title, "title", 500); text(data.description, "description", 4000, true);
+  text(data.code, "code", 160); text(data.title, "title", 500);
+  // These optional catalogue fields are absent or readable nonblank text; the
+  // other retained domains intentionally have different blank-text contracts.
+  for (const [field, limit] of [["description", 4000], ["deletedByName", 500], ["deleteReason", 2000]] as const) {
+    if (data[field] != null) text(data[field], field, limit);
+  }
   choice(data.category, "category", ["process", "equipment", "resultQuality", "reannealing", "other"]);
   choice(data.severity, "severity", ["low", "medium", "high", "critical"]);
   strings(data.applicableAssetTypes, "applicableAssetTypes");
@@ -246,7 +251,9 @@ function validateType(data: Mutable, actor: Actor, before: JsonMap | null): void
   if (assets.length > 5 || new Set(assets).size !== assets.length || assets.some((asset) => !ASSETS.includes(asset))) fail("Invalid applicable asset types.");
   if (typeof data.suggestsReannealing !== "boolean" || typeof data.isActive !== "boolean" || data.isDeleted && data.isActive) fail("Invalid catalogue state.");
   text(data.createdByUid, "createdByUid", 512);
-  for (const field of ["createdByName", "lastEditedByName"]) text(data[field], field, 500, true);
+  // Legacy readers may retain an absent name, but a new actor-bound catalogue
+  // mutation must not introduce incomplete or unreadable attribution.
+  for (const field of ["createdByName", "lastEditedByName"]) text(data[field], field, 500);
   if (data.lastEditedByUid !== actor.uid || before == null && data.createdByUid !== actor.uid) fail("Catalogue mutation actor does not match the origin.", "permission-denied");
 }
 function validateTemplate(data: Mutable, actor: Actor, before: JsonMap | null): void {
