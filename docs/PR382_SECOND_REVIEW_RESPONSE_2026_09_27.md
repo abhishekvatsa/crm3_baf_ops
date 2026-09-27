@@ -1,13 +1,16 @@
 # PR #382: response to the review of 1023459d
 
 This records review findings and their evidence. It does not authorize a merge,
-backend deployment, production build or distribution. CF-01 remains open.
+backend deployment, production build or distribution. The review below preserves
+its original checkpoint; the implementation update gives the later status.
 
 Implementation update: the bounded CF-01 repair is now in source, including native
 atomic ownership, online retained requests, the V2 backend boundary and direct-write
 denial. The historical design discussion below describes the earlier checkpoint.
 See [the implementation and validation record](CF01_IMPLEMENTATION_VALIDATION_2026_09_27.md)
-for current evidence; actual Android and fresh CI acceptance remain required.
+for current evidence. Actual Android account-switch/restart proof and all CI jobs
+passed at `c949f514`; subsequent nested-evidence hardening requires fresh checks
+on its own head. Production rollout remains pending.
 
 The supplied review identifies its baseline as
 `1023459d2c9f5351823c2c7220ac21304f6252ad`. The CI setup repair is

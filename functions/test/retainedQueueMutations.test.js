@@ -134,6 +134,145 @@ test('checked Dart audit fixture exactly matches fresh dispatcher output',async(
   const {produceRetainedQueueAudits}=require('./helpers/produceRetainedQueueAudits.cjs');
   expect(await produceRetainedQueueAudits()).toEqual(fixture);
 });
+
+test('checked Dart nested evidence fixture exactly matches fresh dispatcher output',async()=>{
+  const fixture=require('../../test/fixtures/retained_queue_nested_dispatcher_records.json');
+  const {produceRetainedQueueNestedEvidence}=require('./helpers/produceRetainedQueueNestedEvidence.cjs');
+  expect(await produceRetainedQueueNestedEvidence()).toEqual(fixture);
+});
+
+describe('nested retained evidence uses the strict persisted payload readers',()=>{
+  const action=(change={})=>({asset:'Furnace 1',component:'Seal',action:'inspect',
+    isAutoResolved:false,createdAt:'2026-09-27T00:00:20.123456Z',severity:'low',version:1,...change});
+  const reference=(change={})=>({schemaVersion:1,assetClassId:'furnace-class',assetClassCode:'FURNACE',
+    assetClassName:'Furnace',nodeId:'seal-node',nodeVersion:1,nodeName:'Seal',hierarchyPath:['Furnace','Seal'],
+    ownershipStatus:'unassigned',ownerDiscipline:null,accountableRoleKeys:[],...change});
+  test.each([
+    ['responsesJson','[{}]'],
+    ['actionsJson','[{}]'],
+    ['responsesJson','[{"key":"pressure"}]'],
+    ['responsesJson','[{"key":"pressure","value":1},{"fieldId":"PRESSURE","answer":2}]'],
+    ['responsesJson','[{"schemaVersion":2,"key":"pressure","value":1}]'],
+    ['responsesJson','[{"key":"pressure","value":1,"futureAuthority":true}]'],
+    ['actionsJson',JSON.stringify([action({isAutoResolved:'false'})])],
+    ['actionsJson',JSON.stringify([action({assetHierarchyRef:{}})])],
+    ['actionsJson',JSON.stringify([action({metadataJson:'[]'})])],
+    ['actionsJson',JSON.stringify([action({burnerPosition:2})])],
+    ['actionsJson',JSON.stringify([action({schemaVersion:2})])],
+    ['actionsJson',JSON.stringify([action({createdAt:'September 27, 2026'})])],
+    ['actionsJson',JSON.stringify([action({burnerPosition:2,attendanceSessionId:' ',burnerActionCode:'inspect',burnerOutcome:'normal'})])],
+    ['metadataJson',{}],
+  ])('malformed execution %s cannot change canonical work, audit, or receipt',async(field,raw)=>{
+    const original=executionRecord();store.seed('job_executions/execution-1',original);
+    const before=store.entries();
+    await expect(execute(command('updateJobExecutionWork',{...original,version:2,[field]:raw}),'worker'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+  test.each([
+    {fields:[{}],fieldsJson:'[{}]'},
+    {metadataJson:{}},
+    {assetHierarchyRefJson:'{}'},
+    ...[
+      [{key:'test',type:'unregistered'}],
+      [{key:'test'},{fieldId:'TEST'}],
+      [{key:'test',required:'true'}],
+      [{key:'test',schemaVersion:2}],
+      [{key:'test',moduleCode:'module-only-field'}],
+      [{key:'test',validationJson:'[]'}],
+      [{key:'test',validationJson:'null'}],
+    ].map(fields=>({fields,fieldsJson:JSON.stringify(fields)})),
+    {assetHierarchyRefJson:JSON.stringify(reference({schemaVersion:9}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({ownershipStatus:'confirmed'}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({schemaVersion:2,scope:'installedComponent'}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({nodeVersion:0}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({ownershipStatus:'provisional',accountableRoleKeys:Array(11).fill('si')}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({ownershipStatus:'provisional',accountableRoleKeys:['x'.repeat(81)]}))},
+    {assetHierarchyRefJson:JSON.stringify(reference({schemaVersion:4,scope:'componentDefinitionOnAsset',assetInstanceId:'furnace-1',
+      assetInstanceVersion:1,assetNumber:1,assetInstanceName:'Furnace 1',componentTag:''}))},
+  ])('malformed template nested evidence is refused before any write %j',async(change)=>{
+    const before=store.entries();
+    await expect(execute(command('upsertLegacyJobTemplate',{...templateRecord(),...change}),'si'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+  test('valid legacy fields, definition reference, aliases, and free template metadata retain exact bytes',async()=>{
+    const fields=[{fieldId:'pressure',title:'Pressure',fieldType:'numericWithUnit',isRequired:true,
+      options:['bar'],validation:'{"min":0}',validationJson:{min:0},meta:'{"createdAt":"authored note"}'}];
+    const record={...templateRecord(),fields,fieldsJson:JSON.stringify(fields,null,2),
+      assetHierarchyRefJson:JSON.stringify(reference()),metadataJson:'{"customNote":"Original evidence"}'};
+    const receipt=await execute(command('upsertLegacyJobTemplate',record),'si');
+    expect(receipt.result.record).toEqual(record);
+    expect(store.read('job_templates/template-1')).toEqual(record);
+    expect(await execute(command('upsertLegacyJobTemplate',record),'si')).toEqual(receipt);
+  });
+  test.each(['','  '])('blank legacy optional metadata remains readable and unchanged %j',async(metadataJson)=>{
+    const template={...templateRecord(),metadataJson};
+    expect((await execute(command('upsertLegacyJobTemplate',template),'si')).result.record).toEqual(template);
+    const original={...executionRecord(),metadataJson};store.seed('job_executions/execution-1',original);
+    const next={...original,version:2,remarks:'Actual observation'};
+    expect((await execute(command('updateJobExecutionWork',next),'worker')).result.record).toEqual(next);
+  });
+  test.each(['','  '])('client optional text can remain blank without changing evidence %j',async(blank)=>{
+    const type={...typeRecord(),description:blank,createdByName:blank,lastEditedByName:blank};
+    expect((await execute(command('upsertAbnormalityType',type))).result.record).toEqual(type);
+    const template={...templateRecord(),description:blank,component:blank,subsystem:blank,createdByName:blank};
+    expect((await execute(command('upsertLegacyJobTemplate',template),'si')).result.record).toEqual(template);
+    const original=executionRecord();store.seed('job_executions/execution-1',original);
+    const next={...original,version:2,remarks:blank};
+    expect((await execute(command('updateJobExecutionWork',next),'worker')).result.record).toEqual(next);
+  });
+  test.each([{remarks:17},{remarks:'x'.repeat(20001)}])('optional text still refuses invalid type/size %j',async(change)=>{
+    const original=executionRecord();store.seed('job_executions/execution-1',original);const before=store.entries();
+    await expect(execute(command('updateJobExecutionWork',{...original,version:2,...change}),'worker'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+  test('valid legacy action/response aliases and unrelated work metadata remain editable verbatim',async()=>{
+    const provenance={source:'server_governed_legacy_template_assignment',assignmentSchemaVersion:1,
+      assignmentAssetIdentity:{assetClassId:'furnace-class',assetInstanceId:'furnace-1',assetNumber:1},
+      jobTemplateSnapshot:JSON.stringify({assetHierarchyRefJson:JSON.stringify(reference())})};
+    const original={...executionRecord(),metadataJson:JSON.stringify(provenance)};
+    store.seed('job_executions/execution-1',original);
+    const next={...original,version:2,
+      responsesJson:'[ {"fieldId":"pressure","answer":null,"type":"numericWithUnit"} ]',
+      actionsJson:JSON.stringify([action({assetHierarchyRef:reference(),remarks:'',metadataJson:'{"note":"inspection"}'})]),
+      metadataJson:JSON.stringify({...provenance,operatorNote:{text:'Actual work',shift:2}})};
+    const receipt=await execute(command('updateJobExecutionWork',next),'worker');
+    expect(receipt.result.record).toEqual(next);
+    expect(store.read('job_executions/execution-1')).toEqual(next);
+    expect(await execute(command('updateJobExecutionWork',next),'worker')).toEqual(receipt);
+  });
+  test.each(['assignmentAssetIdentity','assignmentInnerCoverPosition','jobTemplateSnapshot','publicationAuditId',
+    'source','assignmentSchemaVersion','contentHash','maintenanceClassification','maintenanceClassificationRevision','closureAttestation'])
+  ('work cannot introduce, change, or remove reserved %s',async(key)=>{
+    const prior={...executionRecord(),metadataJson:JSON.stringify({[key]:'unchanged provenance'})};
+    for(const metadata of [{}, {[key]:'reattributed'}]) {
+      store.seed('job_executions/execution-1',prior);
+      const before=store.entries();
+      await expect(execute(command('updateJobExecutionWork',{...prior,version:2,metadataJson:JSON.stringify(metadata)}),'worker'))
+        .rejects.toMatchObject({code:'permission-denied'});
+      expect(store.entries()).toEqual(before);
+    }
+    const empty=executionRecord();store.seed('job_executions/execution-1',empty);
+    const before=store.entries();
+    await expect(execute(command('updateJobExecutionWork',{...empty,version:2,metadataJson:JSON.stringify({[key]:'forged'})}),'worker'))
+      .rejects.toMatchObject({code:'permission-denied'});
+    expect(store.entries()).toEqual(before);
+  });
+  test.each([
+    {jobTemplateSnapshot:[]}, {jobTemplateSnapshot:{assetHierarchyRefJson:'{}'}},
+    {assignmentAssetIdentity:null}, {assignmentAssetIdentity:{}},
+    {assignmentAssetIdentity:{assetClassId:'class',assetInstanceId:'asset',assetNumber:2}},
+    {assignmentInnerCoverPosition:{}},
+  ])('invalid stored assignment structure cannot be copied into newly accepted work %j',async(metadata)=>{
+    const original={...executionRecord(),metadataJson:JSON.stringify(metadata)};
+    store.seed('job_executions/execution-1',original);const before=store.entries();
+    await expect(execute(command('updateJobExecutionWork',{...original,version:2,remarks:'New observation'}),'worker'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+});
 describe.each([
   ['upsertAbnormalityType','abnormality_types',typeRecord],
   ['upsertLegacyJobTemplate','job_templates',templateRecord],

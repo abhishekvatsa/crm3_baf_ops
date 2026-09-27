@@ -1,5 +1,7 @@
 import {createHash} from "crypto";
 import {persistedInstantMillis} from "../persistedInstant";
+import {PersistedWorkPayloadError, readFieldDefinitionPayload, readFieldResponsePayload} from "../persistedWorkPayload";
+import {PersistedActionPayloadError, readComponentActionPayload} from "../persistedActionPayload";
 import {stableJson} from "../stableJson";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
@@ -44,12 +46,13 @@ const TYPE = `${COMMON} code title description category severity applicableAsset
 const TEMPLATE = `${COMMON} jobName description applicableAssetType assignedAgencies component subsystem hierarchyPath assetHierarchyRefJson fields fieldsJson createdByUid createdByName isActive isDeprecated metadataJson`.split(" ");
 const EXECUTION = `${COMMON} templateFirestoreId templateName templatePackageId templateVersionId templateVersionNumber templateVersionLabel templateContentHash templatePackageCode assetType assetNumber isCompleted isCancelled cancelledAt cancelledByUid cancelledByName cancellationReason assignedByUid assignedByName assignedAgencies workflowSchemaVersion laneSetVersion laneSetFinalizedAt laneSetFinalizedByUid laneSetFinalizedByName laneMappingReview parentExecutionFirestoreId spawnedRedExecutionFirestoreId redAnswerJson completedByUid completedByName remarks teamsInvolved chargeNoAtEvent responsesJson actionsJson metadataJson completedAt`.split(" ");
 const WORK = new Set("remarks teamsInvolved responsesJson actionsJson metadataJson updatedAt version".split(" "));
+const TEMPLATE_FIELD = new Set("schemaVersion key fieldKey fieldId id name label title type fieldType required isRequired unit options version validation validationJson instructionText order meta".split(" "));
 const ASSETS = ["base", "furnace", "forceCooler", "innerCover", "governedCustom"];
 type Mutable = {[key: string]: JsonValue | undefined};
 const object = (value: unknown): value is JsonMap => value != null && typeof value === "object" && !Array.isArray(value);
 function text(value: unknown, field: string, limit: number, optional = false): void {
   if (optional && value == null) return;
-  if (typeof value !== "string" || !value.trim() || value.length > limit) fail(`${field} is invalid.`);
+  if (typeof value !== "string" || !optional && !value.trim() || value.length > limit) fail(`${field} is invalid.`);
 }
 function strings(value: unknown, field: string): void {
   if (!Array.isArray(value) || value.length > 100 || value.some((item) => typeof item !== "string" || !item.trim() || item.length > 500)) fail(`${field} is invalid.`);
@@ -64,6 +67,126 @@ function json(value: unknown, field: string, array = false, optional = false): u
   try { parsed = JSON.parse(value); } catch { return fail(`${field} is malformed JSON.`); }
   if (array ? !Array.isArray(parsed) || parsed.some((item) => !object(item)) : !object(parsed)) fail(`${field} has invalid structure.`);
   return parsed;
+}
+
+function persistedPayload<T>(read: () => T): T {
+  try { return read(); } catch (error) {
+    if (error instanceof PersistedWorkPayloadError || error instanceof PersistedActionPayloadError) {
+      throw new WorkflowError("invalid-argument", "The saved structured evidence is invalid.",
+        {reasonCode: "retained-queue-mutation-invalid", field: error.field});
+    }
+    throw error;
+  }
+}
+
+function optionalMetadataObject(value: unknown, field: string): JsonMap | null {
+  if (value == null || typeof value === "string" && !value.trim()) return null;
+  const decoded = typeof value === "string" ? json(value, field) : value;
+  if (!object(decoded)) return fail(`${field} must be an object.`);
+  return decoded;
+}
+
+function metadataText(value: unknown, field: string): JsonMap | null {
+  if (value != null && typeof value !== "string") return fail(`${field} must be encoded text.`);
+  return optionalMetadataObject(value, field);
+}
+
+// Match the persisted client reference reader, including schema-1 definition
+// references. The event-only affected-asset validator intentionally excludes
+// those legitimate reusable template definitions and cannot be used here.
+function hierarchyReference(value: unknown, field: string): void {
+  if (!object(value)) return fail(`${field} must be a hierarchy reference.`);
+  const ref = value;
+  if (![1, 2, 3, 4].includes(ref.schemaVersion as number)) fail(`${field}.schemaVersion is unsupported.`);
+  const scope = ref.schemaVersion === 1 ? "definition" : ref.scope;
+  choice(scope, `${field}.scope`, ["definition", "physicalAsset", "componentDefinitionOnAsset", "installedComponent"]);
+  for (const key of ["assetClassId", "assetClassCode", "assetClassName", "nodeId", "nodeName"]) text(ref[key], `${field}.${key}`, 500);
+  const positive = (key: string, required = false): void => {
+    if (!required && ref[key] == null) return;
+    if (!Number.isSafeInteger(ref[key]) || (ref[key] as number) < 1) fail(`${field}.${key} is invalid.`);
+  };
+  positive("nodeVersion", true);
+  for (const key of ["assetInstanceVersion", "assetNumber", "componentInstanceVersion"]) positive(key);
+  const optionalText = (key: string): string | null => {
+    if (ref[key] == null) return null;
+    if (typeof ref[key] !== "string") return fail(`${field}.${key} must be text.`);
+    return (ref[key] as string).trim() || null;
+  };
+  const assetId = optionalText("assetInstanceId"), assetName = optionalText("assetInstanceName");
+  const componentId = optionalText("componentInstanceId");
+  optionalText("componentTag");
+  const owner = optionalText("ownerDiscipline");
+  for (const key of ["hierarchyPath", "accountableRoleKeys"]) if (ref[key] != null) strings(ref[key], `${field}.${key}`);
+  choice(ref.ownershipStatus, `${field}.ownershipStatus`, ["unassigned", "provisional", "confirmed"]);
+  const roleCount = (ref.accountableRoleKeys as unknown[] | null)?.length ?? 0;
+  if (roleCount > 10 || (ref.accountableRoleKeys as string[] | null)?.some((role) => role.trim().length > 80)) fail(`${field} accountable roles exceed the supported limits.`);
+  if (ref.ownershipStatus === "unassigned" && (owner != null || roleCount > 0) ||
+      ref.ownershipStatus === "provisional" && owner == null && roleCount === 0 ||
+      ref.ownershipStatus === "confirmed" && (owner == null || roleCount === 0)) fail(`${field} ownership is incomplete.`);
+  const completeAsset = assetId != null && assetName != null && ref.assetInstanceVersion != null && ref.assetNumber != null;
+  if (scope === "installedComponent" && (!completeAsset || componentId == null ||
+      ref.componentInstanceVersion == null || ref.ownershipStatus !== "confirmed")) fail(`${field} installed identity is incomplete.`);
+  if (scope === "physicalAsset" && ((ref.schemaVersion as number) < 3 || !completeAsset ||
+      componentId != null || ref.componentInstanceVersion != null)) fail(`${field} physical identity is invalid.`);
+  if (scope === "componentDefinitionOnAsset" && (ref.schemaVersion !== 4 || !completeAsset ||
+      componentId != null || ref.componentInstanceVersion != null || ref.componentTag != null)) fail(`${field} component definition identity is invalid.`);
+  if (ref.innerCoverAssociation != null) {
+    const link = ref.innerCoverAssociation;
+    if ((ref.schemaVersion as number) < 3 || scope === "definition" || !object(link) ||
+        link.baseAssetInstanceId !== assetId || link.baseAssetNumber !== ref.assetNumber) fail(`${field} Inner Cover identity is invalid.`);
+    const association = link as JsonMap;
+    for (const key of ["baseAssetInstanceId", "confirmedByUid", "confirmedByName"]) text(association[key], `${field}.${key}`, 500);
+    if (!Number.isSafeInteger(association.baseAssetNumber) || (association.baseAssetNumber as number) < 1) fail(`${field} Base number is invalid.`);
+    choice(association.positionState, `${field}.positionState`, ["linked", "noneLinked"]);
+    const event = retainedQueueInstant(association.eventAt), confirmed = retainedQueueInstant(association.confirmedAt);
+    const linked = association.linkedAt == null ? null : retainedQueueInstant(association.linkedAt);
+    if (event > confirmed || linked != null && (linked > event || linked > confirmed)) fail(`${field} linkage chronology is invalid.`);
+    for (const key of ["innerCoverId", "innerCoverSerialNumber", "linkageId"]) text(association[key], `${field}.${key}`, 500, association.positionState !== "linked");
+    if (association.positionState === "linked" && (linked == null || !Number.isSafeInteger(association.assignmentVersion) ||
+        (association.assignmentVersion as number) < 1)) fail(`${field} linked position is incomplete.`);
+    if (association.positionState === "noneLinked" && ["innerCoverId", "innerCoverSerialNumber", "linkageId", "assignmentVersion", "linkedAt"]
+      .some((key) => association[key] != null)) fail(`${field} unlinked position contains linkage evidence.`);
+  }
+}
+
+const ASSIGNMENT_METADATA = [
+  "source", "assignmentSchemaVersion", "requestId", "publicationAuditId",
+  "packageFirestoreId", "packageCode", "packageTitle", "versionFirestoreId", "versionNumber", "versionLabel", "contentHash",
+  "sourceMaintenancePlanId", "sourceMaintenancePlanVersion", "assignmentAssetIdentity", "assignmentInnerCoverPosition",
+  "jobTemplateSnapshot", "maintenanceClassification", "maintenanceClassificationRevision", "closureAttestation",
+];
+function executionMetadata(data: Mutable, before: JsonMap): void {
+  const current = metadataText(data.metadataJson, "metadataJson") ?? {};
+  const previous = metadataText(before.metadataJson, "stored metadataJson") ?? {};
+  // Ordinary work cannot introduce, remove, or rewrite assignment provenance,
+  // reviewed classification, or closure evidence. Dedicated commands own those.
+  for (const key of ASSIGNMENT_METADATA) {
+    if (Object.prototype.hasOwnProperty.call(current, key) !== Object.prototype.hasOwnProperty.call(previous, key) ||
+        stableJson(current[key] ?? null) !== stableJson(previous[key] ?? null)) {
+      fail(`Execution metadata ${key} is pinned.`, "permission-denied");
+    }
+  }
+  const snapshot = optionalMetadataObject(current.jobTemplateSnapshot, "metadataJson.jobTemplateSnapshot");
+  if (snapshot != null) {
+    const job = snapshot;
+    if (job.assetHierarchyRefJson != null) hierarchyReference(json(job.assetHierarchyRefJson, "jobTemplateSnapshot.assetHierarchyRefJson"), "jobTemplateSnapshot.assetHierarchyRefJson");
+  }
+  const identity = optionalMetadataObject(current.assignmentAssetIdentity, "metadataJson.assignmentAssetIdentity");
+  if (Object.prototype.hasOwnProperty.call(current, "assignmentAssetIdentity")) {
+    if (!object(identity)) fail("metadataJson.assignmentAssetIdentity must be an object.");
+    const asset = identity as JsonMap;
+    for (const key of ["assetClassId", "assetInstanceId"]) text(asset[key], `assignmentAssetIdentity.${key}`, 500);
+    if (!Number.isSafeInteger(asset.assetNumber) || (asset.assetNumber as number) < 1 || asset.assetNumber !== data.assetNumber) fail("Assignment asset number must match the execution.");
+  }
+  const position = optionalMetadataObject(current.assignmentInnerCoverPosition, "metadataJson.assignmentInnerCoverPosition");
+  if (Object.prototype.hasOwnProperty.call(current, "assignmentInnerCoverPosition")) {
+    if (!object(position) || !object(identity) || data.assetType !== "innerCover") fail("Assignment Inner Cover position has no physical Base.");
+    const link = position as JsonMap, asset = identity as JsonMap;
+    for (const key of ["baseAssetInstanceId", "baseAssetClassId", "innerCoverId", "innerCoverSerialNumber", "linkageId"]) text(link[key], `assignmentInnerCoverPosition.${key}`, 500);
+    if (link.baseAssetInstanceId !== asset.assetInstanceId || link.baseAssetClassId !== asset.assetClassId ||
+        link.baseAssetNumber !== asset.assetNumber || !Number.isSafeInteger(link.assignmentVersion) ||
+        (link.assignmentVersion as number) < 1) fail("Assignment Inner Cover position must match its Base.");
+  } else if (data.assetType === "innerCover" && identity != null) fail("An exact Inner Cover assignment requires its recorded position.");
 }
 
 /** Canonical microsecond wire is stable through native receipt persistence.
@@ -132,10 +255,22 @@ function validateTemplate(data: Mutable, actor: Actor, before: JsonMap | null): 
   strings(data.assignedAgencies, "assignedAgencies");
   if (data.hierarchyPath != null) strings(data.hierarchyPath, "hierarchyPath");
   for (const field of ["component", "subsystem", "createdByUid", "createdByName"]) text(data[field], field, 500, true);
-  const fields = json(data.fieldsJson, "fieldsJson", true);
+  const fields = json(data.fieldsJson, "fieldsJson", true) as JsonMap[];
   if (!Array.isArray(data.fields) || stableJson(fields) !== stableJson(data.fields)) fail("Template field representations disagree.");
-  json(data.metadataJson, "metadataJson", false, true);
-  json(data.assetHierarchyRefJson, "assetHierarchyRefJson", false, true);
+  // Module definitions have extra registered fields; legacy TemplateField does
+  // not. Do not admit a module-only field that its strict client reader rejects.
+  if (fields.some((row) => Object.keys(row).some((key) => !TEMPLATE_FIELD.has(key)))) fail("Template fields contain unsupported extensions.");
+  // Older TemplateField readers accept these bags as either maps or encoded
+  // maps. Validate a detached view, preserving the submitted evidence bytes.
+  const validationFields = fields.map((row, index) => {
+    const validation = optionalMetadataObject(row.validation, `fieldsJson[${index}].validation`);
+    const meta = optionalMetadataObject(row.meta, `fieldsJson[${index}].meta`);
+    const encoded = optionalMetadataObject(row.validationJson, `fieldsJson[${index}].validationJson`);
+    return {...row, validation, meta, validationJson: encoded == null ? null : JSON.stringify(encoded)};
+  });
+  persistedPayload(() => readFieldDefinitionPayload(JSON.stringify(validationFields), {field: "fieldsJson"}));
+  metadataText(data.metadataJson, "metadataJson");
+  if (data.assetHierarchyRefJson != null) hierarchyReference(json(data.assetHierarchyRefJson, "assetHierarchyRefJson"), "assetHierarchyRefJson");
   if (typeof data.isActive !== "boolean" || typeof data.isDeprecated !== "boolean") fail("Invalid template state.");
   if (before == null && data.createdByUid !== actor.uid) fail("Template creator must be the origin actor.", "permission-denied");
   if (data.isDeleted && !actor.roles.has("admin")) fail("Only Admin may write a deleted template.", "permission-denied");
@@ -146,7 +281,21 @@ function validateExecution(data: Mutable, before: JsonMap): void {
       data.isDeleted !== false || data.isCompleted !== false || data.isCancelled === true) fail("Only an existing open execution may receive work edits.", "failed-precondition");
   strings(data.teamsInvolved, "teamsInvolved"); text(data.remarks, "remarks", 20000, true);
   json(data.responsesJson, "responsesJson", true); json(data.actionsJson, "actionsJson", true);
-  json(data.metadataJson, "metadataJson", false, true);
+  persistedPayload(() => readFieldResponsePayload(data.responsesJson, {field: "responsesJson"}));
+  const actions = persistedPayload(() => readComponentActionPayload(data.actionsJson, {field: "actionsJson"}));
+  actions.rows.forEach((action, index) => {
+    // Date.parse also accepts prose dates that Dart's persisted reader rejects.
+    // Keep supported ISO/local representations verbatim, without shifting time.
+    const dartIso = /^[+-]?\d{4,6}-?\d{2}-?\d{2}(?:[ T]\d{2}(?::?\d{2}(?::?\d{2}(?:[.,]\d+)?)?)? ?(?:[zZ]|[+-]\d{2}(?::?\d{2})?)?)?$/;
+    for (const key of ["createdAt", "updatedAt"]) {
+      if (action[key] != null && (typeof action[key] !== "string" || !dartIso.test(action[key] as string))) fail(`actionsJson[${index}].${key} must be an ISO date.`);
+    }
+    for (const key of ["attendanceSessionId", "burnerActionCode", "burnerOutcome"]) {
+      if (action[key] != null && !(action[key] as string).trim()) fail(`actionsJson[${index}].${key} is incomplete burner evidence.`);
+    }
+    if (action.assetHierarchyRef != null) hierarchyReference(action.assetHierarchyRef, `actionsJson[${index}].assetHierarchyRef`);
+  });
+  executionMetadata(data, before);
   const defaults: JsonMap = {assignedAgencies: [], isCancelled: false, workflowSchemaVersion: 0,
     laneSetVersion: 0, laneMappingReview: false};
   for (const field of EXECUTION.filter((field) => !WORK.has(field))) {

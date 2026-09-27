@@ -1,6 +1,9 @@
 # CF-01 repair and verification — 27 September 2026
 
-Status: source repair complete; final Android/CI verification pending. PR #382 remains draft.
+Status: source repair and Android ownership proof complete at `c949f514`;
+the additional strict nested-evidence repair requires its own final-head CI.
+PR #382 remains draft. See the PR checks for the latest head, rather than treating
+this dated evidence checkpoint as a later revision's acceptance.
 This document does not authorize merge, backend deployment or distribution.
 
 ## Ownership boundary
@@ -36,7 +39,7 @@ creation remains available to its original reporter, with both document and
 local identity protected against replacement. Holding another account's row is
 a per-row failure, not a sign-out or an abort of independent synchronization.
 
-## Evidence and pending work
+## Evidence and final review
 
 - Native Isar ownership tests exercise A → B → database reopen → A across the
   three repaired queues, immutable retry, legacy evidence, concurrent local
@@ -45,14 +48,11 @@ a per-row failure, not a sign-out or an abort of independent synchronization.
   isolated `demo-` project, including actor/project/payload mismatch, V1 refusal,
   revoked and restored access, exact replay and direct-write denial.
 - The modified Firestore Rules suite passed all 247 tests in that isolated run.
-- Full backend host suite passed 2,485 tests across 82 suites, followed by focused
-  strict audit-fixture and malformed deletion-evidence regressions. Build,
-  type-check and callable/runtime inventories passed.
-- The final full Flutter run passed 3,967 tests with one skip and one stale
-  current-source inventory assertion. That assertion was corrected to the
-  independently measured source inventory; its complete test file then passed
-  6/6. All runtime tests passed in the full run. Fresh CI must validate the final
-  committed tree together.
+- At `c949f514`, all five jobs in [release-gate run 36299456883](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/36299456883)
+  passed. This includes 2,498 backend tests across 82 suites, backend inventories,
+  3,968 Flutter tests (one skip), the 225-test no-loss spine, full analysis,
+  Rules/callable validation and non-production Android packaging/cold start.
+  CodeQL also passed for that exact head.
 - Whole-client analysis is clean. The canonical source audit passed 153/153,
   strict inventory adversarial tests passed 24/24, and key-custody tests passed
   20/20 plus the tracked-source custody scan. Existing field policies, limits,
@@ -61,15 +61,30 @@ a per-row failure, not a sign-out or an abort of independent synchronization.
   authenticated Firebase accounts and server reads. It is declared in the CI
   manifest in preparation and resume phases. The runner force-stops the app,
   preserves data and uses a new application process; the resume phase checks
-  the persisted B session and original pending records before A returns. Its
-  actual Android execution is still pending.
+  the persisted B session and original pending records before A returns. Both
+  phases passed in the above Android CI job; they do not reconstruct the queue
+  from copied fixture envelopes after restart.
 - CI now requires a successful, non-skipped seven-test authenticated HTTP report
   before starting the Android journeys. A passing process without the exact
   completion marker is insufficient.
 
-Database-reopen host proof is not represented as completed Android process-restart
-proof. The existing separate-process abnormality recovery journey remains independent evidence.
+The Android process-restart proof is distinct from host database-reopen tests.
+The separate-process abnormality recovery journey also passed independently.
 No production records or connected-phone state were changed by these proofs.
+
+Final source review reproduced another admission gap: structurally invalid
+nested template/work evidence could pass a generic JSON shape check, and ordinary
+work metadata could alter assignment provenance. The follow-up repair applies the
+strict persisted readers, validates the legacy hierarchy-reference formats, and
+pins assignment/classification/closure metadata while preserving editable work
+notes. Original JSON evidence is retained verbatim. Compatibility checks include
+legacy aliases, blank optional text/metadata, null response values, and both the
+Dart readers' eager action decoding and lazy response/assignment accessors.
+The final local backend suite passed 2,554 tests across 82 suites; its 256
+emulator-only tests are excluded from that host count. Build, type-check and
+inventories passed. Eight Dart tests passed against four accepted records
+produced by the actual dispatcher, with backend fixture freshness enforced.
+The follow-up's exact-head CI must pass before its acceptance is claimed.
 
 ## Other PR repairs
 
@@ -84,8 +99,9 @@ At head `ae46316e`, the abnormality and separate-process restart Android
 journeys passed. Planned maintenance published through the real UI, then its
 next tap hit the still-visible publication notice. The test now waits for that
 notice to dismiss normally and requires a hit-testable assignment control;
-missed taps and all business acceptance assertions remain failures. The fresh
-planned journey result is still pending.
+missed taps and all business acceptance assertions remain failures. The complete
+planned journey passed at `c949f514`, together with the abnormality and recovery
+journeys.
 
 ## Deployment consequence
 

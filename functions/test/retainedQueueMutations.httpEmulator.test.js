@@ -18,6 +18,22 @@ suite('CF01 authenticated HTTP boundary',()=>{
   };
   const accepted=async(actor,cmd)=>{const result=await invoke(actor,cmd);expect(result.error).toBeUndefined();expect(result.result).toBeDefined();return result.result;};
   const make=(type,record,id)=>command(type,record,{projectId,commandId:`${prefix}-${id}`});
+  const seedStamped=async(path,record)=>{
+    await db.doc(path).set(record);
+    // The real trigger asynchronously adds its pull watermark. Establish the
+    // full canonical baseline after that legitimate write, then compare every
+    // field (including the watermark) across each refused mutation.
+    const deadline=Date.now()+15000;
+    while(Date.now()<deadline) {
+      const data=(await db.doc(path).get()).data();
+      if(data?._globalPullServerUpdatedAt instanceof Timestamp) {
+        expect(data).toEqual({...record,_globalPullServerUpdatedAt:data._globalPullServerUpdatedAt});
+        return data;
+      }
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
+    throw Error('Synthetic canonical fixture did not receive its server pull stamp.');
+  };
   const value=(v)=>v===null?{nullValue:null}:typeof v==='string'?{stringValue:v}:typeof v==='boolean'?{booleanValue:v}:typeof v==='number'?{integerValue:String(v)}:Array.isArray(v)?{arrayValue:{values:v.map(value)}}:{mapValue:{fields:Object.fromEntries(Object.entries(v).map(([k,x])=>[k,value(x)]))}};
   beforeAll(async()=>{
     if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)||!projectId?.startsWith('demo-')||
@@ -60,6 +76,12 @@ suite('CF01 authenticated HTTP boundary',()=>{
     if(type==='updateJobExecutionWork'){
       await db.doc(`${collection}/${record.firestoreId}`).set({...record,createdAt:Timestamp.fromDate(new Date('2026-09-27T00:00:00.123Z'))});
       record.createdAt='2026-09-27T00:00:00.123000Z';record.version=2;record.remarks='Saved by original actor';
+      record.responsesJson='[ {"fieldId":"inspection","answer":null} ]';
+      record.actionsJson=JSON.stringify([{asset:'Furnace 1',component:'Seal',action:'inspect',isAutoResolved:false,
+        createdAt:'2026-09-27T00:00:20.123456Z',severity:'low',version:1,remarks:''}]);
+    } else if(type==='upsertLegacyJobTemplate') {
+      record.fields=[{fieldId:'inspection',title:'Inspection',fieldType:'text',isRequired:false,meta:{note:'legacy alias'}}];
+      record.fieldsJson=JSON.stringify(record.fields,null,2);
     }
     const cmd=make(type,record,collection);
     expect((await invoke(actors[other],cmd,{origin:actors[owner].uid})).error).toMatchObject({status:'PERMISSION_DENIED',details:{reasonCode:'origin-bound-actor-mismatch'}});
@@ -92,22 +114,48 @@ suite('CF01 authenticated HTTP boundary',()=>{
   test('fresh wrong-role and forged work identity are refused without receipt',async()=>{
     const id=`${prefix}-negative`, type=make('upsertAbnormalityType',typeRecord(id,actors.ops.uid),'wrong-role');
     expect((await invoke(actors.ops,type)).error.status).toBe('PERMISSION_DENIED');
-    const original=executionRecord(id);await db.doc(`job_executions/${id}`).set(original);
+    const original=executionRecord(id),baseline=await seedStamped(`job_executions/${id}`,original);
     const cmd=make('updateJobExecutionWork',{...original,version:2,assetNumber:999},'forged-work');
     expect((await invoke(actors.worker,cmd)).error.status).toBe('PERMISSION_DENIED');
-    expect((await db.doc(`job_executions/${id}`).get()).data()).toEqual(original);
+    expect((await db.doc(`job_executions/${id}`).get()).data()).toEqual(baseline);
     expect((await db.doc(`audit_logs/server_cf01_${cmd.commandId}`).get()).exists).toBe(false);
+    // Keep these cases inside the same HTTP test: the CI gate requires all
+    // seven boundary scenarios, and every invalid attempt must leave no row,
+    // audit, or receipt while the shared emulator stays readable for Android.
+    const invalid=[
+      ['responses',{responsesJson:'[{}]'}],['actions',{actionsJson:'[{}]'}],
+      ['metadata',{metadataJson:{}}],
+      ['assignment',{metadataJson:'{"assignmentAssetIdentity":{"assetClassId":"other","assetInstanceId":"other","assetNumber":1}}'}],
+    ];
+    for(const [suffix,change] of invalid) {
+      const bad=make('updateJobExecutionWork',{...original,version:2,...change},`invalid-${suffix}`);
+      const result=await invoke(actors.worker,bad);
+      expect(result.error.status).toBe(suffix==='assignment'?'PERMISSION_DENIED':'INVALID_ARGUMENT');
+      expect((await db.doc(`job_executions/${id}`).get()).data()).toEqual(baseline);
+      expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+      expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+    }
+    for(const [suffix,change] of [
+      ['fields',{fields:[{}],fieldsJson:'[{}]'}],['hierarchy',{assetHierarchyRefJson:'{}'}],
+      ['template-metadata',{metadataJson:{}}],
+    ]) {
+      const bad=make('upsertLegacyJobTemplate',{...templateRecord(`${prefix}-invalid-${suffix}`,actors.si.uid),...change},`invalid-${suffix}`);
+      expect((await invoke(actors.si,bad)).error.status).toBe('INVALID_ARGUMENT');
+      expect((await db.doc(`job_templates/${bad.aggregateId}`).get()).exists).toBe(false);
+      expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+      expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+    }
   },120000);
   test.each([
     ['abnormality_types','admin',typeRecord],['job_templates','si',templateRecord],['job_executions','worker',executionRecord],
   ])('Rules deny same-role direct %s update and permit approved read',async(collection,owner,factory)=>{
     const record=factory(`${prefix}-raw-${collection}`,actors[owner].uid);
-    await db.doc(`${collection}/${record.firestoreId}`).set(record);
+    const baseline=await seedStamped(`${collection}/${record.firestoreId}`,record);
     const url=`http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${collection}/${record.firestoreId}`;
     const headers={Authorization:`Bearer ${actors[owner].token}`,'Content-Type':'application/json'};
     const response=await fetch(url,{method:'PATCH',headers,body:JSON.stringify({fields:value({...record,version:2}).mapValue.fields})});
     expect(response.status).toBe(403);
     expect((await fetch(url,{headers})).status).toBe(200);
-    expect((await db.doc(`${collection}/${record.firestoreId}`).get()).data()).toEqual(record);
+    expect((await db.doc(`${collection}/${record.firestoreId}`).get()).data()).toEqual(baseline);
   },120000);
 });
