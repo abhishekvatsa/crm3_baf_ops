@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +10,57 @@ import seed_ci_business_journeys as seed
 
 
 class BusinessJourneyGateTest(unittest.TestCase):
+    @staticmethod
+    def _adb_output(command, **kwargs):
+        if command[-2:] == ["getprop", "ro.kernel.qemu"]:
+            return "1\n"
+        if command[-3:] == ["pm", "path", runner.DEV_APP]:
+            # Real Android reports an absent package as empty exit 1.
+            raise subprocess.CalledProcessError(1, command, output="", stderr="")
+        if command[-3:] == ["pm", "clear", runner.DEV_APP]:
+            return "Success\n"
+        raise AssertionError("Unexpected ADB operation")
+
+    def test_fresh_absent_dev_package_does_not_attempt_clear(self):
+        for returncode in (0, 1):
+            result = subprocess.CompletedProcess([], returncode, stdout="", stderr="")
+            with self.subTest(returncode=returncode), \
+                    patch.object(runner.subprocess, "check_output", side_effect=self._adb_output) as output, \
+                    patch.object(runner.subprocess, "run", return_value=result) as probe:
+                runner.clear_ci_app("emulator-5554")
+                self.assertEqual(output.call_count, 1)
+                probe.assert_called_once_with(
+                    ["adb", "-s", "emulator-5554", "shell", "pm", "path", runner.DEV_APP],
+                    capture_output=True, text=True, timeout=15, check=False)
+
+    def test_installed_dev_package_clears_only_verified_emulator_dev_app(self):
+        result = subprocess.CompletedProcess([], 0, stdout="package:/data/app/dev/base.apk\n", stderr="")
+        with patch.object(runner.subprocess, "check_output", side_effect=self._adb_output) as output, \
+                patch.object(runner.subprocess, "run", return_value=result):
+            runner.clear_ci_app("emulator-5554")
+            self.assertEqual(output.call_count, 2)
+            self.assertEqual(output.call_args.args[0],
+                             ["adb", "-s", "emulator-5554", "shell", "pm", "clear", runner.DEV_APP])
+
+    def test_package_probe_transport_and_unexpected_responses_fail_closed(self):
+        for code, stdout, stderr in (
+                (1, "", "error: device offline"), (2, "", ""),
+                (1, "error: package manager unavailable", ""),
+                (0, "unexpected output", ""), (0, "package:", "")):
+            result = subprocess.CompletedProcess([], code, stdout=stdout, stderr=stderr)
+            with self.subTest(code=code, stdout=stdout, stderr=stderr), \
+                    patch.object(runner.subprocess, "check_output", side_effect=self._adb_output) as output, \
+                    patch.object(runner.subprocess, "run", return_value=result), \
+                    self.assertRaises(RuntimeError):
+                runner.clear_ci_app("emulator-5554")
+            self.assertEqual(output.call_count, 1)
+
+    def test_package_probe_requires_emulator_before_read_or_clear(self):
+        with patch.object(runner.subprocess, "check_output", return_value="0\n"), \
+                patch.object(runner.subprocess, "run") as probe, self.assertRaises(RuntimeError):
+            runner.clear_ci_app("emulator-5554")
+        probe.assert_not_called()
+
     def test_all_device_probes_have_explicit_scope(self):
         manifest = runner.load_manifest()
         declared = [row["path"] for row in manifest["journeys"] + manifest["excluded"]]
@@ -39,6 +91,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
             self.assertIn("--dart-define=CRM_USE_EMULATORS=true", command)
             self.assertIn("--dart-define=CRM_DEMO_PROJECT_ID=demo-crm3-ci-journeys", command)
             self.assertIn("--dart-define=CRM_EMULATOR_HOST=10.0.2.2", command)
+            self.assertIn("--no-uninstall", command)
             self.assertNotIn("--release", command)
 
     def test_seed_transport_refuses_production_shared_demo_redirects_and_deletion(self):
@@ -100,11 +153,13 @@ class BusinessJourneyGateTest(unittest.TestCase):
         events = []
         def logged(command, name, timeout, env):
             events.append(name)
+            if command[0] == "flutter":
+                self.assertIn("--no-uninstall", command)
             return "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
-                patch.object(runner, "clear_ci_app") as clear, \
-                patch.object(runner.subprocess, "run") as command:
+                patch.object(runner, "clear_ci_app", side_effect=lambda _: events.append("clear-dev")) as clear, \
+                patch.object(runner.subprocess, "run", side_effect=lambda *args, **kwargs: events.append("force-stop-dev")) as command:
             runner.execute_journeys("emulator-5554", manifest, {})
             self.assertEqual(clear.call_count, 2)
             command.assert_called_once_with(["adb", "-s", "emulator-5554", "shell", "am",
@@ -112,7 +167,11 @@ class BusinessJourneyGateTest(unittest.TestCase):
             report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "passed")
             self.assertEqual(len(report["journeys"]), 3)
-            self.assertEqual(events[0], "seed")
+            self.assertEqual(events, [
+                "seed", "clear-dev", "dev_abnormality_journey_test",
+                "force-stop-dev", "dev_restart_recovery_test",
+                "clear-dev", "dev_planned_work_journey_test", "android-logcat",
+            ])
 
     def test_zero_exit_without_canonical_acceptance_marker_fails_and_stops_later_journeys(self):
         events = []

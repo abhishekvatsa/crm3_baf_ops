@@ -280,9 +280,16 @@ function successorDelegatedFixture(t, {
   f.deployed.functionFleetSourceCommit = sourceCommit;
   // Bind synthesized CI evidence to this fixture's exact Git source, including
   // successors that expand the Android gate; historical receipts stay unchanged.
-  const jobNames = Object.values(require('js-yaml').safeLoad(
-    getSource('.github/workflows/release-gate.yml')).jobs).map((job) => job.name);
+  // This fixture also runs in the Functions-only CI installation. Extract the
+  // five literal job headlines from the pinned workflow, without requiring the
+  // root package's YAML dependency. Actual authority validation is unchanged.
+  const workflow = getSource('.github/workflows/release-gate.yml');
+  const jobs = workflow.split(/^jobs:\s*$/m);
+  assert.equal(jobs.length, 2);
+  const jobNames = [...jobs[1].matchAll(/^ {4}name: ([^\r\n]+)\r?$/gm)]
+    .map((match) => match[1]);
   assert.equal(jobNames.length, 5);
+  assert.equal(new Set(jobNames).size, 5);
   const ci = {schemaVersion:1,evidenceType:'github-exact-main-release-gate',repository:'abhishekvatsa/crm3_baf_ops',
     sourceCommit,sourceTree,capturedAtUtc:at(50),
     pullRequest:{number:prNumber,merged:true,merge_commit_sha:sourceCommit,merged_at:at(0),

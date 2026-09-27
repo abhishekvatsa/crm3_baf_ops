@@ -41,7 +41,9 @@ def device_id(value):
 
 def flutter_command(journey, device):
     return ["flutter", "test", journey["path"], "-d", device_id(device),
-            "--no-pub", "--reporter", "expanded",
+            # Retain the preceding process's real Isar/session state for the
+            # restart journey; explicit per-journey reset is owned below.
+            "--no-pub", "--no-uninstall", "--reporter", "expanded",
             "--dart-define=CRM_USE_EMULATORS=true",
             "--dart-define=CRM_EMULATOR_HOST=10.0.2.2",
             f"--dart-define=CRM_DEMO_PROJECT_ID={PROJECT}",
@@ -120,13 +122,20 @@ def clear_ci_app(device):
                                     "ro.kernel.qemu"], text=True, timeout=15).strip()
     if qemu != "1":
         raise RuntimeError("Selected device is not an Android emulator")
-    installed = subprocess.check_output(["adb", "-s", device, "shell", "pm", "path", DEV_APP],
-                                        text=True, timeout=15).strip()
-    if installed:
-        result = subprocess.check_output(["adb", "-s", device, "shell", "pm", "clear", DEV_APP],
-                                         text=True, timeout=15).strip()
-        if result != "Success":
-            raise RuntimeError("Could not initialize the disposable DEV application")
+    probe = subprocess.run(["adb", "-s", device, "shell", "pm", "path", DEV_APP],
+                           capture_output=True, text=True, timeout=15, check=False)
+    installed, error = probe.stdout.strip(), probe.stderr.strip()
+    # Android returns empty exit 1 when this fresh AVD has no DEV app yet.
+    # Only that precise absence (or empty success) is safe to continue past.
+    if not installed and not error and probe.returncode in (0, 1):
+        return
+    if (probe.returncode != 0 or error or not installed
+            or any(not line.startswith("package:/") for line in installed.splitlines())):
+        raise RuntimeError("Could not verify the disposable DEV package state")
+    result = subprocess.check_output(["adb", "-s", device, "shell", "pm", "clear", DEV_APP],
+                                     text=True, timeout=15).strip()
+    if result != "Success":
+        raise RuntimeError("Could not initialize the disposable DEV application")
 
 
 def execute_journeys(device, manifest, env):
