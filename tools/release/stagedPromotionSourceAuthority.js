@@ -217,6 +217,15 @@ function verifyDelegatedSourceGeneration(repoRoot, sourceCommit, contract, appro
   "Successor delegated custody: source generation must be the coherent predecessor or intended build in Git policy, pubspec and ledger.");
 }
 
+function canonicalOwnerInstruction(value) {
+  // Comparison only: compatibility spelling, invisible formatting, whitespace
+  // and letter case do not turn historical wording into new authorization.
+  // Preserve original bytes and the exact instruction/excerpt custody check;
+  // this is not semantic paraphrase matching.
+  return value.normalize("NFKC").replace(/\p{Default_Ignorable_Code_Point}/gu, "")
+    .replace(/\s+/gu, " ").trim().toLowerCase();
+}
+
 function verifyFreshOwnerAuthorization(repoRoot, contract, approval, custody, source) {
   const pointer = approval.approvalEvidence?.ownerAuthorization;
   requireEvidence(pointer?.file === contract.ownerAuthorizationFile && SHA256.test(pointer.sha256 ?? ""),
@@ -226,13 +235,16 @@ function verifyFreshOwnerAuthorization(repoRoot, contract, approval, custody, so
   const authorized = explicitUtcInstant(owner.authorizedAtUtc);
   const recorded = explicitUtcInstant(owner.recordedAtUtc);
   const decision = explicitUtcInstant(approval.approvedAtUtc);
+  const instruction = typeof owner.ownerInstruction === "string"
+    ? canonicalOwnerInstruction(owner.ownerInstruction) : "";
   requireEvidence(owner.schemaVersion === 1 && owner.documentType === "source-specific-backend-owner-authorization" &&
     owner.approved === true && owner.intendedBuildNumber === contract.buildNumber &&
     owner.firebaseProjectId === PROJECT && owner.region === "asia-south1" &&
     owner.sourceCommit === source.commit && owner.sourceTree === source.tree &&
     owner.functionsGitObjectId === source.functionsGitObjectId &&
-    typeof owner.ownerInstruction === "string" && owner.ownerInstruction.trim().length > 0 &&
-    owner.ownerInstruction !== BUILD28_SUCCESSOR_DELEGATION.ownerInstruction &&
+    instruction.length > 0 &&
+    !SUCCESSOR_DELEGATIONS.some((historical) => typeof historical.ownerInstruction === "string" &&
+      instruction === canonicalOwnerInstruction(historical.ownerInstruction)) &&
     typeof owner.ownerReference === "string" && owner.ownerReference.trim().length > 0 &&
     typeof owner.recordedBy === "string" && owner.recordedBy.trim().length > 0 &&
     authorized != null && recorded != null && decision != null && authorized <= recorded && recorded <= decision &&

@@ -41,10 +41,23 @@ function Get-ProductionAppCheckBuildEvidence {
       $Approval.applicationId -cne 'in.co.sail.bsl.crm3.bafops' -or
       $Approval.clientEnabled -isnot [bool] -or $Approval.clientEnabled -ne $choice.clientEnabled -or
       $Approval.androidProvider -cne $choice.androidProvider -or
-      [string]::IsNullOrWhiteSpace($Approval.approverName) -or
-      [string]::IsNullOrWhiteSpace($Approval.approvalReference) -or
       $Approval.enforcementChangeAuthorized -isnot [bool] -or $Approval.enforcementChangeAuthorized -ne $false) {
     throw 'App Check client choice lacks exact candidate-specific approval; no enforcement change is authorized.'
+  }
+  foreach ($identity in @($Approval.approverName, $Approval.approvalReference)) {
+    if ($identity -isnot [string] -or [string]::IsNullOrWhiteSpace($identity) -or $identity.Length -gt 4000) {
+      throw 'App Check approval identity must be accountable non-placeholder text.'
+    }
+    # Compare NFKC text without Unicode 16 Default_Ignorable_Code_Point ranges
+    # (DerivedCoreProperties.txt), then trim. .NET regex uses UTF-16 pairs for
+    # the three supplementary ranges. Never rewrite hash-bound original text.
+    $invisibleIdentityPattern = '[\u00AD\u034F\u061C\u115F-\u1160\u17B4-\u17B5\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]'
+    $normalizedIdentity = [regex]::Replace($identity.Normalize([Text.NormalizationForm]::FormKC), $invisibleIdentityPattern, '').Trim()
+    # TODO must be a token, not the start of a genuine name such as Todor.
+    if ([string]::IsNullOrWhiteSpace($normalizedIdentity) -or
+        $normalizedIdentity -match '^(REPLACE_|TODO($|[^\p{L}\p{N}])|fixture$)') {
+      throw 'App Check approval identity must be accountable non-placeholder text.'
+    }
   }
   $approvedAt = [DateTimeOffset]::MinValue
   # ConvertFrom-Json in newer PowerShell materializes explicit UTC ISO strings

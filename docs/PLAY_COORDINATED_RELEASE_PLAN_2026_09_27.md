@@ -116,3 +116,29 @@ There is no need to repeat completed business audits solely because older notes 
 - Independent reviews found and corrected the initial custody self-hash/caller conflict, then found no remaining blocker in the final scoped source review. No test or gate was weakened to accept a candidate.
 
 These results support source review, not current-head CI, artifact construction, actual Play delivery or business-data acceptance. The new combined commit must pass CI before advancing.
+
+### Subsequent CI and review follow-up
+
+The full `test:distribution-readback-custody` command completed on commit
+`718d5da019b3ed1e1fe578f8e27e61e189985714`: **569 tests passed, zero failed** in
+[the Cloud Functions host job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/36329466829/job/108648514818).
+This closes the previously incomplete local historical-suite run for that commit;
+it does not establish CI acceptance for later source changes.
+
+The same commit's bot review identified two admission defects: superficially
+reformatted historical instructions could pass the fresh-owner check, and
+placeholder App Check approver/reference values could pass the identity check.
+The follow-up compares normalized text only to detect historical reuse, while
+preserving exact committed instruction and excerpt bytes, and rejects unfinished
+approval identities without rejecting legitimate names that share a prefix.
+Regression coverage must exercise committed custody and repository preflight
+with recomputed hashes, retain genuine fresh/valid controls, and preserve
+Build28/29 behavior. Fresh CI and review remain required after these repairs.
+
+Local repair validation passed **18/18** focused source-authority tests and
+**23/23** App Check tests. The latter includes 62 malformed/placeholder values
+through the real repository preflight with current hashes, plus six genuine
+identity controls. Original-defect and invisible-formatting failures were
+reproduced before repair. Independent review found no remaining concrete
+finding; syntax and diff checks passed. No approval, ledger, production
+configuration, deployment or artifact was changed by this follow-up.

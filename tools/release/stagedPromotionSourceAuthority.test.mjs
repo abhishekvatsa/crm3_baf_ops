@@ -433,6 +433,59 @@ test('Build30 requires its fresh owner custody and current exact-main CI, retain
   assert.equal(future.verify().ok, false, 'Build30 protocol never admits a future allocation');
 });
 
+test('Build30 refuses formatting-equivalent historical owner instructions in committed custody', async (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const historical = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward';
+  const fullWidth = historical.replace(/[!-~]/g, character => String.fromCodePoint(character.codePointAt(0) + 0xfee0));
+  for (const [label, instruction] of [
+    ['leading and trailing spaces', `  ${historical}  `],
+    ['line breaks and tabs', historical.replaceAll(' ', '\r\n\t')],
+    ['repeated internal spaces', historical.replaceAll(' ', '   ')],
+    ['Unicode whitespace', `\u3000${historical.replaceAll(' ', '\u00a0\u2003')}\u2028`],
+    ['Unicode compatibility characters', fullWidth],
+    ['combined Unicode and spacing', `\t${fullWidth.replaceAll(' ', '\u3000\n')}\u00a0`],
+    ['case-only change', historical.toUpperCase()],
+    ['zero-width spacing', historical.replace(/([a-z])/g, '$1\u200b')],
+    ['default-ignorable formatting', historical.replace(/([a-z])/g, '$1\u00ad\u200d\u2060\ufe0f')],
+    ['no visible instruction', '\u200b\u200d\u2060\ufe0f'],
+  ]) {
+    await t.test(label, () => {
+      f.owner.ownerInstruction = instruction;
+      f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+      f.commitCustody();
+      const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+      const originalBytes = fs.readFileSync(ownerFile);
+      assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+        approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+        expectedBuildNumber: 30}), /fresh owner instruction/);
+      assert.equal(f.verify().ok, false);
+      assert.deepEqual(fs.readFileSync(ownerFile), originalBytes, 'Refusal must not rewrite committed owner evidence');
+    });
+  }
+});
+
+test('Build30 preserves distinct fresh instruction content and exact excerpt custody', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const instruction = '  New owner decision: authorise only this exact Build30 backend.\nRe\u0301view its separately stated scope.  ';
+  f.owner.ownerInstruction = instruction;
+  f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+  f.commitCustody();
+  const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+  const originalBytes = fs.readFileSync(ownerFile);
+  const verified = f.verify();
+  assert.equal(verified.ok, true, verified.reasons?.join('; '));
+  assert.deepEqual(fs.readFileSync(ownerFile), originalBytes);
+  assert.equal(JSON.parse(originalBytes).ownerInstruction, instruction);
+  // Normalization detects reused wording only. It must not loosen the exact
+  // original instruction/excerpt match or rewrite either immutable record.
+  f.currentApproval.approvalEvidence.instructionExcerpts = [instruction.normalize('NFKC').replace(/\s+/gu, ' ').trim()];
+  f.commitCustody();
+  assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 30}), /fresh owner instruction/);
+  assert.equal(f.verify().ok, false);
+});
+
 for (const [label, change] of [
   ['historical owner instruction', (f) => { f.owner.ownerInstruction = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward'; f.currentApproval.approvalEvidence.instructionExcerpts = [f.owner.ownerInstruction]; }],
   ['wrong build', (f) => { f.owner.intendedBuildNumber = 29; }],

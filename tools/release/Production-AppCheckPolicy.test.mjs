@@ -79,10 +79,71 @@ for (const [label, change] of [
 }
 
 test('historical builds retain their existing absent App Check contract', (t) => {
-  const f = fixture(); f.policy.release.buildNumber = 29; delete f.policy.appCheckBuild;
-  const result = run(t, f);
+  for (const build of [28, 29]) {
+    const f = fixture(); f.policy.release.buildNumber = build; delete f.policy.appCheckBuild;
+    f.approval.approverName = 'TODO'; f.approval.approvalReference = 'fixture';
+    const result = run(t, f);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout), null);
+  }
+});
+
+for (const field of ['approverName', 'approvalReference']) {
+  test(`repository preflight refuses placeholder or malformed approval identities: ${field}`, (t) => {
+    const input = {...fixture(), field, invalid: [
+      'TODO', 'TODO: record the decision', 'TODO_APPROVER', 'TODO - record decision', 'REPLACE_APPROVER', 'REPLACE_REFERENCE', 'fixture',
+      '  TODO  ', '\tRePlAcE_APPROVER\n', ' Fixture ', 'ＴＯＤＯ', 'ｆｉｘｔｕｒｅ',
+      '\u200BTODO', 'TO\u200BDO', 'REPLACE_\u2060APPROVER', 'fi\uFEFFxture',
+      'T\uFE0FODO', 'TO\u{E0100}DO', 'TO\u034FDO', '\u{1BCA0}TODO', '\u{1D173}TODO',
+      '\u200B', ' \u200B\uFE0F\u{E0100} ',
+      '', ' \t\n', null, 123, false, ['Alice Smith'], {name: 'Alice Smith'}, 'A'.repeat(4001),
+    ]};
+    const result = run(t, input, `
+$repo = Join-Path $PSScriptRoot 'repo'
+$approvalPath = Join-Path $repo $f.policy.appCheckBuild.approvalFile
+$backendPath = Join-Path $repo $f.policy.finalization.exactFunctionFleetDeploymentReceiptFile
+New-Item -ItemType Directory -Path (Split-Path $approvalPath), (Split-Path $backendPath) -Force | Out-Null
+$f.backend | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $backendPath -Encoding utf8
+$f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256 = (Get-FileHash $backendPath).Hash
+$f.approval.backendReceiptSha256 = $f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256
+foreach ($value in $f.invalid) {
+  $f.approval.($f.field) = $value
+  $f.approval | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $approvalPath -Encoding utf8
+  # Rebind the actual file digest so a rejection cannot be a stale-hash false positive.
+  $f.policy.appCheckBuild.approvalSha256 = (Get-FileHash $approvalPath).Hash
+  $refused=$false
+  try { Get-ProductionAppCheckRepositoryEvidence -RepositoryRoot $repo -Policy $f.policy | Out-Null }
+  catch {
+    if ($_.Exception.Message -notmatch 'App Check approval identity') { throw }
+    $refused=$true
+  }
+  if (-not $refused) { throw "Unfinished or malformed approval identity accepted: $($f.field)" }
+}
+`);
+    assert.equal(result.status, 0, result.stderr);
+  });
+}
+
+test('genuine approval identities pass without rewriting the retained identity', (t) => {
+  const input = {...fixture(), valid: [
+    {approverName: 'Asha Devi', approvalReference: 'OWNER-2026-09-27-APP-CHECK'},
+    {approverName: "María-José O'Connor", approvalReference: 'Release review / 2026-09-27'},
+    {approverName: '李明', approvalReference: '授权-20260927-01'},
+    {approverName: '  Alice Smith  ', approvalReference: ' Owner decision 30 '},
+    {approverName: 'Todor Ivanov', approvalReference: 'Todoist release decision 30'},
+    {approverName: 'علی\u200Cرضا', approvalReference: 'Owner decision 30 / 李\u{E0100}明'},
+  ]};
+  const result = run(t, input, `
+foreach ($identity in $f.valid) {
+  $f.approval.approverName = $identity.approverName
+  $f.approval.approvalReference = $identity.approvalReference
+  Get-ProductionAppCheckBuildEvidence -Policy $f.policy -Approval $f.approval -BackendReceipt $f.backend -ApprovalSha256 $f.hash -BackendReceiptSha256 $f.backendHash | Out-Null
+  if ($f.approval.approverName -cne $identity.approverName -or $f.approval.approvalReference -cne $identity.approvalReference) {
+    throw 'Approval identity was rewritten while validating it'
+  }
+}
+`);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout), null);
 });
 
 test('independent package verifier accepts exact evidence and rejects compiler or manifest tampering', (t) => {
