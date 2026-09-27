@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "documentType": "build30-read-only-control-comparison-review",
+  "approved": true,
+  "scope": "read-only-existing-controls-build-output-comparison",
+  "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "backendApproval": {
+    "commit": "009601a6d4a86fd7ebc0823b714cfc0b36e62855",
+    "file": "release/approvals/build30-current-source-backend-deployment-approval.json",
+    "sha256": "4BE041F343A91F878A11315FB94D6FCF8E173083B87053B7206F029CDFC5546A"
+  },
+  "originalHelperSha256": {
+    "Invoke-ReviewedBackendCohort.ps1": "DB17DD0E88E6BB9E35AFF4338FF2C2538F8987699112CCFC01ABC15FFDA61459",
+    "collect-preserved-backend-controls.cjs": "1B401A1D3836CEE403CF2BA2FF8536B990F11E746AA9A5B53B69E0F8B44A791F",
+    "preserved-backend-controls.cjs": "53A33756887C8DAA9ECE6FAD189DE6E464E50906FD6BC8E096BD64656AF3D721",
+    "prepare-reviewed-rules-runtime.cjs": "2CA679DC661076004992C40C95875F72C8581EA0F36B1B1C813FC25BEE0AA989",
+    "reviewed-rules-runtime-inputs.cjs": "3B378EF4938A3FE43A2C30A9EA0A8FFE4EDCBE5CB67538A86421E3D3BFCCCF2B",
+    "record-reviewed-rules-command.cjs": "6425AE33DD8C6545E79A3F12EF87AB7B026C8D0725C6B2FF0FD0950A41107E27",
+    "public-backend-evidence-boundary.cjs": "E56DFCC1CD9D73DECCB8F25DD2C988B5273E85C327BE7F7D5EB0E5D011D5FE4A",
+    "Verify-CurrentDeployedSourceArchives.ps1": "593240E6AA5B7E875429BF0E0674CE10512CC6CDD4AABD2E1691506ED6B4DF20",
+    "capture-current-source-ci.cjs": "48BE9B2CE65A315CB9CBBDBA1CF105DA2CC265FD422FC7C12276CC79AC01E92E",
+    "collect-predecision-capacity.cjs": "9953FF94A8D83511BD8C3F8AA19E0F2125EE5FD5D738F36916E92453C69D849A",
+    "generate-final-assessment.cjs": "2D999BEB2BD9FFDB03530E4963E9C006344CE432BA7489D24137A9438BA1DCAE"
+  },
+  "adapterSha256": "D8A1BE49430255E0B59CC744325811A3A76BB7EC8F165332D598BFFD03EAB2C5",
+  "supportingHelperSha256": {
+    "exact-source-validators.cjs": "F0AA4F7B7AD7BE4AD1C5073D55AFB2B13CFD624F69AD6B91FD86A7B2EBE4B4DC",
+    "approved-runtime-modules.cjs": "7303E822480E9CCFCD363664510D110D71E85A295158194AE1962AA3DB51B04F"
+  },
+  "before": {
+    "physicalSha256": "4CAF0EB550083687A684C89CF21E132CA4AF9C7ED32C4325EFE712CFE32E5664",
+    "bytes": 277532,
+    "canonicalReceiptSha256": "57a9481a8b4518dec64a8a783edd4a9ab20a9a2e788ba4be694e29e93cbb6840"
+  },
+  "after": {
+    "physicalSha256": "CE6EBB87580DF01D80036454D1765A21BAD54D0BD1D36845D94DDE3F63E21346",
+    "bytes": 278019,
+    "canonicalReceiptSha256": "1f193bf6b25629dc559ff4891bde3b4c9d19b19434b9f4b14a79a80d622cc47e"
+  },
+  "commandSha256": [
+    "D95FA1095B04140013C42E7864E542FDF7FEF661E75B9B42B69D15593BE4615A",
+    "864092FDAE14EA3297C2B0060118CB276D2C74E8AC508DBC60E6518D15066C2B",
+    "25C6494D61F6813D80679EF9D5319A51D6E8E44DD8E0EC4DE9C80D3BA922F3E8"
+  ],
+  "originalFailure": {
+    "file": "actual-comparison-failure.json",
+    "physicalSha256": "BD056B13393A344DB26CFCCFFFD9EED138E3A1579EB450A73016739DF16A2EE1",
+    "bytes": 1331
+  },
+  "sourceArchiveProof": {
+    "file": "final-deployed-code-byte-comparison.json",
+    "physicalSha256": "25925DA32EB2A81054A5A86023ECDAF8521F63382F7515A7971C50AEEBF4D65F",
+    "bytes": 2310
+  },
+  "normalizedRunBuildFields": [
+    "name",
+    "sourceLocation",
+    "imageUri"
+  ],
+  "requiredRelations": [
+    "name=GCF.build",
+    "sourceLocation=GCF.source.bucket/object#generation",
+    "imageUri=servingContainerImageWithinDeclaredRepository",
+    "functionTarget=GCF.entryPoint"
+  ],
+  "afterCompletedAtUtc": "2026-09-27T18:43:40.126Z",
+  "failureObservedAtUtc": "2026-09-27T19:01:48.706Z",
+  "archiveObservedAtUtc": "2026-09-27T18:48:14.7128093Z",
+  "controlBoundary": {
+    "deploymentAuthorized": false,
+    "iamMutationAuthorized": false,
+    "rawEvidenceMutationAuthorized": false,
+    "originalApprovalMutationAuthorized": false,
+    "businessDataAccessAuthorized": false,
+    "rulesOrIndexMutationAuthorized": false
+  },
+  "reviewer": "Codex root, following independent review by Codex quality_current_review and factual before/after inspection by Codex current_dev_profile_review, under Abhishek Vatsa full build delegation",
+  "reviewedAtUtc": "2026-09-27T19:05:10.963Z"
+}
