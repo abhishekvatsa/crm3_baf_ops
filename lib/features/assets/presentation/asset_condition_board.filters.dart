@@ -2,11 +2,12 @@ part of 'asset_condition_board.dart';
 
 double _metricWidth(BuildContext context, BoxConstraints constraints) {
   final availableWidth = constraints.maxWidth;
-  final minimumWidth = MediaQuery.textScalerOf(context).scale(110);
-  final columns = ((availableWidth + BafSpacing.xs) /
-          (minimumWidth + BafSpacing.xs))
-      .floor()
-      .clamp(1, 3);
+  // Three columns fit normal phone widths; larger text gets fewer columns.
+  final minimumWidth = 92 * MediaQuery.textScalerOf(context).scale(11) / 11;
+  final columns =
+      ((availableWidth + BafSpacing.xs) / (minimumWidth + BafSpacing.xs))
+          .floor()
+          .clamp(1, 3);
   return (availableWidth - BafSpacing.xs * (columns - 1)) / columns;
 }
 
@@ -14,6 +15,7 @@ class _PlantMetric extends StatelessWidget {
   final double? width;
   final int value;
   final String label;
+  final String? keyLabel;
   final Color color;
   final VoidCallback? onTap;
 
@@ -21,41 +23,65 @@ class _PlantMetric extends StatelessWidget {
     this.width,
     required this.value,
     required this.label,
+    this.keyLabel,
     required this.color,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) => InkWell(
-    key: ValueKey<String>('plant-condition-${label.toLowerCase()}'),
+    key: ValueKey<String>('plant-condition-${keyLabel ?? label.toLowerCase()}'),
     onTap: onTap,
     borderRadius: BorderRadius.circular(BafRadius.small),
-    child: Container(
-      width: width,
-      constraints: const BoxConstraints(minHeight: 54),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.xs,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(BafRadius.small),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '$value ${label.toLowerCase()}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              height: 1.15,
+    child: Semantics(
+      label: '$value ${label.toLowerCase()}',
+      excludeSemantics: true,
+      child: Container(
+        width: width,
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.symmetric(
+          horizontal: BafSpacing.xs,
+          vertical: BafSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(BafRadius.small),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$value',
+              key: ValueKey(
+                'plant-condition-${keyLabel ?? label.toLowerCase()}-value',
+              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            SizedBox(
+              height: MediaQuery.textScalerOf(context).scale(11) * 1.15 * 2,
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );

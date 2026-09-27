@@ -219,12 +219,17 @@ class PlantOverviewPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      '${value.available}/${value.total}',
-                      style: const TextStyle(
-                        color: BafColors.assets,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        value.hasCompleteEvidence
+                            ? '${value.available}/${value.total}'
+                            : '${value.total} recorded',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          color: BafColors.assets,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     const SizedBox(width: BafSpacing.xs),
@@ -234,6 +239,18 @@ class PlantOverviewPanel extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (!value.hasCompleteEvidence) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  Text(
+                    '${value.available} verified available · '
+                    '${value.unverifiedWorkflowEvidence > 0 ? '${value.unverifiedWorkflowEvidence} condition unverified' : 'inventory evidence incomplete'}',
+                    key: const ValueKey('plant-condition-evidence-summary'),
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: BafSpacing.md),
                 if (value.total == 0)
                   Text(
@@ -253,7 +270,10 @@ class PlantOverviewPanel extends StatelessWidget {
                           _PlantMetric(
                             width: width,
                             value: value.available,
-                            label: 'Available',
+                            label: value.hasCompleteEvidence
+                                ? 'Available'
+                                : 'Verified available',
+                            keyLabel: 'available',
                             color: BafColors.success,
                             onTap: () =>
                                 _openFilter(AssetConditionFilter.available),

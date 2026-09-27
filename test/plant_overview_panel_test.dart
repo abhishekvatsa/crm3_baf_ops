@@ -146,11 +146,17 @@ void main() {
       );
 
       expect(find.text('2 registered'), findsNothing);
-      expect(find.text('1 available'), findsOneWidget);
-      expect(find.text('1 maintenance'), findsOneWidget);
-      expect(find.text('0 stuck-up'), findsOneWidget);
-      expect(find.text('1 down'), findsOneWidget);
-      expect(find.text('1 unfit'), findsOneWidget);
+      _expectMetric('available', 'Verified available', 1);
+      _expectMetric('maintenance', 'Maintenance', 1);
+      _expectMetric('stuck-up', 'Stuck-up', 0);
+      _expectMetric('down', 'Down', 1);
+      _expectMetric('unfit', 'Unfit', 1);
+      expect(find.text('1/3'), findsNothing);
+      expect(find.text('3 recorded'), findsOneWidget);
+      expect(
+        find.text('1 verified available · 1 condition unverified'),
+        findsOneWidget,
+      );
       expect(find.text('Furnace'), findsOneWidget);
       expect(find.text('3 registered'), findsOneWidget);
       expect(find.text('Down 1'), findsOneWidget);
@@ -423,7 +429,7 @@ void main() {
       expect(find.text('Stuck-up 2'), findsOneWidget);
       expect(find.text('Stuck-up 2: Base 101, Base 102'), findsOneWidget);
       expect(
-        tester.widget<Text>(find.text('0 unavailable')).overflow,
+        tester.widget<Text>(find.text('Unavailable')).overflow,
         isNot(TextOverflow.ellipsis),
       );
       final heading = tester.getTopLeft(find.text('Base')).dy;
@@ -464,6 +470,105 @@ void main() {
     });
   }
 
+  for (final viewport in [
+    (width: 360.0, scale: 1.0),
+    (width: 393.0, scale: 1.0),
+    (width: 320.0, scale: 2.0),
+    (width: 393.0, scale: 2.0),
+  ]) {
+    testWidgets('six plant tiles fit and retain actions at $viewport', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(viewport.width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final selected = <AssetConditionFilter>[];
+      var panelOpened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light.copyWith(
+            textTheme: BafAppTheme.light.textTheme.apply(fontFamily: 'Roboto'),
+          ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(viewport.scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              // Match the surrounding Home padding, not just the whole screen.
+              padding: const EdgeInsets.symmetric(horizontal: BafSpacing.md),
+              child: PlantOverviewPanel(
+                overview: AsyncData(_unverifiedTileOverview()),
+                onOpen: () => panelOpened = true,
+                onOpenFiltered: selected.add,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('146 recorded'), findsOneWidget);
+      expect(find.text('0/146'), findsNothing);
+      expect(
+        find.text('0 verified available · 146 condition unverified'),
+        findsOneWidget,
+      );
+      const tiles = [
+        ('available', 'Verified available', AssetConditionFilter.available),
+        ('unavailable', 'Unavailable', AssetConditionFilter.unavailable),
+        ('maintenance', 'Maintenance', AssetConditionFilter.maintenance),
+        ('stuck-up', 'Stuck-up', AssetConditionFilter.stuckUp),
+        ('down', 'Down', AssetConditionFilter.down),
+        ('unfit', 'Unfit', AssetConditionFilter.unfit),
+      ];
+      final rects = <Rect>[];
+      for (final (key, label, _) in tiles) {
+        final tile = find.byKey(ValueKey('plant-condition-$key'));
+        _expectMetric(key, label, 0);
+        final rect = tester.getRect(tile);
+        rects.add(rect);
+        expect(rect.left, greaterThanOrEqualTo(BafSpacing.md));
+        expect(rect.right, lessThanOrEqualTo(viewport.width - BafSpacing.md));
+        expect(rect.width, greaterThanOrEqualTo(48));
+        expect(rect.height, greaterThanOrEqualTo(48));
+        final number = find.byKey(ValueKey('plant-condition-$key-value'));
+        final caption = find.descendant(of: tile, matching: find.text(label));
+        expect(
+          tester.getBottomLeft(number).dy,
+          lessThanOrEqualTo(tester.getTopLeft(caption).dy),
+        );
+        expect(
+          tester.widget<Text>(caption).overflow,
+          isNot(TextOverflow.ellipsis),
+        );
+      }
+      if (viewport.scale == 1) {
+        expect(rects.map((r) => r.top).toSet(), hasLength(2));
+        for (var index = 0; index < 3; index++) {
+          expect(rects[index].top, rects.first.top);
+          expect(rects[index + 3].top, rects[3].top);
+          expect(rects[index].left, closeTo(rects[index + 3].left, 0.01));
+        }
+        expect(rects[3].top, greaterThan(rects.first.bottom));
+      } else {
+        expect(rects.map((r) => r.top).toSet().length, greaterThan(2));
+      }
+      for (final (key, _, filter) in tiles) {
+        final tile = find.byKey(ValueKey('plant-condition-$key'));
+        await tester.ensureVisible(tile);
+        await tester.pumpAndSettle();
+        await tester.tap(tile);
+        expect(selected.last, filter);
+      }
+      expect(selected, tiles.map((tile) => tile.$3).toList());
+      expect(panelOpened, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'Home panel exposes verified-data failure instead of zero counts',
     (tester) async {
@@ -484,6 +589,49 @@ void main() {
         findsOneWidget,
       );
     },
+  );
+}
+
+void _expectMetric(String key, String label, int value) {
+  final tile = find.byKey(ValueKey('plant-condition-$key'));
+  expect(tile, findsOneWidget);
+  expect(find.descendant(of: tile, matching: find.text(label)), findsOneWidget);
+  expect(
+    find.descendant(of: tile, matching: find.text('$value')),
+    findsOneWidget,
+  );
+}
+
+PlantAssetOverview _unverifiedTileOverview() {
+  final now = DateTime.utc(2026, 9, 27);
+  return PlantAssetOverview(
+    classes: const [],
+    assets: List.generate(
+      146,
+      (index) => PlantAssetState(
+        asset: AssetInstanceRecord(
+          id: 'asset-$index',
+          assetClassId: 'base',
+          assetClassCode: 'BASE',
+          assetClassName: 'Base',
+          assetNumber: index + 1,
+          name: 'Base ${index + 1}',
+          serviceState: AssetServiceState.inService,
+          ownershipStatus: AssetOwnershipStatus.confirmed,
+          ownerDiscipline: 'Operations',
+          accountableRoleKeys: const ['operations'],
+          status: AssetHierarchyStatus.active,
+          activeComponentCount: 0,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          lastMutationId: 'asset-$index',
+        ),
+        operationalCondition: null,
+        availability: null,
+        workflowStatus: null,
+      ),
+    ),
   );
 }
 

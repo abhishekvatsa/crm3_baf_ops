@@ -84,7 +84,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('1/2'), findsOneWidget);
+      expect(find.text('1/2'), findsNothing);
+      expect(find.text('2 recorded'), findsOneWidget);
+      expect(
+        find.text('1 verified available · 1 condition unverified'),
+        findsOneWidget,
+      );
       expect(
         find.text('Plant condition — evidence incomplete'),
         findsOneWidget,
