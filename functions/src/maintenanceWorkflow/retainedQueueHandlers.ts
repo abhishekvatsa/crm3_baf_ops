@@ -253,8 +253,11 @@ function validateType(data: Mutable, actor: Actor, before: JsonMap | null): void
   // New records require complete creation attribution. Existing creator fields
   // are pinned by apply(), including readable historical null/absent evidence;
   // an edit must neither invent that history nor carry forward malformed text.
-  if (before == null || data.createdByUid != null) text(data.createdByUid, "createdByUid", 512);
-  if (before == null || data.createdByName != null) text(data.createdByName, "createdByName", 500);
+  for (const [field, limit] of [["createdByUid", 512], ["createdByName", 500]] as const) {
+    const raw = data[field];
+    const value = before != null && typeof raw === "string" ? raw.trim() : raw;
+    if (before == null || value != null) text(value, field, limit);
+  }
   if (data.createdByName != null && data.createdByUid == null) fail("Catalogue creator name requires its original UID.");
   text(data.lastEditedByName, "lastEditedByName", 500);
   if (data.lastEditedByUid !== actor.uid || before == null && data.createdByUid !== actor.uid) fail("Catalogue mutation actor does not match the origin.", "permission-denied");
@@ -264,7 +267,11 @@ function validateTemplate(data: Mutable, actor: Actor, before: JsonMap | null): 
   choice(data.applicableAssetType, "applicableAssetType", ASSETS);
   strings(data.assignedAgencies, "assignedAgencies");
   if (data.hierarchyPath != null) strings(data.hierarchyPath, "hierarchyPath");
-  for (const field of ["component", "subsystem", "createdByUid", "createdByName"]) text(data[field], field, 500, true);
+  for (const field of ["component", "subsystem"]) text(data[field], field, 500, true);
+  for (const field of ["createdByUid", "createdByName"]) {
+    const raw = data[field];
+    text(before != null && typeof raw === "string" ? raw.trim() : raw, field, 500, true);
+  }
   const fields = json(data.fieldsJson, "fieldsJson", true) as JsonMap[];
   if (!Array.isArray(data.fields) || stableJson(fields) !== stableJson(data.fields)) fail("Template field representations disagree.");
   // Module definitions have extra registered fields; legacy TemplateField does
@@ -330,19 +337,37 @@ const apply: CommandHandler = async ({tx, command, context}) => {
   const fields = collection === "abnormality_types" ? TYPE : collection === "job_templates" ? TEMPLATE : EXECUTION;
   const candidate = record(command.payload.record, fields, command);
   if (before != null) {
+    // Both readers trim creator text; only legacy templates map blank to null.
+    // Equivalent identity never grants authority to rewrite historical bytes.
+    const creatorIdentity = (value: JsonValue | undefined): JsonValue => {
+      if (typeof value !== "string") return value ?? null;
+      const normalized = value.trim();
+      return collection === "job_templates" && !normalized ? null : normalized;
+    };
     if (candidate.createdAt !== before.createdAt || (collection !== "job_executions" &&
-      ((candidate.createdByUid ?? null) !== (before.createdByUid ?? null) ||
-       (candidate.createdByName ?? null) !== (before.createdByName ?? null)))) fail("Original creation evidence cannot be changed.", "permission-denied");
+      (creatorIdentity(candidate.createdByUid) !== creatorIdentity(before.createdByUid) ||
+       creatorIdentity(candidate.createdByName) !== creatorIdentity(before.createdByName)))) fail("Original creation evidence cannot be changed.", "permission-denied");
     if ((candidate.updatedAt as string) < (before.updatedAt as string)) fail("A mutation cannot move the record clock backwards.");
   }
   if (candidate.isDeleted && candidate.deletedByUid !== context.actor.uid) fail("Deletion actor must match the origin.", "permission-denied");
-  if (collection === "abnormality_types") validateType(candidate, context.actor, before);
-  else if (collection === "job_templates") {
+  if (collection === "abnormality_types") {
+    validateType(candidate, context.actor, before);
+  } else if (collection === "job_templates") {
     if (before == null && candidate.isDeleted) fail("A new template cannot be deleted.");
     validateTemplate(candidate, context.actor, before);
   } else {
     if (before == null) fail("Execution work commands cannot create assignments.", "failed-precondition");
     validateExecution(candidate, before!);
+  }
+  if (before != null && collection !== "job_executions") {
+    for (const field of ["createdByUid", "createdByName"]) {
+      if (collection === "job_templates") {
+        // Its reader treats missing, null and blank as equivalent. That permits
+        // a round trip, not replacing the original unknown representation.
+        if (Object.prototype.hasOwnProperty.call(before, field)) candidate[field] = before[field];
+        else delete candidate[field];
+      } else if (before[field] != null) candidate[field] = before[field];
+    }
   }
   const accepted: Mutable = {...(before ?? {}), ...candidate};
   if (collection === "job_executions") {

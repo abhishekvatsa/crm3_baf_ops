@@ -394,9 +394,11 @@ void _validateTypeForSave(AbnormalityType type, {AbnormalityType? existing}) {
   _requireLocalText(type.lastEditedByUid, 'lastEditedByUid', maximum: 512);
   _requireLocalText(type.lastEditedByName, 'lastEditedByName', maximum: 500);
   _normalizeType(type);
+  // Match the persisted reader's identity semantics for older clean Isar rows.
+  // Keep blank distinct from absent; a blank historical field is still invalid.
   if (existing != null &&
-      (type.createdByUid != existing.createdByUid ||
-          type.createdByName != existing.createdByName)) {
+      (type.createdByUid != existing.createdByUid?.trim() ||
+          type.createdByName != existing.createdByName?.trim())) {
     throw ArgumentError('The original catalogue creator cannot be changed.');
   }
 

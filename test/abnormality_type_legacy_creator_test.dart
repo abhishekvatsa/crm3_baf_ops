@@ -198,6 +198,172 @@ void main() {
       );
     }
 
+    for (final rawNative in native ? [true, false] : [false]) {
+      final baseline = rawNative ? 'raw Isar' : 'reader-normalized';
+      const rawCreatorUid = '  historical-admin\t';
+      const rawCreatorName = '\tHistorical Administrator  ';
+
+      Future<AbnormalityType> seedPadded() async {
+        final wire = fresh().toMap()
+          ..['version'] = 4
+          ..['createdByUid'] = rawCreatorUid
+          ..['createdByName'] = rawCreatorName;
+        transport
+          ..current = wire
+          ..preserveCanonicalCreator = true;
+        final row = AbnormalityType.fromMap(wire, 'type-one')..isSynced = true;
+        if (rawNative) {
+          // An older clean native row need not have traversed today's reader.
+          row
+            ..createdByUid = rawCreatorUid
+            ..createdByName = rawCreatorName;
+        }
+        if (native) await db.writeTxn(() => db.abnormalityTypes.put(row));
+        return copyAbnormalityType(row);
+      }
+
+      test(
+        '$label: padded $baseline creator adopts raw canonical receipts through edit, deactivation and deletion',
+        () async {
+          var row = await seedPadded();
+          for (final operation in ['edit', 'deactivate', 'delete']) {
+            if (operation == 'delete') {
+              await repository().softDeleteType(
+                native ? row.id : row.firestoreId,
+                actor: actor,
+              );
+            } else {
+              row
+                ..title = 'Revised historical classification'
+                ..isActive = operation == 'edit'
+                ..lastEditedByUid = actor.uid
+                ..lastEditedByName = actor.name;
+              await repository().updateType(row, actor: actor);
+            }
+            row = await settle(row);
+            expect(row.isSynced, isTrue);
+            expect(row.createdByUid, 'historical-admin');
+            expect(row.createdByName, 'Historical Administrator');
+            expect(row.createdAt.toUtc(), created);
+            expect(row.lastEditedByUid, actor.uid);
+            expect(row.lastEditedByName, actor.name);
+            expect(row.isActive, operation == 'edit');
+            expect(row.isDeleted, operation == 'delete');
+            expect(transport.current!['createdByUid'], rawCreatorUid);
+            expect(transport.current!['createdByName'], rawCreatorName);
+            final sent = transport.envelopes.last;
+            expect(sent['originActorUid'], actor.uid);
+            expect(
+              sent['command']['payload']['record']['createdByUid'],
+              'historical-admin',
+            );
+            expect(
+              sent['command']['payload']['record']['createdByName'],
+              'Historical Administrator',
+            );
+            if (native) {
+              final saved =
+                  (await store.listForActor(
+                    actor.uid,
+                    includeTerminal: true,
+                  )).singleWhere(
+                    (value) => value.requestId == sent['command']['commandId'],
+                  );
+              expect(saved.state, DurableSubmissionState.reconciled);
+              expect(jsonDecode(saved.envelopeJson), sent);
+              final canonical =
+                  jsonDecode(saved.receiptJson!)['result']['record'] as Map;
+              expect(canonical['createdByUid'], rawCreatorUid);
+              expect(canonical['createdByName'], rawCreatorName);
+            } else {
+              expect(preferences.getKeys(), isEmpty);
+            }
+          }
+          expect(row.version, 7);
+          expect(row.deletedByUid, actor.uid);
+          expect(row.deletedByName, actor.name);
+          expect(transport.envelopes, hasLength(3));
+        },
+      );
+
+      test(
+        '$label: padded $baseline creator still refuses identity replacement',
+        () async {
+          final seeded = await seedPadded();
+          for (final field in ['UID', 'name']) {
+            final row = copyAbnormalityType(seeded);
+            final original = Map<String, dynamic>.from(transport.current!);
+            final localBefore = native
+                ? RetainedRowMutations.wire(
+                    (await db.abnormalityTypes.get(row.id))!,
+                  )
+                : null;
+            row
+              ..lastEditedByUid = actor.uid
+              ..lastEditedByName = actor.name;
+            if (field == 'UID') {
+              row.createdByUid = 'replacement-creator';
+            } else {
+              row.createdByName = 'Replacement Creator';
+            }
+            await expectLater(
+              repository().updateType(row, actor: actor),
+              throwsArgumentError,
+            );
+            expect(transport.current, original);
+            expect(transport.envelopes, isEmpty);
+            expect(await store.listForActor(actor.uid), isEmpty);
+            expect(preferences.getKeys(), isEmpty);
+            if (native) {
+              expect(
+                RetainedRowMutations.wire(
+                  (await db.abnormalityTypes.get(row.id))!,
+                ),
+                localBefore,
+              );
+            }
+          }
+        },
+      );
+    }
+
+    if (native) {
+      for (final field in ['UID', 'name']) {
+        test(
+          'native: blank historical creator $field cannot become absent on edit',
+          () async {
+            final stored = fresh()
+              ..version = 4
+              ..isSynced = true;
+            if (field == 'UID') {
+              stored
+                ..createdByUid = '  '
+                ..createdByName = null;
+            } else {
+              stored.createdByName = '  ';
+            }
+            await db.writeTxn(() => db.abnormalityTypes.put(stored));
+            final original = RetainedRowMutations.wire(stored);
+            final edit = copyAbnormalityType(stored)
+              ..lastEditedByUid = actor.uid
+              ..lastEditedByName = actor.name;
+            await expectLater(
+              repository().updateType(edit, actor: actor),
+              throwsArgumentError,
+            );
+            expect(transport.envelopes, isEmpty);
+            expect(await store.listForActor(actor.uid), isEmpty);
+            expect(
+              RetainedRowMutations.wire(
+                (await db.abnormalityTypes.get(stored.id))!,
+              ),
+              original,
+            );
+          },
+        );
+      }
+    }
+
     for (final invalid in [
       'both-missing',
       'name-missing',
@@ -301,6 +467,7 @@ void main() {
 class _Transport
     implements fs.FirebaseFirestore, OriginBoundWorkflowCommandGateway {
   Map<String, dynamic>? current;
+  bool preserveCanonicalCreator = false;
   final envelopes = <Map<String, dynamic>>[];
   final readSources = <fs.Source?>[];
 
@@ -317,7 +484,13 @@ class _Transport
     final envelope = jsonDecode(envelopeJson) as Map<String, dynamic>;
     envelopes.add(envelope);
     final command = envelope['command'] as Map;
+    final original = current;
     current = Map<String, dynamic>.from(command['payload']['record'] as Map);
+    if (preserveCanonicalCreator && original != null) {
+      current!
+        ..['createdByUid'] = original['createdByUid']
+        ..['createdByName'] = original['createdByName'];
+    }
     return WorkflowCommandReceipt(
       commandId: command['commandId'] as String,
       resultKey: 'retained-queue-mutation-applied',

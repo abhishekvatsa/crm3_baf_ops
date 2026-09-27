@@ -259,6 +259,170 @@ describe('historical catalogue creator compatibility',()=>{
     expect(store.entries()).toEqual(before);
   });
 });
+describe('historical catalogue creator whitespace compatibility',()=>{
+  const historical=(creator)=>({...typeRecord(),version:7,
+    createdByUid:'  historical-creator\t',createdByName:'\t Historical Author  ',...creator});
+  const edit=(original)=>({...original,version:8,updatedAt:'2026-09-27T00:02:00.234567Z',
+    createdByUid:original.createdByUid?.trim()??null,
+    createdByName:original.createdByName?.trim()??null,
+    lastEditedByUid:'admin2',lastEditedByName:'Current approved editor'});
+  for(const [label,creator] of [
+    ['padded pair',{}],['padded UID only',{createdByName:null}],
+    ['padded name only',{createdByUid:'historical-creator'}],
+  ]) {
+    test.each(['edit','deactivate','soft-delete'])(`%s accepts normalized ${label} and preserves raw creator evidence`,async(operation)=>{
+      const original=historical(creator);
+      store.seed('abnormality_types/type-1',original);
+      const candidate=edit(original);
+      if(operation==='edit') candidate.description='Updated catalogue description';
+      if(operation==='deactivate') candidate.isActive=false;
+      if(operation==='soft-delete') Object.assign(candidate,{isActive:false,isDeleted:true,
+        deletedAt:candidate.updatedAt,deletedByUid:'admin2',deletedByName:'Current approved editor',
+        deleteReason:'Retired catalogue entry'});
+      const cmd=command('upsertAbnormalityType',candidate);
+      const frozenCommand=JSON.stringify(cmd);
+      const expected={...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName};
+      const receipt=await execute(cmd,'admin2');
+      expect(receipt.result.record).toEqual(expected);
+      expect(store.read('abnormality_types/type-1')).toEqual(expected);
+      expect(JSON.stringify(cmd)).toBe(frozenCommand);
+      const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+      expect(JSON.parse(audit.beforeJson)).toEqual(original);
+      expect(JSON.parse(audit.afterJson)).toEqual(expected);
+      store.seed('abnormality_types/type-1',{...expected,version:9,title:'Later current title'});
+      const beforeReplay=store.entries();
+      expect(await execute(cmd,'admin2')).toEqual(receipt);
+      expect(store.entries()).toEqual(beforeReplay);
+    });
+  }
+  test('trimmed creator bounds match the reader while preserving padded original bytes',async()=>{
+    const original=historical({createdByUid:` ${'u'.repeat(512)} `,createdByName:` ${'n'.repeat(500)} `});
+    store.seed('abnormality_types/type-1',original);
+    const candidate=edit(original);
+    const expected={...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName};
+    expect((await execute(command('upsertAbnormalityType',candidate),'admin2')).result.record).toEqual(expected);
+    expect(store.read('abnormality_types/type-1')).toEqual(expected);
+  });
+  test.each([
+    ['unrelated UID',{createdByUid:'different-creator'}],
+    ['unrelated name',{createdByName:'Different Author'}],
+    ['case-changed UID',{createdByUid:'HISTORICAL-CREATOR'}],
+    ['case-changed name',{createdByName:'HISTORICAL AUTHOR'}],
+    ['blank UID',{createdByUid:'  '}],['blank name',{createdByName:'\t'}],
+    ['removed UID',{createdByUid:null}],['removed name',{createdByName:null}],
+  ])('normalized edit refuses %s without canonical, audit or receipt writes',async(_label,change)=>{
+    const original=historical();
+    store.seed('abnormality_types/type-1',original);
+    const cmd=command('upsertAbnormalityType',{...edit(original),...change});
+    const before=store.entries();
+    await expect(execute(cmd,'admin2')).rejects.toMatchObject({code:'permission-denied'});
+    expect(store.entries()).toEqual(before);
+    expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+    expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+  });
+  test('equivalent submitted padding cannot replace original creator spelling',async()=>{
+    const original=historical();store.seed('abnormality_types/type-1',original);
+    const candidate={...edit(original),createdByUid:'\thistorical-creator ',createdByName:' Historical Author\n'};
+    const receipt=await execute(command('upsertAbnormalityType',candidate),'admin2');
+    expect(receipt.result.record).toEqual({...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName});
+  });
+});
+describe('historical template creator whitespace compatibility',()=>{
+  const historical=(creator)=>({...templateRecord(),version:7,
+    createdByUid:'  historical-creator\t',createdByName:'\t Historical Author  ',...creator});
+  const edit=(original)=>({...original,version:8,updatedAt:'2026-09-27T00:02:00.234567Z',
+    createdByUid:original.createdByUid?.trim()||null,createdByName:original.createdByName?.trim()||null});
+  test.each(['edit','deactivate','soft-delete'])('%s accepts normalized template creator and preserves raw evidence',async(operation)=>{
+    const original=historical();store.seed('job_templates/template-1',original);
+    const candidate=edit(original);
+    const actor=operation==='soft-delete'?'admin':'si';
+    if(operation==='edit') candidate.description='Updated template description';
+    if(operation==='deactivate') candidate.isActive=false;
+    if(operation==='soft-delete') Object.assign(candidate,{isActive:false,isDeleted:true,
+      deletedAt:candidate.updatedAt,deletedByUid:actor,deletedByName:actor,deleteReason:'Retired template'});
+    const cmd=command('upsertLegacyJobTemplate',candidate), frozen=JSON.stringify(cmd);
+    const expected={...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName};
+    const receipt=await execute(cmd,actor);
+    expect(receipt.result.record).toEqual(expected);
+    expect(store.read('job_templates/template-1')).toEqual(expected);
+    expect(JSON.stringify(cmd)).toBe(frozen);
+    const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+    expect(audit.performedByUid).toBe(actor);
+    expect(JSON.parse(audit.beforeJson)).toEqual(original);
+    expect(JSON.parse(audit.afterJson)).toEqual(expected);
+    store.seed('job_templates/template-1',{...expected,version:9,jobName:'Later template title'});
+    const beforeReplay=store.entries();
+    expect(await execute(cmd,actor)).toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+  });
+  test('template historical padded text within trimmed limits remains editable',async()=>{
+    const original=historical({createdByUid:` ${'u'.repeat(500)} `,createdByName:` ${'n'.repeat(500)} `});
+    store.seed('job_templates/template-1',original);
+    const candidate=edit(original);
+    const expected={...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName};
+    expect((await execute(command('upsertLegacyJobTemplate',candidate),'si')).result.record).toEqual(expected);
+  });
+  test.each(['',' \t '])('readable historical blank template creator remains raw when client submits null (%j)',async(blank)=>{
+    const original=historical({createdByUid:blank,createdByName:blank});
+    store.seed('job_templates/template-1',original);
+    const candidate=edit(original), cmd=command('upsertLegacyJobTemplate',candidate);
+    const expected={...candidate,createdByUid:blank,createdByName:blank};
+    const receipt=await execute(cmd,'si');
+    expect(receipt.result.record).toEqual(expected);
+    expect(store.read('job_templates/template-1')).toEqual(expected);
+    expect(JSON.parse(store.read(`audit_logs/server_cf01_${cmd.commandId}`).afterJson)).toEqual(expected);
+    const beforeReplay=store.entries();
+    expect(await execute(cmd,'si')).toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+  });
+  test.each(['null','missing'])('historical %s template creator cannot be rewritten as equivalent blank text',async(mode)=>{
+    const original=historical({createdByUid:null,createdByName:null});
+    if(mode==='missing') { delete original.createdByUid; delete original.createdByName; }
+    store.seed('job_templates/template-1',original);
+    const candidate={...edit(original),createdByUid:' \t ',createdByName:'  '};
+    const cmd=command('upsertLegacyJobTemplate',candidate), frozen=JSON.stringify(cmd);
+    const expected={...candidate,createdByUid:null,createdByName:null};
+    if(mode==='missing') { delete expected.createdByUid; delete expected.createdByName; }
+    const receipt=await execute(cmd,'si');
+    expect(receipt.result.record).toEqual(expected);
+    expect(store.read('job_templates/template-1')).toEqual(expected);
+    expect(JSON.stringify(cmd)).toBe(frozen);
+    const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+    expect(JSON.parse(audit.beforeJson)).toEqual(original);
+    expect(JSON.parse(audit.afterJson)).toEqual(expected);
+    const beforeReplay=store.entries();
+    expect(await execute(cmd,'si')).toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+  });
+  test.each([
+    ['unrelated UID',{createdByUid:'different-creator'}],['unrelated name',{createdByName:'Different Author'}],
+    ['case-changed UID',{createdByUid:'HISTORICAL-CREATOR'}],['case-changed name',{createdByName:'HISTORICAL AUTHOR'}],
+    ['blank UID',{createdByUid:'  '}],['blank name',{createdByName:'\t'}],
+    ['removed UID',{createdByUid:null}],['removed name',{createdByName:null}],
+  ])('template edit refuses %s without canonical, audit or receipt writes',async(_label,change)=>{
+    const original=historical();store.seed('job_templates/template-1',original);
+    const cmd=command('upsertLegacyJobTemplate',{...edit(original),...change}), before=store.entries();
+    await expect(execute(cmd,'si')).rejects.toMatchObject({code:'permission-denied'});
+    expect(store.entries()).toEqual(before);
+    expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+    expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+  });
+  test('normalized template creator does not authorize SI deletion',async()=>{
+    const original=historical();store.seed('job_templates/template-1',original);
+    const candidate={...edit(original),isDeleted:true,deletedAt:'2026-09-27T00:02:00.234567Z',deletedByUid:'si'};
+    const before=store.entries();
+    await expect(execute(command('upsertLegacyJobTemplate',candidate),'si'))
+      .rejects.toMatchObject({code:'permission-denied',message:'Only Admin may write a deleted template.'});
+    expect(store.entries()).toEqual(before);
+  });
+  test('new template still requires the actual originating creator UID',async()=>{
+    const candidate={...templateRecord(),createdByUid:'  si  '};
+    const before=store.entries();
+    await expect(execute(command('upsertLegacyJobTemplate',candidate),'si'))
+      .rejects.toMatchObject({code:'permission-denied',message:'Template creator must be the origin actor.'});
+    expect(store.entries()).toEqual(before);
+  });
+});
 test('permanent purge evidence prevents recreating a catalogue identity',async()=>{
   const hash=require('node:crypto').createHash('sha256').update('abnormality_types/type-1').digest('hex');
   store.seed(`pilot_record_purge_manifests/purge_${hash}`,{entityId:'type-1'});

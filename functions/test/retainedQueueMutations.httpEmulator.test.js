@@ -44,7 +44,7 @@ suite('CF01 authenticated HTTP boundary',()=>{
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST||'')||
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIREBASE_AUTH_EMULATOR_HOST||'')) throw Error('Isolated loopback demo emulators are required.');
     app=initializeApp({projectId},prefix);db=getFirestore(app);
-    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['historicalEditor','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
+    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['historicalEditor','admin'],['paddedEditor','admin'],['paddedTemplateSi','si'],['paddedTemplateAdmin','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
       const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-only`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`${prefix}-${name}@example.invalid`,password:'synthetic-test-only',returnSecureToken:true})});
       const auth=await response.json();if(!auth.idToken)throw Error(`Auth fixture failed for ${name}`);
@@ -273,6 +273,134 @@ suite('CF01 authenticated HTTP boundary',()=>{
       // and deletion, without altering the current row or rewriting its audit.
       for(const {cmd,receipt,audit} of retained) {
         expect(await accepted(historicalEditor,cmd)).toEqual(receipt);
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await audit.ref.get()).updateTime.isEqual(audit.updateTime)).toBe(true);
+      }
+    }
+
+    // The strict client trims readable creator text. Preserve the original raw
+    // spelling on disk while accepting exactly that normalized identity.
+    const paddedEditor=actors.paddedEditor;
+    for(const mode of ['pair','uid-only']) {
+      const original={...typeRecord(`${prefix}-padded-${mode}`,'  historical-creator\t'),
+        createdByName:mode==='pair'?'\t Historical Author  ':null};
+      const path=`abnormality_types/${original.firestoreId}`;
+      let baseline=await seedStamped(path,original);
+      let snapshot=await db.doc(path).get();
+      let candidate={...original,createdByUid:original.createdByUid.trim(),
+        createdByName:original.createdByName?.trim()??null,version:2,
+        updatedAt:'2026-09-27T00:02:00.234567Z',
+        lastEditedByUid:paddedEditor.uid,lastEditedByName:paddedEditor.profile.name};
+      for(const [suffix,change] of [
+        ['unrelated-uid',{createdByUid:'different-creator'}],
+        ['unrelated-name',{createdByName:'Different Author'}],
+        ['blank-uid',{createdByUid:'  '}],['blank-name',{createdByName:'\t'}],
+      ]) {
+        const bad=make('upsertAbnormalityType',{...candidate,...change},`padded-${mode}-${suffix}`);
+        expect((await invoke(paddedEditor,bad)).error.status).toBe('PERMISSION_DENIED');
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+        expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+      }
+      const retained=[];
+      let previous=original;
+      for(const operation of ['edit','deactivate','soft-delete']) {
+        if(operation==='edit') candidate.description='Current clarification with original creator evidence';
+        if(operation==='deactivate') candidate={...candidate,version:3,isActive:false};
+        if(operation==='soft-delete') candidate={...candidate,version:4,isDeleted:true,
+          deletedAt:candidate.updatedAt,deletedByUid:paddedEditor.uid,
+          deletedByName:paddedEditor.profile.name,deleteReason:'Retired catalogue entry'};
+        const cmd=make('upsertAbnormalityType',candidate,`padded-${mode}-${operation}`);
+        const frozen=JSON.stringify(cmd);
+        const expected={...candidate,createdByUid:original.createdByUid,createdByName:original.createdByName};
+        const receipt=await accepted(paddedEditor,cmd);
+        expect(receipt.result.record).toEqual(expected);
+        expect(JSON.stringify(cmd)).toBe(frozen);
+        baseline=await waitForStamped(path,expected,baseline._globalPullServerUpdatedAt);
+        snapshot=await db.doc(path).get();
+        const audit=await db.doc(`audit_logs/server_cf01_${cmd.commandId}`).get();
+        expect(JSON.parse(audit.data().beforeJson)).toEqual(previous);
+        expect(JSON.parse(audit.data().afterJson)).toEqual(expected);
+        expect(audit.data().performedByUid).toBe(paddedEditor.uid);
+        retained.push({cmd,receipt,audit});
+        previous=expected;
+      }
+      for(const {cmd,receipt,audit} of retained) {
+        expect(await accepted(paddedEditor,cmd)).toEqual(receipt);
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await audit.ref.get()).updateTime.isEqual(audit.updateTime)).toBe(true);
+      }
+      const first=retained[0].cmd;
+      // Semantically equal creator spelling never permits changing a saved
+      // command's exact payload identity after that command was accepted.
+      expect((await invoke(paddedEditor,{...first,payload:{...first.payload,
+        record:{...first.payload.record,createdByUid:original.createdByUid}}})).error.status).toBe('ABORTED');
+      const unchanged=await db.doc(path).get();
+      expect(unchanged.data()).toEqual(baseline);
+      expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+    }
+
+    // Legacy templates have the same normalized creator identity, but their
+    // optional-text reader also maps historical blank strings to null.
+    for(const mode of ['pair','blank','null','missing']) {
+      const original={...templateRecord(`${prefix}-padded-template-${mode}`),
+        createdByUid:mode==='pair'?'  historical-template-creator\t':' \t ',
+        createdByName:mode==='pair'?'\t Historical Template Author  ':''};
+      if(mode==='null') Object.assign(original,{createdByUid:null,createdByName:null});
+      if(mode==='missing') { delete original.createdByUid; delete original.createdByName; }
+      const path=`job_templates/${original.firestoreId}`;
+      let baseline=await seedStamped(path,original), snapshot=await db.doc(path).get();
+      let candidate={...original,createdByUid:original.createdByUid?.trim()||null,
+        createdByName:original.createdByName?.trim()||null,version:2,
+        updatedAt:'2026-09-27T00:02:00.234567Z'};
+      if(mode==='null'||mode==='missing') Object.assign(candidate,{createdByUid:' \t ',createdByName:'  '});
+      for(const [suffix,change] of [
+        ['unrelated-uid',{createdByUid:'different-creator'}],
+        ['unrelated-name',{createdByName:'Different Author'}],
+        ['si-deletion',{isDeleted:true,deletedAt:candidate.updatedAt,deletedByUid:actors.paddedTemplateSi.uid}],
+      ]) {
+        const bad=make('upsertLegacyJobTemplate',{...candidate,...change},`padded-template-${mode}-${suffix}`);
+        expect((await invoke(actors.paddedTemplateSi,bad)).error.status).toBe('PERMISSION_DENIED');
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+        expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+      }
+      const retained=[];
+      let previous=original;
+      for(const operation of ['edit','deactivate','soft-delete']) {
+        const actor=operation==='soft-delete'?actors.paddedTemplateAdmin:actors.paddedTemplateSi;
+        if(operation==='edit') candidate.description='Current template clarification';
+        if(operation==='deactivate') candidate={...candidate,version:3,isActive:false};
+        if(operation==='soft-delete') candidate={...candidate,version:4,isDeleted:true,
+          deletedAt:candidate.updatedAt,deletedByUid:actor.uid,
+          deletedByName:actor.profile.name,deleteReason:'Retired template'};
+        const cmd=make('upsertLegacyJobTemplate',candidate,`padded-template-${mode}-${operation}`), frozen=JSON.stringify(cmd);
+        const expected={...candidate};
+        for(const field of ['createdByUid','createdByName']) {
+          if(Object.hasOwn(original,field)) expected[field]=original[field];
+          else delete expected[field];
+        }
+        const receipt=await accepted(actor,cmd);
+        expect(receipt.result.record).toEqual(expected);
+        expect(JSON.stringify(cmd)).toBe(frozen);
+        baseline=await waitForStamped(path,expected,baseline._globalPullServerUpdatedAt);
+        snapshot=await db.doc(path).get();
+        const audit=await db.doc(`audit_logs/server_cf01_${cmd.commandId}`).get();
+        expect(JSON.parse(audit.data().beforeJson)).toEqual(previous);
+        expect(JSON.parse(audit.data().afterJson)).toEqual(expected);
+        expect(audit.data().performedByUid).toBe(actor.uid);
+        retained.push({cmd,receipt,audit,actor});previous=expected;
+      }
+      for(const {cmd,receipt,audit,actor} of retained) {
+        expect(await accepted(actor,cmd)).toEqual(receipt);
         const unchanged=await db.doc(path).get();
         expect(unchanged.data()).toEqual(baseline);
         expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
