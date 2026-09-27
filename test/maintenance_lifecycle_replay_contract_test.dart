@@ -201,9 +201,7 @@ void main() {
         );
         expect(
           submit,
-          contains(
-            'Work accepted. Exact device refresh is pending',
-          ),
+          contains('Work accepted. Exact device refresh is pending'),
         );
         expect(submit, isNot(contains('repository.resolveTicket(')));
         expect(submit, isNot(contains('runFullSyncWithResult(')));
@@ -1273,7 +1271,8 @@ const _rulePaths = <String>[
   'Other root files/firestore.rules',
 ];
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) =>
+    File(path).readAsStringSync().replaceAll('\r\n', '\n');
 
 String _readMaintenanceProviderLibrary() =>
     _providerPaths.map(_read).join('\n');

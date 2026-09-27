@@ -25,7 +25,23 @@ extension _SyncServiceExecutions on SyncService {
         continue;
       }
 
-      final firestoreIds = activeBatchRecords
+      // All open work needs durable save-time ownership. Historical absent
+      // remote rows cannot be classified as creates by version or assigner UID.
+      // Preserve them for review before any remote read or local acknowledgement.
+      final lifecycleRecords = <JobExecution>[];
+      for (final record in activeBatchRecords) {
+        if (!record.isCompleted && !record.isDeleted) {
+          await _syncRetainedRow(
+            RetainedRowKind.executionWork,
+            'job_execution',
+            record,
+          );
+        } else {
+          lifecycleRecords.add(record);
+        }
+      }
+      if (lifecycleRecords.isEmpty) continue;
+      final firestoreIds = lifecycleRecords
           .map((e) => e.firestoreId)
           .whereType<String>()
           .toList();
@@ -40,7 +56,7 @@ extension _SyncServiceExecutions on SyncService {
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
       final convergedRecords = <JobExecution>[];
 
-      for (final record in activeBatchRecords) {
+      for (final record in lifecycleRecords) {
         _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;

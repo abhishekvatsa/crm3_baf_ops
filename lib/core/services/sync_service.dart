@@ -15,6 +15,7 @@ import 'sync_failure_classifier.dart';
 import 'sync_push_snapshot.dart';
 import 'sync_remote_freshness_policy.dart';
 import 'sync_run_guard.dart';
+import 'retained_row_mutations.dart';
 import 'remote_tombstone_apply_result.dart';
 
 import '../../features/maintenance/data/maintenance_model.dart';
@@ -49,6 +50,7 @@ import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/abnormalities/domain/charge_abnormality_identity.dart';
 import '../../features/abnormalities/providers/abnormality_provider.dart';
 import '../../features/abnormalities/services/charge_abnormality_command_service.dart';
+import '../../features/abnormalities/services/charge_abnormality_queue_guard.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/audit/repositories/audit_repository.dart';
 import '../../features/audit/providers/audit_provider.dart';
@@ -188,6 +190,8 @@ class SyncService {
   final AbnormalityRepository _abnormalityRepo;
   final AbnormalityRepository _firestoreAbnormality;
   final ChargeAbnormalityCommandService _abnormalityCommands;
+  final ChargeAbnormalityQueueGuard _abnormalityQueueGuard;
+  final RetainedRowMutations _retainedRowMutations;
 
   final BafKnowledgeRepository _knowledgeRepo;
 
@@ -233,6 +237,8 @@ class SyncService {
     required AbnormalityRepository abnormalityRepo,
     required AbnormalityRepository firestoreAbnormality,
     ChargeAbnormalityCommandService? abnormalityCommandService,
+    ChargeAbnormalityQueueGuard? abnormalityQueueGuard,
+    RetainedRowMutations? retainedRowMutations,
     required BafKnowledgeRepository knowledgeRepo,
     required AuditRepository auditRepository,
     String? Function()? rejectionOwnerUidLookup,
@@ -258,8 +264,13 @@ class SyncService {
        _firestoreDirective = firestoreDirective,
        _abnormalityRepo = abnormalityRepo,
        _firestoreAbnormality = firestoreAbnormality,
+       _retainedRowMutations = retainedRowMutations ?? RetainedRowMutations(),
        _abnormalityCommands =
            abnormalityCommandService ?? ChargeAbnormalityCommandService(),
+       _abnormalityQueueGuard = abnormalityQueueGuard ??
+           ChargeAbnormalityQueueGuard(
+             currentActorUid: () => (auth ?? FirebaseAuth.instance).currentUser?.uid,
+           ),
        _knowledgeRepo = knowledgeRepo,
        _auditRepo = auditRepository,
        _rejectionOwnerUidLookup =

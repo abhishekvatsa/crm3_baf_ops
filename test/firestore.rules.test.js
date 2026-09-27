@@ -349,8 +349,8 @@ describe("immutable pilot record purge receipts", () => {
   });
 });
 
-describe("global pull server clock custody", () => {
-  test("clients cannot author or replace the stamp, and stamp-only removal fails", async () => {
+describe("governed catalogue and global pull server clock custody", () => {
+  test("Admin cannot bypass the origin-bound command, including with a valid catalogue payload", async () => {
     await seedUser("admin1", ["admin"]);
     const db = dbAs("admin1");
     const ref = doc(db, "abnormality_types/type1");
@@ -362,7 +362,8 @@ describe("global pull server clock custody", () => {
       })
     );
     await assertFails(setDoc(ref, {title: "Type 1"}));
-    await assertSucceeds(setDoc(ref, abnormalityTypePayload()));
+    await assertFails(setDoc(ref, abnormalityTypePayload()));
+    await seedDoc("abnormality_types/type1", abnormalityTypePayload());
     await assertFails(
       updateDoc(ref, {_globalPullServerUpdatedAt: null})
     );
@@ -374,14 +375,14 @@ describe("global pull server clock custody", () => {
       );
     });
 
-    await assertSucceeds(updateDoc(ref, {
+    await assertFails(updateDoc(ref, {
       title: "Type 1 revised",
       updatedAt: new Date().toISOString(),
       lastEditedByUid: "admin1",
       lastEditedByName: "admin1",
       version: 2,
     }));
-    await assertSucceeds(updateDoc(ref, {
+    await assertFails(updateDoc(ref, {
       title: "Type 1 revised twice while offline",
       updatedAt: new Date().toISOString(),
       lastEditedByUid: "admin1",
@@ -410,7 +411,7 @@ describe("global pull server clock custody", () => {
     );
   });
 
-  test("legacy substantive replacement may omit the stamp for server restamping", async () => {
+  test("legacy catalogue replacement cannot bypass the command by omitting the server stamp", async () => {
     await seedUser("admin1", ["admin"]);
     await seedDoc("abnormality_types/type1", {
       title: "Type 1",
@@ -419,16 +420,17 @@ describe("global pull server clock custody", () => {
     const db = dbAs("admin1");
     const ref = doc(db, "abnormality_types/type1");
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(ref, abnormalityTypePayload("type1", {
         title: "Type 1 revised",
       }))
     );
     const replaced = await getDoc(ref);
-    expect(replaced.data()._globalPullServerUpdatedAt).toBeUndefined();
+    expect(replaced.data()._globalPullServerUpdatedAt).toBeInstanceOf(Timestamp);
+    expect(replaced.data().title).toBe("Type 1");
   });
 
-  test("abnormality type tombstone requires an authoritative deletion time", async () => {
+  test("catalogue tombstones require the governed command even with complete actor and time evidence", async () => {
     await seedUser("admin1", ["admin"]);
     await seedDoc(
       "abnormality_types/typeDelete",
@@ -446,7 +448,7 @@ describe("global pull server clock custody", () => {
         version: 2,
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(ref, {
         isActive: false,
         isDeleted: true,
@@ -2630,11 +2632,11 @@ describe("maintenance_records", () => {
 });
 
 
-describe("job_templates tombstone authority", () => {
-  test("admin delete requires an authoritative deletion time", async () => {
+describe("job_templates governed mutation authority", () => {
+  test("Admin creation and deletion require the origin-bound command", async () => {
     await seedUser("admin1", ["admin"]);
     const ref = doc(dbAs("admin1"), "job_templates/templateDelete");
-    await assertSucceeds(
+    await assertFails(
       setDoc(ref, {
         firestoreId: "templateDelete",
         jobName: "Legacy template",
@@ -2642,6 +2644,12 @@ describe("job_templates tombstone authority", () => {
         version: 1,
       })
     );
+    await seedDoc("job_templates/templateDelete", {
+      firestoreId: "templateDelete",
+      jobName: "Legacy template",
+      isDeleted: false,
+      version: 1,
+    });
 
     await assertFails(
       updateDoc(ref, {isDeleted: true, version: 2})
@@ -2653,7 +2661,7 @@ describe("job_templates tombstone authority", () => {
         version: 2,
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(ref, {
         isDeleted: true,
         deletedAt: new Date().toISOString(),
@@ -3442,6 +3450,35 @@ describe("job_executions", () => {
         version: 2,
       })
     );
+  });
+
+  test("the original authorized assigner cannot bypass origin-bound work commands", async () => {
+    const original = {
+      firestoreId: "jobRetainedWork",
+      templateFirestoreId: "legacyTemplate1",
+      assetType: "base",
+      assetNumber: 1,
+      assignedByUid: "supervisor1",
+      assignedByName: "Shift Supervisor",
+      assignedAgencies: ["mechanical"],
+      createdAt: new Date(1000).toISOString(),
+      updatedAt: new Date(1000).toISOString(),
+      version: 1,
+      isCompleted: false,
+      isDeleted: false,
+      remarks: "Accepted original work",
+      teamsInvolved: [],
+      responsesJson: "[]",
+      actionsJson: "[]",
+    };
+    await seedDoc("job_executions/jobRetainedWork", original);
+    const ref = doc(dbAs("supervisor1"), "job_executions/jobRetainedWork");
+    await assertFails(updateDoc(ref, {
+      remarks: "Unbound queued work",
+      updatedAt: new Date(2000).toISOString(),
+      version: 2,
+    }));
+    expect((await getDoc(ref)).data()).toEqual(original);
   });
 
   test("shift supervisor cannot directly complete job execution; completion is Cloud Function only", async () => {

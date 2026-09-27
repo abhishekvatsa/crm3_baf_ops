@@ -31,6 +31,24 @@
       "preserveAppData": false,
       "timeoutSeconds": 1320,
       "coverage": "Fresh reviewed publication, assignment, worker responses/submission, separate SI acceptance, diary, lane and governed final closure"
+    },
+    {
+      "path": "integration_test/dev_queue_ownership_journey_test.dart",
+      "actorEmail": "dev.cf01-a@example.invalid",
+      "actorName": "DEV CF01 Admin A",
+      "successMarker": "DEV_QUEUE_OWNERSHIP_PREPARED",
+      "preserveAppData": false,
+      "timeoutSeconds": 600,
+      "coverage": "Native Isar offline save in three domains, authenticated same-role account switch, blocked overwrite/send/adoption, and pending original-account commands retained with account B signed in before process exit"
+    },
+    {
+      "path": "integration_test/dev_queue_ownership_resume_journey_test.dart",
+      "actorEmail": "dev.cf01-b@example.invalid",
+      "actorName": "DEV CF01 Admin B",
+      "successMarker": "DEV_QUEUE_OWNERSHIP_PASS",
+      "preserveAppData": true,
+      "timeoutSeconds": 600,
+      "coverage": "Separate Android process starts as B with the retained pending rows, proves same-role refusal persists, then returns to A for original-command acceptance and exact receipt replay after interrupted local acknowledgement"
     }
   ],
   "excluded": [

@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/core/providers/sync_status_provider.dart';
 import 'package:crm3_baf_ops/core/services/global_pull_service.dart';
 import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
@@ -6,9 +10,11 @@ import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'package:crm3_baf_ops/core/services/sync_push_snapshot.dart';
+import 'package:crm3_baf_ops/core/services/retained_row_mutations.dart';
 import 'package:isar_community/isar.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/features/abnormalities/services/charge_abnormality_queue_guard.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
@@ -34,7 +40,76 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../tool/test_support/test_isar_core.dart';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(initializeTestIsarCore);
+  testWidgets(
+    'B-held A abnormality does not stop independent audit and canonical pull',
+    (tester) async {
+      final rig = _Rig()
+        ..pendingAbnormality = (ChargeAbnormality()
+          ..id = 19
+          ..firestoreId = 'original-a-abnormality'
+          ..sourceChargeNo = 12001
+          ..abnormalityTypeId = 'condition'
+          ..abnormalityTypeCode = 'CONDITION'
+          ..abnormalityTypeTitle = 'Condition'
+          ..observedReason = 'Original account A evidence'
+          ..loggedAt = DateTime.utc(2026, 9, 20)
+          ..updatedAt = DateTime.utc(2026, 9, 20)
+          ..loggedByUid = 'origin-a'
+          ..updatedByUid = 'origin-a'
+          ..version = 1);
+      final before = rig.pendingAbnormality!.toMap();
+      final pull = _Pull();
+      final owner = Provider<SyncCoordinator>((ref) {
+        final coordinator = SyncCoordinator(
+          ref,
+          rig.service,
+          pull,
+          LocalRecoverySessionGuard(),
+          connectivity: _Connectivity(),
+          runGuardFactory: () => SyncRunGuard(() {}),
+        );
+        ref.onDispose(coordinator.dispose);
+        return coordinator;
+      });
+      final container = ProviderContainer(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+          workflowUncertainRetryServiceProvider.overrideWithValue(_Retry()),
+          workflowRepositoryProvider.overrideWithValue(_WorkflowRepository()),
+          workflowPullServiceProvider.overrideWithValue(_WorkflowPull()),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(
+        await container.read(owner).runFullSyncWithResult(force: true),
+        SyncRequestOutcome.partial,
+      );
+      expect(rig.visits, _allStages);
+      expect(rig.abnormalityRemoteReads, 0);
+      expect(rig.abnormalityWrites, 0);
+      expect(rig.abnormalitiesMarked, 0);
+      expect(rig.pendingAbnormality!.isSynced, isFalse);
+      expect(rig.pendingAbnormality!.toMap(), before);
+      expect(pull.calls, 1);
+      expect(
+        rig.service.lastSuccessCount,
+        1,
+        reason: 'Independent audit completed.',
+      );
+      expect(rig.service.lastFailureCount, 1);
+      expect(
+        container.read(syncRunHealthProvider).lastPartiallySucceeded,
+        isTrue,
+      );
+      expect(container.read(syncRunHealthProvider).lastSucceeded, isFalse);
+      await tester.pump(const Duration(seconds: 6));
+    },
+  );
   testWidgets(
     'reconciled execution conflict keeps dependent work visibly pending until the next run',
     (tester) async {
@@ -49,7 +124,7 @@ void main() {
           ..draftNote = 'Unsent inspection evidence'
           ..createdAt = DateTime.utc(2026, 9, 20)
           ..updatedAt = DateTime.utc(2026, 9, 21))
-        ..pushType = true;
+        ..pushKnowledge = true;
       final pendingBefore = rig.pendingModule!.toMap();
       final pull = _Pull();
       final owner = Provider<SyncCoordinator>((ref) {
@@ -97,7 +172,7 @@ void main() {
       expect(rig.pendingModule!.isSynced, isFalse);
       expect(rig.pendingModule!.toMap(), pendingBefore);
       expect(
-        rig.typeWriteCalls,
+        rig.knowledgePushCalls,
         1,
         reason: 'independent work still progresses',
       );
@@ -293,40 +368,45 @@ void main() {
   );
 
   test(
-    'later independent type rows are actually written and acknowledged',
+    'later independent module rows are actually written and acknowledged',
     () async {
       final rig = _Rig()
         ..failures['tickets'] = StateError('ticket batch unreadable')
-        ..pushType = true;
+        ..pendingModule = _pendingModule();
       await rig.service.syncAll();
-      expect(rig.typeWriteCalls, 1);
-      expect(rig.typesMarked, 1);
+      expect(rig.moduleWriteCalls, 1);
+      expect(rig.modulesMarked, 1);
+      expect(rig.pendingModule!.isSynced, isTrue);
       expect(rig.service.lastFailureCount, 1);
       expect(rig.service.lastSuccessCount, 2);
     },
   );
 
-  test('a remote lookup failure holds events and continues audit', () async {
-    final rig = _Rig()
-      ..pushType = true
-      ..typeReadError = StateError('remote type batch unavailable');
-    await rig.service.syncAll();
-    expect(rig.typeWriteCalls, 0);
-    expect(rig.typesMarked, 0);
-    expect(rig.visits, _allStages.where((stage) => stage != 'abnormalities'));
-    expect(rig.service.lastFailureCount, 1);
-  });
+  test(
+    'a remote module lookup failure holds closure and continues audit',
+    () async {
+      final rig = _Rig()
+        ..pendingModule = _pendingModule()
+        ..moduleReadError = StateError('remote module batch unavailable');
+      await rig.service.syncAll();
+      expect(rig.moduleWriteCalls, 0);
+      expect(rig.modulesMarked, 0);
+      expect(rig.pendingModule!.isSynced, isFalse);
+      expect(rig.visits, _allStages.where((stage) => stage != 'closures'));
+      expect(rig.service.lastFailureCount, 1);
+    },
+  );
 
   test(
     'unauthenticated row write stops retries, acknowledgement and later domains',
     () async {
       final rig = _Rig()
-        ..pushType = true
-        ..typeWriteError = FirebaseAuthException(code: 'unauthenticated');
+        ..pendingModule = _pendingModule()
+        ..moduleWriteError = FirebaseAuthException(code: 'unauthenticated');
       await expectLater(rig.service.syncAll(), throwsA(isA<SyncRunAborted>()));
-      expect(rig.typeWriteCalls, 1);
-      expect(rig.typesMarked, 0);
-      expect(rig.visits, _allStages.take(_allStages.indexOf('types') + 1));
+      expect(rig.moduleWriteCalls, 1);
+      expect(rig.modulesMarked, 0);
+      expect(rig.visits, _allStages.take(_allStages.indexOf('modules') + 1));
       expect(rig.service.lastFailureDetails, isEmpty);
     },
   );
@@ -335,19 +415,19 @@ void main() {
     tester,
   ) async {
     final rig = _Rig()
-      ..pushType = true
-      ..typeWriteError = StateError('temporary write failure');
+      ..pendingModule = _pendingModule()
+      ..moduleWriteError = StateError('temporary write failure');
     final completion = expectLater(
       rig.service.syncAll(),
       throwsA(isA<SyncRunAborted>()),
     );
     await tester.pump();
-    expect(rig.typeWriteCalls, 1);
+    expect(rig.moduleWriteCalls, 1);
     rig.auth.actor = null;
     await tester.pump(const Duration(seconds: 3));
     await completion;
-    expect(rig.typeWriteCalls, 1);
-    expect(rig.typesMarked, 0);
+    expect(rig.moduleWriteCalls, 1);
+    expect(rig.modulesMarked, 0);
     expect(rig.visits, isNot(contains('audit')));
   });
 
@@ -371,16 +451,50 @@ void main() {
   );
 
   test(
-    'a preserved prerequisite conflict also holds dependent event pushes',
+    'unknown type origin is retained for review and holds dependent event pushes',
     () async {
-      final rig = _Rig()
-        ..pushType = true
-        ..newerRemoteType = true;
-      await rig.service.syncAll();
-      expect(rig.visits, _allStages.where((stage) => stage != 'abnormalities'));
-      expect(rig.typeWriteCalls, 0);
-      expect(rig.typesMarked, 0);
-      expect(rig.service.lastConflictCount, 1);
+      final directory = await Directory.systemTemp.createTemp(
+        'cf01_isolation_',
+      );
+      final database = await Isar.open(
+        [DurableSubmissionRecordSchema],
+        name: 'cf01_isolation',
+        directory: directory.path,
+        inspector: false,
+      );
+      try {
+        final store = DurableSubmissionRepository(database);
+        final rig = _Rig(retainedStore: store)..pushType = true;
+        final before = RetainedRowMutations.wire(
+          (await _Abnormalities(rig).getUnsyncedTypes()).single,
+        );
+        rig.visits.clear();
+        await rig.service.syncAll();
+        expect(
+          rig.visits,
+          _allStages.where((stage) => stage != 'abnormalities'),
+        );
+        expect(rig.typeWriteCalls, 0);
+        expect(rig.typesMarked, 0);
+        expect(rig.service.lastFailureCount, 1);
+        expect(rig.service.lastConflictCount, 0);
+        expect(
+          rig.service.lastFailureDetails.single.message,
+          contains('original account'),
+        );
+        final retained = await store.findUnresolvedForResource(
+          'retainedRow:demo-test:abnormality_types:type-7',
+        );
+        expect(retained!.isLegacy, isTrue);
+        expect(retained.actorUid, isNull);
+        expect(
+          jsonDecode(utf8.decode(base64Decode(retained.legacySourceBase64!))),
+          before,
+        );
+      } finally {
+        await database.close(deleteFromDisk: true);
+        await directory.delete(recursive: true);
+      }
     },
   );
 }
@@ -403,21 +517,30 @@ const _allStages = [
 ];
 
 class _Rig {
+  _Rig({this.retainedStore});
+  final DurableSubmissionRepository? retainedStore;
   final visits = <String>[];
   final failures = <String, Object>{};
   void Function(String)? onVisit;
   bool badModule = false;
   bool badType = false;
   bool badVersion = false;
-  bool newerRemoteType = false;
   bool pushType = false;
-  Object? typeReadError;
-  Object? typeWriteError;
+  bool pushKnowledge = false;
+  int knowledgePushCalls = 0;
+  Object? moduleReadError;
+  Object? moduleWriteError;
+  int moduleWriteCalls = 0;
+  int modulesMarked = 0;
   int typeWriteCalls = 0;
   int typesMarked = 0;
   JobExecution? localExecution;
   JobExecution? remoteExecution;
   JobModuleInstance? pendingModule;
+  ChargeAbnormality? pendingAbnormality;
+  int abnormalityRemoteReads = 0;
+  int abnormalityWrites = 0;
+  int abnormalitiesMarked = 0;
   final moduleWrites = <Map<String, dynamic>>[];
   final audits = <AuditEvent>[];
   late final auth = _Auth();
@@ -441,6 +564,16 @@ class _Rig {
     auditRepository: _Audit(this),
     auth: auth,
     rejectionOwnerUidLookup: () => auth.currentUser?.uid,
+    retainedRowMutations: RetainedRowMutations(
+      store: retainedStore,
+      projectId: () => 'demo-test',
+      currentActorUid: () => auth.currentUser?.uid,
+    ),
+    abnormalityQueueGuard: ChargeAbnormalityQueueGuard(
+      store: retainedStore,
+      projectId: () => 'demo-test',
+      currentActorUid: () => auth.currentUser?.uid,
+    ),
   );
 
   void visit(String stage) {
@@ -574,9 +707,15 @@ class _Modules extends JobModuleRepository {
   @override
   Future<List<JobModuleInstance>> getModulesByFirestoreIds(
     List<String> ids,
-  ) async => [];
+  ) async {
+    if (rig.moduleReadError != null) throw rig.moduleReadError!;
+    return [];
+  }
+
   @override
   Future<void> batchUpsertModules(List<JobModuleInstance> records) async {
+    rig.moduleWriteCalls++;
+    if (rig.moduleWriteError != null) throw rig.moduleWriteError!;
     rig.moduleWrites.addAll(records.map((record) => record.toMap()));
   }
 
@@ -588,6 +727,7 @@ class _Modules extends JobModuleRepository {
     expect(snapshots.single.id, record.id);
     expect(snapshots.single.version, record.version);
     expect(snapshots.single.updatedAt, record.updatedAt);
+    rig.modulesMarked += snapshots.length;
     record.isSynced = true;
   }
 
@@ -629,25 +769,12 @@ class _Abnormalities extends AbnormalityRepository {
 
   @override
   Future<List<AbnormalityType>> getTypesByFirestoreIds(List<String> ids) async {
-    if (rig.typeReadError != null) throw rig.typeReadError!;
-    if (rig.newerRemoteType) {
-      return [
-        AbnormalityType()
-          ..firestoreId = 'type-7'
-          ..version = 2
-          ..code = 'TYPE7'
-          ..title = 'Test type'
-          ..createdAt = DateTime.utc(2026, 9, 27)
-          ..updatedAt = DateTime.utc(2026, 9, 27),
-      ];
-    }
     return [];
   }
 
   @override
   Future<void> batchUpsertTypes(List<AbnormalityType> records) async {
     rig.typeWriteCalls++;
-    if (rig.typeWriteError != null) throw rig.typeWriteError!;
   }
 
   @override
@@ -660,7 +787,27 @@ class _Abnormalities extends AbnormalityRepository {
   @override
   Future<List<ChargeAbnormality>> getUnsyncedAbnormalities() async {
     rig.visit('abnormalities');
+    return rig.pendingAbnormality == null ? [] : [rig.pendingAbnormality!];
+  }
+
+  @override
+  Future<List<ChargeAbnormality>> getAbnormalitiesByFirestoreIds(
+    List<String> ids,
+  ) async {
+    rig.abnormalityRemoteReads++;
     return [];
+  }
+
+  @override
+  Future<void> batchUpsertAbnormalities(List<ChargeAbnormality> records) async {
+    rig.abnormalityWrites++;
+  }
+
+  @override
+  Future<void> markAbnormalitiesSyncedIfUnchanged(
+    List<SyncPushSnapshot> snapshots,
+  ) async {
+    rig.abnormalitiesMarked += snapshots.length;
   }
 
   @override
@@ -673,7 +820,8 @@ class _Knowledge implements BafKnowledgeRepository {
   @override
   Future<int> syncUnsyncedToCloud({SyncRunGuard? runGuard}) async {
     rig.visit('knowledge');
-    return 0;
+    if (rig.pushKnowledge) rig.knowledgePushCalls++;
+    return rig.pushKnowledge ? 1 : 0;
   }
 
   @override
@@ -738,6 +886,15 @@ JobExecution _execution({required bool deleted}) => JobExecution()
   ..updatedAt = DateTime.utc(2026, 9, deleted ? 20 : 21)
   ..version = deleted ? 2 : 3
   ..isDeleted = deleted;
+
+JobModuleInstance _pendingModule() => JobModuleInstance()
+  ..id = 12
+  ..firestoreId = 'pending-module'
+  ..jobExecutionFirestoreId = 'reconciled-job'
+  ..moduleTitle = 'Inspection'
+  ..draftNote = 'Unsent inspection evidence'
+  ..createdAt = DateTime.utc(2026, 9, 20)
+  ..updatedAt = DateTime.utc(2026, 9, 21);
 
 class _Connectivity extends Fake implements Connectivity {
   @override

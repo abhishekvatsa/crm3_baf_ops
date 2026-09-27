@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "CECD44B3F5AFA93D052BC83F90CA14B34E7C2A17A0783DB5D06DEAD082A9B53C",
+  "inventoryDigest": "E3DDFA103A24520FCACC538CA7AC5FBA5A62FE81ACDDA60898E50A31FE0F2A90",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -1308,6 +1308,23 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart"
       ]
+    },
+    {
+      "path": "lib/core/services/retained_row_mutations.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/retained_row_mutations_test.dart",
+        "integration_test/dev_queue_ownership_journey_test.dart"
+      ],
+      "reviewContract": "The existing durable repository transaction atomically retains original-account/project immutable command bytes with the dirty row. Native local-ID and document-ID checks prevent replacing unrelated rows. Dispatch uses the governed V2 callable and fresh backend authority; acceptance compares the complete saved payload before atomic local adoption. Unknown legacy origin stays review-only. No direct Firestore business write is owned by this service."
     }
   ]
 }

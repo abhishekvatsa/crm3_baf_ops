@@ -2012,6 +2012,33 @@
           ]
         }
       ]
+    },
+    {
+      "id": "retained-row-command-wire-timestamps",
+      "readerFile": "lib/core/services/retained_row_mutations.dart",
+      "readerMarker": "static Map<String, dynamic> wire(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "retained-row-command-persistence",
+      "purpose": "Canonicalize only the six enumerated typed-model timestamp fields to UTC before freezing or comparing an exact retained command; underlying model decoders continue to require mandatory chronology and reject malformed optional values.",
+      "authorityBoundary": "immutable-local-command-and-exact-remote-acceptance",
+      "regression": "test/retained_row_mutations_test.dart; test/planned_record_creation_wire_test.dart",
+      "reArmCondition": "Timestamp field set, strict reader call or complete normalizer body changes; any malformed value is replaced with current time or treated as absent.",
+      "readerBodySha256": "a113992eb644f2579f2aba2473db962e03e1283f78ce4875c812e8c92c5f34ce",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n          value,\n          field: key,\n          source: 'retained row mutation',\n        )",
+          "reviewedFields": [
+            "createdAt",
+            "updatedAt",
+            "deletedAt",
+            "completedAt",
+            "cancelledAt",
+            "laneSetFinalizedAt"
+          ]
+        }
+      ]
     }
   ]
 }

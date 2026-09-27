@@ -1,17 +1,22 @@
 // Real Isar and repository writers; only Firestore transport is replaced.
 // The transport checks Rules' pinned origin and diary audit-state equality.
 // ignore_for_file: subtype_of_sealed_class
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crm3_baf_ops/core/services/online_retained_row_mutations.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_command_gateway.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart' hide Query;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 
@@ -30,6 +35,7 @@ void main() {
   late Isar database;
   late Directory directory;
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     directory = await Directory.systemTemp.createTemp('planned_origin_wire_');
     database = await Isar.open(
       [JobExecutionSchema, JobDiaryEntrySchema],
@@ -37,6 +43,16 @@ void main() {
       inspector: false,
     );
   });
+
+  FirestorePlannedRepository executionRepository(_Firestore transport) =>
+      FirestorePlannedRepository(
+        firestore: transport,
+        retainedMutations: OnlineRetainedRowMutations(
+          projectId: () => 'demo-origin-wire',
+          currentActorUid: () => actor.uid,
+          gateway: _ExecutionGateway(transport),
+        ),
+      );
   tearDown(() async {
     await database.close(deleteFromDisk: true);
     await directory.delete(recursive: true);
@@ -92,9 +108,25 @@ void main() {
               );
               final local = (await database.jobExecutions.get(incoming.id))!;
               local.remarks = 'Work recorded';
-              final repo = FirestorePlannedRepository(firestore: transport);
+              final repo = executionRepository(transport);
               if (writer == 'direct') {
                 await repo.saveExecution(local, actor: actor);
+                expect(
+                  transport.commitAttempts,
+                  0,
+                  reason:
+                      'Existing open work must use V2, never direct Firestore writes.',
+                );
+                expect(
+                  transport.commandRecord!['createdAt'],
+                  created.toIso8601String(),
+                );
+                expect(transport.commandRecord!['updatedAt'], endsWith('Z'));
+                expect(transport.commandRecord!['version'], 2);
+                expect(transport.commandRecord!['remarks'], 'Work recorded');
+                expect(transport.readSources, everyElement(Source.server));
+                expect(local.isSynced, isTrue);
+                return;
               } else {
                 local.version++;
                 local.updatedAt = DateTime.now();
@@ -153,7 +185,7 @@ void main() {
           if (kind == 'execution') {
             final local = JobExecution.fromMap(original, 'record')
               ..createdAt = created.subtract(const Duration(seconds: 1));
-            final repo = FirestorePlannedRepository(firestore: transport);
+            final repo = executionRepository(transport);
             await expectLater(
               writer == 'direct'
                   ? repo.saveExecution(local, actor: actor)
@@ -177,6 +209,29 @@ void main() {
       );
     }
   }
+
+  test(
+    'generic new execution save refuses before any write or callable',
+    () async {
+      final transport = _Firestore(null, diary: false);
+      final local = JobExecution.fromMap(
+        executionSeed(created.toIso8601String()),
+        'record',
+      );
+      await expectLater(
+        executionRepository(transport).saveExecution(local, actor: actor),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'published assignment guidance',
+            contains('published'),
+          ),
+        ),
+      );
+      expect(transport.commitAttempts, 0);
+      expect(transport.commandRecord, isNull);
+    },
+  );
 
   for (final kind in ['execution', 'diary']) {
     test('$kind genuinely new record writes UTC instants', () async {
@@ -249,6 +304,44 @@ void main() {
   );
 }
 
+class _ExecutionGateway implements OriginBoundWorkflowCommandGateway {
+  _ExecutionGateway(this.owner);
+  final _Firestore owner;
+
+  @override
+  Future<WorkflowCommandReceipt> executeOriginBoundEnvelope(
+    String envelopeJson,
+  ) async {
+    final envelope = jsonDecode(envelopeJson) as Map<String, dynamic>;
+    expect(envelope['protocolVersion'], 2);
+    expect(envelope['originActorUid'], 'si');
+    final command = envelope['command'] as Map<String, dynamic>;
+    expect(command['commandType'], 'updateJobExecutionWork');
+    expect(command['expectedVersion'], owner.original!['version']);
+    final value = Map<String, dynamic>.from(
+      command['payload']['record'] as Map,
+    );
+    owner.commandRecord = value;
+    DateTime instant(Object? raw) => raw is Timestamp
+        ? raw.toDate().toUtc()
+        : DateTime.parse(raw! as String).toUtc();
+    if (instant(value['createdAt']) != instant(owner.original!['createdAt'])) {
+      throw StateError('Governed mutation rejects a changed creation instant.');
+    }
+    return WorkflowCommandReceipt(
+      commandId: command['commandId'] as String,
+      resultKey: 'retained-queue-mutation-applied',
+      aggregateVersion: value['version'] as int,
+      result: {
+        'collection': 'job_executions',
+        'recordId': 'record',
+        'record': value,
+      },
+      appliedAt: DateTime.now().toUtc(),
+    );
+  }
+}
+
 class _Firestore implements FirebaseFirestore {
   _Firestore(this.original, {required this.diary});
   Map<String, dynamic>? original;
@@ -256,6 +349,8 @@ class _Firestore implements FirebaseFirestore {
   Map<String, dynamic>? accepted;
   Map<String, dynamic>? audit;
   int commitAttempts = 0;
+  Map<String, dynamic>? commandRecord;
+  final readSources = <Source?>[];
   void commit(Map<String, dynamic> value, [Map<String, dynamic>? auditValue]) {
     commitAttempts++;
     if (original != null && value['createdAt'] != original!['createdAt']) {
@@ -312,7 +407,11 @@ class _Reference implements DocumentReference<Map<String, dynamic>> {
   @override
   Future<DocumentSnapshot<Map<String, dynamic>>> get([
     GetOptions? options,
-  ]) async => _Snapshot(owner.original);
+  ]) async {
+    owner.readSources.add(options?.source);
+    return _Snapshot(owner.original);
+  }
+
   @override
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async =>
       owner.commit(data);

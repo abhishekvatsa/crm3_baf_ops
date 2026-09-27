@@ -233,183 +233,9 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
   Future<void> _syncAbnormalityTypes() async {
     final unsynced = await _abnormalityRepo.getUnsyncedTypes();
     _checkRunCurrent();
-    if (unsynced.isEmpty) {
-      return;
-    }
-
-    _sortDeletesFirst(unsynced);
-
-    for (var i = 0; i < unsynced.length; i += 500) {
-      _checkRunCurrent();
-      final batchRecords = unsynced.sublist(
-        i,
-        i + 500 > unsynced.length ? unsynced.length : i + 500,
-      );
-      final activeBatchRecords = await _recordsEligibleForAutomaticPush(
-        entityType: 'abnormality_type',
-        records: batchRecords,
-      );
-      _checkRunCurrent();
-      if (activeBatchRecords.isEmpty) {
-        continue;
-      }
-
-      final firestoreIds = activeBatchRecords
-          .map((e) => e.firestoreId)
-          .whereType<String>()
-          .toList();
-
-      final remoteList = await _firestoreAbnormality.getTypesByFirestoreIds(
-        firestoreIds,
-      );
-      _checkRunCurrent();
-      final remoteMap = {for (var r in remoteList) r.firestoreId: r};
-
-      final recordsToPush = <AbnormalityType>[];
-      final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
-      final convergedRecords = <AbnormalityType>[];
-
-      for (final record in activeBatchRecords) {
-        _checkRunCurrent();
-        if (record.firestoreId == null) {
-          lastFailureCount++;
-          _recordPushFailureDetail(
-            entityType: 'abnormality_type',
-            entityId: 'local:${record.id}',
-            error: 'Missing firestoreId for abnormality type ${record.id}',
-          );
-          debugPrint('❌ Missing firestoreId for abnormality type ${record.id}');
-          continue;
-        }
-
-        _checkClockDrift(record.updatedAt, 'abnormality type ${record.id}');
-
-        final remote = remoteMap[record.firestoreId];
-
-        if (remote != null &&
-            !record.isDeleted &&
-            !remote.isDeleted &&
-            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
-          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
-          convergedRecords.add(record);
-          lastSuccessCount++;
-          continue;
-        }
-
-        if (record.isDeleted) {
-          if (remote != null && remote.isDeleted) {
-            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
-            convergedRecords.add(record);
-            lastSuccessCount++;
-            continue;
-          }
-
-          recordsToPush.add(record);
-          continue;
-        }
-
-        if (remote != null && remote.isDeleted) {
-          try {
-            final result = await _abnormalityRepo.applyTombstoneFromTypeRemote(
-              remote,
-            );
-            _checkRunCurrent();
-            if (await _guardedPushAwait(
-              () async => _retainHoldForPreservedLocalTombstone(
-                result: result,
-                entityType: 'abnormality_type',
-                record: record,
-                entityLabel: 'abnormality type',
-              ),
-            )) {
-              continue;
-            }
-            await _resolveRecheckedPermanentRejectionsForRecords(
-              entityType: 'abnormality_type',
-              records: <AbnormalityType>[record],
-              evidence:
-                  'The canonical remote abnormality-type tombstone was adopted locally.',
-            );
-            _checkRunCurrent();
-            lastSuccessCount++;
-            debugPrint(
-              '📥 Applied remote tombstone for abnormality type ${record.id}',
-            );
-          } catch (e, stackTrace) {
-            rethrowIfSyncRunMustAbort(e);
-            _checkRunCurrent();
-            lastFailureCount++;
-            debugPrint(
-              '❌ Failed to apply remote tombstone for abnormality type ${record.id}: $e',
-            );
-            debugPrintStack(stackTrace: stackTrace);
-          }
-          continue;
-        }
-
-        if (remote != null && _isRemoteNewer(record, remote)) {
-          await _recordPushConflict(
-            entityType: 'abnormality_type',
-            entityId: record.firestoreId!,
-            localSnapshot: record.toAuditMap(),
-            remoteSnapshot: remote.toAuditMap(),
-          );
-          _checkRunCurrent();
-          lastFailureCount++;
-          debugPrint(
-            '⚠️ PUSH CONFLICT: Preserved local abnormality type ${record.id} and did not overwrite newer remote data',
-          );
-          continue;
-        }
-
-        recordsToPush.add(record);
-      }
-
-      bool pushSuccess = false;
-
-      if (recordsToPush.isNotEmpty) {
-        try {
-          await _retry(() async {
-            await _firestoreAbnormality.batchUpsertTypes(recordsToPush);
-            _checkRunCurrent();
-          });
-          _checkRunCurrent();
-
-          pushSuccess = true;
-          lastSuccessCount += recordsToPush.length;
-        } catch (e, stackTrace) {
-          rethrowIfSyncRunMustAbort(e);
-          _checkRunCurrent();
-          lastFailureCount += recordsToPush.length;
-          _recordPushFailuresForBatch(
-            entityType: 'abnormality_type',
-            records: recordsToPush,
-            error: e,
-          );
-          debugPrint('❌ Abnormality type batch sync failed: $e');
-          debugPrintStack(stackTrace: stackTrace);
-        }
-      }
-
-      final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
-
-      if (pushSuccess) {
-        snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
-        convergedRecords.addAll(recordsToPush);
-      }
-
-      if (snapshotsToMark.isNotEmpty) {
-        await _abnormalityRepo.markTypesSyncedIfUnchanged(snapshotsToMark);
-        _checkRunCurrent();
-        await _resolveRecheckedPermanentRejectionsForRecords(
-          entityType: 'abnormality_type',
-          records: convergedRecords,
-          evidence:
-              'The remote abnormality-type write or exact readback completed and the local snapshot was reconciled.',
-        );
-        _checkRunCurrent();
-      }
-    }
+    if (unsynced.isEmpty) return;
+    await _syncRetainedRows(RetainedRowKind.abnormalityType,
+        'abnormality_type', unsynced);
   }
 
   Future<void> _syncChargeAbnormalities() async {
@@ -427,9 +253,30 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
       );
+      final ownedCreations = <ChargeAbnormality>[];
+      for (final record in batchRecords) {
+        try {
+          await _abnormalityQueueGuard.requireOwnedCreation(
+            record,
+            runGuard: _runGuard,
+          );
+          _checkRunCurrent();
+          ownedCreations.add(record);
+        } catch (error) {
+          rethrowIfSyncRunMustAbort(error);
+          _checkRunCurrent();
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'charge_abnormality',
+            entityId: _syncEntityId(record),
+            firestoreId: record.firestoreId,
+            error: error,
+          );
+        }
+      }
       final activeBatchRecords = await _recordsEligibleForAutomaticPush(
         entityType: 'charge_abnormality',
-        records: batchRecords,
+        records: ownedCreations,
       );
       _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {

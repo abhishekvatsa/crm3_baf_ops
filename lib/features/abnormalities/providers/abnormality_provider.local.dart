@@ -41,8 +41,12 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
   final AuditRepository _auditRepo;
 
-  IsarAbnormalityRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  final RetainedRowMutations _retainedMutations;
+  IsarAbnormalityRepository({
+    AuditRepository? auditRepository,
+    RetainedRowMutations? retainedMutations,
+  }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _retainedMutations = retainedMutations ?? RetainedRowMutations();
 
   IsarCollection<AbnormalityType> get _typeBox => isar.abnormalityTypes;
 
@@ -136,19 +140,20 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
     final beforeSnapshot = existing?.toAuditMap();
 
-    if (existing != null) {
-      type.id = existing.id;
-      type.version = existing.version + 1;
-    } else {
-      type.version = type.version <= 0 ? 1 : type.version;
-    }
-
-    type.updatedAt = DateTime.now();
-    type.isSynced = false;
-
-    await isar.writeTxn(() async {
-      await _typeBox.put(type);
-    });
+    await _retainedMutations.save(
+      kind: RetainedRowKind.abnormalityType,
+      actor: actor,
+      record: type,
+      normalize: (baseline) {
+        if (baseline == null) {
+          type.createdByUid = actor.uid;
+          type.createdByName = actor.name;
+        }
+        type.lastEditedByUid = actor.uid;
+        type.lastEditedByName = actor.name;
+        type.updatedAt = DateTime.now().toUtc();
+      },
+    );
 
     if (auditContext != null) {
       _logAudit(
@@ -171,41 +176,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     required AppUser actor,
     AuditContext? auditContext,
   }) async {
-    _requireCanManageAbnormalityTypes(actor);
-    _validateTypeForSave(type);
-    type.firestoreId ??= _uuid.v4();
-
-    final existing = await _typeBox
-        .filter()
-        .firestoreIdEqualTo(type.firestoreId!)
-        .findFirst();
-
-    final beforeSnapshot = existing?.toAuditMap();
-
-    if (existing != null) {
-      type.id = existing.id;
-    }
-
-    type.markEdited(
-      editedByUid: auditContext?.performedByUid ?? type.lastEditedByUid,
-      editedByName: auditContext?.performedByName ?? type.lastEditedByName,
-    );
-
-    await isar.writeTxn(() async {
-      await _typeBox.put(type);
-    });
-
-    if (auditContext != null) {
-      _logAudit(
-        auditRepository: _auditRepo,
-        entityType: 'abnormality_type',
-        entityId: type.firestoreId ?? type.id.toString(),
-        action: AuditAction.update,
-        context: auditContext,
-        before: beforeSnapshot,
-        after: type.toAuditMap(),
-      );
-    }
+    await saveType(type, actor: actor, auditContext: auditContext);
   }
 
   @override
@@ -221,32 +192,27 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     Map<String, dynamic>? afterSnapshot;
     String? entityId;
 
-    await isar.writeTxn(() async {
-      final type = await _typeBox.get(typeId);
-      if (type == null || type.isDeleted) return;
-
-      beforeSnapshot = type.toAuditMap();
-
-      type.softDelete(
-        deletedByUid: auditContext?.performedByUid,
-        deletedByName: auditContext?.performedByName,
+    final type = await _typeBox.get(typeId);
+    if (type == null || type.isDeleted) return;
+    beforeSnapshot = type.toAuditMap();
+    await _retainedMutations.save(
+      kind: RetainedRowKind.abnormalityType,
+      actor: actor,
+      record: type,
+      normalize: (_) => type.softDelete(
+        deletedByUid: actor.uid,
+        deletedByName: actor.name,
         reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      );
+      ),
+    );
+    afterSnapshot = type.toAuditMap();
+    entityId = type.firestoreId ?? type.id.toString();
 
-      await _typeBox.put(type);
-
-      afterSnapshot = type.toAuditMap();
-      entityId = type.firestoreId ?? type.id.toString();
-    });
-
-    if (auditContext != null &&
-        beforeSnapshot != null &&
-        afterSnapshot != null &&
-        entityId != null) {
+    if (auditContext != null) {
       _logAudit(
         auditRepository: _auditRepo,
         entityType: 'abnormality_type',
-        entityId: entityId!,
+        entityId: entityId,
         action: AuditAction.delete,
         context: auditContext,
         before: beforeSnapshot,
@@ -427,16 +393,32 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     final beforeSnapshot = existing?.toAuditMap();
 
     if (existing != null) {
-      abnormality.id = existing.id;
-      abnormality.version = existing.version + 1;
-    } else {
-      abnormality.version = abnormality.version <= 0 ? 1 : abnormality.version;
+      throw StateError(
+        'This abnormality already has saved evidence. Use its governed '
+        'correction or let its original creation finish; nothing was replaced.',
+      );
     }
+    if (abnormality.loggedByUid != actor.uid ||
+        abnormality.updatedByUid != actor.uid ||
+        abnormality.isDeleted) {
+      throw StateError(
+        'A new abnormality must belong to its original reporter.',
+      );
+    }
+    abnormality.version = 1;
 
     abnormality.updatedAt = DateTime.now();
     abnormality.isSynced = false;
 
     await isar.writeTxn(() async {
+      final saved = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(abnormality.firestoreId!)
+          .findFirst();
+      final savedLocalIdentity = await _abnormalityBox.get(abnormality.id);
+      if (saved != null || savedLocalIdentity != null) {
+        throw StateError('Earlier abnormality evidence was preserved.');
+      }
       await _abnormalityBox.put(abnormality);
     });
 
@@ -462,40 +444,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanEditChargeAbnormality(actor);
-    _validateAbnormalityForSave(abnormality);
-    abnormality.firestoreId ??= _uuid.v4();
-
-    final existing = await _abnormalityBox
-        .filter()
-        .firestoreIdEqualTo(abnormality.firestoreId!)
-        .findFirst();
-
-    final beforeSnapshot = existing?.toAuditMap();
-
-    if (existing != null) {
-      abnormality.id = existing.id;
-    }
-
-    abnormality.markEdited(
-      editedByUid: auditContext?.performedByUid ?? abnormality.updatedByUid,
-      editedByName: auditContext?.performedByName ?? abnormality.updatedByName,
+    throw StateError(
+      'Use the governed abnormality correction while online. Unbound local '
+      'edits are not queued; existing saved evidence remains unchanged.',
     );
-
-    await isar.writeTxn(() async {
-      await _abnormalityBox.put(abnormality);
-    });
-
-    if (auditContext != null) {
-      _logAudit(
-        auditRepository: _auditRepo,
-        entityType: 'charge_abnormality',
-        entityId: abnormality.firestoreId ?? abnormality.id.toString(),
-        action: AuditAction.update,
-        context: auditContext,
-        before: beforeSnapshot,
-        after: abnormality.toAuditMap(),
-      );
-    }
   }
 
   @override
@@ -505,44 +457,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanSoftDeleteChargeAbnormality(actor);
-    final abnormalityId = id as int;
-
-    Map<String, dynamic>? beforeSnapshot;
-    Map<String, dynamic>? afterSnapshot;
-    String? entityId;
-
-    await isar.writeTxn(() async {
-      final abnormality = await _abnormalityBox.get(abnormalityId);
-      if (abnormality == null || abnormality.isDeleted) return;
-
-      beforeSnapshot = abnormality.toAuditMap();
-
-      abnormality.softDelete(
-        deletedByUid: auditContext?.performedByUid,
-        deletedByName: auditContext?.performedByName,
-        reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      );
-
-      await _abnormalityBox.put(abnormality);
-
-      afterSnapshot = abnormality.toAuditMap();
-      entityId = abnormality.firestoreId ?? abnormality.id.toString();
-    });
-
-    if (auditContext != null &&
-        beforeSnapshot != null &&
-        afterSnapshot != null &&
-        entityId != null) {
-      _logAudit(
-        auditRepository: _auditRepo,
-        entityType: 'charge_abnormality',
-        entityId: entityId!,
-        action: AuditAction.delete,
-        context: auditContext,
-        before: beforeSnapshot,
-        after: afterSnapshot,
-      );
-    }
+    throw StateError(
+      'Use the governed abnormality deletion while online. Unbound local '
+      'deletions are not queued; existing saved evidence remains unchanged.',
+    );
   }
 
   @override

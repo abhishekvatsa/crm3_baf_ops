@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "121CC1499DAFFE6CDFF5BA681E6F89C6826681D8E8C4378D5759A7C5BA4EA3DA",
+  "inventoryDigest": "DDAF8377D5628415BA21CF607D1591BAC81BA29C9386A52423640D8713497474",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "62742297740653888E7A03F504AAAA45467FC6F3F3F501937BE857F29AC7DECA",
+  "a05ManifestSha256": "6FB799EC492D8161CA960F816BFA6BC271A910E3865FEEC16F97055DB9BD9CCC",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1732,6 +1732,24 @@
       "malformedDisposition": "fail closed before malformed warning, closure, RA, or monitoring evidence enters the quality workspace",
       "compatibility": "schema version 1 only; no partial lifecycle evidence or malformed charge references",
       "regression": "test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js"
+    },
+    {
+      "id": "retained-row-native-command",
+      "file": "lib/core/services/retained_row_mutations.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Native catalogue, legacy-template and existing open-job edits atomically retain the original actor, project, command, expected version and complete immutable payload with the dirty row; the V2 callable rechecks authority and returns exact content-bound acceptance.",
+      "malformedDisposition": "Malformed or unknown-origin work stays preserved and cannot dispatch or acknowledge. Exact accepted receipts are retained before full-payload compare-and-adopt in the journal transaction; newer local data is never overwritten.",
+      "compatibility": "Existing Isar models and durable journal schema are reused. Legacy dirty rows without a verified original envelope are imported for review without attributing the current account; generic new assignments require the published-assignment workflow.",
+      "regression": "test/retained_row_mutations_test.dart; integration_test/dev_queue_ownership_journey_test.dart"
+    },
+    {
+      "id": "retained-row-online-command",
+      "file": "lib/core/services/online_retained_row_mutations.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "The online adapter journals an immutable original-account/project V2 envelope before dispatch, verifies request, collection, document, revision and complete accepted record, and clears only that exact confirmed request.",
+      "malformedDisposition": "Malformed, concurrent or wrong-owner retained requests withhold dispatch and preserve all evidence. Missing or mismatched receipts cannot clear the journal; a changed caller model remains unsent rather than being acknowledged as the accepted snapshot.",
+      "compatibility": "Uses the existing immutable preference journal without a new storage schema. Confirmation of an earlier uncertain request requires a reload before another edit; no current actor is substituted for an earlier request owner.",
+      "regression": "test/online_retained_row_mutations_test.dart; test/planned_record_creation_wire_test.dart"
     },
     {
       "id": "runtime-module-lineage",

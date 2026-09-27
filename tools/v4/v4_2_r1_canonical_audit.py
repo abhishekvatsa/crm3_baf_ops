@@ -3750,6 +3750,7 @@ app_database_consumers = [
 ]
 expected_app_database_consumers = {
     "lib/main.dart",
+    "lib/features/abnormalities/services/charge_abnormality_queue_guard.dart",
     "lib/features/abnormalities/providers/abnormality_provider.dart",
     "lib/features/audit/repositories/audit_repository.dart",
     "lib/features/directives/providers/operational_directive_provider.dart",
@@ -10659,7 +10660,12 @@ check(
         if name not in {"executeMaintenanceWorkflowCommand", "executeMaintenanceWorkflowCommandV2"}
     )
     and 'callableName: "executeMaintenanceWorkflowCommandV2"' in workflow_callable_source
-    and 'executeMaintenanceWorkflowCommand.run(' in workflow_callable_source
+    and 'executeWorkflowRequest(request, false,' in workflow_callable_source
+    and 'executeWorkflowRequest({...request, data: payload}, true,'
+        in workflow_callable_source
+    and workflow_callable_source.count('executeWithCallableAbuseControl({') == 2
+    and 'assertRetainedQueueAdmission(command, invocation);'
+        in workflow_callable_source
     and 'executeOriginBoundCallable(' in workflow_callable_source
     and 'const actor = await actorFromRequest(request, db);'
         in workflow_callable_source
@@ -10668,8 +10674,8 @@ check(
     and workflow_callable_source.index(
         'const actor = await actorFromRequest(request, db);'
     ) < workflow_callable_source.index(
-        'callableName: "executeMaintenanceWorkflowCommand"'
-    )
+        'return await admit(db as unknown as CallableAbuseFirestoreLike, actor.uid, async () => {'
+    ) < workflow_callable_source.index('const command = parseCommand(request.data);')
     and "read-only %s callable is outside mutation quotas"
         in abuse_control_source_test,
 )
@@ -13048,16 +13054,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 629
-    and a03_inventory_report.get("siteCount") == 2201
+    and a03_inventory_report.get("operationCount") == 626
+    and a03_inventory_report.get("siteCount") == 2199
     and a03_inventory_report.get("inventoryDigest")
-        == "CECD44B3F5AFA93D052BC83F90CA14B34E7C2A17A0783DB5D06DEAD082A9B53C"
+        == "E3DDFA103A24520FCACC538CA7AC5FBA5A62FE81ACDDA60898E50A31FE0F2A90"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 86
-    and len({surface.get("path") for surface in a03_surfaces}) == 86
+    and len(a03_surfaces) == 87
+    and len({surface.get("path") for surface in a03_surfaces}) == 87
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -13107,9 +13113,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 126
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 128
     and a04_inventory_report.get("inventoryDigest")
-        == "121CC1499DAFFE6CDFF5BA681E6F89C6826681D8E8C4378D5759A7C5BA4EA3DA"
+        == "DDAF8377D5628415BA21CF607D1591BAC81BA29C9386A52423640D8713497474"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13117,8 +13123,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 126
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 126
+    and len(a04_inherited_decoders) == 128
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 128
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13386,8 +13392,8 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 113
-    and a05_timestamp_inventory_report.get("directCallCount") == 267
+    and a05_timestamp_inventory_report.get("readerCount") == 114
+    and a05_timestamp_inventory_report.get("directCallCount") == 268
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 155
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 100
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
@@ -13403,7 +13409,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 113
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 114
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -13428,16 +13434,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 126
+    and a05_decoder_inventory_report.get("surfaceCount") == 128
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 110
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 66
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 60
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 61
     and a05_decoder_inventory_report.get("riskCandidateCount") == 561
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 126
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 128
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 110
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -13953,7 +13959,13 @@ check(
     )
     and "remote.deletedAt ??" not in a05_tombstone_providers
     and "function targetTombstoneHasDeletionAuthority()" in rules_source
-    and rules_source.count("targetTombstoneHasDeletionAuthority()") == 5
+    and rules_source.count("targetTombstoneHasDeletionAuthority()") == 3
+    and 'retainedQueueInstant(result.deletedAt);'
+        in text("functions/src/maintenanceWorkflow/retainedQueueHandlers.ts")
+    and 'text(result.deletedByUid, "deletedByUid", 512);'
+        in text("functions/src/maintenanceWorkflow/retainedQueueHandlers.ts")
+    and 'deletion remains actor-bound, versioned, and retains original creation'
+        in text("functions/test/retainedQueueMutations.test.js")
     and a05_maintenance_update_rules is not None
     and re.sub(
         r"//[^\n]*|\s+", "", a05_maintenance_update_rules.group(1)
@@ -13964,11 +13976,13 @@ check(
         in a05_tombstone_test
     and "incomplete remote tombstones fail before changing local evidence"
         in a05_tombstone_conflict_test
-    and "abnormality type tombstone requires an authoritative deletion time"
+    and "catalogue tombstones require the governed command even with complete actor and time evidence"
         in firestore_rules_test
     and "admin directive tombstone requires an authoritative deletion time"
         in firestore_rules_test
-    and "job_templates tombstone authority" in firestore_rules_test
+    and "job_templates governed mutation authority" in firestore_rules_test
+    and "Admin creation and deletion require the origin-bound command"
+        in firestore_rules_test
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_5
     and "cursor cannot advance past the invalid record" in a05_decision_5
     and "`A-05` remains open" in a05_decision_5

@@ -9,6 +9,8 @@ from unittest.mock import patch
 import run_ci_business_journeys as runner
 import seed_ci_business_journeys as seed
 
+HTTP_PROOF = "CF01_HTTP_BOUNDARY_PASS tests=7 report=.dart_tool/cf01-emulator-run/test-report.json\n"
+
 
 class BusinessJourneyGateTest(unittest.TestCase):
     def test_notification_setup_builds_matching_dev_source_before_install_and_grant(self):
@@ -265,31 +267,39 @@ class BusinessJourneyGateTest(unittest.TestCase):
         events = []
         def logged(command, name, timeout, env):
             events.append(name)
+            if name == "cf01-http-boundary":
+                self.assertEqual(command, ["node", "functions/tools/run_retained_queue_emulator_tests.mjs", "--existing-ci"])
+                self.assertEqual(timeout, 180)
             if command[0] == "flutter":
                 self.assertIn("--no-uninstall", command)
-            return "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS"
+            return HTTP_PROOF + "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS DEV_QUEUE_OWNERSHIP_PREPARED DEV_QUEUE_OWNERSHIP_PASS"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
                 patch.object(runner, "prepare_ci_journey", side_effect=lambda row, *args: events.append(Path(row["path"]).stem + "-prepare")) as prepare, \
                 patch.object(runner.subprocess, "run", side_effect=lambda *args, **kwargs: events.append("force-stop-dev")) as command:
             runner.execute_journeys("emulator-5554", manifest, {})
-            self.assertEqual(prepare.call_count, 2)
-            command.assert_called_once_with(["adb", "-s", "emulator-5554", "shell", "am",
-                                             "force-stop", runner.DEV_APP], timeout=15, check=True)
+            self.assertEqual(prepare.call_count, 3)
+            self.assertEqual(command.call_count, 2)
+            for invocation in command.call_args_list:
+                self.assertEqual(invocation.args[0], ["adb", "-s", "emulator-5554", "shell", "am", "force-stop", runner.DEV_APP])
+                self.assertEqual(invocation.kwargs, {"timeout": 15, "check": True})
             report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "passed")
-            self.assertEqual(len(report["journeys"]), 3)
+            self.assertEqual(report["httpBoundary"], {"status": "passed", "tests": 7, "log": "cf01-http-boundary.log"})
+            self.assertEqual(len(report["journeys"]), 5)
             self.assertEqual(events, [
-                "seed", "dev_abnormality_journey_test-prepare", "dev_abnormality_journey_test",
+                "seed", "cf01-http-boundary", "dev_abnormality_journey_test-prepare", "dev_abnormality_journey_test",
                 "force-stop-dev", "dev_restart_recovery_test",
-                "dev_planned_work_journey_test-prepare", "dev_planned_work_journey_test", "android-logcat",
+                "dev_planned_work_journey_test-prepare", "dev_planned_work_journey_test",
+                "dev_queue_ownership_journey_test-prepare", "dev_queue_ownership_journey_test",
+                "force-stop-dev", "dev_queue_ownership_resume_journey_test", "android-logcat",
             ])
 
     def test_zero_exit_without_canonical_acceptance_marker_fails_and_stops_later_journeys(self):
         events = []
         def logged(command, name, timeout, env):
             events.append(name)
-            return "Flutter exited, but no canonical acceptance was observed"
+            return HTTP_PROOF if name == "cf01-http-boundary" else "Flutter exited, but no canonical acceptance was observed"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
                 patch.object(runner, "prepare_ci_journey"), self.assertRaises(RuntimeError):
@@ -297,19 +307,20 @@ class BusinessJourneyGateTest(unittest.TestCase):
         self.assertNotIn("dev_planned_work_journey_test", events)
 
     def test_fresh_planned_gate_cannot_pass_by_reusing_a_pre_published_fixture(self):
-        manifest = {"journeys": [runner.load_manifest()["journeys"][-1]]}
+        manifest = {"journeys": [next(row for row in runner.load_manifest()["journeys"]
+            if row["successMarker"] == "DEV_PLANNED_WORK_PASS")]}
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
-                patch.object(runner, "run_logged", return_value="DEV_PLANNED_WORK_PASS"), \
+                patch.object(runner, "run_logged", return_value=HTTP_PROOF + "DEV_PLANNED_WORK_PASS"), \
                 patch.object(runner, "prepare_ci_journey"), self.assertRaisesRegex(RuntimeError, "publish through"):
             runner.execute_journeys("emulator-5554", manifest, {})
 
     def test_flutter_fallback_uninstall_refuses_false_restart_acceptance(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
-                patch.object(runner, "run_logged", return_value="Uninstalling old version... DEV_JOURNEY_PASS"), \
+                patch.object(runner, "run_logged", return_value=HTTP_PROOF + "Uninstalling old version... DEV_JOURNEY_PASS"), \
                 patch.object(runner, "prepare_ci_journey"), self.assertRaisesRegex(RuntimeError, "continuity"):
             runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
 
-    def test_plan_describes_both_permission_bootstraps_without_mutation(self):
+    def test_plan_describes_all_permission_bootstraps_without_mutation(self):
         output = io.StringIO()
         with patch("sys.stdout", output), patch.object(runner, "run_logged") as run, \
                 patch.object(runner.subprocess, "run") as adb, \
@@ -319,11 +330,108 @@ class BusinessJourneyGateTest(unittest.TestCase):
         adb.assert_not_called()
         probe.assert_not_called()
         plan = json.loads(output.getvalue())
+        self.assertEqual(plan["httpBoundary"], {
+            "command": ["node", "functions/tools/run_retained_queue_emulator_tests.mjs", "--existing-ci"],
+            "after": "seed", "before": "Android journeys", "successMarker": "CF01_HTTP_BOUNDARY_PASS",
+        })
         self.assertEqual([row["journey"] for row in plan["preparations"]],
                          [row["path"] for row in runner.load_manifest()["journeys"] if not row["preserveAppData"]])
         for row in plan["preparations"]:
             self.assertEqual(row["steps"][-1][-2:], [runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
-        self.assertEqual(len(plan["commands"]), 3)
+        self.assertEqual(len(plan["commands"]), 5)
+
+    def test_each_queue_ownership_process_requires_its_own_completion_marker(self):
+        journeys = [row for row in runner.load_manifest()["journeys"]
+                    if "dev_queue_ownership" in row["path"]]
+        self.assertEqual([row["successMarker"] for row in journeys],
+                         ["DEV_QUEUE_OWNERSHIP_PREPARED", "DEV_QUEUE_OWNERSHIP_PASS"])
+        self.assertEqual([row["preserveAppData"] for row in journeys], [False, True])
+        self.assertEqual(journeys[1]["actorEmail"], "dev.cf01-b@example.invalid")
+        self.assertEqual(journeys[1]["actorName"], "DEV CF01 Admin B")
+        self.assertEqual(journeys[1]["timeoutSeconds"], 600)
+        for missing in (0, 1):
+            events = []
+            def logged(command, name, timeout, env):
+                events.append(name)
+                for index, row in enumerate(journeys):
+                    if name == Path(row["path"]).stem:
+                        # The other process's marker cannot substitute for this one.
+                        return journeys[1-index]["successMarker"] if index == missing else row["successMarker"]
+                return HTTP_PROOF
+            with self.subTest(missing=journeys[missing]["successMarker"]), \
+                    tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "run_logged", side_effect=logged), \
+                    patch.object(runner, "prepare_ci_journey"), \
+                    patch.object(runner.subprocess, "run") as restart:
+                with self.assertRaisesRegex(RuntimeError, "completion marker"):
+                    runner.execute_journeys("emulator-5554", {"journeys": journeys}, {})
+                report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "failed")
+            self.assertEqual(len(report["journeys"]), missing)
+            self.assertEqual(restart.call_count, missing)
+            if missing == 0:
+                self.assertNotIn("dev_queue_ownership_resume_journey_test", events)
+
+    def test_queue_ownership_actors_are_two_distinct_synthetic_admin_accounts(self):
+        accounts = [row for row in seed.ACTORS if row[1].startswith("dev.cf01-")]
+        self.assertEqual([row[0] for row in accounts], ["admin", "admin"])
+        self.assertEqual({row[1] for row in accounts},
+                         {"dev.cf01-a@example.invalid", "dev.cf01-b@example.invalid"})
+
+    def test_http_failure_stops_before_any_android_preparation_or_journey(self):
+        events = []
+        def logged(command, name, timeout, env):
+            events.append(name)
+            if name == "cf01-http-boundary":
+                raise RuntimeError("Authenticated HTTP suite exited 1")
+            return ""
+        with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
+                patch.object(runner, "run_logged", side_effect=logged), \
+                patch.object(runner, "prepare_ci_journey") as prepare, \
+                patch.object(runner.subprocess, "run") as adb:
+            with self.assertRaisesRegex(RuntimeError, "HTTP suite exited 1"):
+                runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
+            report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(events, ["seed", "cf01-http-boundary", "android-logcat"])
+        prepare.assert_not_called()
+        adb.assert_not_called()
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["httpBoundary"]["status"], "failed")
+        self.assertEqual(report["journeys"], [])
+
+    def test_http_zero_exit_missing_or_incomplete_proof_never_admits_android(self):
+        for log in ("", "Tests: 7 passed", "CF01_HTTP_BOUNDARY_PASS",
+                    "CF01_HTTP_BOUNDARY_PASS tests=6 report=result.json",
+                    "unexpected embedded CF01_HTTP_BOUNDARY_PASS tests=7 report=result.json"):
+            with self.subTest(log=log), tempfile.TemporaryDirectory() as folder, \
+                    patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "run_logged", return_value=log), \
+                    patch.object(runner, "prepare_ci_journey") as prepare, \
+                    patch.object(runner.subprocess, "run") as adb:
+                with self.assertRaisesRegex(RuntimeError, "verified completion marker"):
+                    runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
+                report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
+            prepare.assert_not_called()
+            adb.assert_not_called()
+            self.assertEqual(report["httpBoundary"]["status"], "failed")
+            self.assertEqual(report["journeys"], [])
+
+    def test_seed_failure_never_runs_http_proof_or_android(self):
+        events = []
+        def logged(command, name, timeout, env):
+            events.append(name)
+            if name == "seed":
+                raise RuntimeError("Seed rejected existing evidence")
+            return ""
+        with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
+                patch.object(runner, "run_logged", side_effect=logged), \
+                patch.object(runner, "prepare_ci_journey") as prepare:
+            with self.assertRaisesRegex(RuntimeError, "Seed rejected"):
+                runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
+            report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
+        prepare.assert_not_called()
+        self.assertEqual(events, ["seed", "android-logcat"])
+        self.assertEqual(report["httpBoundary"]["status"], "notRun")
 
 
 if __name__ == "__main__":

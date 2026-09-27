@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/services/retained_row_mutations.dart';
+import '../../../core/services/online_retained_row_mutations.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
@@ -253,10 +255,7 @@ abstract class PlannedMaintenanceRepository {
     DateTime startInclusive,
     DateTime endExclusive,
   ) {
-    return watchExecutionsOverlappingPeriod(
-      startInclusive,
-      endExclusive,
-    ).map(
+    return watchExecutionsOverlappingPeriod(startInclusive, endExclusive).map(
       (records) => DecodedSnapshotBatch<JobExecution>(
         records: records,
         rejectedDocumentIds: const [],

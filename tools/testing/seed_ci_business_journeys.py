@@ -33,6 +33,8 @@ ACTORS = (
     ("si", "dev.usability-si@example.invalid", "DEV Usability si"),
     ("contractSupervisor", "dev.usability-contractsupervisor@example.invalid",
      "DEV Usability contractSupervisor"),
+    ("admin", "dev.cf01-a@example.invalid", "DEV CF01 Admin A"),
+    ("admin", "dev.cf01-b@example.invalid", "DEV CF01 Admin B"),
 )
 
 

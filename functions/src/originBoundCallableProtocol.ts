@@ -32,6 +32,7 @@ const CONTRACTS = Object.freeze({
     capabilityRevision: "maintenanceWorkflow.v2.20260913",
     capabilities: Object.freeze([
       "maintenanceWorkflow.v2", "inspectionFindingExpectedVersion.v1",
+      "retainedQueueMutations.v1",
       "inspectionCampaignReopen.v1", "maintenancePlanRevalidation.v1",
       "inspectionTargetContextRevalidation.v1",
       "savedSubmissionReview.v1",

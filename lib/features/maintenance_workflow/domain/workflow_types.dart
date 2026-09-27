@@ -55,6 +55,9 @@ enum EquipmentWorkflowState {
 }
 
 enum WorkflowCommandType {
+  upsertAbnormalityType,
+  upsertLegacyJobTemplate,
+  updateJobExecutionWork,
   createLegacyWorkflowJob,
   createMaintenanceTicket,
   startIssueCoordination,

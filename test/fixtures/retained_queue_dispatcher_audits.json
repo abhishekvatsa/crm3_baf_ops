@@ -1,0 +1,74 @@
+[
+  {
+    "documentId": "server_cf01_upsertAbnormalityType-type-1-v1",
+    "data": {
+      "entityType": "abnormality_type",
+      "entityId": "type-1",
+      "action": "create",
+      "severity": "low",
+      "performedByUid": "admin",
+      "performedByName": "admin",
+      "timestamp": "2026-09-27T01:00:00.000Z",
+      "commandId": "upsertAbnormalityType-type-1-v1",
+      "projectId": "demo-crm3-cf01",
+      "payloadFingerprint": "sha256:30e99fd0cb16f84afcffe9424aa4f365db433f0c3c38b1fe5d98415bc6439156",
+      "beforeJson": null,
+      "afterJson": "{\"applicableAssetTypes\":[\"furnace\"],\"category\":\"process\",\"code\":\"PROCESS-TEST\",\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"createdByName\":\"admin\",\"createdByUid\":\"admin\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"description\":null,\"firestoreId\":\"type-1\",\"isActive\":true,\"isDeleted\":false,\"lastEditedByName\":\"admin\",\"lastEditedByUid\":\"admin\",\"severity\":\"medium\",\"suggestsReannealing\":false,\"title\":\"Synthetic process observation\",\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":1}",
+      "summary": "Applied retained actor-owned mutation"
+    }
+  },
+  {
+    "documentId": "server_cf01_upsertLegacyJobTemplate-template-1-v1",
+    "data": {
+      "entityType": "job_template",
+      "entityId": "template-1",
+      "action": "create",
+      "severity": "low",
+      "performedByUid": "si",
+      "performedByName": "si",
+      "timestamp": "2026-09-27T01:00:00.000Z",
+      "commandId": "upsertLegacyJobTemplate-template-1-v1",
+      "projectId": "demo-crm3-cf01",
+      "payloadFingerprint": "sha256:6d1aa1ac3a41f34646b191ab46df94f69b6d3b617a2983b8d1efcc73a7daccf8",
+      "beforeJson": null,
+      "afterJson": "{\"applicableAssetType\":\"furnace\",\"assetHierarchyRefJson\":null,\"assignedAgencies\":[\"mechanical\"],\"component\":null,\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"createdByName\":\"si\",\"createdByUid\":\"si\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"description\":null,\"fields\":[],\"fieldsJson\":\"[]\",\"firestoreId\":\"template-1\",\"hierarchyPath\":null,\"isActive\":true,\"isDeleted\":false,\"isDeprecated\":false,\"jobName\":\"Synthetic planned inspection\",\"metadataJson\":null,\"subsystem\":null,\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":1}",
+      "summary": "Applied retained actor-owned mutation"
+    }
+  },
+  {
+    "documentId": "server_cf01_updateJobExecutionWork-execution-1-v2",
+    "data": {
+      "entityType": "job_execution",
+      "entityId": "execution-1",
+      "action": "update",
+      "severity": "low",
+      "performedByUid": "worker",
+      "performedByName": "worker",
+      "timestamp": "2026-09-27T01:00:00.000Z",
+      "commandId": "updateJobExecutionWork-execution-1-v2",
+      "projectId": "demo-crm3-cf01",
+      "payloadFingerprint": "sha256:92a02b78296c0bf67400648b9cf287ce12676be927724791f3953a3580f8873a",
+      "beforeJson": "{\"actionsJson\":\"[]\",\"assetNumber\":1,\"assetType\":\"furnace\",\"assignedAgencies\":[\"mechanical\"],\"assignedByName\":\"SI\",\"assignedByUid\":\"si\",\"cancellationReason\":null,\"cancelledAt\":null,\"cancelledByName\":null,\"cancelledByUid\":null,\"chargeNoAtEvent\":12345,\"completedAt\":null,\"completedByName\":null,\"completedByUid\":null,\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"firestoreId\":\"execution-1\",\"isCancelled\":false,\"isCompleted\":false,\"isDeleted\":false,\"laneMappingReview\":false,\"laneSetFinalizedAt\":\"2026-09-27T00:00:30.000000Z\",\"laneSetFinalizedByName\":\"SI\",\"laneSetFinalizedByUid\":\"si\",\"laneSetVersion\":1,\"metadataJson\":null,\"parentExecutionFirestoreId\":null,\"redAnswerJson\":null,\"remarks\":null,\"responsesJson\":\"[]\",\"spawnedRedExecutionFirestoreId\":null,\"teamsInvolved\":[],\"templateContentHash\":null,\"templateFirestoreId\":\"template-1\",\"templateName\":\"Synthetic planned inspection\",\"templatePackageCode\":null,\"templatePackageId\":null,\"templateVersionId\":null,\"templateVersionLabel\":null,\"templateVersionNumber\":null,\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":1,\"workflowSchemaVersion\":2}",
+      "afterJson": "{\"actionsJson\":\"[]\",\"assetNumber\":1,\"assetType\":\"furnace\",\"assignedAgencies\":[\"mechanical\"],\"assignedByName\":\"SI\",\"assignedByUid\":\"si\",\"cancellationReason\":null,\"cancelledAt\":null,\"cancelledByName\":null,\"cancelledByUid\":null,\"chargeNoAtEvent\":12345,\"completedAt\":null,\"completedByName\":null,\"completedByUid\":null,\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"firestoreId\":\"execution-1\",\"isCancelled\":false,\"isCompleted\":false,\"isDeleted\":false,\"laneMappingReview\":false,\"laneSetFinalizedAt\":\"2026-09-27T00:00:30.000000Z\",\"laneSetFinalizedByName\":\"SI\",\"laneSetFinalizedByUid\":\"si\",\"laneSetVersion\":1,\"metadataJson\":null,\"parentExecutionFirestoreId\":null,\"redAnswerJson\":null,\"remarks\":\"Inspection recorded\",\"responsesJson\":\"[]\",\"spawnedRedExecutionFirestoreId\":null,\"teamsInvolved\":[],\"templateContentHash\":null,\"templateFirestoreId\":\"template-1\",\"templateName\":\"Synthetic planned inspection\",\"templatePackageCode\":null,\"templatePackageId\":null,\"templateVersionId\":null,\"templateVersionLabel\":null,\"templateVersionNumber\":null,\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":2,\"workflowSchemaVersion\":2}",
+      "summary": "Applied retained actor-owned mutation"
+    }
+  },
+  {
+    "documentId": "server_cf01_upsertAbnormalityType-type-1-v2",
+    "data": {
+      "entityType": "abnormality_type",
+      "entityId": "type-1",
+      "action": "delete",
+      "severity": "low",
+      "performedByUid": "admin",
+      "performedByName": "admin",
+      "timestamp": "2026-09-27T01:00:00.000Z",
+      "commandId": "upsertAbnormalityType-type-1-v2",
+      "projectId": "demo-crm3-cf01",
+      "payloadFingerprint": "sha256:fc9494ea3cbc045d3c091cf5d71e7cb953f4846e1230d9f94c3d8e6270481158",
+      "beforeJson": "{\"applicableAssetTypes\":[\"furnace\"],\"category\":\"process\",\"code\":\"PROCESS-TEST\",\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"createdByName\":\"admin\",\"createdByUid\":\"admin\",\"deleteReason\":null,\"deletedAt\":null,\"deletedByName\":null,\"deletedByUid\":null,\"description\":null,\"firestoreId\":\"type-1\",\"isActive\":true,\"isDeleted\":false,\"lastEditedByName\":\"admin\",\"lastEditedByUid\":\"admin\",\"severity\":\"medium\",\"suggestsReannealing\":false,\"title\":\"Synthetic process observation\",\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":1}",
+      "afterJson": "{\"applicableAssetTypes\":[\"furnace\"],\"category\":\"process\",\"code\":\"PROCESS-TEST\",\"createdAt\":\"2026-09-27T00:00:00.123456Z\",\"createdByName\":\"admin\",\"createdByUid\":\"admin\",\"deleteReason\":\"Synthetic retirement\",\"deletedAt\":\"2026-09-27T00:01:00.234567Z\",\"deletedByName\":\"admin\",\"deletedByUid\":\"admin\",\"description\":null,\"firestoreId\":\"type-1\",\"isActive\":false,\"isDeleted\":true,\"lastEditedByName\":\"admin\",\"lastEditedByUid\":\"admin\",\"severity\":\"medium\",\"suggestsReannealing\":false,\"title\":\"Synthetic process observation\",\"updatedAt\":\"2026-09-27T00:01:00.234567Z\",\"version\":2}",
+      "summary": "Applied retained actor-owned mutation"
+    }
+  }
+]

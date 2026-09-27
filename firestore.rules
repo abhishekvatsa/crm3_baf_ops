@@ -4473,11 +4473,9 @@ service cloud.firestore {
 
     match /job_templates/{docId} {
       allow read: if isApprovedUser();
-      allow create: if globalPullStampAbsentOnCreate()
-        && identityNotPermanentlyRemoved('job_templates', docId)
-        && validLegacyJobTemplateCreate();
-      allow update: if globalPullStampValidOnUpdate()
-        && validLegacyJobTemplateUpdate();
+      // Retained edits require an actor/project-bound V2 command. Old clients
+      // must upgrade and explicitly review unbound pending work; no UID adoption.
+      allow create, update: if false;
       allow delete: if false;
     }
 
@@ -4493,16 +4491,9 @@ service cloud.firestore {
           && validJobExecutionCreate(docId)
         )
         : false;
-      allow update: if exists(/databases/$(database)/documents/job_executions/$(docId))
-        ? (
-          isApprovedUser()
-            ? (
-              globalPullStampValidOnUpdate()
-              && validJobExecutionUpdate(docId)
-            )
-            : false
-        )
-        : false;
+      // Existing work-field edits now use updateJobExecutionWork in V2.
+      // Assignment creation and server-owned closure remain separate flows.
+      allow update: if false;
       allow delete: if false;
     }
 
@@ -4577,20 +4568,9 @@ service cloud.firestore {
 
     match /abnormality_types/{docId} {
       allow read: if isApprovedUser();
-      allow create: if globalPullStampAbsentOnCreate()
-        && isAdmin()
-        && targetTombstoneHasDeletionAuthority()
-        && validAbnormalityTypeWrite(docId);
-      allow update: if globalPullStampValidOnUpdate()
-        && isAdmin()
-        && targetTombstoneHasDeletionAuthority()
-        && validAbnormalityTypeWrite(docId)
-        && (
-          resource.data.get('version', null) is int
-            ? request.resource.data.get('version', -1) >
-              resource.data.get('version', -1)
-            : request.resource.data.get('version', -1) >= 1
-        );
+      // Catalogue mutations use upsertAbnormalityType in the origin-bound V2
+      // callable. Current role alone cannot establish a queued edit's origin.
+      allow create, update: if false;
       allow delete: if false;
     }
 

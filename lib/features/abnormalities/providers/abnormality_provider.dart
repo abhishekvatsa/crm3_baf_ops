@@ -9,6 +9,8 @@ import 'package:isar_community/isar.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/services/retained_row_mutations.dart';
+import '../../../core/services/online_retained_row_mutations.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../data/abnormality_model.dart';

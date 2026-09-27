@@ -3,6 +3,12 @@
 This records review findings and their evidence. It does not authorize a merge,
 backend deployment, production build or distribution. CF-01 remains open.
 
+Implementation update: the bounded CF-01 repair is now in source, including native
+atomic ownership, online retained requests, the V2 backend boundary and direct-write
+denial. The historical design discussion below describes the earlier checkpoint.
+See [the implementation and validation record](CF01_IMPLEMENTATION_VALIDATION_2026_09_27.md)
+for current evidence; actual Android and fresh CI acceptance remain required.
+
 The supplied review identifies its baseline as
 `1023459d2c9f5351823c2c7220ac21304f6252ad`. The CI setup repair is
 `81def5072d3b4f52d47f152e0c4807ee99e6d984`. The difference matters when reading

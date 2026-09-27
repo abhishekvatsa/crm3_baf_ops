@@ -57,11 +57,14 @@ void _copyRemoteExecutionIntoLocal(JobExecution local, JobExecution remote) {
 class IsarPlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
+  final RetainedRowMutations _retainedMutations;
 
   IsarPlannedRepository({
     AuditRepository? auditRepository,
     PlannedJobServerCompletionService? serverCompletion,
+    RetainedRowMutations? retainedMutations,
   }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _retainedMutations = retainedMutations ?? RetainedRowMutations(),
        _serverCompletion =
            serverCompletion ?? PlannedJobServerCompletionService();
 
@@ -71,8 +74,18 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
     required AppUser actor,
   }) async {
     _requireCanSaveLegacyTemplate(actor);
-    _normalizeTemplateForUserSave(template, markUnsynced: true);
-    await isar.writeTxn(() => isar.jobTemplates.put(template));
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: template,
+      normalize: (baseline) {
+        _normalizeTemplateForUserSave(template, markUnsynced: true);
+        if (baseline == null) {
+          template.createdByUid = actor.uid;
+          template.createdByName = actor.name;
+        }
+      },
+    );
   }
 
   @override
@@ -118,48 +131,34 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
     Map<String, dynamic>? afterSnapshot;
     String? entityIdStr;
 
-    await isar.writeTxn(() async {
-      final t = await isar.jobTemplates.get(templateId);
-      if (t != null && !t.isDeleted) {
-        beforeSnapshot = t.toAuditMap();
-
+    final t = await isar.jobTemplates.get(templateId);
+    if (t == null || t.isDeleted) return;
+    beforeSnapshot = t.toAuditMap();
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: t,
+      normalize: (_) {
+        final now = DateTime.now().toUtc();
         t.isDeleted = true;
-        if (auditContext != null) {
-          // User-initiated delete: full bookkeeping + version bump so
-          // updateTemplateFromRemote reconciliation correctly identifies the
-          // delete as the winner against concurrent peer edits.
-          t.deletedAt = DateTime.now();
-          t.deletedByUid = auditContext.performedByUid;
-          t.deletedByName = auditContext.performedByName;
-          t.deleteReason =
-              auditContext.reason?.name ?? auditContext.reasonNotes;
-          t.updatedAt = DateTime.now();
-          t.version += 1;
-        } else {
-          // Legacy pull-replay path (until global_pull_service is switched
-          // to applyTombstoneFromTemplateRemote). Minimal write only — the
-          // remote tombstone metadata is applied separately by
-          // updateTemplateFromRemote when this branch is taken.
-          t.updatedAt = DateTime.now();
-        }
-        t.isSynced = false;
-        await isar.jobTemplates.put(t);
+        t.deletedAt = now;
+        t.deletedByUid = actor.uid;
+        t.deletedByName = actor.name;
+        t.deleteReason =
+            auditContext?.reason?.name ?? auditContext?.reasonNotes;
+        t.updatedAt = now;
+      },
+    );
+    afterSnapshot = t.toAuditMap();
+    entityIdStr = t.firestoreId ?? t.id.toString();
 
-        afterSnapshot = t.toAuditMap();
-        entityIdStr = t.firestoreId ?? t.id.toString();
-      }
-    });
-
-    if (auditContext != null &&
-        beforeSnapshot != null &&
-        afterSnapshot != null &&
-        entityIdStr != null) {
+    if (auditContext != null) {
       final auditRepo = _auditRepo;
       unawaited(
         auditRepo.log(
           AuditEvent.fromContext(
             entityType: 'template',
-            entityId: entityIdStr!,
+            entityId: entityIdStr,
             action: AuditAction.delete,
             context: auditContext.copyWith(
               before: beforeSnapshot,
@@ -227,8 +226,25 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
     required AppUser actor,
   }) async {
     _requireCanAssignJobExecution(actor);
-    _normalizeExecutionForUserSave(execution, markUnsynced: true);
-    await isar.writeTxn(() => isar.jobExecutions.put(execution));
+    final existing = execution.firestoreId == null
+        ? null
+        : await isar.jobExecutions
+              .filter()
+              .firestoreIdEqualTo(execution.firestoreId!)
+              .findFirst();
+    if (existing != null) {
+      await _retainedMutations.save(
+        kind: RetainedRowKind.executionWork,
+        actor: actor,
+        record: execution,
+        normalize: (_) =>
+            _normalizeExecutionForUserSave(execution, markUnsynced: true),
+      );
+      return;
+    }
+    throw StateError(
+      'Assign new jobs from a published template. No local assignment was saved.',
+    );
   }
 
   @override

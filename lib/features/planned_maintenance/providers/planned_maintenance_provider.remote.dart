@@ -4,12 +4,15 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
   final FirebaseFirestore _firestore;
+  final OnlineRetainedRowMutations _retainedMutations;
 
   FirestorePlannedRepository({
     AuditRepository? auditRepository,
     PlannedJobServerCompletionService? serverCompletion,
     FirebaseFirestore? firestore,
+    OnlineRetainedRowMutations? retainedMutations,
   }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _retainedMutations = retainedMutations ?? OnlineRetainedRowMutations(),
        _serverCompletion =
            serverCompletion ?? PlannedJobServerCompletionService(),
        _firestore = firestore ?? FirebaseFirestore.instance;
@@ -259,10 +262,24 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }) async {
     _requireCanSaveLegacyTemplate(actor);
     if (template.firestoreId == null) throw Exception('firestoreId required');
-    _normalizeTemplateForUserSave(template, markUnsynced: false);
-    await _templates
-        .doc(template.firestoreId)
-        .set(template.toMap(), SetOptions(merge: true));
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: template,
+      readRemote: () async {
+        final doc = await _templates
+            .doc(template.firestoreId)
+            .get(const GetOptions(source: Source.server));
+        return doc.exists ? JobTemplate.fromMap(doc.data()!, doc.id) : null;
+      },
+      normalize: (existing) {
+        _normalizeTemplateForUserSave(template, markUnsynced: false);
+        if (existing == null) {
+          template.createdByUid = actor.uid;
+          template.createdByName = actor.name;
+        }
+      },
+    );
   }
 
   @override
@@ -289,52 +306,42 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     _requireCanDeleteLegacyTemplate(actor);
     final docId = id as String;
 
-    final beforeDoc = await _templates.doc(docId).get();
-    Map<String, dynamic>? beforeSnapshot;
-    if (beforeDoc.exists) {
-      beforeSnapshot = _sanitizeForAudit(beforeDoc.data());
-    }
-
-    final now = DateTime.now().toIso8601String();
-    final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
-    final nextVersion = currentVersion + 1;
-
-    final updateData = <String, dynamic>{
-      'isDeleted': true,
-      'deletedAt': now,
-      'updatedAt': now,
-      'version': nextVersion,
-    };
+    final beforeDoc = await _templates
+        .doc(docId)
+        .get(const GetOptions(source: Source.server));
+    if (!beforeDoc.exists) return;
+    final template = JobTemplate.fromMap(beforeDoc.data()!, docId);
+    final before = template.toAuditMap();
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: template,
+      readRemote: () async {
+        final doc = await _templates
+            .doc(docId)
+            .get(const GetOptions(source: Source.server));
+        return doc.exists ? JobTemplate.fromMap(doc.data()!, docId) : null;
+      },
+      normalize: (_) {
+        template.isDeleted = true;
+        template.deletedAt = DateTime.now().toUtc();
+        template.updatedAt = template.deletedAt!;
+        template.deletedByUid = actor.uid;
+        template.deletedByName = actor.name;
+        template.deleteReason =
+            auditContext?.reason?.name ?? auditContext?.reasonNotes;
+      },
+    );
     if (auditContext != null) {
-      updateData['deletedByUid'] = auditContext.performedByUid;
-      updateData['deletedByName'] = auditContext.performedByName;
-      updateData['deleteReason'] =
-          auditContext.reason?.name ?? auditContext.reasonNotes;
-    }
-    await _templates.doc(docId).update(updateData);
-
-    if (auditContext != null) {
-      final afterSnapshot = {
-        ...?beforeSnapshot,
-        'isDeleted': true,
-        'deletedAt': now,
-        'deletedByUid': auditContext.performedByUid,
-        'deletedByName': auditContext.performedByName,
-        'deleteReason': auditContext.reason?.name ?? auditContext.reasonNotes,
-        'updatedAt': now,
-        'version': nextVersion,
-      };
-
-      final auditRepo = _auditRepo;
       unawaited(
-        auditRepo.log(
+        _auditRepo.log(
           AuditEvent.fromContext(
             entityType: 'template',
             entityId: docId,
             action: AuditAction.delete,
             context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
+              before: before,
+              after: template.toAuditMap(),
             ),
           ),
         ),
@@ -361,11 +368,28 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }) async {
     _requireCanAssignJobExecution(actor);
     if (execution.firestoreId == null) throw Exception('firestoreId required');
-    _normalizeExecutionForUserSave(execution, markUnsynced: false);
-    final data = await _executionWriteDataPreservingCreation(execution);
-    await _executions
+    final snapshot = await _executions
         .doc(execution.firestoreId)
-        .set(data, SetOptions(merge: true));
+        .get(const GetOptions(source: Source.server));
+    if (snapshot.exists) {
+      await _retainedMutations.save(
+        kind: RetainedRowKind.executionWork,
+        actor: actor,
+        record: execution,
+        readRemote: () async {
+          final doc = await _executions
+              .doc(execution.firestoreId)
+              .get(const GetOptions(source: Source.server));
+          return doc.exists ? JobExecution.fromMap(doc.data()!, doc.id) : null;
+        },
+        normalize: (_) =>
+            _normalizeExecutionForUserSave(execution, markUnsynced: false),
+      );
+      return;
+    }
+    throw StateError(
+      'Assign new jobs from a published template. No assignment was saved.',
+    );
   }
 
   @override

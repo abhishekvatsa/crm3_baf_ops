@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -15,6 +16,7 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
   final Map<String, DurableSubmission> _values = {};
   final Map<String, String> _immutable = {};
   int _token = 0;
+  Future<void> _preparationTail = Future<void>.value();
   DateTime get _time => _now().toUtc();
 
   @override
@@ -45,7 +47,32 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
   );
 
   @override
-  Future<DurableSubmission> prepare(DurableSubmissionDraft draft) async {
+  Future<DurableSubmission> prepare(DurableSubmissionDraft draft) =>
+      prepareAtomically(prepareDraft: () async => draft);
+
+  @override
+  Future<DurableSubmission> prepareAtomically({
+    required Future<DurableSubmissionDraft> Function() prepareDraft,
+    Future<void> Function()? persistProjection,
+  }) async {
+    // Serialize preparation just as native write transactions serialize. The
+    // journal commits only after projection succeeds; failed callbacks reserve
+    // no identity/resource. This double cannot roll back external storage.
+    final previous = _preparationTail;
+    final completed = Completer<void>();
+    _preparationTail = completed.future;
+    await previous;
+    try {
+      return await _prepare(await prepareDraft(), persistProjection);
+    } finally {
+      completed.complete();
+    }
+  }
+
+  Future<DurableSubmission> _prepare(
+    DurableSubmissionDraft draft,
+    Future<void> Function()? persistProjection,
+  ) async {
     final frozen = jsonEncode(draft.toImmutableMap());
     final existing = _values[draft.submissionId];
     if (existing != null) {
@@ -122,6 +149,7 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
       legacySourceKey: null,
       legacySourceBase64: null,
     );
+    await persistProjection?.call();
     _immutable[draft.submissionId] = frozen;
     return _save(value);
   }
@@ -279,7 +307,12 @@ class InMemoryDurableSubmissionStore implements DurableSubmissionRepository {
       );
     }
     if (value.state.isAccepted) {
-      if (value.receiptJson != receiptJson && !(sameAcceptance?.call(durableSubmissionJsonObject(value.receiptJson!), receipt) ?? false)) {
+      if (value.receiptJson != receiptJson &&
+          !(sameAcceptance?.call(
+                durableSubmissionJsonObject(value.receiptJson!),
+                receipt,
+              ) ??
+              false)) {
         _fail(
           'acceptance-conflict',
           'A different acceptance is already retained.',

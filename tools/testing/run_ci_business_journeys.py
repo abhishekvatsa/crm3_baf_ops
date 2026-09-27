@@ -24,6 +24,8 @@ DEV_APP = "in.co.sail.bsl.crm3.bafops.dev"
 PORTS = (19099, 18080, 15001, 14400, 14500, 19150, 19299, 19499)
 OUTPUT = ROOT / "output/ci-business-journeys"
 CLI = ROOT / "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js"
+HTTP_BOUNDARY_COMMAND = ["node", "functions/tools/run_retained_queue_emulator_tests.mjs", "--existing-ci"]
+HTTP_BOUNDARY_MARKER = "CF01_HTTP_BOUNDARY_PASS"
 
 
 def load_manifest():
@@ -191,9 +193,15 @@ def prepare_ci_journey(journey, device, env):
 
 def execute_journeys(device, manifest, env):
     report = {"project": PROJECT, "physicalDeviceEvidence": False,
-              "productionBackendUsed": False, "journeys": [], "status": "failed"}
+              "productionBackendUsed": False, "httpBoundary": {"status": "notRun"},
+              "journeys": [], "status": "failed"}
     try:
         run_logged([sys.executable, "tools/testing/seed_ci_business_journeys.py"], "seed", 180, env)
+        report["httpBoundary"] = {"status": "failed"}
+        boundary = run_logged(HTTP_BOUNDARY_COMMAND, "cf01-http-boundary", 180, env)
+        if not re.search(r"^" + HTTP_BOUNDARY_MARKER + r" tests=7 report=.+$", boundary, re.MULTILINE):
+            raise RuntimeError("Authenticated CF01 HTTP proof did not provide its verified completion marker")
+        report["httpBoundary"] = {"status": "passed", "tests": 7, "log": "cf01-http-boundary.log"}
         for journey in manifest["journeys"]:
             if not journey["preserveAppData"]:
                 prepare_ci_journey(journey, device, env)
@@ -233,6 +241,9 @@ def main(argv=None):
            "CRM_FIRESTORE_EMULATOR": "127.0.0.1:18080"}
     if args.plan:
         print(json.dumps({"project": PROJECT, "config": manifest["firebaseConfig"],
+                          "httpBoundary": {"command": HTTP_BOUNDARY_COMMAND,
+                                           "after": "seed", "before": "Android journeys",
+                                           "successMarker": HTTP_BOUNDARY_MARKER},
                           "preparations": [{"journey": row["path"],
                                             "steps": ["Verify ro.kernel.qemu=1 and isolated DEV build environment",
                                                       flutter_build_command(row, device),

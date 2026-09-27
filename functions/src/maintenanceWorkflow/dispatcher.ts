@@ -20,6 +20,8 @@ import {WorkflowStore} from "./store";
 import {readExistingReceipt, receiptPath} from "./idempotency";
 import {captureMaintenanceAudit} from "./ticketAcceptanceEvidence";
 import {CommandHandler} from "./handlerTypes";
+import {assertRetainedQueueAdmission, upsertAbnormalityType, upsertLegacyJobTemplate,
+  updateJobExecutionWork, verifyRetainedQueueReplay} from "./retainedQueueHandlers";
 import {finalizeLaneSet, acknowledgeLane, addLane, removeLane, terminateLane, closeLane, cancelWorkflow} from "./laneHandlers";
 import {raiseCompliance, acknowledgeCompliance, confirmConditionAndReactivate, markComplianceComplied, returnComplianceForCorrection, confirmComplianceClosed, proposeCounterCondition, decideCounterCondition} from "./complianceHandlers";
 import {deployEquipment, reconcileEquipment} from "./equipmentHandlers";
@@ -103,6 +105,7 @@ import {
 } from "./criticalAlarmHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
+  upsertAbnormalityType, upsertLegacyJobTemplate, updateJobExecutionWork,
   createLegacyWorkflowJob,
   createMaintenanceTicket,
   startIssueCoordination,
@@ -187,6 +190,7 @@ export class MaintenanceWorkflowCommandService {
     context: CommandInvocationContext,
   ): Promise<WorkflowCommandReceipt> {
     assertWorkflowCommandEnvelope(command);
+    assertRetainedQueueAdmission(command, context);
     const handler = isSupportedWorkflowCommandType(command.commandType) ?
       handlers[command.commandType] : null;
     if (!handler) throw new WorkflowError("unsupported-workflow-command", `Unsupported command ${command.commandType}.`);
@@ -222,6 +226,7 @@ export class MaintenanceWorkflowCommandService {
 
       const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) {
+        await verifyRetainedQueueReplay(tx, command, actor, replay);
         await verifyEquipmentRebindingReplay({tx, command, actor, receipt: replay});
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});

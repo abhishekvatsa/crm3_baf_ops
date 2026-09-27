@@ -6,7 +6,7 @@ const names = [
   ['mutateAssetHierarchyV2', 'request', ['assetHierarchy.v2', 'operationalEventIntervalAmendment.v1', 'assetRegistry.durable.v1', 'ordinaryDirective.v1', 'innerCoverAcceptance.v1',
     'morningReviewExpectedPlantDay.v1', 'morningReviewReceiptLookup.v1', 'morningReviewRecoveryEvidence.v1', 'savedSubmissionReview.v1']],
   ['executeMaintenanceWorkflowCommandV2', 'command', ['maintenanceWorkflow.v2',
-    'inspectionFindingExpectedVersion.v1', 'inspectionCampaignReopen.v1', 'maintenancePlanRevalidation.v1', 'inspectionTargetContextRevalidation.v1', 'savedSubmissionReview.v1']],
+    'inspectionFindingExpectedVersion.v1', 'retainedQueueMutations.v1', 'inspectionCampaignReopen.v1', 'maintenancePlanRevalidation.v1', 'inspectionTargetContextRevalidation.v1', 'savedSubmissionReview.v1']],
 ];
 const origin = 'actor-a';
 const payload = {requestId: 'saved-original', commandId: 'saved-command', nested: {observedAt: '2026-09-12T00:00:00.123456Z'}};

@@ -1,12 +1,12 @@
 # CF-01: retained generic queue ownership
 
-Status: **OPEN — release blocker**. This source review supports a draft PR for review, not merge, release, deployment, or distribution approval. No production records were read or changed for this review.
+Status: **SOURCE REPAIRED — Android/CI proof pending; release blocker remains**. The findings below preserve the pre-repair review. Current implementation, tests and rollout limits are recorded in [CF01_IMPLEMENTATION_VALIDATION_2026_09_27.md](CF01_IMPLEMENTATION_VALIDATION_2026_09_27.md). PR #382 remains draft; no merge, deployment or distribution is authorized by this document. No production records were read or changed for these repairs.
 
 The current run guard prevents synchronization from continuing after its authenticated session changes, loses authority, or is disposed. It does not establish which account originally saved every older dirty Isar row. If account A saves work, synchronization never reaches the server, and account B later begins a new approved session, B is the current run owner. A separate durable mutation origin is necessary to decide whether B may send A's saved intent.
 
 The finding is bounded to the permitted paths below. It is not a claim that every local queue lacks actor protection. These are source-verified counterexamples; an authenticated cross-account emulator reproduction has not yet been run for CF-01.
 
-## Verified remaining paths
+## Verified paths before the repair
 
 | Retained mutation | Client evidence | Effective server boundary | Consequence |
 | --- | --- | --- | --- |

@@ -1244,7 +1244,7 @@
       "compatibility": "a synchronized replay requires the exact observed version and updatedAt receipt; closure rebased over an intervening acknowledgement may converge after restart with unchanged saved closure evidence, while reopen retains exact revision; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
       "reArmCondition": "uncertain or contradictory recovery falls through to a generic write, hold-read failure authorizes sending, readback becomes optional, receipt fields default, a higher closure revision alone authorizes adoption, changed actor/closure/history/subject is ignored, or a stale local row is marked synchronized",
-      "riskFingerprint": "fd02b7b698ae0b7897b17a714725c1a84c37d37a60c276e196f1cd16510b7468"
+      "riskFingerprint": "e3831fe1d8c2a3c1642c7e28d7f7cbe793f4b9f98aedbfd54d1a130aae0e2889"
     },
     {
       "id": "asset-hierarchy-command-receipt",
@@ -2035,6 +2035,39 @@
       "regression": "test/template_publisher_review_timeline_test.dart",
       "reArmCondition": "Old attestation is inherited or new review predates the draft, loses actor evidence, or bypasses hash refresh.",
       "riskFingerprint": "7d45861e6d8e4275a8ed159ba8c2fb7b6de2c492ef500f6367403e2d37873202"
+    },
+    {
+      "id": "retained-row-native-command",
+      "file": "lib/core/services/retained_row_mutations.dart",
+      "markers": [
+        "Future<void> check(",
+        "static dynamic decode(",
+        "static Map<String, dynamic> wire("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "retained-row-command-persistence",
+      "authorityBoundary": "Native catalogue, legacy-template and existing open-job edits atomically retain the original actor, project, command, expected version and complete immutable payload with the dirty row; the V2 callable rechecks authority and returns exact content-bound acceptance.",
+      "malformedDisposition": "Malformed or unknown-origin work stays preserved and cannot dispatch or acknowledge. Exact accepted receipts are retained before full-payload compare-and-adopt in the journal transaction; newer local data is never overwritten.",
+      "compatibility": "Existing Isar models and durable journal schema are reused. Legacy dirty rows without a verified original envelope are imported for review without attributing the current account; generic new assignments require the published-assignment workflow.",
+      "regression": "test/retained_row_mutations_test.dart; integration_test/dev_queue_ownership_journey_test.dart",
+      "reArmCondition": "A changed account or project can send or acknowledge earlier work, a mutable caller changes the frozen projection, legacy origin is inferred, or receipt adoption no longer compares the full saved payload.",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
+    },
+    {
+      "id": "retained-row-online-command",
+      "file": "lib/core/services/online_retained_row_mutations.dart",
+      "markers": [
+        "class OnlineRetainedRowMutations",
+        "Future<void> _send("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "retained-row-command-persistence",
+      "authorityBoundary": "The online adapter journals an immutable original-account/project V2 envelope before dispatch, verifies request, collection, document, revision and complete accepted record, and clears only that exact confirmed request.",
+      "malformedDisposition": "Malformed, concurrent or wrong-owner retained requests withhold dispatch and preserve all evidence. Missing or mismatched receipts cannot clear the journal; a changed caller model remains unsent rather than being acknowledged as the accepted snapshot.",
+      "compatibility": "Uses the existing immutable preference journal without a new storage schema. Confirmation of an earlier uncertain request requires a reload before another edit; no current actor is substituted for an earlier request owner.",
+      "regression": "test/online_retained_row_mutations_test.dart; test/planned_record_creation_wire_test.dart",
+      "reArmCondition": "Changed account inherits a retained request, mutable caller data is sent instead of journal bytes, an unconfirmed request is erased, or a newer caller state is falsely acknowledged.",
+      "riskFingerprint": "06a6ceae41fec283873b090605b5f367925029226d9f27bc95b6ae456f494a90"
     }
   ],
   "catchSites": [
@@ -2901,7 +2934,7 @@
       "malformedDisposition": "Return false on either malformed side, including two identical malformed strings; surrounding replay cannot infer equivalence.",
       "regression": "test/persisted_json_equality_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "malformed '{' vs '{}' and '{' vs '{' both false (lines26\u00e2\u20ac\u201c27); pinned-field replay contract checks metadata comparison (line878)."
+      "verificationNote": "malformed '{' vs '{}' and '{' vs '{' both false (lines26â€“27); pinned-field replay contract checks metadata comparison (line878)."
     },
     {
       "id": "pull-domain-cursor-invalid-timestamp",
@@ -2943,7 +2976,7 @@
       "malformedDisposition": "Return false on any decoding/comparison exception; dependency guard blocks audit synchronization.",
       "regression": "test/template_governance_lifecycle_replay_contract_test.dart; test/a05_template_governance_integrity_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "lifecycle replay contract lines390\u00e2\u20ac\u201c410 checks exact snapshot matcher and strict date reader; integrity test validates lifecycle snapshot payload shape."
+      "verificationNote": "lifecycle replay contract lines390â€“410 checks exact snapshot matcher and strict date reader; integrity test validates lifecycle snapshot payload shape."
     },
     {
       "id": "maintenance-legacy-metadata-exact-comparison",
@@ -3055,7 +3088,7 @@
       "malformedDisposition": "Record malformed IDs, pass unavailableKeys to mergeOverrides, expose isComplete=false and disable catalogue changes; no fallback built-in for a damaged override.",
       "regression": "test/critical_alarm_configuration_test.dart; test/critical_alarm_model_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "malformed fire override remains unavailable rather than defaulting to built-in definition (configuration lines34\u00e2\u20ac\u201c51)."
+      "verificationNote": "malformed fire override remains unavailable rather than defaulting to built-in definition (configuration lines34â€“51)."
     },
     {
       "id": "ordinary-directive-reviewed-absence",
@@ -3125,7 +3158,7 @@
       "malformedDisposition": "Return null for opaque malformed metadata at probe, then classified stuck-up caller throws because evidence is absent. Present malformed structured envelope throws directly.",
       "regression": "test/furnace_stuckup_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "local metadata merge preserves unrelated envelopes (line98); classification/evidence parity enforced at maintenance_model.dart:714\u00e2\u20ac\u201c725. No direct malformed-opaque probe assertion located."
+      "verificationNote": "local metadata merge preserves unrelated envelopes (line98); classification/evidence parity enforced at maintenance_model.dart:714â€“725. No direct malformed-opaque probe assertion located."
     },
     {
       "id": "local-administrative-closure-opaque-preservation",

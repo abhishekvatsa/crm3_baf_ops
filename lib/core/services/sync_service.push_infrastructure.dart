@@ -1,6 +1,47 @@
 part of 'sync_service.dart';
 
 extension _SyncServicePushInfrastructure on SyncService {
+  Future<void> _syncRetainedRow(
+    RetainedRowKind kind,
+    String entityType,
+    dynamic record,
+  ) async {
+    _checkRunCurrent();
+    try {
+      await _retainedRowMutations.synchronize(
+        kind,
+        record,
+        runGuard: _runGuard,
+      );
+      _checkRunCurrent();
+      lastSuccessCount++;
+    } catch (error) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
+      lastFailureCount++;
+      _recordPushFailureDetail(
+        entityType: entityType,
+        entityId: _syncEntityId(record),
+        error: error,
+      );
+    }
+  }
+
+  Future<void> _syncRetainedRows(
+    RetainedRowKind kind,
+    String entityType,
+    List<dynamic> records,
+  ) async {
+    final eligible = await _recordsEligibleForAutomaticPush(
+      entityType: entityType,
+      records: records,
+    );
+    _checkRunCurrent();
+    for (final record in eligible) {
+      await _syncRetainedRow(kind, entityType, record);
+    }
+  }
+
   void _checkRunCurrent() => _runGuard?.checkCurrent();
 
   Future<T> _guardedPushAwait<T>(Future<T> Function() operation) async {
