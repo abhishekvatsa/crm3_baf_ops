@@ -72,21 +72,26 @@ function Get-ProductionAppCheckBuildEvidence {
       $offset += $width
     }
     $normalizedIdentity = $identityComparison.ToString().Trim()
-    # Compact only known marker letters and explicit template suffixes, longest
-    # first. Wrappers and split APPROVER/REFERENCE are refused; To-dor and
-    # To-doist retain their genuine non-placeholder suffixes.
-    foreach ($marker in @('TODOAPPROVER', 'TODOREFERENCE', 'TODO', 'FIXTURE', 'REPLACE')) {
+    # Apply the same suffix handling to every known placeholder stem. Complete
+    # template markers precede bare stems so split APPROVER/REFERENCE forms are
+    # compacted too. Genuine prefixes such as To-dor/To-doist remain distinct.
+    $placeholderStems = @('TODO', 'FIXTURE', 'REPLACE')
+    $placeholderMarkers = @(foreach ($stem in $placeholderStems) {
+      "${stem}APPROVER"
+      "${stem}REFERENCE"
+    }) + $placeholderStems
+    foreach ($marker in $placeholderMarkers) {
       $markerPattern = '^' + (($marker.ToCharArray() | ForEach-Object {
         [regex]::Escape([string]$_)
       }) -join '\s*')
       $normalizedIdentity = [regex]::Replace($normalizedIdentity, $markerPattern, $marker,
         ([Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [Text.RegularExpressions.RegexOptions]::CultureInvariant))
     }
-    # Admit genuine Todo-prefixed names while refusing the TODO token, numeric
-    # suffixes and explicit APPROVER/REFERENCE template markers. Fixture is a
-    # placeholder token even when followed by descriptive text.
+    # A known full template marker remains unfinished when more text follows.
+    # Bare stems require a boundary or numeric suffix, preserving genuine words
+    # such as Todor, Todoist and Replacement.
     if ([string]::IsNullOrWhiteSpace($normalizedIdentity) -or
-        $normalizedIdentity -match '^(REPLACE($|[^\p{L}\p{N}])|TODO($|[^\p{L}\p{N}]|\d|(?:APPROVER|REFERENCE)($|[^\p{L}\p{N}]|\d))|fixture($|[^\p{L}\p{N}]))') {
+        $normalizedIdentity -match '^(TODO|FIXTURE|REPLACE)($|[^\p{L}\p{N}]|\d|APPROVER|REFERENCE)') {
       throw 'App Check approval identity must be accountable non-placeholder text.'
     }
   }

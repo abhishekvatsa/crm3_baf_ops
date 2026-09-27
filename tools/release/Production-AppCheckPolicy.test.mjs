@@ -98,6 +98,16 @@ for (const field of ['approverName', 'approvalReference']) {
       'TO—DO123', 'T☀O+D★O APPROVER', 'ＴＯ－ＤＯ APPROVER', 'R E P L A C E_APPROVER',
       '**TODO**', '“FIX-TURE approval”', 'TODOA P P R O V E R', 'T O D O R E F E R E N C E',
       '🛠️ T🛠O🛠D🛠O APPROVER 🛠️', '...---', ' ☀ + — ', '🛠️💡', '** \t **',
+      ...['TODO', 'REPLACE', 'FIXTURE'].flatMap((stem) => [
+        `${stem}123`, `${stem} 123`,
+        ...['APPROVER', 'REFERENCE'].flatMap((suffix) => {
+          const marker = stem + suffix;
+          return [marker, `${marker}123`, `${marker}NAME`,
+            marker.split('').join(' '), marker.split('').join('-'),
+            `“${marker.toLowerCase()}”`, `**${marker}**`,
+            [...marker].map((letter) => String.fromCharCode(letter.charCodeAt(0) + 0xfee0)).join('')];
+        }),
+      ]),
       '  TODO  ', '\tRePlAcE_APPROVER\n', ' Fixture ', 'ＴＯＤＯ', 'ｆｉｘｔｕｒｅ',
       '\u200BTODO', 'TO\u200BDO', 'REPLACE_\u2060APPROVER', 'fi\uFEFFxture',
       'T\uFE0FODO', 'TO\u{E0100}DO', 'TO\u034FDO', '\u{1BCA0}TODO', '\u{1D173}TODO',
@@ -139,6 +149,7 @@ test('genuine approval identities pass without rewriting the retained identity',
     {approverName: 'Todor Ivanov', approvalReference: 'Todoist release decision 30'},
     {approverName: 'Todorov Alexei', approvalReference: 'Todoist ticket 123'},
     {approverName: 'To-dor Ivanov', approvalReference: 'To-doist release review'},
+    {approverName: 'Todor Ivanov', approvalReference: 'Replacement release review 30'},
     {approverName: 'علی\u200Cرضا', approvalReference: 'Owner decision 30 / 李\u{E0100}明'},
   ]};
   const result = run(t, input, `
