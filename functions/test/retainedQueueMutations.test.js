@@ -175,6 +175,90 @@ describe('abnormality catalogue actor names remain readable',()=>{
     expect(store.entries()).toEqual(beforeReplay);
   });
 });
+describe('historical catalogue creator compatibility',()=>{
+  const historical=(mode)=>{
+    const original={...typeRecord(),version:7,createdByUid:'historical-creator',
+      createdByName:null,lastEditedByUid:'historical-creator',lastEditedByName:null};
+    if(mode==='missing'||mode==='both-missing') delete original.createdByName;
+    if(mode==='both-missing') delete original.createdByUid;
+    if(mode==='both-null') original.createdByUid=null;
+    return original;
+  };
+  const currentEdit=(original)=>({...original,version:8,updatedAt:'2026-09-27T00:02:00.234567Z',
+    lastEditedByUid:'admin2',lastEditedByName:'Current approved editor'});
+  for(const mode of ['missing','null','both-missing','both-null']) {
+    test.each(['edit','deactivate','soft-delete'])(`%s preserves historical ${mode} creator name and exact replay`,async(operation)=>{
+      const original=historical(mode);
+      store.seed('abnormality_types/type-1',original);
+      const edited=currentEdit(original);
+      if(operation==='edit') edited.description='Current catalogue clarification';
+      if(operation==='deactivate') edited.isActive=false;
+      if(operation==='soft-delete') Object.assign(edited,{isActive:false,isDeleted:true,
+        deletedAt:edited.updatedAt,deletedByUid:'admin2',deletedByName:'Current approved editor',
+        deleteReason:'Retired catalogue entry'});
+      const cmd=command('upsertAbnormalityType',edited);
+      const accepted=await execute(cmd,'admin2');
+      expect(accepted.result.record).toEqual(edited);
+      expect(store.read('abnormality_types/type-1')).toEqual(edited);
+      const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+      expect(audit).toMatchObject({performedByUid:'admin2',action:operation==='soft-delete'?'delete':'update'});
+      expect(JSON.parse(audit.beforeJson)).toEqual(original);
+      expect(JSON.parse(audit.afterJson)).toEqual(edited);
+      store.seed('abnormality_types/type-1',{...edited,version:9,title:'Later canonical title'});
+      const beforeReplay=store.entries();
+      expect(await execute(cmd,'admin2')).toEqual(accepted);
+      expect(store.entries()).toEqual(beforeReplay);
+    });
+    test.each([
+      ['invented creator name',{createdByName:'Invented historical name'},'permission-denied'],
+      ['substituted creator UID',{createdByUid:'admin2'},'permission-denied'],
+      ['blank creator name',{createdByName:'  '},'permission-denied'],
+      ['null current editor name',{lastEditedByName:null},'invalid-argument'],
+      ['blank current editor name',{lastEditedByName:'  '},'invalid-argument'],
+      ['another current editor UID',{lastEditedByUid:'admin'},'permission-denied'],
+    ])(`${mode} creator refuses %s without record, audit or receipt writes`,async(_label,change,code)=>{
+      const original=historical(mode);
+      store.seed('abnormality_types/type-1',original);
+      const cmd=command('upsertAbnormalityType',{...currentEdit(original),...change});
+      const before=store.entries();
+      await expect(execute(cmd,'admin2')).rejects.toMatchObject({code});
+      expect(store.entries()).toEqual(before);
+      expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+      expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+    });
+  }
+  test('client null serialization preserves absent historical creator name without inventing one',async()=>{
+    const original=historical('missing');
+    store.seed('abnormality_types/type-1',original);
+    const edited={...currentEdit(original),createdByName:null};
+    const cmd=command('upsertAbnormalityType',edited);
+    expect((await execute(cmd,'admin2')).result.record).toEqual(edited);
+    const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+    expect(JSON.parse(audit.beforeJson)).toEqual(original);
+    expect(JSON.parse(audit.afterJson).createdByName).toBeNull();
+  });
+  test.each(['','  '])('already-malformed historical blank creator name cannot be carried forward (%j)',async(name)=>{
+    const original={...historical('null'),createdByName:name};
+    store.seed('abnormality_types/type-1',original);
+    const before=store.entries();
+    await expect(execute(command('upsertAbnormalityType',currentEdit(original)),'admin2'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+  test.each([
+    ['name without UID',{createdByUid:null,createdByName:'Unbound name'}],
+    ['blank UID',{createdByUid:'  ',createdByName:null}],
+    ['non-string UID',{createdByUid:7,createdByName:null}],
+    ['non-string name',{createdByName:7}],
+  ])('already-malformed historical %s cannot be carried forward',async(_label,change)=>{
+    const original={...historical('null'),...change};
+    store.seed('abnormality_types/type-1',original);
+    const before=store.entries();
+    await expect(execute(command('upsertAbnormalityType',currentEdit(original)),'admin2'))
+      .rejects.toMatchObject({code:'invalid-argument'});
+    expect(store.entries()).toEqual(before);
+  });
+});
 test('permanent purge evidence prevents recreating a catalogue identity',async()=>{
   const hash=require('node:crypto').createHash('sha256').update('abnormality_types/type-1').digest('hex');
   store.seed(`pilot_record_purge_manifests/purge_${hash}`,{entityId:'type-1'});

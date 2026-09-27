@@ -113,7 +113,6 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _validateTypeForSave(type);
 
     type.firestoreId ??= _uuid.v4();
 
@@ -126,6 +125,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       record: type,
       readRemote: () => _readTypeForMutation(type.firestoreId!),
       normalize: (existing) {
+        _validateTypeForSave(type, existing: existing as AbnormalityType?);
         if (existing == null) {
           type.createdByUid = actor.uid;
           type.createdByName = actor.name;
@@ -172,11 +172,14 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       actor: actor,
       record: type,
       readRemote: () => _readTypeForMutation(docId),
-      normalize: (_) => type.softDelete(
-        deletedByUid: actor.uid,
-        deletedByName: actor.name,
-        reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      ),
+      normalize: (existing) {
+        type.softDelete(
+          deletedByUid: actor.uid,
+          deletedByName: actor.name,
+          reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
+        );
+        _validateTypeForSave(type, existing: existing as AbnormalityType?);
+      },
     );
     if (auditContext != null) {
       _logAudit(

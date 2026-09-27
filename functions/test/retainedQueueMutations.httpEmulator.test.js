@@ -44,7 +44,7 @@ suite('CF01 authenticated HTTP boundary',()=>{
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST||'')||
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIREBASE_AUTH_EMULATOR_HOST||'')) throw Error('Isolated loopback demo emulators are required.');
     app=initializeApp({projectId},prefix);db=getFirestore(app);
-    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
+    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['historicalEditor','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
       const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-only`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`${prefix}-${name}@example.invalid`,password:'synthetic-test-only',returnSecureToken:true})});
       const auth=await response.json();if(!auth.idToken)throw Error(`Auth fixture failed for ${name}`);
@@ -150,9 +150,8 @@ suite('CF01 authenticated HTTP boundary',()=>{
       expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
     }
 
-    // Current V2 commands must not introduce UID-only or blank attribution.
-    // Historical read compatibility remains in the client; no historical row
-    // is repaired here. Full canonical data/updateTime and absent receipts
+    // New V2 records must not introduce UID-only or blank attribution, and
+    // known creation attribution cannot be removed. Full data/updateTime and absent receipts
     // prove refusals cannot add a malformed row to the later pull population.
     // Keep this independent negative campaign within the existing per-actor
     // anomaly budget; no counter resets or runtime guard exceptions are used.
@@ -220,6 +219,66 @@ suite('CF01 authenticated HTTP boundary',()=>{
     const afterDeleteReplay=await db.doc(namedPath).get();
     expect(afterDeleteReplay.data()).toEqual(deletedBaseline);
     expect(afterDeleteReplay.updateTime.isEqual(deletedSnapshot.updateTime)).toBe(true);
+
+    // Directly seed supported historical shapes, rather than creating them
+    // through the stricter new-record contract. A separate approved actor keeps
+    // this campaign independent of the preceding anomaly-budget negatives.
+    const historicalEditor=actors.historicalEditor;
+    for(const mode of ['missing','null','both-missing','both-null']) {
+      const historical={...typeRecord(`${prefix}-historical-${mode}`,'historical-creator'),
+        createdByName:null,lastEditedByUid:'historical-creator',lastEditedByName:null};
+      if(mode==='missing'||mode==='both-missing') delete historical.createdByName;
+      if(mode==='both-missing') delete historical.createdByUid;
+      if(mode==='both-null') historical.createdByUid=null;
+      const path=`abnormality_types/${historical.firestoreId}`;
+      let baseline=await seedStamped(path,historical);
+      let snapshot=await db.doc(path).get();
+      let current={...historical,createdByUid:historical.createdByUid??null,createdByName:null,
+        version:2,updatedAt:'2026-09-27T00:02:00.234567Z',
+        lastEditedByUid:historicalEditor.uid,lastEditedByName:historicalEditor.profile.name};
+      for(const [suffix,change,status] of [
+        ['invented-name',{createdByName:'Invented historical name'},'PERMISSION_DENIED'],
+        ['missing-editor',{lastEditedByName:null},'INVALID_ARGUMENT'],
+      ]) {
+        const bad=make('upsertAbnormalityType',{...current,...change},`historical-${mode}-${suffix}`);
+        expect((await invoke(historicalEditor,bad)).error.status).toBe(status);
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+        expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+      }
+      const retained=[];
+      let previous=historical;
+      for(const operation of ['edit','deactivate','soft-delete']) {
+        if(operation==='edit') current.description='Current clarification without invented creator history';
+        if(operation==='deactivate') current={...current,version:3,isActive:false};
+        if(operation==='soft-delete') current={...current,version:4,isDeleted:true,
+          deletedAt:current.updatedAt,deletedByUid:historicalEditor.uid,
+          deletedByName:historicalEditor.profile.name,deleteReason:'Retired catalogue entry'};
+        const cmd=make('upsertAbnormalityType',current,`historical-${mode}-${operation}`);
+        const receipt=await accepted(historicalEditor,cmd);
+        expect(receipt.result.record).toEqual(current);
+        baseline=await waitForStamped(path,current,baseline._globalPullServerUpdatedAt);
+        snapshot=await db.doc(path).get();
+        const audit=await db.doc(`audit_logs/server_cf01_${cmd.commandId}`).get();
+        expect(audit.data()).toMatchObject({performedByUid:historicalEditor.uid,
+          action:operation==='soft-delete'?'delete':'update',entityType:'abnormality_type'});
+        expect(JSON.parse(audit.data().beforeJson)).toEqual(previous);
+        expect(JSON.parse(audit.data().afterJson)).toEqual(current);
+        retained.push({cmd,receipt,audit});
+        previous={...current};
+      }
+      // Every original accepted snapshot remains replayable after later edits
+      // and deletion, without altering the current row or rewriting its audit.
+      for(const {cmd,receipt,audit} of retained) {
+        expect(await accepted(historicalEditor,cmd)).toEqual(receipt);
+        const unchanged=await db.doc(path).get();
+        expect(unchanged.data()).toEqual(baseline);
+        expect(unchanged.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await audit.ref.get()).updateTime.isEqual(audit.updateTime)).toBe(true);
+      }
+    }
   },120000);
   test.each([
     ['abnormality_types','admin',typeRecord],['job_templates','si',templateRecord],['job_executions','worker',executionRecord],

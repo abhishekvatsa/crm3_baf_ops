@@ -13614,7 +13614,11 @@ check(
     and "deleted abnormality types require deletion authority"
         in a05_abnormality_reader
     and "deleted abnormalities require a reason" in a05_abnormality_reader
-    and "_validateTypeForSave(type)" in a05_abnormality_provider
+    # Native and online saves validate against their actual retained baseline;
+    # this preserves readable historical creator absence without treating it
+    # as permission to create a newly unattributed catalogue record.
+    and "_validateTypeForSave(type, existing: baseline as AbnormalityType?)" in a05_abnormality_provider
+    and "_validateTypeForSave(type, existing: existing as AbnormalityType?)" in a05_abnormality_provider
     and "_validateAbnormalityForSave(abnormality)"
         in a05_abnormality_provider
     and "_ensureTypeDefaults" not in a05_abnormality_provider

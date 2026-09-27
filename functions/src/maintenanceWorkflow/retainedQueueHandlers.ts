@@ -250,10 +250,13 @@ function validateType(data: Mutable, actor: Actor, before: JsonMap | null): void
   const assets = data.applicableAssetTypes as string[];
   if (assets.length > 5 || new Set(assets).size !== assets.length || assets.some((asset) => !ASSETS.includes(asset))) fail("Invalid applicable asset types.");
   if (typeof data.suggestsReannealing !== "boolean" || typeof data.isActive !== "boolean" || data.isDeleted && data.isActive) fail("Invalid catalogue state.");
-  text(data.createdByUid, "createdByUid", 512);
-  // Legacy readers may retain an absent name, but a new actor-bound catalogue
-  // mutation must not introduce incomplete or unreadable attribution.
-  for (const field of ["createdByName", "lastEditedByName"]) text(data[field], field, 500);
+  // New records require complete creation attribution. Existing creator fields
+  // are pinned by apply(), including readable historical null/absent evidence;
+  // an edit must neither invent that history nor carry forward malformed text.
+  if (before == null || data.createdByUid != null) text(data.createdByUid, "createdByUid", 512);
+  if (before == null || data.createdByName != null) text(data.createdByName, "createdByName", 500);
+  if (data.createdByName != null && data.createdByUid == null) fail("Catalogue creator name requires its original UID.");
+  text(data.lastEditedByName, "lastEditedByName", 500);
   if (data.lastEditedByUid !== actor.uid || before == null && data.createdByUid !== actor.uid) fail("Catalogue mutation actor does not match the origin.", "permission-denied");
 }
 function validateTemplate(data: Mutable, actor: Actor, before: JsonMap | null): void {

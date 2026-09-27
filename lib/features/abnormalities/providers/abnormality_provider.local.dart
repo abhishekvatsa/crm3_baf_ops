@@ -129,7 +129,6 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _validateTypeForSave(type);
 
     type.firestoreId ??= _uuid.v4();
 
@@ -145,6 +144,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       actor: actor,
       record: type,
       normalize: (baseline) {
+        _validateTypeForSave(type, existing: baseline as AbnormalityType?);
         if (baseline == null) {
           type.createdByUid = actor.uid;
           type.createdByName = actor.name;
@@ -199,11 +199,14 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       kind: RetainedRowKind.abnormalityType,
       actor: actor,
       record: type,
-      normalize: (_) => type.softDelete(
-        deletedByUid: actor.uid,
-        deletedByName: actor.name,
-        reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      ),
+      normalize: (baseline) {
+        type.softDelete(
+          deletedByUid: actor.uid,
+          deletedByName: actor.name,
+          reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
+        );
+        _validateTypeForSave(type, existing: baseline as AbnormalityType?);
+      },
     );
     afterSnapshot = type.toAuditMap();
     entityId = type.firestoreId ?? type.id.toString();
