@@ -90,7 +90,7 @@ These are execution entry points for the release operator, not commands run by t
    ```
 
    An observation reporting source/live differences is useful before-state evidence, not a deployment pass. Check exact deployed bundle/configuration, Rules/indexes, IAM and recoverability; historical fleet receipts alone are insufficient after separately authorized production hotfixes.
-3. Use `Invoke-FunctionFleetRuntimeIdentityCampaign.ps1` with the exact project confirmation, `-PostMergeRunId`, private external `-EvidenceDirectory` and `-PreserveExistingIam`. Its phases are `Preflight`, `Provision`, `DeployCallables`, `DeployEvents`, `DeployScheduler`, `Finalize`. Review the measured cohort and prepared successor authority before mutation. The preservation option must refuse required IAM drift; do not use `RestoreEditor` as an automatic recovery step. Do not delete an existing `.env` file to make the tool proceed; use the reviewed clean deployment checkout and preserve original environment custody.
+3. Use an independently reviewed successor of the bounded cohort runner recorded by the Build29 decision, binding its exact helper bytes to the new source-specific authority. Run the callable, event and scheduler-deployment cohorts separately, preserving IAM, instance limits and other measured controls. **Do not use the generic campaign's `DeployScheduler` or `Finalize` phases for this preserved-control rollout:** the former manually invokes a scheduler sweep and the latter contains IAM cleanup/restoration. Neither follows from deployment-only authorization. Do not delete an existing `.env` file to make a tool proceed. The Rules runtime installer requires a pristine execution checkout before CLI/ancestor dependency installation; prepare that measured runtime first, then install Functions dependencies. Preserve all existing work and environment custody in other checkouts.
 4. The reviewed Rules command is the pinned local Firebase CLI targeting **only** `firestore:rules` with the exact project, noninteractive JSON output. `reviewedFirestoreRulesDeployment.js` verifies its evidence; it is not a deployment command. Bind before-state, actual command outcome, after-state and unchanged indexes. A nonzero deployment response can still coincide with a live change: inspect first, retain the real outcome, and do not repeatedly roll production backward/forward just to obtain a successful receipt.
 5. Once actual source/backend evidence and candidate records are complete, run `Test-ProductionReleasePolicy.ps1 -RequireArtifactConstructionAuthority`. Its refusal now is expected, not a reason to weaken it.
 6. Dispatch `.github/workflows/production-artifact.yml` on `main` with its actual inputs `commit_sha`, `release_id`, `reservation_id`, `approval_reference`, `build_number`. The protected workflow atomically reserves the build number and invokes the CI-only builder. Do not invoke `New-ProductionArtifact.ps1` locally or substitute verification/CI-package APKs.
@@ -160,3 +160,13 @@ contract checks passed; fresh Linux CI is still required. Main protection's
 obsolete Android shell job name was corrected to the current shell-plus-business
 job, retaining all five required GitHub Actions checks, strict mode, app IDs and
 all other protection settings, with exact readback. No check was removed.
+
+At `5c26f009`, all four CodeQL language jobs passed, including the repaired
+Java/Kotlin job. A further review reproduced formatting inside placeholder
+identities (`TO-DO APPROVER`, `T O D O 123`, `FIX-TURE approval`). The next repair
+uses comparison-only Unicode punctuation/symbol handling and compacts only known
+marker words. Regression coverage also includes quotes, Markdown, split template
+suffixes and formatting-only values: **23/23 tests**, with **112 negative inputs**
+across both identity fields and **eight genuine identity pairs**, passed after
+the new cases failed before repair. Raw evidence bytes remain unchanged;
+independent review found no actionable issue. This follow-up needs fresh CI.

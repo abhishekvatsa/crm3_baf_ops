@@ -53,11 +53,40 @@ function Get-ProductionAppCheckBuildEvidence {
     # the three supplementary ranges. Never rewrite hash-bound original text.
     $invisibleIdentityPattern = '[\u00AD\u034F\u061C\u115F-\u1160\u17B4-\u17B5\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]'
     $normalizedIdentity = [regex]::Replace($identity.Normalize([Text.NormalizationForm]::FormKC), $invisibleIdentityPattern, '').Trim()
+    # Compare presentation punctuation, symbols and whitespace as spaces,
+    # including supplementary Unicode symbols. Retain word boundaries rather
+    # than concatenating arbitrary names; never alter the approval's raw text.
+    $identityComparison = [Text.StringBuilder]::new()
+    for ($offset = 0; $offset -lt $normalizedIdentity.Length;) {
+      $width = 1
+      if ([char]::IsHighSurrogate($normalizedIdentity[$offset]) -and
+          $offset + 1 -lt $normalizedIdentity.Length -and
+          [char]::IsLowSurrogate($normalizedIdentity[$offset + 1])) { $width = 2 }
+      $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($normalizedIdentity, $offset)
+      if ([char]::IsWhiteSpace($normalizedIdentity, $offset) -or
+          $category.ToString() -match '(Punctuation|Symbol)$') {
+        [void]$identityComparison.Append(' ')
+      } else {
+        [void]$identityComparison.Append($normalizedIdentity.Substring($offset, $width))
+      }
+      $offset += $width
+    }
+    $normalizedIdentity = $identityComparison.ToString().Trim()
+    # Compact only known marker letters and explicit template suffixes, longest
+    # first. Wrappers and split APPROVER/REFERENCE are refused; To-dor and
+    # To-doist retain their genuine non-placeholder suffixes.
+    foreach ($marker in @('TODOAPPROVER', 'TODOREFERENCE', 'TODO', 'FIXTURE', 'REPLACE')) {
+      $markerPattern = '^' + (($marker.ToCharArray() | ForEach-Object {
+        [regex]::Escape([string]$_)
+      }) -join '\s*')
+      $normalizedIdentity = [regex]::Replace($normalizedIdentity, $markerPattern, $marker,
+        ([Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [Text.RegularExpressions.RegexOptions]::CultureInvariant))
+    }
     # Admit genuine Todo-prefixed names while refusing the TODO token, numeric
     # suffixes and explicit APPROVER/REFERENCE template markers. Fixture is a
     # placeholder token even when followed by descriptive text.
     if ([string]::IsNullOrWhiteSpace($normalizedIdentity) -or
-        $normalizedIdentity -match '^(REPLACE_|TODO($|[^\p{L}\p{N}]|\d|(?:APPROVER|REFERENCE)($|[^\p{L}\p{N}]|\d))|fixture($|[^\p{L}\p{N}]))') {
+        $normalizedIdentity -match '^(REPLACE($|[^\p{L}\p{N}])|TODO($|[^\p{L}\p{N}]|\d|(?:APPROVER|REFERENCE)($|[^\p{L}\p{N}]|\d))|fixture($|[^\p{L}\p{N}]))') {
       throw 'App Check approval identity must be accountable non-placeholder text.'
     }
   }
