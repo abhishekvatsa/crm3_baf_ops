@@ -1085,7 +1085,7 @@ check(
     and "ReactiveCircus/android-emulator-runner@"
         "a421e43855164a8197daf9d8d40fe71c6996bb0d"
         in release_gate_source
-    and "Android emulator app-shell integration (not physical-device evidence)"
+    and "Android emulator shell + business integration (not physical-device evidence)"
         in release_gate_source
     and "Android release package + cold-start proof (non-production)"
         in release_gate_source
@@ -1195,8 +1195,20 @@ check(
             "productionPolicyVerifier",
             "taxonomy",
             "contractTest",
+            "taxonomyValidator",
         }
     )
+    # The additive business gate changes the current validator, not the sealed
+    # C04 receipt. Verify that receipt against its exact historical Git bytes.
+    and c04_source_controls.get("taxonomyValidator", {}).get("sha256")
+        == bytes_sha(git_file_bytes(
+            "cf85476e924fe9941a7170d2bd4f4fa68bafc76d",
+            "tools/testing/verify_test_evidence_taxonomy.py",
+        ) or b"")
+        == "09EDC5A5D10606646B0979EED93DD8F21483A55AF3C797696BC7E21D7B5ECAB9"
+    and c04_catalog.get("deviceIntegration", {}).get("businessJourneyManifest")
+        == "governance/ci-business-journeys.json"
+    and "tools/testing/run_ci_business_journeys.py" in release_gate_source
     and c04_source_controls.get("taxonomy", {}).get("sha256")
         == "9EE7137FDD9F2D933AD4ADF0BEE332DF3F36C56D0E6F8E57D2B1AB931DE7A5E1"
     and c04_source_controls.get("contractTest", {}).get("sha256")
@@ -1207,7 +1219,7 @@ check(
         "sha256"
     ) == "4DE6956CC9FEBD99ABB62E66975D9ED58F62D6C398927A3015B550FF7B3BF0CB"
     and "Validate and publish test evidence taxonomy" in release_gate_source
-    and "Android emulator app-shell integration (not physical-device evidence)"
+    and "Android emulator shell + business integration (not physical-device evidence)"
         in release_gate_source
     and "Production policy and package-verifier runtime gate"
         in release_gate_source
@@ -1240,7 +1252,7 @@ c06_proguard_rules = text("android/app/proguard-rules.pro")
 c06_contract_test = text("test/c06_android_release_shrinking_contract_test.dart")
 c06_decision = text("docs/v4_2_r1/C06_ANDROID_RELEASE_SHRINKING.md")
 c03_job_start = release_gate_source.find("\n  android-package:")
-c03_job_end = release_gate_source.find("\n  firestore-rules:", c03_job_start + 1)
+c03_job_end = release_gate_source.find("\n  android-emulator:", c03_job_start + 1)
 c03_job_source = (
     release_gate_source[c03_job_start:c03_job_end]
     if c03_job_start >= 0 and c03_job_end > c03_job_start
@@ -1551,7 +1563,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 34
+    and len(workflow_action_refs) == 36
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")
@@ -13037,15 +13049,15 @@ check(
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
     and a03_inventory_report.get("operationCount") == 629
-    and a03_inventory_report.get("siteCount") == 2191
+    and a03_inventory_report.get("siteCount") == 2201
     and a03_inventory_report.get("inventoryDigest")
-        == "06E833A6C74A8CBC75A082FE7AD581C9259735666E2851F79FA413F47361EFC7"
+        == "CECD44B3F5AFA93D052BC83F90CA14B34E7C2A17A0783DB5D06DEAD082A9B53C"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 84
-    and len({surface.get("path") for surface in a03_surfaces}) == 84
+    and len(a03_surfaces) == 86
+    and len({surface.get("path") for surface in a03_surfaces}) == 86
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -13095,9 +13107,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 123
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 126
     and a04_inventory_report.get("inventoryDigest")
-        == "9A29F28368E4F025651B540C30095B5C57091D71B4C17511EA289FE6CE2F4248"
+        == "121CC1499DAFFE6CDFF5BA681E6F89C6826681D8E8C4378D5759A7C5BA4EA3DA"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13105,8 +13117,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 123
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 123
+    and len(a04_inherited_decoders) == 126
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 126
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13374,10 +13386,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 109
-    and a05_timestamp_inventory_report.get("directCallCount") == 262
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 154
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 99
+    and a05_timestamp_inventory_report.get("readerCount") == 113
+    and a05_timestamp_inventory_report.get("directCallCount") == 267
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 155
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 100
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 42
@@ -13391,7 +13403,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 109
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 113
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -13416,17 +13428,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 123
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 108
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 64
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 58
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 552
+    and a05_decoder_inventory_report.get("surfaceCount") == 126
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 110
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 66
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 60
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 561
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 123
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 108
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 126
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 110
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13725,11 +13737,15 @@ check(
     and "workflow-pull-quarantine-write-failed" in a05_workflow_pull
     and "workflow-pull-cursor-write-failed" in a05_workflow_pull
     and "readRequiredPersistedDateTime(" in a05_workflow_pull
-    and "await _appendQuarantine(prefs, collectionRecords);"
+    and "await _appendQuarantine(prefs, collectionRecords, runGuard: runGuard);"
+        in a05_workflow_pull
+    and "await _advance(prefs, key, observed, runGuard: runGuard);"
         in a05_workflow_pull
     and a05_workflow_pull.find(
-        "await _appendQuarantine(prefs, collectionRecords);"
-    ) < a05_workflow_pull.find("await _advance(prefs, key, observed);")
+        "await _appendQuarantine(prefs, collectionRecords, runGuard: runGuard);"
+    ) < a05_workflow_pull.find(
+        "await _advance(prefs, key, observed, runGuard: runGuard);"
+    )
     and "_readStoredQuarantine(prefs, _preferenceReader);"
         in a05_workflow_pull
     and "!written || _preferenceReader(prefs, key) != value"

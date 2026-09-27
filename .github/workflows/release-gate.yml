@@ -215,7 +215,16 @@ jobs:
             test/runtime_module_population_fence_contract_test.dart \
             test/runtime_module_population_no_loss_test.dart \
             test/runtime_job_module_population_exception_test.dart \
-            test/job_module_population_replay_equivalence_test.dart
+            test/job_module_population_replay_equivalence_test.dart \
+            test/sync_push_group_isolation_test.dart \
+            test/sync_clean_local_reconciliation_test.dart \
+            test/sync_coordinator_lifetime_test.dart \
+            test/sync_run_guard_test.dart \
+            test/sync_partial_presentation_test.dart \
+            test/startup_sync_authority_transition_test.dart \
+            test/workflow_pull_session_guard_test.dart \
+            test/workflow_pull_service_watermark_test.dart \
+            test/workflow_uncertain_retry_service_test.dart
 
   android-package:
     name: Android release package + cold-start proof (non-production)
@@ -266,9 +275,9 @@ jobs:
           script: pwsh -File tools/release/Test-CIAndroidReleaseStartup.ps1 -DeviceId emulator-5554 -ApkPath build/app/outputs/flutter-apk/app-release.apk
 
   android-emulator:
-    name: Android emulator app-shell integration (not physical-device evidence)
+    name: Android emulator shell + business integration (not physical-device evidence)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -289,6 +298,23 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Set up Node 22 for isolated business journeys
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Prepare the pinned local business backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_lock_sha="DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
+          actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
+          test "$actual_lock_sha" = "$expected_lock_sha"
+          npm --prefix functions ci
+          npm --prefix tooling/firebase-cli ci --ignore-scripts
+          npm --prefix functions run build
+          python3 -m unittest discover -s tools/testing -p 'test_ci_business_journeys.py'
+
       - name: Enable KVM
         shell: bash
         run: |
@@ -297,7 +323,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run Android app-shell integration suite
+      - name: Run Android shell and emulator-backed business journeys
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 33
@@ -307,7 +333,20 @@ jobs:
           cores: 2
           ram-size: 1536M
           heap-size: 256M
-          script: flutter test integration_test/c04_operational_shell_android_test.dart -d emulator-5554 --reporter expanded
+          script: |
+            flutter test integration_test/c04_operational_shell_android_test.dart -d emulator-5554 --reporter expanded
+            python3 tools/testing/run_ci_business_journeys.py --device-id emulator-5554
+
+      - name: Upload Android business journey evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: android-business-journeys
+          path: |
+            output/ci-business-journeys/
+            firebase-debug.log
+            firestore-debug.log
+          if-no-files-found: warn
 
   firestore-rules:
     name: Firestore Rules + governed callable emulator

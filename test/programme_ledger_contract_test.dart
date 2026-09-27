@@ -702,7 +702,7 @@ void main() {
     // Current source includes the reviewed knowledge import, UV correction,
     // operational amendment and development emulator boundaries; sealed closure
     // counts above stay fixed.
-    expect(_objects(a03Manifest['surfaces']), hasLength(84));
+    expect(_objects(a03Manifest['surfaces']), hasLength(86));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');
@@ -763,10 +763,10 @@ void main() {
     // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      '9A29F28368E4F025651B540C30095B5C57091D71B4C17511EA289FE6CE2F4248',
+      '121CC1499DAFFE6CDFF5BA681E6F89C6826681D8E8C4378D5759A7C5BA4EA3DA',
     );
     expect(_objects(a04Manifest['fields']), hasLength(55));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(123));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(126));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

@@ -1925,6 +1925,93 @@
           ]
         }
       ]
+    },
+    {
+      "id": "abnormality-structured-assessment",
+      "readerFile": "lib/features/abnormalities/domain/abnormality_assessment.dart",
+      "readerMarker": "factory AbnormalityAssessment.fromMap",
+      "requiredFields": [],
+      "optionalFields": [
+        "assessment.raPerformedAt"
+      ],
+      "owner": "quality",
+      "purpose": "Read explicitly recorded actual RA occurrence separately from decision, receipt and post-RA result; historical unknown remains absent.",
+      "authorityBoundary": "Additive persisted assessment; record-level validation requires completed RA for occurrence/result evidence.",
+      "regression": "test/abnormality_assessment_test.dart",
+      "reArmCondition": "Any reader field, chronology compatibility, validation or authority-boundary change requires renewed review."
+    },
+    {
+      "id": "maintenance-component-identification",
+      "readerFile": "lib/features/maintenance/domain/maintenance_component_identification.dart",
+      "readerMarker": "factory MaintenanceComponentIdentification.fromMap",
+      "requiredFields": [
+        "identifiedAt"
+      ],
+      "optionalFields": [],
+      "owner": "maintenance",
+      "purpose": "Restore attributed component identification while retaining the original physical-asset issue.",
+      "authorityBoundary": "Immutable first identification evidence; no fallback clock or replacement of original intake.",
+      "regression": "test/maintenance_component_identification_test.dart",
+      "reArmCondition": "Any reader field, chronology compatibility, validation or authority-boundary change requires renewed review."
+    },
+    {
+      "id": "job-module-lifecycle-replay-wire",
+      "readerFile": "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+      "readerMarker": "Future<void> applyRemoteLifecycleReplayStepForSync(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "planned-maintenance",
+      "purpose": "Validate only supplied lifecycle replay timestamps and serialize their actual instants as UTC before the governed field-scoped write.",
+      "authorityBoundary": "Submitted/accepted event chronology and update time in a defensive copy; no creation or prior evidence overwrite.",
+      "regression": "test/job_module_creation_wire_test.dart",
+      "reArmCondition": "Any reader field, chronology compatibility, validation or authority-boundary change requires renewed review.",
+      "readerBodySha256": "d95b510d18442b2dedba1880849f9a0a1b6f11438e75495f9e997ab12ee26498",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n          outgoing[field],\n          field: field,\n          source: 'job module lifecycle replay $id',\n        )",
+          "reviewedFields": [
+            "submittedAt",
+            "acceptedAt",
+            "updatedAt"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-registry-write-wire",
+      "readerFile": "lib/features/planned_maintenance/providers/module_registry_provider.dart",
+      "readerMarker": "Map<String, dynamic> _registryWriteData(",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "module-registry",
+      "purpose": "Validate candidate and stored registry chronology; preserve exact old wire encoding only for the same instant and reject changed creation time.",
+      "authorityBoundary": "Governed registry family/revision write; lifecycle authorization remains with existing repository guards and Firestore Rules.",
+      "regression": "test/module_registry_creation_wire_test.dart",
+      "reArmCondition": "Any reader field, chronology compatibility, validation or authority-boundary change requires renewed review.",
+      "readerBodySha256": "2b8f200c3cc1757abb17b59e64b342fd45f3c36b80506e1cad8c3a0635fde48d",
+      "dynamicCalls": [
+        {
+          "reader": "readOptionalPersistedDateTime",
+          "callSource": "readOptionalPersistedDateTime(\n      data[field],\n      field: field,\n      source: 'registry write',\n    )",
+          "reviewedFields": [
+            "createdAt",
+            "updatedAt",
+            "publishedAt",
+            "retiredAt"
+          ]
+        },
+        {
+          "reader": "readOptionalPersistedDateTime",
+          "callSource": "readOptionalPersistedDateTime(\n      stored?[field],\n      field: field,\n      source: 'stored registry record',\n    )",
+          "reviewedFields": [
+            "createdAt",
+            "updatedAt",
+            "publishedAt",
+            "retiredAt"
+          ]
+        }
+      ]
     }
   ]
 }

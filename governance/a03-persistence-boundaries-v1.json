@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "06E833A6C74A8CBC75A082FE7AD581C9259735666E2851F79FA413F47361EFC7",
+  "inventoryDigest": "CECD44B3F5AFA93D052BC83F90CA14B34E7C2A17A0783DB5D06DEAD082A9B53C",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -79,6 +79,34 @@
     }
   },
   "surfaces": [
+    {
+      "path": "lib/features/abnormalities/services/abnormality_cause_evidence_reader.dart",
+      "profile": "service",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/abnormality_cause_evidence_reader_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/reports/providers/base_inner_cover_register_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/operational_register_reports_test.dart"
+      ]
+    },
     {
       "path": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
       "profile": "repository-adapter",

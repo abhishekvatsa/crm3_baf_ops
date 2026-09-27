@@ -278,10 +278,11 @@ function successorDelegatedFixture(t, {
   receipt.approvalAuthority.file = approvalFile;
   f.deployed.deploymentApprovalFile = approvalFile;
   f.deployed.functionFleetSourceCommit = sourceCommit;
-  const jobNames = ['Flutter host analysis + tests + no-loss contracts',
-    'Android release package + cold-start proof (non-production)',
-    'Android emulator app-shell integration (not physical-device evidence)',
-    'Firestore Rules + governed callable emulator','Cloud Functions host build + non-emulator tests'];
+  // Bind synthesized CI evidence to this fixture's exact Git source, including
+  // successors that expand the Android gate; historical receipts stay unchanged.
+  const jobNames = Object.values(require('js-yaml').safeLoad(
+    getSource('.github/workflows/release-gate.yml')).jobs).map((job) => job.name);
+  assert.equal(jobNames.length, 5);
   const ci = {schemaVersion:1,evidenceType:'github-exact-main-release-gate',repository:'abhishekvatsa/crm3_baf_ops',
     sourceCommit,sourceTree,capturedAtUtc:at(50),
     pullRequest:{number:prNumber,merged:true,merge_commit_sha:sourceCommit,merged_at:at(0),

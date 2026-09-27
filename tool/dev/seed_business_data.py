@@ -21,6 +21,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+import urllib.parse
 from datetime import datetime, timezone
 
 PROJECT = os.environ.get("CRM_DEMO_PROJECT_ID", "demo-crm3-baf-ops")
@@ -28,6 +29,11 @@ if not PROJECT.startswith("demo-"):
     raise SystemExit(f"CRM_DEMO_PROJECT_ID must start with 'demo-'. Received: {PROJECT}")
 
 HOST = os.environ.get("CRM_FIRESTORE_EMULATOR", "127.0.0.1:8080")
+_endpoint = urllib.parse.urlsplit(f"http://{HOST}")
+if (_endpoint.hostname not in {"127.0.0.1", "localhost", "::1"}
+        or _endpoint.username or _endpoint.password or _endpoint.path
+        or _endpoint.query or _endpoint.fragment or not _endpoint.port):
+    raise SystemExit("CRM_FIRESTORE_EMULATOR must be a loopback host:port.")
 BASE = f"http://{HOST}/v1/projects/{PROJECT}/databases/(default)/documents"
 HEADERS = {"Authorization": "Bearer owner", "Content-Type": "application/json"}
 
@@ -151,9 +157,79 @@ def global_pull_contract() -> dict:
     }
 
 
+
+# ---------------------------------------------------------------------------
+# Governed asset register.
+#
+# The abnormality form refuses to log without at least one governed affected
+# asset, and it lists asset CLASSES first. Field names and types below come from
+# AssetClassRecord.fromMap and AssetInstanceRecord.fromMap, both of which pin
+# schemaVersion to 1 and fail closed on anything unexpected.
+# ---------------------------------------------------------------------------
+
+ASSET_CLASS_ID = "seed-class-annealing-furnace"
+ASSET_INSTANCE_ID = "seed-asset-furnace-01"
+
+
+def asset_class() -> dict:
+    return {
+        "assetClassId": s(ASSET_CLASS_ID),
+        "schemaVersion": i(1),
+        "code": s("FURN"),
+        "name": s("Annealing furnace"),
+        "majorArea": s("BAF"),
+        "shortDescription": s("Bell annealing furnace"),
+        "longDescription": s("Seeded development asset class for the BAF line."),
+        # Routes the class onto the AssetType the abnormality form reasons about.
+        "legacyAssetTypeKey": s("furnace"),
+        "status": s("active"),
+        "version": i(1),
+        "createdAt": ts(NOW),
+        "createdByUid": s(SEED_UID),
+        "createdByName": s(SEED_NAME),
+        "updatedAt": ts(NOW),
+        "updatedByUid": s(SEED_UID),
+        "updatedByName": s(SEED_NAME),
+        # Required by AssetClassRecord.fromMap; omitting it makes the whole
+        # asset register stream fail, which the form reports as "could not be
+        # loaded" rather than as a missing field.
+        "lastMutationId": s("seed-mutation-0001"),
+        "_globalPullServerUpdatedAt": ts(NOW),
+    }
+
+
+def asset_instance() -> dict:
+    return {
+        "assetInstanceId": s(ASSET_INSTANCE_ID),
+        "schemaVersion": i(1),
+        "assetClassId": s(ASSET_CLASS_ID),
+        "assetClassCode": s("FURN"),
+        "assetClassName": s("Annealing furnace"),
+        "assetNumber": i(1),
+        "name": s("Furnace 01"),
+        "plantTag": s("BAF-FURN-01"),
+        "location": s("BAF bay 1"),
+        "serviceState": s("inService"),
+        "ownershipStatus": s("confirmed"),
+        "ownerDiscipline": s("operations"),
+        "accountableRoleKeys": arr([s("operations")]),
+        "status": s("active"),
+        "activeComponentCount": i(0),
+        "version": i(1),
+        "createdAt": ts(NOW),
+        "updatedAt": ts(NOW),
+        "lastMutationId": s("seed-mutation-0001"),
+        "_globalPullServerUpdatedAt": ts(NOW),
+    }
+
+
 def main() -> int:
     put("runtime_contracts/global_pull_v1", global_pull_contract())
     print("  seeded runtime_contracts/global_pull_v1  [ACTIVE]")
+    put(f"asset_classes/{ASSET_CLASS_ID}", asset_class())
+    print(f"  seeded asset_classes/{ASSET_CLASS_ID}  [FURN] Annealing furnace")
+    put(f"asset_instances/{ASSET_INSTANCE_ID}", asset_instance())
+    print(f"  seeded asset_instances/{ASSET_INSTANCE_ID}  Furnace 01")
 
     for doc_id, code, title, description, category, severity, reannealing in TYPES:
         put(f"abnormality_types/{doc_id}",

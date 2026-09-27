@@ -12,7 +12,7 @@ Set-Location (Join-Path $PSScriptRoot '..\..')
 
 $projectId = $env:CRM_DEMO_PROJECT_ID
 if ([string]::IsNullOrWhiteSpace($projectId)) { $projectId = 'demo-crm3-baf-ops' }
-if (-not $projectId.StartsWith('demo-')) {
+if ($projectId -notmatch '^demo-[a-z0-9][a-z0-9-]*$') {
   throw "CRM_DEMO_PROJECT_ID must start with 'demo-'. Received: $projectId"
 }
 
@@ -40,7 +40,13 @@ if (-not (Test-Path $paramsFile)) {
   Write-Host "Wrote $paramsFile" -ForegroundColor DarkGray
 }
 
+# Functions runs emitted JavaScript, not TypeScript. Never start a development
+# session against yesterday's emitted backend after editing source today.
+& npm --prefix functions run build
+if ($LASTEXITCODE -ne 0) { throw 'Functions build failed; emulators were not started.' }
+
 Write-Host "Starting Auth + Firestore + Functions emulators for $projectId" -ForegroundColor Cyan
 Write-Host "Emulator UI: http://127.0.0.1:4000" -ForegroundColor Cyan
 
 node $firebase emulators:start --only auth,firestore,functions --project $projectId
+if ($LASTEXITCODE -ne 0) { throw "Emulator suite exited with code $LASTEXITCODE." }

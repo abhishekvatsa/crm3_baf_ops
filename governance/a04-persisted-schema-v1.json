@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "9A29F28368E4F025651B540C30095B5C57091D71B4C17511EA289FE6CE2F4248",
+  "inventoryDigest": "121CC1499DAFFE6CDFF5BA681E6F89C6826681D8E8C4378D5759A7C5BA4EA3DA",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "4F5F71D719CFD4128A3B61CCE9541F19A65B434AE00F21F436563E0B03BFC24E",
+  "a05ManifestSha256": "62742297740653888E7A03F504AAAA45467FC6F3F3F501937BE857F29AC7DECA",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -789,6 +789,15 @@
       "regression": "test/a05_abnormality_integrity_test.dart"
     },
     {
+      "id": "abnormality-structured-assessment",
+      "file": "lib/features/abnormalities/domain/abnormality_assessment.dart",
+      "classification": "VERSIONED_OPERATIONAL_EVIDENCE",
+      "authorityBoundary": "Optional versioned observation/cause/RA occurrence and post-RA evidence; same-charge linked-record validity and RA state are rechecked by the governed mutation and record decoder.",
+      "malformedDisposition": "Reject unknown fields/enums, duplicate cause IDs, malformed present dates/text and assessed causes/results without evidence; never infer causation or an occurrence date.",
+      "compatibility": "Wholly absent assessment remains legacy unknown; completed historical RA can have an unknown occurrence date.",
+      "regression": "test/abnormality_assessment_test.dart"
+    },
+    {
       "id": "affected-assets",
       "file": "lib/features/abnormalities/data/abnormality_model.dart",
       "classification": "NESTED_OPERATIONAL_STATE",
@@ -802,9 +811,9 @@
       "file": "lib/features/auth/data/user_model.dart",
       "classification": "REMOTE_AUTHORITY_RECORD",
       "authorityBoundary": "approved-user identity and roles",
-      "malformedDisposition": "Reject malformed profile/revision/disposition; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority.",
+      "malformedDisposition": "Reject malformed profile/revision/disposition and malformed present nested reason with a typed persisted-field error; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority. Profile failures keep protected content concealed with retry/sign-out available.",
       "compatibility": "none for identity; unknown roles deny authority",
-      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart"
+      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart; test/user_profile_authority_reason_test.dart"
     },
     {
       "id": "asset-availability-record",
@@ -874,9 +883,9 @@
       "file": "lib/features/audit/repositories/audit_repository.dart",
       "classification": "IMMUTABLE_AUDIT_EVIDENCE",
       "authorityBoundary": "Firestore audit chronology",
-      "malformedDisposition": "fail closed per record and surface read failure",
+      "malformedDisposition": "Malformed persisted audit fields remain strict typed refusals; unavailable server reads expose incomplete history with immutable retained local rows and original failure cause, never a successful complete local-only history.",
       "compatibility": "absent optional narrative fields only",
-      "regression": "test/a05_operational_timestamp_integrity_test.dart"
+      "regression": "test/a05_operational_timestamp_integrity_test.dart; test/audit_history_completeness_test.dart"
     },
     {
       "id": "baf-knowledge-bundled-matrix",
@@ -1374,6 +1383,15 @@
       "regression": "test/knowledge_import_recovery_test.dart; test/knowledge_governance_runtime_test.dart"
     },
     {
+      "id": "maintenance-component-identification",
+      "file": "lib/features/maintenance/domain/maintenance_component_identification.dart",
+      "classification": "VERSIONED_OPERATIONAL_EVIDENCE",
+      "authorityBoundary": "Versioned component identification on the originally reported physical asset; optional metadata envelope retains original intake and Quality linkage.",
+      "malformedDisposition": "Reject present malformed component context, identification, date, governed target, enum or foreign-asset association; opaque old metadata remains unmodified on reads and is retained verbatim under legacyMetadata when merged.",
+      "compatibility": "Absent/pre-feature or opaque non-JSON metadata has no component context; structured context is strictly validated and never treated as authority to rewrite the original issue.",
+      "regression": "test/maintenance_component_identification_test.dart; test/maintenance_metadata_preservation_test.dart"
+    },
+    {
       "id": "maintenance-correction-target-eligibility",
       "file": "lib/features/maintenance/presentation/maintenance_ticket_correction_dialog.dart",
       "classification": "READ_ONLY_CORRECTION_ADMISSION",
@@ -1723,6 +1741,15 @@
       "malformedDisposition": "render unknown legacy/manual lineage without claiming governed provenance",
       "compatibility": "absent or malformed pre-lineage metadata is tolerated only at this display boundary",
       "regression": "test/a05_decoder_exception_policy_test.dart; test/runtime_module_lineage_visibility_contract_test.dart"
+    },
+    {
+      "id": "template-closure-review-chronology",
+      "file": "lib/features/planned_maintenance/domain/template_closure_review.dart",
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "authorityBoundary": "Local draft snapshot content/hash and explicitly attributed closure review; successor drafts cannot inherit predecessor attestation.",
+      "malformedDisposition": "Malformed root/composer JSON propagates before mutation; invalid actor or review before draft creation is rejected rather than manufacturing a review.",
+      "compatibility": "Legacy absent composer is created only for explicit review/clear operations; existing snapshot contract still validates publication.",
+      "regression": "test/template_publisher_review_timeline_test.dart"
     },
     {
       "id": "template-governance-local-derivation",

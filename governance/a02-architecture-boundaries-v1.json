@@ -10,33 +10,6 @@
   "decision": "Every discovered hotspot is either decomposed into an explicit responsibility unit or retained as a named bounded exception with no hidden persistence or transaction ownership.",
   "surfaces": [
     {
-      "path": "lib/features/abnormalities/presentation/abnormality_types_screen.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / abnormalities",
-      "purpose": "Owns the abnormality types screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
-      "responsibilities": [
-        "authority",
-        "presentation",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
-      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
-      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
-      "regressionTests": [
-        "test/charge_abnormality_atomic_mutation_contract_test.dart"
-      ],
-      "maximumLines": 1387,
-      "requiredMarkers": [
-        "class AbnormalityTypesScreen"
-      ],
-      "forbiddenMarkers": [
-        "FirebaseFirestore.instance",
-        "Isar.getInstance()"
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
-    },
-    {
       "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
       "disposition": "decomposed",
       "owner": "Architecture / abnormalities",

@@ -78,7 +78,7 @@
     },
     {
       "id": "android_emulator",
-      "headline": "Android emulator app-shell integration (not physical-device evidence)",
+      "headline": "Android emulator shell + business integration (not physical-device evidence)",
       "levels": [
         "android_emulator"
       ]
@@ -256,6 +256,7 @@
   ],
   "deviceIntegration": {
     "path": "integration_test/c04_operational_shell_android_test.dart",
+    "businessJourneyManifest": "governance/ci-business-journeys.json",
     "ciJob": "android_emulator",
     "platform": "Android API 33 google_apis x86_64 emulator",
     "productionCredentialsUsed": false,
