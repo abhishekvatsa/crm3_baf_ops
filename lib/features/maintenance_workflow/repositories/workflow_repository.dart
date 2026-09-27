@@ -166,6 +166,8 @@ abstract interface class WorkflowRepository {
   /// release a claim another caller has since taken, handing the command to a
   /// third caller while the second is still working it. Only the holder of the
   /// current claim may release it.
+  /// An explicit retry time takes priority over the stored time. If neither
+  /// exists, the claim timestamp makes the released command eligible again.
   Future<void> releaseClaim(
     String commandId, {
     required DateTime claimedAt,

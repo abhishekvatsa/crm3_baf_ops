@@ -278,7 +278,11 @@ class WorkflowUncertainRetryService {
               current.lastAttemptAt?.toUtc() != claimedAt.toUtc()) {
             return null;
           }
-          return current..stateKey = 'uncertainOutcome';
+          // A reclaimed first-send lease may never have had a retry time.
+          // Retain any existing hold; otherwise release it at its claim time.
+          return current
+            ..stateKey = 'uncertainOutcome'
+            ..nextRetryAt = current.nextRetryAt ?? claimedAt.toUtc();
         },
       );
     } catch (error) {

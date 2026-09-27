@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_error.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/isar_workflow_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_command_gateway.dart';
@@ -66,8 +67,10 @@ void main() {
   }
 
   WorkflowUncertainRetryService serviceWith(
-    _Gateway gateway, {
+    WorkflowCommandGateway gateway, {
     WorkflowRepository? retryRepository,
+    String? Function()? originActorUid,
+    DateTime Function()? clock,
   }) {
     final store = retryRepository ?? repository;
     return WorkflowUncertainRetryService(
@@ -76,13 +79,14 @@ void main() {
         connectivity: Connectivity(),
         gateway: gateway,
         repository: store,
-        now: () => now,
+        now: clock ?? () => now,
         checkConnectivity: () async => <ConnectivityResult>[
           ConnectivityResult.wifi,
         ],
         isNetworkBlocked: () async => false,
+        originActorUid: originActorUid,
       ),
-      now: () => now,
+      now: clock ?? () => now,
     );
   }
 
@@ -378,6 +382,210 @@ void main() {
     });
   });
 
+  group('releasing an abandoned first-send claim', () {
+    final command = WorkflowCommand(
+      commandId: 'cmd-abandoned',
+      type: WorkflowCommandType.acknowledgeMaintenanceTicket,
+      aggregateId: 'ticket-base-205',
+      expectedVersion: 4,
+      payload: const {'lane': 'MECHANICAL'},
+    );
+    final originalPayload = jsonEncode({
+      '__workflowOriginBoundV1': 'actor-a',
+      'payload': command.payload,
+    });
+
+    Future<void> seedAbandoned({DateTime? nextRetryAt}) =>
+        repository.saveRetryCommand(
+          WorkflowCommandRecord()
+            ..commandId = command.commandId
+            ..aggregateId = command.aggregateId
+            ..commandTypeKey = command.type.name
+            ..expectedVersion = command.expectedVersion
+            ..payloadJson = originalPayload
+            ..stateKey = 'sending'
+            ..lastAttemptAt = now.subtract(const Duration(minutes: 6))
+            ..nextRetryAt = nextRetryAt
+            ..createdLocallyAt = now.subtract(const Duration(hours: 1)),
+        );
+
+    void expectOriginalIntent(WorkflowCommandRecord row) {
+      expect(row.commandId, command.commandId);
+      expect(row.aggregateId, command.aggregateId);
+      expect(row.commandTypeKey, command.type.name);
+      expect(row.expectedVersion, command.expectedVersion);
+      expect(row.payloadJson, originalPayload);
+      expect(row.attemptCount, 0);
+      expect(
+        row.createdLocallyAt.toUtc(),
+        now.subtract(const Duration(hours: 1)),
+      );
+      expect(row.lastErrorCode, isNull);
+      expect(row.lastErrorMessage, isNull);
+    }
+
+    test(
+      'session abort remains retryable after restart, never sends under B, and replays exactly for A',
+      () async {
+        await seedAbandoned();
+        var current = true;
+        var actorUid = 'actor-a';
+        var clock = now;
+        final gateway = _OriginGateway();
+        final interrupted = _SettleOnClaimRepository(
+          repository,
+          onClaimed: (_) async {
+            current = false;
+            actorUid = 'actor-b';
+          },
+        );
+        await expectLater(
+          serviceWith(
+            gateway,
+            retryRepository: interrupted,
+            originActorUid: () => actorUid,
+            clock: () => clock,
+          ).retryDueCommands(
+            runGuard: SyncRunGuard(() {
+              if (!current) {
+                throw const SyncRunAborted('account-or-authority-changed');
+              }
+            }),
+          ),
+          throwsA(isA<SyncRunAborted>()),
+        );
+        final released = (await repository.getRetryCommand(command.commandId))!;
+        expect(released.stateKey, 'uncertainOutcome');
+        expect(released.lastAttemptAt?.toUtc(), now);
+        expect(released.nextRetryAt?.toUtc(), now);
+        expectOriginalIntent(released);
+        expect(gateway.envelopes, isEmpty);
+        expect(
+          (await repository.getRetryableCommands(
+            now,
+          )).map((row) => row.commandId),
+          [command.commandId],
+        );
+
+        // Recreate the native store and service with the replacement account.
+        await isar.close();
+        isar = await Isar.open(
+          [WorkflowCommandRecordSchema, WorkflowCommandReceiptRecordSchema],
+          directory: directory.path,
+          name: 'uncertain_retry_test',
+          inspector: false,
+        );
+        repository = IsarWorkflowRepository(isar);
+        final blocked = await serviceWith(
+          gateway,
+          originActorUid: () => actorUid,
+          clock: () => clock,
+        ).retryDueCommands(runGuard: SyncRunGuard(() {}));
+        expect(blocked.deferred, [command.commandId]);
+        expect(blocked.applied, isEmpty);
+        expect(gateway.envelopes, isEmpty);
+        final held = (await repository.getRetryCommand(command.commandId))!;
+        expectOriginalIntent(held);
+        expect(
+          held.nextRetryAt?.toUtc(),
+          now.add(WorkflowOnlineExecutor.platformBlockHold),
+        );
+        expect(await repository.getReceipt(command.commandId), isNull);
+
+        actorUid = 'actor-a';
+        clock = held.nextRetryAt!.toUtc();
+        final resumed = await serviceWith(
+          gateway,
+          originActorUid: () => actorUid,
+          clock: () => clock,
+        ).retryDueCommands(runGuard: SyncRunGuard(() {}));
+        expect(resumed.applied, [command.commandId]);
+        expect(gateway.envelopes, [
+          jsonEncode({
+            'protocolVersion': 2,
+            'originActorUid': 'actor-a',
+            'command': command.toMap(),
+          }),
+        ]);
+        expect(await repository.getRetryCommand(command.commandId), isNull);
+        expect(await repository.getReceipt(command.commandId), isNotNull);
+      },
+    );
+
+    test('aborted abandoned claim preserves an existing future hold', () async {
+      final hold = now.add(const Duration(hours: 1));
+      await seedAbandoned(nextRetryAt: hold);
+      var current = true;
+      final gateway = _Gateway.accepting();
+      await expectLater(
+        serviceWith(
+          gateway,
+          retryRepository: _SettleOnClaimRepository(
+            repository,
+            onClaimed: (_) async => current = false,
+          ),
+        ).retryDueCommands(
+          runGuard: SyncRunGuard(() {
+            if (!current) {
+              throw const SyncRunAborted('disposed');
+            }
+          }),
+        ),
+        throwsA(isA<SyncRunAborted>()),
+      );
+      final released = (await repository.getRetryCommand(command.commandId))!;
+      expect(released.nextRetryAt?.toUtc(), hold);
+      expectOriginalIntent(released);
+      expect(gateway.calls, 0);
+      expect(await repository.getRetryableCommands(now), isEmpty);
+      expect(
+        (await repository.getRetryableCommands(hold)).single.commandId,
+        command.commandId,
+      );
+    });
+
+    for (final mode in [
+      'no prior schedule',
+      'existing future hold',
+      'explicit future hold',
+    ]) {
+      test('ordinary release preserves eligibility and $mode', () async {
+        final hold = now.add(const Duration(hours: 1));
+        await seedAbandoned(
+          nextRetryAt: mode == 'existing future hold' ? hold : null,
+        );
+        final claimed = (await repository.claimRetryableCommands(
+          now: now,
+          lease: WorkflowUncertainRetryService.claimLease,
+        )).single;
+        await repository.releaseClaim(
+          command.commandId,
+          claimedAt: claimed.lastAttemptAt!,
+          nextRetryAt: mode == 'explicit future hold' ? hold : null,
+        );
+        final released = (await repository.getRetryCommand(command.commandId))!;
+        final due = mode == 'no prior schedule' ? now : hold;
+        expect(released.stateKey, 'uncertainOutcome');
+        expect(released.nextRetryAt?.toUtc(), due);
+        expectOriginalIntent(released);
+        expect(
+          (await repository.getRetryableCommands(due)).single.commandId,
+          command.commandId,
+        );
+        if (due.isAfter(now)) {
+          expect(await repository.getRetryableCommands(now), isEmpty);
+        }
+        expect(
+          (await repository.claimRetryableCommands(
+            now: due,
+            lease: WorkflowUncertainRetryService.claimLease,
+          )).single.commandId,
+          command.commandId,
+        );
+      });
+    }
+  });
+
   group('a readable payload', () {
     test('is dispatched and settled on acceptance', () async {
       await seedDue(
@@ -531,6 +739,29 @@ void main() {
       },
     );
   });
+}
+
+class _OriginGateway
+    implements WorkflowCommandGateway, OriginBoundWorkflowCommandGateway {
+  final envelopes = <String>[];
+  @override
+  Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async =>
+      throw StateError('An origin-bound retry must never use V1.');
+  @override
+  Future<WorkflowCommandReceipt> executeOriginBoundEnvelope(
+    String envelopeJson,
+  ) async {
+    envelopes.add(envelopeJson);
+    final envelope = jsonDecode(envelopeJson) as Map;
+    final command = envelope['command'] as Map;
+    return WorkflowCommandReceipt(
+      commandId: command['commandId'] as String,
+      resultKey: 'maintenance-ticket-acknowledged',
+      aggregateVersion: (command['expectedVersion'] as int) + 1,
+      result: const {'ticketId': 'ticket-base-205'},
+      appliedAt: DateTime.utc(2026, 9, 10, 8),
+    );
+  }
 }
 
 class _Gateway implements WorkflowCommandGateway {
